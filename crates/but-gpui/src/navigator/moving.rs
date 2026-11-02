@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use gpui::{AnyElement, App, Context, Div, Hsla, Window, div, prelude::*};
 
-use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, span_height};
+use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, UseTargetMessage};
 use crate::backend::{
@@ -17,14 +17,15 @@ use crate::backend::{
 use crate::state::{ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Op, Stop, Target, Transfer, group_slots, slots};
+use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots};
 use crate::ui::fold::{self, on_top};
 use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
-/// shows where it went. A project's card and a terminal go where they'd land themselves (see
-/// [`Navigator::watched`] and the rows' terminals), held while they move ([`Mark::Held`]).
+/// shows where it went. A project's card, a linked worktree and a terminal go where they'd land
+/// themselves (see [`Navigator::watched`] and the rows' worktrees and terminals), the last two
+/// held while they move ([`Mark::Held`]).
 fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
     (store.moving.as_ref().or_else(|| store.landing())).filter(|moving| {
         moving.project == *project
@@ -47,11 +48,11 @@ pub(super) fn landing_at<'a>(
 
 /// Whether what lands at `at` shows there as copies of itself, between rows, as commits and
 /// a branch being moved do, rather than as an outline over the row it goes into, as a squash
-/// does ([`squash_outline`]). A card and a terminal go there themselves.
+/// does ([`squash_outline`]). A card, a worktree and a terminal go there themselves.
 fn copied_at(at: &Stop) -> bool {
     match at {
         Stop::In(_) | Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
-        Stop::Into(_) | Stop::Card(_) | Stop::Terminal { .. } => false,
+        Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => false,
     }
 }
 
@@ -67,15 +68,19 @@ pub(super) enum Mark {
     /// As [`Mark::Cut`], while the move is at where it is: its copy is drawn over it there,
     /// which slides out to where it'd land and back over it.
     Copied(Op),
-    /// A terminal being moved, which goes where it'd land itself: held rather than selected.
+    /// A linked worktree's heading or a terminal being moved, which goes where it'd land
+    /// itself: held rather than selected.
     Held(Op),
 }
 
 /// How the move shown in `item`'s project marks its row, if it does, as [`Mark`] says.
 pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
-    if let Some(moving) = (store.moving.as_ref())
-        .filter(|moving| matches!(moving.what, Moving::Terminal { .. }) && moving.holds(item))
-    {
+    if let Some(moving) = (store.moving.as_ref()).filter(|moving| {
+        matches!(
+            moving.what,
+            Moving::Worktree { .. } | Moving::Terminal { .. }
+        ) && moving.holds(item)
+    }) {
         return Some(Mark::Held(moving.op));
     }
     let moving = shown(store, item.project())?;
@@ -278,9 +283,12 @@ impl Rows {
             Moving::Files { .. } if moving.op == Op::Commit => {
                 Vec::from([Row::NewCommit(project.clone())])
             }
-            // A card or a terminal goes where it'd land itself, and files squashed go into a
-            // row.
-            Moving::Project(_) | Moving::Terminal { .. } | Moving::Files { .. } => return,
+            // A card, a worktree or a terminal goes where it'd land itself, and files squashed
+            // go into a row.
+            Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Files { .. } => return,
         };
         if !new_branch {
             return self.extend(copies);
@@ -572,6 +580,10 @@ impl Navigator {
                 let (slots, start) = slots(order, project)?;
                 return Some((slots.into_iter().map(Stop::Card).collect(), start));
             }
+            Moving::Worktree { name, order } => {
+                let (slots, start) = slots(order, name)?;
+                return Some((slots.into_iter().map(Stop::Worktree).collect(), start));
+            }
             Moving::Terminal { id, lists } => {
                 let (slots, start) = group_slots(lists, id)?;
                 let stops = slots
@@ -605,6 +617,7 @@ impl Navigator {
                     Moving::Commits(ids) => &ids[..],
                     Moving::Branch(_)
                     | Moving::Project(_)
+                    | Moving::Worktree { .. }
                     | Moving::Terminal { .. }
                     | Moving::Files { .. } => &[],
                 };
@@ -655,8 +668,8 @@ impl Navigator {
         Some((stops, at))
     }
 
-    /// Start moving the selected commit, with those picked with it, the selected branch, or the
-    /// selected watched project's card, from where it is. The keys that step through the rows
+    /// Start moving the selected commit, with those picked with it, the selected branch, the
+    /// selected watched project's card, linked worktree or terminal, from where it is. The keys that step through the rows
     /// step through where it can land until Return lands it or Escape lets go. While it's
     /// being squashed, move it instead.
     pub(super) fn start_move(
@@ -678,6 +691,13 @@ impl Navigator {
                     .map(|e| e.id.clone())
                     .collect();
                 (project, Moving::Project(order))
+            }
+            // Among the linked worktrees listed with it now, active or inactive.
+            Some(Selection::Worktree(project, name)) => {
+                let Some(order) = listed_with(store, &project, name.as_ref()) else {
+                    return;
+                };
+                (project, Moving::Worktree { name, order })
             }
             // Among the terminals of its project's worktrees as they're listed now.
             Some(Selection::Terminal(project, id)) => {
@@ -915,6 +935,7 @@ impl Navigator {
                 Moving::Commits(_)
                 | Moving::Branch(_)
                 | Moving::Project(_)
+                | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
                 | Moving::Files { .. } => start,
             };
@@ -1038,6 +1059,7 @@ impl Navigator {
             Stop::In(Destination::Branch(_))
             | Stop::NewStack { .. }
             | Stop::Card(_)
+            | Stop::Worktree(_)
             | Stop::Terminal { .. }
             | Stop::Into(Target::Branch(_) | Target::Uncommitted(_)) => true,
             Stop::Into(Target::Commit(id)) => newest(id),
@@ -1107,8 +1129,7 @@ impl Navigator {
                 | Transfer::StackBranch { .. }
                 | Transfer::BranchBelow { .. }
                 | Transfer::StageOnBranch { .. }
-                | Transfer::CommitOnBranch { .. }
-                | Transfer::MoveWorktree { .. } => target.row(&project),
+                | Transfer::CommitOnBranch { .. } => target.row(&project),
             };
             return self.store.update(cx, |store, cx| {
                 store.select(Some(on), cx);
@@ -1116,11 +1137,21 @@ impl Navigator {
                 let _ = transfer.perform(&project, None, store, cx);
             });
         }
-        // A card or a terminal, already shown where it goes, goes there in the order they keep.
+        // A card, a worktree or a terminal, already shown where it goes, goes there in the
+        // order they keep.
         if let Some(order) = moving.project_order() {
             return self
                 .store
                 .update(cx, |store, cx| store.order_watched(&order, cx));
+        }
+        if let (Moving::Worktree { name, .. }, Stop::Worktree(slot)) = (&moving.what, &moving.at) {
+            let before = match slot {
+                Slot::Before(before) => Some(before.as_ref()),
+                Slot::End => None,
+            };
+            return (self.store).update(cx, |store, cx| {
+                store.move_worktree(&moving.project, name.as_ref(), before, cx)
+            });
         }
         if let Some(order) = moving.terminal_order() {
             let project = moving.project.clone();
@@ -1151,11 +1182,16 @@ impl Navigator {
             // Those land as drops do, cards in their order, and squashes, above.
             (
                 Moving::Commits(_),
-                Stop::In(_) | Stop::Card(_) | Stop::Terminal { .. } | Stop::Into(_),
+                Stop::In(_)
+                | Stop::Card(_)
+                | Stop::Worktree(_)
+                | Stop::Terminal { .. }
+                | Stop::Into(_),
             )
             | (
                 Moving::Branch(_)
                 | Moving::Project(_)
+                | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
                 | Moving::Files { .. },
                 _,
@@ -1241,7 +1277,11 @@ fn branch_stops(
         .filter(|stop| match stop {
             _ if *stop == home => true,
             Stop::NewBranch { .. } | Stop::NewStack { .. } => lands(stop),
-            Stop::In(_) | Stop::Card(_) | Stop::Terminal { .. } | Stop::Into(_) => false,
+            Stop::In(_)
+            | Stop::Card(_)
+            | Stop::Worktree(_)
+            | Stop::Terminal { .. }
+            | Stop::Into(_) => false,
         })
         .collect();
     let start = stops.iter().position(|stop| *stop == home)?;
@@ -1396,6 +1436,7 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, mark: Hsla, theme: &Theme)
         Stop::In(_)
         | Stop::NewStack { .. }
         | Stop::Card(_)
+        | Stop::Worktree(_)
         | Stop::Terminal { .. }
         | Stop::Into(_) => None,
     };
@@ -1463,6 +1504,8 @@ mod tests {
                     Stop::NewStack { first: false } => "new stack".into(),
                     Stop::NewStack { first: true } => "new stack first".into(),
                     Stop::Card(Slot::Before(project)) => format!("before {project}"),
+                    Stop::Worktree(Slot::Before(name)) => format!("before worktree {name}"),
+                    Stop::Worktree(Slot::End) => "last worktree".into(),
                     Stop::Terminal { checkout, slot } => {
                         let on = match checkout {
                             Checkout::Main => "main".to_owned(),
@@ -1763,6 +1806,7 @@ into 1
             Stop::In(_)
             | Stop::NewStack { .. }
             | Stop::Card(_)
+            | Stop::Worktree(_)
             | Stop::Terminal { .. }
             | Stop::Into(_) => true,
         };

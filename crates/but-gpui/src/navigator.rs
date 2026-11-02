@@ -62,9 +62,7 @@ mod order;
 mod rename;
 mod rows;
 
-use drop::insertion_line;
 use moving::Mark;
-use order::cards;
 use rows::{
     CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
     RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys, span_height,
@@ -472,6 +470,15 @@ pub struct Navigator {
     /// The project whose card is held, kept once it's let go of until the cards stop sliding,
     /// so it stays over the cards it passes going back.
     held_project: Option<ProjectId>,
+    /// The linked worktree being dragged by its heading, by its project and name, which goes
+    /// where it's let go, but over its own rows where it was, where what it carries lands.
+    dragged_worktree: Option<(ProjectId, bstr::BString)>,
+    /// The rows of the linked worktree being moved, dragged by its heading or with the keys, as
+    /// last drawn, which go over the rows they pass.
+    held_worktree: Option<Range<usize>>,
+    /// The linked worktree whose rows are held, by its project and name, kept once it's let go
+    /// of until the rows stop sliding, so it stays over the rows it passes going back.
+    held_worktree_name: Option<(ProjectId, bstr::BString)>,
     /// While rows slide, the first row the list draws and one near its last, which draw the
     /// rows sliding into view from past its top and its bottom (see [`Self::render_row`]).
     slide_edges: Option<(usize, usize)>,
@@ -636,6 +643,9 @@ impl Navigator {
             watch_hovered: None,
             held_card: None,
             held_project: None,
+            dragged_worktree: None,
+            held_worktree: None,
+            held_worktree_name: None,
             slide_edges: None,
             hold_still: false,
             edge_scroll: 0.,
@@ -1364,12 +1374,12 @@ impl Navigator {
             None => {
                 let top = self.list.logical_scroll_top();
                 let spliced = splice(&self.list, &self.rows, &rows, 0);
-                // Cards trading places, as one dragged by its heading does, leave the list
-                // where it is, rather than at the first row they moved, where a splice of the
-                // list's top would.
+                // Cards or linked worktrees trading places, as one dragged by its heading does,
+                // leave the list where it is, rather than at the first row they moved, where a
+                // splice of the list's top would.
                 if let Some(old) = &spliced
                     && old.contains(&top.item_ix)
-                    && cards_reordered(&self.rows, &rows)
+                    && headings_reordered(&self.rows, &rows)
                 {
                     let theme = Theme::get(cx);
                     (self.list).scroll_to(as_deep(&self.rows, &rows, old.start, top, theme));
@@ -1685,10 +1695,8 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as ui-react's WorktreeDivider. What's dropped between the
-            // worktrees either side of it shows its line here.
+            // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
-                .relative()
                 .h(dp(12.))
                 .px(dp(12.))
                 .child(
@@ -1698,12 +1706,6 @@ impl Navigator {
                         .border_dashed()
                         .border_color(theme.border_3),
                 )
-                .when(self.lands_at_divider(ix, cx), |el| {
-                    el.child(insertion_line(true, theme.pop).top(dp(5.)))
-                })
-                .when(cx.has_active_drag(), |el| {
-                    el.child(self.divider_zone(ix, cx))
-                })
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
@@ -1817,6 +1819,7 @@ impl Navigator {
         let guides = || (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
         // The card dragged by its heading is edged as what's moving is where it would land.
         let held = (self.held_card.as_ref()).is_some_and(|card| card.contains(&ix));
+        let held_worktree = (self.held_worktree.as_ref()).is_some_and(|rows| rows.contains(&ix));
         let edge = match held {
             true => theme.pop,
             false => theme.border_3,
@@ -1849,12 +1852,13 @@ impl Navigator {
             false => card_beyond(&self.rows, ix, false, slid).max(0.),
         };
         // What's in the card being dragged goes over everything, as it goes over the cards it
-        // passes (see below), the copies of what's moving over the rest, and the selected row,
+        // passes (see below), and so do the rows of a linked worktree being moved, over those of
+        // the others it passes; the copies of what's moving over the rest, and the selected row,
         // which moves, over the rows it passes. The new branch the copies would land in shows
         // from under what slides off it, rather than over what's about to.
         let selection = self.store.read(cx).selection.as_ref();
         let over_rank = match self.rows.get(ix) {
-            _ if held => 3,
+            _ if held || held_worktree => 3,
             Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
@@ -2708,11 +2712,12 @@ impl Navigator {
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them, but not conflicted
         // ones: with only those, there's nothing to drag. A linked worktree with none drags
-        // itself; with some, where they land says whether they or it moves.
+        // itself; with some, they land on its own rows, and it moves anywhere else.
         let files = match uncommitted.is_empty() {
             true => Vec::new(),
             false => self.detail.read(cx).files_to_move(id, checkout.clone(), cx),
         };
+        let linked = checkout.linked().map(ToOwned::to_owned);
         let dragged = match (files.as_slice(), checkout.linked()) {
             ([], None) => None,
             ([], Some(name)) => Some((
@@ -2733,10 +2738,15 @@ impl Navigator {
                 Some((payload, label))
             }
         };
-        let row = match dragged {
-            Some((payload, chip)) => row.on_drag(payload, drag_preview(self.store.clone(), chip)),
+        let row = match (dragged, linked) {
+            (Some((payload, chip)), Some(name)) => {
+                self.worktree_drag(row, id, name.as_ref(), payload, chip, cx)
+            }
+            (Some((payload, chip)), None) => {
+                row.on_drag(payload, drag_preview(self.store.clone(), chip))
+            }
             // The main worktree with no files to drag drags its folder, for a terminal to paste.
-            None => self.project_drag(row, id, label.into(), false, cx),
+            (None, _) => self.project_drag(row, id, label.into(), false, cx),
         };
         Some(row.into_any_element())
     }
@@ -3429,16 +3439,21 @@ fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32) -> f32 {
     }
 }
 
-/// Whether `old` and `new` list the same cards, in another order.
-fn cards_reordered(old: &[Row], new: &[Row]) -> bool {
-    let ids = |rows| {
-        cards(rows)
-            .into_iter()
-            .map(|(id, _)| id)
-            .collect::<Vec<_>>()
-    };
-    let (old, new) = (ids(old), ids(new));
-    old != new && old.len() == new.len() && old.iter().all(|id| new.contains(id))
+/// Whether `old` and `new` list the same cards, and the same linked worktrees in them, in
+/// another order.
+fn headings_reordered(old: &[Row], new: &[Row]) -> bool {
+    fn headings(rows: &[Row]) -> Vec<&Selection> {
+        (rows.iter())
+            .filter_map(|row| match row {
+                Row::Item(heading @ (Selection::Project(_) | Selection::Worktree(..))) => {
+                    Some(heading)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+    let (old, new) = (headings(old), headings(new));
+    old != new && old.len() == new.len() && old.iter().all(|heading| new.contains(heading))
 }
 
 /// Where the list's `top` in `old` goes in `new`, their rows the same up to `from`: as far
@@ -3715,6 +3730,7 @@ impl Render for Navigator {
         self.insets = insets;
         self.guides = guides;
         self.held_card = self.held_card(self.store.read(cx));
+        self.held_worktree = self.held_worktree(self.store.read(cx));
         self.slide_edges = self.reorder.any().then(|| {
             let first = self.list.logical_scroll_top().item_ix;
             let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
@@ -3812,6 +3828,8 @@ impl Render for Navigator {
                 Some(Selection::Project(project)) => {
                     store.project(project).is_some_and(|p| p.expanded)
                 }
+                Some(Selection::Worktree(project, name)) => (store.workspace(project))
+                    .is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some()),
                 Some(Selection::Terminal(..)) => true,
                 _ => false,
             };
@@ -3839,6 +3857,7 @@ impl Render for Navigator {
             })
             .on_drag_move(cx.listener(Self::resize_drawer))
             .on_drag_move(cx.listener(Self::follow_project_drag))
+            .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, _, cx| {
                 this.drag_moved(event.bounds.contains(&event.event.position), cx)
             }))
@@ -3848,6 +3867,7 @@ impl Render for Navigator {
                 }),
             )
             .on_drop(cx.listener(Self::drop_project))
+            .on_drop(cx.listener(Self::drop_worktree))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
@@ -3962,5 +3982,60 @@ impl Render for Navigator {
             .when(!self.floating && detail_shown >= 1., |el| {
                 el.child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Row, headings_reordered};
+    use crate::state::{ProjectId, Selection};
+
+    #[test]
+    fn cards_or_worktrees_trading_places_are_a_reorder() {
+        let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
+        let card = |id: &ProjectId| Row::Item(Selection::Project(id.clone()));
+        let worktree = |name: &str| Row::Item(Selection::Worktree(a.clone(), name.into()));
+        let commit = || Row::Item(Selection::Uncommitted(a.clone()));
+        let listed = [
+            card(&a),
+            worktree("x"),
+            commit(),
+            worktree("y"),
+            Row::Gap,
+            card(&b),
+        ];
+        let swapped = [
+            card(&a),
+            worktree("y"),
+            worktree("x"),
+            commit(),
+            Row::Gap,
+            card(&b),
+        ];
+        assert!(
+            headings_reordered(&listed, &swapped),
+            "worktrees trading places keep the list where it is, as cards do"
+        );
+        let cards = [
+            card(&b),
+            Row::Gap,
+            card(&a),
+            worktree("x"),
+            commit(),
+            worktree("y"),
+        ];
+        assert!(
+            headings_reordered(&listed, &cards),
+            "and cards trading places"
+        );
+        let gone = [card(&a), worktree("y"), Row::Gap, card(&b)];
+        assert!(
+            !headings_reordered(&listed, &gone),
+            "a worktree going is no reorder"
+        );
+        assert!(
+            !headings_reordered(&listed, &listed),
+            "nor rows that stay in order"
+        );
     }
 }

@@ -1,17 +1,17 @@
 //! Dropping what's dragged on the navigator's rows: where on a row it lands, the line or
 //! outline that shows it, the zone for a new branch, and scrolling while it's near an edge.
+//! A linked worktree dragged by its heading moves as the move of it does (see `order.rs`).
 
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, App, Bounds, Context, Div, DragMoveEvent, Hsla, Modifiers, MouseButton,
-    MouseDownEvent, MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div,
-    prelude::*,
+    AnyElement, Bounds, Context, Div, DragMoveEvent, Hsla, Modifiers, MouseButton, MouseDownEvent,
+    MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div, prelude::*,
 };
 
 use super::Navigator;
-use super::rows::Row;
-use crate::state::{Cut, ProjectId, Selection, Store};
+use super::order::worktree_held;
+use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer};
 use crate::ui::{Icon, dp, fixed, h_flex, small_icon};
@@ -20,7 +20,8 @@ impl Navigator {
     /// Make a row take what's dragged or cut where it has a meaning for it, and offer its
     /// right-click menu. While dragging, the row under the pointer shows where letting go
     /// lands: a line above or below a commit, or an outline around what it goes into. While
-    /// something is cut, the selected row shows where ⌘V puts it. Rows it can't go on step back.
+    /// something is cut, the selected row shows where ⌘V puts it. Rows it can't go on step back,
+    /// but while a linked worktree is dragged by its heading, which goes anywhere else.
     pub(super) fn drop_target(
         &self,
         el: AnyElement,
@@ -36,9 +37,12 @@ impl Navigator {
             true => store.dragging.as_ref(),
             false => store.cut.as_ref(),
         };
+        let takes = !dragging || self.takes_drop(&target, store);
         let lands = |place: Place| {
-            pending
-                .is_some_and(|payload| Transfer::resolve(payload, &target, place, store).is_some())
+            takes
+                && pending.is_some_and(|payload| {
+                    Transfer::resolve(payload, &target, place, store).is_some()
+                })
         };
         let landing = match dragging {
             true => (store.drop_at.as_ref())
@@ -54,16 +58,14 @@ impl Navigator {
         .map(|place| match target {
             Selection::Branch(..) => Place::Into,
             _ => place,
-        })
-        // A worktree moving shows on the divider it's dropped on.
-        .filter(|place| {
-            !pending.is_some_and(|payload| moves_worktree(payload, &target, *place, store))
         });
         let steps_back = pending.is_some()
+            && !(dragging && self.dragged_worktree.is_some())
             && ![Place::Above, Place::Into, Place::Below]
                 .into_iter()
                 .any(lands);
         let highlight = theme.pop;
+        let dragged_worktree = self.dragged_worktree.clone();
         let (store, move_target, can_drop_target, menu_target) = (
             self.store.clone(),
             target.clone(),
@@ -99,17 +101,14 @@ impl Navigator {
                     let store = this.store.read(cx);
                     let next = if bounds.contains(&at) {
                         let y = (at.y - bounds.top()) / bounds.size.height;
-                        (store.dragging.as_ref()).and_then(|payload| {
-                            let place = place_at(payload, &move_target, y, window.modifiers());
-                            (Transfer::resolve(payload, &move_target, place, store))
-                                .filter(|t| !matches!(t, Transfer::MoveWorktree { .. }))
-                                .map(|_| (move_target.clone(), place))
-                        })
-                    } else if (store.drop_at.as_ref()).is_some_and(|(t, place)| {
-                        let divider = (store.dragging.as_ref())
-                            .is_some_and(|payload| moves_worktree(payload, t, *place, store));
-                        *t == move_target && !divider
-                    }) {
+                        (store.dragging.as_ref())
+                            .filter(|_| this.takes_drop(&move_target, store))
+                            .and_then(|payload| {
+                                let place = place_at(payload, &move_target, y, window.modifiers());
+                                Transfer::resolve(payload, &move_target, place, store)
+                                    .map(|_| (move_target.clone(), place))
+                            })
+                    } else if (store.drop_at.as_ref()).is_some_and(|(t, _)| *t == move_target) {
                         None
                     } else {
                         return;
@@ -121,14 +120,19 @@ impl Navigator {
             )
             .can_drop(move |_, _, cx| {
                 let store = store.read(cx);
-                (store.dragging.as_ref()).is_some_and(|payload| {
-                    (store.drop_at.as_ref()).is_some_and(|(at, place)| {
-                        *at == can_drop_target
-                            && Transfer::resolve(payload, at, *place, store).is_some()
+                // A worktree moving lands where it's shown, which the row holds the drop for.
+                worktree_held(dragged_worktree.as_ref(), store)
+                    || (store.dragging.as_ref()).is_some_and(|payload| {
+                        (store.drop_at.as_ref()).is_some_and(|(at, place)| {
+                            *at == can_drop_target
+                                && Transfer::resolve(payload, at, *place, store).is_some()
+                        })
                     })
-                })
             })
-            .on_drop(cx.listener(move |this, _: &Cut, window, cx| {
+            .on_drop(cx.listener(move |this, dropped: &Cut, window, cx| {
+                if worktree_held(this.dragged_worktree.as_ref(), this.store.read(cx)) {
+                    return this.drop_worktree(dropped, window, cx);
+                }
                 let store = this.store.read(cx);
                 let (Some(payload), Some((_, place))) =
                     (store.dragging.clone(), store.drop_at.clone())
@@ -160,70 +164,6 @@ impl Navigator {
                 }),
             )
             .into_any_element()
-    }
-
-    /// Where a worktree dragged onto divider `ix` lands: above the linked worktree after it,
-    /// or else below the one before it, whichever moves it.
-    fn divider_slot(&self, ix: usize, cx: &App) -> Option<(Selection, Place)> {
-        let store = self.store.read(cx);
-        let payload = store.dragging.as_ref()?;
-        let worktree = |row: &Row| match row {
-            Row::Item(s @ Selection::Worktree(..)) => Some(s.clone()),
-            _ => None,
-        };
-        let within = |row: &&Row| !matches!(row, Row::WorktreeDivider | Row::Gap);
-        let rows = self.rows.iter();
-        let after = rows
-            .clone()
-            .skip(ix + 1)
-            .take_while(within)
-            .find_map(worktree);
-        let before = rows.take(ix).rev().take_while(within).find_map(worktree);
-        [(after, Place::Above), (before, Place::Below)]
-            .into_iter()
-            .filter_map(|(target, place)| Some((target?, place)))
-            .find(|(target, place)| moves_worktree(payload, target, *place, store))
-    }
-
-    /// Whether what's dragged lands on divider `ix`.
-    pub(super) fn lands_at_divider(&self, ix: usize, cx: &App) -> bool {
-        let drop_at = self.store.read(cx).drop_at.clone();
-        drop_at.is_some() && drop_at == self.divider_slot(ix, cx)
-    }
-
-    /// The 10px about divider `ix`'s line that takes a worktree dropped there.
-    pub(super) fn divider_zone(&self, ix: usize, cx: &Context<Self>) -> Div {
-        div()
-            .absolute()
-            .left_0()
-            .right_0()
-            .top(dp(1.))
-            .h(dp(10.))
-            .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<Cut>, _, cx| {
-                let slot = this.divider_slot(ix, cx);
-                let drop_at = &this.store.read(cx).drop_at;
-                let next = if event.bounds.contains(&event.event.position) {
-                    slot
-                } else if slot.is_some() && *drop_at == slot {
-                    None
-                } else {
-                    return;
-                };
-                if *drop_at != next {
-                    this.store.update(cx, |store, _| store.drop_at = next);
-                }
-            }))
-            .on_drop(cx.listener(|this, _: &Cut, window, cx| {
-                let store = this.store.read(cx);
-                let (Some(payload), Some((target, place))) =
-                    (store.dragging.clone(), store.drop_at.clone())
-                else {
-                    return;
-                };
-                this.app.update_later(window, cx, move |app, window, cx| {
-                    app.transfer(&payload, &target, place, window, cx)
-                });
-            }))
     }
 
     /// A pointer moving over a drop zone drops there, so a row still lit lets go, even one a
@@ -381,18 +321,9 @@ fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place
     }
 }
 
-/// Whether `payload` landing on `target` at `place` moves a linked worktree, which only the
-/// dividers between them take.
-fn moves_worktree(payload: &Cut, target: &Selection, place: Place, store: &Store) -> bool {
-    matches!(
-        Transfer::resolve(payload, target, place, store),
-        Some(Transfer::MoveWorktree { .. })
-    )
-}
-
 /// The line a drop lands on, along the row's top edge or its bottom one, so the rows either
 /// side of a gap draw it in the same place.
-pub(super) fn insertion_line(above: bool, color: Hsla) -> Div {
+fn insertion_line(above: bool, color: Hsla) -> Div {
     let line = div()
         .absolute()
         .left(dp(10.))

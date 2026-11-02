@@ -474,7 +474,8 @@ impl Navigator {
                     items.extend(changes_items(cx));
                 }
                 items.extend([
-                    command(&ArchiveWorktree).separated(),
+                    command(&MoveSelection).separated(),
+                    command(&ArchiveWorktree),
                     command(&DeleteWorktree).danger(),
                 ]);
                 items.extend(build_item(&worktree.path, cx));

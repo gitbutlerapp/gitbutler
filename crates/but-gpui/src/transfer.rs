@@ -12,9 +12,7 @@ use crate::backend::{
     self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
     short_ref,
 };
-use crate::state::{
-    Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved, move_before,
-};
+use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
@@ -76,11 +74,6 @@ pub enum Transfer {
         branch: FullName,
         files: Arc<[Selected]>,
         worktree: Checkout,
-    },
-    /// Put a linked worktree before another in the navigator, or after them all.
-    MoveWorktree {
-        name: bstr::BString,
-        before: Option<bstr::BString>,
     },
 }
 
@@ -154,9 +147,9 @@ impl Op {
 }
 
 /// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
-/// where they are, as landing them rewrites history. A project's card and a terminal go where
-/// they'd land themselves, the others making room, as a drag shows a card, as their places are
-/// only the app's to keep.
+/// where they are, as landing them rewrites history. A project's card, a linked worktree and a
+/// terminal go where they'd land themselves, the others making room, as a drag shows them, as
+/// their places are only the app's to keep.
 #[derive(Debug, Clone)]
 pub enum Moving {
     /// Commits, as listed, newest first.
@@ -166,6 +159,12 @@ pub enum Moving {
     /// A watched project's card, among the others in `order`, as they were listed when the
     /// move started, which they keep while it lasts.
     Project(Arc<[ProjectId]>),
+    /// Linked worktree `name`, among those listed with it in `order`, the active ones or the
+    /// inactive ones, as they were listed when the move started, which they keep while it lasts.
+    Worktree {
+        name: bstr::BString,
+        order: Arc<[bstr::BString]>,
+    },
     /// Terminal `id`, among the terminals of the checkouts `lists` has, each with those open on
     /// it in order, as they were listed when the move started, which they keep while it lasts.
     /// Landing it on another checkout lists it there; its shell stays where it started.
@@ -228,8 +227,8 @@ impl Target {
 }
 
 /// A place what's being moved can land. A branch lands between branches, where a new branch
-/// would, a project between cards, and a terminal between the terminals of a worktree. What's
-/// squashed goes into a row.
+/// would, a project between cards, a linked worktree between the others, and a terminal between
+/// the terminals of a worktree. What's squashed goes into a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
     /// Squashed into it.
@@ -242,6 +241,8 @@ pub enum Stop {
     NewStack { first: bool },
     /// Among the watched projects' cards.
     Card(CardSlot),
+    /// Among the linked worktrees listed with the one moving.
+    Worktree(Slot<bstr::BString>),
     /// Among the terminals listed under `checkout`.
     Terminal {
         checkout: Checkout,
@@ -309,7 +310,8 @@ pub fn group_slots<K: Clone + PartialEq, T: Clone + PartialEq>(
 }
 
 impl Move {
-    /// What's moving, as what's cut or dragged. A project's card and a terminal aren't cut.
+    /// What's moving, as what's cut or dragged. A project's card, a linked worktree and a
+    /// terminal aren't cut.
     fn cut(&self) -> Option<Cut> {
         Some(match &self.what {
             Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
@@ -324,7 +326,9 @@ impl Move {
                 worktree: worktree.clone(),
                 files: files.clone(),
             },
-            Moving::Project(_) | Moving::Terminal { .. } => return None,
+            Moving::Project(_) | Moving::Worktree { .. } | Moving::Terminal { .. } => {
+                return None;
+            }
         })
     }
 
@@ -336,6 +340,7 @@ impl Move {
         }
         match &self.what {
             Moving::Project(_) => project_name(store, &self.project),
+            Moving::Worktree { name, .. } => name.to_string(),
             Moving::Terminal { id, .. } => terminal_title(store, *id),
             Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {
                 (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
@@ -343,8 +348,8 @@ impl Move {
         }
     }
 
-    /// Whether `item` is what's moving: one of the commits, the branch, the project or the
-    /// terminal.
+    /// Whether `item` is what's moving: one of the commits, the branch, the project, the linked
+    /// worktree or the terminal.
     pub fn holds(&self, item: &Selection) -> bool {
         match (&self.what, item) {
             (Moving::Commits(ids), Selection::Commit(project, id)) => {
@@ -354,6 +359,9 @@ impl Move {
                 *project == self.project && name == branch
             }
             (Moving::Project(_), Selection::Project(project)) => *project == self.project,
+            (Moving::Worktree { name, .. }, Selection::Worktree(project, other)) => {
+                *project == self.project && other == name
+            }
             (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
                 *project == self.project && terminal == id
             }
@@ -385,6 +393,16 @@ impl Move {
             return None;
         };
         Some(slot.place(order, &self.project))
+    }
+
+    /// The linked worktrees listed with the one moving in the order its move shows them, it
+    /// where it's at.
+    pub fn worktree_order(&self) -> Option<Vec<bstr::BString>> {
+        let (Moving::Worktree { name, order }, Stop::Worktree(slot)) = (&self.what, &self.at)
+        else {
+            return None;
+        };
+        Some(slot.place(order, name))
     }
 
     /// The checkouts' terminals as a terminal's move shows them, it where it's at.
@@ -431,7 +449,7 @@ impl Move {
     }
 
     /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
-    /// its stack is a stack of its own, and a card is where it was. A squash lands where it
+    /// its stack is a stack of its own, and a card or a worktree is where it was. A squash lands where it
     /// squashes anything into anything.
     pub fn lands(&self, store: &Store) -> bool {
         match self.op {
@@ -446,6 +464,9 @@ impl Move {
         match &self.what {
             Moving::Project(order) => {
                 return (self.project_order()).is_some_and(|shown| shown[..] != order[..]);
+            }
+            Moving::Worktree { order, .. } => {
+                return (self.worktree_order()).is_some_and(|shown| shown[..] != order[..]);
             }
             Moving::Terminal { lists, .. } => {
                 return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
@@ -529,7 +550,7 @@ impl Move {
                 (Cut::Commit(project.clone(), ids), emptied)
             }
             Moving::Files { .. } => (self.cut()?, None),
-            Moving::Project(_) | Moving::Terminal { .. } => return None,
+            Moving::Project(_) | Moving::Worktree { .. } | Moving::Terminal { .. } => return None,
         };
         if matches!(&cut, Cut::Commit(_, ids) if ids.is_empty()) {
             return None;
@@ -552,8 +573,7 @@ impl Move {
             | Transfer::StackBranch { .. }
             | Transfer::BranchBelow { .. }
             | Transfer::StageOnBranch { .. }
-            | Transfer::CommitOnBranch { .. }
-            | Transfer::MoveWorktree { .. } => return None,
+            | Transfer::CommitOnBranch { .. } => return None,
         })
     }
 
@@ -612,6 +632,7 @@ impl Move {
             Stop::In(Destination::AboveCommit(_))
             | Stop::Into(_)
             | Stop::Card(_)
+            | Stop::Worktree(_)
             | Stop::Terminal { .. } => None,
         }
     }
@@ -685,6 +706,15 @@ impl Move {
                     || "to the bottom".into(),
                     |last| format!("below {}", project_name(store, last)),
                 )
+            }
+            Stop::Worktree(Slot::Before(before)) => format!("above {before}"),
+            // Below the last of the others.
+            Stop::Worktree(Slot::End) => {
+                let last = match &self.what {
+                    Moving::Worktree { name, order } => order.iter().rev().find(|n| *n != name),
+                    _ => None,
+                };
+                last.map_or_else(|| "to the bottom".into(), |last| format!("below {last}"))
             }
             Stop::Terminal { checkout, slot } => self.terminal_place(checkout, slot, store),
         }
@@ -909,9 +939,6 @@ impl Transfer {
                     onto: onto.clone(),
                 }
             }
-            (Cut::Worktree(project, name), Selection::Worktree(_, onto)) => {
-                worktree_move(store, project, name.as_ref(), onto.as_ref(), place)?
-            }
             (
                 Cut::Files {
                     project,
@@ -950,10 +977,6 @@ impl Transfer {
                         files: files.clone(),
                     }
                 }
-                // The worktree's own files, from its heading or its list, move it as it would.
-                (None, Selection::Worktree(_, onto)) => {
-                    worktree_move(store, project, worktree.linked()?, onto.as_ref(), place)?
-                }
                 (Some(from), Selection::Commit(_, to)) if from != *to && !conflicted(*to) => {
                     Transfer::MoveFiles {
                         from,
@@ -988,7 +1011,6 @@ impl Transfer {
             Transfer::MoveFiles { .. } => "Move into",
             Transfer::StageOnBranch { .. } => "Start a commit here",
             Transfer::CommitOnBranch { .. } => "Commit here",
-            Transfer::MoveWorktree { .. } => "Move here",
         }
     }
 
@@ -1009,7 +1031,6 @@ impl Transfer {
             Transfer::CommitOnBranch { branch, .. } => {
                 format!("Commit to {}", short_ref(branch)).into()
             }
-            Transfer::MoveWorktree { name, .. } => format!("Move {name}").into(),
         }
     }
 
@@ -1153,12 +1174,6 @@ impl Transfer {
                 )
             }
             Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
-            Transfer::MoveWorktree { name, before } => store.move_worktree(
-                project,
-                name.as_ref(),
-                before.as_ref().map(|b| b.as_ref()),
-                cx,
-            ),
             Transfer::CommitOnBranch {
                 branch,
                 files,
@@ -1268,39 +1283,6 @@ pub fn drag_preview(
 
 /// The pill that follows the pointer while dragging, what it carries, and what letting go
 /// there does.
-/// Linked worktree `name` landing above or below linked worktree `onto` at `place`, as the
-/// navigator lists them, unless it's there already or `onto` is listed apart from it, one
-/// active and the other inactive.
-fn worktree_move(
-    store: &Store,
-    project: &ProjectId,
-    name: &bstr::BStr,
-    onto: &bstr::BStr,
-    place: Place,
-) -> Option<Transfer> {
-    let workspace = store.workspace(project)?;
-    let inactive = |name| workspace.find_worktree(name).map(|wt| wt.is_inactive());
-    if inactive(name)? != inactive(onto)? {
-        return None;
-    }
-    let order: Vec<&bstr::BString> = (store.worktrees_in_order(project, workspace).into_iter())
-        .map(|wt| &wt.name)
-        .collect();
-    let at = order.iter().position(|other| *other == onto)?;
-    let before = match place {
-        Place::Above => order.get(at).copied(),
-        Place::Below => order.get(at + 1).copied(),
-        Place::Into => return None,
-    };
-    let dragged = order.iter().find(|other| **other == name).copied()?;
-    let mut moved = order.clone();
-    let moves = move_before(&mut moved, &dragged, before.as_ref()) && moved != order;
-    moves.then(|| Transfer::MoveWorktree {
-        name: name.to_owned(),
-        before: before.cloned(),
-    })
-}
-
 pub struct DragPreview {
     pub chip: Chip,
     pub payload: Cut,
@@ -1318,14 +1300,32 @@ impl Render for DragPreview {
             let payload = store.dragging.as_ref()?;
             Transfer::resolve(payload, target, *place, store)
         });
-        let hint = transfer.as_ref().map(Transfer::verb);
+        // A linked worktree dragged by its heading, with its files or without, moves where the
+        // move of it shows it.
+        let dragged = match &self.payload {
+            Cut::Worktree(project, name) => Some((project, name)),
+            Cut::Files {
+                project,
+                from: None,
+                worktree: Checkout::Linked(name),
+                ..
+            } => Some((project, name)),
+            _ => None,
+        };
+        let moved = (store.moving.as_ref()).and_then(|moving| match &moving.what {
+            Moving::Worktree { name, .. } if dragged == Some((&moving.project, name)) => {
+                Some((name, moving.lands(store)))
+            }
+            _ => None,
+        });
+        let hint = match moved {
+            Some((_, lands)) => lands.then_some("Move here"),
+            None => transfer.as_ref().map(Transfer::verb),
+        };
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         let named = |name: SharedString| pill_label(name).into_any_element();
-        // A worktree's files landing where they move it name the worktree.
-        let (mark, label) = match (&transfer, &self.chip, &self.payload) {
-            (Some(Transfer::MoveWorktree { name, .. }), ..) => {
-                (glyph(Icon::FolderCopy), named(name.to_string().into()))
-            }
+        let (mark, label) = match (moved, &self.chip, &self.payload) {
+            (Some((name, _)), ..) => (glyph(Icon::FolderCopy), named(name.to_string().into())),
             (_, Chip::Folder(name), payload) => {
                 let files = match payload {
                     Cut::Files { files, .. } => files.len(),
@@ -1602,6 +1602,54 @@ mod tests {
             at(CardSlot::Before(c)).project_order().as_deref(),
             Some(&order[..]),
             "before c is where it was"
+        );
+    }
+
+    #[test]
+    fn a_worktree_moved_shows_those_listed_with_it_as_they_were() {
+        let order: Arc<[bstr::BString]> = Arc::from(["a", "b", "c"].map(bstr::BString::from));
+        let at = |slot: Slot<&str>| Move {
+            project: ProjectId::from("p"),
+            what: Moving::Worktree {
+                name: "b".into(),
+                order: order.clone(),
+            },
+            at: Stop::Worktree(match slot {
+                Slot::Before(name) => Slot::Before(name.into()),
+                Slot::End => Slot::End,
+            }),
+            op: Op::Move,
+        };
+        let names = |moving: &Move| {
+            let order = moving.worktree_order()?;
+            Some(
+                order
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )
+        };
+        assert_eq!(
+            names(&at(Slot::Before("a"))).as_deref(),
+            Some("b a c"),
+            "before a, it's first"
+        );
+        assert_eq!(
+            names(&at(Slot::End)).as_deref(),
+            Some("a c b"),
+            "at the end, it's last"
+        );
+        assert_eq!(
+            names(&at(Slot::Before("c"))).as_deref(),
+            Some("a b c"),
+            "before c is where it was"
+        );
+        let gone = at(Slot::Before("gone"));
+        assert_eq!(
+            names(&gone).as_deref(),
+            Some("a c b"),
+            "before one that's gone, it goes after the rest"
         );
     }
 

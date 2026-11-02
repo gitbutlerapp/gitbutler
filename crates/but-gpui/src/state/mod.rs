@@ -30,7 +30,6 @@ mod seen;
 mod terminals;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
-pub(crate) use load::move_before;
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
