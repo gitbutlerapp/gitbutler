@@ -114,6 +114,30 @@ impl Render for ButtonStory {
                 ],
             ),
             section(
+                "Shrinking, in a row too narrow for them",
+                theme,
+                [variant(
+                    "Two that shrink beside one that doesn't",
+                    theme,
+                    h_flex().w(dp(360.)).gap(dp(6.)).children([
+                        (button("shrinks-0", "Leave them out"))
+                            .style(ButtonStyle::Gray)
+                            .small(),
+                        (button(
+                            "shrinks-1",
+                            "New branch above dp-gpui-hunk-resolution-dialog",
+                        ))
+                        .style(ButtonStyle::Gray)
+                        .small()
+                        .shrinks(),
+                        (button("shrinks-2", "Commit to dp-gpui-hunk-resolution-dialog"))
+                            .style(ButtonStyle::Pop)
+                            .small()
+                            .shrinks(),
+                    ]),
+                )],
+            ),
+            section(
                 "Inverted, on a selected row",
                 theme,
                 [variant(
