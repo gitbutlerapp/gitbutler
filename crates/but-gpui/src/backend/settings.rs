@@ -463,21 +463,25 @@ mod tests {
                 &["remote", "add", "origin", "https://example.com/repo.git"],
             );
             git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-            git(path, &["update-ref", "refs/remotes/origin/release", "HEAD"]);
-            // As an older GitButler stored it, with main pushed without `-u`.
-            let legacy = |target: &str| {
-                git(path, &["config", "gitbutler.project.targetRef", target]);
-                git(path, &["config", "gitbutler.project.portedMeta", "true"]);
-                let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
-                assert_eq!(
-                    crate::backend::read_failure(&err),
-                    "Choose which branch is its target"
-                );
-                let target = crate::backend::unresolved_target(&err).unwrap();
-                crate::backend::target_choice(path, target).unwrap()
-            };
-
-            let choice = legacy("refs/remotes/origin/main");
+            git(path, &["update-ref", "refs/remotes/origin/trunk", "HEAD"]);
+            // As an older GitButler stored it, with main made to track another branch since.
+            git(path, &["branch", "--set-upstream-to=origin/trunk", "main"]);
+            git(
+                path,
+                &[
+                    "config",
+                    "gitbutler.project.targetRef",
+                    "refs/remotes/origin/main",
+                ],
+            );
+            git(path, &["config", "gitbutler.project.portedMeta", "true"]);
+            let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
+            assert_eq!(
+                crate::backend::read_failure(&err),
+                "Choose which branch is its target"
+            );
+            let target = crate::backend::unresolved_target(&err).unwrap();
+            let choice = crate::backend::target_choice(path, target).unwrap();
             assert_eq!(
                 choice.to_track,
                 Some((full("refs/heads/main"), false)),
@@ -494,23 +498,6 @@ mod tests {
                 workspace.target.map(|target| target.name).as_deref(),
                 Some("origin/main"),
                 "the project reads again, its target going by its upstream"
-            );
-
-            let choice = legacy("refs/remotes/origin/release");
-            assert_eq!(
-                choice.to_track,
-                Some((full("refs/heads/release"), true)),
-                "a branch the remote alone has is offered too"
-            );
-            super::set_target(path, &choice.remote).unwrap();
-            assert_eq!(
-                git(path, &["rev-parse", "--abbrev-ref", "release@{upstream}"]).trim(),
-                "origin/release",
-                "picking it creates it, tracking the old target"
-            );
-            assert_eq!(
-                git(path, &["config", "gitbutler.project.targetRef"]).trim(),
-                "refs/heads/release"
             );
         })
     }

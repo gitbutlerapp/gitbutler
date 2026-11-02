@@ -80,14 +80,18 @@ pub fn edit_repo_config(
 
 /// Set the entry in `config` identified by the dotted `key` (like `section.value` or `section.subsection.value`) to `value`.
 /// This will create sections as needed, and remove all previous values under the same section with the same name.
-pub fn set_config_value(config: &mut gix::config::File, key: &str, value: &str) -> Result<()> {
+pub fn set_config_value(
+    config: &mut gix::config::File,
+    key: &str,
+    value: impl AsRef<[u8]>,
+) -> Result<()> {
     remove_config_value(config, key)?;
     let key = key
         .try_as_key()
         .with_context(|| format!("invalid git config key: {key}"))?;
     config
         .section_mut_or_create_new(key.section_name, key.subsection_name)?
-        .set(key.value_name, value)?;
+        .set(key.value_name, value.as_ref().as_bstr())?;
     Ok(())
 }
 

@@ -215,7 +215,7 @@ pub fn set_target_ref_and_init_project(
         // that doesn't identify one, so read the stored metadata as if the choice was stored already.
         Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => {
             let mut config = open_repo_local_config_for_reading(repo)?;
-            set_config_value(&mut config, PROJECT_TARGET_REF, &target_ref.to_string())?;
+            set_config_value(&mut config, PROJECT_TARGET_REF, target_ref.to_string())?;
             ProjectMeta::try_from_config(&config, repo)?
         }
         Err(err) => return Err(err),

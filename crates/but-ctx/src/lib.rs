@@ -526,15 +526,16 @@ impl Context {
     }
 
     /// Use `repo` instead of the default repository that would be opened on first query.
-    pub fn with_repo(mut self, repo: gix::Repository) -> anyhow::Result<Self> {
-        if !ProjectMeta::is_ported_repo(&repo)? {
-            ProjectMeta::port_if_needed(&repo, || {
-                Ok(but_meta::legacy_storage::read_legacy_project_meta(
-                    &self.project_data_dir.join("virtual_branches.toml"),
-                    &repo,
-                )?
-                .unwrap_or_default())
-            })?;
+    pub fn with_repo(mut self, mut repo: gix::Repository) -> anyhow::Result<Self> {
+        let changed = ProjectMeta::port_if_needed(&repo, || {
+            Ok(but_meta::legacy_storage::read_legacy_project_meta(
+                &self.project_data_dir.join("virtual_branches.toml"),
+                &repo,
+            )?
+            .unwrap_or_default())
+        })?;
+        if changed {
+            repo.reload()?;
         }
         self.repo.assign(repo);
         Ok(self)
