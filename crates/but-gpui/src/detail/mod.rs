@@ -49,7 +49,7 @@ use crate::app::{AddProject, AppHandle, CopyAbsolutePath, CopyRelativePath};
 use crate::backend::edit::Editing;
 use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
-    Selected,
+    LineKind, Selected,
 };
 use crate::clock;
 use crate::overlays::MenuItem;
@@ -59,6 +59,7 @@ use crate::state::{
     snack,
 };
 use crate::theme::Theme;
+use crate::ui::change_marks::{Change, ChangeMarks};
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
@@ -90,6 +91,8 @@ actions!(
         PageUp,
         HalfPageDown,
         HalfPageUp,
+        ScrollDown,
+        ScrollUp,
         SwitchTab,
         AmendTop,
         PickCommitTarget,
@@ -105,6 +108,9 @@ actions!(
 
 /// How far Space and Page Down scroll the diff, in its heights, keeping a few lines in view.
 pub const PAGE: f32 = 0.85;
+
+/// How many code lines ⇧J and ⇧K scroll the diff.
+const SCROLL_LINES: f32 = 3.;
 
 /// Where the keyboard is in the diff.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -279,8 +285,10 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
     /// The files the rows show with every file shown, as [`Detail::shown_files`] lists them.
     shown: Vec<usize>,
-    /// The one file the rows show, with Settings' all-in-one diff off.
+    /// The one file the rows show, with the single file diff on.
     alone: Option<usize>,
+    /// Its changed lines beside the scrollbar, while it shows one file.
+    marks: Option<Rc<ChangeMarks>>,
     /// What was selected when it loaded.
     selection: Option<Selection>,
 }
@@ -1336,6 +1344,7 @@ impl Detail {
         }
         self.reading = None;
         let (rows, shown, alone) = self.build_rows(&key, &files, false, cx);
+        let marks = alone.and_then(|_| self.change_marks(&rows, &files, cx));
         let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
         // rest of its files come in highlighted or an agent writes, it glides on to where that
@@ -1379,6 +1388,7 @@ impl Detail {
             rows,
             shown,
             alone,
+            marks,
             selection,
         });
         // Before rows change again, which carries it on in turn.
@@ -1584,8 +1594,8 @@ impl Detail {
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
     /// files and hunks, or files of the commit shown, that a pending operation takes away are
     /// left out until it's done. `unfolded`, as they would with every file open and one line a
-    /// row, as Find searches them. With them, the files shown and, with Settings' all-in-one
-    /// diff off, the one file the rows are of.
+    /// row, as Find searches them. With them, the files shown and, with the single file diff on,
+    /// the one file the rows are of.
     fn build_rows(
         &self,
         key: &DiffKey,
@@ -1649,11 +1659,14 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// The one file of `shown` the diff shows with Settings' all-in-one diff off: the
+    /// The one file of `shown` the single file diff shows: the
     /// cursor's, or when that's hidden, the next shown after it, else the last, as
-    /// `skip_taken` moves the cursor.
+    /// `skip_taken` moves the cursor. None on a list page with no files beside its list, as
+    /// Operations history: nothing there would list the other files.
     fn alone(&self, shown: &[usize], cx: &App) -> Option<usize> {
-        if !self.store.read(cx).prefs.one_file_diff {
+        if !self.store.read(cx).single_file_diff
+            || (self.list_page(cx) && !self.has_files_beside(cx))
+        {
             return None;
         }
         (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
@@ -1661,8 +1674,63 @@ impl Detail {
             .copied()
     }
 
+    /// The changed lines of `rows` of `files`, sized as the diff draws its rows, for the
+    /// marks beside the scrollbar. None when nothing changed, as in a binary file.
+    fn change_marks(
+        &self,
+        rows: &[DiffRow],
+        files: &[FileDiff],
+        cx: &App,
+    ) -> Option<Rc<ChangeMarks>> {
+        let line = Theme::get(cx).code_line;
+        let change = |file: usize, hunk: usize, line: usize| match files
+            .get(file)?
+            .hunks()
+            .get(hunk)?
+            .lines
+            .get(line)?
+            .kind
+        {
+            LineKind::Added => Some(Change::Added),
+            LineKind::Removed => Some(Change::Removed),
+            LineKind::Context => None,
+        };
+        let mut marks = ChangeMarks::default();
+        for row in rows {
+            let (height, changes) = match *row {
+                // Its header stays above the marks, which run beside its lines.
+                DiffRow::File(_) => (0., [None, None]),
+                // As `row_height` guesses them.
+                DiffRow::Hunk { file, hunk } => {
+                    match (files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
+                        true => (0., [None, None]),
+                        false => (40., [None, None]),
+                    }
+                }
+                DiffRow::Gap => (10., [None, None]),
+                DiffRow::Line {
+                    file,
+                    hunk,
+                    line: ix,
+                } => (line, [change(file, hunk, ix), None]),
+                DiffRow::Pair {
+                    file,
+                    hunk,
+                    left,
+                    right,
+                } => {
+                    let side = |ix: Option<usize>| change(file, hunk, ix?);
+                    (line, [side(left), side(right)])
+                }
+                _ => (line, [None, None]),
+            };
+            marks.push(height, changes);
+        }
+        (!marks.is_empty()).then(|| Rc::new(marks))
+    }
+
     /// Show the cursor's file alone once the cursor goes to another, or every file once
-    /// Settings turns the all-in-one diff back on.
+    /// Settings turns the single file diff off.
     pub(super) fn follow_alone(&mut self, cx: &mut Context<Self>) {
         if let Some(diff) = &self.diff
             && diff.alone != self.alone(&diff.shown, cx)
@@ -1753,18 +1821,14 @@ impl Detail {
     /// Scroll the diff by most of a screen, keeping a few lines in view for context.
     /// Scroll the diff `by` its height, down or, negative, up. Down from its end, the app goes
     /// on to the next unread commit, so Space reads a run of commits from the first to the last.
+    /// A file at a time, it stops at the file's end: the next commit would skip the other files,
+    /// which the file list goes to.
     pub fn page(&mut self, by: f32, window: &mut Window, cx: &mut Context<Self>) {
         let at_end = -self.list.scroll_px_offset_for_scrollbar().y
             >= self.list.max_offset_for_scrollbar().y - crate::ui::fixed(1.);
         if by > 0. && at_end {
-            // A file at a time, it goes on to the next file first: in folders folded shut too,
-            // as the whole diff runs through them.
-            if self.diff.as_ref().is_some_and(|diff| diff.alone.is_some()) {
-                let order = self.files_in_list_order(&HashSet::new(), cx);
-                let at = order.iter().position(|&file| file == self.cursor.file);
-                if let Some(&file) = at.and_then(|at| order.get(at + 1)) {
-                    return self.scroll_to_file(file, false, cx);
-                }
+            if self.single_file_shown() {
+                return;
             }
             return self.app.update_later(window, cx, |app, window, cx| {
                 (app.navigator).update(cx, |navigator, cx| navigator.read_on(window, cx))
@@ -1774,6 +1838,24 @@ impl Detail {
         let height = self.list.viewport_bounds().size.height;
         self.list.scroll_by(height * by);
         cx.notify();
+    }
+
+    /// Scroll the diff `lines` code lines, down or, negative, up, leaving the cursor and the
+    /// keys where they are, as ⇧J and ⇧K read on from the file list.
+    fn scroll_lines(&mut self, lines: f32, cx: &mut Context<Self>) {
+        self.scroll_diff_lines(lines, cx);
+        cx.notify();
+    }
+
+    /// Scroll the diff as [`Self::scroll_lines`] does, without drawing the detail again: only
+    /// the diff's pane, which its caller redraws, shows where the diff is.
+    pub(super) fn scroll_diff_lines(&mut self, lines: f32, cx: &App) {
+        self.glide = None;
+        // Within the diff: past its end the list would scroll on into nothing.
+        let at = -self.list.scroll_px_offset_for_scrollbar().y;
+        let max = self.list.max_offset_for_scrollbar().y.max(Pixels::ZERO);
+        let by = (code_line(cx) * lines).max(-at).min(max - at);
+        self.list.scroll_by(by);
     }
 
     /// Where the view goes in `rows` of `files` to keep showing what's at its top now: the
@@ -1846,6 +1928,7 @@ impl Detail {
             return;
         };
         let (rows, shown, alone) = self.build_rows(&diff.key, &diff.files, false, cx);
+        let marks = alone.and_then(|_| self.change_marks(&rows, &diff.files, cx));
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files, alone.is_some());
@@ -1865,7 +1948,7 @@ impl Detail {
             self.run_find(false, cx);
         }
         if let Some(diff) = &mut self.diff {
-            (diff.shown, diff.alone) = (shown, alone);
+            (diff.shown, diff.alone, diff.marks) = (shown, alone, marks);
         }
         cx.notify();
     }
@@ -2197,7 +2280,7 @@ impl Detail {
     pub fn shows_footer(&self, cx: &App) -> bool {
         let store = self.store.read(cx);
         // Drawn with nothing uncommitted too, as Commit… and the composer still are.
-        !self.files_hidden
+        !self.hides_files(cx)
             && self
                 .selected_checkout(cx)
                 .is_some_and(|(project, worktree)| {
@@ -2390,7 +2473,7 @@ impl Detail {
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches
     /// over them (Find's among them): not those a filter or a pending operation hides. Every
-    /// one, though the all-in-one diff off shows them one at a time.
+    /// one, though the single file diff shows them one at a time.
     fn shown_files(&self) -> Vec<usize> {
         self.diff
             .iter()
@@ -2758,7 +2841,24 @@ impl Detail {
     /// narrow the window. A checkout's overview shows beside them, or alone with them hidden,
     /// as its diff does.
     pub fn files_shown(&self, cx: &App) -> bool {
-        !self.overview_only(cx) && (self.list_page(cx) || !self.files_hidden)
+        !self.overview_only(cx) && (self.list_page(cx) || !self.hides_files(cx))
+    }
+
+    /// Whether the single file diff is on. The files then stay beside the diff with no toggle,
+    /// as the file list is how to go to another.
+    pub(crate) fn single_file_diff(&self, cx: &App) -> bool {
+        self.store.read(cx).single_file_diff
+    }
+
+    /// Whether `f` hid the file list beside the diff, and it isn't pinned there.
+    pub(super) fn hides_files(&self, cx: &App) -> bool {
+        self.files_hidden && !self.single_file_diff(cx)
+    }
+
+    /// Whether the files beside a list page's list are hidden, as they are at first, and
+    /// aren't pinned there.
+    pub(super) fn hides_beside_files(&self, cx: &App) -> bool {
+        self.beside_files_hidden && !self.single_file_diff(cx)
     }
 
     /// How much of the column beside the diff shows at `now`, from 0 to 1, as `f` slides the
@@ -2767,7 +2867,7 @@ impl Detail {
         match (self.overview_only(cx), self.list_page(cx)) {
             (true, _) => 0.,
             (false, true) => 1.,
-            (false, false) => self.files_slide.share(!self.files_hidden, now),
+            (false, false) => self.files_slide.share(!self.hides_files(cx), now),
         }
     }
 
@@ -2781,7 +2881,7 @@ impl Detail {
     pub fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> f32 {
         let files = self.files_width(window, cx) * self.files_share(now, cx);
         let beside = (self.has_files_beside(cx)).then(|| {
-            let shown = self.beside_slide.share(!self.beside_files_hidden, now);
+            let shown = self.beside_slide.share(!self.hides_beside_files(cx), now);
             self.beside_files_width(cx) * shown
         });
         files + beside.unwrap_or(0.)
@@ -2828,7 +2928,10 @@ impl Detail {
     /// files beside its list, as `f` does.
     pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let list_page = self.list_page(cx);
-        if self.overview_only(cx) || (list_page && !self.has_files_beside(cx)) {
+        if self.overview_only(cx)
+            || self.single_file_diff(cx)
+            || (list_page && !self.has_files_beside(cx))
+        {
             return;
         }
         let hidden = match list_page {
@@ -3200,6 +3303,12 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageUp, window, cx| this.page(-0.5, window, cx)))
+            .on_action(
+                cx.listener(|this, _: &ScrollDown, _, cx| this.scroll_lines(SCROLL_LINES, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ScrollUp, _, cx| this.scroll_lines(-SCROLL_LINES, cx)),
+            )
             .on_action(cx.listener(|this, _: &SwitchTab, window, cx| this.switch_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))

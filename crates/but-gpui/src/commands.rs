@@ -242,7 +242,10 @@ commands! {
     crate::detail::ToggleWrap => "Wrap long lines",
     crate::detail::TogglePlainLines => "Toggle diff backgrounds",
     crate::detail::ToggleSplit => "Side-by-side diff",
-    crate::detail::ToggleFiles => "Show or hide the files",
+    crate::detail::ToggleFiles => "Show or hide the files" {
+        // In the single file diff the files stay beside the diff, and nothing hides them.
+        listed: |app, cx| !app.detail.read(cx).single_file_diff(cx),
+    },
     crate::pr::CreatePullRequest => "Create pull request" { listed: pull_request_creatable },
     crate::pr::MergePullRequest => "Merge pull request" risky {
         // As the forge's button says it, for how the project merges.

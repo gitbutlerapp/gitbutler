@@ -9,9 +9,9 @@ use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
-    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
-    prelude::*,
+    HitboxBehavior, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollDelta,
+    ScrollHandle, ScrollWheelEvent, SharedString, Stateful, Subscription, WeakEntity, Window,
+    anchored, canvas, deferred, div, list, point, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -29,10 +29,11 @@ use crate::backend::{
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
+use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
 use crate::ui::illustration::Illustration;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrollbar, shown_scrollbar};
 use crate::ui::{
     Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex,
     icon, icon_button, icon_toggle, segmented, selected_part, shortcut, small_icon, toggle_group,
@@ -319,6 +320,7 @@ impl Detail {
             wrap: prefs.wrap,
             plain: prefs.plain_lines,
             split: prefs.split,
+            flat: self.single_file_shown(),
             ..Default::default()
         };
         let DiffBody::Hunks {
@@ -793,7 +795,47 @@ impl Detail {
                         .child(self.render_diff_row(ix, entity.clone(), window, cx)),
                 )
         });
-        let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
+        // Beside the marks, the thumb shows where among them the diff is.
+        let scroll = Scroll::List(self.list.clone());
+        let scrollbar = match diff.marks {
+            Some(_) => {
+                shown_scrollbar("diff-scrollbar", scroll, theme).map(|bar| bar.into_any_element())
+            }
+            None => scrollbar("diff-scrollbar", scroll, theme).map(|bar| bar.into_any_element()),
+        };
+        let marks = (diff.marks.clone()).map(|marks| change_marks(marks, theme));
+        // One file at a time, a wheel's notch scrolls three lines, as deltoids does. Laid out
+        // after the list, its listener runs before the list's, which takes what this leaves.
+        let wheel = self.single_file_shown().then(|| {
+            let entity = entity.clone();
+            canvas(
+                |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
+                move |_, hitbox, window, _| {
+                    // Only the diff's pane redraws, as for the list's own scrolling: the file
+                    // list and the rest of the detail stay as they are.
+                    let pane = window.current_view();
+                    window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
+                        if phase != DispatchPhase::Bubble || !hitbox.should_handle_scroll(window) {
+                            return;
+                        }
+                        let Some(lines) = wheel_lines(event) else {
+                            return;
+                        };
+                        (entity.update(cx, |detail, cx| detail.scroll_diff_lines(lines, cx))).ok();
+                        cx.notify(pane);
+                        cx.stop_propagation();
+                    });
+                },
+            )
+            .absolute()
+            .inset_0()
+        });
+        // One file's header holds the top, there or stuck, so the marks and the scrollbar run
+        // beside its lines, below it.
+        let rail_top = match diff.alone {
+            Some(_) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            None => Pixels::ZERO,
+        };
         // A drag that selects past the edge, out of the window too, draws the pane again,
         // which scrolls toward the pointer.
         let past_edge = (self.selecting.then(|| self.drag_area(cx)).flatten()).map(|(area, _)| {
@@ -898,8 +940,18 @@ impl Detail {
                         .size_full(),
                     )
                     .child(estimate)
+                    .children(wheel)
                     .children(sticky)
-                    .children(scrollbar),
+                    .child(
+                        div()
+                            .absolute()
+                            .top(rail_top)
+                            .bottom_0()
+                            .left_0()
+                            .right_0()
+                            .children(marks)
+                            .children(scrollbar),
+                    ),
             )
             .children(past_edge)
             .into_any_element()
@@ -988,10 +1040,16 @@ impl Detail {
         cx.notify();
     }
 
+    /// Whether the diff shows one file, filling the pane without a card around it.
+    pub(super) fn single_file_shown(&self) -> bool {
+        self.diff.as_ref().is_some_and(|diff| diff.alone.is_some())
+    }
+
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
     /// their lines while the list isn't beside the diff and lists them on hover, then how
     /// long lines show and where the sides go. A page whose column is its own list toggles the
     /// files beside it, when it has any; else it has only the count and the list on hover.
+    /// Files pinned beside the diff go without the toggle.
     fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
@@ -1049,7 +1107,9 @@ impl Detail {
                 .with_priority(1),
             )
         });
-        let files = div().relative().child(toggle).children(list);
+        // Pinned, the files show beside the diff and nothing toggles them.
+        let files = (hidden || !self.single_file_diff(cx))
+            .then(|| div().relative().child(toggle).children(list));
         let flag = |id: &'static str, glyph, tip, on, action: &'static dyn Action| {
             icon_toggle(id, glyph, tip, shortcut(action, cx), on, theme).on_click(act(action))
         };
@@ -1072,7 +1132,7 @@ impl Detail {
                 .px(dp(12.))
                 .gap(dp(8.))
                 .bg(theme.bg_1)
-                .child(files)
+                .children(files)
                 .child(div().flex_1())
                 .child(toggle_group(
                     theme,
@@ -1152,8 +1212,10 @@ impl Detail {
             return div().into_any_element();
         };
         let file_diff = row.file().and_then(|file| diff.files.get(file));
-        // A folded file's header ends its card too.
-        let last = diff::ends_card(&diff.rows, ix);
+        let flat = self.single_file_shown();
+        // A folded file's header ends its card too. A flat file has no card to end.
+        let ends = diff::ends_card(&diff.rows, ix);
+        let last = ends && !flat;
         // The file list's and the message's keys don't act on the diff's cursor.
         let solid = has_keys(&self.focus, window, cx);
         let store = self.store.read(cx);
@@ -1173,8 +1235,13 @@ impl Detail {
                 .ok();
             }
         };
-        // The margin between the cards and the sides of the pane.
-        let padded = div().w_full().px(dp(12.));
+        // The margin between the cards and the sides of the pane. A flat file runs from side
+        // to side, its lines clear of the marks and the scrollbar, which start below its header.
+        let padded = match (flat, row) {
+            (false, _) => div().w_full().px(dp(12.)),
+            (true, DiffRow::File(_)) => div().w_full(),
+            (true, _) => div().w_full().pr(fixed(RAIL)),
+        };
         match (row, file_diff) {
             (DiffRow::File(file), Some(file_diff)) => {
                 // Not while one of its hunks is, so one mark says what the keys act on.
@@ -1242,7 +1309,8 @@ impl Detail {
                         trailing: Some(trailing.into_any_element()),
                         current,
                         solid,
-                        folded: last,
+                        folded: ends,
+                        flat,
                         closing: self.file_folds.closing(&file_diff.file.path),
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
@@ -1310,6 +1378,7 @@ impl Detail {
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         solid,
+                        flat,
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
                             .flatten(),
@@ -1466,8 +1535,10 @@ impl Detail {
             }
             (DiffRow::Note(_), Some(file_diff)) => padded
                 .child(match self.drawing_of(file_diff) {
-                    Some(drawn) => diff::drawing(drawn.before.clone(), drawn.after.clone(), theme),
-                    None => diff::note(file_diff, theme),
+                    Some(drawn) => {
+                        diff::drawing(drawn.before.clone(), drawn.after.clone(), flat, theme)
+                    }
+                    None => diff::note(file_diff, flat, theme),
                 })
                 .into_any_element(),
             (DiffRow::Gap, _) => padded.h(dp(10.)).into_any_element(),
@@ -2114,12 +2185,138 @@ fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<
         .then(|| format!("No commits above {base} on {what}").into())
 }
 
+/// How a platform counts a notch of a mouse's wheel in the lines of its scroll events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WheelLines {
+    /// One event a notch, of a tenth of a line turned slowly and more turned fast, as macOS
+    /// accelerates it.
+    Accelerated,
+    /// A line a notch, or fractions of one over several events from a wheel that reports finer
+    /// steps, as Linux sends them.
+    PerNotch,
+    /// The lines the system's own setting gives a notch, three unless changed, as Windows
+    /// counts them.
+    Set,
+}
+
+impl WheelLines {
+    const HERE: WheelLines = if cfg!(target_os = "macos") {
+        WheelLines::Accelerated
+    } else if cfg!(target_os = "windows") {
+        WheelLines::Set
+    } else {
+        WheelLines::PerNotch
+    };
+}
+
+/// How many lines a wheel's `event` scrolls the single file diff, down from positive: three
+/// for a notch, as deltoids and terminals scroll. None for what the list scrolls by itself: a
+/// trackpad's or a smooth wheel's pixels, which have no notches, a sideways scroll, which long
+/// lines take, and a scroll with a modifier held.
+fn wheel_lines(event: &ScrollWheelEvent) -> Option<f32> {
+    wheel_lines_on(event, WheelLines::HERE)
+}
+
+fn wheel_lines_on(event: &ScrollWheelEvent, counted: WheelLines) -> Option<f32> {
+    let ScrollDelta::Lines(delta) = event.delta else {
+        return None;
+    };
+    if delta.x != 0. || delta.y == 0. || event.modifiers.modified() {
+        return None;
+    }
+    let lines = match counted {
+        // Each event is a notch: a slow one's tenth of a line is three lines too, and a fast
+        // spin's acceleration still counts.
+        WheelLines::Accelerated => 3. * delta.y.abs().max(1.),
+        WheelLines::PerNotch => 3. * delta.y.abs(),
+        WheelLines::Set => delta.y.abs(),
+    };
+    // The wheel turned toward the user, up, moves the content down.
+    Some(-delta.y.signum() * lines)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::nothing_committed_in;
+    use gpui::{Modifiers, ScrollDelta, ScrollWheelEvent, point};
+
+    use super::WheelLines::{Accelerated, PerNotch, Set};
+    use super::{nothing_committed_in, wheel_lines, wheel_lines_on};
     use crate::backend::FullName;
     use crate::backend::model::build::{branch, full, workspace, worktree};
     use crate::state::{ProjectId, Selection};
+
+    fn wheel(delta: ScrollDelta, modifiers: Modifiers) -> ScrollWheelEvent {
+        ScrollWheelEvent {
+            delta,
+            modifiers,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_wheel_notch_scrolls_three_lines_however_the_platform_counts_it() {
+        let notch = |y, counted| {
+            let event = wheel(ScrollDelta::Lines(point(0., y)), Modifiers::default());
+            wheel_lines_on(&event, counted)
+        };
+        // macOS: a notch turned slowly, as a mouse sent it, and a fast spin's accelerated ones.
+        assert_eq!(
+            notch(-0.1, Accelerated),
+            Some(3.),
+            "turned away, the content moves up"
+        );
+        assert_eq!(
+            notch(0.1, Accelerated),
+            Some(-3.),
+            "turned toward the user, it moves down"
+        );
+        assert_eq!(notch(-0.9996, Accelerated), Some(3.));
+        assert_eq!(
+            notch(-4., Accelerated),
+            Some(12.),
+            "a fast spin's acceleration counts"
+        );
+        // Linux: a line a notch, or a quarter of one from a finer wheel's four events.
+        assert_eq!(notch(-1., PerNotch), Some(3.));
+        assert_eq!(
+            notch(-0.25, PerNotch),
+            Some(0.75),
+            "four of them make a notch"
+        );
+        // Windows: the lines its setting gives a notch.
+        assert_eq!(notch(-3., Set), Some(3.));
+        assert_eq!(notch(0., Accelerated), None, "nothing to scroll");
+    }
+
+    #[test]
+    fn the_list_scrolls_what_isnt_a_notch() {
+        let plain = Modifiers::default();
+        let sideways = wheel(ScrollDelta::Lines(point(1., 0.)), plain);
+        assert_eq!(
+            wheel_lines(&sideways),
+            None,
+            "long lines scroll sideways themselves"
+        );
+        let pixels = wheel(
+            ScrollDelta::Pixels(point(crate::ui::fixed(0.), crate::ui::fixed(-30.))),
+            plain,
+        );
+        assert_eq!(
+            wheel_lines(&pixels),
+            None,
+            "a trackpad scrolls as the list does"
+        );
+        let held = Modifiers {
+            platform: true,
+            ..Default::default()
+        };
+        let modified = wheel(ScrollDelta::Lines(point(0., -1.)), held);
+        assert_eq!(
+            wheel_lines(&modified),
+            None,
+            "a modifier leaves it to the list"
+        );
+    }
 
     #[test]
     #[expect(

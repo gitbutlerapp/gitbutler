@@ -23,6 +23,7 @@ but_schemars::register_sdk_type!(TelemetryUpdate);
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub gpui: Option<bool>,
+    pub gpui_single_file_diff: Option<bool>,
 }
 but_schemars::register_sdk_type!(FeatureFlagsUpdate);
 
@@ -88,11 +89,17 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_feature_flags(
         &self,
-        FeatureFlagsUpdate { gpui }: FeatureFlagsUpdate,
+        FeatureFlagsUpdate {
+            gpui,
+            gpui_single_file_diff,
+        }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(gpui) = gpui {
             settings.feature_flags.gpui = gpui;
+        }
+        if let Some(on) = gpui_single_file_diff {
+            settings.feature_flags.gpui_single_file_diff = on;
         }
         settings.save()
     }
@@ -148,6 +155,7 @@ mod tests {
         settings
             .update_feature_flags(FeatureFlagsUpdate {
                 gpui: Some(enabled),
+                ..Default::default()
             })
             .unwrap();
 
@@ -187,7 +195,10 @@ mod tests {
     fn empty_feature_flags_update_preserves_existing_value() {
         let (_dir, settings) = create_test_settings();
         settings
-            .update_feature_flags(FeatureFlagsUpdate { gpui: Some(true) })
+            .update_feature_flags(FeatureFlagsUpdate {
+                gpui: Some(true),
+                ..Default::default()
+            })
             .unwrap();
         settings
             .update_feature_flags(FeatureFlagsUpdate::default())

@@ -266,7 +266,7 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
 /// A slice of the card, its content lined up with the code, past the line numbers.
 fn strip(layout: &Layout, last: bool, theme: &Theme) -> gpui::Div {
     let numbers = digit_width(theme) * (layout.digits.max(3) + 3) as f32;
-    card(h_flex(), theme)
+    card(h_flex(), layout.flat, theme)
         .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
         .pl(dp(numbers.round() + 8.))
         .pr(dp(8.))
@@ -299,7 +299,7 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         true => (Icon::Tick, theme.safe, theme.text_1.opacity(0.04)),
         false => (Icon::Warning, theme.warn, theme.warn.opacity(0.06)),
     };
-    card(h_flex(), theme)
+    card(h_flex(), row.layout.flat, theme)
         .h(dp(36.))
         .px(dp(8.))
         .gap(dp(6.))
@@ -426,7 +426,7 @@ fn side_line(
     last: bool,
     theme: &Theme,
 ) -> AnyElement {
-    line_card(id.clone(), last, layout.wrap, theme)
+    line_card(id.clone(), last, layout, theme)
         .when_some(look.bg, |el, bg| el.bg(bg))
         .child(number_cell(
             line.new,
@@ -530,7 +530,7 @@ fn plain(text: &str) -> DiffLine {
 /// The lines being written, with what keeps them and what drops the edit.
 fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
     let (done, cancel) = (row.actions.done.clone(), row.actions.cancel.clone());
-    card(v_flex(), theme)
+    card(v_flex(), row.layout.flat, theme)
         .when(row.last, |el| el.border_b_1().rounded_b(dp(6.)))
         // Clicks in it stay off the diff, which would take the keys back to its shortcuts.
         .occlude()

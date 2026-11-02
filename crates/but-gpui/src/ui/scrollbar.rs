@@ -105,6 +105,25 @@ pub fn scrollbar(
     scroll: Scroll,
     theme: &Theme,
 ) -> Option<impl IntoElement + use<>> {
+    bar(id, scroll, false, theme)
+}
+
+/// [`scrollbar`] with its thumb shown with the pointer elsewhere too, as beside marks that
+/// say where the content is.
+pub fn shown_scrollbar(
+    id: &'static str,
+    scroll: Scroll,
+    theme: &Theme,
+) -> Option<impl IntoElement + use<>> {
+    bar(id, scroll, true, theme)
+}
+
+fn bar(
+    id: &'static str,
+    scroll: Scroll,
+    always: bool,
+    theme: &Theme,
+) -> Option<impl IntoElement + use<>> {
     let (_, max) = scroll.offsets();
     if max <= Pixels::ZERO {
         return None;
@@ -140,7 +159,7 @@ pub fn scrollbar(
 
             let held = state.read(cx).held;
             let on_track = track.is_hovered(window);
-            let shown = held.is_some() || on_track || area.is_hovered(window);
+            let shown = always || held.is_some() || on_track || area.is_hovered(window);
             state.update(cx, |state, _| state.drawn = (shown, on_track));
             if shown {
                 let wide = held.is_some() || on_track;
@@ -190,7 +209,7 @@ pub fn scrollbar(
                         }
                         None if phase == DispatchPhase::Bubble => {
                             let on_track = track.is_hovered(window);
-                            let shown = on_track || area.is_hovered(window);
+                            let shown = always || on_track || area.is_hovered(window);
                             if state.read(cx).drawn != (shown, on_track) {
                                 state.update(cx, |_, cx| cx.notify());
                             }

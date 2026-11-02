@@ -388,6 +388,9 @@ pub struct Store {
     /// How many times the saved state has been taken to write, numbering each.
     saves: u64,
     pub prefs: Prefs,
+    /// Diffs show only the cursor's file rather than every file one after another, as
+    /// GitButler's experimental `gpuiSingleFileDiff` says.
+    pub single_file_diff: bool,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
     pub account: account::Account,
@@ -579,6 +582,8 @@ impl Store {
             merged: HashMap::new(),
             widths: saved.widths,
             prefs: saved.prefs,
+            // Read with the saved state, so the diff doesn't start in the other layout.
+            single_file_diff: backend::settings::single_file_diff(),
             window: saved.window,
             restored: Restored {
                 expanded: saved.expanded,

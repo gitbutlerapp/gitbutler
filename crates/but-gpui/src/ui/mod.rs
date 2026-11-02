@@ -2,6 +2,7 @@
 
 #[cfg(target_os = "linux")]
 pub mod alert;
+pub mod change_marks;
 pub mod conflict;
 pub mod diff;
 pub mod emoji;
