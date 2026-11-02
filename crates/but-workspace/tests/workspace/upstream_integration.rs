@@ -13,7 +13,7 @@ use but_workspace::{
 };
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
-use snapbox::IntoData;
+use snapbox::{IntoData, ToDebug as _};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
@@ -254,6 +254,36 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
             selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?;
+
+    // A and B landed as themselves upstream, and only the commits left above them were rebased.
+    snapbox::assert_data_eq!(
+        rebase.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Replace {
+        prec: Sha1(3d3bfa79762a4b8b91447517a976b2f1eecef0a9),
+        succ: Sha1(dd87d6963bc2699ccb30a6ee947b39cd7b54d471),
+    },
+    Replace {
+        prec: Sha1(4827d2fd7d33c5c84842529a602d3238309023b9),
+        succ: Sha1(c7b32b836c420c1b6217c6d8a1dd9e206c5cdfee),
+    },
+    Replace {
+        prec: Sha1(a6588cfc83cb18347588644b50ca20623443de0e),
+        succ: Sha1(cb866ec476359d720bd92114e63a21f5154b10b0),
+    },
+    Replace {
+        prec: Sha1(d8d0970bd0882aef2b5391ed12e2901617a9c4f2),
+        succ: Sha1(e05e7c1b29e78bec75c979fac229426d327aac6d),
+    },
+    Replace {
+        prec: Sha1(f5b02d3003acdff19176fcdbad32eafbddae19fd),
+        succ: Sha1(5c0b375c2df84c5299706b1bd1cf4fa58c8b01ff),
+    },
+]
+
+"#]]
+    );
 
     let materialized = rebase.materialize(Default::default())?;
 
@@ -1051,9 +1081,15 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
 "#]]
     );
 
-    let project_meta = integrate_and_materialize(
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        project_meta,
+        ..
+    } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         &mut db,
         vec![BottomUpdate {
@@ -1061,6 +1097,23 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
             selector: RelativeTo::Commit(repo.rev_parse_single("A~1")?.detach()),
         }],
     )?;
+    // Both commits became the squash commit, parent first.
+    snapbox::assert_data_eq!(
+        rebase.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Fold {
+        precs: [
+            Sha1(54346808f70395483bef8f2e8d91830893065626),
+            Sha1(860210a6a95e6f81e01a754758e5912ee55638bc),
+        ],
+        succ: Sha1(039050a05168d2a11969ffa4cec34e0aa2117e91),
+    },
+]
+
+"#]]
+    );
+    rebase.materialize(Default::default())?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
     let graph =
