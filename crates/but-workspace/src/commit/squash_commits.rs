@@ -198,15 +198,14 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     }
 
     let mut editor = editor;
-    for commit_selector in subject_selectors {
+    for commit_selector in subject_selectors.iter().copied() {
         let delimiter = SegmentDelimiter {
             child: commit_selector,
             parent: commit_selector,
         };
         editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        let (selector, _) = editor.find_selectable_commit(commit_selector)?;
-        editor.replace_with_none(selector)?;
     }
+    editor.fold_into(subject_selectors, target_commit_selector)?;
 
     // Removing a subject that sits below the target rewrites every commit above it, including
     // the target. Rebase before building the squashed commit so it is created on top of the
