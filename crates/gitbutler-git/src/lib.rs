@@ -17,11 +17,13 @@ mod refspec;
 mod repository;
 
 #[cfg(feature = "tokio")]
-pub use self::context::{GitContextExt, PushResult, fetch_with_askpass, push_with_askpass};
+pub use self::context::{
+    GitContextExt, PushResult, fetch_objects_with_askpass, fetch_with_askpass, push_with_askpass,
+};
 #[cfg(feature = "tokio")]
 pub use self::executor::tokio;
 pub use self::{
     error::Error,
     refspec::{Error as RefSpecError, RefSpec},
-    repository::{clone, fetch, push},
+    repository::{clone, fetch, fetch_objects, push},
 };

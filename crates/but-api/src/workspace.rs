@@ -1030,6 +1030,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
+    fetch_blobs_missing_from_partial_clone(ctx)?;
     let mut meta = ctx.meta()?;
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
@@ -1110,6 +1111,85 @@ pub fn workspace_integrate_upstream_only_with_perm(
         })
         .ok(),
         worktree_conflicts,
+    })
+}
+
+/// In a partial clone (`git clone --filter=blob:none`), a fetch brings the target's new commits
+/// and trees but not their blobs. Git fetches a missing blob from the promisor remote when it
+/// first needs it; gix can't yet (GitoxideLabs/gitoxide#1046), so the rebase stops at the first
+/// such blob it writes into a tree. Fetch the blobs the target gained in one batch beforehand,
+/// as Git does for its own lazy fetches.
+fn fetch_blobs_missing_from_partial_clone(ctx: &but_ctx::Context) -> anyhow::Result<()> {
+    use gix::diff::tree_with_rewrites::Change;
+
+    let (remote, missing) = {
+        let repo = ctx.repo.get()?;
+        let project_meta = ctx.project_meta()?;
+        let Some(target_ref) = project_meta.remote_target_ref(&repo)? else {
+            return Ok(());
+        };
+        let Some((remote, _branch)) =
+            extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+        else {
+            return Ok(());
+        };
+        let config = repo.config_snapshot();
+        let is_promisor_remote = config
+            .boolean(format!("remote.{remote}.promisor").as_str())
+            .unwrap_or(false)
+            || config
+                .string("extensions.partialClone")
+                .is_some_and(|name| name == remote.as_str());
+        if !is_promisor_remote {
+            return Ok(());
+        }
+        let Some(old_target) = project_meta.target_commit_id else {
+            return Ok(());
+        };
+        let new_target = repo
+            .find_reference(target_ref.as_ref())?
+            .peel_to_id()?
+            .detach();
+        if new_target == old_target {
+            return Ok(());
+        }
+        let old_tree = repo.find_commit(old_target)?.tree()?;
+        let new_tree = repo.find_commit(new_target)?.tree()?;
+        // Rename tracking would read the very blobs that may be missing, so leave it off.
+        let changes =
+            repo.diff_tree_to_tree(&old_tree, &new_tree, gix::diff::Options::default())?;
+        let missing: Vec<_> = changes
+            .iter()
+            .filter_map(|change| {
+                let (entry_mode, id) = match change {
+                    Change::Addition { entry_mode, id, .. }
+                    | Change::Modification { entry_mode, id, .. } => (*entry_mode, *id),
+                    Change::Deletion { .. } | Change::Rewrite { .. } => return None,
+                };
+                (entry_mode.is_blob_or_symlink() && !repo.has_object(id)).then_some(id)
+            })
+            .collect();
+        (remote, missing)
+    };
+    if missing.is_empty() {
+        return Ok(());
+    }
+    tracing::info!(
+        count = missing.len(),
+        %remote,
+        "fetching the blobs the target gained, which the partial clone is missing"
+    );
+    gitbutler_git::fetch_objects_with_askpass(
+        ctx.workdir_or_gitdir()?,
+        &remote,
+        &missing,
+        Some("fetch".to_owned()),
+    )
+    .with_context(|| {
+        format!(
+            "failed to fetch {} blobs missing from the partial clone from remote '{remote}'",
+            missing.len()
+        )
     })
 }
 

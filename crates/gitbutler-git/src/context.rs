@@ -139,9 +139,6 @@ impl GitContextExt for Context {
 
 /// Fetch from `remote_name`, forwarding credential prompts through the application askpass broker
 /// when it is enabled.
-///
-/// The fetch runs on its own thread and runtime so synchronous API callers don't block the runtime
-/// responsible for delivering askpass responses.
 pub fn fetch_with_askpass(
     repo_path: impl AsRef<Path>,
     remote_name: &str,
@@ -155,17 +152,52 @@ pub fn fetch_with_askpass(
 
     let repo_path = repo_path.as_ref().to_owned();
     let remote = remote_name.to_owned();
+    block_on_git_fetch_thread(move || async move {
+        crate::fetch(repo_path, crate::tokio::TokioExecutor, &remote, on_prompt).await
+    })
+}
+
+/// Fetch `object_ids` from `remote_name`, the objects a partial clone is missing, as
+/// [`fetch_with_askpass()`] fetches refs.
+pub fn fetch_objects_with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    object_ids: &[gix::ObjectId],
+    action: Option<String>,
+) -> Result<()> {
+    let on_prompt = if askpass::get_broker().is_some() {
+        Some(move |prompt: String| handle_git_prompt_fetch(prompt, action.clone()))
+    } else {
+        None
+    };
+
+    let repo_path = repo_path.as_ref().to_owned();
+    let remote = remote_name.to_owned();
+    let object_ids = object_ids.to_vec();
+    block_on_git_fetch_thread(move || async move {
+        crate::fetch_objects(
+            repo_path,
+            crate::tokio::TokioExecutor,
+            &remote,
+            &object_ids,
+            on_prompt,
+        )
+        .await
+    })
+}
+
+/// Run `fetch` on a thread and runtime of its own, so synchronous API callers don't block the
+/// runtime responsible for delivering askpass responses.
+fn block_on_git_fetch_thread<Fut>(fetch: impl FnOnce() -> Fut + Send + 'static) -> Result<()>
+where
+    Fut: std::future::Future<Output = std::result::Result<(), GitError>>,
+{
     let result = std::thread::spawn(move || -> Result<_> {
         let runtime = tokio::runtime::Runtime::new().context(
             but_error::Context::new("failed to initialize async runtime for git fetch")
                 .with_code(Code::Unknown),
         )?;
-        Ok(runtime.block_on(crate::fetch(
-            repo_path,
-            crate::tokio::TokioExecutor,
-            &remote,
-            on_prompt,
-        )))
+        Ok(runtime.block_on(fetch()))
     })
     .join()
     .map_err(|panic| {
