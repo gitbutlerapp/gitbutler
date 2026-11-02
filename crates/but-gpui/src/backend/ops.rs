@@ -1813,10 +1813,13 @@ impl Intent for SplitOff {
                 &[],
                 DryRun::No,
                 |mut tx| {
-                    let blank =
-                        tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;
-                    let moved = tx.move_committed_changes_between(commit.0, blank.id, changes)?;
-                    Ok(but_transaction::Commit(CommitId(moved.id)))
+                    let new_commit = tx.split_commit(
+                        commit.0,
+                        changes,
+                        RelativeTo::Commit(commit.0),
+                        InsertSide::Above,
+                    )?;
+                    Ok(but_transaction::Commit(CommitId(new_commit.id)))
                 },
             )
         })?;
