@@ -61,3 +61,36 @@ export const ApiCredential = meta.story({
 		</DescriptionList>
 	),
 });
+
+/** Flags with what each does: `code` shows a name as it is typed. */
+export const Flags = meta.story({
+	parameters: figma("4690-1017"),
+	render: () => (
+		<DescriptionList>
+			<DescriptionListItem label="--dirty" code>
+				Include uncommitted changes
+			</DescriptionListItem>
+			<DescriptionListItem label="--agent codex" code>
+				Use Codex, with OPENAI_API_KEY
+			</DescriptionListItem>
+			<DescriptionListItem label="--for 2h" code>
+				Run past the default 45 minutes
+			</DescriptionListItem>
+		</DescriptionList>
+	),
+});
+
+/** Environment variables to set: one with the value to paste, one with where to find it. */
+export const Variables = meta.story({
+	parameters: figma("4690-1027"),
+	render: () => (
+		<DescriptionList>
+			<DescriptionListItem label="VERCEL_TEAM_ID" code onCopy={copyToClipboard}>
+				team_8d03b6
+			</DescriptionListItem>
+			<DescriptionListItem label="VERCEL_TOKEN" code>
+				From your Vercel account settings
+			</DescriptionListItem>
+		</DescriptionList>
+	),
+});

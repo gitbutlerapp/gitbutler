@@ -23,17 +23,21 @@ export const DescriptionList: FC<ComponentProps<"dl">> = ({ className, ...props 
  * With `onCopy` the value is text to paste somewhere else, so it is shown as `Code`, as it will be
  * typed, with the copy button `CodeBlock` has after it.
  *
+ * With `code` the name is a flag or a key rather than a word, so it is shown as `Code` too.
+ *
  * @public
  * @import import { DescriptionList, DescriptionListItem } from "@gitbutler/ui-react/DescriptionList.tsx";
  */
 export const DescriptionListItem: FC<
-	{ label: string } & (
+	{ label: string; code?: boolean } & (
 		| { children: ReactNode; onCopy?: undefined }
 		| { children: string; onCopy: (value: string) => void }
 	)
 > = (props) => (
 	<div className={styles.item}>
-		<dt className={styles.label}>{props.label}</dt>
+		<dt className={classes(styles.label, props.code && styles.codeLabel)}>
+			{props.code ? <Code>{props.label}</Code> : props.label}
+		</dt>
 		<dd className={styles.value}>
 			{props.onCopy === undefined ? (
 				props.children
