@@ -20,6 +20,15 @@ use crate::theme::Theme;
 
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
 
+/// How tall a file's header is: [`FILE_HEADER_HEIGHT`], or as tall as the file list's heading
+/// beside it where it titles the pane, so the two read as one row.
+pub fn file_header_height(titled: bool) -> f32 {
+    match titled {
+        true => 44.,
+        false => FILE_HEADER_HEIGHT,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
     File(usize),
@@ -467,6 +476,9 @@ pub struct HeaderDecor {
     pub flat: bool,
     /// Leaves out the lines the file changed, as Lite does.
     pub uncounted: bool,
+    /// Its file fills the pane alone in Lite, and its header titles the pane as the file
+    /// list's heading does beside it: as tall, its name as large, on the pane's ground.
+    pub titled: bool,
 }
 
 /// What the diff's owner adds to a line.
@@ -597,22 +609,25 @@ pub fn file_header(
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
     let soft = |color| if on { theme.muted_on_solid() } else { color };
+    let titled = decor.titled;
     card(h_flex(), decor.flat, theme)
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
-        .h(dp(FILE_HEADER_HEIGHT))
-        .pl(dp(10.))
+        .h(dp(file_header_height(titled)))
+        .pl(dp(if titled { 16. } else { 10. }))
         .pr(dp(8.))
         .gap(dp(8.))
-        .border_t_1()
+        .when(!titled, |el| el.border_t_1())
         .border_b_1()
+        .when(titled, |el| el.border_color(theme.border_3))
         .when(!decor.flat, |el| {
             el.rounded_t(dp(6.))
                 .when(decor.folded, |el| el.rounded_b(dp(6.)))
         })
         // On the card's ground, as the header's own is solid rather than over the card.
-        .when(decor.current, |el| {
+        // A title is marked only while the keys act on it.
+        .when(decor.current && (decor.solid || !titled), |el| {
             el.bg(match decor.solid {
                 true => theme.fill_gray,
                 false => theme.bg_1.blend(theme.selected_unfocused()),
@@ -624,11 +639,13 @@ pub fn file_header(
             el.relative()
                 .child(blink_once(("blink", n), shape, theme.pop))
         })
-        .child(fold::chevron(
-            "fold",
-            !(decor.folded || decor.closing),
-            soft(theme.text_2),
-        ))
+        .when(!titled, |el| {
+            el.child(fold::chevron(
+                "fold",
+                !(decor.folded || decor.closing),
+                soft(theme.text_2),
+            ))
+        })
         .child(
             h_flex()
                 .flex_1()
@@ -639,6 +656,10 @@ pub fn file_header(
                 .child(
                     div()
                         .flex_none()
+                        .when(titled, |el| {
+                            el.text_size(dp(14.))
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                        })
                         .text_color(if on {
                             theme.text_inverted
                         } else {

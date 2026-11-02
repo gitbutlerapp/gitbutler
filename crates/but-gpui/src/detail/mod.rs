@@ -2691,7 +2691,7 @@ impl Detail {
         // Under a file's header, its sticky header hides the diff's top.
         let clear = match self.cursor.at {
             Stop::File => Pixels::ZERO,
-            Stop::Gap(_) | Stop::Hunk(_) => Theme::get(cx).scaled(diff::FILE_HEADER_HEIGHT),
+            Stop::Gap(_) | Stop::Hunk(_) => self.file_header_height(cx),
         };
         // A little of what follows shows below it, rather than it ending against the edge.
         let room = code_line(cx) * 2.;
@@ -2767,7 +2767,7 @@ impl Detail {
             return code_line(cx);
         };
         match loaded.rows.get(ix) {
-            Some(DiffRow::File(_)) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            Some(DiffRow::File(_)) => self.file_header_height(cx),
             // A box 28 tall with 6 above and below it, or nothing where the lines run on.
             Some(&DiffRow::Hunk { file, hunk }) => {
                 match (loaded.files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
