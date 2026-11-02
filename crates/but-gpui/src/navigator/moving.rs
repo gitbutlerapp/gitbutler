@@ -888,7 +888,7 @@ impl Navigator {
     }
 
     /// Start placing a commit of `worktree`'s uncommitted changes in `project`, from `start`
-    /// if it can go there, else on top of the topmost branch it can go on, as the TUI's commit
+    /// if it can go there, else on top of the topmost branch of `worktree`, as the TUI's commit
     /// mode does: the keys step through where it can go until Return commits it there, its
     /// message written first, or Escape lets go. The composer shows what goes in, and the
     /// message. So c and Return commit on top of the branch below the changes. The keys come
@@ -904,14 +904,22 @@ impl Navigator {
         let files = (self.detail.read(cx)).files_to_move(&project, worktree.clone(), cx);
         let what = Moving::Files {
             from: None,
-            worktree,
+            worktree: worktree.clone(),
             files: files.into(),
         };
         let stops = (self.stops_for(&project, &what, Op::Commit, cx))
             .map(|(stops, _)| stops)
             .unwrap_or_default();
+        // Its own checkout's topmost branch, else a new branch of its own: another checkout's
+        // branches take it only when stepped to.
+        let workspace = self.store.read(cx).workspace(&project);
+        let own = |branch: &FullName| {
+            (workspace.and_then(|ws| ws.lane_of(Some(branch))))
+                .is_some_and(|(lane, _)| lane.checkout == worktree)
+        };
         let topmost = (stops.iter())
-            .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
+            .position(|stop| matches!(stop, Stop::In(Destination::Branch(b)) if own(b)))
+            .or_else(|| (stops.iter()).position(|stop| matches!(stop, Stop::NewStack { .. })))
             .unwrap_or_default();
         let at = (start.filter(|start| stops.contains(start)))
             .or_else(|| stops.into_iter().nth(topmost));
