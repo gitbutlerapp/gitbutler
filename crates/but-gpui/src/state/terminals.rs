@@ -357,7 +357,7 @@ impl Store {
                 .and_then(|ws| ws.branches_in(&checkout).next())
                 .map(|branch| Selection::Branch(project.clone(), branch.ref_name.clone()));
             let instead = (below.or(above).or(branch))
-                .unwrap_or_else(|| Selection::uncommitted_in(project.clone(), checkout));
+                .unwrap_or_else(|| Selection::Checkout(project.clone(), checkout));
             self.select(Some(instead), cx);
         }
         cx.notify();

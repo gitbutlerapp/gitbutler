@@ -50,7 +50,12 @@ pub type ProjectId = SharedString;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Selection {
     Project(ProjectId),
-    Uncommitted(ProjectId),
+    /// A worktree's heading, the main one's or a linked one's by name, whose page is its
+    /// overview: what's going on in it and what just happened there.
+    Checkout(ProjectId, Checkout),
+    /// A worktree's uncommitted changes, first under its heading, whose page is their files
+    /// and diff; the main worktree's are also the files of a commit being edited.
+    Uncommitted(ProjectId, Checkout),
     /// A branch by its full ref, or `None` for an unnamed one.
     Branch(ProjectId, Option<FullName>),
     Commit(ProjectId, CommitId),
@@ -60,8 +65,6 @@ pub enum Selection {
     History(ProjectId),
     /// The project's commits drawn as a graph, the workspace's and the history below them.
     Graph(ProjectId),
-    /// A linked worktree, by name, and its uncommitted changes.
-    Worktree(ProjectId, bstr::BString),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, Option<FullName>),
     /// A checkout of the project on one of the user's other machines, by the mesh's id for
@@ -89,23 +92,16 @@ pub enum Section {
 }
 
 impl Selection {
-    pub fn uncommitted_in(project: ProjectId, checkout: Checkout) -> Self {
-        match checkout {
-            Checkout::Main => Selection::Uncommitted(project),
-            Checkout::Linked(name) => Selection::Worktree(project, name),
-        }
-    }
-
     pub fn project(&self) -> &ProjectId {
         match self {
             Selection::Project(project)
-            | Selection::Uncommitted(project)
+            | Selection::Checkout(project, _)
+            | Selection::Uncommitted(project, _)
             | Selection::Branch(project, _)
             | Selection::Commit(project, _)
             | Selection::Branches(project)
             | Selection::History(project)
             | Selection::Graph(project)
-            | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
             | Selection::Upstream(project, ..)
@@ -731,11 +727,12 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()),
             Selection::Commit(_, id) => workspace.find_commit(*id).map(|(branch, _)| branch),
             Selection::Project(_)
-            | Selection::Uncommitted(_)
+            | Selection::Checkout(..)
+            | Selection::Uncommitted(_, Checkout::Main)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
-            | Selection::Worktree(..)
+            | Selection::Uncommitted(_, Checkout::Linked(_))
             | Selection::Stack(..)
             | Selection::Mesh(..)
             | Selection::Upstream(..)
@@ -852,7 +849,15 @@ impl Store {
                 Selection::Upstream(_, None, _) | Selection::Section(..) => {
                     Selection::Project(project)
                 }
-                _ => Selection::Uncommitted(project),
+                // Changes all committed or discarded go up to their worktree's heading, if it's
+                // still there.
+                Selection::Uncommitted(_, checkout)
+                    if self
+                        .still_there(&Selection::Checkout(project.clone(), checkout.clone())) =>
+                {
+                    Selection::Checkout(project, checkout)
+                }
+                _ => Selection::Checkout(project, Checkout::Main),
             };
             self.select(Some(home), cx);
         }
@@ -866,13 +871,22 @@ impl Store {
         };
         match selection {
             Selection::Project(_)
-            | Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_)
-            | Selection::Graph(_) => true,
+            | Selection::Graph(_)
+            | Selection::Checkout(_, Checkout::Main) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
-            Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
+            Selection::Checkout(_, Checkout::Linked(name)) => {
+                workspace.worktrees.iter().any(|w| w.name == *name)
+            }
+            // Listed only with something uncommitted, or as a commit being edited's files.
+            Selection::Uncommitted(_, checkout) => {
+                (workspace.editing.is_some() && *checkout == Checkout::Main)
+                    || workspace
+                        .uncommitted_in(checkout)
+                        .is_some_and(|f| !f.is_empty())
+            }
             Selection::Terminal(_, id) => self.terminals.get(*id).is_some(),
             Selection::Stack(_, bottom) => workspace
                 .lane(bottom.as_ref())
@@ -973,13 +987,14 @@ impl Store {
         };
         let view = match selection {
             Selection::Project(_) => "project",
-            Selection::Uncommitted(_) => "uncommitted",
+            Selection::Checkout(..) => "checkout",
+            Selection::Uncommitted(_, Checkout::Main) => "uncommitted",
             Selection::Branch(..) => "branch",
             Selection::Commit(..) => "commit",
             Selection::Branches(_) => "branches",
             Selection::History(_) => "history",
             Selection::Graph(_) => "graph",
-            Selection::Worktree(..) => "worktree",
+            Selection::Uncommitted(_, Checkout::Linked(_)) => "worktree",
             Selection::Stack(..) => "stack",
             Selection::Mesh(..) => "mesh",
             Selection::Upstream(..) => "upstream",

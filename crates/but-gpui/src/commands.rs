@@ -9,7 +9,7 @@ use crate::app::{
     Pull, Push, Quit, Redo, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo,
     UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
-use crate::backend::{Checkout, FullName, Workspace};
+use crate::backend::{FullName, Workspace};
 use crate::detail::{
     DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
 };
@@ -411,9 +411,7 @@ fn squash_phrase(app: &AppView, cx: &App) -> Option<String> {
     }
     match &app.store.read(cx).selection {
         Some(Selection::Branch(..)) => Some("Squash branch".to_owned()),
-        Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
-            Some("Squash changes".to_owned())
-        }
+        Some(Selection::Uncommitted(..)) => Some("Squash changes".to_owned()),
         _ => None,
     }
 }
@@ -472,8 +470,7 @@ fn deletable(app: &AppView, cx: &App) -> bool {
 /// Whether the composer is open on the selected checkout. `None` when no checkout is selected.
 fn composing_selected(app: &AppView, cx: &App) -> Option<bool> {
     let (project, checkout) = match &app.store.read(cx).selection {
-        Some(Selection::Uncommitted(project)) => (project, Checkout::Main),
-        Some(Selection::Worktree(project, name)) => (project, Checkout::Linked(name.clone())),
+        Some(Selection::Uncommitted(project, checkout)) => (project, checkout.clone()),
         _ => return None,
     };
     Some(app.detail.read(cx).composing_in(project, &checkout))

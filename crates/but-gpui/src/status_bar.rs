@@ -219,10 +219,7 @@ impl AppView {
 
         let detail_focused = detail.is_focused(window, cx);
         // A linked worktree's changes commit and discard as the main checkout's do.
-        let uncommitted = matches!(
-            store.selection,
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
-        );
+        let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(..)));
         let composing = uncommitted && detail.composing();
         let hints: Vec<(&dyn Action, &str)> = if composing {
             let amend = detail
@@ -303,7 +300,7 @@ impl AppView {
                         .chain((!conflicted).then_some((&Uncommit as &dyn Action, "uncommit")))
                         .collect()
                 }
-                Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+                Some(Selection::Checkout(..) | Selection::Uncommitted(..)) => {
                     vec![(&StartCommit, "commit")]
                 }
                 Some(Selection::Terminal(..)) => vec![(&RenameTerminal, "rename")],
@@ -431,12 +428,7 @@ impl AppView {
                     color: None,
                     text,
                     tip: "Show the worktree",
-                    to: match first {
-                        Checkout::Main => Selection::Uncommitted(project.clone()),
-                        Checkout::Linked(name) => {
-                            Selection::Worktree(project.clone(), name.clone())
-                        }
-                    },
+                    to: Selection::Checkout(project.clone(), first.clone()),
                 });
             }
             let unread: Vec<CommitId> = (workspace.lanes.iter())
@@ -541,10 +533,10 @@ fn needs(
     let count = |files: &[FileChange]| files.iter().filter(|file| file.conflicted).count();
     let files: Vec<(usize, Selection)> = std::iter::once((
         count(&workspace.uncommitted),
-        Selection::Uncommitted(project.clone()),
+        Selection::Uncommitted(project.clone(), Checkout::Main),
     ))
     .chain((workspace.worktrees.iter()).map(|worktree| {
-        let to = Selection::Worktree(project.clone(), worktree.name.clone());
+        let to = Selection::Uncommitted(project.clone(), Checkout::Linked(worktree.name.clone()));
         (count(&worktree.uncommitted), to)
     }))
     .filter(|(n, to)| *n > 0 && elsewhere(to))
@@ -641,7 +633,7 @@ fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
 mod tests {
     use super::{Need, needs, under_way};
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
-    use crate::backend::{Checks, FileChange, Review, ReviewState};
+    use crate::backend::{Checkout, Checks, FileChange, Review, ReviewState};
     use crate::state::{ProjectId, Selection};
 
     #[test]
@@ -688,7 +680,7 @@ mod tests {
                 (
                     Need::ConflictedFiles,
                     "3 conflicted files".to_owned(),
-                    Selection::Uncommitted(project.clone())
+                    Selection::Uncommitted(project.clone(), Checkout::Main)
                 ),
                 (
                     Need::FailedChecks,
@@ -698,13 +690,13 @@ mod tests {
             ],
             "a merged pull request's checks and a linked worktree's, which go stale, don't count"
         );
-        let main = Selection::Uncommitted(project.clone());
+        let main = Selection::Uncommitted(project.clone(), Checkout::Main);
         assert_eq!(
             needs(&project, &ws, Some(&main))[1],
             (
                 Need::ConflictedFiles,
                 "2 conflicted files".to_owned(),
-                Selection::Worktree(project.clone(), "agent-x".into())
+                Selection::Uncommitted(project.clone(), Checkout::Linked("agent-x".into()))
             ),
             "Main worktree's page shows its own conflicts, and the linked worktree's still count"
         );

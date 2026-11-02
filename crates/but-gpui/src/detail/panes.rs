@@ -57,17 +57,21 @@ impl Detail {
                 Some(Selection::Project(entry.id.clone()).into()),
             ));
             let workspace = entry.workspace.as_ref();
-            // The worktree a branch, stack or commit is in, named as its navigator heading is.
+            // The worktree a branch, stack, commit or the changes are in, named as its navigator
+            // heading is.
             let heading = |item: &Selection| -> Crumb {
                 let project = item.project().clone();
                 match store.worktree_for(item) {
                     Some(worktree) => (
                         worktree.name.to_string().into(),
-                        Some(Selection::Worktree(project, worktree.name.clone()).into()),
+                        Some(
+                            Selection::Checkout(project, Checkout::Linked(worktree.name.clone()))
+                                .into(),
+                        ),
                     ),
                     None => (
                         "Main worktree".into(),
-                        Some(Selection::Uncommitted(project).into()),
+                        Some(Selection::Checkout(project, Checkout::Main).into()),
                     ),
                 }
             };
@@ -78,24 +82,29 @@ impl Detail {
                         let name = checkout
                             .linked()
                             .map_or("Main worktree".into(), |name| name.to_string().into());
-                        let worktree = Selection::uncommitted_in(project.clone(), checkout.clone());
+                        let worktree = Selection::Checkout(project.clone(), checkout.clone());
                         crumbs.push((name, Some(worktree.into())));
                     }
                     if let Some(title) = store.terminals.title(*id) {
                         crumbs.push((title.clone(), None));
                     }
                 }
-                Selection::Uncommitted(_) => match workspace.and_then(|ws| ws.editing.as_ref()) {
+                Selection::Uncommitted(..) => match workspace.and_then(|ws| ws.editing.as_ref()) {
                     Some(editing) => {
                         let title = commit_title(&editing.title);
                         crumbs.push((format!("Editing {title}").into(), None));
                     }
-                    // While its changes show, it goes back to its overview, as Esc does.
-                    None => crumbs.push((
-                        "Main worktree".into(),
-                        (!self.showing_now(cx)).then(|| selection.clone().into()),
-                    )),
+                    None => {
+                        crumbs.push(heading(selection));
+                        crumbs.push(("Uncommitted changes".into(), None));
+                    }
                 },
+                Selection::Checkout(_, checkout) => {
+                    let name = checkout
+                        .linked()
+                        .map_or("Main worktree".into(), |name| name.to_string());
+                    crumbs.push((name.into(), None));
+                }
                 Selection::Branch(project, ref_name) => {
                     let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_ref()));
                     let name = match (branch, ref_name) {
@@ -109,10 +118,6 @@ impl Detail {
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone().into())));
                     self.branches_crumbs(project, &mut crumbs);
-                }
-                Selection::Worktree(_, name) => {
-                    let back = (!self.showing_now(cx)).then(|| selection.clone().into());
-                    crumbs.push((name.to_string().into(), back));
                 }
                 Selection::Mesh(project, id, pick) => {
                     machine::mesh_crumbs(store, project, id, pick, &mut crumbs)
@@ -392,7 +397,7 @@ impl Detail {
                     });
                     // What's picked goes in first, as finishing means the picking is done;
                     // finishing waits for it, so a resolve that fails finishes nothing.
-                    let at = Selection::Uncommitted(project.clone());
+                    let at = Selection::Uncommitted(project.clone(), Checkout::Main);
                     let finish = move |this: &mut Self, cx: &mut Context<Self>| {
                         if !this.apply_resolutions(true, cx) {
                             (this.store).update(cx, |store, cx| store.finish_editing(&project, cx))

@@ -358,18 +358,19 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
                 .and_then(|name| store.workspace(project)?.find_worktree(name));
             copies.extend(worktree.map(worktree_copies).into_iter().flatten());
         }
-        Selection::Worktree(project, name) => {
+        Selection::Checkout(project, Checkout::Linked(name)) => {
             let worktree =
                 (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
             copies.extend(worktree.map(worktree_copies).into_iter().flatten());
         }
         // The main worktree's row, which has no name of its own.
-        Selection::Uncommitted(project) => {
+        Selection::Checkout(project, Checkout::Main) => {
             if let Some(path) = store.path(project) {
                 copies.push(("Worktree path", path.display().to_string()));
             }
         }
         Selection::Project(_)
+        | Selection::Uncommitted(..)
         | Selection::Upstream(..)
         | Selection::Mesh(..)
         | Selection::Branches(_)
@@ -456,7 +457,7 @@ fn upstream_choice(entry: &ProjectEntry, workspace: &Workspace, several: bool) -
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
 fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> Choice {
     let (id, name) = (entry.id.clone(), worktree.name.clone());
-    let goes_to = Selection::Worktree(id.clone(), name.clone());
+    let goes_to = Selection::Checkout(id.clone(), Checkout::Linked(name.clone()));
     let gone = format!("{name} was archived or deleted meanwhile");
     let branch = worktree.branch.as_ref().map(short_ref);
     let project = several.then_some(entry.project.name.as_str());
@@ -466,7 +467,7 @@ fn worktree_choice(entry: &ProjectEntry, worktree: &Worktree, several: bool) -> 
         {
             return snack(&this.store, gone, cx);
         }
-        this.select(Selection::Worktree(id, name), window, cx)
+        this.select(Selection::Checkout(id, Checkout::Linked(name)), window, cx)
     });
     let details = branch.as_deref().into_iter().chain(project);
     choice

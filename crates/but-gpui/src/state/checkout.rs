@@ -21,11 +21,12 @@ impl Store {
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
             Selection::Project(_)
-            | Selection::Uncommitted(_)
+            | Selection::Checkout(..)
+            | Selection::Uncommitted(_, Checkout::Main)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Graph(_)
-            | Selection::Worktree(..)
+            | Selection::Uncommitted(_, Checkout::Linked(_))
             | Selection::Mesh(..)
             | Selection::Upstream(_, None, _)
             | Selection::Section(..)
@@ -33,12 +34,13 @@ impl Store {
         }
     }
 
-    /// The checkout `selection` is in: whose uncommitted changes it is, the one a terminal is
-    /// open on, or that of the lane it's in.
+    /// The checkout `selection` is in: whose heading or uncommitted changes it is, the one a
+    /// terminal is open on, or that of the lane it's in.
     pub fn checkout_of(&self, selection: &Selection) -> Option<Checkout> {
         match selection {
-            Selection::Uncommitted(_) => Some(Checkout::Main),
-            Selection::Worktree(_, name) => Some(Checkout::Linked(name.clone())),
+            Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+                Some(checkout.clone())
+            }
             Selection::Terminal(..) => self.terminals.checkout_of(selection).cloned(),
             _ => Some(self.lane_for(selection)?.0.checkout.clone()),
         }
@@ -92,8 +94,8 @@ impl Store {
     pub fn checkout_dir(&self, selection: &Selection) -> Option<PathBuf> {
         let project = selection.project();
         match selection {
-            Selection::Worktree(_, name) => {
-                self.checkout_path(project, &Checkout::Linked(name.clone()))
+            Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+                self.checkout_path(project, checkout)
             }
             Selection::Mesh(..) => None,
             _ => match self.worktree_for(selection) {
@@ -112,7 +114,7 @@ impl Store {
             .project(project)
             .map_or("", |entry| &entry.project.name);
         let elsewhere = match at {
-            Selection::Worktree(_, worktree) => Some(worktree.to_string()),
+            Selection::Uncommitted(_, Checkout::Linked(worktree)) => Some(worktree.to_string()),
             Selection::Mesh(_, id, _) => self.mesh_checkout(project, id).map(|c| c.label()),
             _ => self
                 .worktree_for(at)

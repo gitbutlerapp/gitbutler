@@ -428,7 +428,10 @@ impl Navigator {
         // Nothing but the edit goes on while a commit is checked out, its files listed
         // where the uncommitted ones are.
         if workspace.editing.is_some() {
-            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+            rows.push(Row::Item(Selection::Uncommitted(
+                id.clone(),
+                Checkout::Main,
+            )));
             return;
         }
         // The main worktree's heading folds its branches away, which step in under it; with
@@ -438,11 +441,11 @@ impl Navigator {
         let main_selected =
             selection.is_some_and(|s| in_checkout(store, s, workspace, &Checkout::Main));
         let main_open = self.worktree_open(id, Checkout::Main, main_selected);
-        // Always listed, with nothing uncommitted too, so where to commit is always there.
-        let heading = Selection::Uncommitted(id.clone());
+        let heading = Selection::Checkout(id.clone(), Checkout::Main);
         rows.push(Row::Item(heading.clone()));
         rows.open_in(STEP);
         rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
+            changes_row(store, workspace, id, &Checkout::Main, rows);
             terminal_rows(store, id, &Checkout::Main, rows);
             // A stack being unapplied leaves at once, as one whose branches are all being
             // deleted does.
@@ -539,7 +542,7 @@ impl Navigator {
             if let Some(workspace) = workspace {
                 // The main worktree's branches under its heading.
                 let main = rows.rows.len();
-                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+                rows.push(Row::Item(Selection::Checkout(id.clone(), Checkout::Main)));
                 rows.open_in(STEP);
                 let heading_end = rows.rows.len();
                 for stack in workspace.lanes_in(&Checkout::Main) {
@@ -563,7 +566,7 @@ impl Navigator {
                 for wt in worktrees {
                     let wt_start = rows.rows.len();
                     let wt_own = found(terms, &[wt.name.to_string().as_str()]);
-                    let item = Selection::Worktree(id.clone(), wt.name.clone());
+                    let item = Selection::Checkout(id.clone(), Checkout::Linked(wt.name.clone()));
                     rows.push_found(item, hit(own, wt_own));
                     rows.open_in(STEP);
                     let lane = workspace.worktree_lane(wt.name.as_ref());
@@ -772,8 +775,8 @@ impl Navigator {
         }
     }
 
-    /// A linked worktree's heading, its uncommitted changes, and, unless it's folded without
-    /// the selection in them, its branches; then a line ruling it off from what follows.
+    /// A linked worktree's heading and, unless it's folded without the selection in them, its
+    /// uncommitted changes and its branches; then a line ruling it off from what follows.
     fn worktree_rows(
         &self,
         store: &Store,
@@ -783,13 +786,16 @@ impl Navigator {
         rows: &mut Rows,
     ) {
         let name = worktree.name.clone();
-        let heading = Selection::Worktree(id.clone(), name.clone());
+        let heading = Selection::Checkout(id.clone(), Checkout::Linked(name.clone()));
         rows.push(Row::Item(heading.clone()));
         let open = self.worktree_open(id, Checkout::Linked(name.clone()), selected);
         rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
             rows.open_in(STEP);
-            terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
             let workspace = store.workspace(id);
+            if let Some(workspace) = workspace {
+                changes_row(store, workspace, id, &Checkout::Linked(name.clone()), rows);
+            }
+            terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
             let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
             if let Some((workspace, lane)) = workspace.zip(lane) {
@@ -907,7 +913,7 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
             let workspace = store.workspace(id);
             (inactive.iter()).any(|wt| {
                 let checkout = Checkout::Linked(wt.name.clone());
-                matches!(s, Selection::Worktree(_, name) if *name == wt.name)
+                matches!(s, Selection::Checkout(_, Checkout::Linked(name)) if *name == wt.name)
                     || workspace.is_some_and(|ws| in_checkout(store, s, ws, &checkout))
             })
         })
@@ -965,16 +971,37 @@ pub(super) fn listed_with(
     Some(listed.collect())
 }
 
-/// Whether `selection` is in `checkout`, which folding its heading hides: a branch, commit or
-/// stack in its lane, or a terminal open on it.
+/// Whether `selection` is in `checkout`, which folding its heading hides: its uncommitted
+/// changes, a branch, commit or stack in its lane, or a terminal open on it.
 pub(super) fn in_checkout(
     store: &Store,
     selection: &Selection,
     workspace: &Workspace,
     checkout: &Checkout,
 ) -> bool {
-    within(selection, workspace.branches_in(checkout))
+    *selection == Selection::Uncommitted(selection.project().clone(), checkout.clone())
+        || within(selection, workspace.branches_in(checkout))
         || store.terminals.checkout_of(selection) == Some(checkout)
+}
+
+/// `project`'s `checkout`'s uncommitted changes, first under its heading, listed only while
+/// there are some: with none, there's nothing to show or commit.
+fn changes_row(
+    store: &Store,
+    workspace: &Workspace,
+    project: &ProjectId,
+    checkout: &Checkout,
+    rows: &mut Rows,
+) {
+    let Some(files) = workspace.uncommitted_in(checkout) else {
+        return;
+    };
+    if !store.uncommitted_shown(project, checkout, files).is_empty() {
+        rows.push(Row::Item(Selection::Uncommitted(
+            project.clone(),
+            checkout.clone(),
+        )));
+    }
 }
 
 /// The terminals open on `project`'s `checkout`, first under its heading.
