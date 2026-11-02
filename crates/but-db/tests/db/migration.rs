@@ -526,6 +526,42 @@ CREATE TABLE `hunk_assignments`(
 	PRIMARY KEY(`path`, `hunk_header`)
 );
 
+-- table obs_marker_meta
+CREATE TABLE `obs_marker_meta`(
+    `marker_id` BLOB NOT NULL,
+    `key` BLOB NOT NULL,
+    `value` BLOB NOT NULL,
+    PRIMARY KEY (`marker_id`, `key`),
+    FOREIGN KEY (`marker_id`) REFERENCES `obs_markers`(`id`)
+);
+
+-- table obs_marker_parents
+CREATE TABLE `obs_marker_parents`(
+    `marker_id` BLOB NOT NULL,
+    `position` INTEGER NOT NULL,
+    `parent` BLOB NOT NULL,
+    PRIMARY KEY (`marker_id`, `position`),
+    FOREIGN KEY (`marker_id`) REFERENCES `obs_markers`(`id`)
+);
+
+-- table obs_marker_succs
+CREATE TABLE `obs_marker_succs`(
+    `marker_id` BLOB NOT NULL,
+    `position` INTEGER NOT NULL,
+    `succ` BLOB NOT NULL,
+    PRIMARY KEY (`marker_id`, `position`),
+    FOREIGN KEY (`marker_id`) REFERENCES `obs_markers`(`id`)
+);
+
+-- table obs_markers
+CREATE TABLE `obs_markers`(
+    `id` BLOB NOT NULL PRIMARY KEY,
+    `prec` BLOB NOT NULL,
+    `date_seconds` INTEGER NOT NULL,
+    `date_offset` INTEGER NOT NULL,
+    `parents_recorded` INTEGER NOT NULL
+);
+
 -- table vb_branch_targets
 CREATE TABLE `vb_branch_targets`(
 	`stack_id` TEXT NOT NULL PRIMARY KEY,
@@ -616,6 +652,12 @@ CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
 -- index idx_ci_checks_reference
 CREATE INDEX `idx_ci_checks_reference` ON `ci_checks`(`reference`);
 
+-- index idx_obs_marker_succs_succ
+CREATE INDEX `idx_obs_marker_succs_succ` ON `obs_marker_succs`(`succ`);
+
+-- index idx_obs_markers_prec
+CREATE INDEX `idx_obs_markers_prec` ON `obs_markers`(`prec`);
+
 -- index idx_vb_stack_heads_stack_id
 CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
 
@@ -679,6 +721,7 @@ Text("20260715120000")
 Text("20260715161258")
 Text("20260716175500")
 Text("20260805120000")
+Text("20261102120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -733,6 +776,18 @@ name | archived
 
 Table: worktree_adoption
 id | adopted_at
+
+Table: obs_markers
+id | prec | date_seconds | date_offset | parents_recorded
+
+Table: obs_marker_succs
+marker_id | position | succ
+
+Table: obs_marker_parents
+marker_id | position | parent
+
+Table: obs_marker_meta
+marker_id | key | value
 
 
 "#]]
