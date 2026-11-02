@@ -1153,7 +1153,7 @@ impl Navigator {
             Some(Selection::Worktree(project, name))
                 if (store.workspace(&project))
                     .and_then(|ws| ws.find_worktree(name.as_ref()))
-                    .is_some_and(|wt| wt.is_inactive()) =>
+                    .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
             {
                 let heading = Selection::Section(project, Section::Inactive);
                 self.select(heading, window, cx)
@@ -3139,14 +3139,13 @@ impl Navigator {
         let store = self.store.read(cx);
         let inactive = store.inactive_worktrees(project);
         let open = inactive_open(store, project, &inactive);
+        let after = store.prefs.inactive_after;
         let label = "Inactive worktrees";
         self.section_heading(ix, project, &Section::Inactive, label, style, cx)
             .when(!open, |el| {
                 el.child(faint(inactive.len().to_string(), style.theme).text_color(style.quiet()))
             })
-            .tooltip(Tooltip::text(
-                "Nothing uncommitted, and no commits or checkouts in 12 hours",
-            ))
+            .tooltip(move |window, cx| Tooltip::text(after.rule())(window, cx))
             .into_any_element()
     }
 
@@ -3528,7 +3527,7 @@ fn holder(store: &Store, item: &Selection) -> Option<Selection> {
         Selection::Worktree(_, name)
             if (store.workspace(&project))
                 .and_then(|ws| ws.find_worktree(name.as_ref()))
-                .is_some_and(|wt| wt.is_inactive()) =>
+                .is_some_and(|wt| wt.is_inactive(store.prefs.inactive_after)) =>
         {
             Some(Selection::Section(project.clone(), Section::Inactive))
         }

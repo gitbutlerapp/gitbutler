@@ -488,7 +488,7 @@ impl Navigator {
             let (inactive, active): (Vec<_>, Vec<_>) = (worktrees_shown(store, id, workspace))
                 .into_iter()
                 .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
-                .partition(|wt| wt.is_inactive());
+                .partition(|wt| wt.is_inactive(store.prefs.inactive_after));
             for wt in active {
                 self.worktree_rows(store, id, wt, on_branches(wt), rows);
             }
@@ -956,10 +956,11 @@ pub(super) fn listed_with(
     name: &bstr::BStr,
 ) -> Option<Arc<[bstr::BString]>> {
     let workspace = store.workspace(project)?;
-    let inactive = workspace.find_worktree(name)?.is_inactive();
+    let after = store.prefs.inactive_after;
+    let inactive = workspace.find_worktree(name)?.is_inactive(after);
     let listed = (worktrees_shown(store, project, workspace).into_iter())
         .filter(|wt| {
-            wt.is_inactive() == inactive && !store.hides_worktree(project, wt.name.as_ref())
+            wt.is_inactive(after) == inactive && !store.hides_worktree(project, wt.name.as_ref())
         })
         .map(|wt| wt.name.clone());
     Some(listed.collect())

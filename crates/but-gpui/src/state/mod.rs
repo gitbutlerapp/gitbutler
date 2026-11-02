@@ -877,7 +877,8 @@ impl Store {
                 !workspace.upstream(ref_name.as_ref()).is_empty()
             }
             Selection::Section(_, Section::Inactive) => {
-                workspace.worktrees.iter().any(|wt| wt.is_inactive())
+                let after = self.prefs.inactive_after;
+                workspace.worktrees.iter().any(|wt| wt.is_inactive(after))
             }
             Selection::Upstream(project, ref_name, id) => {
                 (workspace.upstream(ref_name.as_ref()).iter()).any(|c| c.id == *id)

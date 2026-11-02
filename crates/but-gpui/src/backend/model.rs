@@ -165,17 +165,72 @@ impl Worktree {
             .chain(self.updated_at)
     }
 
-    /// Nothing uncommitted, so not active either, and it hasn't moved in
-    /// [`INACTIVE_AFTER`]. One with no reflog to date it stays active.
-    pub fn is_inactive(&self) -> bool {
+    /// Nothing uncommitted, so not active either, and it hasn't moved for `after`. One with no
+    /// reflog to date it stays active.
+    pub fn is_inactive(&self, after: InactiveAfter) -> bool {
         self.uncommitted.is_empty()
-            && (self.updated_at)
-                .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
+            && (after.seconds().zip(self.updated_at))
+                .is_some_and(|(after, at)| crate::ui::now() - at > after)
     }
 }
 
 /// How long a worktree with nothing uncommitted counts as active after it last moved.
-const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 60 * 60);
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum InactiveAfter {
+    TwelveHours,
+    OneDay,
+    #[default]
+    TwoDays,
+    FourDays,
+    OneWeek,
+    TwoWeeks,
+    Never,
+}
+
+impl InactiveAfter {
+    pub const ALL: [Self; 7] = [
+        Self::TwelveHours,
+        Self::OneDay,
+        Self::TwoDays,
+        Self::FourDays,
+        Self::OneWeek,
+        Self::TwoWeeks,
+        Self::Never,
+    ];
+
+    fn seconds(self) -> Option<i64> {
+        const HOUR: i64 = 60 * 60;
+        const DAY: i64 = 24 * HOUR;
+        match self {
+            Self::TwelveHours => Some(12 * HOUR),
+            Self::OneDay => Some(DAY),
+            Self::TwoDays => Some(2 * DAY),
+            Self::FourDays => Some(4 * DAY),
+            Self::OneWeek => Some(7 * DAY),
+            Self::TwoWeeks => Some(14 * DAY),
+            Self::Never => None,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::TwelveHours => "12 hours",
+            Self::OneDay => "1 day",
+            Self::TwoDays => "2 days",
+            Self::FourDays => "4 days",
+            Self::OneWeek => "1 week",
+            Self::TwoWeeks => "2 weeks",
+            Self::Never => "Never",
+        }
+    }
+
+    /// What makes a worktree inactive, for where inactive worktrees show, so never with
+    /// [`InactiveAfter::Never`].
+    pub fn rule(self) -> String {
+        let label = self.label();
+        format!("Nothing uncommitted, and no commits or checkouts in {label}")
+    }
+}
 
 impl Workspace {
     /// Every commit shown, its linked worktrees' too.
@@ -1231,9 +1286,40 @@ mod tests {
     use but_core::HunkHeader;
 
     use super::{
-        Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
-        RemoteCommit,
+        Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, InactiveAfter, LineKind,
+        PushState, RemoteCommit, Worktree,
     };
+
+    #[test]
+    fn a_worktree_goes_inactive_only_past_the_time_picked() {
+        const DAY: i64 = 24 * 60 * 60;
+        let moved_days_ago = |days: i64| Worktree {
+            name: "agent".into(),
+            path: "/work/agent".into(),
+            branch: None,
+            uncommitted: Vec::new(),
+            git_operation: None,
+            tree: None,
+            updated_at: Some(crate::ui::now() - days * DAY),
+        };
+        let default = InactiveAfter::default();
+        assert!(
+            !moved_days_ago(1).is_inactive(default),
+            "a day is within the default"
+        );
+        assert!(
+            moved_days_ago(3).is_inactive(default),
+            "three days is past the default"
+        );
+        assert!(
+            moved_days_ago(1).is_inactive(InactiveAfter::TwelveHours),
+            "a shorter pick catches what the default keeps"
+        );
+        assert!(
+            !moved_days_ago(365).is_inactive(InactiveAfter::Never),
+            "never means never"
+        );
+    }
 
     #[test]
     fn a_symbolic_link_says_so_where_its_target_reads_like_content() {

@@ -154,6 +154,18 @@ impl Store {
         cx.notify();
     }
 
+    /// Count worktrees as inactive `after`, which can empty the heading selected.
+    pub fn set_inactive_after(
+        &mut self,
+        after: crate::backend::InactiveAfter,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_prefs(|prefs| prefs.inactive_after = after, cx);
+        if let Some(project) = self.selection.as_ref().map(|s| s.project().clone()) {
+            self.validate_selection(&project, cx);
+        }
+    }
+
     /// Change what only the diff shows. The detail redraws its diff itself, and telling the
     /// whole window would redraw the navigator and the rest with it, past a frame's budget.
     pub fn set_diff_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
@@ -453,6 +465,8 @@ pub struct Prefs {
     /// Watched projects, by id, whose inactive worktrees show under their heading; it starts
     /// folded.
     pub shown_inactive: HashSet<String>,
+    /// How long a linked worktree with nothing uncommitted stays active after it last moved.
+    pub inactive_after: crate::backend::InactiveAfter,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
     /// Each project's linked worktrees by name, archived ones too, by project id, in the

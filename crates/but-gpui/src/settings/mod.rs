@@ -19,6 +19,7 @@ mod metrics;
 mod project;
 
 use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
+use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns};
@@ -789,6 +790,22 @@ impl SettingsView {
                     cx,
                 ),
             ),
+            Row::new(
+                "Worktrees go inactive after",
+                "A linked worktree with nothing uncommitted moves under Inactive worktrees once \
+                 it's gone this long without a commit or checkout.",
+                self.choice(
+                    "inactive-after",
+                    prefs.inactive_after.label(),
+                    InactiveAfter::ALL.map(|after| (after, after.label().to_owned())),
+                    |this, after, _, cx| {
+                        this.store
+                            .update(cx, |store, cx| store.set_inactive_after(after, cx))
+                    },
+                    cx,
+                ),
+            )
+            .with_keywords("stale"),
         ];
         let folder_counts = Row::new(
             "Show folders' line counts",
