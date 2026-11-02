@@ -294,7 +294,97 @@ fn files_named(files: &[String]) -> String {
 
 const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
 
+/// What runs once a commit is made.
+type OnCommitted = std::rc::Rc<dyn Fn(&mut Store, backend::Committed, &mut Context<Store>)>;
+
+/// A commit not made as some of its changes couldn't go where it was asked to, for the user to
+/// say where they go instead: `commit` as it was asked for, why it wasn't made, and what runs
+/// once it's made after all.
+pub struct BlockedCommit {
+    pub project: ProjectId,
+    pub commit: backend::CommitChanges,
+    pub blocked: backend::Blocked,
+    committed: OnCommitted,
+}
+
 impl Store {
+    /// Apply `commit` to `project`, as [`Self::apply`] does, then `committed` with what it
+    /// made. One some of whose changes can't go where it was asked to is not made at all, and
+    /// the window asks the user where they go instead ([`StoreEvent::CommitBlocked`]), so
+    /// nothing is left out of a commit without their say.
+    pub fn commit(
+        &mut self,
+        project: &ProjectId,
+        label: impl Into<Label>,
+        overlay: Overlay,
+        commit: backend::CommitChanges,
+        committed: impl Fn(&mut Store, backend::Committed, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let committed = std::rc::Rc::new(committed);
+        self.commit_with(project, label.into(), overlay, commit, committed, cx)
+    }
+
+    fn commit_with(
+        &mut self,
+        project: &ProjectId,
+        label: Label,
+        overlay: Overlay,
+        commit: backend::CommitChanges,
+        committed: OnCommitted,
+        cx: &mut Context<Self>,
+    ) {
+        let asked = (project.clone(), commit.clone());
+        let done = move |store: &mut Store, outcome, cx: &mut Context<Store>| match outcome {
+            backend::CommitOutcome::Committed(made) => committed(store, made, cx),
+            backend::CommitOutcome::Blocked(blocked) => {
+                let (project, commit) = asked;
+                store.blocked_commit = Some(BlockedCommit {
+                    project,
+                    commit,
+                    blocked,
+                    committed,
+                });
+                cx.emit(StoreEvent::CommitBlocked);
+            }
+        };
+        self.apply(project, label, overlay, commit, done, cx)
+    }
+
+    /// The commit last blocked, for the window to ask about, once.
+    pub fn take_blocked_commit(&mut self) -> Option<BlockedCommit> {
+        self.blocked_commit.take()
+    }
+
+    /// Commit what `blocked` asked for to `to` instead, as the user said, leaving out the
+    /// changes it can't take with `leave_out`, or stacking first as `restack` says.
+    pub fn commit_instead(
+        &mut self,
+        blocked: BlockedCommit,
+        to: backend::CommitTo,
+        leave_out: bool,
+        restack: Option<backend::Stacking>,
+        cx: &mut Context<Self>,
+    ) {
+        let BlockedCommit {
+            project,
+            commit,
+            committed,
+            ..
+        } = blocked;
+        let overlay = Overlay {
+            files_in: commit.checkout.clone(),
+            ..Overlay::files(commit.changes.iter())
+        };
+        let commit = backend::CommitChanges {
+            to,
+            leave_out,
+            restack,
+            ..commit
+        };
+        self.commit_with(&project, "Commit".into(), overlay, commit, committed, cx)
+    }
+
     /// Confirm an operation, or warn about the changes it had to leave out.
     pub fn report_left_out(&mut self, done: &str, left_out: &[String], cx: &mut Context<Self>) {
         if left_out.is_empty() {

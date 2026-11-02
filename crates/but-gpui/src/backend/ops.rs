@@ -306,6 +306,7 @@ fn commit_first(
     branch: FullName,
     changes: Vec<DiffSpec>,
     message: String,
+    leave_out: bool,
 ) -> Result<(FullName, Made, Rejected)> {
     use gix::prelude::ObjectIdExt as _;
     let repo = ctx.repo.get()?;
@@ -326,11 +327,9 @@ fn commit_first(
         changes,
         ctx.settings.context_lines,
     )?;
-    let Some(id) = outcome.new_commit else {
-        bail!(
-            "Nothing could be committed.\n{}",
-            left_out(&outcome.rejected_specs).join("\n")
-        );
+    let id = match outcome.new_commit {
+        Some(id) if leave_out || outcome.rejected_specs.is_empty() => id,
+        made => return Err(refused(outcome.rejected_specs, made.is_some())),
     };
     but_workspace::init::publish_first_commit(&repo, branch.as_ref(), id)?;
     let made = Made {
@@ -345,6 +344,7 @@ fn commit_first(
 }
 
 /// The branch a commit goes on, and where in it.
+#[derive(Debug, Clone)]
 pub enum CommitTo {
     /// On top of it.
     Branch(FullName),
@@ -366,12 +366,324 @@ pub enum CommitTo {
 /// commit-msg can also rewrite the message. post-commit runs once the commit is made, which
 /// stands even if the hook fails. Hooks run outside GitButler's lock, so one that runs `but`
 /// doesn't wait on it.
+///
+/// A change it can't take, as one building on another branch's commits, leaves the commit
+/// unmade, [`CommitOutcome::Blocked`] saying why, unless `leave_out`, as the user agreed to
+/// commit without such changes.
+///
+/// With `restack`, its branch is stacked first, in the same oplog entry, as [`Blocked::stack`]
+/// offers: only for a commit on top of that branch or a new branch beside one, and only if that
+/// stacks cleanly still.
+#[derive(Clone)]
 pub struct CommitChanges {
     pub to: CommitTo,
     pub changes: Arc<[Selected]>,
     pub checkout: Checkout,
     pub message: String,
     pub run_hooks: bool,
+    pub leave_out: bool,
+    pub restack: Option<Stacking>,
+}
+
+pub use but_hunk_dependency::rejection::Stacking;
+
+/// How a commit went.
+#[derive(Debug)]
+pub enum CommitOutcome {
+    Committed(Committed),
+    /// Not made, as some of its changes couldn't go where it was asked to.
+    Blocked(Blocked),
+}
+
+/// A commit not made as some of its changes couldn't go where it was asked to: those, and
+/// where they could all go instead.
+#[derive(Debug)]
+pub struct Blocked {
+    pub changes: Vec<BlockedChange>,
+    /// The branch every one of them builds on, the topmost of those in their one stack, so
+    /// that committing to it, or to a new branch on it, takes them all.
+    pub builds_on: Option<FullName>,
+    /// Whether `builds_on` has been merged, so it takes no commits: only a new branch above it
+    /// can take them.
+    pub builds_on_merged: bool,
+    /// Whether the commit would still take some of what was asked, without them.
+    pub takes_others: bool,
+    /// Where they build on two stacks: stacking one on the other, after which a new branch
+    /// above it takes them all, tried and found to conflict nothing.
+    pub stack: Option<Stacking>,
+}
+
+/// A file's change a commit couldn't take: its hunks that build on other commits, the
+/// branches those are in, or why else not.
+#[derive(Debug)]
+pub struct BlockedChange {
+    pub path: String,
+    /// Its hunks that build on commits in the workspace, where those could be told.
+    pub hunks: Vec<BlockedHunk>,
+    /// Branches whose commits change the file too, when no hunk could be told to build on one.
+    pub suspects: Vec<FullName>,
+    /// Every branch it builds on, those of `hunks` and `suspects`.
+    pub builds_on: Vec<FullName>,
+    pub why: &'static str,
+}
+
+/// How many of the files a [`Blocked`] commit left out the dialog draws the hunks of. It counts
+/// the rest, as an agent's move of a folder can leave thousands out.
+pub const BLOCKED_FILES_SHOWN: usize = 20;
+/// How many of each of those files' hunks it draws.
+pub const BLOCKED_HUNKS_SHOWN: usize = 4;
+
+/// A hunk that builds on commits in the workspace: where it is, what it changes, and on what.
+#[derive(Debug)]
+pub struct BlockedHunk {
+    /// Where it was in the file before, as a range of lines; empty where it only adds.
+    pub old_start: u32,
+    pub old_lines: u32,
+    /// Where it is in the file as it is now, as a range of lines; empty where it only removes.
+    pub new_start: u32,
+    pub new_lines: u32,
+    /// Its lines as the diff shows them: numbered, highlighted and with the changed words
+    /// marked. Empty past the hunks the dialog draws, [`BLOCKED_HUNKS_SHOWN`] of the first
+    /// [`BLOCKED_FILES_SHOWN`] files, as reading them all could take long for thousands.
+    pub lines: Vec<super::DiffLine>,
+    pub builds_on: Vec<BuiltOn>,
+}
+
+/// A commit a hunk builds on.
+#[derive(Debug)]
+pub struct BuiltOn {
+    pub id: CommitId,
+    pub title: String,
+    /// The branch that has it, if it could be told.
+    pub branch: Option<FullName>,
+}
+
+/// What a commit couldn't take of a file, as `change` explains it, reading the titles of the
+/// commits it builds on from `repo`, and the lines of its hunks if it's `shown`.
+fn blocked_change(
+    repo: &gix::Repository,
+    change: &but_hunk_dependency::rejection::RejectedChange,
+    shown: bool,
+) -> BlockedChange {
+    let mut builds_on: Vec<FullName> = Vec::new();
+    for name in change.branches().flatten() {
+        if !builds_on.iter().any(|known| known.as_ref() == name) {
+            builds_on.push(name.to_owned());
+        }
+    }
+    let hunks = (change.dependencies.iter().enumerate())
+        .map(|(ix, dependency)| {
+            let header = &dependency.hunk;
+            let lines = match shown && ix < BLOCKED_HUNKS_SHOWN {
+                true => {
+                    let mut hunk = super::diff::parse_hunk(&but_core::unified_diff::DiffHunk {
+                        old_start: header.old_start,
+                        old_lines: header.old_lines,
+                        new_start: header.new_start,
+                        new_lines: header.new_lines,
+                        diff: dependency.diff.clone(),
+                    });
+                    super::annotate::emphasize(&mut hunk);
+                    let path = change.path.to_str_lossy();
+                    super::diff::highlight_lines(&path, hunk.lines.iter_mut());
+                    hunk.lines
+                }
+                false => Vec::new(),
+            };
+            let builds_on = (dependency.commits.iter())
+                .map(|commit| BuiltOn {
+                    id: CommitId(commit.commit_id),
+                    title: commit_title(repo, commit.commit_id),
+                    branch: commit.branch.clone(),
+                })
+                .collect();
+            BlockedHunk {
+                old_start: header.old_start,
+                old_lines: header.old_lines,
+                new_start: header.new_start,
+                new_lines: header.new_lines,
+                lines,
+                builds_on,
+            }
+        })
+        .collect();
+    BlockedChange {
+        path: change.path.to_string(),
+        hunks,
+        suspects: change.suspected_branches.clone(),
+        builds_on,
+        why: why(&change.reason),
+    }
+}
+
+/// The title of commit `id`, or nothing if it can't be read.
+fn commit_title(repo: &gix::Repository, id: gix::ObjectId) -> String {
+    let message = (repo.find_commit(id).ok()).and_then(|commit| {
+        let message = commit.message_raw().ok()?;
+        Some(message.to_str_lossy().into_owned())
+    });
+    message.map_or_else(String::new, |message| super::subject_and_body(&message).0)
+}
+
+/// Changes a commit couldn't take, which roll it back unless the user agreed to leave them
+/// out, and whether it would have taken the rest.
+#[derive(Debug)]
+struct Refused {
+    rejected: Rejected,
+    takes_others: bool,
+}
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Nothing was committed.\n{}",
+            left_out(&self.rejected).join("\n")
+        )
+    }
+}
+
+impl std::error::Error for Refused {}
+
+/// The commit refused for `rejected`, or, if nothing was rejected, for taking nothing.
+fn refused(rejected: Rejected, takes_others: bool) -> anyhow::Error {
+    match rejected.is_empty() {
+        true => anyhow::anyhow!("Nothing could be committed."),
+        false => anyhow::Error::new(Refused {
+            rejected,
+            takes_others,
+        }),
+    }
+}
+
+/// What a commit to `into` (`None` for a new branch) that was rolled back for `refused` left
+/// out, and which branch it could all go on instead. That's read only with `explain`, for the
+/// main checkout, whose changes the workspace's commits are what they build on.
+fn blocked(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    Refused {
+        rejected,
+        takes_others,
+    }: Refused,
+    into: Option<&FullName>,
+    explain: bool,
+    specs: &[DiffSpec],
+) -> Blocked {
+    use but_hunk_dependency::rejection::{dependency_branch, explain_rejections, stackings};
+    // The transaction rolled back, so the workspace is as the dependencies are read against.
+    let explained = explain.then(|| -> Result<_> {
+        ctx.invalidate_workspace_cache()?;
+        let merged = merged_branches(&but_api::legacy::workspace::head_info(ctx)?);
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        let changes = explain_rejections(&repo, &ws, &rejected, into.map(|name| name.as_ref()));
+        let builds_on = dependency_branch(&ws, &changes);
+        let stackings = stackings(&ws, &changes, &merged);
+        let merged = (builds_on.as_ref()).is_some_and(|branch| merged.contains(branch));
+        let changes: Vec<_> = (changes.iter().enumerate())
+            .map(|(ix, change)| blocked_change(&repo, change, ix < BLOCKED_FILES_SHOWN))
+            .collect();
+        Ok((changes, (builds_on, merged), stackings))
+    });
+    let explained = match explained.transpose() {
+        Ok(explained) => explained,
+        // Saying why it failed must never hide that it did.
+        Err(err) => {
+            tracing::warn!(?err, "couldn't read what the changes left out build on");
+            None
+        }
+    };
+    let (changes, (builds_on, builds_on_merged), stackings) = explained.unwrap_or_else(|| {
+        let changes = (rejected.iter())
+            .map(|(reason, spec)| BlockedChange {
+                path: spec.path.to_string(),
+                hunks: Vec::new(),
+                suspects: Vec::new(),
+                builds_on: Vec::new(),
+                why: why(reason),
+            })
+            .collect();
+        (changes, (None, false), Vec::new())
+    });
+    // The first that works, as each is tried in full.
+    let stack = (stackings.into_iter()).find(|stacking| {
+        stacks_cleanly(ctx, perm, stacking, specs.to_vec()).unwrap_or_else(|err| {
+            tracing::warn!(
+                ?err,
+                "couldn't try stacking the branches the changes build on"
+            );
+            false
+        })
+    });
+    Blocked {
+        changes,
+        builds_on,
+        builds_on_merged,
+        takes_others,
+        stack,
+    }
+}
+
+/// The branches of the workspace that have been merged, as the app shows them: a commit of
+/// theirs is in the target, by its id or, after a squash or rebase merge, by its changes.
+fn merged_branches(info: &but_workspace::RefInfo) -> Vec<FullName> {
+    (info.lanes())
+        .flat_map(|lane| lane.segments)
+        .filter(|segment| {
+            (segment.commits.iter()).any(|commit| {
+                matches!(
+                    commit.relation,
+                    but_workspace::ref_info::LocalCommitRelation::Integrated(_)
+                )
+            })
+        })
+        .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
+        .collect()
+}
+
+/// Whether stacking as `stacking` says, then committing `specs` of the main checkout on top of
+/// the branch stacked, takes them all and leaves no commit conflicted that wasn't. Tried in a
+/// dry run, which changes nothing.
+fn stacks_cleanly(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    stacking: &Stacking,
+    specs: Vec<DiffSpec>,
+) -> Result<bool> {
+    use but_transaction::DynamicOutcome;
+    let before = but_api::legacy::workspace::head_info(ctx)?;
+    let mut meta = ctx.meta()?;
+    let (_, outcome) = but_transaction::with_transaction_with_perm_only(
+        ctx,
+        &mut meta,
+        perm,
+        DryRun::Yes,
+        |mut tx| {
+            stack_in(&mut tx, Some(stacking))?;
+            let on_top = RelativeTo::Reference(stacking.top.clone());
+            let made = tx.create_commit(
+                on_top,
+                InsertSide::Below,
+                specs,
+                String::new(),
+                ChangeSource::Head,
+            )?;
+            Ok(
+                match made.new_commit.filter(|_| made.rejected_specs.is_empty()) {
+                    Some(_) => DynamicOutcome::Commit(()),
+                    None => DynamicOutcome::Rollback(()),
+                },
+            )
+        },
+    )?;
+    // What the dry run read of the workspace isn't what's there.
+    ctx.invalidate_workspace_cache()?;
+    Ok(match outcome {
+        DynamicOutcome::Commit(((), workspace)) => {
+            super::upstream::newly_conflicted(&before, &workspace.conflicted_commits).is_empty()
+        }
+        DynamicOutcome::Rollback(()) => false,
+    })
 }
 
 /// A commit made on `branch`, with the changes left out of it and what a failing post-commit
@@ -403,17 +715,35 @@ impl From<CommitIdentifiers> for Made {
 type Rejected = Vec<(RejectionReason, DiffSpec)>;
 
 impl Intent for CommitChanges {
-    type Done = Committed;
+    type Done = CommitOutcome;
 
-    fn apply(self, run: &mut Run) -> Result<Committed> {
+    fn apply(self, run: &mut Run) -> Result<CommitOutcome> {
         let Self {
             to,
             changes,
             checkout,
             message,
             run_hooks,
+            leave_out,
+            restack,
         } = self;
         let worktree = checkout.linked();
+        if let Some(stacking) = &restack {
+            let goes_on_it = match &to {
+                CommitTo::NewBranchAt {
+                    beside: Some((branch, below)),
+                    ..
+                } => !below && *branch == stacking.top,
+                CommitTo::Branch(branch) => *branch == stacking.top,
+                CommitTo::BelowCommit { .. } | CommitTo::NewBranchAt { beside: None, .. } => false,
+            };
+            if worktree.is_some() || !goes_on_it {
+                bail!(
+                    "Only {} or a new branch in the workspace goes on branches stacked for it",
+                    short_ref(&stacking.top)
+                );
+            }
+        }
         // A new branch goes where the main checkout's would, unless it's placed beside one.
         if matches!(to, CommitTo::NewBranchAt { beside: None, .. }) && worktree.is_some() {
             bail!("The worktree has no branch of its own checked out");
@@ -431,127 +761,200 @@ impl Intent for CommitChanges {
             true => hooks_before_commit(ctx, &specs, message)?,
             false => message,
         };
-        let (branch, made, rejected) = run.locked(|ctx, perm| {
-            let unborn = ctx.repo.get()?.head()?.is_unborn();
-            // A new branch, beside one or with `None` of its own, and with `true` first.
-            let (branch, new_at, below) = match to {
-                CommitTo::Branch(branch) if unborn => {
-                    return commit_first(ctx, branch, specs, message);
-                }
-                CommitTo::Branch(branch) => (branch, None, None),
-                CommitTo::BelowCommit { commit, branch } => (branch, None, Some(commit)),
-                CommitTo::NewBranchAt {
-                    beside,
-                    first,
-                    name,
-                } => {
-                    refuse_unborn(ctx)?;
-                    let name = match name {
-                        Some(name) => branch_ref(&name)?,
-                        None => but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?,
-                    };
-                    (name, Some((beside, first)), None)
-                }
-            };
-            let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
-            let source = match (worktree, &linked) {
-                (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
-                _ => ChangeSource::Head,
-            };
-            // Named so undo moves it back, leaving the changes uncommitted there.
-            let worktree_branch = match worktree {
-                Some(name) => ctx.worktree_head(name)?.and_then(|head| head.ref_name),
-                None => None,
-            };
-            // Named so undo deletes it again.
-            let new_branch = new_at.as_ref().map(|_| branch.as_ref());
-            let refs: Vec<&gix::refs::FullNameRef> = (new_branch.into_iter())
-                .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
-                .collect();
-            let details = SnapshotDetails::new(OperationKind::CreateCommit);
-            let mut meta = ctx.meta()?;
-            let at = (&branch, below);
-            let outcome = match new_at {
-                // A branch made for it runs as `but commit` makes one.
-                Some((beside, first)) => {
-                    let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
-                    let independent = beside.is_none();
-                    sbm.transaction_with_workspace_setup(
-                        ctx,
-                        &mut meta,
-                        details,
-                        &refs,
-                        perm,
-                        independent,
-                        |mut tx| {
-                            match &beside {
-                                Some((beside, below)) => sbm.create_stacked_reference(
-                                    &mut tx,
-                                    branch.as_ref(),
-                                    beside.as_ref(),
-                                    position(*below),
-                                )?,
-                                // A stack's place is its tip's among the workspace commit's
-                                // parents.
-                                None => sbm.create_unstacked_reference(
-                                    &mut tx,
-                                    branch.as_ref(),
-                                    first.then_some(0),
-                                )?,
-                            }
-                            commit_in(&mut tx, at, specs, message, source)
-                        },
-                    )?
-                }
-                None => but_transaction::with_transaction_with_perm(
+        // The branch it goes on already, which nothing left out builds on.
+        let into = match &to {
+            CommitTo::Branch(branch) | CommitTo::BelowCommit { branch, .. } => Some(branch.clone()),
+            CommitTo::NewBranchAt { .. } => None,
+        };
+        let outcome = run.locked(|ctx, perm| {
+            // What it was tried with when it was offered may have changed since, as by an agent.
+            if let Some(stacking) = &restack
+                && !stacks_cleanly(ctx, perm, stacking, specs.clone())?
+            {
+                let moved: Vec<_> = stacking.branches.iter().map(short_ref).collect();
+                bail!(
+                    "Stacking {} on {} wouldn't take these changes cleanly any more, so nothing \
+                     was changed",
+                    moved.join(", "),
+                    short_ref(&stacking.onto)
+                );
+            }
+            let tried = specs.clone();
+            let made = commit_locked(ctx, perm, to, specs, message, worktree, leave_out, restack);
+            match made.map_err(|err| err.downcast::<Refused>()) {
+                Ok(made) => Ok(Ok(made)),
+                Err(Ok(refused)) => Ok(Err(blocked(
                     ctx,
-                    &mut meta,
                     perm,
-                    details,
-                    &refs,
-                    DryRun::No,
-                    |mut tx| commit_in(&mut tx, at, specs, message, source),
-                )?,
-            };
-            match outcome {
-                DynamicOutcome::Commit(((made, rejected), _workspace)) => {
-                    Ok((branch.clone(), made, rejected))
-                }
-                DynamicOutcome::Rollback(rejected) => {
-                    bail!(
-                        "Nothing could be committed.\n{}",
-                        left_out(&rejected).join("\n")
-                    )
-                }
+                    refused,
+                    into.as_ref(),
+                    worktree.is_none(),
+                    &tried,
+                ))),
+                Err(Err(err)) => Err(err),
             }
         })?;
+        let (branch, made, rejected) = match outcome {
+            Ok(made) => made,
+            Err(blocked) => return Ok(CommitOutcome::Blocked(blocked)),
+        };
         let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
-        Ok(Committed {
+        Ok(CommitOutcome::Committed(Committed {
             branch,
             made,
             left_out: left_out(&rejected),
             hook_failed,
-        })
+        }))
     }
 }
 
-/// Commit `specs` in `tx` on top of `branch`, or right below its commit `below`. One that takes
-/// none of them rolls back, leaving no branch made for it behind.
+/// Commit `specs` of the main checkout, or of the linked `worktree`, to `to`, under the lock,
+/// in one oplog entry, stacking first as `restack` says. Changes it can't take refuse it with
+/// [`Refused`], unless `leave_out`.
+#[expect(clippy::too_many_arguments)]
+fn commit_locked(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    to: CommitTo,
+    specs: Vec<DiffSpec>,
+    message: String,
+    worktree: Option<&BStr>,
+    leave_out: bool,
+    restack: Option<Stacking>,
+) -> Result<(FullName, Made, Rejected)> {
+    let unborn = ctx.repo.get()?.head()?.is_unborn();
+    // A new branch, beside one or with `None` of its own, and with `true` first.
+    let (branch, new_at, below) = match to {
+        CommitTo::Branch(branch) if unborn => {
+            return commit_first(ctx, branch, specs, message, leave_out);
+        }
+        CommitTo::Branch(branch) => (branch, None, None),
+        CommitTo::BelowCommit { commit, branch } => (branch, None, Some(commit)),
+        CommitTo::NewBranchAt {
+            beside,
+            first,
+            name,
+        } => {
+            refuse_unborn(ctx)?;
+            let name = match name {
+                Some(name) => branch_ref(&name)?,
+                None => but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?,
+            };
+            (name, Some((beside, first)), None)
+        }
+    };
+    let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
+    let source = match (worktree, &linked) {
+        (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
+        _ => ChangeSource::Head,
+    };
+    // Named so undo moves it back, leaving the changes uncommitted there.
+    let worktree_branch = match worktree {
+        Some(name) => ctx.worktree_head(name)?.and_then(|head| head.ref_name),
+        None => None,
+    };
+    // Named so undo deletes it again.
+    let new_branch = new_at.as_ref().map(|_| branch.as_ref());
+    let refs: Vec<&gix::refs::FullNameRef> = (new_branch.into_iter())
+        .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
+        .collect();
+    let details = SnapshotDetails::new(OperationKind::CreateCommit);
+    let mut meta = ctx.meta()?;
+    let at = (&branch, below);
+    let outcome = match new_at {
+        // A branch made for it runs as `but commit` makes one.
+        Some((beside, first)) => {
+            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
+            let independent = beside.is_none();
+            sbm.transaction_with_workspace_setup(
+                ctx,
+                &mut meta,
+                details,
+                &refs,
+                perm,
+                independent,
+                |mut tx| {
+                    stack_in(&mut tx, restack.as_ref())?;
+                    match &beside {
+                        Some((beside, below)) => sbm.create_stacked_reference(
+                            &mut tx,
+                            branch.as_ref(),
+                            beside.as_ref(),
+                            position(*below),
+                        )?,
+                        // A stack's place is its tip's among the workspace commit's
+                        // parents.
+                        None => sbm.create_unstacked_reference(
+                            &mut tx,
+                            branch.as_ref(),
+                            first.then_some(0),
+                        )?,
+                    }
+                    commit_in(&mut tx, at, specs, message, source, leave_out)
+                },
+            )?
+        }
+        None => but_transaction::with_transaction_with_perm(
+            ctx,
+            &mut meta,
+            perm,
+            details,
+            &refs,
+            DryRun::No,
+            |mut tx| {
+                stack_in(&mut tx, restack.as_ref())?;
+                commit_in(&mut tx, at, specs, message, source, leave_out)
+            },
+        )?,
+    };
+    match outcome {
+        DynamicOutcome::Commit(((made, rejected), _workspace)) => {
+            Ok((branch.clone(), made, rejected))
+        }
+        DynamicOutcome::Rollback((rejected, takes_others)) => Err(refused(rejected, takes_others)),
+    }
+}
+
+/// Stack in `tx` as `restack` says, if it's given, before a commit goes on the branch on top:
+/// each branch moved directly above the one before it, the first above its `onto`.
+fn stack_in<M: RefMetadata>(
+    tx: &mut Transaction<'_, '_, M>,
+    restack: Option<&Stacking>,
+) -> Result<()> {
+    let Some(stacking) = restack else {
+        return Ok(());
+    };
+    let mut below = &stacking.onto;
+    for branch in &stacking.branches {
+        let onto = RelativeTo::Reference(below.clone());
+        tx.move_branch(branch.as_ref(), onto, InsertSide::Above)?;
+        below = branch;
+    }
+    Ok(())
+}
+
+/// Commit `specs` in `tx` on top of `branch`, or right below its commit `below`. Changes it
+/// can't take roll it back, leaving no branch made for it behind, unless `leave_out`; the
+/// rollback says whether it would have taken the rest.
 fn commit_in<M: RefMetadata>(
     tx: &mut Transaction<'_, '_, M>,
     (branch, below): (&FullName, Option<CommitId>),
     specs: Vec<DiffSpec>,
     message: String,
     source: ChangeSource<'_>,
-) -> Result<DynamicOutcome<(Made, Rejected), Rejected>> {
+    leave_out: bool,
+) -> Result<DynamicOutcome<(Made, Rejected), (Rejected, bool)>> {
     let relative_to = match below {
         Some(commit) => RelativeTo::Commit(commit.0),
         None => RelativeTo::Reference(branch.clone()),
     };
     let made = tx.create_commit(relative_to, InsertSide::Below, specs, message, source)?;
+    let rejected = made.rejected_specs;
     Ok(match made.new_commit {
-        Some(commit) => DynamicOutcome::Commit((Made::from(commit), made.rejected_specs)),
-        None => DynamicOutcome::Rollback(made.rejected_specs),
+        Some(commit) if leave_out || rejected.is_empty() => {
+            DynamicOutcome::Commit((Made::from(commit), rejected))
+        }
+        commit => DynamicOutcome::Rollback((rejected, commit.is_some())),
     })
 }
 
@@ -1850,6 +2253,19 @@ pub(super) mod tests {
             checkout: Checkout::Main,
             message: message.into(),
             run_hooks,
+            leave_out: false,
+            restack: None,
+        }
+    }
+
+    impl CommitOutcome {
+        /// The commit made, which every commit in these tests is.
+        #[track_caller]
+        fn committed(self) -> Committed {
+            match self {
+                CommitOutcome::Committed(committed) => committed,
+                CommitOutcome::Blocked(blocked) => panic!("the commit was blocked: {blocked:?}"),
+            }
         }
     }
 
@@ -2526,6 +2942,7 @@ pub(super) mod tests {
             hook("post-commit", "echo 'notify failed'; exit 1");
             let (committed, _) =
                 crate::backend::apply(path, commit_to_main(changes(), "Two", true)).unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 git(path, &["log", "-1", "--format=%s|%b"]).trim(),
                 "Two|Issue: SHOP-12",
@@ -2572,6 +2989,7 @@ pub(super) mod tests {
             let (committed, _) =
                 crate::backend::apply(path, commit_to_main(vec![], "Mark it reviewed", false))
                     .unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 git(path, &["log", "-1", "--format=%s"]).trim(),
                 "Mark it reviewed",
@@ -2621,6 +3039,7 @@ pub(super) mod tests {
                     ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Two", false)
                 };
                 let (committed, ran) = crate::backend::apply(path, commit).unwrap();
+                let committed = committed.committed();
                 let new = short_ref(&committed.branch).into_owned();
                 let entries = entries_since(path, before);
                 let head_after = head(path).replace(&new, "<new>");
@@ -2682,10 +3101,16 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 },
                 ..commit_to_main(vec![changed], "Two", false)
             };
-            let err = crate::backend::apply(path, commit).unwrap_err();
-            assert!(
-                err.to_string().contains("Nothing could be committed"),
-                "the file changes nothing: {err}"
+            let (outcome, _) = crate::backend::apply(path, commit).unwrap();
+            let CommitOutcome::Blocked(blocked) = outcome else {
+                panic!("the file changes nothing: {outcome:?}");
+            };
+            assert_eq!(
+                (blocked.changes.iter())
+                    .map(|change| (change.path.as_str(), change.why))
+                    .collect::<Vec<_>>(),
+                [("file", "nothing in it would change")],
+                "the user is told why"
             );
             assert_eq!(branches(path), before, "the branch started for it is gone");
             assert_eq!(
@@ -3364,6 +3789,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 )
             };
             let (committed, _) = crate::backend::apply(path, commit).unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 titles_on(path, "feature"),
                 "second, Between, edit",
@@ -3375,6 +3801,375 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "on the branch that has second"
             );
             assert!(uncommitted(path).is_empty(), "the new file went in");
+        })
+    }
+
+    /// A workspace whose branch feature edits `file`, with that edit edited again uncommitted,
+    /// which builds on it, and a new file, which doesn't.
+    fn an_edit_building_on_feature() -> tempfile::TempDir {
+        let (dir, edit, _, mut edited) = workspace_with_an_edit();
+        let path = dir.path();
+        crate::backend::apply(path, name_at(edit, "feature")).unwrap();
+        edited[4] = "five c\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        std::fs::write(path.join("new"), "new\n").unwrap();
+        dir
+    }
+
+    /// A commit of all of `path`'s uncommitted files to a new stack of its own.
+    fn commit_all_to_a_new_stack(path: &Path) -> CommitChanges {
+        let files = uncommitted(path).iter().map(Selected::whole).collect();
+        CommitChanges {
+            to: CommitTo::NewBranchAt {
+                beside: None,
+                first: false,
+                name: Some("apart".into()),
+            },
+            ..commit_to_main(files, "Apart", false)
+        }
+    }
+
+    #[test]
+    fn a_commit_some_of_whose_changes_build_on_another_branch_isnt_made() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_feature();
+            let path = dir.path();
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+            let (outcome, _) =
+                crate::backend::apply(path, commit_all_to_a_new_stack(path)).unwrap();
+            let CommitOutcome::Blocked(blocked) = outcome else {
+                panic!("the edit of feature's edit can't go in a stack of its own: {outcome:?}");
+            };
+            assert_eq!(
+                blocked.builds_on,
+                Some(full("refs/heads/feature")),
+                "everything left out can go on feature"
+            );
+            let left_out: Vec<_> = (blocked.changes.iter())
+                .map(|change| (change.path.as_str(), change.builds_on.clone()))
+                .collect();
+            assert_eq!(
+                left_out,
+                [("file", vec![full("refs/heads/feature")])],
+                "only the edit is left out, as it builds on feature's commit"
+            );
+            let hunks: Vec<_> = (blocked.changes.iter())
+                .flat_map(|change| &change.hunks)
+                .map(|hunk| {
+                    let on: Vec<_> = (hunk.builds_on.iter())
+                        .map(|commit| (commit.title.as_str(), commit.branch.clone()))
+                        .collect();
+                    let lines: Vec<_> = (hunk.lines.iter())
+                        .map(|line| (line.kind, line.old, line.new, &*line.text))
+                        .collect();
+                    ((hunk.new_start, hunk.new_lines), lines, on)
+                })
+                .collect();
+            use crate::backend::LineKind::{Added, Removed};
+            assert_eq!(
+                hunks,
+                [(
+                    (5, 1),
+                    vec![
+                        (Removed, Some(5), None, "five a"),
+                        (Removed, Some(6), None, "five b"),
+                        (Added, None, Some(5), "five c"),
+                    ],
+                    vec![("edit", Some(full("refs/heads/feature")))]
+                )],
+                "the user sees each line numbered as the diff does, and what it builds on"
+            );
+            assert!(
+                blocked.takes_others,
+                "the new file could still be committed"
+            );
+            assert_eq!(
+                git(path, &["branch", "--list", "apart"]),
+                "",
+                "nothing was committed, so no branch was made for it"
+            );
+            assert_eq!(
+                uncommitted(path).len(),
+                2,
+                "both files are still uncommitted"
+            );
+            assert_eq!(
+                crate::backend::history::oplog_head(&open(path).unwrap()),
+                before,
+                "nothing was recorded to undo"
+            );
+        })
+    }
+
+    /// A workspace whose branch alpha edits line 5 and beta, a stack of its own, line 15, with
+    /// both lines edited again uncommitted, so the change builds on both.
+    fn an_edit_building_on_alpha_and_beta() -> tempfile::TempDir {
+        let (dir, edit, _, mut edited) = workspace_with_an_edit();
+        let path = dir.path();
+        crate::backend::apply(path, name_at(edit, "alpha")).unwrap();
+        edited[14] = "fifteen\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        let beta = CommitChanges {
+            to: CommitTo::NewBranchAt {
+                beside: None,
+                first: false,
+                name: Some("beta".into()),
+            },
+            ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Beta", false)
+        };
+        crate::backend::apply(path, beta).unwrap().0.committed();
+        edited[4] = "five c\n".into();
+        edited[14] = "fifteen again\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_commit_building_on_three_unstacked_branches_stacks_them_all() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // alpha edits line 5, beta line 12 and gamma line 18, each a stack of its own.
+            let (dir, edit, _, mut edited) = workspace_with_an_edit();
+            let path = dir.path();
+            crate::backend::apply(path, name_at(edit, "alpha")).unwrap();
+            for (line, name) in [(11, "beta"), (17, "gamma")] {
+                edited[line] = format!("{name}\n");
+                std::fs::write(path.join("file"), edited.concat()).unwrap();
+                let commit = CommitChanges {
+                    to: CommitTo::NewBranchAt {
+                        beside: None,
+                        first: false,
+                        name: Some(name.into()),
+                    },
+                    ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], name, false)
+                };
+                crate::backend::apply(path, commit).unwrap().0.committed();
+            }
+            edited[4] = "five c\n".into();
+            edited[11] = "beta again\n".into();
+            edited[17] = "gamma again\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
+            let all = || commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "All", false);
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let new_stack = CommitChanges {
+                to: CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
+                ..all()
+            };
+            let (outcome, _) = crate::backend::apply(path, new_stack).unwrap();
+            let CommitOutcome::Blocked(blocked) = outcome else {
+                panic!("no one branch takes edits of three: {outcome:?}");
+            };
+            let stacking = blocked.stack.expect("the three stack cleanly");
+            assert_eq!(
+                stacking.branches.len(),
+                2,
+                "two stacks move onto the third: {stacking:?}"
+            );
+
+            let stacked = CommitChanges {
+                to: CommitTo::Branch(stacking.top.clone()),
+                restack: Some(stacking.clone()),
+                ..all()
+            };
+            let (outcome, _) = crate::backend::apply(path, stacked).unwrap();
+            assert_eq!(outcome.committed().branch, stacking.top);
+            let titles = titles_on(path, &stacking.top.shorten().to_string());
+            assert!(
+                titles.starts_with("All, ")
+                    && ["edit", "beta", "gamma"].iter().all(|t| titles.contains(t)),
+                "the top branch takes it, over all three branches' commits: {titles}"
+            );
+            assert!(uncommitted(path).is_empty(), "it took every change");
+            assert_eq!(
+                entries_since(path, before),
+                "CreateCommit\n",
+                "stacking all three and committing are one undo step"
+            );
+        })
+    }
+
+    #[test]
+    fn a_merged_branch_is_only_ever_stacked_on() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_alpha_and_beta();
+            let path = dir.path();
+            // Squash-merged: the target has alpha's changes in a commit of its own.
+            let squash = git(
+                path,
+                &[
+                    "commit-tree",
+                    "alpha^{tree}",
+                    "-p",
+                    "refs/remotes/origin/main",
+                    "-m",
+                    "Squash of alpha",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", squash.trim()],
+            );
+            let alpha = git(path, &["rev-parse", "alpha"]);
+
+            let commit = CommitChanges {
+                to: CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
+                ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Both", false)
+            };
+            let (outcome, _) = crate::backend::apply(path, commit).unwrap();
+            let CommitOutcome::Blocked(blocked) = outcome else {
+                panic!("a new branch can take neither edit: {outcome:?}");
+            };
+            let stacking = blocked.stack.expect("beta can go on alpha");
+            assert_eq!(
+                (stacking.branches.clone(), stacking.onto.clone()),
+                (vec![full("refs/heads/beta")], full("refs/heads/alpha")),
+                "beta goes on merged alpha, which never moves"
+            );
+
+            let stacked = CommitChanges {
+                to: CommitTo::Branch(stacking.top.clone()),
+                restack: Some(stacking),
+                ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Both", false)
+            };
+            crate::backend::apply(path, stacked).unwrap().0.committed();
+            assert_eq!(
+                git(path, &["rev-parse", "alpha"]),
+                alpha,
+                "alpha's commits are as they were"
+            );
+            assert!(uncommitted(path).is_empty(), "beta took every change");
+        })
+    }
+
+    #[test]
+    fn a_commit_building_on_two_unstacked_branches_is_offered_stacking_them() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_alpha_and_beta();
+            let path = dir.path();
+            let both = || CommitChanges {
+                to: CommitTo::Branch(full("refs/heads/alpha")),
+                ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Both", false)
+            };
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let (outcome, _) = crate::backend::apply(path, both()).unwrap();
+            let CommitOutcome::Blocked(blocked) = outcome else {
+                panic!("alpha alone can't take the edit of beta's line: {outcome:?}");
+            };
+            assert_eq!(blocked.builds_on, None, "no one branch takes it all");
+            let stacking = blocked.stack.expect("the two branches stack cleanly");
+            let mut pair = [stacking.top.clone(), stacking.onto.clone()];
+            pair.sort();
+            assert_eq!(
+                pair,
+                [full("refs/heads/alpha"), full("refs/heads/beta")],
+                "one of them goes on the other"
+            );
+            assert!(stacking.pushed.is_empty(), "nothing is pushed");
+            assert_eq!(
+                entries_since(path, before),
+                "",
+                "trying it out changed nothing"
+            );
+            assert_eq!(titles_on(path, "beta"), "Beta", "beta is as it was");
+
+            let stacked = CommitChanges {
+                to: CommitTo::NewBranchAt {
+                    beside: Some((stacking.top.clone(), false)),
+                    first: false,
+                    name: Some("both".into()),
+                },
+                restack: Some(stacking.clone()),
+                ..both()
+            };
+            let (outcome, _) = crate::backend::apply(path, stacked).unwrap();
+            outcome.committed();
+            let titles = titles_on(path, "both");
+            assert!(
+                titles.starts_with("Both, ") && titles.contains("Beta") && titles.contains("edit"),
+                "the new branch sits on both branches' commits: {titles}"
+            );
+            assert!(uncommitted(path).is_empty(), "it took every change");
+            assert_eq!(
+                entries_since(path, before),
+                "CreateCommit\n",
+                "stacking and committing are one undo step"
+            );
+            let step = newest_entry(path);
+            let undone = undo(path, step, None).unwrap();
+            assert!(
+                matches!(undone, crate::backend::history::Undone::Done(_)),
+                "nothing came after it to stop the undo"
+            );
+            assert_eq!(
+                (titles_on(path, "alpha"), titles_on(path, "beta")),
+                ("edit".to_owned(), "Beta".to_owned()),
+                "undo leaves each branch on its own again"
+            );
+            assert_eq!(uncommitted(path).len(), 1, "with the change uncommitted");
+
+            // Or on the branch stacked, which is on top once it's stacked.
+            let on_top = CommitChanges {
+                to: CommitTo::Branch(stacking.top.clone()),
+                restack: Some(stacking.clone()),
+                ..both()
+            };
+            let (outcome, _) = crate::backend::apply(path, on_top).unwrap();
+            assert_eq!(outcome.committed().branch, stacking.top);
+            let titles = titles_on(path, &stacking.top.shorten().to_string());
+            assert!(
+                titles.starts_with("Both, ") && titles.contains("Beta") && titles.contains("edit"),
+                "the branch stacked takes it, over both branches' commits: {titles}"
+            );
+            assert!(uncommitted(path).is_empty(), "it took every change");
+        })
+    }
+
+    #[test]
+    fn a_blocked_commit_goes_where_its_changes_build_on_or_without_them() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_feature();
+            let path = dir.path();
+            let without = CommitChanges {
+                leave_out: true,
+                ..commit_all_to_a_new_stack(path)
+            };
+            let (outcome, _) = crate::backend::apply(path, without).unwrap();
+            let committed = outcome.committed();
+            assert_eq!(
+                titles_on(path, "apart"),
+                "Apart",
+                "the new file went in a stack"
+            );
+            assert_eq!(
+                committed.left_out,
+                [
+                    "file: it builds on changes in a later commit or another branch; put it \
+                     where those are, or move them first"
+                ],
+                "what was left out, as the user agreed, is said"
+            );
+
+            let to_feature = CommitChanges {
+                to: CommitTo::Branch(full("refs/heads/feature")),
+                ..commit_all_to_a_new_stack(path)
+            };
+            let (outcome, _) = crate::backend::apply(path, to_feature).unwrap();
+            outcome.committed();
+            assert_eq!(
+                titles_on(path, "feature"),
+                "Apart, edit",
+                "the edit went on the commit it builds on"
+            );
+            assert!(uncommitted(path).is_empty(), "nothing was left out");
         })
     }
 
@@ -3396,6 +4191,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 )
             };
             let (committed, _) = crate::backend::apply(path, commit).unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 titles_on(path, &committed.branch.to_string()),
                 "On top, second, edit",
@@ -3423,6 +4219,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Under", false)
             };
             let (committed, _) = crate::backend::apply(path, commit).unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 titles_on(path, &committed.branch.to_string()),
                 "Under",
@@ -3450,6 +4247,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Named", false)
             };
             let (committed, _) = crate::backend::apply(path, commit).unwrap();
+            let committed = committed.committed();
             assert_eq!(
                 committed.branch,
                 full("refs/heads/my-feature"),
@@ -3473,6 +4271,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Apart", false)
             };
             let (committed, _) = crate::backend::apply(path, commit).unwrap();
+            let committed = committed.committed();
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let stacks: Vec<String> = (workspace.lanes_in(&Checkout::Main))
                 .filter_map(|lane| lane.branches.first()?.ref_name.as_ref())
@@ -3534,8 +4333,10 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             checkout: agent,
             message: message.into(),
             run_hooks: false,
+            leave_out: false,
+            restack: None,
         };
-        crate::backend::apply(path, commit).unwrap().0
+        crate::backend::apply(path, commit).unwrap().0.committed()
     }
 
     #[test]

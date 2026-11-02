@@ -34,7 +34,7 @@ use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
 pub use mutation::{
-    Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts, up_to_date,
+    BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts, up_to_date,
 };
 pub use picks::Picks;
 pub use saved::{
@@ -259,6 +259,9 @@ pub enum StoreEvent {
     /// selection on what it moves: the move goes toward it instead, as a click on its row puts
     /// it, or where it'd land blinks where it can't, to say it's still on.
     MoveToward(Selection),
+    /// A commit wasn't made, as some of its changes couldn't go where it was asked to: ask
+    /// the user where they go instead ([`Store::take_blocked_commit`]).
+    CommitBlocked,
 }
 
 /// An error card's button: its label, and what it runs.
@@ -424,6 +427,9 @@ pub struct Store {
     /// whichever project each ran. So ⌘Z undoes what the user last did, wherever the
     /// selection is, rather than what last happened in the selected project.
     undo_steps: Vec<mutation::UndoStep>,
+    /// A commit not made as some of its changes couldn't go where it was asked to, till the
+    /// window asks the user where they go instead.
+    blocked_commit: Option<BlockedCommit>,
     /// What ⌘⇧Z redoes, newest last: the oplog entries ⌘Z recorded taking something back, in
     /// whichever project, since the user last did something.
     redo_steps: Vec<(ProjectId, SnapshotId)>,
@@ -554,6 +560,7 @@ impl Store {
             busy_ticker: Task::ready(()),
             last_snapshot: None,
             undo_steps: Vec::new(),
+            blocked_commit: None,
             redo_steps: Vec::new(),
             ran: HashMap::new(),
             kept_snapshots: (saved.kept_by_project.into_iter())

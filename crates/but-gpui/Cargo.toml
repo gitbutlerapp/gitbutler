@@ -82,6 +82,7 @@ but-forge.workspace = true
 but-forge-storage.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-hunk-dependency.workspace = true
 but-llm.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-path.workspace = true

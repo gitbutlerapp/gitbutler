@@ -1242,8 +1242,10 @@ impl Transfer {
                     checkout: worktree,
                     message: String::new(),
                     run_hooks: false,
+                    leave_out: false,
+                    restack: None,
                 };
-                store.apply(
+                store.commit(
                     project,
                     label,
                     overlay,

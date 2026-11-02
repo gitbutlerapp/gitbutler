@@ -573,8 +573,10 @@ impl Detail {
                 checkout: worktree,
                 message: String::new(),
                 run_hooks,
+                leave_out: false,
+                restack: None,
             };
-            store.apply(
+            store.commit(
                 &project,
                 "Commit",
                 overlay,
@@ -1077,8 +1079,10 @@ impl Detail {
                 checkout: worktree,
                 message,
                 run_hooks: store.runs_hooks(&project),
+                leave_out: false,
+                restack: None,
             };
-            store.apply(
+            store.commit(
                 &project,
                 "Commit",
                 overlay,
