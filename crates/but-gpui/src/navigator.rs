@@ -1975,8 +1975,12 @@ impl Navigator {
             store.selection.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
         };
-        // What's being moved shows where the move is, rather than that it's selected.
-        let marked = moving::mark(store, item);
+        // What's being moved shows where the move is, rather than that it's selected. A linked
+        // worktree dragged by its heading shows held the whole drag, over its own rows too,
+        // where it isn't moving.
+        let dragged = matches!(item, Selection::Worktree(project, name)
+            if (self.dragged_worktree.as_ref()).is_some_and(|(p, n)| p == project && n == name));
+        let marked = moving::mark(store, item).or_else(|| dragged.then_some(Mark::Held(Op::Move)));
         let selected = lit(item) && marked.is_none();
         // Picked commits next to each other join up.
         let lit_at = |ix: usize| matches!(rows.get(ix), Some(Row::Item(other)) if lit(other));
