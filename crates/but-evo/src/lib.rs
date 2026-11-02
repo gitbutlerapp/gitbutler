@@ -7,7 +7,11 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use gix::bstr::BString;
 
+mod effect;
+mod record;
 mod sqlite;
+
+pub use record::{Provenance, Rewrite, record};
 
 /// A hyperedge from one predecessor to the successors that replace it together.
 ///

@@ -1581,6 +1581,7 @@ name = "but-evo"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.13.0",
  "but-core",
  "but-db",
  "but-testsupport",

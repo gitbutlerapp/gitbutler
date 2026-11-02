@@ -15,6 +15,7 @@ but-core.workspace = true
 but-db.workspace = true
 gix.workspace = true
 anyhow.workspace = true
+bitflags.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
