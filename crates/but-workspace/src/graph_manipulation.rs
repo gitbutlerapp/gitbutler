@@ -1,5 +1,4 @@
 use anyhow::{Context, Result, bail};
-use but_core::RefMetadata;
 use but_graph::workspace::StackSegment;
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Selector, Step, ToSelector,
@@ -19,8 +18,8 @@ pub struct DisconnectParameters {
 ///
 /// This function determines which are the right parents and children to disconnect,
 /// as well as the right segment delimiter to move.
-pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+pub fn get_disconnect_parameters<'ws, 'meta>(
+    editor: &Editor<'ws, 'meta>,
     lane_segments: &[StackSegment],
     subject_segment: &StackSegment,
     workspace_head: Option<gix::ObjectId>,
@@ -132,8 +131,8 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
 /// - If no commit parent edge is found, fall back to a `Reference` parent.
 ///
 /// If no explicit parent candidate exists, return `SelectorSet::All` as a safe fallback.
-pub fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+pub fn determine_parent_selector<'ws, 'meta>(
+    editor: &Editor<'ws, 'meta>,
     subject_commit_selector: Selector,
 ) -> anyhow::Result<SelectorSet> {
     let mut parents = editor.direct_parents(subject_commit_selector)?;
@@ -166,8 +165,8 @@ pub(crate) enum EdgeSelection {
 }
 
 /// Disconnect all parent edges from a single selector without reconnecting them.
-pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn disconnect_selector_from_all_parents(
+    editor: &mut Editor<'_, '_>,
     selector: Selector,
 ) -> Result<()> {
     editor.disconnect_segment_from(
@@ -195,8 +194,8 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
 ///
 /// Returns the selected neighboring selectors paired with their existing edge
 /// order values.
-pub(crate) fn selected_edges_from_set<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn selected_edges_from_set(
+    editor: &Editor<'_, '_>,
     target: Selector,
     selectors: &SelectorSet,
     edge_selection: EdgeSelection,
@@ -243,8 +242,8 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 /// reused when available, or advanced to the next free order on collision.
 /// Parents that `delimiter.parent` kept, like the side parents of a merge, sit
 /// above order 0, so a restored first parent stays first.
-pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn connect_segment_to_edges(
+    editor: &mut Editor<'_, '_>,
     delimiter: SegmentDelimiter<Selector, Selector>,
     children: &[(Selector, usize)],
     parents: &[(Selector, usize)],
@@ -308,8 +307,8 @@ fn next_available_order(
 ///
 /// `step` is the candidate step whose pick commit should be matched against the
 /// already-connected parents of `child`.
-pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn already_connected_parent_for_step(
+    editor: &Editor<'_, '_>,
     child: Selector,
     step: gix::ObjectId,
 ) -> Result<Option<Selector>> {
@@ -335,8 +334,8 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 ///
 /// `parent_step` describes the parent node to connect, either by reusing an
 /// existing pick/reference selector or by inserting a new pick step first.
-pub(crate) fn connect_parent_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn connect_parent_step(
+    editor: &mut Editor<'_, '_>,
     child: Selector,
     parent_step: gix::ObjectId,
 ) -> Result<Selector> {
@@ -363,10 +362,7 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
 }
 
 /// Find all parent-reachable nodes from and including the provided tip.
-pub(crate) fn traverse_nodes<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    tip: Selector,
-) -> Result<HashSet<Selector>> {
+pub(crate) fn traverse_nodes(editor: &Editor<'_, '_>, tip: Selector) -> Result<HashSet<Selector>> {
     let mut seen = HashSet::from([tip]);
     let mut tips = vec![tip];
 

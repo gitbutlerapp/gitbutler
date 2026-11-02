@@ -5,7 +5,6 @@ use gix::odb::store::RefreshMode;
 
 use crate::{
     args::{Args, GraphArgs},
-    metadata::EmptyRefMetadata,
     setup,
 };
 
@@ -52,9 +51,10 @@ pub(crate) fn run(
             (Some(reference.name().to_owned()), Some(id))
         }
     };
+    let db = but_db::DbHandle::new_at_path(":memory:")?;
     let workspace = but_graph::nosegment::workspace(
         &repo,
-        &EmptyRefMetadata,
+        &db.meta(),
         but_graph::init::Overlay::default(),
         but_core::ref_metadata::ProjectMeta::default(),
         seen_from_ref.as_ref().map(|name| name.as_ref()),

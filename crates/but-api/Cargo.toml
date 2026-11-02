@@ -60,6 +60,7 @@ graph-workspace = ["but-transaction/graph-workspace"]
 legacy = [
     "but-ctx/legacy",
     "but-workspace/legacy",
+    "dep:but-meta",
     "dep:but-askpass",
     "dep:gitbutler-user",
     "dep:gitbutler-project",
@@ -82,6 +83,7 @@ but-branches.workspace = true
 but-graph.workspace = true
 but-ctx.workspace = true
 but-workspace.workspace = true
+but-meta = { workspace = true, features = ["legacy"], optional = true }
 but-settings.workspace = true
 but-secret.workspace = true
 but-rebase.workspace = true

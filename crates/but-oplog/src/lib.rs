@@ -152,8 +152,6 @@ mod oplog_snapshot {
         }
 
         /// Restore the checkpoint without publishing it or appending a restore operation.
-        /// Restore or drop any metadata writers from the failed operation first, so
-        /// they cannot write the failed mutation back after rollback.
         pub fn rollback(self, ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
             gitbutler_oplog::restore_checkpoint(ctx, self.tree_id, perm)
         }

@@ -6,7 +6,7 @@ use crate::init::utils::{read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("history-below-target")?;
+    let (repo, mut db) = read_only_in_memory_scenario("history-below-target")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -17,20 +17,14 @@ fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
 
 "#]]
     );
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     let graph = but_graph::nosegment::workspace_segment_graph(
         &ws,
         &repo,
-        &*meta,
+        &db.meta(),
         vec![repo.head_id()?.detach()],
     )?;
     let mut subjects = Vec::new();
@@ -55,7 +49,7 @@ fn walk_stops_below_the_target_commit() -> anyhow::Result<()> {
 
 #[test]
 fn commits_limit_bounds_only_a_walk_without_target_commit() -> anyhow::Result<()> {
-    let (repo, meta, _db) = read_only_in_memory_scenario("history-below-target")?;
+    let (repo, db) = read_only_in_memory_scenario("history-below-target")?;
     let head_ref = repo.head_name()?;
     let head_id = repo.head_id()?.detach();
     // The first commit, so the walk down to it takes longer than the limit.
@@ -64,7 +58,7 @@ fn commits_limit_bounds_only_a_walk_without_target_commit() -> anyhow::Result<()
     let subjects = |target_commit_id| -> anyhow::Result<Vec<String>> {
         let graph = but_graph::nosegment::segment_graph(
             &repo,
-            &*meta,
+            &db.meta(),
             but_graph::init::Overlay::default(),
             Default::default(),
             head_ref.as_ref().map(|name| name.as_ref()),

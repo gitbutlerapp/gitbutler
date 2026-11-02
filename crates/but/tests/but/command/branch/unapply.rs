@@ -631,11 +631,18 @@ AA collision
         "unapply preserves the branch and its commits"
     );
     env.but("switch --workspace").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse a-branch-1"),
+        env.invoke_git("rev-parse main"),
+        "the generated workspace branch starts at the local target"
+    );
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted]
 ┊   qx M collision
 ┊
-┊╭┄ br [a-branch-1]
+┊╭┄ br [a-branch-1] (no commits)
+┊│
+┊├┄ ma [main]
 ┊●   tkp target
 ├╯
 ┊
@@ -680,8 +687,6 @@ fn unapply_last_branch_with_existing_workspace_can_be_undone() {
 
 #[test]
 fn unapply_last_branch_with_existing_workspace_keeps_conflicting_uncommitted_changes() {
-    use but_core::RefMetadata as _;
-
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.file("one.txt", "work on one\n");
     env.but("commit -b one -m one").assert().success();
@@ -711,6 +716,7 @@ fn unapply_last_branch_with_existing_workspace_keeps_conflicting_uncommitted_cha
         format!(
             "{:#?}",
             env.meta()
+                .meta()
                 .workspace(but_core::WORKSPACE_REF_NAME.try_into().unwrap())
                 .unwrap()
                 .stacks

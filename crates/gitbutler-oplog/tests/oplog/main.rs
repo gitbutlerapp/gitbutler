@@ -201,7 +201,7 @@ mod prepare_snapshot {
     use gitbutler_oplog::OplogExt;
 
     #[test]
-    fn metadata_free_workspace_marks_legacy_stacks_outside() -> anyhow::Result<()> {
+    fn snapshot_preserves_workspace_metadata_for_a_missing_branch() -> anyhow::Result<()> {
         let env =
             Sandbox::init_scenario_with_target_and_default_settings("metadata-free-workspace");
         let [stack_id] = *env.setup_metadata(&["A"]) else {
@@ -222,13 +222,89 @@ mod prepare_snapshot {
         let metadata: VirtualBranches = toml::from_str(std::str::from_utf8(&metadata_blob.data)?)?;
 
         assert!(
-            !metadata
+            metadata
                 .branches
                 .get(&stack_id)
                 .expect("legacy stack is retained")
                 .in_workspace,
-            "metadata-free projections must mark legacy stacks outside the workspace"
+            "snapshot metadata retains saved membership even when Git has no matching branch"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn snapshot_restores_missing_and_surviving_refs_in_the_same_stack() -> anyhow::Result<()> {
+        for missing in ["tip", "lower"] {
+            let env =
+                Sandbox::init_scenario_with_target_and_default_settings("metadata-free-workspace");
+            let lower = env.invoke_git("commit-tree main^{tree} -p main -m lower");
+            let tip = env.invoke_git(&format!("commit-tree main^{{tree}} -p {lower} -m tip"));
+            env.invoke_git(&format!("branch lower {lower}"));
+            env.invoke_git(&format!("branch tip {tip}"));
+            env.setup_metadata(&["tip"]);
+            let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into()?;
+            let workspace_before = {
+                let mut db = env.meta();
+                let mut workspace = db.meta().workspace(workspace_ref)?;
+                workspace.stacks[0]
+                    .branches
+                    .push(but_core::ref_metadata::WorkspaceStackBranch {
+                        ref_name: "refs/heads/lower".try_into()?,
+                        archived: false,
+                    });
+                db.meta_mut()?.set_workspace(&workspace)?;
+                if missing == "lower" {
+                    let mut snapshot = db.virtual_branches().get_snapshot()?.unwrap();
+                    for head in &mut snapshot.heads {
+                        head.name = format!("refs/heads/{}", head.name);
+                    }
+                    db.virtual_branches_mut()?.replace_snapshot(&snapshot)?;
+                }
+                (*workspace).clone()
+            };
+            env.invoke_git(&format!("branch -D {missing}"));
+            env.invoke_git(&format!("tag {missing} main"));
+            let surviving = if missing == "tip" { "lower" } else { "tip" };
+            let surviving_commit = if missing == "tip" { &lower } else { &tip };
+
+            let mut ctx = but_ctx::Context::from_repo_for_testing(env.open_repo())?;
+            let mut guard = ctx.exclusive_worktree_access();
+            let snapshot_tree_id = ctx.prepare_snapshot(guard.read_permission())?;
+            env.invoke_git(&format!("branch {missing} main"));
+            env.invoke_git(&format!("branch -f {surviving} main"));
+            let loose_commit = env
+                .open_repo()
+                .git_dir()
+                .join("objects")
+                .join(&surviving_commit[..2])
+                .join(&surviving_commit[2..]);
+            assert!(loose_commit.is_file(), "fixture commit is stored loose");
+            std::fs::remove_file(loose_commit)?;
+
+            gitbutler_oplog::restore_checkpoint(
+                &mut ctx,
+                snapshot_tree_id,
+                guard.write_permission(),
+            )?;
+            let repo = ctx.repo.get()?;
+            assert!(
+                repo.try_find_reference(&format!("refs/heads/{missing}"))?
+                    .is_none(),
+                "a ref absent at snapshot time stays absent after restore"
+            );
+            assert_eq!(
+                repo.find_reference(&format!("refs/heads/{surviving}"))?
+                    .peel_to_id()?
+                    .to_string(),
+                *surviving_commit,
+                "restore recovers the surviving branch and its archived commit"
+            );
+            assert_eq!(
+                *ctx.db.get_cache()?.meta().workspace(workspace_ref)?,
+                workspace_before,
+                "missing Git refs do not alter saved workspace membership"
+            );
+        }
         Ok(())
     }
 }

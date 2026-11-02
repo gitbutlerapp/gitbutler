@@ -248,6 +248,12 @@ fn restore_snapshot_replaces_branch_order() -> anyhow::Result<()> {
 #[test]
 fn restore_snapshot_restores_explicitly_empty_branch_order() -> anyhow::Result<()> {
     let Test { ctx, .. } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    ctx.db
+        .get_cache_mut()?
+        .branch_order_mut()?
+        .replace_snapshot(&but_db::BranchOrderSnapshot {
+            entries: Vec::new(),
+        })?;
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_id = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -778,6 +784,91 @@ fn restore_reverts_a_target_commit_only_change() -> anyhow::Result<()> {
 }
 
 #[test]
+fn snapshots_ignore_live_toml_and_restore_updates_its_mirror() -> anyhow::Result<()> {
+    let Test { ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let legacy_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let mut metadata = ctx
+        .db
+        .get_cache()?
+        .virtual_branches()
+        .get_snapshot()?
+        .unwrap_or_default();
+    let saved_base = ctx
+        .project_meta()?
+        .resolve_target_commit(&*ctx.repo.get()?)?
+        .to_string();
+    metadata.state.last_pushed_base_sha = Some(saved_base.clone());
+    ctx.db
+        .get_cache_mut()?
+        .virtual_branches_mut()?
+        .replace_snapshot(&metadata)?;
+    if legacy_path.exists() {
+        fs::remove_file(&legacy_path)?;
+    }
+
+    let mut workspace_meta = ctx
+        .db
+        .get_cache()?
+        .meta()
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+    workspace_meta.ref_info.updated_at = Some(gix::date::Time::new(12345, 3600));
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .set_workspace(&workspace_meta)?;
+    let saved_ref_info = ctx.db.get_cache()?.meta().ref_info_snapshot()?;
+    fs::remove_file(&legacy_path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    assert!(
+        !legacy_path.exists(),
+        "taking a snapshot does not create legacy TOML"
+    );
+    metadata.state.last_pushed_base_sha = None;
+    ctx.db
+        .get_cache_mut()?
+        .virtual_branches_mut()?
+        .replace_snapshot(&metadata)?;
+    ctx.db
+        .get_cache_mut()?
+        .meta_mut()?
+        .restore_ref_info(&but_db::RefInfoSnapshot::default())?;
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    let mirror: but_meta::virtual_branches_legacy_types::VirtualBranches =
+        toml::from_str(&fs::read_to_string(&legacy_path)?)?;
+    assert_eq!(
+        mirror.last_pushed_base.map(|id| id.to_string()),
+        Some(saved_base.clone()),
+        "restoring a snapshot updates its compatibility mirror"
+    );
+    assert_eq!(
+        ctx.db
+            .get_cache()?
+            .virtual_branches()
+            .get_snapshot()?
+            .unwrap_or_default()
+            .state
+            .last_pushed_base_sha,
+        Some(saved_base),
+        "the snapshot restores metadata directly to the database"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.meta().ref_info_snapshot()?,
+        saved_ref_info,
+        "snapshot restore preserves workspace existence and reference timestamps"
+    );
+    Ok(())
+}
+
+#[test]
 fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
     configure_default_target(ctx)?;
@@ -795,7 +886,8 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
     let before_meta = ctx.project_meta()?;
     let before_oplog_head = ctx.oplog_head()?;
     let live_path = ctx.project_data_dir().join("virtual_branches.toml");
-    let before_toml = fs::read(&live_path)?;
+    let before_toml = fs::read(&live_path).ok();
+    let before_workspace_meta = ctx.db.get_cache()?.virtual_branches().get_snapshot()?;
 
     let error = ctx
         .restore_snapshot(
@@ -819,9 +911,14 @@ fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result
         "a failed restore does not advance the oplog head"
     );
     assert_eq!(
-        fs::read(live_path)?,
+        fs::read(live_path).ok(),
         before_toml,
         "a failed restore does not rewrite virtual_branches.toml"
+    );
+    assert_eq!(
+        ctx.db.get_cache()?.virtual_branches().get_snapshot()?,
+        before_workspace_meta,
+        "a failed restore does not change workspace metadata"
     );
     Ok(())
 }
