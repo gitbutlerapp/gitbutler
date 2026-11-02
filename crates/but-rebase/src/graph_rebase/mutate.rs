@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail, ensure};
 use but_core::RefMetadata;
 use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
@@ -372,6 +372,30 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             self.replace_with_none(subject)?;
         }
         self.emerge(target, precs)
+    }
+
+    /// Records that the blank `new_commit` and `source` are the two halves of a split, which has
+    /// to happen before changes move between them.
+    pub fn split_from(
+        &mut self,
+        source: impl ToCommitSelector,
+        new_commit: impl ToCommitSelector,
+    ) -> Result<()> {
+        let source = source.to_commit_selector(self)?;
+        let (new_commit, commit) = self.find_selectable_commit(new_commit)?;
+        let parent_tree = commit
+            .parents
+            .first()
+            .map(|parent| self.repo.find_commit(*parent)?.tree_id())
+            .transpose()?;
+        ensure!(
+            parent_tree.is_none_or(|tree| tree == commit.tree),
+            "A split has to be recorded while the new commit {} is still blank",
+            commit.id
+        );
+        let precs: Vec<_> = self.consume(source)?.into_iter().collect();
+        self.emerge(source, precs.clone())?;
+        self.emerge(new_commit, precs)
     }
 
     /// Replaces `target` with [Step::None], recording that it's gone without a replacement.
