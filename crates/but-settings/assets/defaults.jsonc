@@ -28,7 +28,10 @@
 		"tuiFileBrowser": false,
 		/// Open the experimental native client (GPUI) instead of the web app when GitButler starts,
 		/// on macOS builds that include it.
-		"gpui": false
+		"gpui": false,
+		/// In the native client (GPUI), the single file diff: show only the selected file of a
+		/// diff, filling the pane, rather than every file one after another.
+		"gpuiSingleFileDiff": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

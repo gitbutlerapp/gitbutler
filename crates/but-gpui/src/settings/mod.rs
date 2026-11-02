@@ -706,17 +706,6 @@ impl SettingsView {
                 })),
             ),
             Row::new(
-                "All-in-one diff",
-                "The diff runs through every changed file, one after another. Off, it shows only \
-                 the file selected in the file list, and Space at its end goes on to the next.",
-                self.pref_switch(
-                    "all-in-one",
-                    !prefs.one_file_diff,
-                    |p| p.one_file_diff ^= true,
-                    cx,
-                ),
-            ),
-            Row::new(
                 "Semantic context",
                 "Each hunk's box names the function or type it changes, and a short one shows \
                  whole around it. deltoids reads it from the code with tree-sitter, for Rust, \
@@ -936,6 +925,36 @@ impl SettingsView {
         ))
     }
 
+    fn single_file_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).single_file_diff;
+        let flip = cx.listener(move |this, _, _, cx| {
+            this.store.update(cx, |store, cx| {
+                store.single_file_diff = !on;
+                cx.notify();
+            });
+            this.apply(
+                "Couldn't change the single file diff",
+                move || backend::set_single_file_diff(!on),
+                // What was saved, which a failure leaves as it was.
+                |this, cx| {
+                    let on = backend::single_file_diff();
+                    this.store.update(cx, |store, cx| {
+                        store.single_file_diff = on;
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
+        Row::new(
+            "Single file diff",
+            "The diff shows only the file selected in the file list, filling the pane, with \
+             its changed lines marked beside the scrollbar. The file list stays beside it.",
+            switch("single-file-diff", on, Theme::get(cx)).on_click(flip),
+        )
+        .with_keywords("all-in-one one file at a time per screen")
+    }
+
     fn fps_row(&self, cx: &Context<Self>) -> Row {
         let on = self.store.read(cx).prefs.show_fps;
         Row::new(
@@ -980,7 +999,13 @@ impl SettingsView {
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx))
                     .flatten();
-                vec![Card::new(None, start.into_iter().collect())]
+                vec![Card::new(
+                    None,
+                    start
+                        .into_iter()
+                        .chain([self.single_file_row(cx)])
+                        .collect(),
+                )]
             }
             Page::App(AppPage::Developer) => vec![Card::new(None, vec![self.fps_row(cx)])],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),

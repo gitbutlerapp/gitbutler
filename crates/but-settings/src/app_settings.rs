@@ -68,6 +68,9 @@ pub struct FeatureFlags {
     /// Open the experimental native client (GPUI) instead of the web app when GitButler
     /// starts, on macOS builds that include it.
     pub gpui: bool,
+    /// In the native client (GPUI), the single file diff: show only the selected file of a
+    /// diff, filling the pane, rather than every file one after another.
+    pub gpui_single_file_diff: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

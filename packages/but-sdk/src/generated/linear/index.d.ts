@@ -962,11 +962,17 @@ export type FeatureFlags = {
    * starts, on macOS builds that include it.
    */
   gpui: boolean;
+  /**
+   * In the native client (GPUI), the single file diff: show only the selected file of a
+   * diff, filling the pane, rather than every file one after another.
+   */
+  gpuiSingleFileDiff: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   gpui?: boolean | null;
+  gpuiSingleFileDiff?: boolean | null;
 };
 
 export type Fetch = {

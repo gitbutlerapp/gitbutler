@@ -83,7 +83,22 @@ pub fn opens_at_start() -> bool {
 }
 
 pub fn set_opens_at_start(on: bool) -> Result<()> {
-    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate { gpui: Some(on) })
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui: Some(on),
+        ..Default::default()
+    })
+}
+
+/// Whether the single file diff is on, as the experimental `gpuiSingleFileDiff` says.
+pub fn single_file_diff() -> bool {
+    feature_flags().is_some_and(|flags| flags.gpui_single_file_diff)
+}
+
+pub fn set_single_file_diff(on: bool) -> Result<()> {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui_single_file_diff: Some(on),
+        ..Default::default()
+    })
 }
 
 /// What the Project section of the settings shows.

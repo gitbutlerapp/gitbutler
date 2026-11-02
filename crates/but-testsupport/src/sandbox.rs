@@ -515,6 +515,7 @@ impl Sandbox {
                 write_commit_evolution: true,
                 tui_file_browser: false,
                 gpui: false,
+                gpui_single_file_diff: false,
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],

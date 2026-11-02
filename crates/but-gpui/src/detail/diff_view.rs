@@ -1051,7 +1051,7 @@ impl Detail {
             )
         });
         // Pinned, the files show beside the diff and nothing toggles them.
-        let files = (hidden || !self.files_pinned(cx))
+        let files = (hidden || !self.single_file_diff(cx))
             .then(|| div().relative().child(toggle).children(list));
         let flag = |id: &'static str, glyph, tip, on, action: &'static dyn Action| {
             icon_toggle(id, glyph, tip, shortcut(action, cx), on, theme).on_click(act(action))

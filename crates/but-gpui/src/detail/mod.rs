@@ -1588,8 +1588,8 @@ impl Detail {
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
     /// files and hunks, or files of the commit shown, that a pending operation takes away are
     /// left out until it's done. `unfolded`, as they would with every file open and one line a
-    /// row, as Find searches them. With them, the files shown and, with Settings' all-in-one
-    /// diff off, the one file the rows are of.
+    /// row, as Find searches them. With them, the files shown and, with the single file diff on,
+    /// the one file the rows are of.
     fn build_rows(
         &self,
         key: &DiffKey,
@@ -1653,11 +1653,11 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// The one file of `shown` the diff shows with Settings' all-in-one diff off: the
+    /// The one file of `shown` the single file diff shows: the
     /// cursor's, or when that's hidden, the next shown after it, else the last, as
     /// `skip_taken` moves the cursor.
     fn alone(&self, shown: &[usize], cx: &App) -> Option<usize> {
-        if !self.store.read(cx).prefs.one_file_diff {
+        if !self.store.read(cx).single_file_diff {
             return None;
         }
         (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
@@ -2402,7 +2402,7 @@ impl Detail {
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches
     /// over them (Find's among them): not those a filter or a pending operation hides. Every
-    /// one, though the all-in-one diff off shows them one at a time.
+    /// one, though the single file diff shows them one at a time.
     fn shown_files(&self) -> Vec<usize> {
         self.diff
             .iter()
@@ -2773,21 +2773,21 @@ impl Detail {
         !self.overview_only(cx) && (self.list_page(cx) || !self.hides_files(cx))
     }
 
-    /// Whether the files stay beside the diff with no toggle: with Settings' all-in-one diff
-    /// off the diff shows one file, and the file list is how to go to another.
-    pub(crate) fn files_pinned(&self, cx: &App) -> bool {
-        self.store.read(cx).prefs.one_file_diff
+    /// Whether the single file diff is on. The files then stay beside the diff with no toggle,
+    /// as the file list is how to go to another.
+    pub(crate) fn single_file_diff(&self, cx: &App) -> bool {
+        self.store.read(cx).single_file_diff
     }
 
     /// Whether `f` hid the file list beside the diff, and it isn't pinned there.
     pub(super) fn hides_files(&self, cx: &App) -> bool {
-        self.files_hidden && !self.files_pinned(cx)
+        self.files_hidden && !self.single_file_diff(cx)
     }
 
     /// Whether the files beside a list page's list are hidden, as they are at first, and
     /// aren't pinned there.
     pub(super) fn hides_beside_files(&self, cx: &App) -> bool {
-        self.beside_files_hidden && !self.files_pinned(cx)
+        self.beside_files_hidden && !self.single_file_diff(cx)
     }
 
     /// How much of the column beside the diff shows at `now`, from 0 to 1, as `f` slides the
@@ -2858,7 +2858,7 @@ impl Detail {
     pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let list_page = self.list_page(cx);
         if self.overview_only(cx)
-            || self.files_pinned(cx)
+            || self.single_file_diff(cx)
             || (list_page && !self.has_files_beside(cx))
         {
             return;
