@@ -33,6 +33,7 @@
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
+//! lite on                 # turn the Lite interface on or off, as Settings › Experimental does
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
@@ -80,6 +81,7 @@ use parking_lot::Mutex;
 use crate::app::AppView;
 use crate::clock;
 use crate::keymap::Keymap;
+use crate::state::Interface;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 
@@ -1054,6 +1056,20 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let app = window.root::<AppView>().flatten().context("no app view")?;
             app.update(cx, |app, cx| {
                 (app.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx))
+            });
+        }
+        // The interface Settings › Experimental would pick, without opening it.
+        "lite" => {
+            let interface = match rest {
+                "on" => Interface::Lite,
+                "off" => Interface::Full,
+                _ => bail!("lite takes on or off"),
+            };
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                (app.store).update(cx, |store, cx| {
+                    store.set_prefs(|p| p.interface = interface, cx)
+                })
             });
         }
         // The window as if another app's covered it, or shown again.

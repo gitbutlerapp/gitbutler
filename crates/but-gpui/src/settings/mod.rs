@@ -22,7 +22,7 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns};
+use crate::state::{Interface, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -955,6 +955,29 @@ impl SettingsView {
         .with_keywords("all-in-one one file at a time per screen")
     }
 
+    fn lite_row(&self, cx: &Context<Self>) -> Row {
+        let lite = self.store.read(cx).prefs.interface == Interface::Lite;
+        Row::new(
+            "Lite interface",
+            "Leaves out parts of the window that repeat what's elsewhere or switch what keys \
+             do: the status bar, the location bar while the navigator shows, a branch's \
+             header, the diff's toolbar and the counts and buttons on each file. What's left \
+             out may change from one release to the next.",
+            self.pref_switch(
+                "lite-interface",
+                lite,
+                |p| {
+                    p.interface = match p.interface {
+                        Interface::Full => Interface::Lite,
+                        Interface::Lite => Interface::Full,
+                    }
+                },
+                cx,
+            ),
+        )
+        .with_keywords("minimal compact hide status bar breadcrumbs toolbar header")
+    }
+
     fn fps_row(&self, cx: &Context<Self>) -> Row {
         let on = self.store.read(cx).prefs.show_fps;
         Row::new(
@@ -1003,7 +1026,7 @@ impl SettingsView {
                     None,
                     start
                         .into_iter()
-                        .chain([self.single_file_row(cx)])
+                        .chain([self.single_file_row(cx), self.lite_row(cx)])
                         .collect(),
                 )]
             }

@@ -27,7 +27,7 @@ use crate::backend::{
     PushState, Workspace,
 };
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, Prefs, Selection};
+use crate::state::{Cut, Part, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -514,7 +514,6 @@ impl Detail {
     /// stay where they are. None while neither the file's header nor its lines show.
     pub(super) fn close_from(&self, file: usize, cx: &App) -> Option<(usize, Option<Pixels>)> {
         let diff = self.diff.as_ref()?;
-        let theme = Theme::get(cx);
         let view = self.list.viewport_bounds();
         let header = (diff.rows.iter()).position(|row| *row == DiffRow::File(file))?;
         if let Some(bounds) = self.list.bounds_for_item(header)
@@ -522,11 +521,11 @@ impl Detail {
         {
             return (bounds.top() < view.bottom()).then_some((0, None));
         }
-        let (stuck, lift) = self.sticky_header(diff, theme)?;
+        let (stuck, lift) = self.sticky_header(diff, cx)?;
         if stuck != header {
             return None;
         }
-        let tall = theme.scaled(diff::FILE_HEADER_HEIGHT);
+        let tall = self.file_header_height(cx);
         // The first line that shows below it, as the rows above the list's top have no place.
         let under = view.top() + tall + lift;
         let from = self.list.logical_scroll_top().item_ix.max(header + 1);
@@ -773,13 +772,14 @@ impl Detail {
         let entity = cx.entity().downgrade();
         // A copy of the header of the file at the top, while the file scrolls under it. It's
         // clipped to the list, so the next file can push it out the top.
-        let sticky = self.sticky_header(diff, theme).map(|(ix, lift)| {
+        let header_height = self.file_header_height(cx);
+        let sticky = self.sticky_header(diff, cx).map(|(ix, lift)| {
             div()
                 .absolute()
                 .top_0()
                 .left_0()
                 .right_0()
-                .h(dp(diff::FILE_HEADER_HEIGHT))
+                .h(header_height)
                 .overflow_hidden()
                 .child(
                     div()
@@ -833,7 +833,7 @@ impl Detail {
         // One file's header holds the top, there or stuck, so the marks and the scrollbar run
         // beside its lines, below it.
         let rail_top = match diff.alone {
-            Some(_) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            Some(_) => header_height,
             None => Pixels::ZERO,
         };
         // A drag that selects past the edge, out of the window too, draws the pane again,
@@ -885,8 +885,9 @@ impl Detail {
             .absolute()
         };
         ground()
-            // With the bar above it, as far down as but.dev starts its first card.
-            .pt(dp(7.))
+            // With the bar above it, as far down as but.dev starts its first card. A title
+            // starts at the pane's top, beside the file list's heading.
+            .when(!self.titled_header(cx), |el| el.pt(dp(7.)))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             .on_mouse_up(
@@ -1045,6 +1046,16 @@ impl Detail {
         self.diff.as_ref().is_some_and(|diff| diff.alone.is_some())
     }
 
+    /// Whether the one file shown alone has its header as the pane's title, as Lite has it.
+    pub(super) fn titled_header(&self, cx: &App) -> bool {
+        self.single_file_shown() && !(self.store.read(cx).prefs).shows(Part::FileHeaderControls)
+    }
+
+    /// How tall a file's header draws, as [`diff::file_header_height`] says for this diff.
+    pub(super) fn file_header_height(&self, cx: &App) -> Pixels {
+        Theme::get(cx).scaled(diff::file_header_height(self.titled_header(cx)))
+    }
+
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
     /// their lines while the list isn't beside the diff and lists them on hover, then how
     /// long lines show and where the sides go. A page whose column is its own list toggles the
@@ -1068,6 +1079,12 @@ impl Detail {
             true => !self.beside_files_shown(cx),
             false => !self.files_shown(cx),
         };
+        // Lite leaves the bar out once the files it'd toggle are beside the diff, as keys
+        // switch the rest.
+        let controls = prefs.shows(Part::DiffTools);
+        if !controls && !hidden {
+            return None;
+        }
         let files_key = shortcut(&ToggleFiles, cx);
         let glyph = match (toggles, hidden) {
             (false, _) => Icon::FileDiff,
@@ -1134,46 +1151,48 @@ impl Detail {
                 .bg(theme.bg_1)
                 .children(files)
                 .child(div().flex_1())
-                .child(toggle_group(
-                    theme,
-                    [
-                        flag(
-                            "diff-wrap",
-                            Icon::TextWrap,
-                            "Wrap long lines",
-                            wrap,
-                            &ToggleWrap,
-                        ),
-                        flag(
-                            "diff-backgrounds",
-                            Icon::TextBlock,
-                            "Toggle diff backgrounds",
-                            !plain,
-                            &TogglePlainLines,
-                        ),
-                    ],
-                ))
-                .child(segmented(
-                    false,
-                    theme,
-                    [
-                        layout("diff-split", "Split", "Side by side", split, &ToggleSplit),
-                        layout(
-                            "diff-unified",
-                            "Unified",
-                            "One above the other",
-                            !split,
-                            &ToggleSplit,
-                        ),
-                    ],
-                ))
+                .when(controls, |el| {
+                    el.child(toggle_group(
+                        theme,
+                        [
+                            flag(
+                                "diff-wrap",
+                                Icon::TextWrap,
+                                "Wrap long lines",
+                                wrap,
+                                &ToggleWrap,
+                            ),
+                            flag(
+                                "diff-backgrounds",
+                                Icon::TextBlock,
+                                "Toggle diff backgrounds",
+                                !plain,
+                                &TogglePlainLines,
+                            ),
+                        ],
+                    ))
+                    .child(segmented(
+                        false,
+                        theme,
+                        [
+                            layout("diff-split", "Split", "Side by side", split, &ToggleSplit),
+                            layout(
+                                "diff-unified",
+                                "Unified",
+                                "One above the other",
+                                !split,
+                                &ToggleSplit,
+                            ),
+                        ],
+                    ))
+                })
                 .into_any_element(),
         )
     }
 
     /// The header to keep at the top of the diff while its file scrolls under it, by row, and
     /// how far the file's end has pushed it up. Nothing while a header is at the top itself.
-    fn sticky_header(&self, diff: &LoadedDiff, theme: &Theme) -> Option<(usize, Pixels)> {
+    fn sticky_header(&self, diff: &LoadedDiff, cx: &App) -> Option<(usize, Pixels)> {
         let top = self.list.logical_scroll_top();
         let row = *diff.rows.get(top.item_ix)?;
         let file = row.file()?;
@@ -1192,7 +1211,7 @@ impl Detail {
             .bounds_for_item(last)
             .map_or(Pixels::ZERO, |last| {
                 let room = last.top() - self.list.viewport_bounds().top();
-                (room - theme.scaled(diff::FILE_HEADER_HEIGHT)).min(Pixels::ZERO)
+                (room - self.file_header_height(cx)).min(Pixels::ZERO)
             });
         Some((header, lift))
     }
@@ -1292,25 +1311,30 @@ impl Detail {
                             .child(commit_title(&commit.title)),
                     )
                 });
+                // Lite leaves the counts and buttons to the menu and the keys.
+                let controls = store.prefs.shows(Part::FileHeaderControls);
+                let has_trailing = controls || from.is_some();
                 let trailing = h_flex()
                     .flex_none()
                     .gap(dp(4.))
                     .children(from)
                     // The toggle last but one: showing text adds the whole-file button, which
                     // mustn't move it from under the pointer.
-                    .children(whole)
-                    .children(drawn)
-                    .child(more);
+                    .when(controls, |el| {
+                        el.children(whole).children(drawn).child(more)
+                    });
                 let header = diff::file_header(
                     file,
                     file_diff,
                     theme,
                     HeaderDecor {
-                        trailing: Some(trailing.into_any_element()),
+                        trailing: has_trailing.then(|| trailing.into_any_element()),
                         current,
                         solid,
                         folded: ends,
                         flat,
+                        uncounted: !controls,
+                        titled: self.titled_header(cx),
                         closing: self.file_folds.closing(&file_diff.file.path),
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
