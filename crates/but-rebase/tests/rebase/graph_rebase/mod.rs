@@ -21,6 +21,7 @@ mod multiple_operations;
 mod order_commit_selectors_by_parentage;
 mod rebase_identities;
 mod replace;
+mod rewrites;
 mod sha256;
 mod signing_preferences;
 mod workspace_commit_behaviour;

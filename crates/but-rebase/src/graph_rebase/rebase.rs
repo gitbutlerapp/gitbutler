@@ -224,7 +224,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 }
 
 /// Return every graph step in parent-before-child dependency order.
-fn order_steps_picking(graph: &StepGraph) -> Result<Vec<StepGraphIndex>> {
+pub(crate) fn order_steps_picking(graph: &StepGraph) -> Result<Vec<StepGraphIndex>> {
     let mut ordered = match toposort(graph, None) {
         Ok(ordered) => ordered,
         Err(_) => bail!("BUG: Rebase editor graph contains a cycle"),
