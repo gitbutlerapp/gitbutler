@@ -969,8 +969,8 @@ importers:
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@gitbutler/design-core':
-        specifier: 10.0.1
-        version: 10.0.1
+        specifier: 11.0.0
+        version: 11.0.0
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.58.2
@@ -2103,8 +2103,8 @@ packages:
   '@gitbutler/design-core@10.0.0':
     resolution: {integrity: sha512-ZTYr4tRr+xKgq16gmGG0iOZDjDV8ApMnpT3AialdPAZ7sCMEzKBTM3xWPVDvfuzcKiJXXnwqpWu+sh74/NlgIQ==}
 
-  '@gitbutler/design-core@10.0.1':
-    resolution: {integrity: sha512-ECOLgCuU/hnGuYpnKdIaH/1Yid7gYx6NAj2o/mXIn3LqaNqDWmZRH5JGUhlJt6mdxlf+IRFHaWpCxiwhTkyjRw==}
+  '@gitbutler/design-core@11.0.0':
+    resolution: {integrity: sha512-QUV7z1HSASBAt1PZBmtTIH0xEwFYN4cKg5MBjZDEPQ/wxanLpkeAiIwwtuq5nYJO8oipJteyJ5jhrmm6rtwKdw==}
 
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
@@ -10472,7 +10472,7 @@ snapshots:
 
   '@gitbutler/design-core@10.0.0': {}
 
-  '@gitbutler/design-core@10.0.1': {}
+  '@gitbutler/design-core@11.0.0': {}
 
   '@gitbutler/design-core@2.2.2': {}
 
