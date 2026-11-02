@@ -1015,10 +1015,10 @@ pub(super) fn within<'a>(
 
 /// Whether what's `dragging` can land apart from the rest of `project`'s `workspace`:
 /// commits in a new branch, and a branch that shares its stack in one of its own. Outside the
-/// workspace, landing there sets it up, as `but move` does, on the target.
+/// workspace, landing there sets it up, as `but move` does.
 fn lands_apart(dragging: Option<&Cut>, project: &ProjectId, workspace: &Workspace) -> bool {
     match dragging {
-        Some(Cut::Commit(from, _)) => from == project && workspace.takes_new_stacks(),
+        Some(Cut::Commit(from, _)) => from == project,
         Some(Cut::Branch(from, branch)) => {
             from == project && BranchEdits::of(workspace, branch).unstack
         }
@@ -1183,9 +1183,12 @@ mod lands_apart_tests {
             ..ws
         };
         assert!(
-            !lands_apart(Some(&dragged("ui")), &project, &untargeted)
-                && !lands_apart(Some(&commit), &project, &untargeted),
-            "without a target there's no workspace to set up for a stack of its own"
+            !lands_apart(Some(&dragged("ui")), &project, &untargeted),
+            "without a target a branch can't be torn off, as a stack of its own starts from it"
+        );
+        assert!(
+            lands_apart(Some(&commit), &project, &untargeted),
+            "but commits still go in a new branch, on top of the one checked out"
         );
     }
 }

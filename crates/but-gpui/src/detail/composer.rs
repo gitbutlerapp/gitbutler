@@ -618,12 +618,8 @@ impl Detail {
             at: at.clone(),
             ..moving
         };
-        // Outside the workspace, the new branch the commit makes can't be named, so one named
-        // is made first.
-        match placed.commit_to(self.store.read(cx)) {
-            Some(CommitTo::NewBranch) if name.is_some() => return false,
-            Some(_) => {}
-            None => return false,
+        if placed.commit_to(self.store.read(cx)).is_none() {
+            return false;
         }
         self.new_branch_name = name;
         self.change_committing(
@@ -1038,7 +1034,14 @@ impl Detail {
                 None => return snack(&self.store, "Nothing can be committed there", cx),
             },
             None if self.target_went(&project, &target, cx) => return,
-            None => target.clone().map_or(CommitTo::NewBranch, CommitTo::Branch),
+            None => target.clone().map_or(
+                CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
+                CommitTo::Branch,
+            ),
         };
         // A linked worktree's commit goes on its own branch, so the next one in the main
         // checkout still goes where it would have.
@@ -1396,9 +1399,7 @@ impl Detail {
                     let side = if below { "below" } else { "above" };
                     format!("new branch {side} {}", short_ref(&beside))
                 }
-                Some(CommitTo::NewBranch | CommitTo::NewBranchAt { beside: None, .. }) | None => {
-                    NEW_STACK.into()
-                }
+                Some(CommitTo::NewBranchAt { beside: None, .. }) | None => NEW_STACK.into(),
             },
             None => (self.effective_target(project, cx))
                 .map_or(NEW_STACK.into(), |branch| short_ref(&branch).into_owned()),

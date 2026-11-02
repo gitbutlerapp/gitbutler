@@ -590,9 +590,9 @@ impl Move {
 
     /// Where committing puts a new commit where it's at, if it can go there: on top of a
     /// branch of the checkout the changes are in, right below one of its commits, or in a new
-    /// branch beside one of them; from the main checkout, in a new branch of its own too, a
-    /// stack of its own in the workspace, and outside it where a new branch made there goes.
-    /// Not on the default branch, which work stays off.
+    /// branch beside one of them; from the main checkout, in a new branch of its own too, which
+    /// starts from the target and outside the workspace sets it up, as moving there does. Not
+    /// on the default branch, which work stays off.
     pub fn commit_to(&self, store: &Store) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
             return None;
@@ -620,14 +620,14 @@ impl Move {
                 first: false,
                 name: None,
             }),
-            Stop::NewStack { first } => match (worktree, workspace.managed) {
-                (Checkout::Main, true) => Some(CommitTo::NewBranchAt {
+            Stop::NewStack { first } => match worktree {
+                Checkout::Main if workspace.target_branch.is_none() => None,
+                Checkout::Main => Some(CommitTo::NewBranchAt {
                     beside: None,
                     first: *first,
                     name: None,
                 }),
-                (Checkout::Main, false) => Some(CommitTo::NewBranch),
-                (Checkout::Linked(_), _) => None,
+                Checkout::Linked(_) => None,
             },
             Stop::In(Destination::AboveCommit(_))
             | Stop::Into(_)
