@@ -26,6 +26,15 @@ pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
     }
 }
 
+/// The purple of a merged branch's glyph, which stays when its row is the `solid` selection, so
+/// the row still says it merged.
+pub fn merged_color(solid: bool, theme: &Theme) -> Hsla {
+    match solid {
+        true => theme.purple_on_solid,
+        false => theme.purple,
+    }
+}
+
 pub fn state_label(state: ReviewState) -> &'static str {
     match state {
         ReviewState::Open => "Open",

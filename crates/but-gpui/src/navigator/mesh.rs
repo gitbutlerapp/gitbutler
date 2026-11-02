@@ -13,7 +13,7 @@ use crate::app::{CopyPath, CopySelection};
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Section, Selection, Store};
-use crate::ui::{Icon, Tooltip, faint, icon, small_icon};
+use crate::ui::{Icon, Tooltip, faint, icon, review, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -173,6 +173,10 @@ impl Navigator {
                     BranchStatus::Diverged => (Icon::Branch, theme.warn),
                     BranchStatus::Other => (Icon::Branch, style.muted()),
                 };
+                let color = match branch.status {
+                    BranchStatus::Integrated => review::merged_color(style.solid, theme),
+                    _ => style.meta(color),
+                };
                 let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                     this.toggle_mesh_branch(fold.clone(), open, window, cx)
                 };
@@ -185,7 +189,7 @@ impl Navigator {
                         cx,
                         toggle.clone(),
                     ))
-                    .child(icon(glyph).text_color(style.meta(color)))
+                    .child(icon(glyph).text_color(color))
                     .child(
                         div()
                             .flex_1()

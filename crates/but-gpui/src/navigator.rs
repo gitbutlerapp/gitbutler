@@ -1968,7 +1968,7 @@ impl Navigator {
         // What's being moved shows where the move is, rather than that it's selected. A linked
         // worktree dragged by its heading shows held the whole drag, over its own rows too,
         // where it isn't moving.
-        let dragged = matches!(item, Selection::Worktree(project, name)
+        let dragged = matches!(item, Selection::Checkout(project, Checkout::Linked(name))
             if (self.dragged_worktree.as_ref()).is_some_and(|(p, n)| p == project && n == name));
         let marked = moving::mark(store, item).or_else(|| dragged.then_some(Mark::Held(Op::Move)));
         let selected = lit(item) && marked.is_none();
@@ -2824,12 +2824,20 @@ impl Navigator {
         // Its pull request shows as it's asked for, pulsing until the forge has it.
         let publishing =
             branch.review.is_none() && ref_name.is_some_and(|r| store.publishing(id, r));
-        let (glyph, glyph_color) = match (&branch.review, branch.push) {
-            (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
-            (None, _) if publishing => review::state_glyph(ReviewState::Open, theme),
+        let state = match (&branch.review, branch.push) {
+            (Some(review), _) => Some(store.review_state(id, review)),
+            (None, _) if publishing => Some(ReviewState::Open),
             // Merged without a pull request, as one that merged with one shows.
-            (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
-            (None, _) => (Icon::Branch, style.muted()),
+            (None, PushState::Integrated) => Some(ReviewState::Merged),
+            (None, _) => None,
+        };
+        let (glyph, glyph_color) = match state {
+            Some(state) => review::state_glyph(state, theme),
+            None => (Icon::Branch, style.muted()),
+        };
+        let glyph_color = match state {
+            Some(ReviewState::Merged) => review::merged_color(style.solid, theme),
+            _ => style.meta(glyph_color),
         };
         // Once a pull request merged, how its CI stands no longer matters.
         let checks = (branch.review.as_ref())
@@ -2882,7 +2890,7 @@ impl Navigator {
                 .aria_label(format!("Branch {name}"))
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
                 .child(step)
-                .child(match icon(glyph).text_color(style.meta(glyph_color)) {
+                .child(match icon(glyph).text_color(glyph_color) {
                     glyph if publishing => pulsing(glyph).into_any_element(),
                     glyph => glyph.into_any_element(),
                 })

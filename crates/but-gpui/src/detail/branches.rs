@@ -1441,11 +1441,13 @@ impl Detail {
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
                             // The target has it all: merged, as a merged pull request shows.
+                            let is_merged = match &branch.review {
+                                Some(review) => review.state == ReviewState::Merged,
+                                None => branch.ahead == Some(0),
+                            };
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
-                                None if branch.ahead == Some(0) => {
-                                    (Icon::BranchMerge, theme.purple)
-                                }
+                                None if is_merged => (Icon::BranchMerge, theme.purple),
                                 None => (Icon::Branch, theme.text_2),
                             };
                             let on = selected && solid;
@@ -1490,7 +1492,10 @@ impl Detail {
                                 .pl(dp(if *stacked { 16. } else { 2. }))
                                 .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
                                 .child(step)
-                                .child(small_icon(glyph).text_color(ink(glyph_color)))
+                                .child(small_icon(glyph).text_color(match is_merged {
+                                    true => review::merged_color(on, theme),
+                                    false => ink(glyph_color),
+                                }))
                                 .child(name)
                                 .when_some(merged, |el, merged| {
                                     el.child(quiet(faint(merged, theme), on, theme))
