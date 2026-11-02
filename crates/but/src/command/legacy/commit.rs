@@ -37,7 +37,9 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
+        change_source::{
+            ChangeSourceId, ChangeSourceRepo, Hunks, InvokedFrom, UncommittedSelection,
+        },
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
         name_new_branch, rejection,
@@ -135,7 +137,18 @@ pub fn commit(
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
+    // Picking interactively shows hunks; otherwise only arguments naming a hunk need them.
+    let hunks = if args.interactive {
+        Hunks::Diffed
+    } else {
+        Hunks::for_uncommitted_args(&args.changes)
+    };
+    let id_map = IdMap::new_from_context_with_hunks(
+        ctx,
+        guard.read_permission(),
+        Some(invoked_from),
+        hunks,
+    )?;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -401,12 +414,11 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
 
     let changes = {
-        let context_lines = ctx.settings.context_lines;
         let repo = ctx.repo.get()?;
 
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.
-        let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+        let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo);
 
         match commit_selection {
             CommitSelection::AllChanges(_) => {

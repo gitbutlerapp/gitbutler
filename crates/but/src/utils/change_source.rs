@@ -196,6 +196,19 @@ pub enum Hunks {
 }
 
 impl Hunks {
+    /// What a command that takes uncommitted changes as `args` needs: hunks only when one of
+    /// them could name a hunk, which is written `<file>:<hunk>`. A `:` can also scope a path to
+    /// a worktree, which then diffs needlessly but resolves the same.
+    pub fn for_uncommitted_args<'a>(
+        args: impl IntoIterator<Item = &'a crate::args::atoms::CliIdArg>,
+    ) -> Self {
+        if args.into_iter().any(|arg| arg.0.contains(':')) {
+            Hunks::Diffed
+        } else {
+            Hunks::WholeFiles
+        }
+    }
+
     fn split(
         self,
         repo: &gix::Repository,

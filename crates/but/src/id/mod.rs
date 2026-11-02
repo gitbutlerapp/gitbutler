@@ -1106,6 +1106,19 @@ impl IdMap {
         Self::from_context(ctx, perm, invoked_from, change_source::Hunks::Diffed)
     }
 
+    /// Like [`new_from_context()`](Self::new_from_context), with `hunks` deciding whether
+    /// uncommitted files are diffed into their hunks.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn new_from_context_with_hunks(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+        hunks: change_source::Hunks,
+    ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, hunks)
+    }
+
     fn from_context(
         ctx: &Context,
         perm: &RepoShared,

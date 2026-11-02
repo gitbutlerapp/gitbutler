@@ -535,9 +535,8 @@ pub fn run(
             let mut paths = BTreeSet::new();
 
             let changes = {
-                let context_lines = ctx.settings.context_lines;
                 let repo = ctx.repo.get()?;
-                let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+                let mut builder = DiffSpecBuilder::new(&repo);
                 for change in changes {
                     match change {
                         CommittedDiscardSource::File(file) => {
@@ -588,10 +587,8 @@ pub fn run(
         }
         DiscardOperation::Uncommitted(selection) => {
             let changes = {
-                let context_lines = ctx.settings.context_lines;
                 let repo = ctx.repo.get()?;
-                let mut builder =
-                    DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+                let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo);
                 match selection {
                     UncommittedSelection::All(_) => builder.push_changes_from_uncommitted_area()?,
                     UncommittedSelection::Changes(changes) => {

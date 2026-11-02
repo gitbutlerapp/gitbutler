@@ -603,10 +603,9 @@ fn resolve(
         allow_merged: _,
     } = args;
 
-    let context_lines = ctx.settings.context_lines;
     let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
-    let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
+    let resolved_sources = resolve_sources(&repo, id_map, sources)?;
 
     match &resolved_sources {
         ResolvedSources::CommittedChanges(..) => {}
@@ -970,7 +969,6 @@ impl CommittedChange {
 
 fn resolve_sources(
     repo: &gix::Repository,
-    context_lines: u32,
     id_map: &IdMap,
     sources: impl IntoIterator<Item = CliIdArg>,
 ) -> CliResult<ResolvedSources> {
@@ -1025,7 +1023,7 @@ fn resolve_sources(
             })
         }
         (None, Some(changes), None) => {
-            let mut builder = DiffSpecBuilder::new(repo, context_lines);
+            let mut builder = DiffSpecBuilder::new(repo);
             let source_file = changes.head.committed_file().clone();
 
             for change in changes {
