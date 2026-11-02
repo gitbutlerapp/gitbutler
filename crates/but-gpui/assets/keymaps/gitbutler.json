@@ -309,6 +309,9 @@
       // Half a page, as in vim and the TUI.
       "ctrl-d": "diff::HalfPageDown",
       "ctrl-u": "diff::HalfPageUp",
+      // A few lines, from the file list too, whose keys stay there.
+      "shift-j": "diff::ScrollDown",
+      "shift-k": "diff::ScrollUp",
       "f": "diff::ToggleFiles",
       "/": "diff::FilterFiles"
     }

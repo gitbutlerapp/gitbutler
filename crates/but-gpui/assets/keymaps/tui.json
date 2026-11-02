@@ -118,8 +118,9 @@
     "context": "Navigator && !TextInput",
     "bindings": { "r": "edits::RenameTerminal" }
   },
-  // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, g and ⇧G to the first and
-  // last file. Return on a file's header folds or unfolds it, as on its row in the file list.
+  // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, ⇧J and ⇧K a few lines,
+  // from the file list too, whose keys stay there, g and ⇧G to the first and last file. Return
+  // on a file's header folds or unfolds it, as on its row in the file list.
   {
     "context": "Diff && !TextInput",
     "bindings": {
@@ -129,6 +130,8 @@
       "k": "diff::PreviousHunk",
       "ctrl-d": "diff::HalfPageDown",
       "ctrl-u": "diff::HalfPageUp",
+      "shift-j": "diff::ScrollDown",
+      "shift-k": "diff::ScrollUp",
       "g": "diff::FirstFile",
       "shift-g": "diff::LastFile",
       "enter": "diff::ToggleFileFold"

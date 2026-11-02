@@ -90,6 +90,8 @@ actions!(
         PageUp,
         HalfPageDown,
         HalfPageUp,
+        ScrollDown,
+        ScrollUp,
         SwitchTab,
         AmendTop,
         PickCommitTarget,
@@ -105,6 +107,9 @@ actions!(
 
 /// How far Space and Page Down scroll the diff, in its heights, keeping a few lines in view.
 pub const PAGE: f32 = 0.85;
+
+/// How many code lines ⇧J and ⇧K scroll the diff.
+const SCROLL_LINES: f32 = 3.;
 
 /// Where the keyboard is in the diff.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -1775,6 +1780,14 @@ impl Detail {
         cx.notify();
     }
 
+    /// Scroll the diff `lines` code lines, down or, negative, up, leaving the cursor and the
+    /// keys where they are, as ⇧J and ⇧K read on from the file list.
+    fn scroll_lines(&mut self, lines: f32, cx: &mut Context<Self>) {
+        self.glide = None;
+        self.list.scroll_by(code_line(cx) * lines);
+        cx.notify();
+    }
+
     /// Where the view goes in `rows` of `files` to keep showing what's at its top now: the
     /// same row, or its file's header when that row went away. Rows of one file `alone`
     /// that's not the one at the top start at their own top.
@@ -3219,6 +3232,12 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageUp, window, cx| this.page(-0.5, window, cx)))
+            .on_action(
+                cx.listener(|this, _: &ScrollDown, _, cx| this.scroll_lines(SCROLL_LINES, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ScrollUp, _, cx| this.scroll_lines(-SCROLL_LINES, cx)),
+            )
             .on_action(cx.listener(|this, _: &SwitchTab, window, cx| this.switch_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))
