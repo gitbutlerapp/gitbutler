@@ -921,13 +921,16 @@ pub fn digit_width(theme: &Theme) -> f32 {
 
 /// A line's number, in a column that fits `digits`, at least three, as on but.dev: with two
 /// digits' room on the left, where the bar goes, and one on the right. With `toggle`, a click
-/// on it puts the line in the next commit or takes it out.
+/// on it puts the line in the next commit or takes it out. In the `last` row of a card, its
+/// ground and bar round to the curve inside the card's border, as GPUI clips to the card's
+/// bounds, not its rounded corners.
 pub(super) fn number_cell(
     n: Option<u32>,
     digits: usize,
     look: &Look,
     toggle: Option<OnToggle>,
     gutter: Option<Gutter>,
+    last: bool,
     theme: &Theme,
 ) -> gpui::Div {
     let digit = digit_width(theme);
@@ -945,6 +948,7 @@ pub(super) fn number_cell(
         .items_start()
         .justify_end()
         .text_color(if picked { theme.pop } else { look.number })
+        .when(last, |el| el.rounded_bl(dp(5.)))
         .when(picked, |el| {
             el.bg(theme.pop.opacity(0.16))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -978,14 +982,17 @@ pub(super) fn number_cell(
                 )
         })
         .when_some(bar, |el, bar| {
+            // GPUI rounds a corner by at most half the bar's width, short of the card's
+            // curve, so the last row's bar is cut from a wider shape that rounds in full.
+            let shape = div().absolute().left_0().top_0().bottom_0();
             el.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top_0()
-                    .bottom_0()
+                (div().absolute().left_0().top_0().bottom_0())
                     .w(dp(4.))
-                    .bg(bar),
+                    .overflow_hidden()
+                    .child(match last {
+                        true => shape.w(dp(10.)).rounded_bl(dp(5.)).bg(bar),
+                        false => shape.right_0().bg(bar),
+                    }),
             )
         })
         .when_some(toggle, |el, toggle| {
@@ -1115,7 +1122,7 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
         .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
         .line_height(dp(theme.code_line))
-        .children(lines.iter().map(|line| {
+        .children(lines.iter().enumerate().map(|(ix, line)| {
             let look = look(line.kind, false, theme);
             let number = match line.kind {
                 LineKind::Removed => line.old,
@@ -1125,7 +1132,15 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
                 .items_stretch()
                 .min_h(dp(theme.code_line))
                 .when_some(look.bg, |el, bg| el.bg(bg))
-                .child(number_cell(number, digits, &look, None, None, theme))
+                .child(number_cell(
+                    number,
+                    digits,
+                    &look,
+                    None,
+                    None,
+                    ix + 1 == lines.len(),
+                    theme,
+                ))
                 .child(
                     div()
                         .flex_1()
@@ -1183,6 +1198,7 @@ pub fn line_row(
             &look,
             toggle,
             gutter,
+            last,
             theme,
         ))
         .child(text_cell(
@@ -1270,7 +1286,8 @@ pub fn pair_row(
     let side = |line: Option<(&DiffLine, Option<u32>)>,
                 half: LineDecor,
                 sideways: &Sideways,
-                name: &'static str| {
+                name: &'static str,
+                corner: bool| {
         let Some((line, number)) = line else {
             // Nothing on this side: a hatched gap the other side's lines line up against.
             // It stretches rather than taking `h_full`: a wrapped row sets only a minimum
@@ -1297,6 +1314,7 @@ pub fn pair_row(
                 &look,
                 half.toggle,
                 half.gutter,
+                corner,
                 theme,
             ))
             .child(text_cell((name, id).into(), text, wrap, sideways, theme))
@@ -1307,8 +1325,8 @@ pub fn pair_row(
     // GPUI clips to the card's bounds, not its rounded corners, so the sides of its last row
     // round their ground to the curve inside its border.
     let (left, right) = (
-        side(left, left_half, old_side, "pair-left-text"),
-        side(right, right_half, new_side, "pair-right-text"),
+        side(left, left_half, old_side, "pair-left-text", last),
+        side(right, right_half, new_side, "pair-right-text", false),
     );
     line_card(("diff-pair", id).into(), last, wrap, theme)
         .child(left.when(last, |el| el.rounded_bl(dp(5.))))

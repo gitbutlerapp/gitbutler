@@ -434,6 +434,7 @@ fn side_line(
             &look,
             None,
             None,
+            last,
             theme,
         ))
         .child(text_cell(
