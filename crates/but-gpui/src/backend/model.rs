@@ -1018,14 +1018,34 @@ impl FileDiff {
     /// to give: a binary one, one whose diff a `textconv` filter made, or one that became a
     /// link or the like.
     pub fn patch(&self, hunk: Option<HunkKey>) -> Option<String> {
+        self.part_patch(hunk.as_ref().map(std::slice::from_ref))
+    }
+
+    /// Its diff as [`Self::patch`] gives it, of only what `keys` take, as [`Selected::hunks`]
+    /// names it, or all of it with `None`: a hunk a key names whole as it is, and of the
+    /// others the lines keys take, as [`Hunk::part_patch`] gives them.
+    pub fn part_patch(&self, keys: Option<&[HunkKey]>) -> Option<String> {
         if !self.has_patch() {
             return None;
         }
-        let hunks = (self.hunks().iter()).filter(|h| hunk.is_none_or(|key| h.key == key));
         let mut patch = self.file.git_header();
         let header = patch.len();
-        for hunk in hunks {
-            patch.push_str(&hunk.patch);
+        let mut shift = 0;
+        for hunk in self.hunks() {
+            match keys {
+                Some(keys) if !keys.contains(&hunk.key) => {
+                    let takes = |line: &DiffLine| keys.iter().any(|key| key.takes(hunk, line));
+                    let Some(part) = hunk.part_patch(takes, &mut shift) else {
+                        continue;
+                    };
+                    patch.push_str(&part);
+                }
+                _ => {
+                    let whole = hunk.key.0;
+                    shift += i64::from(whole.new_lines) - i64::from(whole.old_lines);
+                    patch.push_str(&hunk.patch);
+                }
+            }
             if !patch.ends_with('\n') {
                 patch.push('\n');
             }
@@ -1164,6 +1184,74 @@ impl Hunk {
             previous = kind;
         }
         runs.into_iter().map(HunkKey).collect()
+    }
+
+    /// The lines `takes` takes of it as a hunk of their own, as `git add -p` edits one: from
+    /// the first taken to the last, where a line taken out but not taken stays as it was and
+    /// one put in but not taken is left out, with no unchanged lines around them. Each line is
+    /// as [`Self::patch`] has it. Its new side is numbered as if only the hunks before it in
+    /// the patch changed the file, which put in `shift` more lines than they take out, as
+    /// git places a hunk without unchanged lines by it; it adds its own to `shift`. `None`
+    /// when it takes none, or `patch` lacks a line it has.
+    fn part_patch(&self, takes: impl Fn(&DiffLine) -> bool, shift: &mut i64) -> Option<String> {
+        let first = self.lines.iter().position(&takes)?;
+        let last = self.lines.iter().rposition(&takes)?;
+        // The patch's lines past its header, each without its sign and with the marker of a
+        // missing newline after it, by the sides they're on, in order: an unchanged line's
+        // ending that changed shows as a line on each side, apart.
+        let mut patched: Vec<(char, std::ops::Range<usize>)> = Vec::new();
+        let mut at = 0;
+        for line in self.patch.split_inclusive('\n') {
+            let range = at..at + line.len();
+            at = range.end;
+            match line.chars().next() {
+                Some(sign @ (' ' | '-' | '+')) => patched.push((sign, range.start + 1..range.end)),
+                Some('\\') => {
+                    if let Some((_, previous)) = patched.last_mut() {
+                        previous.end = range.end;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let side = |sign: char| {
+            (patched.iter())
+                .filter(move |(s, _)| *s == ' ' || *s == sign)
+                .map(|(_, range)| self.patch.get(range.clone()))
+        };
+        let (mut old, mut new) = (side('-'), side('+'));
+        let mut old_start = self.key.0.old_start;
+        let (mut old_lines, mut new_lines) = (0, 0);
+        let mut body = String::new();
+        for (ix, line) in self.lines.iter().enumerate().take(last + 1) {
+            let before = match line.kind {
+                LineKind::Added => None,
+                _ => Some(old.next()??),
+            };
+            let after = match line.kind {
+                LineKind::Removed => None,
+                _ => Some(new.next()??),
+            };
+            if ix < first {
+                old_start += u32::from(before.is_some());
+                continue;
+            }
+            let (sign, text) = match (before, after) {
+                (Some(before), None) if takes(line) => ('-', before),
+                (None, Some(after)) if takes(line) => ('+', after),
+                (Some(before), _) => (' ', before),
+                (None, _) => continue,
+            };
+            old_lines += u32::from(sign != '+');
+            new_lines += u32::from(sign != '-');
+            body.push(sign);
+            body.push_str(text);
+        }
+        let new_start = i64::from(old_start) + *shift;
+        *shift += i64::from(new_lines) - i64::from(old_lines);
+        Some(format!(
+            "@@ -{old_start},{old_lines} +{new_start},{new_lines} @@\n{body}"
+        ))
     }
 
     /// The runs `picked` gives, each against this hunk's other side: what taking those lines

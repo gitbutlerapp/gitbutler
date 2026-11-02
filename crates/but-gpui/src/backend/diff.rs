@@ -1376,6 +1376,146 @@ new file mode 100644
     }
 
     #[test]
+    fn lines_dragged_out_of_a_hunk_are_a_patch_of_their_own() {
+        use std::collections::BTreeSet;
+        but_testsupport::isolated_app_data_dir(|| {
+            let before =
+                "one\n\ttwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\neleven\ntwelve";
+            let dir = repo_with(before);
+            let path = dir.path();
+            let after =
+                "one\n\tTWO\nthree\nFOUR\nfive\nsix\nseven\neight\nnine\nten\neleven\nTWELVE";
+            std::fs::write(path.join("file"), after).unwrap();
+            let diff =
+                super::load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let file = &diff[0];
+            // ` one`, `-\ttwo`, `+\tTWO`, ` three`, `-four`, `+FOUR`, ` five`, ` six`,
+            // ` seven`, then the last line's hunk: ` nine`, ` ten`, ` eleven`, `-twelve`,
+            // `+TWELVE`.
+            let [first, last] = file.hunks() else {
+                panic!("two hunks, as seven unchanged lines lie between")
+            };
+            let lines = |hunk: &super::Hunk, picks: &[usize]| {
+                let picks = BTreeSet::from_iter(picks.iter().copied());
+                let patch = file.part_patch(Some(&hunk.picked(&picks))).unwrap();
+                let out = file.part_patch(Some(&hunk.picked_out(&picks))).unwrap();
+                assert_eq!(
+                    patch, out,
+                    "lines taken out of a commit paste as the same lines put in by a commit"
+                );
+                patch
+            };
+
+            let run = lines(first, &[1, 2]);
+            snapbox::assert_data_eq!(
+                &run,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -2,1 +2,1 @@
+-	two
++	TWO
+
+"#]]
+                .raw()
+            );
+            // A removal not taken stays as an unchanged line, and an addition not taken is
+            // left out.
+            let apart = lines(first, &[1, 5]);
+            snapbox::assert_data_eq!(
+                &apart,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -2,3 +2,3 @@
+-	two
+ three
+ four
++FOUR
+
+"#]]
+                .raw()
+            );
+            let added = lines(first, &[2]);
+            snapbox::assert_data_eq!(
+                &added,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -3,0 +3,1 @@
++	TWO
+
+"#]]
+                .raw()
+            );
+            // The last line keeps the marker of its missing newline.
+            let end = lines(last, &[3]);
+            snapbox::assert_data_eq!(
+                &end,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -12,1 +12,0 @@
+-twelve
+\ No newline at end of file
+
+"#]]
+                .raw()
+            );
+            // Picked in both hunks, the second numbered after the line the first puts in.
+            let picked = [
+                first.picked(&BTreeSet::from([2])),
+                last.picked(&BTreeSet::from([3])),
+            ];
+            let across = file.part_patch(Some(&picked.concat())).unwrap();
+            snapbox::assert_data_eq!(
+                &across,
+                snapbox::str![[r#"
+diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -3,0 +3,1 @@
++	TWO
+@@ -12,1 +13,0 @@
+-twelve
+\ No newline at end of file
+
+"#]]
+                .raw()
+            );
+
+            let applied = [
+                (run, "one\n\tTWO\nthree\nfour"),
+                (apart, "one\nthree\nfour\nFOUR"),
+                (added, "one\n\ttwo\n\tTWO\nthree\nfour"),
+            ];
+            let rest = "\nfive\nsix\nseven\neight\nnine\nten\neleven\ntwelve";
+            let ended = |head: &str| format!("{head}{}", rest.replace("\ntwelve", "\n"));
+            let applied = (applied.into_iter())
+                .map(|(patch, head)| (patch, format!("{head}{rest}")))
+                .chain([
+                    (end, ended("one\n\ttwo\nthree\nfour")),
+                    (across, ended("one\n\ttwo\n\tTWO\nthree\nfour")),
+                ]);
+            for (patch, changed) in applied {
+                std::fs::write(path.join(".git/dragged.patch"), &patch).unwrap();
+                let args = ["apply", "--cached", "--unidiff-zero", ".git/dragged.patch"];
+                git(path, &args);
+                assert_eq!(
+                    git(path, &["show", ":file"]),
+                    changed,
+                    "the index takes just the lines dragged: {patch}"
+                );
+                git(path, &["reset", "-q", "file"]);
+            }
+        });
+    }
+
+    #[test]
     fn a_copied_diff_applied_writes_the_file_as_changed() {
         but_testsupport::isolated_app_data_dir(|| {
             // Each file as committed and as changed, around a last line without a newline,

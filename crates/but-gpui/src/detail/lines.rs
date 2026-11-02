@@ -171,6 +171,42 @@ impl Detail {
         }
     }
 
+    /// The preview of a drag of `chip` from the diff itself, as [`Self::drag_preview`], which
+    /// a terminal it's let go on pastes as the patch of what it carries, as it began
+    /// ([`Store::dragged_patch`](crate::state::Store::dragged_patch)).
+    pub(super) fn patch_drag_preview(
+        &self,
+        chip: impl Into<Chip>,
+        carries_picks: bool,
+        detail: WeakEntity<Detail>,
+    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+        let preview = self.drag_preview(chip, carries_picks, detail.clone());
+        let store = self.store.clone();
+        move |payload, offset, window, cx| {
+            let patch = (detail.read_with(cx, |detail, _| detail.dragged_patch(payload)))
+                .ok()
+                .flatten();
+            let preview = preview(payload, offset, window, cx);
+            store.update(cx, |store, _| store.dragged_patch = patch);
+            preview
+        }
+    }
+
+    /// What a terminal pastes of `cut` dragged from the diff: the patch of the file, hunks or
+    /// lines it carries, as copying takes them, or else the file's path, as for a binary file.
+    fn dragged_patch(&self, cut: &Cut) -> Option<String> {
+        let Cut::Files { files, .. } = cut else {
+            return None;
+        };
+        let [part] = &**files else {
+            return None;
+        };
+        let diff = self.diff.as_ref()?;
+        let file = (diff.files.iter()).find(|file| file.file.path == part.file.path)?;
+        (file.part_patch(part.hunks.as_deref()))
+            .or_else(|| Some(crate::terminal::shell_quoted([&part.file.path])))
+    }
+
     /// Let the picked lines go. Whether any were.
     pub fn clear_line_picks(&mut self, cx: &mut Context<Self>) -> bool {
         let had = self.line_picks.take().is_some();

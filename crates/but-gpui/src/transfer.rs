@@ -1272,6 +1272,7 @@ pub fn drag_preview(
         cx.observe_release(&preview, move |_, cx| {
             store.update(cx, |store, cx| {
                 store.dragging = None;
+                store.dragged_patch = None;
                 store.drop_at = None;
                 cx.notify()
             });

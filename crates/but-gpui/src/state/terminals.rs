@@ -2,13 +2,14 @@
 //! Nothing saves them: they end with the app, but for Build and restart, which hands them to
 //! the new build.
 
+use std::borrow::Cow;
 use std::time::Instant;
 
 use gpui::{Context, Entity, SharedString, Subscription};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{self, Checkout};
-use crate::terminal::{Terminal, TerminalEvent, TerminalId};
+use crate::terminal::{Terminal, TerminalEvent, TerminalId, shell_quoted};
 #[cfg(unix)]
 use but_tty::Detached;
 use but_tty::{Ghostty, Shell, Status};
@@ -95,12 +96,18 @@ impl Terminals {
 }
 
 impl Store {
-    /// What a terminal pastes of the row being dragged ([`Cut::pasted`](super::Cut::pasted)), as
-    /// the store followed it, as an agent may have rewritten it.
-    pub fn pasted(&self) -> Option<Vec<String>> {
+    /// What a terminal pastes of what's being dragged: a file, hunk or lines from the diff as
+    /// their patch, as it was when the drag began ([`Store::dragged_patch`]), else the row
+    /// ([`Cut::pasted`](super::Cut::pasted)) as the store followed it, as an agent may have
+    /// rewritten it, quoted for the shell.
+    pub fn pasted(&self) -> Option<Cow<'_, str>> {
+        if let Some(patch) = &self.dragged_patch {
+            return Some(Cow::Borrowed(patch));
+        }
         let cut = self.dragging.as_ref()?;
         let project = cut.project();
-        cut.pasted(&self.path(project)?, self.workspace(project)?)
+        let words = cut.pasted(&self.path(project)?, self.workspace(project)?)?;
+        Some(Cow::Owned(shell_quoted(words)))
     }
 
     /// Open a terminal on `project`'s `checkout` and select it, once its shell has started.
