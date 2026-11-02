@@ -793,6 +793,8 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
+    /// The main worktree's changes these IDs were made from, when this map read them itself.
+    head_worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
 }
 
 fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
@@ -962,6 +964,7 @@ impl IdMap {
             uncommitted_hunks,
             diff_context_lines,
             paths_in,
+            head_worktree_changes: None,
         })
     }
 
@@ -1135,8 +1138,14 @@ impl IdMap {
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
         let head_changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        let sources =
-            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes, hunks)?;
+        let head_worktree_changes = head_changes.clone();
+        let sources = change_source::changes_by_source(
+            &repo,
+            context_lines,
+            worktree_names,
+            head_changes,
+            hunks,
+        )?;
 
         let (stacks, worktrees) =
             without_padding_commits(&repo, ws.stacks.clone(), ws.worktrees.clone());
@@ -1176,14 +1185,24 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(
+        let mut map = Self::new(
             stacks,
             sources,
             commit_id_to_change_id,
             worktrees,
             ctx.settings.context_lines,
             invoked_from.map(InvokedFrom::checkout),
-        )
+        )?;
+        map.head_worktree_changes = Some(head_worktree_changes);
+        Ok(map)
+    }
+
+    /// The main worktree's changes as this map read them, if it read them itself.
+    ///
+    /// A command holding the worktree lock since the map was built can use them instead of
+    /// scanning the worktree again, as nothing can have changed them in between.
+    pub fn head_worktree_changes(&self) -> Option<&[but_core::ui::TreeChange]> {
+        self.head_worktree_changes.as_deref()
     }
 }
 

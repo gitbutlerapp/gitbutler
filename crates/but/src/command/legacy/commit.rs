@@ -163,6 +163,8 @@ pub fn commit(
             current_dir,
         )?
     };
+    // The worktree lock is held since the IDs were made, so their scan is still current.
+    let worktree_changes = id_map.head_worktree_changes().map(<[_]>::to_vec);
     Ok(run(
         ctx,
         &mut meta,
@@ -170,6 +172,7 @@ pub fn commit(
         commit_op,
         commit_selection,
         reword_op,
+        worktree_changes,
     )?)
 }
 
@@ -408,6 +411,7 @@ pub fn run(
     mut commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
+    head_worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
     // Owned for the whole operation: the `ChangeSource` handed to the transaction
     // below borrows from it.
@@ -419,6 +423,12 @@ pub fn run(
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.
         let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo);
+        // Changes read for the IDs are the main worktree's, so only that builder can use them.
+        if let (ChangeSourceId::Head, Some(changes)) =
+            (commit_selection.source(), head_worktree_changes)
+        {
+            builder = builder.with_worktree_changes(changes);
+        }
 
         match commit_selection {
             CommitSelection::AllChanges(_) => {

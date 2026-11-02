@@ -212,6 +212,13 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
+    /// Use `changes` as the worktree changes of this builder's checkout instead of reading them,
+    /// for when they were just read under the same worktree lock.
+    pub fn with_worktree_changes(mut self, changes: Vec<but_core::ui::TreeChange>) -> Self {
+        self.worktree_changes = Some(changes);
+        self
+    }
+
     #[expect(dead_code)]
     pub fn push_changes_from_single_hunk(&mut self, path: BString, header: HunkHeader) {
         self.diff_specs.push(DiffSpec {
