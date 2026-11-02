@@ -168,23 +168,19 @@ impl Terminal {
 
     /// The status, if it changed since this was last asked: what the program running reported,
     /// or idle once it's gone without saying, as being at work or blocked lasts only as long as
-    /// it does.
+    /// it does. A result is no news while the terminal has the keys, as the user is in it.
     pub fn restatused(&mut self) -> Option<Status> {
-        let status = self.status();
+        let status = {
+            let mut shown = self.shown.lock();
+            if self.focused && matches!(shown.status, Status::Done | Status::Failed(_)) {
+                shown.status = Status::Idle;
+            }
+            shown.status.clone()
+        };
         (status != self.told.1).then(|| {
             self.told.1 = status.clone();
             status
         })
-    }
-
-    /// The status once the user has seen the terminal, to whom a result is then no news.
-    pub fn seen(&mut self) -> Status {
-        let mut shown = self.shown.lock();
-        if matches!(shown.status, Status::Done | Status::Failed(_)) {
-            shown.status = Status::Idle;
-        }
-        self.told.1 = shown.status.clone();
-        shown.status.clone()
     }
 
     pub fn resize(&mut self, size: Size) {
@@ -526,7 +522,7 @@ mod tests {
     }
 
     #[test]
-    fn a_result_stays_through_a_handover_until_it_is_seen() {
+    fn a_result_stays_through_a_handover_until_the_terminal_has_the_keys() {
         let mut terminal = started();
         terminal.input(br"printf '\033]7501;state=done\033\\'");
         terminal.input(b"\n");
@@ -543,7 +539,38 @@ mod tests {
             Status::Done,
             "programs only say what changed, so the next build can't learn it again"
         );
-        assert_eq!(adopted.seen(), Status::Idle, "seen, a result is no news");
+        assert_eq!(adopted.restatused(), None, "out of focus, the result stays");
+        adopted.set_focused(true);
+        assert_eq!(
+            adopted.restatused(),
+            Some(Status::Idle),
+            "with the keys, a result is no news"
+        );
+    }
+
+    #[test]
+    fn a_result_shown_while_the_terminal_has_the_keys_is_no_news() {
+        let mut terminal = started();
+        terminal.set_focused(true);
+        terminal.input(
+            br#"sh -c "printf '\033]7501;state=working\033\\'; sleep 1; printf '\033]7501;state=done\033\\'""#,
+        );
+        terminal.input(b"\n");
+
+        let mut told = Vec::new();
+        until(
+            &mut terminal,
+            "it should say something after working",
+            |terminal| {
+                told.extend(terminal.restatused());
+                told.last().is_some_and(|status| *status != Status::Working)
+            },
+        );
+        assert_eq!(
+            told,
+            [Status::Working, Status::Idle],
+            "the user is in it, so it never shows done"
+        );
     }
 
     #[test]
