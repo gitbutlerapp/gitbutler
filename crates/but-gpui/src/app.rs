@@ -19,7 +19,8 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Cut, MeshPick, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, snack, up_to_date,
+    Cut, FileView, MeshPick, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, snack,
+    up_to_date,
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -2173,7 +2174,15 @@ impl Render for AppView {
             }))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = !prefs.file_tree, cx)
+                    store.set_prefs(
+                        |prefs| {
+                            prefs.file_view = match prefs.file_view {
+                                FileView::Tree => FileView::List,
+                                FileView::List => FileView::Tree,
+                            }
+                        },
+                        cx,
+                    )
                 })
             }))
             .on_action(cx.listener(Self::cancel))

@@ -43,7 +43,7 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
 }
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection, Store};
+use crate::state::{Cut, FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Chip, DragPreview};
 use crate::ui::diff;
@@ -308,7 +308,7 @@ impl Detail {
     /// screen: an agent can leave thousands of files. Also how many rows it has.
     fn file_list(&self, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
-        let tree = store.prefs.file_tree;
+        let tree = store.prefs.file_view == FileView::Tree;
         let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
@@ -1040,14 +1040,14 @@ impl Detail {
     /// the last written first. Files with no write time, as a commit's, go by name either way.
     fn view_items(&self, cx: &App) -> Vec<MenuItem> {
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
-        let show = |label: &str, as_tree: bool| {
+        let (view, sort) = (prefs.file_view, prefs.file_sort);
+        let show = |label: &str, as_view: FileView| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = as_tree, cx)
+                    store.set_prefs(|prefs| prefs.file_view = as_view, cx)
                 })
             })
-            .ticked(tree == as_tree)
+            .ticked(view == as_view)
         };
         let by = |label: &str, by: FileSort| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
@@ -1058,8 +1058,8 @@ impl Detail {
             .ticked(sort == by)
         };
         vec![
-            show("As list", false).under("View"),
-            show("As tree", true),
+            show("As list", FileView::List).under("View"),
+            show("As tree", FileView::Tree),
             by("Name", FileSort::Name).separated().under("Sort by"),
             by("Last modified", FileSort::Modified),
         ]
