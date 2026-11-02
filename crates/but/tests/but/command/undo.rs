@@ -1019,9 +1019,10 @@ fn can_undo_switch_workspace_applying_multiple_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
-    env.but("commit -b one --no-message").assert().success();
-    env.but("commit -b two --no-message").assert().success();
-    env.but("commit -b three --no-message").assert().success();
+    // Distinct messages keep the three commits, and thus the branches, apart.
+    env.but("commit -b one -m one").assert().success();
+    env.but("commit -b two -m two").assert().success();
+    env.but("commit -b three -m three").assert().success();
 
     env.but("switch one").assert().success();
 
