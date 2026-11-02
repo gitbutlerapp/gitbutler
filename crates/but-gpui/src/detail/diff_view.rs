@@ -29,10 +29,11 @@ use crate::backend::{
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, Prefs, Selection};
 use crate::theme::Theme;
+use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
 use crate::ui::illustration::Illustration;
-use crate::ui::scrollbar::{Scroll, scrollbar};
+use crate::ui::scrollbar::{Scroll, scrollbar, shown_scrollbar};
 use crate::ui::{
     Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, fixed, h_flex,
     icon, icon_button, icon_toggle, segmented, selected_part, shortcut, small_icon, toggle_group,
@@ -319,6 +320,7 @@ impl Detail {
             wrap: prefs.wrap,
             plain: prefs.plain_lines,
             split: prefs.split,
+            flat: self.single_file_shown(),
             ..Default::default()
         };
         let DiffBody::Hunks {
@@ -793,7 +795,21 @@ impl Detail {
                         .child(self.render_diff_row(ix, entity.clone(), window, cx)),
                 )
         });
-        let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
+        // Beside the marks, the thumb shows where among them the diff is.
+        let scroll = Scroll::List(self.list.clone());
+        let scrollbar = match diff.marks {
+            Some(_) => {
+                shown_scrollbar("diff-scrollbar", scroll, theme).map(|bar| bar.into_any_element())
+            }
+            None => scrollbar("diff-scrollbar", scroll, theme).map(|bar| bar.into_any_element()),
+        };
+        let marks = (diff.marks.clone()).map(|marks| change_marks(marks, theme));
+        // One file's header holds the top, there or stuck, so the marks and the scrollbar run
+        // beside its lines, below it.
+        let rail_top = match diff.alone {
+            Some(_) => theme.scaled(diff::FILE_HEADER_HEIGHT),
+            None => Pixels::ZERO,
+        };
         // A drag that selects past the edge, out of the window too, draws the pane again,
         // which scrolls toward the pointer.
         let past_edge = (self.selecting.then(|| self.drag_area(cx)).flatten()).map(|(area, _)| {
@@ -899,7 +915,16 @@ impl Detail {
                     )
                     .child(estimate)
                     .children(sticky)
-                    .children(scrollbar),
+                    .child(
+                        div()
+                            .absolute()
+                            .top(rail_top)
+                            .bottom_0()
+                            .left_0()
+                            .right_0()
+                            .children(marks)
+                            .children(scrollbar),
+                    ),
             )
             .children(past_edge)
             .into_any_element()
@@ -986,6 +1011,11 @@ impl Detail {
             });
         }
         cx.notify();
+    }
+
+    /// Whether the diff shows one file, filling the pane without a card around it.
+    pub(super) fn single_file_shown(&self) -> bool {
+        self.diff.as_ref().is_some_and(|diff| diff.alone.is_some())
     }
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
@@ -1155,8 +1185,10 @@ impl Detail {
             return div().into_any_element();
         };
         let file_diff = row.file().and_then(|file| diff.files.get(file));
-        // A folded file's header ends its card too.
-        let last = diff::ends_card(&diff.rows, ix);
+        let flat = self.single_file_shown();
+        // A folded file's header ends its card too. A flat file has no card to end.
+        let ends = diff::ends_card(&diff.rows, ix);
+        let last = ends && !flat;
         // The file list's and the message's keys don't act on the diff's cursor.
         let solid = has_keys(&self.focus, window, cx);
         let store = self.store.read(cx);
@@ -1176,8 +1208,13 @@ impl Detail {
                 .ok();
             }
         };
-        // The margin between the cards and the sides of the pane.
-        let padded = div().w_full().px(dp(12.));
+        // The margin between the cards and the sides of the pane. A flat file runs from side
+        // to side, its lines clear of the marks and the scrollbar, which start below its header.
+        let padded = match (flat, row) {
+            (false, _) => div().w_full().px(dp(12.)),
+            (true, DiffRow::File(_)) => div().w_full(),
+            (true, _) => div().w_full().pr(fixed(RAIL)),
+        };
         match (row, file_diff) {
             (DiffRow::File(file), Some(file_diff)) => {
                 // Not while one of its hunks is, so one mark says what the keys act on.
@@ -1245,7 +1282,8 @@ impl Detail {
                         trailing: Some(trailing.into_any_element()),
                         current,
                         solid,
-                        folded: last,
+                        folded: ends,
+                        flat,
                         closing: self.file_folds.closing(&file_diff.file.path),
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
@@ -1313,6 +1351,7 @@ impl Detail {
                         excluded: composing && !self.checks.hunk_checked(path, key),
                         current,
                         solid,
+                        flat,
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
                             .flatten(),
@@ -1469,8 +1508,10 @@ impl Detail {
             }
             (DiffRow::Note(_), Some(file_diff)) => padded
                 .child(match self.drawing_of(file_diff) {
-                    Some(drawn) => diff::drawing(drawn.before.clone(), drawn.after.clone(), theme),
-                    None => diff::note(file_diff, theme),
+                    Some(drawn) => {
+                        diff::drawing(drawn.before.clone(), drawn.after.clone(), flat, theme)
+                    }
+                    None => diff::note(file_diff, flat, theme),
                 })
                 .into_any_element(),
             (DiffRow::Gap, _) => padded.h(dp(10.)).into_any_element(),

@@ -49,7 +49,7 @@ use crate::app::{AddProject, AppHandle, CopyAbsolutePath, CopyRelativePath};
 use crate::backend::edit::Editing;
 use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
-    Selected,
+    LineKind, Selected,
 };
 use crate::clock;
 use crate::overlays::MenuItem;
@@ -59,6 +59,7 @@ use crate::state::{
     snack,
 };
 use crate::theme::Theme;
+use crate::ui::change_marks::{Change, ChangeMarks};
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::fold::{FOLD, Folds, Slide, edge, inert};
 use crate::ui::illustration::{Illustration, illustration};
@@ -284,8 +285,10 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
     /// The files the rows show with every file shown, as [`Detail::shown_files`] lists them.
     shown: Vec<usize>,
-    /// The one file the rows show, with Settings' all-in-one diff off.
+    /// The one file the rows show, with the single file diff on.
     alone: Option<usize>,
+    /// Its changed lines beside the scrollbar, while it shows one file.
+    marks: Option<Rc<ChangeMarks>>,
     /// What was selected when it loaded.
     selection: Option<Selection>,
 }
@@ -1340,6 +1343,7 @@ impl Detail {
         }
         self.reading = None;
         let (rows, shown, alone) = self.build_rows(&key, &files, false, cx);
+        let marks = alone.and_then(|_| self.change_marks(&rows, &files, cx));
         let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
         // rest of its files come in highlighted or an agent writes, it glides on to where that
@@ -1383,6 +1387,7 @@ impl Detail {
             rows,
             shown,
             alone,
+            marks,
             selection,
         });
         // Before rows change again, which carries it on in turn.
@@ -1665,8 +1670,63 @@ impl Detail {
             .copied()
     }
 
+    /// The changed lines of `rows` of `files`, sized as the diff draws its rows, for the
+    /// marks beside the scrollbar. None when nothing changed, as in a binary file.
+    fn change_marks(
+        &self,
+        rows: &[DiffRow],
+        files: &[FileDiff],
+        cx: &App,
+    ) -> Option<Rc<ChangeMarks>> {
+        let line = Theme::get(cx).code_line;
+        let change = |file: usize, hunk: usize, line: usize| match files
+            .get(file)?
+            .hunks()
+            .get(hunk)?
+            .lines
+            .get(line)?
+            .kind
+        {
+            LineKind::Added => Some(Change::Added),
+            LineKind::Removed => Some(Change::Removed),
+            LineKind::Context => None,
+        };
+        let mut marks = ChangeMarks::default();
+        for row in rows {
+            let (height, changes) = match *row {
+                // Its header stays above the marks, which run beside its lines.
+                DiffRow::File(_) => (0., [None, None]),
+                // As `row_height` guesses them.
+                DiffRow::Hunk { file, hunk } => {
+                    match (files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
+                        true => (0., [None, None]),
+                        false => (40., [None, None]),
+                    }
+                }
+                DiffRow::Gap => (10., [None, None]),
+                DiffRow::Line {
+                    file,
+                    hunk,
+                    line: ix,
+                } => (line, [change(file, hunk, ix), None]),
+                DiffRow::Pair {
+                    file,
+                    hunk,
+                    left,
+                    right,
+                } => {
+                    let side = |ix: Option<usize>| change(file, hunk, ix?);
+                    (line, [side(left), side(right)])
+                }
+                _ => (line, [None, None]),
+            };
+            marks.push(height, changes);
+        }
+        (!marks.is_empty()).then(|| Rc::new(marks))
+    }
+
     /// Show the cursor's file alone once the cursor goes to another, or every file once
-    /// Settings turns the all-in-one diff back on.
+    /// Settings turns the single file diff off.
     pub(super) fn follow_alone(&mut self, cx: &mut Context<Self>) {
         if let Some(diff) = &self.diff
             && diff.alone != self.alone(&diff.shown, cx)
@@ -1757,18 +1817,14 @@ impl Detail {
     /// Scroll the diff by most of a screen, keeping a few lines in view for context.
     /// Scroll the diff `by` its height, down or, negative, up. Down from its end, the app goes
     /// on to the next unread commit, so Space reads a run of commits from the first to the last.
+    /// A file at a time, it stops at the file's end: the next commit would skip the other files,
+    /// which the file list goes to.
     pub fn page(&mut self, by: f32, window: &mut Window, cx: &mut Context<Self>) {
         let at_end = -self.list.scroll_px_offset_for_scrollbar().y
             >= self.list.max_offset_for_scrollbar().y - crate::ui::fixed(1.);
         if by > 0. && at_end {
-            // A file at a time, it goes on to the next file first: in folders folded shut too,
-            // as the whole diff runs through them.
-            if self.diff.as_ref().is_some_and(|diff| diff.alone.is_some()) {
-                let order = self.files_in_list_order(&HashSet::new(), cx);
-                let at = order.iter().position(|&file| file == self.cursor.file);
-                if let Some(&file) = at.and_then(|at| order.get(at + 1)) {
-                    return self.scroll_to_file(file, false, cx);
-                }
+            if self.single_file_shown() {
+                return;
             }
             return self.app.update_later(window, cx, |app, window, cx| {
                 (app.navigator).update(cx, |navigator, cx| navigator.read_on(window, cx))
@@ -1858,6 +1914,7 @@ impl Detail {
             return;
         };
         let (rows, shown, alone) = self.build_rows(&diff.key, &diff.files, false, cx);
+        let marks = alone.and_then(|_| self.change_marks(&rows, &diff.files, cx));
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files, alone.is_some());
@@ -1877,7 +1934,7 @@ impl Detail {
             self.run_find(false, cx);
         }
         if let Some(diff) = &mut self.diff {
-            (diff.shown, diff.alone) = (shown, alone);
+            (diff.shown, diff.alone, diff.marks) = (shown, alone, marks);
         }
         cx.notify();
     }

@@ -463,6 +463,8 @@ pub struct HeaderDecor {
     pub closing: bool,
     /// The current one was just copied, by which blink it is: see [`super::blink_once`].
     pub blink: Option<usize>,
+    /// Its file fills the pane alone, without a card around it.
+    pub flat: bool,
 }
 
 /// What the diff's owner adds to a line.
@@ -515,6 +517,8 @@ pub struct Layout {
     /// How the lines' text scrolls sideways when it doesn't wrap, on the old side and the
     /// new; a unified row takes the new side's.
     pub sideways: [Sideways; 2],
+    /// The file fills the pane alone, without a card around it: one card holds nothing apart.
+    pub flat: bool,
 }
 
 /// How a line's text scrolls sideways when it doesn't wrap: through `scroll`, with the rest of
@@ -546,11 +550,11 @@ fn row_id((file, hunk, line): (usize, usize, usize)) -> usize {
     (file << 40) | (hunk << 20) | line
 }
 
-/// The sides and ground of a file's card, of which each of its rows draws a slice.
-pub(super) fn card(el: gpui::Div, theme: &Theme) -> gpui::Div {
+/// The sides and ground of a file's card, of which each of its rows draws a slice. A `flat`
+/// file has the ground alone.
+pub(super) fn card(el: gpui::Div, flat: bool, theme: &Theme) -> gpui::Div {
     el.w_full()
-        .border_l_1()
-        .border_r_1()
+        .when(!flat, |el| el.border_l_1().border_r_1())
         .border_color(theme.border_2)
         .bg(theme.bg_1)
 }
@@ -591,7 +595,7 @@ pub fn file_header(
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
     let soft = |color| if on { theme.muted_on_solid() } else { color };
-    card(h_flex(), theme)
+    card(h_flex(), decor.flat, theme)
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
@@ -601,8 +605,10 @@ pub fn file_header(
         .gap(dp(8.))
         .border_t_1()
         .border_b_1()
-        .rounded_t(dp(6.))
-        .when(decor.folded, |el| el.rounded_b(dp(6.)))
+        .when(!decor.flat, |el| {
+            el.rounded_t(dp(6.))
+                .when(decor.folded, |el| el.rounded_b(dp(6.)))
+        })
         // On the card's ground, as the header's own is solid rather than over the card.
         .when(decor.current, |el| {
             el.bg(match decor.solid {
@@ -768,7 +774,7 @@ pub fn hunk_header(
                 .into_any_element(),
         ),
     };
-    card(h_flex(), theme)
+    card(h_flex(), decor.flat, theme)
         .px(dp(8.))
         .py(dp(6.))
         .child(
@@ -834,16 +840,21 @@ fn conflicted_badge(theme: &Theme) -> gpui::Div {
 }
 
 /// An image's two sides, or an SVG's drawn, in the file's card.
-pub fn drawing(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> AnyElement {
-    card(image_row(before, after, theme), theme).into_any_element()
+pub fn drawing(
+    before: Option<Picture>,
+    after: Option<Picture>,
+    flat: bool,
+    theme: &Theme,
+) -> AnyElement {
+    card(image_row(before, after, theme), flat, theme).into_any_element()
 }
 
 /// In place of the lines of a file without any to show: an image's two sides, or why
 /// there's nothing.
-pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
+pub fn note(file: &FileDiff, flat: bool, theme: &Theme) -> AnyElement {
     let text = match &file.body {
         DiffBody::Image { before, after } => {
-            return drawing(before.clone(), after.clone(), theme);
+            return drawing(before.clone(), after.clone(), flat, theme);
         }
         // How big, where it's known, as a server's limit on what it takes goes by it.
         DiffBody::Binary => match file.file.size {
@@ -867,13 +878,12 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         },
     };
     // Wrapped, as the reason a file can't be resolved here can run long.
-    card(h_flex(), theme)
+    card(h_flex(), flat, theme)
         .min_h(dp(36.))
         .px(dp(12.))
         .py(dp(9.))
         .gap(dp(6.))
-        .border_b_1()
-        .rounded_b(dp(6.))
+        .when(!flat, |el| el.border_b_1().rounded_b(dp(6.)))
         .text_size(dp(12.))
         .text_color(theme.text_2)
         .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
@@ -1088,10 +1098,11 @@ pub(super) fn text_cell(
 pub(super) fn line_card(
     id: ElementId,
     last: bool,
-    wrap: bool,
+    layout: &Layout,
     theme: &Theme,
 ) -> gpui::Stateful<gpui::Div> {
-    card(h_flex(), theme)
+    let wrap = layout.wrap;
+    card(h_flex(), layout.flat, theme)
         .id(id)
         .map(|el| {
             if wrap {
@@ -1184,7 +1195,7 @@ pub fn line_row(
     // Where in the text the pointer is, once the text has been laid out.
     let (text_layout, chars) = (text.layout().clone(), line.text.clone());
     let at = move |position: Point<Pixels>| text_index(&text_layout, &chars, position);
-    line_card(("diff-line", id).into(), last, layout.wrap, theme)
+    line_card(("diff-line", id).into(), last, layout, theme)
         .role(Role::Label)
         .aria_label(SharedString::from(line.text.clone()))
         .aria_description(match line.kind {
@@ -1330,7 +1341,7 @@ pub fn pair_row(
         side(left, left_half, old_side, "pair-left-text", last),
         side(right, right_half, new_side, "pair-right-text", false),
     );
-    line_card(("diff-pair", id).into(), last, wrap, theme)
+    line_card(("diff-pair", id).into(), last, layout, theme)
         .child(left.when(last, |el| el.rounded_bl(dp(5.))))
         .child(
             div()
