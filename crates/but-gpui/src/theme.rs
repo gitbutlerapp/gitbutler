@@ -41,6 +41,9 @@ pub struct Theme {
     /// reads on `fill_gray`, so it keeps what hue it can.
     pub safe_on_solid: Hsla,
     pub danger_on_solid: Hsla,
+    /// `purple` on a solid selection: the other appearance's, as but.dev's is. For glyphs, which
+    /// need 3:1.
+    pub purple_on_solid: Hsla,
     /// The dark ground of a snackbar, in both themes.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
@@ -351,6 +354,7 @@ impl Theme {
             purple: pick(0x6e2cb1, 0xb287de),
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
+            purple_on_solid: pick(0xb287de, 0x6e2cb1),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
             diff_added: added,
@@ -487,6 +491,7 @@ impl Theme {
             purple: color(purple),
             safe_on_solid: color(readable_on(safe, bg, fg)),
             danger_on_solid: color(readable_on(danger, bg, fg)),
+            purple_on_solid: color(readable_on(purple, bg, fg)),
             snackbar_bg: color(fg),
             snackbar_text: color(bg),
             diff_added: color(added),
