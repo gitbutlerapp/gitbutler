@@ -1577,6 +1577,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-evo"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "but-db",
+ "but-testsupport",
+ "gix",
+ "snapbox",
+]
+
+[[package]]
 name = "but-feedback"
 version = "0.0.0"
 dependencies = [
