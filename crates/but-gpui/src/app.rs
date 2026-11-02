@@ -2383,7 +2383,9 @@ impl Render for AppView {
                         el.child(self.render_peek(now, window, cx))
                     }),
             )
-            .child(self.render_status_bar(window, cx))
+            .when(self.status_bar_shown(cx), |el| {
+                el.child(self.render_status_bar(window, cx))
+            })
             .children(self.render_modal(cx).map(overlay))
             // Above a modal: Git can ask for credentials while one is open.
             .children(self.render_prompt(window, cx).map(overlay))

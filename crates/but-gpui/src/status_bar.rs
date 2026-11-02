@@ -2,8 +2,8 @@
 //! that matter right now.
 
 use gpui::{
-    Action, AnyElement, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful, Window,
-    div, prelude::*,
+    Action, AnyElement, App, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful,
+    Window, div, prelude::*,
 };
 
 use crate::app::{
@@ -16,7 +16,7 @@ use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewSta
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Cut, ProjectId, SLOW, Section, Selection};
+use crate::state::{Cut, Part, ProjectId, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Op, Transfer};
 use crate::ui::{
@@ -25,6 +25,19 @@ use crate::ui::{
 };
 
 impl AppView {
+    /// Whether the bar draws: always, unless Lite leaves it out.
+    pub(crate) fn status_bar_shown(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.shows(Part::StatusBar)
+    }
+
+    /// The bar's height, or nothing while it doesn't draw, for what sits above it.
+    pub(crate) fn status_bar_height(&self, cx: &App) -> f32 {
+        match self.status_bar_shown(cx) {
+            true => STATUS_BAR_HEIGHT,
+            false => 0.,
+        }
+    }
+
     pub fn render_status_bar(
         &mut self,
         window: &mut Window,

@@ -21,8 +21,8 @@ use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, FocusedAt, Icon, STATUS_BAR_HEIGHT, ShowFocused, button, dp, error_summary, field,
-    fixed, h_flex, icon, keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
+    ButtonStyle, FocusedAt, Icon, ShowFocused, button, dp, error_summary, field, fixed, h_flex,
+    icon, keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
 };
 
 /// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
@@ -996,13 +996,14 @@ impl AppView {
                 }
             }
         }
+        let bar = self.status_bar_height(cx);
         div()
             .absolute()
             .inset_0()
             .child(
                 v_flex()
                     .absolute()
-                    .bottom(dp(STATUS_BAR_HEIGHT + 12.))
+                    .bottom(dp(bar + 12.))
                     .right(dp(16.))
                     .gap(dp(8.))
                     .children(errors)
@@ -1016,7 +1017,7 @@ impl AppView {
                 };
                 h_flex()
                     .absolute()
-                    .bottom(dp(STATUS_BAR_HEIGHT + footer + 16.))
+                    .bottom(dp(bar + footer + 16.))
                     .left_0()
                     .right_0()
                     .justify_center()

@@ -437,6 +437,8 @@ pub struct Prefs {
     pub terminal_command: String,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
+    /// How much of the window draws, as Settings › Experimental picks it.
+    pub interface: Interface,
     /// The keys the app binds, as Settings › Keyboard picks them.
     pub keymap: crate::keymap::Keymap,
     /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
@@ -497,7 +499,32 @@ pub struct Prefs {
     pub show_fps: bool,
 }
 
+/// How much of the window the app draws.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Interface {
+    #[default]
+    Full,
+    /// Fewer parts of the window, each left out to try before it goes for everyone or comes
+    /// back.
+    Lite,
+}
+
+/// A part of the window Lite can leave out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    /// The bar along the window's bottom, with what's under way and the keys that go with it.
+    StatusBar,
+}
+
 impl Prefs {
+    /// Whether `part` of the window draws.
+    pub fn shows(&self, part: Part) -> bool {
+        match (self.interface, part) {
+            (Interface::Full, _) => true,
+            (Interface::Lite, Part::StatusBar) => false,
+        }
+    }
+
     /// What a new terminal runs in place of the login shell's prompt: the command, while it's
     /// picked and there is one.
     pub fn terminal_run(&self) -> Option<&str> {
