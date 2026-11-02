@@ -9,9 +9,9 @@ use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
-    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
-    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
-    prelude::*,
+    HitboxBehavior, MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollDelta,
+    ScrollHandle, ScrollWheelEvent, SharedString, Stateful, Subscription, WeakEntity, Window,
+    anchored, canvas, deferred, div, list, point, prelude::*,
 };
 
 use super::blame::Blamed;
@@ -804,6 +804,28 @@ impl Detail {
             None => scrollbar("diff-scrollbar", scroll, theme).map(|bar| bar.into_any_element()),
         };
         let marks = (diff.marks.clone()).map(|marks| change_marks(marks, theme));
+        // One file at a time, a wheel's notch scrolls three lines, as deltoids does. Laid out
+        // after the list, its listener runs before the list's, which takes what this leaves.
+        let wheel = self.single_file_shown().then(|| {
+            let entity = entity.clone();
+            canvas(
+                |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
+                move |_, hitbox, window, _| {
+                    window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
+                        if phase != DispatchPhase::Bubble || !hitbox.should_handle_scroll(window) {
+                            return;
+                        }
+                        let Some(lines) = wheel_lines(event) else {
+                            return;
+                        };
+                        (entity.update(cx, |detail, cx| detail.scroll_lines(lines, cx))).ok();
+                        cx.stop_propagation();
+                    });
+                },
+            )
+            .absolute()
+            .inset_0()
+        });
         // One file's header holds the top, there or stuck, so the marks and the scrollbar run
         // beside its lines, below it.
         let rail_top = match diff.alone {
@@ -914,6 +936,7 @@ impl Detail {
                         .size_full(),
                     )
                     .child(estimate)
+                    .children(wheel)
                     .children(sticky)
                     .child(
                         div()
@@ -2158,12 +2181,138 @@ fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<
         .then(|| format!("No commits above {base} on {what}").into())
 }
 
+/// How a platform counts a notch of a mouse's wheel in the lines of its scroll events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WheelLines {
+    /// One event a notch, of a tenth of a line turned slowly and more turned fast, as macOS
+    /// accelerates it.
+    Accelerated,
+    /// A line a notch, or fractions of one over several events from a wheel that reports finer
+    /// steps, as Linux sends them.
+    PerNotch,
+    /// The lines the system's own setting gives a notch, three unless changed, as Windows
+    /// counts them.
+    Set,
+}
+
+impl WheelLines {
+    const HERE: WheelLines = if cfg!(target_os = "macos") {
+        WheelLines::Accelerated
+    } else if cfg!(target_os = "windows") {
+        WheelLines::Set
+    } else {
+        WheelLines::PerNotch
+    };
+}
+
+/// How many lines a wheel's `event` scrolls the single file diff, down from positive: three
+/// for a notch, as deltoids and terminals scroll. None for what the list scrolls by itself: a
+/// trackpad's or a smooth wheel's pixels, which have no notches, a sideways scroll, which long
+/// lines take, and a scroll with a modifier held.
+fn wheel_lines(event: &ScrollWheelEvent) -> Option<f32> {
+    wheel_lines_on(event, WheelLines::HERE)
+}
+
+fn wheel_lines_on(event: &ScrollWheelEvent, counted: WheelLines) -> Option<f32> {
+    let ScrollDelta::Lines(delta) = event.delta else {
+        return None;
+    };
+    if delta.x != 0. || delta.y == 0. || event.modifiers.modified() {
+        return None;
+    }
+    let lines = match counted {
+        // Each event is a notch: a slow one's tenth of a line is three lines too, and a fast
+        // spin's acceleration still counts.
+        WheelLines::Accelerated => 3. * delta.y.abs().max(1.),
+        WheelLines::PerNotch => 3. * delta.y.abs(),
+        WheelLines::Set => delta.y.abs(),
+    };
+    // The wheel turned toward the user, up, moves the content down.
+    Some(-delta.y.signum() * lines)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::nothing_committed_in;
+    use gpui::{Modifiers, ScrollDelta, ScrollWheelEvent, point};
+
+    use super::WheelLines::{Accelerated, PerNotch, Set};
+    use super::{nothing_committed_in, wheel_lines, wheel_lines_on};
     use crate::backend::FullName;
     use crate::backend::model::build::{branch, full, workspace, worktree};
     use crate::state::{ProjectId, Selection};
+
+    fn wheel(delta: ScrollDelta, modifiers: Modifiers) -> ScrollWheelEvent {
+        ScrollWheelEvent {
+            delta,
+            modifiers,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_wheel_notch_scrolls_three_lines_however_the_platform_counts_it() {
+        let notch = |y, counted| {
+            let event = wheel(ScrollDelta::Lines(point(0., y)), Modifiers::default());
+            wheel_lines_on(&event, counted)
+        };
+        // macOS: a notch turned slowly, as a mouse sent it, and a fast spin's accelerated ones.
+        assert_eq!(
+            notch(-0.1, Accelerated),
+            Some(3.),
+            "turned away, the content moves up"
+        );
+        assert_eq!(
+            notch(0.1, Accelerated),
+            Some(-3.),
+            "turned toward the user, it moves down"
+        );
+        assert_eq!(notch(-0.9996, Accelerated), Some(3.));
+        assert_eq!(
+            notch(-4., Accelerated),
+            Some(12.),
+            "a fast spin's acceleration counts"
+        );
+        // Linux: a line a notch, or a quarter of one from a finer wheel's four events.
+        assert_eq!(notch(-1., PerNotch), Some(3.));
+        assert_eq!(
+            notch(-0.25, PerNotch),
+            Some(0.75),
+            "four of them make a notch"
+        );
+        // Windows: the lines its setting gives a notch.
+        assert_eq!(notch(-3., Set), Some(3.));
+        assert_eq!(notch(0., Accelerated), None, "nothing to scroll");
+    }
+
+    #[test]
+    fn the_list_scrolls_what_isnt_a_notch() {
+        let plain = Modifiers::default();
+        let sideways = wheel(ScrollDelta::Lines(point(1., 0.)), plain);
+        assert_eq!(
+            wheel_lines(&sideways),
+            None,
+            "long lines scroll sideways themselves"
+        );
+        let pixels = wheel(
+            ScrollDelta::Pixels(point(crate::ui::fixed(0.), crate::ui::fixed(-30.))),
+            plain,
+        );
+        assert_eq!(
+            wheel_lines(&pixels),
+            None,
+            "a trackpad scrolls as the list does"
+        );
+        let held = Modifiers {
+            platform: true,
+            ..Default::default()
+        };
+        let modified = wheel(ScrollDelta::Lines(point(0., -1.)), held);
+        assert_eq!(
+            wheel_lines(&modified),
+            None,
+            "a modifier leaves it to the list"
+        );
+    }
 
     #[test]
     #[expect(

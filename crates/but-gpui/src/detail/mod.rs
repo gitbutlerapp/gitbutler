@@ -1840,7 +1840,11 @@ impl Detail {
     /// keys where they are, as ⇧J and ⇧K read on from the file list.
     fn scroll_lines(&mut self, lines: f32, cx: &mut Context<Self>) {
         self.glide = None;
-        self.list.scroll_by(code_line(cx) * lines);
+        // Within the diff: past its end the list would scroll on into nothing.
+        let at = -self.list.scroll_px_offset_for_scrollbar().y;
+        let max = self.list.max_offset_for_scrollbar().y.max(Pixels::ZERO);
+        let by = (code_line(cx) * lines).max(-at).min(max - at);
+        self.list.scroll_by(by);
         cx.notify();
     }
 
