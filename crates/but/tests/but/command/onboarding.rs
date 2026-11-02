@@ -265,7 +265,7 @@ fn migration_to_local_target_ref_without_tracking_branch() {
         .stderr_eq(snapbox::str![[r#"
 Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
 
-Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 4.7`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -276,7 +276,7 @@ Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=or
         .stderr_eq(snapbox::str![[r#"
 Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
 
-Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 4.7`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -349,7 +349,7 @@ fn migration_from_virtual_branches_toml_without_tracking_branch() {
         .stderr_eq(snapbox::str![[r#"
 Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
 
-Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 4.7`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -424,7 +424,7 @@ fn migration_with_local_branch_tracking_fork_hints_to_track_legacy_target() {
         .stderr_eq(snapbox::str![[r#"
 Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, upstream/main
 
-Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main main`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 

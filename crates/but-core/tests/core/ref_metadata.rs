@@ -1032,9 +1032,30 @@ mod project_meta {
         let err = ProjectMeta::try_from_config(&config, &repo()?).unwrap_err();
         assert_eq!(
             err.downcast_ref::<UnresolvedLegacyTargetRefError>()
-                .map(|err| err.reason),
-            Some(UnresolvedLegacyTargetReason::NoTrackingBranch),
-            "missing local counterparts require an explicit choice: {err:#}"
+                .map(|err| (err.reason, err.track_command.as_deref())),
+            Some((UnresolvedLegacyTargetReason::NoTrackingBranch, None)),
+            "missing local counterparts require an explicit choice, and with origin/missing gone \
+            no branch can track it: {err:#}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_remote_without_local_match_errors_even_without_a_command_to_track_it()
+    -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/elsewhere")?;
+            // two remotes fetching into origin/trunk leave no single branch name to suggest
+            config.set_raw_value("remote.fork.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        }
+        let err = ProjectMeta::try_from_config(&legacy_config()?, &repo).unwrap_err();
+        assert_eq!(
+            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                .map(|err| (err.reason, err.track_command.as_deref())),
+            Some((UnresolvedLegacyTargetReason::NoTrackingBranch, None)),
+            "failing to suggest a command still leaves the choice to the user: {err:#}"
         );
         Ok(())
     }
