@@ -1188,6 +1188,7 @@ impl Detail {
                 // which the cursor goes to and the diff takes the keys for, as the commands act
                 // there.
                 let cut = self.diff_cut(file, None, cx);
+                let carried = cut.clone();
                 let open = {
                     let (open, entity) =
                         (menu(cut, file_diff, None, entity.clone()), entity.clone());
@@ -1250,6 +1251,7 @@ impl Detail {
                     },
                     cx,
                 );
+                let dragged = entity.clone();
                 padded
                     .id(("file-header", ix))
                     .child(header)
@@ -1261,6 +1263,10 @@ impl Detail {
                         toggle
                             .update(cx, |detail, cx| detail.toggle_fold(file, cx))
                             .ok();
+                    })
+                    .when_some(carried, |el, carried| {
+                        let label: SharedString = carried.describe(store).into();
+                        el.on_drag(carried, self.patch_drag_preview(label, false, dragged))
                     })
                     .into_any_element()
             }
@@ -1340,7 +1346,7 @@ impl Detail {
                     .when_some(carried, |el, carried| {
                         let lines: Vec<_> = (0..found.lines.len()).map(|l| (hunk, l)).collect();
                         let label = self.lines_label(file, &lines);
-                        el.on_drag(carried, self.drag_preview(label, false, dragged))
+                        el.on_drag(carried, self.patch_drag_preview(label, false, dragged))
                     })
                     .into_any_element()
             }
@@ -1778,7 +1784,7 @@ impl Detail {
                 .ok();
             })
             .when_some(drag, |el, (cut, label)| {
-                el.on_drag(cut, self.drag_preview(label, picked, entity.clone()))
+                el.on_drag(cut, self.patch_drag_preview(label, picked, entity.clone()))
             })
             .into_any_element();
         Some(diff::Gutter {

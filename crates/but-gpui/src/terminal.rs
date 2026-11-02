@@ -505,11 +505,13 @@ impl Terminal {
         self.paste_quoted(paths, window, cx);
     }
 
-    /// A row dragged from the navigator is pasted as ⌘C copies it ([`Store::pasted`]).
+    /// A row dragged from the navigator is pasted as ⌘C copies it, and a file, hunk or lines
+    /// dragged from the diff as their patch ([`Store::pasted`]).
     fn dropped_row(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
-        let words = (self.store.upgrade()).and_then(|store| store.read(cx).pasted());
-        if let Some(words) = words {
-            self.paste_quoted(words, window, cx);
+        let text =
+            (self.store.upgrade()).and_then(|store| Some(store.read(cx).pasted()?.into_owned()));
+        if let Some(text) = text {
+            self.paste(&text, window, cx);
         }
     }
 
@@ -531,8 +533,13 @@ impl Terminal {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.paste(&shell_quoted(words), window, cx);
+    }
+
+    /// Paste `text` as it is and take the keys.
+    fn paste(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
-        self.tty.paste(&shell_quoted(words));
+        self.tty.paste(text);
         self.typed(cx);
     }
 
@@ -743,7 +750,7 @@ fn link_at(rows: &[Arc<Row>], grid: Grid, position: Point<Pixels>) -> Option<Arc
 }
 
 /// `words` side by side, each quoted for the shell where it needs to be.
-fn shell_quoted(words: impl IntoIterator<Item = impl AsRef<str>>) -> String {
+pub(crate) fn shell_quoted(words: impl IntoIterator<Item = impl AsRef<str>>) -> String {
     let quoted: Vec<_> = (words.into_iter())
         .map(|word| shell_words::quote(word.as_ref()).into_owned())
         .collect();
