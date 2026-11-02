@@ -350,12 +350,10 @@ pub enum CommitTo {
     Branch(FullName),
     /// Right below `commit`, in `branch`, which has it.
     BelowCommit { commit: CommitId, branch: FullName },
-    /// A new one with a made-up name, placed as [`CreateBranch`] places it, and made in the
-    /// commit's own oplog entry, so one undo takes back both.
-    NewBranch,
-    /// A new one named `name`, or with a made-up name, made as [`Self::NewBranch`] is, placed as
-    /// [`MoveToNewBranch`] places one: `beside` a branch in its stack, below it with the flag,
-    /// or with `None` in a stack of its own, before the others with `first`.
+    /// A new one named `name`, or with a made-up name, made in the commit's own oplog entry, so
+    /// one undo takes back both, and placed as [`MoveToNewBranch`] places one: `beside` a branch
+    /// in its stack, below it with the flag, or with `None` in a stack of its own, before the
+    /// others with `first`.
     NewBranchAt {
         beside: Option<(FullName, bool)>,
         first: bool,
@@ -417,7 +415,7 @@ impl Intent for CommitChanges {
         } = self;
         let worktree = checkout.linked();
         // A new branch goes where the main checkout's would, unless it's placed beside one.
-        if matches!(to, CommitTo::NewBranch) && worktree.is_some() {
+        if matches!(to, CommitTo::NewBranchAt { beside: None, .. }) && worktree.is_some() {
             bail!("The worktree has no branch of its own checked out");
         }
         // The hooks run in the main checkout, not where a linked worktree's changes are.
@@ -442,11 +440,6 @@ impl Intent for CommitChanges {
                 }
                 CommitTo::Branch(branch) => (branch, None, None),
                 CommitTo::BelowCommit { commit, branch } => (branch, None, Some(commit)),
-                CommitTo::NewBranch => {
-                    refuse_unborn(ctx)?;
-                    let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
-                    (name, Some((None, false)), None)
-                }
                 CommitTo::NewBranchAt {
                     beside,
                     first,
@@ -2608,7 +2601,11 @@ pub(super) mod tests {
                 let before = crate::backend::history::oplog_head(&open(path).unwrap());
 
                 let commit = CommitChanges {
-                    to: CommitTo::NewBranch,
+                    to: CommitTo::NewBranchAt {
+                        beside: None,
+                        first: false,
+                        name: None,
+                    },
                     ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Two", false)
                 };
                 let (committed, ran) = crate::backend::apply(path, commit).unwrap();
@@ -2666,7 +2663,11 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let last_entry = crate::backend::history::oplog_head(&open(path).unwrap());
 
             let commit = CommitChanges {
-                to: CommitTo::NewBranch,
+                to: CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
                 ..commit_to_main(vec![changed], "Two", false)
             };
             let err = crate::backend::apply(path, commit).unwrap_err();
@@ -2693,7 +2694,11 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let commit = CommitChanges {
-                to: CommitTo::NewBranch,
+                to: CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
                 checkout: Checkout::Linked("feature".into()),
                 ..commit_to_main(vec![], "Two", false)
             };
@@ -2908,6 +2913,36 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
 <new>, lower, top, main on <new>
 
 "#]]
+            );
+        })
+    }
+
+    #[test]
+    fn without_a_target_a_branch_cant_be_torn_off() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // `top` checked out on its own, stacked on `lower`, in a project with no remote to
+            // take a target from, which a stack of its own would start from.
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(path, &["checkout", "-q", "-b", "lower"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Lower"]);
+            git(path, &["checkout", "-q", "-b", "top"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Top"]);
+            let before = git(path, &["log", "--oneline", "--all"]);
+
+            let unstack = TearOffBranch {
+                branch: full("refs/heads/lower"),
+                first: false,
+            };
+            let err = crate::backend::apply(path, unstack).unwrap_err();
+            assert!(
+                err.to_string().contains("cutoff"),
+                "the UI offers no tear-off without a target, as this refuses: {err}"
+            );
+            assert_eq!(
+                git(path, &["log", "--oneline", "--all"]),
+                before,
+                "the stack is left as it was"
             );
         })
     }

@@ -163,7 +163,7 @@ pub struct BranchEdits {
     pub squash_all: bool,
     /// Other branches share its stack.
     pub stacked: bool,
-    /// It shares its stack and can go in one of its own.
+    /// It shares its stack and can go in one of its own, which starts from the target.
     pub unstack: bool,
     /// It can merge into the target, and whether with the branches below it.
     pub merge: Option<bool>,
@@ -184,7 +184,7 @@ impl BranchEdits {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
             stacked,
-            unstack: stacked && workspace.takes_new_stacks(),
+            unstack: stacked && workspace.target_branch.is_some(),
             merge: merge_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
@@ -224,9 +224,6 @@ impl AppView {
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
-                let new_stacks = store
-                    .workspace(project)
-                    .is_some_and(|ws| ws.takes_new_stacks());
                 let edits = (store.find_commit(project, *id))
                     .map_or_else(CommitEdits::default, |(branch, commit)| {
                         CommitEdits::of(branch, commit)
@@ -248,19 +245,17 @@ impl AppView {
                         this.add_empty_commit(false, cx)
                     }))
                     .on_action(cx.listener(Self::cherry_pick))
-                    .when(new_stacks, |el| {
-                        el.on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
-                            let Some((project, commit)) = this.selected_commit(cx) else {
-                                return;
-                            };
-                            let id = commit.id;
-                            this.store.update(cx, |store, cx| {
-                                // With the commits picked with it, as dropping them on New branch does.
-                                let ids = store.with_picks(&project, id);
-                                store.move_to_new_branch(&project, ids, None, false, None, cx)
-                            });
-                        }))
-                    })
+                    .on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
+                        let Some((project, commit)) = this.selected_commit(cx) else {
+                            return;
+                        };
+                        let id = commit.id;
+                        this.store.update(cx, |store, cx| {
+                            // With the commits picked with it, as dropping them on New branch does.
+                            let ids = store.with_picks(&project, id);
+                            store.move_to_new_branch(&project, ids, None, false, None, cx)
+                        });
+                    }))
                     .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
                     // The other way round: the rest go into the one selected, in its place, when
                     // it isn't the oldest of them, which Squash picked commits goes into.
