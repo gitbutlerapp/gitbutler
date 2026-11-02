@@ -142,8 +142,11 @@ impl DbHandle {
 
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
+        let mirror_on_commit = self.conn.is_autocommit();
         Ok(VirtualBranchesHandleMut {
             sp: self.conn.savepoint()?,
+            mirror_on_commit,
+            metadata_changed: None,
         })
     }
 }
@@ -156,14 +159,20 @@ impl<'conn> Transaction<'conn> {
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
-            sp: self.inner_mut().savepoint()?,
+            sp: self
+                .inner
+                .as_mut()
+                .expect("BUG: transaction is always set")
+                .savepoint()?,
+            mirror_on_commit: false,
+            metadata_changed: Some(&self.metadata_changed),
         })
     }
 }
 
 /// Created from [`DbHandle::virtual_branches`] or [`Transaction::virtual_branches`].
 pub struct VirtualBranchesHandle<'conn> {
-    conn: &'conn rusqlite::Connection,
+    pub(crate) conn: &'conn rusqlite::Connection,
 }
 
 /// Mutating accessor for virtual-branches tables, scoped to a savepoint.
@@ -171,7 +180,9 @@ pub struct VirtualBranchesHandle<'conn> {
 /// Created from [`DbHandle::virtual_branches_mut`] or [`Transaction::virtual_branches_mut`].
 /// Methods on this type consume the handle and commit on success.
 pub struct VirtualBranchesHandleMut<'conn> {
-    sp: rusqlite::Savepoint<'conn>,
+    pub(crate) sp: rusqlite::Savepoint<'conn>,
+    pub(crate) mirror_on_commit: bool,
+    pub(crate) metadata_changed: Option<&'conn std::cell::Cell<bool>>,
 }
 
 impl VirtualBranchesHandle<'_> {
@@ -292,6 +303,10 @@ impl VirtualBranchesHandle<'_> {
 }
 
 impl VirtualBranchesHandleMut<'_> {
+    fn commit(self) -> rusqlite::Result<()> {
+        crate::legacy::commit_with_mirror(self.sp, self.mirror_on_commit, self.metadata_changed)
+    }
+
     pub fn to_ref(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: &self.sp }
     }
@@ -326,7 +341,7 @@ impl VirtualBranchesHandleMut<'_> {
     /// Insert or update the singleton `vb_state` row (`id = 1`) and commit the savepoint.
     pub fn set_state(mut self, state: &VbState) -> rusqlite::Result<()> {
         self.set_state_in_place(state)?;
-        self.sp.commit()
+        self.commit()
     }
 
     /// Replace all VB tables with the provided normalized snapshot.
@@ -403,6 +418,13 @@ impl VirtualBranchesHandleMut<'_> {
             }
         }
 
-        self.sp.commit()
+        self.sp.execute(
+            "DELETE FROM ref_info WHERE is_workspace = 0 AND ref_name NOT IN (
+                SELECT CAST(CASE WHEN name LIKE 'refs/%' THEN name ELSE 'refs/heads/' || name END AS BLOB)
+                FROM vb_stack_heads
+            )",
+            [],
+        )?;
+        self.commit()
     }
 }

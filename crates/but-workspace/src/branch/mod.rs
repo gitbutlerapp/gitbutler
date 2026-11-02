@@ -539,7 +539,7 @@ pub(crate) fn try_find_validated_ref<'repo>(
 pub(crate) fn reprojected(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
-    meta: &impl but_core::RefMetadata,
+    meta: &but_db::Meta<'_>,
     overlay: but_graph::init::Overlay,
     seen_from: Option<(Option<&gix::refs::FullNameRef>, gix::ObjectId)>,
 ) -> anyhow::Result<but_graph::Workspace> {

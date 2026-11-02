@@ -43,10 +43,8 @@ pub fn commit_reword_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitRewordResult> {
-    let mut meta = ctx.meta()?;
     let (new_commit, workspace) = with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         &[],

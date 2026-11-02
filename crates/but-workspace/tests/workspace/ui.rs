@@ -3,14 +3,10 @@ use snapbox::IntoJson;
 #[test]
 fn head_info_with_local_target_converts_for_ui() -> anyhow::Result<()> {
     let repo = crate::utils::read_only_in_memory_scenario_named("one-commit-detached", "")?;
-    let meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
-        repo.path().join("should-never-be-written.toml"),
-    )?);
     let mut db = but_testsupport::in_memory_db();
     assert!(repo.remote_names().is_empty(), "the fixture has no remotes");
     let ref_info = but_workspace::head_info(
         &repo,
-        &*meta,
         &mut db,
         but_workspace::ref_info::Options {
             project_meta: but_core::ref_metadata::ProjectMeta {
@@ -78,7 +74,7 @@ mod changes_in_branch {
             "branch-diff-local-target-ahead",
             "",
         )?;
-        let meta = but_testsupport::InMemoryRefMetadata::default();
+
         let mut db = but_testsupport::in_memory_db();
         let cutoff = repo.rev_parse_single("base")?.detach();
         let project_meta = but_core::ref_metadata::ProjectMeta {
@@ -88,9 +84,8 @@ mod changes_in_branch {
             target_commit_id: Some(cutoff),
             ..Default::default()
         };
-        let ws =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?
-                .into_workspace()?;
+        let ws = but_graph::Graph::from_head(&repo, project_meta, &mut db, Options::limited())?
+            .into_workspace()?;
         let branch = r("refs/heads/inactive");
         assert!(
             ws.find_segment_by_refname(branch).is_none(),
@@ -118,7 +113,7 @@ mod changes_in_branch {
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
-        let (repo, meta, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
+        let (repo, mut db) = read_only_in_memory_scenario("remote-advanced-ff")?;
         snapbox::assert_data_eq!(
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
@@ -131,13 +126,8 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &*meta,
-            project_meta(&repo)?,
-            &mut db,
-            Options::limited(),
-        )?;
+        let graph =
+            but_graph::Graph::from_head(&repo, project_meta(&repo)?, &mut db, Options::limited())?;
         let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
@@ -283,7 +273,6 @@ TreeChanges {
 
         let ref_info: ui::RefInfo = but_workspace::head_info(
             &repo,
-            &*meta,
             &mut db,
             but_workspace::ref_info::Options {
                 project_meta: project_meta(&repo)?,
@@ -457,14 +446,10 @@ TreeChanges {
     fn worktree_branch_resting_on_a_stack() -> anyhow::Result<()> {
         let repo =
             crate::utils::read_only_in_memory_scenario_named("worktree-on-stack-with-files", "")?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            repo.path().join("should-never-be-written.toml"),
-        )?;
         let mut db = but_testsupport::in_memory_db();
         db.worktree_meta_mut().mark_adopted()?;
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
             project_meta(&repo)?,
             &mut db,
             Options {

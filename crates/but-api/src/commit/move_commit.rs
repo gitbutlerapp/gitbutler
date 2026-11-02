@@ -51,10 +51,8 @@ pub fn commit_move_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
-    let mut meta = ctx.meta()?;
     let workspace = with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::MoveCommit).with_count(subject_commit_ids.len()),
         &[],

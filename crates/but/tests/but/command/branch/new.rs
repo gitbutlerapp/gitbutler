@@ -1306,8 +1306,9 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* db30b92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/
+*-. be23232 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /
+|/[..]
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1320,6 +1321,9 @@ Created branch 'three'
 ┊╭┄ th [three] (no commits)
 ├╯
 ┊
+┊╭┄ tw [two] (no commits)
+├╯
+┊
 ┊╭┄ on [one] (no commits)
 ├╯
 ┊
@@ -1328,6 +1332,93 @@ Created branch 'three'
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn creating_an_independent_branch_resumes_advanced_workspace_stacks() {
+    let env = Sandbox::open_with_default_settings("two-stacks");
+    env.setup_metadata(&["B", "A"]);
+    env.but("switch A").assert().success();
+    env.file("A", "advanced outside the workspace\n");
+    env.invoke_git("add A");
+    env.invoke_git("commit -m advanced-A");
+    let branch_tips = env.invoke_git("rev-parse A B");
+
+    env.but("branch new fresh")
+        .assert()
+        .success()
+        .stderr_eq(str![]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse A B"),
+        branch_tips,
+        "resuming the workspace preserves the advanced branch and its sibling"
+    );
+    for branch in ["A", "B", "fresh"] {
+        env.invoke_git(&format!(
+            "merge-base --is-ancestor {branch} gitbutler/workspace"
+        ));
+    }
+    // The workspace contains the advanced branch, its remembered sibling, and the new branch.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ fr [fresh] (no commits)
+├╯
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ h0 [A]
+┊●   xwv advanced-A
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn creating_an_independent_branch_rolls_back_conflicting_workspace_restoration() {
+    let env = Sandbox::open_with_default_settings("two-stacks");
+    env.setup_metadata(&["B", "A"]);
+    env.but("switch A").assert().success();
+    env.file("B", "conflicts with the remembered sibling\n");
+    env.invoke_git("add B");
+    env.invoke_git("commit -m conflicting-A");
+    let refs_before = env.invoke_git("show-ref --heads");
+    let status_before = env.git_status();
+    let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+    let workspace_before = (*env.meta().meta().workspace(workspace_ref).unwrap()).clone();
+
+    env.but("branch new fresh")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot restore workspace because previously applied branches conflict
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("show-ref --heads"),
+        refs_before,
+        "a refused restoration preserves all branch tips and creates no new branch"
+    );
+    assert_eq!(
+        env.git_status(),
+        status_before,
+        "the checkpoint restores the original checkout and clean worktree"
+    );
+    assert_eq!(
+        *env.meta().meta().workspace(workspace_ref).unwrap(),
+        workspace_before,
+        "the checkpoint restores the original workspace membership"
+    );
 }
 
 #[test]
