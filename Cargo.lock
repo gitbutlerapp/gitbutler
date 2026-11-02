@@ -2104,6 +2104,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-error",
+ "but-evo",
  "but-graph",
  "but-oplog",
  "but-rebase",

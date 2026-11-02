@@ -1,9 +1,10 @@
 //! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
 use but_core::{
-    ObjectStorageExt as _, RefMetadata,
+    ObjectStorageExt as _, RefMetadata, RepositoryExt as _,
     worktree::{checkout::Options, safe_checkout_from_head},
 };
+use but_evo::{Provenance, record};
 use gix::{
     bstr::{BString, ByteSlice as _},
     refs::{
@@ -255,6 +256,20 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             .refresh_from_head(repo, &*self.meta, project_meta, &mut *self.db)
     }
 
+    fn record_rewrites(&mut self, repo: &gix::Repository) -> Result<()> {
+        let rewrites = self.rewrites()?;
+        if rewrites.is_empty() {
+            return Ok(());
+        }
+        let (_, committer) = repo.commit_signatures()?;
+        let provenance = Provenance {
+            user: format!("{} <{}>", committer.name, committer.email).into(),
+            date: committer.time,
+            operation: None,
+        };
+        record(&mut *self.db, repo, &rewrites, &provenance)
+    }
+
     /// Materializes a history rewrite, and records how its branches stack in the metadata.
     pub fn materialize(
         mut self,
@@ -345,6 +360,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
+        if let Err(err) = self.record_rewrites(&repo) {
+            tracing::warn!(?err, "Failed to record how commits were rewritten");
+        }
         branch_stacks.persist(self.meta)?;
         self.refresh_workspace(&repo)?;
 
