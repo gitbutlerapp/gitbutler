@@ -158,7 +158,7 @@ impl Detail {
                     .gap(dp(6.))
                     .child(overview_title(
                         "Inactive worktrees",
-                        "Nothing uncommitted, and no commits or checkouts in 12 hours".to_owned(),
+                        store.prefs.inactive_after.rule(),
                         theme,
                     ))
                     .child(overview_tiles(tiles, theme))

@@ -127,8 +127,9 @@ impl Store {
     /// Project `id`'s linked worktrees with nothing going on lately, but those on their way
     /// out.
     pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
+        let after = self.prefs.inactive_after;
         (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive())
+            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive(after))
             .collect()
     }
 }
