@@ -505,9 +505,8 @@ impl Navigator {
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
         self.mesh_rows(store, id, rows);
-        // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
-        // the workspace there's nowhere to put a branch of its own.
-        if workspace.managed && lands_apart(store.dragging.as_ref(), id, workspace) {
+        // After the worktrees, so a drag starting in one doesn't push its rows down.
+        if lands_apart(store.dragging.as_ref(), id, workspace) {
             rows.push(Row::NewBranch(id.clone()));
         }
         // The pages are another kind of row than the worktrees', so a line rules them off,
@@ -1014,12 +1013,13 @@ pub(super) fn within<'a>(
 }
 
 /// Whether what's `dragging` can land apart from the rest of `project`'s `workspace`:
-/// commits in a new branch, and a branch that shares its stack in one of its own.
+/// commits in a new branch, and a branch that shares its stack in one of its own. Outside the
+/// workspace, landing there sets it up, as `but move` does, on the target.
 fn lands_apart(dragging: Option<&Cut>, project: &ProjectId, workspace: &Workspace) -> bool {
     match dragging {
-        Some(Cut::Commit(from, _)) => from == project,
+        Some(Cut::Commit(from, _)) => from == project && workspace.takes_new_stacks(),
         Some(Cut::Branch(from, branch)) => {
-            from == project && BranchEdits::of(workspace, branch).stacked
+            from == project && BranchEdits::of(workspace, branch).unstack
         }
         _ => false,
     }
@@ -1128,23 +1128,28 @@ mod within_tests {
 #[cfg(test)]
 mod lands_apart_tests {
     use super::lands_apart;
-    use crate::backend::model::build::{branch, full, workspace, worktree};
+    use crate::backend::Workspace;
+    use crate::backend::model::build::{branch, full, id, workspace, worktree};
     use crate::state::{Cut, ProjectId};
 
     #[test]
     fn a_stacked_branch_lands_apart_and_a_lone_one_does_not() {
         let project = ProjectId::from("p");
-        let ws = workspace(
-            vec![
-                vec![branch("ui", &[3]), branch("api", &[2, 1])],
-                vec![branch("typo", &[4])],
-            ],
-            vec![worktree(
-                "wt",
-                None,
-                vec![branch("top", &[6]), branch("low", &[5])],
-            )],
-        );
+        // Outside the workspace, with a target to set it up on.
+        let ws = Workspace {
+            target_branch: Some(full("refs/heads/main")),
+            ..workspace(
+                vec![
+                    vec![branch("ui", &[3]), branch("api", &[2, 1])],
+                    vec![branch("typo", &[4])],
+                ],
+                vec![worktree(
+                    "wt",
+                    None,
+                    vec![branch("top", &[6]), branch("low", &[5])],
+                )],
+            )
+        };
         let dragged =
             |name: &str| Cut::Branch(project.clone(), full(&format!("refs/heads/{name}")));
         assert!(
@@ -1166,6 +1171,20 @@ mod lands_apart_tests {
         assert!(
             !lands_apart(Some(&dragged("ui")), &ProjectId::from("other"), &ws),
             "it lands only in its own project"
+        );
+        let commit = Cut::Commit(project.clone(), [id(3)].into());
+        assert!(
+            lands_apart(Some(&commit), &project, &ws),
+            "commits go in a branch of their own outside the workspace too, which sets it up"
+        );
+        let untargeted = Workspace {
+            target_branch: None,
+            ..ws
+        };
+        assert!(
+            !lands_apart(Some(&dragged("ui")), &project, &untargeted)
+                && !lands_apart(Some(&commit), &project, &untargeted),
+            "without a target there's no workspace to set up for a stack of its own"
         );
     }
 }

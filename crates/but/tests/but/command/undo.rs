@@ -414,6 +414,26 @@ Redid [..] (2000-01-02 00:00:00): [..]
 }
 
 #[test]
+fn undoing_but_branch_new_in_single_branch_mode_deletes_the_branch() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let listed = |name: &str| env.invoke_git(&format!("branch --list {name}"));
+
+    // With the target checked out, it starts at the target and is checked out.
+    env.but("branch new first").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(listed("first"), "", "undo deletes the branch it made");
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "main");
+
+    // Beside another branch checked out on its own, the workspace is set up for both.
+    env.but("branch new first").assert().success();
+    env.but("branch new second").assert().success();
+    env.but("undo").assert().success();
+    assert_eq!(listed("second"), "", "undo deletes the branch it made");
+    assert_ne!(listed("first"), "", "and leaves the one before it");
+    assert_eq!(env.invoke_git("symbolic-ref --short HEAD"), "first");
+}
+
+#[test]
 fn can_undo_and_redo_commit_with_ordinary_branch_checked_out() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("branch new my-branch").assert().success();
@@ -897,7 +917,7 @@ fn can_undo_single_branch_mode_but_branch_new_creating_workspace() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
+* b1540e5 (HEAD -> one, origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
 
 "#]]
@@ -921,7 +941,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_existing_workspace() 
         snapbox::str![[r#"
 * 3a4cfbb (gitbutler/workspace) GitButler Workspace Commit
 |/
-* b1540e5 (HEAD -> two, origin/main, origin/HEAD, three, one, main, gitbutler/target) M
+* b1540e5 (HEAD -> two, origin/main, origin/HEAD, one, main, gitbutler/target) M
 * e31e6ca add init
 
 "#]]
@@ -942,7 +962,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_single_branch_from_wo
         snapbox::str![[r#"
 * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );
@@ -964,7 +984,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_single_branch_from_br
         snapbox::str![[r#"
 * edd3eb7 (gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (HEAD -> A) add A
-* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, a-branch-1) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );

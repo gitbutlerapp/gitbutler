@@ -972,6 +972,61 @@ Hint: to apply these changes, create bar stacked on top of foo and try again:
 }
 
 #[test]
+fn rejected_specs_on_an_unnamed_new_branch_suggest_no_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("first", "Some text");
+
+    env.but("commit -m 'add first' -b foo").assert().success();
+
+    env.file("first", "changes");
+
+    // The made-up name the new branch would have had went with the rollback, so no command
+    // can name it.
+    env.but("commit -b -m 'add first'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit: 1 change could not be applied:
+  first
+    line 1 depends on foo (xsz)
+
+"#]]);
+}
+
+#[test]
+fn commit_switch_with_head_detached_is_refused_and_keeps_the_changes() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.file("first", "Some text\n");
+    env.but("commit -b foo -m 'add first'").assert().success();
+    env.invoke_git("checkout --detach");
+    env.file("first", "changes\n");
+    env.file("new.txt", "new content\n");
+
+    // Without a branch checked out there's no workspace to set up, nor the checkpoint that
+    // takes a failed switch back, so it doesn't start.
+    env.but("commit --switch -b bar -m test sy")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: --switch needs a branch checked out (HEAD is detached)
+
+"#]]);
+
+    // No bar is made.
+    snapbox::assert_data_eq!(env.invoke_git("branch --list bar"), snapbox::str![]);
+    // Both changes stay uncommitted.
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        snapbox::str![[r#"
+M first
+?? new.txt
+"#]]
+    );
+}
+
+#[test]
 fn failed_commit_switch_preserves_selected_changes_in_single_branch_mode() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.file("first", "Some text\n");

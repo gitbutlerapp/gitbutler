@@ -1,11 +1,11 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
-//! in one `but_transaction` transaction, one `_with_perm` call, or work wrapped in [`recorded`],
-//! recording one oplog entry. [`DiscardChanges`] records its own before it writes, as does
+//! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry. One
+//! that makes or moves a branch runs as the CLI's do outside the workspace
+//! ([`SingleBranchMode`]). [`DiscardChanges`] records its own before it writes, as does
 //! [`super::conflicts::ResolveMarkers`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -14,9 +14,11 @@ use bstr::{BStr, ByteSlice as _};
 use but_api::commit::json::ChangesSource;
 use but_core::commit::CommitIdentifiers;
 use but_core::tree::create_tree::RejectionReason;
-use but_core::{DiffSpec, DryRun};
+use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::single_branch_mode::SingleBranchMode;
+use but_transaction::{DynamicOutcome, Transaction};
 use but_workspace::commit::ChangeSource;
 
 use super::intent::Run;
@@ -118,29 +120,6 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) ->
         );
     }
     Ok(())
-}
-
-/// Record the project as it is in one oplog entry naming `refs`, once `work` succeeded. One
-/// that can't be recorded only logs: the work stands, without its undo step.
-fn recorded<T>(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    details: SnapshotDetails,
-    refs: &[&gix::refs::FullNameRef],
-    work: impl FnOnce(&mut but_ctx::Context, &mut but_ctx::access::RepoExclusive) -> Result<T>,
-) -> Result<T> {
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
-        ctx,
-        details,
-        refs,
-        perm.read_permission(),
-        DryRun::No,
-    );
-    let value = work(ctx, perm)?;
-    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
-        tracing::warn!(?err, "couldn't record the operation for undo");
-    }
-    Ok(value)
 }
 
 /// Where changes are read from: the main checkout, or the linked `worktree`.
@@ -456,6 +435,7 @@ impl Intent for CommitChanges {
         };
         let (branch, made, rejected) = run.locked(|ctx, perm| {
             let unborn = ctx.repo.get()?.head()?.is_unborn();
+            // A new branch, beside one or with `None` of its own, and with `true` first.
             let (branch, new_at, below) = match to {
                 CommitTo::Branch(branch) if unborn => {
                     return commit_first(ctx, branch, specs, message);
@@ -465,11 +445,7 @@ impl Intent for CommitChanges {
                 CommitTo::NewBranch => {
                     refuse_unborn(ctx)?;
                     let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
-                    (
-                        name,
-                        Some(NewBranchFor::Checkout(new_branch_at(ctx)?)),
-                        None,
-                    )
+                    (name, Some((None, false)), None)
                 }
                 CommitTo::NewBranchAt {
                     beside,
@@ -481,7 +457,7 @@ impl Intent for CommitChanges {
                         Some(name) => branch_ref(&name)?,
                         None => but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?,
                     };
-                    (name, Some(NewBranchFor::Placed { beside, first }), None)
+                    (name, Some((beside, first)), None)
                 }
             };
             let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
@@ -500,29 +476,61 @@ impl Intent for CommitChanges {
                 .chain(worktree_branch.as_ref().map(|name| name.as_ref()))
                 .collect();
             let details = SnapshotDetails::new(OperationKind::CreateCommit);
-            let (made, rejected) = recorded(ctx, perm, details, &refs, |ctx, perm| {
-                let beside_head = matches!(
-                    new_at,
-                    Some(NewBranchFor::Checkout(NewBranchAt::BesideHead(_)))
-                );
-                if let Some(NewBranchFor::Checkout(NewBranchAt::BesideHead(head))) = &new_at {
-                    start_beside(ctx, perm, branch.as_ref(), head)?;
+            let mut meta = ctx.meta()?;
+            let at = (&branch, below);
+            let outcome = match new_at {
+                // A branch made for it runs as `but commit` makes one.
+                Some((beside, first)) => {
+                    let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
+                    let independent = beside.is_none();
+                    sbm.transaction_with_workspace_setup(
+                        ctx,
+                        &mut meta,
+                        details,
+                        &refs,
+                        perm,
+                        independent,
+                        |mut tx| {
+                            match &beside {
+                                Some((beside, below)) => sbm.create_stacked_reference(
+                                    &mut tx,
+                                    branch.as_ref(),
+                                    beside.as_ref(),
+                                    position(*below),
+                                )?,
+                                // A stack's place is its tip's among the workspace commit's
+                                // parents.
+                                None => sbm.create_unstacked_reference(
+                                    &mut tx,
+                                    branch.as_ref(),
+                                    first.then_some(0),
+                                )?,
+                            }
+                            commit_in(&mut tx, at, specs, message, source)
+                        },
+                    )?
                 }
-                let made = commit_in_transaction(
+                None => but_transaction::with_transaction_with_perm(
                     ctx,
+                    &mut meta,
                     perm,
-                    (&branch, below),
-                    new_at.as_ref(),
-                    specs,
-                    message,
-                    source,
-                );
-                if made.is_err() && beside_head {
-                    leave_beside(ctx, perm, &branch);
+                    details,
+                    &refs,
+                    DryRun::No,
+                    |mut tx| commit_in(&mut tx, at, specs, message, source),
+                )?,
+            };
+            match outcome {
+                DynamicOutcome::Commit(((made, rejected), _workspace)) => {
+                    Ok((branch.clone(), made, rejected))
                 }
-                made
-            })?;
-            Ok((branch, made, rejected))
+                DynamicOutcome::Rollback(rejected) => {
+                    bail!(
+                        "Nothing could be committed.\n{}",
+                        left_out(&rejected).join("\n")
+                    )
+                }
+            }
         })?;
         let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
         Ok(Committed {
@@ -531,6 +539,35 @@ impl Intent for CommitChanges {
             left_out: left_out(&rejected),
             hook_failed,
         })
+    }
+}
+
+/// Commit `specs` in `tx` on top of `branch`, or right below its commit `below`. One that takes
+/// none of them rolls back, leaving no branch made for it behind.
+fn commit_in<M: RefMetadata>(
+    tx: &mut Transaction<'_, '_, M>,
+    (branch, below): (&FullName, Option<CommitId>),
+    specs: Vec<DiffSpec>,
+    message: String,
+    source: ChangeSource<'_>,
+) -> Result<DynamicOutcome<(Made, Rejected), Rejected>> {
+    let relative_to = match below {
+        Some(commit) => RelativeTo::Commit(commit.0),
+        None => RelativeTo::Reference(branch.clone()),
+    };
+    let made = tx.create_commit(relative_to, InsertSide::Below, specs, message, source)?;
+    Ok(match made.new_commit {
+        Some(commit) => DynamicOutcome::Commit((Made::from(commit), made.rejected_specs)),
+        None => DynamicOutcome::Rollback(made.rejected_specs),
+    })
+}
+
+/// Where `below` puts a new branch beside another: right below it, or else right above.
+fn position(below: bool) -> but_workspace::branch::create_reference::Position {
+    use but_workspace::branch::create_reference::Position;
+    match below {
+        true => Position::Below,
+        false => Position::Above,
     }
 }
 
@@ -556,90 +593,10 @@ fn hooks_before_commit(
     }
 }
 
-/// Commit `specs` on top of `branch`, making it first where `new_at` says. A commit that takes
-/// none of them rolls back, leaving no branch made for it behind.
-/// Where the branch a commit is made on goes, made with it.
-enum NewBranchFor {
-    /// Where a new branch goes given what's checked out, as [`new_branch_at`] says.
-    Checkout(NewBranchAt),
-    /// In GitButler's workspace, as [`CommitTo::NewBranchAt`] places it.
-    Placed {
-        beside: Option<(FullName, bool)>,
-        first: bool,
-    },
-}
-
-/// Commit `specs` to `branch`, on top of it, or right below a commit of it, made first where
-/// `new_at` places it if that's given.
-fn commit_in_transaction(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    (branch, below): (&FullName, Option<CommitId>),
-    new_at: Option<&NewBranchFor>,
-    specs: Vec<DiffSpec>,
-    message: String,
-    source: ChangeSource<'_>,
-) -> Result<(Made, Rejected)> {
-    use but_transaction::DynamicOutcome;
-    use but_workspace::branch::create_reference::{Anchor, Position};
-    let mut meta = ctx.meta()?;
-    let (_, outcome) = but_transaction::with_transaction_with_perm_only(
-        ctx,
-        &mut meta,
-        perm,
-        DryRun::No,
-        |mut tx| {
-            match new_at {
-                Some(NewBranchFor::Checkout(NewBranchAt::Workspace)) => {
-                    tx.create_reference(branch.as_ref(), None, None)?
-                }
-                Some(NewBranchFor::Checkout(NewBranchAt::AboveHead(head))) => {
-                    let above = Anchor::AtReference {
-                        ref_name: Cow::Borrowed(head.as_ref()),
-                        position: Position::Above,
-                    };
-                    tx.create_reference(branch.as_ref(), above, None)?;
-                }
-                Some(NewBranchFor::Placed { beside, first }) => {
-                    // A stack's place is its tip's among the workspace commit's parents.
-                    let order = (beside.is_none() && *first).then_some(0);
-                    let anchor = beside.as_ref().map(|(beside, below)| {
-                        let position = match below {
-                            true => Position::Below,
-                            false => Position::Above,
-                        };
-                        Anchor::at_segment(beside.as_ref(), position)
-                    });
-                    tx.create_reference(branch.as_ref(), anchor, order)?;
-                }
-                Some(NewBranchFor::Checkout(NewBranchAt::BesideHead(_))) | None => {}
-            }
-            let relative_to = match below {
-                Some(commit) => RelativeTo::Commit(commit.0),
-                None => RelativeTo::Reference(branch.clone()),
-            };
-            let made = tx.create_commit(relative_to, InsertSide::Below, specs, message, source)?;
-            Ok(match made.new_commit {
-                Some(commit) => DynamicOutcome::Commit((Made::from(commit), made.rejected_specs)),
-                None => DynamicOutcome::Rollback(made.rejected_specs),
-            })
-        },
-    )?;
-    match outcome {
-        DynamicOutcome::Commit((made, _workspace)) => Ok(made),
-        DynamicOutcome::Rollback(rejected) => {
-            bail!(
-                "Nothing could be committed.\n{}",
-                left_out(&rejected).join("\n")
-            )
-        }
-    }
-}
-
-/// Create a new stack, named `name` or with a made-up name, and return its full ref name.
-/// With the default branch checked out on its own, the new branch goes on top of it and is
-/// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
-/// workspace, as `but branch new` does.
+/// Create a new stack, named `name` or with a made-up name, and return its full ref name, as
+/// `but branch new` does. With the default branch checked out on its own, the new branch goes
+/// on top of it and is checked out, as `git checkout -b` would. Beside another branch, both go
+/// in GitButler's workspace.
 pub struct CreateBranch {
     pub name: Option<String>,
 }
@@ -648,139 +605,37 @@ impl Intent for CreateBranch {
     type Done = FullName;
 
     fn apply(self, run: &mut Run) -> Result<FullName> {
-        use but_api::branch::json::BranchCreatePlacement as Placement;
-        let new_ref = self.name.as_deref().map(branch_ref).transpose()?;
+        let name = self.name.as_deref().map(branch_ref).transpose()?;
         run.locked(|ctx, perm| {
             refuse_unborn(ctx)?;
             // A branch made here and checked out couldn't be undone: the oplog takes a detached
             // HEAD for the workspace and would restore that instead.
             refuse_unfinished(&*ctx.repo.get()?, true)?;
-            let placement = match new_branch_at(ctx)? {
-                NewBranchAt::Workspace => Placement::Independent { order: None },
-                NewBranchAt::AboveHead(head) => Placement::Dependent {
-                    relative_to: but_api::commit::json::RelativeTo::Reference(head),
-                    side: InsertSide::Above,
-                },
-                NewBranchAt::BesideHead(head) => {
-                    return create_beside_checkout(ctx, perm, &head, new_ref);
-                }
+            let new_ref = match name {
+                Some(name) => name,
+                None => but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?,
             };
-            let created = but_api::branch::branch_create_with_perm(ctx, new_ref, placement, perm)?;
-            Ok(created.new_ref)
+            // It lists the new branch, so undo deletes it again.
+            let details = SnapshotDetails::new(OperationKind::CreateBranch)
+                .with_trailers([Trailer::Name(new_ref.to_string())]);
+            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
+            let mut meta = ctx.meta()?;
+            sbm.transaction_with_workspace_setup(
+                ctx,
+                &mut meta,
+                details,
+                &[new_ref.as_ref()],
+                perm,
+                true,
+                |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), None),
+            )?;
+            Ok(new_ref)
         })
     }
 }
 
-/// Where a new branch goes, given what is checked out.
-enum NewBranchAt {
-    /// In GitButler's workspace, when it or no local branch is checked out.
-    Workspace,
-    /// On top of the branch checked out alone, the target's or any without a target.
-    AboveHead(FullName),
-    /// Beside the branch checked out alone, which isn't the target's.
-    BesideHead(FullName),
-}
-
-fn new_branch_at(ctx: &but_ctx::Context) -> Result<NewBranchAt> {
-    let head = ctx.repo.get()?.head_name()?;
-    let checked_out = head.filter(|head| {
-        head.as_bstr() != but_core::WORKSPACE_REF_NAME
-            && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
-    });
-    let Some(head) = checked_out else {
-        return Ok(NewBranchAt::Workspace);
-    };
-    let target = ctx.project_meta()?.target_ref;
-    let beside = target.is_some_and(|target| target.as_local_full_name_ref() != head.as_ref());
-    Ok(match beside {
-        true => NewBranchAt::BesideHead(head),
-        false => NewBranchAt::AboveHead(head),
-    })
-}
-
-/// Make a branch, `new_ref` or with a made-up name, and start it beside `head`, the branch
-/// checked out, in one step to undo. Returns its full name.
-fn create_beside_checkout(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    head: &gix::refs::FullName,
-    new_ref: Option<gix::refs::FullName>,
-) -> Result<FullName> {
-    let new_ref = {
-        let repo = ctx.repo.get()?;
-        match new_ref {
-            // As `branch_create` refuses one taken locally or by a remote's branch, or nesting
-            // with another.
-            Some(new_ref) => {
-                if but_core::branch::find_unique_refname(&repo, new_ref.as_ref())? != new_ref {
-                    bail!("Reference '{}' already exists", new_ref.shorten());
-                }
-                but_core::branch::refuse_colliding_refname(&repo, new_ref.as_ref(), None)?;
-                new_ref
-            }
-            None => but_core::branch::unique_canned_refname(&repo)?,
-        }
-    };
-    // It lists the new branch, so undo deletes it again.
-    let details = SnapshotDetails::new(OperationKind::CreateBranch)
-        .with_trailers([Trailer::Name(new_ref.to_string())]);
-    recorded(ctx, perm, details, &[new_ref.as_ref()], |ctx, perm| {
-        start_beside(ctx, perm, new_ref.as_ref(), head)
-    })?;
-    Ok(new_ref)
-}
-
-/// Make `new_ref` where `head`, the branch checked out, leaves the target, and apply it beside
-/// `head`, which brings in GitButler's workspace for the two. Starting there, as `but branch
-/// new` does, the two merge without conflicts, whatever the target has done since.
-///
-/// A stopgap until `but_api::branch::branch_create` does this itself: it refuses a branch of
-/// its own outside the workspace, and the CLI's way around that lives in the CLI. This is
-/// `branch_checkout_new` with the branch applied rather than checked out.
-fn start_beside(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    new_ref: &gix::refs::FullNameRef,
-    head: &gix::refs::FullName,
-) -> Result<()> {
-    {
-        let repo = ctx.repo.get()?;
-        let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
-        let base = (repo.merge_base(repo.head_id()?, target)?)
-            .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
-        let previous = gix::refs::transaction::PreviousValue::MustNotExist;
-        repo.reference(new_ref, base, previous, "GitButler: new branch")
-            .with_context(|| format!("Couldn't create branch {}", new_ref.shorten()))?;
-    }
-    let applied = but_api::branch::apply_only_with_perm(ctx, new_ref, perm);
-    if !(applied.as_ref()).is_ok_and(|outcome| outcome.status.persisted_mutation()) {
-        ctx.repo.get()?.find_reference(new_ref)?.delete()?;
-        applied?;
-        bail!(
-            "Couldn't start {} beside {}",
-            new_ref.shorten(),
-            head.shorten()
-        );
-    }
-    Ok(())
-}
-
-/// Take away `branch`, started beside the branch checked out for what then failed, which
-/// leaves that one checked out on its own again.
-fn leave_beside(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    branch: &FullName,
-) {
-    if let Err(err) = but_api::branch::branch_remove_only_with_perm(ctx, branch.clone(), perm) {
-        tracing::warn!(
-            ?err,
-            "couldn't take away the branch started for a failed commit"
-        );
-    }
-}
-
-/// Stack a new branch with a made-up name on top of `below`.
+/// Stack a new branch with a made-up name on top of `below`, as `but branch new` does: on top
+/// of the branch checked out on its own, it's checked out.
 pub struct CreateDependentBranch {
     pub below: FullName,
 }
@@ -789,13 +644,26 @@ impl Intent for CreateDependentBranch {
     type Done = FullName;
 
     fn apply(self, run: &mut Run) -> Result<FullName> {
-        let placement = but_api::branch::json::BranchCreatePlacement::Dependent {
-            relative_to: but_api::commit::json::RelativeTo::Reference(self.below),
-            side: InsertSide::Above,
-        };
         run.locked(|ctx, perm| {
-            let created = but_api::branch::branch_create_with_perm(ctx, None, placement, perm)?;
-            Ok(created.new_ref)
+            let new_ref = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+            // It lists the new branch, so undo deletes it again.
+            let details = SnapshotDetails::new(OperationKind::CreateBranch)
+                .with_trailers([Trailer::Name(new_ref.to_string())]);
+            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
+            let mut meta = ctx.meta()?;
+            sbm.transaction_with_workspace_setup(
+                ctx,
+                &mut meta,
+                details,
+                &[new_ref.as_ref()],
+                perm,
+                false,
+                |mut tx| {
+                    let (new_ref, below) = (new_ref.as_ref(), self.below.as_ref());
+                    sbm.create_stacked_reference(&mut tx, new_ref, below, position(false))
+                },
+            )?;
+            Ok(new_ref)
         })
     }
 }
@@ -811,17 +679,32 @@ impl Intent for CreateBranchAtCommit {
     type Done = FullName;
 
     fn apply(self, run: &mut Run) -> Result<FullName> {
-        let side = match self.below {
-            true => InsertSide::Below,
-            false => InsertSide::Above,
+        use but_workspace::branch::create_reference::{Anchor, Position};
+        let position = match self.below {
+            true => Position::Below,
+            false => Position::Above,
         };
-        let placement = but_api::branch::json::BranchCreatePlacement::Dependent {
-            relative_to: but_api::commit::json::RelativeTo::Commit(self.commit.0),
-            side,
+        let anchor = Anchor::AtCommit {
+            commit_id: self.commit.0,
+            position,
         };
         run.locked(|ctx, perm| {
-            let created = but_api::branch::branch_create_with_perm(ctx, None, placement, perm)?;
-            Ok(created.new_ref)
+            let new_ref = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+            // It lists the new branch, so undo deletes it again.
+            let details = SnapshotDetails::new(OperationKind::CreateBranch)
+                .with_trailers([Trailer::Name(new_ref.to_string())]);
+            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
+            let mut meta = ctx.meta()?;
+            sbm.transaction_with_workspace_setup(
+                ctx,
+                &mut meta,
+                details,
+                &[new_ref.as_ref()],
+                perm,
+                false,
+                |mut tx| tx.create_reference(new_ref.as_ref(), anchor, None),
+            )?;
+            Ok(new_ref)
         })
     }
 }
@@ -896,16 +779,20 @@ fn move_branch(
         BranchTo::Beside(..) => OperationKind::MoveBranch,
         BranchTo::Apart { .. } => OperationKind::TearOffBranch,
     };
+    // Out of a stack, it's a branch of its own, which a branch checked out on its own only has
+    // beside it in GitButler's workspace, as `but move` sets it up.
+    let independent = matches!(to, BranchTo::Apart { .. });
     run.locked(|ctx, perm| {
         let before = but_api::legacy::workspace::head_info(ctx)?;
+        let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
         let mut meta = ctx.meta()?;
-        let moved = but_transaction::with_transaction_with_perm(
+        let moved = sbm.transaction_with_workspace_setup(
             ctx,
             &mut meta,
-            perm,
             SnapshotDetails::new(kind),
             &[],
-            DryRun::No,
+            perm,
+            independent,
             |mut tx| match to {
                 BranchTo::Beside(relative_to, side) => {
                     tx.move_branch(branch.as_ref(), relative_to, side)
@@ -1552,33 +1439,37 @@ impl Intent for MoveToNewBranch {
     type Done = (Rewritten, FullName);
 
     fn apply(self, run: &mut Run) -> Result<(Rewritten, FullName)> {
-        use but_workspace::branch::create_reference::{Anchor, Position};
         let Self {
             commits,
             beside,
             first,
         } = self;
-        // A stack's place is its tip's among the workspace commit's parents.
-        let order = (beside.is_none() && first).then_some(0);
-        let anchor = beside.as_ref().map(|(branch, below)| {
-            let position = match below {
-                true => Position::Below,
-                false => Position::Above,
-            };
-            Anchor::at_segment(branch.as_ref(), position)
-        });
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+            let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
             let mut meta = ctx.meta()?;
-            let workspace = but_transaction::with_transaction_with_perm(
+            let workspace = sbm.transaction_with_workspace_setup(
                 ctx,
                 &mut meta,
-                perm,
                 SnapshotDetails::new(OperationKind::MoveCommit),
                 &[name.as_ref()],
-                DryRun::No,
+                perm,
+                beside.is_none(),
                 |mut tx| {
-                    tx.create_reference(name.as_ref(), anchor, order)?;
+                    match &beside {
+                        Some((branch, below)) => sbm.create_stacked_reference(
+                            &mut tx,
+                            name.as_ref(),
+                            branch.as_ref(),
+                            position(*below),
+                        )?,
+                        // A stack's place is its tip's among the workspace commit's parents.
+                        None => sbm.create_unstacked_reference(
+                            &mut tx,
+                            name.as_ref(),
+                            first.then_some(0),
+                        )?,
+                    }
                     tx.move_commits(
                         commits.iter().map(|commit| commit.0),
                         RelativeTo::Reference(name.clone()),
@@ -1723,6 +1614,7 @@ fn discard(
         let snapshot = but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             ctx,
             details,
+            &[],
             perm.read_permission(),
         )
         .and_then(|snapshot| snapshot.commit(ctx, perm));
@@ -2942,6 +2834,85 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
+    fn a_new_branch_from_the_default_branch_refuses_a_name_thats_taken() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // The default branch checked out at the target, as in a fresh clone.
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            // A teammate's branch on the remote, which a branch of that name would take as its
+            // own, and a packed one a ref edit wouldn't notice under it.
+            git(path, &["update-ref", "refs/remotes/origin/fix", "HEAD"]);
+            git(path, &["branch", "foo"]);
+            git(path, &["pack-refs", "--all"]);
+            let refs = |path: &Path| git(path, &["for-each-ref", "--format=%(refname)"]);
+            let before = refs(path);
+
+            for name in ["fix", "foo/bar"] {
+                let made = crate::backend::apply(path, branch_named(name));
+                assert!(made.is_err(), "{name} is taken");
+                assert_eq!(refs(path), before, "nothing is made for {name}");
+                assert_eq!(
+                    git(path, &["symbolic-ref", "--short", "HEAD"]).trim(),
+                    "main",
+                    "main stays checked out"
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn without_a_target_branches_stack_on_the_checked_out_one_and_move_within_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // `top` checked out on its own, stacked on `lower`, in a project with no remote to
+            // take a target from.
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(path, &["checkout", "-q", "-b", "lower"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Lower"]);
+            git(path, &["checkout", "-q", "-b", "top"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Top"]);
+            let stack = |path: &Path| {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                assert!(workspace.target_branch.is_none(), "there's no target");
+                let names: Vec<String> = (workspace.branches_in(&Checkout::Main))
+                    .map(|branch| branch.name.replace("t-branch-1", "<new>"))
+                    .collect();
+                let head = git(path, &["symbolic-ref", "--short", "HEAD"]);
+                format!(
+                    "{} on {}",
+                    names.join(", "),
+                    head.trim().replace("t-branch-1", "<new>")
+                )
+            };
+
+            crate::backend::apply(path, CreateBranch { name: None }).unwrap();
+            let made = stack(path);
+            let lower = full("refs/heads/lower");
+            let onto = full("refs/heads/top");
+            crate::backend::apply(
+                path,
+                StackBranch {
+                    branch: lower,
+                    onto,
+                },
+            )
+            .unwrap();
+            // Top first: a new branch goes on top of the one checked out and is checked out, as
+            // `git checkout -b` would, and a branch moves within the stack, though with no target
+            // the oplog has nothing to record a checkpoint against.
+            snapbox::assert_data_eq!(
+                format!("{made}\n{}\n", stack(path)),
+                snapbox::str![[r#"
+<new>, top, lower, main on <new>
+<new>, lower, top, main on <new>
+
+"#]]
+            );
+        })
+    }
+
+    #[test]
     fn a_new_branch_from_a_detached_head_is_refused() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
@@ -3517,6 +3488,54 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             run_hooks: false,
         };
         crate::backend::apply(path, commit).unwrap().0
+    }
+
+    #[test]
+    fn a_linked_worktrees_branches_are_made_with_the_main_checkout_detached() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, _outside, at) = agent_with_a_new_file();
+            let path = dir.path();
+            // All the work is in the linked worktree, with no branch checked out in the main one.
+            git(path, &["checkout", "-q", "--detach"]);
+            let agent = full("refs/heads/agent");
+
+            let to = CommitTo::NewBranchAt {
+                beside: Some((agent.clone(), false)),
+                first: false,
+                name: None,
+            };
+            let committed = commit_agents(path, to, "On top");
+            let on_top = short_ref(&committed.branch).into_owned();
+            let at_one = CreateBranchAtCommit {
+                commit: CommitId(
+                    gix::ObjectId::from_hex(git(&at, &["rev-parse", "agent~"]).trim().as_bytes())
+                        .unwrap(),
+                ),
+                below: false,
+            };
+            let at_one = crate::backend::apply(path, at_one).unwrap().0;
+            assert_eq!(
+                (
+                    titles_on(path, &on_top),
+                    titles_on(path, &at_one.to_string())
+                ),
+                ("On top, two, one".to_owned(), "one".to_owned()),
+                "each is made as with the main checkout on a branch"
+            );
+            let above = crate::backend::apply(path, CreateDependentBranch { below: agent })
+                .unwrap()
+                .0;
+            assert_eq!(
+                titles_on(path, &above.to_string()),
+                "two, one",
+                "and stacked on agent"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "--abbrev-ref", "HEAD"]).trim(),
+                "HEAD",
+                "the main checkout stays detached"
+            );
+        })
     }
 
     #[test]
@@ -4470,6 +4489,80 @@ managed true, below true: agent [one], <new> [two], agent checked out
             undo(path, last, None).unwrap();
             assert_eq!(branch_at_top(path), Some(None), "undo takes the name away");
         })
+    }
+
+    #[test]
+    fn going_apart_outside_the_workspace_sets_it_up_and_keeps_both_branches() {
+        let mut said = String::new();
+        for what in ["unstack top", "unstack lower", "move Top to a new stack"] {
+            but_testsupport::isolated_app_data_dir(|| {
+                // `top` checked out on its own, stacked on `lower`.
+                let dir = repo_with("one\n");
+                let path = dir.path();
+                target_origin_main(path);
+                git(path, &["checkout", "-q", "-b", "lower"]);
+                git(path, &["commit", "-q", "--allow-empty", "-m", "Lower"]);
+                git(path, &["checkout", "-q", "-b", "top"]);
+                git(path, &["commit", "-q", "--allow-empty", "-m", "Top"]);
+                let lanes = |path: &Path| {
+                    let workspace =
+                        crate::backend::load_workspace(path, Default::default()).unwrap();
+                    let mut lanes: Vec<String> = (workspace.lanes_in(&Checkout::Main))
+                        .map(|lane| {
+                            let branches = lane.branches.iter().map(|branch| {
+                                let titles: Vec<_> =
+                                    branch.commits.iter().map(|c| c.title.as_str()).collect();
+                                format!("{} [{}]", branch.name, titles.join(", "))
+                            });
+                            branches.collect::<Vec<_>>().join(" on ")
+                        })
+                        .collect();
+                    lanes.sort();
+                    let head = git(path, &["symbolic-ref", "--short", "HEAD"]);
+                    format!("{} on {}", lanes.join(" | "), head.trim())
+                };
+                let before = lanes(path);
+                match what {
+                    "move Top to a new stack" => {
+                        let moving = MoveToNewBranch {
+                            commits: [head(path)].into(),
+                            beside: None,
+                            first: false,
+                        };
+                        crate::backend::apply(path, moving).unwrap();
+                    }
+                    _ => {
+                        let branch = full(&format!("refs/heads/{}", &what[8..]));
+                        let unstack = TearOffBranch {
+                            branch,
+                            first: false,
+                        };
+                        crate::backend::apply(path, unstack).unwrap();
+                    }
+                }
+                let after = lanes(path).replace("t-branch-1", "<new>");
+                undo(path, newest_entry(path), None).unwrap();
+                said += &format!(
+                    "{what}: {after}; undone: {}\n",
+                    if lanes(path) == before {
+                        "as before"
+                    } else {
+                        "changed"
+                    }
+                );
+            });
+        }
+        // Out of its stack it's a branch of its own, which only GitButler's workspace holds
+        // beside another, as `but move` sets it up: none is left out of the checkout.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+unstack top: lower [Lower] | top [Top] on gitbutler/workspace; undone: as before
+unstack lower: lower [Lower] | top [Top] on gitbutler/workspace; undone: as before
+move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/workspace; undone: as before
+
+"#]]
+        );
     }
 
     #[test]

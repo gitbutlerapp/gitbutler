@@ -12,10 +12,12 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{IntermediateCommitCreateResult, Transaction};
+use but_transaction::{
+    IntermediateCommitCreateResult, Transaction, single_branch_mode::SingleBranchMode,
+};
 use but_workspace::{RefInfo, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::refs::FullName;
+use gix::refs::{FullName, FullNameRef};
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -38,10 +40,7 @@ use crate::{
         change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
         diff_specs::DiffSpecBuilder,
         merged_upstream::MergedUpstream,
-        rejection,
-        single_branch_mode::{
-            HowToCreateStackedReference, HowToCreateUnstackedReference, SingleBranchMode,
-        },
+        name_new_branch, rejection,
         targeting::Side,
         worktrees::{worktree_branch, worktree_tip_target},
     },
@@ -393,7 +392,7 @@ pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
-    commit_op: CommitOperation,
+    mut commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
@@ -434,12 +433,15 @@ pub fn run(
         }
     }
 
+    // Before the new branch is named: a made-up name goes with the rollback, so a hint can't
+    // suggest it.
+    let rejection_target = commit_op.rejection_target();
+    let new_branch = commit_op.name_new_branch(&*ctx.repo.get()?)?;
     let sbm = (commit_op.will_create_reference() || commit_op.switch())
         .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
         .transpose()?;
 
     let changed_path_count = changes.len();
-    let rejection_target = commit_op.rejection_target();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     // Undo can't detach a linked worktree again, but naming the branch it now has checked out
     // makes undo refuse instead of reporting a restore that left the commit in place.
@@ -452,12 +454,18 @@ pub fn run(
         }) => Some(new_branch_name.clone()),
         _ => None,
     };
+    // Named so undo deletes the new branch again.
+    let snapshot_refs: Vec<&FullNameRef> = (new_branch.iter())
+        .chain(worktree_branch.iter())
+        .map(AsRef::as_ref)
+        .collect();
 
     let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
             ctx,
             meta,
             snapshot_details,
+            &snapshot_refs,
             perm,
             commit_op.will_create_unstacked_reference(),
             |tx| {
@@ -477,7 +485,7 @@ pub fn run(
             meta,
             perm,
             snapshot_details,
-            worktree_branch.as_ref().map(AsRef::as_ref).as_slice(),
+            &snapshot_refs,
             DryRun::No,
             |tx| {
                 commit_with_transaction(
@@ -923,6 +931,27 @@ pub enum CommitOperation {
 }
 
 impl CommitOperation {
+    /// Name the branch it makes, if it makes one, as [`name_new_branch`] does in `repo`.
+    pub fn name_new_branch(&mut self, repo: &gix::Repository) -> anyhow::Result<Option<FullName>> {
+        let name = match self {
+            CommitOperation::CommitToNewBranch(op) => &mut op.branch_name,
+            CommitOperation::CommitAt(CommitAtOperation {
+                target:
+                    CommitRelativeToTarget::BranchBucket {
+                        new_branch_name, ..
+                    },
+            }) => new_branch_name,
+            // A detached worktree's new branch is named already.
+            CommitOperation::CommitAt(CommitAtOperation {
+                target:
+                    CommitRelativeToTarget::Commit { .. }
+                    | CommitRelativeToTarget::BranchTip { .. }
+                    | CommitRelativeToTarget::DetachedWorktree { .. },
+            }) => return Ok(None),
+        };
+        name_new_branch(name, repo).map(Some)
+    }
+
     pub fn will_create_reference(&self) -> bool {
         match self {
             CommitOperation::CommitToNewBranch(op) => op.will_create_reference(),
@@ -1047,23 +1076,8 @@ impl CommitToNewBranchOperation {
             but_core::branch::unique_canned_refname(tx.repo())?
         };
 
-        match sbm
-            .context("BUG: sbm must always be set when committing to a new unstacked branch")?
-            .how_to_create_unstacked_reference()
-        {
-            HowToCreateUnstackedReference::Normally => {
-                tx.create_reference(new_ref.as_ref(), None, Some(0))?;
-            }
-            HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                tx.create_reference(new_ref.as_ref(), anchor, Some(0))?;
-                tx.checkout(new_ref.as_ref())?;
-            }
-            HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout { target_commit_id } => {
-                tx.create_reference_at_commit(new_ref.as_ref(), target_commit_id)?;
-
-                tx.checkout(new_ref.as_ref())?;
-            }
-        }
+        sbm.context("BUG: sbm must always be set when committing to a new unstacked branch")?
+            .create_unstacked_reference(tx, new_ref.as_ref(), Some(0))?;
 
         Ok(new_ref)
     }
@@ -1141,18 +1155,13 @@ impl CommitAtOperation {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };
 
-                match sbm
-                    .context("BUG: sbm must always be set when committing to a new stacked branch")?
-                    .how_to_create_stacked_reference(name.as_ref(), *side)
-                {
-                    HowToCreateStackedReference::Normally(anchor) => {
-                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
-                    }
-                    HowToCreateStackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
-                        tx.checkout(new_branch_name.as_ref())?;
-                    }
-                }
+                sbm.context("BUG: sbm must always be set when committing to a new stacked branch")?
+                    .create_stacked_reference(
+                        tx,
+                        new_branch_name.as_ref(),
+                        name.as_ref(),
+                        (*side).into(),
+                    )?;
 
                 let where_to_create_commit = InsertSide::Below;
                 (

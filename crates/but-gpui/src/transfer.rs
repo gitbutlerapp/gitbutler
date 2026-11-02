@@ -459,7 +459,7 @@ impl Move {
         }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
             let workspace = store.workspace(&self.project);
-            return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).stacked);
+            return workspace.is_some_and(|ws| crate::edits::BranchEdits::of(ws, branch).unstack);
         }
         match &self.what {
             Moving::Project(order) => {

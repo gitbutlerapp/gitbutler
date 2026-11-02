@@ -9,14 +9,20 @@ rust-version.workspace = true
 [lib]
 doctest = true
 
+[features]
+## Running transactions in single-branch mode, which sets up the workspace with legacy code.
+legacy = ["dep:gitbutler-branch-actions"]
+
 [dependencies]
 but-api.workspace = true
 but-ctx.workspace = true
+but-error.workspace = true
 but-oplog.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
 but-rebase.workspace = true
 but-graph.workspace = true
+gitbutler-branch-actions = { workspace = true, optional = true }
 
 gix.workspace = true
 anyhow.workspace = true

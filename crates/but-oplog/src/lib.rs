@@ -127,12 +127,15 @@ mod oplog_snapshot {
     impl UnmaterializedOplogSnapshot {
         /// Prepare a required checkpoint before a mutation that needs snapshot-based rollback.
         /// Unlike best-effort timeline recording, failure must prevent the mutation from starting.
+        /// `ref_names` are recorded too, even those that don't exist yet, so restoring the
+        /// checkpoint deletes a reference the mutation created.
         pub fn prepare_checkpoint(
             ctx: &Context,
             details: gitbutler_oplog::entry::SnapshotDetails,
+            ref_names: &[&gix::refs::FullNameRef],
             perm: &RepoShared,
         ) -> anyhow::Result<UnmaterializedOplogSnapshot> {
-            UnmaterializedOplogSnapshot::prepare(ctx, details, &[], perm)
+            UnmaterializedOplogSnapshot::prepare(ctx, details, ref_names, perm)
         }
 
         fn prepare(

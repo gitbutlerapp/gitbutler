@@ -161,8 +161,10 @@ pub struct BranchEdits {
     /// It has more than one commit to squash into one, and none conflicted, which the
     /// engine won't squash.
     pub squash_all: bool,
-    /// Other branches share its stack, so it can be unstacked.
+    /// Other branches share its stack.
     pub stacked: bool,
+    /// It shares its stack and can go in one of its own.
+    pub unstack: bool,
     /// It can merge into the target, and whether with the branches below it.
     pub merge: Option<bool>,
 }
@@ -177,11 +179,12 @@ impl BranchEdits {
         let commits = branch.commits.len();
         let conflicted = branch.commits.iter().any(|c| c.conflicted);
         // A linked worktree's lane takes new branches, but can't come apart yet.
-        let stack = workspace.stack_of(Some(ref_name)).is_some();
+        let stacked = workspace.stack_of(Some(ref_name)).is_some() && lane.branches.len() > 1;
         Self {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
-            stacked: stack && lane.branches.len() > 1,
+            stacked,
+            unstack: stacked && workspace.takes_new_stacks(),
             merge: merge_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
@@ -221,7 +224,9 @@ impl AppView {
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
-                let managed = store.workspace(project).is_some_and(|ws| ws.managed);
+                let new_stacks = store
+                    .workspace(project)
+                    .is_some_and(|ws| ws.takes_new_stacks());
                 let edits = (store.find_commit(project, *id))
                     .map_or_else(CommitEdits::default, |(branch, commit)| {
                         CommitEdits::of(branch, commit)
@@ -243,8 +248,7 @@ impl AppView {
                         this.add_empty_commit(false, cx)
                     }))
                     .on_action(cx.listener(Self::cherry_pick))
-                    // A branch of its own sits beside the others, which only the workspace has.
-                    .when(managed, |el| {
+                    .when(new_stacks, |el| {
                         el.on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
                             let Some((project, commit)) = this.selected_commit(cx) else {
                                 return;
@@ -320,7 +324,7 @@ impl AppView {
                     .when(edits.new_below, |el| {
                         el.on_action(cx.listener(Self::new_branch_below))
                     })
-                    .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
+                    .when(edits.unstack, |el| el.on_action(cx.listener(Self::unstack)))
                     // Outside the workspace there are no stacks to take out of it.
                     .when(
                         workspace.managed && workspace.stack_of(Some(ref_name)).is_some(),
