@@ -574,12 +574,12 @@ impl AppView {
     }
 
     /// Edit the selected commit's title in its row, as a branch's name is, or its whole message
-    /// in its header, where it's edited already or with the navigator closed.
+    /// in its header, where it's edited already or with the navigator out of sight.
     fn reword(&mut self, _: &Reword, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Selection::Commit(project, id)) = self.selection(cx) else {
             return;
         };
-        if self.navigator_open && self.detail.read(cx).rewording_selected(cx).is_none() {
+        if self.navigator_shown() && self.detail.read(cx).rewording_selected(cx).is_none() {
             (self.navigator).update(cx, |navigator, cx| {
                 navigator.reword(project, id, window, cx)
             })
@@ -593,7 +593,7 @@ impl AppView {
         let Some(Selection::Terminal(project, id)) = self.selection(cx) else {
             return;
         };
-        if !self.navigator_open {
+        if !self.navigator_shown() {
             self.set_navigator(true, window, cx);
         }
         (self.navigator).update(cx, |navigator, cx| {
@@ -624,8 +624,8 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let submit = self.submit_branch_name(&project, ref_name.clone(), cx);
-        // The name is edited in its row there.
-        if !self.navigator_open {
+        // The name is edited in its row there, out over the detail too.
+        if !self.navigator_shown() {
             self.set_navigator(true, window, cx);
         }
         (self.navigator).update(cx, |navigator, cx| {
