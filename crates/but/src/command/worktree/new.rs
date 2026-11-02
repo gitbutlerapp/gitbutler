@@ -80,7 +80,7 @@ impl NewOperation {
         let base = match above {
             Some(above) => {
                 let repo = ctx.repo.get()?;
-                let id_map = IdMap::new_from_context(ctx, perm, None)?;
+                let id_map = IdMap::new_from_context_without_hunks(ctx, perm, None)?;
                 let base = above.resolve_commit(&repo, &id_map)?;
                 let commit = but_core::Commit::from_id(base.attach(&repo))?;
                 if commit.is_conflicted() {

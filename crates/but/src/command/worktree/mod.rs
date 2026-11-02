@@ -39,7 +39,7 @@ fn resolve(
     }
 
     let repo = ctx.repo.get()?;
-    let id_map = IdMap::new_from_context(ctx, perm, None)?;
+    let id_map = IdMap::new_from_context_without_hunks(ctx, perm, None)?;
     if let Some(name) = arg.try_resolve_worktree(&repo, &id_map)? {
         return Ok(name);
     }

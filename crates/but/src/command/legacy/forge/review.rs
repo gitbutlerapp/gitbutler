@@ -460,7 +460,7 @@ fn get_branches_without_prs(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::legacy_new_from_context(&ctx)?;
+    let id_map = IdMap::legacy_new_from_context_without_hunks(&ctx)?;
     let branch_ids = id_map
         .parse_using_context(branch_id, &ctx)?
         .iter()
@@ -1217,7 +1217,7 @@ fn resolve_review_selection(
     selector: Option<String>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
-    let id_map = IdMap::legacy_new_from_context(ctx)?;
+    let id_map = IdMap::legacy_new_from_context_without_hunks(ctx)?;
     let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
     let target_review_ids = if let Some(selector) = selector {
         // Extract any review IDs that match any of the associated reviews in the workspace.

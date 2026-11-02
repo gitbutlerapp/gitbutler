@@ -1065,6 +1065,32 @@ impl IdMap {
         Self::new_from_context(ctx, guard.read_permission(), None)
     }
 
+    /// Like [`legacy_new_from_context()`](Self::legacy_new_from_context), but without
+    /// uncommitted hunk IDs, see [`new_from_context_without_hunks()`](Self::new_from_context_without_hunks).
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn legacy_new_from_context_without_hunks(ctx: &Context) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        Self::new_from_context_without_hunks(ctx, guard.read_permission(), None)
+    }
+
+    /// Like [`new_from_context()`](Self::new_from_context), but each uncommitted file is a
+    /// single whole-file hunk instead of being diffed into its hunks.
+    ///
+    /// Branches, commits and uncommitted files get exactly the IDs they get from
+    /// [`new_from_context()`](Self::new_from_context), so it is meant for commands that
+    /// neither show uncommitted hunks nor take their IDs: it skips reading and diffing
+    /// every changed file, which dominates when files are large.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn new_from_context_without_hunks(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+    ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, change_source::Hunks::WholeFiles)
+    }
+
     ///
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
     /// `perm` is needed to obtain a read-only workspace, and bare paths name files in the
@@ -1077,6 +1103,15 @@ impl IdMap {
         perm: &RepoShared,
         invoked_from: Option<&InvokedFrom>,
     ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, change_source::Hunks::Diffed)
+    }
+
+    fn from_context(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+        hunks: change_source::Hunks,
+    ) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
         // Worktree state reconciles archived rows and thus needs the database, so it must
         // be read before the handle below is borrowed.
@@ -1088,7 +1123,7 @@ impl IdMap {
 
         let head_changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
         let sources =
-            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
+            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes, hunks)?;
 
         let (stacks, worktrees) =
             without_padding_commits(&repo, ws.stacks.clone(), ws.worktrees.clone());

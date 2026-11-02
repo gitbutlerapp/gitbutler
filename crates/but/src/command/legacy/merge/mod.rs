@@ -56,7 +56,7 @@ pub fn handle(
             }
         };
 
-        let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
+        let id_map = IdMap::new_from_context_without_hunks(ctx, guard.read_permission(), None)?;
         let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
         if resolved_ids.is_empty() {
             bail!("Could not find branch: {branch_id}");
