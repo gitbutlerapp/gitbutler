@@ -426,12 +426,8 @@ impl MoveChangesRelativeToOperation {
 
         let (relative_to, side, new_branch_name) = target.create_target(tx, sbm)?;
 
-        let empty_commit_id = tx.insert_blank_commit(relative_to, side)?;
-        let new_commit = tx.move_committed_changes_between(
-            source_commit.commit_id,
-            empty_commit_id.id,
-            changes.into(),
-        )?;
+        let new_commit =
+            tx.split_commit(source_commit.commit_id, changes.into(), relative_to, side)?;
 
         let new_commit = reword.execute(new_commit.into(), tx)?;
 
@@ -466,14 +462,11 @@ impl MoveChangesToNewBranchOperation {
         }
         .create_reference(tx, sbm)?;
 
-        let empty_commit_id = tx.insert_blank_commit(
+        let new_commit = tx.split_commit(
+            source_commit.commit_id,
+            changes.into(),
             RelativeTo::Reference(new_branch_name.clone()),
             Side::Below.into(),
-        )?;
-        let new_commit = tx.move_committed_changes_between(
-            source_commit.commit_id,
-            empty_commit_id.id,
-            changes.into(),
         )?;
 
         let new_commit = reword.execute(new_commit.into(), tx)?;
