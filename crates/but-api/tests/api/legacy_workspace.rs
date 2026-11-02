@@ -1,6 +1,84 @@
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
 #[test]
+fn stash_in_the_workspace_commits_changes_and_unapplies_the_new_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+    let root = repo.workdir().expect("fixture has a workdir").to_owned();
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::branch::apply_only(&mut ctx, "refs/heads/feature".try_into()?)?;
+    crate::support::write_file(&root, "shared.txt", "stashed changes\n")?;
+
+    let outcome = but_api::legacy::workspace::stash_into_branch(
+        &mut ctx,
+        "stash".into(),
+        vec![but_core::DiffSpec {
+            previous_path: None,
+            path: "shared.txt".into(),
+            hunk_headers: vec![],
+        }],
+    )?;
+
+    let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
+    assert_eq!(
+        repo.rev_parse_single("refs/heads/stash")?.detach(),
+        outcome.new_commit.expect("stash creates a commit"),
+        "the unapplied branch retains the stashed commit"
+    );
+    assert!(
+        ws.find_segment_and_stack_by_refname("refs/heads/stash".try_into()?)
+            .is_none(),
+        "the stash branch is no longer applied"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("shared.txt"))?,
+        "main\n",
+        "the stashed changes are removed from the worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn stash_on_the_target_refuses_before_changing_the_checkout() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+    let root = repo.workdir().expect("fixture has a workdir").to_owned();
+    crate::support::write_file(&root, "shared.txt", "keep these changes\n")?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let outcome = but_api::legacy::workspace::stash_into_branch(
+        &mut ctx,
+        "stash".into(),
+        vec![but_core::DiffSpec {
+            previous_path: None,
+            path: "shared.txt".into(),
+            hunk_headers: vec![],
+        }],
+    );
+
+    assert!(
+        outcome.is_err(),
+        "stash requires a managed workspace - making this work is a TODO"
+    );
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?,
+        Some("refs/heads/main".try_into()?),
+        "rejected stash must leave HEAD on the original branch"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/stash")?.is_none(),
+        "rejected stash must not leave a new branch behind"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("shared.txt"))?,
+        "keep these changes\n",
+        "rejected stash must preserve the uncommitted changes"
+    );
+    Ok(())
+}
+
+#[test]
 fn head_info_discovers_worktrees_through_the_database() -> anyhow::Result<()> {
     let (repo, _tmp) = crate::support::repo_with_feature_branch()?;
     let ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
@@ -56,102 +134,6 @@ async fn unreviewed_branch_push_needs_no_target_upstream() -> anyhow::Result<()>
             .detach(),
         ctx.repo.get()?.rev_parse_single("feature")?.detach(),
         "the push remote suffices when no review needs the target's name on the remote"
-    );
-    Ok(())
-}
-
-#[test]
-fn create_virtual_branch_returns_the_stack_that_switching_back_created() -> anyhow::Result<()> {
-    let (repo, _tmp) = crate::support::repo_with_feature_branch()?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-    let canned_name = but_api::branch::branch_canned_name(&ctx)?;
-
-    but_api::legacy::virtual_branches::set_base_branch(&mut ctx, "origin/main".into(), None)?;
-    let stack = but_api::legacy::virtual_branches::create_virtual_branch(
-        &mut ctx,
-        gitbutler_branch::BranchCreateRequest {
-            name: Some(canned_name.clone()),
-            order: Some(0),
-        },
-    )?;
-
-    assert_eq!(stack.heads[0].name, canned_name);
-    // The stack created by setting the base branch is reused, not duplicated.
-    snapbox::assert_data_eq!(
-        crate::support::workspace_graph(&ctx)?,
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 33fbd87
-└── ≡📙:amo-branch-1 on 33fbd87 {[..]}
-    └── 📙:amo-branch-1
-        └── ·b12810b (🏘️)
-
-"#]]
-    );
-    Ok(())
-}
-
-#[test]
-fn create_virtual_branch_on_the_target_checks_out_the_new_branch() -> anyhow::Result<()> {
-    let (repo, _tmp) = crate::support::repo_with_feature_branch()?;
-    crate::support::persist_default_target(&repo)?;
-    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
-
-    let stack = but_api::legacy::virtual_branches::create_virtual_branch(
-        &mut ctx,
-        gitbutler_branch::BranchCreateRequest {
-            name: Some("new-branch".into()),
-            order: None,
-        },
-    )?;
-
-    assert_eq!(stack.heads[0].name, "new-branch");
-    let repo = ctx.repo.get()?;
-    assert_eq!(
-        repo.head_name()?.map(|name| name.to_string()),
-        Some("refs/heads/new-branch".into()),
-        "alone on the target, the new branch is checked out as `git checkout -b` would"
-    );
-    assert!(
-        repo.try_find_reference("refs/heads/gitbutler/workspace")?
-            .is_none(),
-        "a single branch doesn't need the workspace"
-    );
-    Ok(())
-}
-
-#[test]
-fn create_virtual_branch_beside_another_branch_switches_to_the_workspace() -> anyhow::Result<()> {
-    let (repo, tmp) = crate::support::repo_with_feature_branch()?;
-    crate::support::persist_default_target(&repo)?;
-    git_at_dir(tmp.path())
-        .args(["checkout", "-b", "other"])
-        .run();
-    crate::support::write_file(tmp.path(), "other.txt", "other\n")?;
-    git_at_dir(tmp.path()).args(["add", "other.txt"]).run();
-    git_at_dir(tmp.path()).args(["commit", "-m", "other"]).run();
-    let mut ctx =
-        but_ctx::Context::from_repo_for_testing(open_repo(tmp.path())?)?.with_memory_app_cache();
-
-    but_api::legacy::virtual_branches::create_virtual_branch(
-        &mut ctx,
-        gitbutler_branch::BranchCreateRequest {
-            name: Some("new-branch".into()),
-            order: None,
-        },
-    )?;
-
-    // The checked-out branch and the new one are both applied in the workspace.
-    snapbox::assert_data_eq!(
-        crate::support::workspace_graph(&ctx)?,
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on b12810b
-├── ≡📙:other on b12810b {[..]}
-│   └── 📙:other
-│       └── ·8dfb293 (🏘️)
-└── ≡📙:new-branch on b12810b {[..]}
-    └── 📙:new-branch
-
-"#]]
     );
     Ok(())
 }

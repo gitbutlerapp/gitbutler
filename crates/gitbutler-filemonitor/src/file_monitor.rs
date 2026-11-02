@@ -98,22 +98,6 @@ impl std::str::FromStr for WatchMode {
 }
 
 impl WatchMode {
-    /// Initialise the mode from the environment.
-    pub fn from_env() -> Self {
-        let Ok(mode) = std::env::var(ENV_WATCH_MODE) else {
-            return Self::Auto;
-        };
-
-        mode.parse().ok().unwrap_or_else(|| {
-            tracing::warn!(
-                env = ENV_WATCH_MODE,
-                value = mode,
-                "unknown watch mode; falling back to auto"
-            );
-            WatchMode::Auto
-        })
-    }
-
     /// Initialise the mode from `watch_mode_from_settings`, with environment variable override.
     /// If the environment variable `GITBUTLER_WATCH_MODE` is set, it overrides the feature flag.
     /// Otherwise, the feature flag value is used.

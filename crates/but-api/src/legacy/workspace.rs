@@ -212,27 +212,23 @@ pub fn branch_details(
     Ok(details)
 }
 
-/// Discard all worktree changes that match the specs in `worktree_changes`.
+/// Discard the specified worktree changes, returning any specs that could not be applied.
+/// Pass no hunks in a spec to discard the whole file.
 ///
-/// If whole files should be discarded, be sure to not pass any hunks
-///
-/// `changes_source` selects the checkout to discard in. A linked worktree has to be active, see
-/// `worktrees::open_changes_source()`, and is not snapshotted as the oplog can't restore it.
-///
-/// Returns the `worktree_changes` that couldn't be applied,
+/// `changes_source` selects the main checkout or an active linked worktree. Linked worktree
+/// discards are not snapshotted, as the oplog cannot restore their files.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
-    ctx: &mut but_ctx::Context,
+    ctx: &mut Context,
     changes_source: ChangesSource,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<Vec<but_core::DiffSpec>> {
     let mut guard = ctx.exclusive_worktree_access();
-
     let context_lines = ctx.settings.context_lines;
     let refused = match crate::worktrees::open_changes_source(ctx, &changes_source)? {
-        Some((_name, wt_repo)) => {
-            but_workspace::discard_workspace_changes(&wt_repo, worktree_changes, context_lines)?
+        Some((_name, repo)) => {
+            but_workspace::discard_workspace_changes(&repo, worktree_changes, context_lines)?
         }
         None => {
             let _ = ctx.create_snapshot(
@@ -256,6 +252,7 @@ pub fn discard_worktree_changes(
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
+/// Currently only supports the managed workspace.
 #[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
@@ -266,6 +263,13 @@ pub fn stash_into_branch(
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
+    // TODO: Support stashing from a regular branch without changing HEAD, with rollback on failure.
+    // Independent branch creation previously rejected this mode before changing the checkout.
+    // It now supports single-branch mode and can change the checkout, letting this operation reach
+    // its workspace-specific steps and fail after mutating the repository. Keep this guard until
+    // the whole stash operation is safe outside the managed workspace.
+    // Try removing the guard to see a test fail, to indicate the setup.
+    gitbutler_operating_modes::ensure_open_workspace_mode(ctx, perm.read_permission())?;
     let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
 
     let full_ref_name = gix::refs::Category::LocalBranch

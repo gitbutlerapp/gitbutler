@@ -26,7 +26,6 @@
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleApplyOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -86,6 +85,11 @@
 	);
 
 	let selection = $state<BranchesSelection>({ type: "target" });
+	const selectedListingQuery = $derived(
+		selection.type === "branch"
+			? branchService.listingByName(projectId, selection.branchName)
+			: undefined,
+	);
 
 	let branchColumn = $state<HTMLDivElement>();
 	let branchViewLeftEl = $state<HTMLDivElement>();
@@ -358,15 +362,10 @@
 						<div class="branch-column" bind:this={branchColumn} use:focusable={{ vertical: true }}>
 							{#if selection.type === "branch"}
 								{@const { stackId, branchName, remote } = selection}
-								{@const selectedBranch = branchService.get(projectId, selection.branchName)}
-								{@const listing = branchService.listingByName(projectId, selection.branchName)}
 
-								<ReduxResult
-									{projectId}
-									result={combineResults(selectedBranch.result, listing.result)}
-								>
-									{#snippet children([branch, listing])}
-										{@const inWorkspace = branch.stack?.inWorkspace}
+								<ReduxResult {projectId} result={selectedListingQuery?.result}>
+									{#snippet children(listing)}
+										{@const inWorkspace = listing.stack?.inWorkspace}
 										{@const hasLocal = listing.hasLocal}
 
 										{#if stackId}

@@ -144,12 +144,8 @@ export class StackService {
 		);
 	}
 
-	get newStack() {
-		return this.backendApi.endpoints.createStack.useMutation();
-	}
-
-	get newStackMutation() {
-		return this.backendApi.endpoints.createStack.mutate;
+	get branchCreateMutation() {
+		return this.backendApi.endpoints.branchCreate.mutate;
 	}
 
 	get updateStackOrder() {
@@ -605,11 +601,11 @@ export class StackService {
 
 	get branchRename() {
 		return this.backendApi.endpoints.branchRename.useMutation({
-			// Optimistically follow the rename in the UI, mirroring `updateBranchName`. `laneId` and
+			// Follow the normalized name returned by the backend. `laneId` and
 			// `branchName` are carried on the args purely for this side effect (they aren't sent to
 			// the backend); when absent there's nothing to reconcile.
-			sideEffect: (_, args) => {
-				if (!args.laneId || !args.branchName || !args.newName) return;
+			sideEffect: (result, args) => {
+				if (!args.laneId || !args.branchName) return;
 				const laneState = this.uiState.lane(args.laneId);
 				const projectState = this.uiState.project(args.projectId);
 				const exclusiveAction = projectState.exclusiveAction.current;
@@ -617,13 +613,21 @@ export class StackService {
 
 				if (previousSelection) {
 					laneState.selection.set(
-						replaceBranchInStackSelection(previousSelection, args.branchName, args.newName),
+						replaceBranchInStackSelection(
+							previousSelection,
+							args.branchName,
+							result.newRef.displayName,
+						),
 					);
 				}
 
 				if (exclusiveAction) {
 					projectState.exclusiveAction.set(
-						replaceBranchInExclusiveAction(exclusiveAction, args.branchName, args.newName),
+						replaceBranchInExclusiveAction(
+							exclusiveAction,
+							args.branchName,
+							result.newRef.displayName,
+						),
 					);
 				}
 			},

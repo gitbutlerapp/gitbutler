@@ -51,18 +51,6 @@ mod remote_refname {
                 "owned conversion preserves the local namespace"
             );
 
-            let renamed = name.with_branch("other");
-            assert_eq!(
-                renamed.remote(),
-                None,
-                "changing the branch preserves the absence of a remote"
-            );
-            assert_eq!(
-                renamed.to_string(),
-                "refs/heads/other",
-                "renamed branches remain local"
-            );
-
             let generic = gitbutler_reference::Refname::from(&name);
             assert!(
                 matches!(generic, gitbutler_reference::Refname::Local(_)),

@@ -1980,8 +1980,8 @@ Single commit, target, no ws commit, but ws-reference
         Ok(())
     }
 
-    /// Regression: `but branch new <name>` and `create_virtual_branch` both go through
-    /// `create_reference(.., None, ..)`. When the target (`origin/main`) is advanced past the
+    /// Regression: `but branch new <name>` goes through `create_reference(.., None, ..)`.
+    /// When the target (`origin/main`) is advanced past the
     /// workspace, its tip sits OUTSIDE the workspace. The no-anchor path used to anchor the new
     /// ref at that tip and bail with "the target commit ... already belongs to another branch".
     /// It must instead anchor at `merge_base(target_tip, ws-commit)` (here M1), inside the

@@ -67,3 +67,25 @@ describe("StackService.uncommit", () => {
 		expect(getSelection()).toBeUndefined();
 	});
 });
+
+describe("StackService.branchRename", () => {
+	test("follows the normalized name returned by the backend", () => {
+		const useMutation = vi.fn();
+		const { uiState, getSelection } = makeMockUiState({ branchName: "old", previewOpen: true });
+		Object.assign(uiState, {
+			project: () => ({ exclusiveAction: { current: undefined } }),
+		});
+		const service = new StackService(
+			{ endpoints: { branchRename: { useMutation } } } as unknown as BackendApi,
+			vi.fn() as never,
+			uiState,
+		);
+		void service.branchRename;
+		const options = useMutation.mock.calls[0]![0];
+		options.sideEffect(
+			{ newRef: { displayName: "my-branch" } },
+			{ projectId: "project-1", laneId: "lane-1", branchName: "old", newName: "my branch" },
+		);
+		expect(getSelection()).toEqual({ branchName: "my-branch", previewOpen: true });
+	});
+});

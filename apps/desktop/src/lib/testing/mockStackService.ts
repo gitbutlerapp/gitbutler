@@ -84,9 +84,7 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.branchChanges = vi.fn();
 	StackServiceMock.prototype.branchChange = vi.fn();
 
-	StackServiceMock.prototype.newStack = vi.fn();
-	StackServiceMock.prototype.newStackMutation = vi.fn();
-	StackServiceMock.prototype.createStack = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
+	StackServiceMock.prototype.branchCreateMutation = vi.fn();
 	StackServiceMock.prototype.updateStack = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.updateStackOrder = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.pushStack = [vi.fn(), reactive(() => mockReduxFulfilled({}))];

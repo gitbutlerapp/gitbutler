@@ -1,18 +1,12 @@
-use std::{path::Path, sync::Mutex};
+use std::path::Path;
 
 use anyhow::{Result, anyhow, bail};
 use base64::engine::Engine as _;
 use bstr::ByteSlice as _;
-use but_core::git_config::{edit_repo_config, ensure_config_value};
 use but_ctx::Context;
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use ignore::WalkBuilder;
 use infer::MatcherType;
-use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
-
-use crate::remote::GitRemote;
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -126,64 +120,8 @@ impl FileInfo {
     }
 }
 
-/// Computes a match score for a file path against a search pattern.
-///
-/// Returns `None` if the file doesn't match the pattern or if the pattern is empty.
-/// For empty patterns, returns a score of 0 to include all files.
-///
-/// The score is calculated based on:
-/// - Base fuzzy match score
-/// - Bonus for exact filename matches (case-insensitive)
-/// - Bonus for filename prefix matches (case-insensitive)
-/// - Bonus for matches in the filename itself
-/// - Penalty for deeply nested files
-fn compute_match_score(
-    matcher: &SkimMatcherV2,
-    path_str: &str,
-    relative_path: &Path,
-    pattern: &str,
-) -> Option<i64> {
-    if pattern.is_empty() {
-        return Some(0);
-    }
-
-    let base_score = matcher.fuzzy_match(path_str, pattern)?;
-    let filename = relative_path
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or("");
-
-    let filename_bonus = calculate_filename_bonus(matcher, filename, pattern);
-    let depth_penalty = (relative_path.components().count() as i64) * 50;
-    let adjusted_score = base_score + filename_bonus - depth_penalty;
-
-    (adjusted_score > 0).then_some(adjusted_score)
-}
-
-/// Calculates a bonus score based on how well the pattern matches the filename.
-fn calculate_filename_bonus(matcher: &SkimMatcherV2, filename: &str, pattern: &str) -> i64 {
-    if filename.eq_ignore_ascii_case(pattern) {
-        10000 // Exact match
-    } else if filename.to_lowercase().starts_with(&pattern.to_lowercase()) {
-        5000 // Prefix match
-    } else {
-        matcher
-            .fuzzy_match(filename, pattern)
-            .map(|score| score / 2)
-            .unwrap_or(0)
-    }
-}
-
 pub trait RepoCommands {
-    fn add_remote(&self, name: &str, url: &str) -> Result<()>;
-    fn remotes(&self) -> Result<Vec<GitRemote>>;
     fn check_signing_settings(&self) -> Result<bool>;
-
-    /// Read `path` from the tree of the given commit.
-    ///
-    /// Bails when given an absolute path since that would suggest we are looking for a file in
-    /// the workspace. Returns `FileInfo::default()` if file could not be found.
-    fn read_file_from_commit(&self, commit_id: gix::ObjectId, path: &Path) -> Result<FileInfo>;
 
     /// Read `path` in the following order:
     ///
@@ -204,13 +142,6 @@ pub trait RepoCommands {
     ///
     /// Returns `FileInfo::default()` if file could not be found.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
-
-    /// Find files in the repository that match the given search query.
-    ///
-    /// Uses fuzzy matching similar to VSCode's file search.
-    /// Returns up to `limit` file paths relative to the repository root, sorted by match quality.
-    /// The search respects `.gitignore` rules and excludes the `.git` directory.
-    fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>>;
 }
 
 impl RepoCommands for Context {
@@ -233,106 +164,15 @@ impl RepoCommands for Context {
         }
     }
 
-    fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let repo = self.repo.get()?;
-        repo.remote_names()
-            .iter()
-            .map(|name| -> Result<_> {
-                let remote = repo.find_remote(name)?;
-                Ok(GitRemote::from_gix(name.to_string(), &remote))
-            })
-            .collect()
-    }
-
-    fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let repo = self.open_isolated_repo()?;
-
-        // Bail if remote with given name already exists.
-        if repo.find_remote(name).is_ok() {
-            bail!("Remote name '{name}' already exists");
-        }
-
-        // Bail if remote with given url already exists.
-        if let Some(remote_name) = repo
-            .remote_names()
-            .iter()
-            .filter_map(|name| repo.find_remote(name).ok())
-            .find_map(|remote| {
-                remote
-                    .url(gix::remote::Direction::Fetch)
-                    .and_then(|remote_url| {
-                        if remote_url.to_bstring() == url {
-                            remote
-                                .name()
-                                .and_then(|n| n.as_symbol().map(ToOwned::to_owned))
-                        } else {
-                            None
-                        }
-                    })
-            })
-        {
-            bail!("Remote with url '{url}' already exists at '{remote_name}'");
-        }
-
-        edit_repo_config(&repo, gix::config::Source::Local, |config| {
-            let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
-            section.push("url", Some(url.as_bytes().as_bstr()))?;
-            ensure_config_value(
-                config,
-                &format!("remote.{name}.fetch"),
-                &format!("+refs/heads/*:refs/remotes/{name}/*"),
-            )?;
-            Ok(())
-        })?;
-        Ok(())
-    }
-
-    fn read_file_from_commit(
-        &self,
-        commit_id: gix::ObjectId,
-        relative_path: &Path,
-    ) -> Result<FileInfo> {
-        let repo = self.repo.get()?;
-        read_commit_file(&repo, commit_id, relative_path)
-    }
-
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo> {
         let repo = self.repo.get()?;
         read_worktree_file(&repo, path)
     }
-
-    fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>> {
-        static FAIR_QUEUE: Mutex<()> = Mutex::new(());
-        let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-
-        let workdir = self.workdir_or_fail()?;
-        let matcher = SkimMatcherV2::default();
-
-        let scored_files = WalkBuilder::new(&workdir)
-            .git_exclude(true) // Respect .git/info/exclude
-            .git_global(true) // Respect global gitignore
-            .git_ignore(true) // Respect .gitignore
-            .build()
-            .filter_map(Result::ok)
-            .filter(|entry| entry.file_type().is_some_and(|ft| ft.is_file()))
-            .filter_map(|entry| {
-                let relative_path = entry.path().strip_prefix(&workdir).ok()?;
-                let path_str = relative_path.to_string_lossy();
-                let score = compute_match_score(&matcher, &path_str, relative_path, query)?;
-                Some((score, path_str.to_string()))
-            })
-            .filter(|entry| entry.0 > 0)
-            .sorted_by(|a, b| b.0.cmp(&a.0))
-            .take(limit)
-            .map(|(_, path)| path)
-            .collect();
-
-        Ok(scored_files)
-    }
 }
 
-/// Read `relative_path` from the tree of `commit_id` in `repo`, see
-/// [`RepoCommands::read_file_from_commit()`].
+/// Read `relative_path` from the tree of `commit_id` in `repo`.
+///
+/// Rejects absolute paths and returns `FileInfo::default()` if the file cannot be found.
 fn read_commit_file(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,

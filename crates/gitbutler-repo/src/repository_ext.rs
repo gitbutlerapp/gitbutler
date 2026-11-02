@@ -43,31 +43,6 @@ fn commit_gix(
     )
 }
 
-/// Create a commit and sign it if GitButler signing is enabled in repository configuration.
-#[expect(clippy::too_many_arguments)]
-pub fn commit_with_signature_gix(
-    repo: &gix::Repository,
-    update_ref: Option<&gitbutler_reference::Refname>,
-    author: gix::actor::Signature,
-    committer: gix::actor::Signature,
-    message: &BStr,
-    tree: gix::ObjectId,
-    parents: &[gix::ObjectId],
-    commit_headers: Option<Headers>,
-) -> Result<gix::ObjectId> {
-    commit_gix(
-        repo,
-        update_ref,
-        author,
-        committer,
-        message,
-        tree,
-        parents,
-        commit_headers,
-        SignCommit::IfSignCommitsEnabled,
-    )
-}
-
 /// Create a commit without applying GitButler commit-signing configuration.
 #[expect(clippy::too_many_arguments)]
 pub fn commit_without_signature_gix(

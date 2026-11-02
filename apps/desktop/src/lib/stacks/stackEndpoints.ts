@@ -50,7 +50,6 @@ import type {
 	InsertSide,
 	RelativeTo,
 	RefInfo,
-	StackEntryNoOpt,
 	BottomUpdate,
 	WorkspaceIntegrateUpstreamOutcome,
 	BranchCreatePlacement,
@@ -63,11 +62,6 @@ import type {
 	BranchRenameResult,
 	PushResult,
 } from "@gitbutler/but-sdk";
-
-export type BranchParams = {
-	name?: string;
-	order?: number;
-};
 
 /** Where a new commit goes: `side` of `relativeTo`. */
 export type CommitPlacement = {
@@ -291,26 +285,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				];
 			},
 		}),
-		createStack: build.mutation<StackEntryNoOpt, { projectId: string; branch: BranchParams }>({
-			extraOptions: {
-				command: "create_virtual_branch",
-				actionName: "Create Stack",
-			},
-			// Outside the workspace, the backend checks out a branch made on the target or
-			// switches to the workspace beside any other branch.
-			query: (args) => args,
-			invalidatesTags: (result, _error) => [
-				invalidatesItem(ReduxTag.StackDetails, result?.id || "undefined"),
-				invalidatesList(ReduxTag.StackDetails),
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.BranchListing),
-				invalidatesList(ReduxTag.HeadMetadata),
-				invalidatesList(ReduxTag.HeadSha),
-				invalidatesList(ReduxTag.WorktreeChanges),
-				invalidatesType(ReduxTag.ForgeProvider),
-				invalidatesType(ReduxTag.BaseBranchData),
-			],
-		}),
 		updateStackOrder: build.mutation<
 			void,
 			{ projectId: string; stacks: { id: string; order: number }[] }
@@ -520,6 +494,10 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: [
 				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesType(ReduxTag.ForgeProvider),
+				invalidatesType(ReduxTag.BaseBranchData),
 				invalidatesList(ReduxTag.Stacks),
 				invalidatesList(ReduxTag.StackDetails),
 				invalidatesList(ReduxTag.BranchListing),

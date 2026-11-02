@@ -80,16 +80,6 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
         .await
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_commit_file(
-    ctx: &Context,
-    relative_path: PathBuf,
-    commit_id: gix::ObjectId,
-) -> Result<FileInfo> {
-    ctx.read_file_from_commit(commit_id, &relative_path)
-}
-
 #[but_api(json::FileInfo)]
 #[instrument(err(Debug))]
 pub fn get_workspace_file(ctx: &Context, relative_path: String) -> Result<FileInfo> {
@@ -147,11 +137,4 @@ pub fn post_commit_hook(ctx: &but_ctx::Context) -> Result<HookResult> {
 #[instrument(err(Debug))]
 pub fn message_hook(ctx: &but_ctx::Context, message: String) -> Result<MessageHookResult> {
     gitbutler_repo::hooks::commit_msg(ctx, message)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn find_files(ctx: &Context, query: String, limit: Option<usize>) -> Result<Vec<String>> {
-    let limit = limit.unwrap_or(10);
-    ctx.find_files(&query, limit)
 }

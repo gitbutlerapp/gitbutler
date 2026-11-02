@@ -54,7 +54,7 @@
 	const laneState = $derived(uiState.lane(laneId));
 
 	const [createCommitMutation, commitCreation] = stackService.createCommit();
-	const [createNewStack, newStackQuery] = stackService.newStack;
+	const [createNewStack, newStackQuery] = stackService.branchCreate;
 	const [runMessageHook] = hooksService.message;
 
 	let isCooking = $state(false);
@@ -90,9 +90,17 @@
 			(await stackService.fetchNewBranchName(projectId));
 
 		if (!finalStackId) {
-			const stack = await createNewStack({ projectId, branch: { name: branchName, order: 0 } });
-			finalStackId = stack.id ?? undefined;
-			branchName = stack.heads[0]?.name;
+			branchName = await stackService.normalizeBranchName(branchName);
+			const created = await createNewStack({
+				projectId,
+				newRef: `refs/heads/${branchName}`,
+				placement: { type: "independent", subject: { order: 0 } },
+			});
+			branchName = created.newRef.displayName;
+			finalStackId =
+				created.workspace.headInfo.stacks.find((stack) =>
+					stack.segments.some((segment) => segment.refName?.displayName === branchName),
+				)?.id ?? undefined;
 			uiState.global.draftBranchName.set(undefined);
 		}
 		if (!finalStackId) throw new Error("No stack selected!");

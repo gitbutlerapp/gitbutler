@@ -182,7 +182,7 @@ impl WorkspaceState {
     /// This is the API-facing preview constructor: it reads PR associations from
     /// the forge review cache through the database handle the rebase carries,
     /// before projecting the preview state.
-    pub(crate) fn from_rebase_preview<M: RefMetadata>(
+    pub fn from_rebase_preview<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = but_forge::review_associations_by_head(rebase.db(), rebase.repo())?;

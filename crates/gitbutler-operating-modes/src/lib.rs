@@ -17,7 +17,7 @@ pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 /// after upgrading to a version using the new gitbutler/workspace branch
 /// name we need some transition period during which both are accepted.
 /// The new branch will be checked out as soon as any modification is made
-/// that triggers `update_workspace_commit`.
+/// that triggers `update_workspace_commit_with_perm`.
 const OPEN_WORKSPACE_REFS: [&str; 2] = [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF];
 
 /// The reference the app will checkout when in edit mode
@@ -222,11 +222,4 @@ pub fn ensure_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<EditModeMeta
         OperatingMode::Edit(edit_mode_metadata) => Ok(edit_mode_metadata),
         _ => Err(anyhow!("Expected to be in edit mode")),
     }
-}
-
-pub fn in_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {
-    Ok(matches!(
-        operating_mode(ctx, perm)?,
-        OperatingMode::OutsideWorkspace(_)
-    ))
 }

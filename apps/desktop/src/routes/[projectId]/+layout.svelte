@@ -173,9 +173,6 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
-	const headResponse = $derived(modeService.head(projectId));
-	const head = $derived(headResponse.response);
-
 	function invalidateDiffs() {
 		clientState.dispatch(
 			clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
@@ -190,6 +187,9 @@
 			}),
 			// A symbolic HEAD change can switch branches without changing the commit SHA.
 			backend.listen(`project://${projectId}/git/head`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
+			backend.listen(`project://${projectId}/git/activity`, () => {
 				stackService.invalidateStacksAndDetails();
 			}),
 			backend.listen(`project://${projectId}/worktree_changes`, invalidateDiffs),
@@ -225,18 +225,6 @@
 			}),
 		),
 	);
-
-	// If the head changes, invalidate stacks and details
-	// We need to track the previous head value to avoid infinite loops
-	let previousHead = $state<string | undefined>(undefined);
-	$effect(() => {
-		if (head && head !== previousHead) {
-			untrack(() => {
-				previousHead = head;
-				stackService.invalidateStacksAndDetails();
-			});
-		}
-	});
 
 	// =============================================================================
 	// AUTO-REFRESH & SYNCHRONIZATION

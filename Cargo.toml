@@ -260,7 +260,6 @@ serde_json_lenient = "0.2.3"
 reqwest = { version = "0.13.3", default-features = false, features = [
     "rustls",
     "json",
-    "multipart",
     "query",
     "stream",
 ] }

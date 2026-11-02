@@ -54,28 +54,8 @@ pub fn operating_mode_with_perm(ctx: &Context, perm: &RepoShared) -> Result<Head
     })
 }
 
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct HeadSha {
-    head_sha: String,
-}
-but_schemars::register_sdk_type!(HeadSha);
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
-    let repo = ctx.repo.get()?;
-    let mut head_ref = repo.head().map_err(anyhow::Error::from)?;
-    let head_sha = head_ref
-        .peel_to_commit()
-        .map_err(anyhow::Error::from)?
-        .id
-        .to_string();
-    Ok(HeadSha { head_sha })
-}
-
 // The mode is derived from HEAD plus a metadata file the watcher cannot see,
-// so these three declare their invalidation instead of relying on the
+// so these commands declare their invalidation instead of relying on the
 // `gitHead` event alone; the event still covers transitions made outside
 // the app (e.g. `but resolve`).
 #[but_api(refreshes)]
@@ -112,7 +92,7 @@ pub fn abort_edit_and_return_to_workspace_with_perm(
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx, force, perm)
 }
 
-// GUI-facing API that returns () for serialization compatibility
+/// Save the edited worktree and return to the workspace through the shared edit-mode operation.
 #[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
@@ -122,21 +102,11 @@ pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<(
 
 /// Leave edit mode under caller-held exclusive access, committing the worktree in place of the
 /// edited commit.
-///
-/// See [`save_edit_and_return_to_workspace()`] for behavior.
 pub fn save_edit_and_return_to_workspace_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
     gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, perm)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace_with_output(ctx: &mut but_ctx::Context) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())?;
-    Ok(())
 }
 
 // The initial state is fixed for the length of an edit session, so it is
@@ -151,6 +121,7 @@ pub fn edit_initial_index_state(
     gitbutler_edit_mode::commands::starting_index_state(ctx, guard.read_permission())
 }
 
+/// List worktree changes since the edited commit was checked out.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChange>> {
@@ -160,8 +131,6 @@ pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChang
 
 /// What changed in the worktree since the edited commit was checked out, under caller-held
 /// access.
-///
-/// See [`edit_changes_from_initial()`] for behavior.
 pub fn edit_changes_from_initial_with_perm(
     ctx: &but_ctx::Context,
     perm: &RepoShared,

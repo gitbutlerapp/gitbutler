@@ -4,6 +4,69 @@ use but_rebase::graph_rebase::mutate::InsertSide;
 use crate::support::{assert_workspace_ref, repo_with_feature_branch, undo};
 
 #[test]
+fn independent_branch_creation_from_normal_branches_uses_workspace_setup_and_undo()
+-> anyhow::Result<()> {
+    use but_testsupport::{CommandExt, git_at_dir};
+
+    for (starting_branch, expected_head) in [
+        ("main", "refs/heads/new-branch"),
+        ("feature", "refs/heads/gitbutler/workspace"),
+    ] {
+        let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+        let target = crate::support::persist_default_target(&repo)?;
+        git_at_dir(repo.workdir().expect("fixture has a worktree"))
+            .args(["checkout", starting_branch])
+            .run();
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let before = crate::support::workspace_graph(&ctx)?;
+        let new_ref = gix::refs::FullName::try_from("refs/heads/new-branch")?;
+
+        let result = but_api::branch::branch_create(
+            &mut ctx,
+            Some(new_ref.clone()),
+            but_api::branch::json::BranchCreatePlacement::Independent { order: Some(0) },
+        )?;
+
+        {
+            let repo = ctx.repo.get()?;
+            assert_eq!(
+                repo.head_name()?,
+                Some(expected_head.try_into()?),
+                "creation checks out the new branch on the target and a workspace beside a feature"
+            );
+            assert_eq!(
+                repo.rev_parse_single(new_ref.as_bstr())?.detach(),
+                target,
+                "the new independent branch starts at the configured target"
+            );
+        }
+        assert_workspace_ref(&result.workspace, "refs/heads/new-branch");
+        if starting_branch == "main" {
+            assert_eq!(
+                cached_segments(&ctx)?,
+                vec![("new-branch".into(), vec![])],
+                "the target at the cutoff must not become an empty stack member"
+            );
+        }
+
+        undo(&mut ctx)?;
+        assert_eq!(
+            crate::support::workspace_graph(&ctx)?,
+            before,
+            "one undo restores the branch and workspace topology before creation"
+        );
+        assert!(
+            ctx.repo
+                .get()?
+                .try_find_reference(new_ref.as_ref())?
+                .is_none(),
+            "undo also deletes the newly created reference"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn branch_create_independent_respects_insertion_order() -> anyhow::Result<()> {
     let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
     crate::support::persist_default_target(&repo)?;

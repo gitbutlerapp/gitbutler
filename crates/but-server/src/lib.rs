@@ -585,20 +585,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::virtual_branches::normalize_branch_name_cmd),
         )
         .route(
-            "/create_virtual_branch",
-            but_post(legacy::virtual_branches::create_virtual_branch_cmd),
-        )
-        .route(
             "/delete_local_branch",
             but_post(legacy::virtual_branches::delete_local_branch_cmd),
         )
         .route(
             "/get_base_branch_data",
             but_post(legacy::virtual_branches::get_base_branch_data_cmd),
-        )
-        .route(
-            "/set_base_branch",
-            but_post(legacy::virtual_branches::set_base_branch_cmd),
         )
         .route(
             "/switch_back_to_workspace",
@@ -633,7 +625,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/operating_mode",
             but_post(legacy::modes::operating_mode_cmd),
         )
-        .route("/head_sha", but_post(legacy::modes::head_sha_cmd))
         .route(
             "/enter_edit_mode",
             but_post(legacy::modes::enter_edit_mode_cmd),
@@ -663,15 +654,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post_async(legacy::repo::git_clone_repository_cmd),
         )
         .route(
-            "/get_commit_file",
-            but_post(legacy::repo::get_commit_file_cmd),
-        )
-        .route(
             "/get_workspace_file",
             but_post(legacy::repo::get_workspace_file_cmd),
         )
         .route("/get_blob_file", but_post(legacy::repo::get_blob_file_cmd))
-        .route("/find_files", but_post(legacy::repo::find_files_cmd))
         .route(
             "/pre_commit_hook_diffspecs",
             but_post(legacy::repo::pre_commit_hook_diffspecs_cmd),
@@ -707,8 +693,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/get_author_info",
             but_post(legacy::config::get_author_info_cmd),
         )
-        .route("/list_remotes", but_post(legacy::remotes::list_remotes_cmd))
-        .route("/add_remote", but_post(legacy::remotes::add_remote_cmd))
         .route(
             "/forget_github_account",
             but_post(github::forget_github_account_cmd),
