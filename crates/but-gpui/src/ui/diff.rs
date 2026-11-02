@@ -388,17 +388,28 @@ pub fn widest_up_to(bound: (u32, u32)) -> [(u32, u32); 2] {
     [bound, (whole(bound.0), whole(bound.1))]
 }
 
-pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
-    column_stats(added, removed, (0, 0), theme)
+/// A file's or a change's lines added and removed, `solid` when on a solid selection.
+pub fn stats(added: u32, removed: u32, solid: bool, theme: &Theme) -> gpui::Div {
+    column_stats(added, removed, (0, 0), solid, theme)
 }
 
 /// [`stats`], each count right-aligned in `columns` characters of the monospace font, so the
 /// rows of a list given the same `columns` line their additions up under each other's, and
 /// their removals.
-pub fn column_stats(added: u32, removed: u32, columns: (usize, usize), theme: &Theme) -> gpui::Div {
+pub fn column_stats(
+    added: u32,
+    removed: u32,
+    columns: (usize, usize),
+    solid: bool,
+    theme: &Theme,
+) -> gpui::Div {
     // One run of text, coloured in parts: a list draws this on every row.
     let (text, [added, removed]) = stats_text(added, removed, columns);
-    let colors = [(added, theme.safe), (removed, theme.danger)]
+    let [safe, danger] = match solid {
+        true => [theme.safe_on_solid, theme.danger_on_solid],
+        false => [theme.safe, theme.danger],
+    };
+    let colors = [(added, safe), (removed, danger)]
         .into_iter()
         .filter(|(range, _)| !range.is_empty())
         .map(|(range, color)| (range, HighlightStyle::from(color)));
@@ -648,7 +659,7 @@ pub fn file_header(
                 })),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
-        .child(stats(added, removed, theme))
+        .child(stats(added, removed, on, theme))
         .children(change_scale(added, removed, theme))
         // Parts what the file changed from what can be done to it.
         .when(decor.trailing.is_some(), |el| {

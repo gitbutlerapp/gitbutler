@@ -360,6 +360,7 @@ impl Detail {
                 .child(diff::stats(
                     file.additions as u32,
                     file.deletions as u32,
+                    false,
                     theme,
                 ))
         });
@@ -459,6 +460,7 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
             .child(diff::stats(
                 file.additions as u32,
                 file.deletions as u32,
+                false,
                 theme,
             ))
     });
