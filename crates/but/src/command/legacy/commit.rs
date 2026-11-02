@@ -987,7 +987,7 @@ impl CommitOperation {
                     rejection::Target::Commit(commit.clone())
                 }
                 CommitRelativeToTarget::BranchTip { name, switch: _ } => {
-                    rejection::Target::Branch(name.shorten().to_string())
+                    rejection::Target::Branch(name.clone())
                 }
                 CommitRelativeToTarget::BranchBucket {
                     name: _,
