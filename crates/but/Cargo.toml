@@ -116,7 +116,9 @@ anyhow.workspace = true
 rmcp.workspace = true
 url.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
-gix = { workspace = true, features = ["tracing", "tracing-detail"] }
+# `max-performance` turns on gix's pack delta-base caches. Without it, each object in a delta
+# chain is decompressed again from the start of the chain.
+gix = { workspace = true, features = ["tracing", "tracing-detail", "max-performance"] }
 colored = "3.0.0"
 serde_json.workspace = true
 boolean-enums.workspace = true
