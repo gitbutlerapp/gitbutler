@@ -195,6 +195,16 @@
 	padding-bottom: var(--padding-modal);
 }
 
+/* Over a body, the header holds the stack gap itself, so the hairline the scrolled body draws
+   under it keeps that room rather than sitting on the description. */
+.modalHeader:has(+ .modalBodyArea) {
+	padding-bottom: var(--gap-stack);
+}
+
+.modalHeader + .modalBodyArea > .modalBody {
+	padding-top: 0;
+}
+
 .modalFooter {
 	display: flex;
 	flex: none;
