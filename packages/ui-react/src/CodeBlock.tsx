@@ -1,10 +1,8 @@
-import { Button } from "./Button.tsx";
 import { classes } from "./classes.ts";
 import styles from "./CodeBlock.module.css";
-import { Icon } from "./Icon.tsx";
+import { CopyButton } from "./copy-button.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
-import { Tooltip } from "./Tooltip.tsx";
-import { Fragment, useRef, useState, type FC } from "react";
+import { Fragment, type FC } from "react";
 
 /**
  * Code on lines of its own: commands to run one after another, a snippet to paste. It reads as
@@ -29,16 +27,6 @@ export const CodeBlock: FC<{
 	onCopy?: (code: string) => void;
 	className?: string;
 }> = ({ children, prompt = false, onCopy, className }) => {
-	const [copied, setCopied] = useState(false);
-	const reset = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-	const copy = () => {
-		onCopy?.(children);
-		setCopied(true);
-		if (reset.current !== null) clearTimeout(reset.current);
-		reset.current = setTimeout(() => setCopied(false), 1500);
-	};
-
 	const label = prompt ? (children.includes("\n") ? "Copy commands" : "Copy command") : "Copy code";
 
 	return (
@@ -57,18 +45,7 @@ export const CodeBlock: FC<{
 				</pre>
 			</ScrollArea>
 			{onCopy && (
-				<Tooltip content={copied ? "Copied!" : label}>
-					<Button
-						variant="ghost"
-						size="small"
-						iconOnly
-						aria-label={label}
-						className={styles.copy}
-						onClick={copy}
-					>
-						<Icon name={copied ? "tick" : "copy"} />
-					</Button>
-				</Tooltip>
+				<CopyButton label={label} onCopy={() => onCopy(children)} className={styles.copy} />
 			)}
 		</div>
 	);

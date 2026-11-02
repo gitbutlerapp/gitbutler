@@ -1,0 +1,60 @@
+.list {
+	margin: 0;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+/* The right inset matches CodeBlock's, so a copy button sits as far from the edge in both. A
+   one-line row is the minimum height; the block padding is for a name that wraps. */
+.item {
+	display: flex;
+	align-items: center;
+	min-height: 40px;
+	padding: 10px 6px 10px 14px;
+	gap: var(--space-2xl);
+
+	/* Inset, so the hairline takes no height and every one-line row is the same. */
+	& + & {
+		box-shadow: inset 0 1px 0 var(--border-section);
+	}
+}
+
+/* A fixed column, so the values line up down the card; a long name wraps within it. */
+.label {
+	flex: 0 0 116px;
+	color: var(--text-2);
+}
+
+.value {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	min-width: 0;
+	margin: 0;
+	gap: 4px;
+	color: var(--text-1);
+	line-height: 20px;
+}
+
+/* Holds the Code as a box of its own, as tall as the copy button beside it, so mono beside the
+   row's text doesn't stretch the line. A long value wraps anywhere inside it rather than running
+   out of the card. */
+.literal {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	line-height: 18px;
+	overflow-wrap: anywhere;
+}
+
+/* A size up from the small button, at 24 with a 16 icon, reaching 2px into the row's padding at
+   each end so a copy row is as tall as any other. */
+.copy {
+	--button-height: 24px;
+	--button-width: 24px;
+	--button-padding-inline: 4px;
+	--icon-size: 16px;
+
+	margin-block: -2px;
+}

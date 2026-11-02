@@ -50,13 +50,8 @@
 	color: var(--text-3);
 }
 
-/* Centred on the first line, so on a one-line block it sits in the middle. In --text-2, a step
-   quieter than the code beside it, and solid under the pointer. */
+/* Centred on the first line, so on a one-line block it sits in the middle. */
 .copy {
-	--button-fg: var(--text-2);
-	--button-hover-icon-opacity: 1;
-
-	flex-shrink: 0;
 	margin: calc(var(--code-padding-block) + (var(--code-line-height) - var(--size-control-sm)) / 2)
 		6px 0 0;
 }
