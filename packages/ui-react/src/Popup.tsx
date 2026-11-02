@@ -198,7 +198,7 @@ export const ModalHeader: FC<
 	} & ComponentProps<"div">
 > = ({ title, description, onBack, className, ...props }) => {
 	const titleElement = (
-		<Dialog.Title className={classes("text-14", "text-semibold", styles.modalTitle)}>
+		<Dialog.Title className={classes("text-15", "text-semibold", styles.modalTitle)}>
 			{title}
 		</Dialog.Title>
 	);
