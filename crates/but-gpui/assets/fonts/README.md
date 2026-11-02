@@ -15,7 +15,10 @@ draws the same outlines with stems about half a pixel thicker than Chrome at 2x,
 and 60 brought them level with but.dev when the client turned macOS font smoothing off, which it
 no longer does, so text now reads heavier there. Weights 440 and 540 have no named instance, so
 those files are cut without `--update-name-table` and keep the name table and OS/2 weight class of the 500
-and 600 instances, which GPUI matches weights by.
+and 600 instances, which GPUI matches weights by. Compare against but.dev before changing a
+weight: render both at the same scale (headless Chrome with `--force-device-scale-factor=2`, and
+a `drive.sh` `shot` of a region, which keeps the display's scale) and compare stem thickness, not
+screenshots taken at different scales.
 
 Design-core's Inter leaves out the symbols the app's keys are written with (⌘ ⌥ ⇧ ⌃ ↩ ⌫ ⌦ ⇥, and it
 has ← and → only for its `->` arrow), and without them CoreText draws those from another font,

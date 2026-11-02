@@ -21,8 +21,27 @@ echo hello > "$repo/notes.txt"
 ```
 
 Build whatever state the change needs (branches, commits, uncommitted edits) with `git` here,
-or later with `sh` steps, which run while the app watches. To try a real repository, use an
-APFS clone as `crates/but-gpui/AGENTS.md` (Sandboxes and fixtures) says.
+or later with `sh` steps, which run while the app watches.
+
+## Fixtures
+
+- To try a real repository, use an APFS clone (`cp -c -R`) with every remote pointed at a
+  missing path, and copy sqlite files with their `-wal` and `-shm`. Delete it afterwards.
+- Run `git update-index --really-refresh` in every repository copied or extracted for a run. A
+  fresh copy leaves its index entries racily clean, so status hashes every file on every read.
+- Adoption archives every linked worktree it finds the first time, so mark the project adopted
+  before adding worktrees, or they vanish from the navigator.
+- To show PRs offline, point `origin` at a GitHub URL, turn auto-fetch off, set
+  `vb_stack_heads.pr_number` and add the review to `forge_reviews`, as camelCase JSON with the
+  `struct_version` from `but-forge`. One malformed row fails the whole workspace load. With no
+  account the refresh fails before any request, which shows the stale state too.
+- To make an operation slow enough to race, turn on signing with a `gpg.program` script that
+  sleeps, then prints a dummy signature. Keep the racing steps in one script run.
+- Try mesh failures with a fake `but-mesh` first on the `PATH`, which the app searches before
+  `~/.local/bin`: one that sleeps tests the timeouts and that the project stays free for
+  operations, and one that exits non-zero or prints garbage tests the fallbacks. A run's app
+  data is its own but the mesh isn't: with the real `but-mesh` signed in, a run reports its
+  repositories to your mesh.
 
 ## One run
 
@@ -77,6 +96,31 @@ take, and a shot is saved at that size: where something shows in it is where to 
 `shot path x y w h` saves just that region, given in the same coordinates, at the display's
 full resolution (2× on a Retina Mac) for a closer look, so a point read off it is the region's
 origin plus half its pixel offset. `size W H` resizes the window.
+
+## Inputs
+
+- Each step settles for 120ms, so a delay shorter than that never shows; stretch the constant
+  to check one. A hover registers only after a second small `move`.
+- The window draws only when the script asks, so anything that needs a second frame shows in
+  the next step's shot, not this one's. A palette choice that goes nowhere, as New terminal,
+  runs once the next frame is drawn, so type what it's for in the next step, not the same one.
+- `click` presses and lets go within one frame. `InteractiveText`, which links in text use,
+  starts listening for the let-go only on the frame after the press, so click those with
+  `press`, then `release`. `dclick` draws a frame between its clicks, so the second click's
+  handler sees what the first one changed.
+- `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
+  which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
+  between; `press`, then `move`s a step apart, drags with frames between, as a hand does. Make
+  the first move 1px: a bigger one starts the drag before hover changes.
+- Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
+  Take a `shot` mid-drag with `hold` and aim from it.
+- `fclick` clicks as the click that brings the window in front, which on macOS does only that.
+- Prompts use GPUI's fallback renderer, which ignores Escape and Enter, so click their buttons.
+  It clips long detail, which each prompt also prints as `PROMPT message | detail`.
+- Enter in the composer's commit title commits, and Tab goes to its body, where Enter adds a
+  line. A pull request's title goes on to its body on Enter, and ⌘↩ saves.
+- The window starts shown, though macOS reports it hidden. `hide` and `show` steps set it, as
+  covering the window and bringing it back would.
 
 ## Animations
 
@@ -154,6 +198,43 @@ When the user picks between looks, build each one and give them the shots' paths
 side, not a sketch in text. A sketch hides what they react to: how tall it is, how loud, and
 what it covers.
 
+## Measuring performance
+
+- Measure with `run --release`. `perf <label> <input>` times the input until loads settle and
+  prints `stall`: the longest the UI thread was busy meanwhile, frames included. Nothing draws
+  while it's busy, so keep it under 8.3ms for 120Hz. The harness draws a frame right after the
+  input and again once loads land, running `on_next_frame` callbacks first as a display link
+  would. `perf startup` counts from launch, so make it the first step.
+- The plain and dev-script builds write the same `target/release/gitbutler-gpui`, and the plain
+  one ignores the script and hangs. Check with
+  `strings target/release/gitbutler-gpui | grep -c GITBUTLER_GPUI_SCRIPT`, and when done rebuild
+  the plain one with `cargo build --release -p but-gpui -p gitbutler-git --bins`, so the askpass
+  helper is there for pushes.
+- Running the binary yourself with `GITBUTLER_GPUI_SCRIPT`, guard it with a kill of your own:
+  the script waits for loads without a timeout, quit waits for running operations, and macOS
+  has no `timeout`. Kill only the process you started.
+- macOS naps an app whose window isn't visible, and after about 30 seconds every step slows by
+  2-3x. The dev script opts out with `NSProcessInfo` (`src/dev.rs`). Keep that in any harness
+  that drives the app off screen, and distrust a slowdown that starts partway through a run.
+- Profile with `sample <pid> <seconds> -file out.txt`. Look at the main thread, mostly idle
+  between steps, and read CPU from the self samples, past the wait frames (`__psynch_cvwait`,
+  `mach_msg`, `kevent`).
+- Stall numbers swing by 30-50% with machine load. Check `uptime`, run the old and new binaries
+  in turns, and compare means before calling a change a regression.
+- A dev-script build idles at 6-10% CPU, as the stall watcher wakes the UI thread every
+  millisecond. Measure idle CPU, memory and power on the plain build.
+
+## Measuring power
+
+- Judge battery by energy, not CPU time or `top`'s estimate: `proc_pid_rusage` with
+  `RUSAGE_INFO_V6` reads a process's `ri_energy_nj` and its performance-core time without root.
+  Its times are mach ticks, so convert them with `mach_timebase_info`.
+- Measure on the plain build with the screen unlocked, in each state a user's window is in:
+  frontmost, visible behind another app, and hidden. `osascript` with System Events sets them:
+  `set frontmost of` or `set visible of` the process found by its unix id, or activate another
+  app. A locked screen makes every app a background one. With an agent writing to a
+  repository, the app drew about 500 mW frontmost and 6 mW hidden.
+
 ## Notes
 
 - `cargo` must be on the `PATH`. If it isn't, run inside the repository's dev shell:
@@ -164,11 +245,10 @@ what it covers.
   `keymap tui` step right after `add` picks the TUI's, as Settings › Keyboard would, without
   clicking through Settings.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
-  performance in `crates/but-gpui/AGENTS.md`.
-- The window is never key, so `on_focus` and `on_blur` listeners never fire and carets don't
-  blink. Check those by hand.
-- Copy writes the real clipboard, and Settings › AI reads the keychain. Add projects with
-  `add`: Add project's folder picker would open on the user's screen.
-- Scripted runs in `crates/but-gpui/AGENTS.md` has the rest: hover needs a second small
-  `move`, links in text need `press` then `release`, prompts need their buttons clicked, and
-  drags have their own commands.
+  performance.
+- The window is never key, so `on_focus` and `on_blur` listeners never fire, a rename doesn't
+  end on a click elsewhere, and carets don't blink. `on_focus_lost` fires as usual. Check those
+  by hand.
+- Copy writes the real clipboard, and Settings › AI, or searching settings, reads the keychain.
+  Add projects with `add`: Add project's folder picker would open on the user's screen.
+- The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`.
