@@ -726,16 +726,19 @@ jobs:
           aws_bucket: "releases.gitbutler.com"
           source_dir: "s3-upload/"
           destination_dir: "installers/${{ github.sha }}"
-      # Master runs overlap, so one that finishes after a newer commit landed must leave
-      # installers/latest to that commit's run.
-      - name: Check this is still master's latest commit
+      # Master runs overlap, so one that finishes after a newer installer change landed must
+      # leave installers/latest to that change's run. The paths are the but_installer filter's.
+      - name: Check no newer installer change is on master
         id: tip
         env:
-          REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
-          tip=$(git ls-remote "https://github.com/$REPO" refs/heads/master | cut -f1)
-          echo "latest=$([ "$tip" = "$SHA" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          git fetch --no-tags --depth=1 origin master
+          if git diff --quiet "$SHA" FETCH_HEAD -- Cargo.lock Cargo.toml crates/but-installer; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload to S3 (latest)
         if: steps.tip.outputs.latest == 'true'
         uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
