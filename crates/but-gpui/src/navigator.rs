@@ -1968,7 +1968,7 @@ impl Navigator {
         // What's being moved shows where the move is, rather than that it's selected. A linked
         // worktree dragged by its heading shows held the whole drag, over its own rows too,
         // where it isn't moving.
-        let dragged = matches!(item, Selection::Worktree(project, name)
+        let dragged = matches!(item, Selection::Checkout(project, Checkout::Linked(name))
             if (self.dragged_worktree.as_ref()).is_some_and(|(p, n)| p == project && n == name));
         let marked = moving::mark(store, item).or_else(|| dragged.then_some(Mark::Held(Op::Move)));
         let selected = lit(item) && marked.is_none();
