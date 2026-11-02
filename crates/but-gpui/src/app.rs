@@ -1092,7 +1092,8 @@ impl AppView {
     }
 
     /// Go into the selected terminal, to type in: the detail it shows in comes back, and it
-    /// takes the keys. Selecting it alone leaves them where they were, so ↑ and ↓ go past it.
+    /// takes the keys, as when its row is clicked. Selecting it with ↑ and ↓ leaves them where
+    /// they were, so those go past it.
     pub(crate) fn enter_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Not from under what's open over it, as when a prompt opened while its shell started.
         if self.covered() || self.shown_terminal(cx).is_none() {
