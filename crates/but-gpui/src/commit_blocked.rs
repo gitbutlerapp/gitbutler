@@ -8,7 +8,7 @@ use gpui::{
     ScrollHandle, SharedString, Window, div, prelude::*,
 };
 
-use crate::app::AppView;
+use crate::app::{AppView, Confirm};
 use crate::backend::{
     BLOCKED_FILES_SHOWN, BLOCKED_HUNKS_SHOWN, Blocked, BlockedChange, BlockedHunk, CommitTo,
     FullName, Stacking, short_ref,
@@ -353,6 +353,25 @@ impl CommitBlocked {
         }
     }
 
+    /// Take the highlighted choice, as Return does, while the keys are on the dialog itself
+    /// rather than on a button Tab went to, which Return presses instead.
+    fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.focus.is_focused(window) {
+            return cx.propagate();
+        }
+        let primary = (self.blocked.as_ref())
+            .and_then(|blocked| offers(blocked).into_iter().find(|offer| offer.primary));
+        if let Some(Offer {
+            to,
+            leave_out,
+            restack,
+            ..
+        }) = primary
+        {
+            self.commit_instead(to, leave_out, restack, cx);
+        }
+    }
+
     /// Commit again to `to`, leaving out what can't go with `leave_out`, or stacking first as
     /// `restack` says, and close.
     fn commit_instead(
@@ -374,7 +393,9 @@ impl CommitBlocked {
 impl Render for CommitBlocked {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let card = modal(ModalSize::Medium, theme).track_focus(&self.focus);
+        let card = modal(ModalSize::Medium, theme)
+            .track_focus(&self.focus)
+            .on_action(cx.listener(Self::confirm));
         let Some(blocked) = &self.blocked else {
             return card;
         };
