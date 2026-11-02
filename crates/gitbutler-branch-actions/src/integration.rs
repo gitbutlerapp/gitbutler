@@ -190,9 +190,9 @@ pub(crate) fn update_workspace_commit_from_workspace(
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
-    let mut index = repo.index()?;
-    index.read_tree(&repo.find_tree(workspace_tree.to_git2())?)?;
-    index.write()?;
+    write_index_from_tree(&gix_repo, workspace_tree)?;
+    // Keep the legacy libgit2 handle in sync with the index written through gix.
+    repo.index()?.read(true)?;
 
     // Everything is written out already, so if we fail here, we do so to surface the error
     // that prevented the checkout to be performed. The operation is still successful, on reload.
@@ -203,4 +203,34 @@ pub(crate) fn update_workspace_commit_from_workspace(
     ctx.invalidate_workspace_cache()?;
 
     Ok(final_commit)
+}
+
+/// Write the index from `tree_id`, keeping the stat of entries that are unchanged from the
+/// current index, like `git read-tree` does, so later status doesn't hash every file again.
+///
+/// Written through `gix` rather than `libgit2` so Git's fsmonitor token and untracked
+/// cache survive, which `libgit2` drops when it writes the index.
+fn write_index_from_tree(repo: &gix::Repository, tree_id: gix::ObjectId) -> Result<()> {
+    use gix::index::entry::{Flags, Stage};
+
+    let previous = repo.index_or_empty()?;
+    let mut index = repo.index_from_tree(&tree_id)?;
+    let stat_options = repo.stat_options()?;
+    for (entry, path) in index.entries_mut_with_paths() {
+        let Some(prev) = previous
+            .entry_by_path_and_stage(path, Stage::Unconflicted)
+            .filter(|prev| prev.id == entry.id && prev.mode == entry.mode)
+        else {
+            continue;
+        };
+        // A sparse checkout's files outside it stay marked, or they'd show as deleted.
+        if prev.flags.contains(Flags::SKIP_WORKTREE) {
+            entry.flags |= Flags::EXTENDED | Flags::SKIP_WORKTREE;
+        }
+        if !prev.stat.is_racy(previous.timestamp(), stat_options) {
+            entry.stat = prev.stat;
+        }
+    }
+    index.write(Default::default())?;
+    Ok(())
 }
