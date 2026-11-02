@@ -33,6 +33,29 @@ struct LinkedCheckoutRepo {
     repo: gix::Repository,
     target: gix::ObjectId,
     merge_base_override: Option<gix::ObjectId>,
+    worktree: LinkedWorktreeCheckout,
+}
+
+/// Context on an error checking out the linked worktree `name` at `path`, which a rewrite
+/// moved to a new commit.
+///
+/// Callers downcast to it to tell a refused checkout there from one in the editor's own
+/// worktree, which is where the command usually runs.
+#[derive(Debug)]
+pub struct LinkedWorktreeCheckout {
+    name: BString,
+    path: std::path::PathBuf,
+}
+
+impl std::fmt::Display for LinkedWorktreeCheckout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Could not update worktree '{}' at {}",
+            self.name,
+            self.path.display()
+        )
+    }
 }
 
 fn head_target(id: gix::ObjectId, ref_name: Option<gix::refs::FullName>) -> Target {
@@ -142,6 +165,10 @@ fn open_linked_checkout_repos(
                 repo: worktree_repo,
                 target: spec.target,
                 merge_base_override: spec.merge_base_override,
+                worktree: LinkedWorktreeCheckout {
+                    name: spec.name,
+                    path: proxy.base()?,
+                },
             })
         })
         .collect()
@@ -277,7 +304,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         // Don't allow for linked worktrees.
                         allow_uncommitted_changes_to_conflict_with_new_head: false,
                     },
-                )?;
+                )
+                .with_context(|| linked_repo.worktree)?;
             }
 
             if let Some(head) = &head {
