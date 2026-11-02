@@ -1,11 +1,15 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, DispatchPhase, Div, DragMoveEvent, Entity, ExternalPaths,
-    FocusHandle, Focusable, FontFeatures, MouseMoveEvent, Pixels, PlatformInput, Point,
+    AnyView, App, Bounds, ClipboardItem, Context, DispatchPhase, Div, DragMoveEvent, Entity,
+    ExternalPaths, FocusHandle, Focusable, FontFeatures, KeyDownEvent, ModifiersChangedEvent,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
     PromptLevel, Role, SharedString, StyleRefinement, Subscription, Task, WeakEntity, Window,
     actions, div, prelude::*, relative,
 };
@@ -19,14 +23,19 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Cut, FileView, MeshPick, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, snack,
+    Area, Axis, Cut, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane,
+    Prefs, ProjectId, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones, snack,
     up_to_date,
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
 use crate::transfer::{Moving, Op, Place, ProjectDrag, Transfer};
-use crate::ui::fold::{Slide, edge, inert};
-use crate::ui::{HEADER_HEIGHT, POPOVER_RADIUS, dp, fixed, resize_pane};
+use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
+use crate::ui::{
+    Button, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
+    gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
+    tile_card, tile_content,
+};
 
 // Named in the keymap as area::Action, by where they act.
 actions!(
@@ -103,6 +112,19 @@ actions!(
 );
 actions!(pr, [OpenPullRequest]);
 actions!(
+    tiling,
+    [
+        SplitRight,
+        SplitBelow,
+        CloseTile,
+        ZoomTile,
+        EqualizeTiles,
+        NextTile,
+        PreviousTile,
+        CopyTileDiagram
+    ]
+);
+actions!(
     copy,
     [
         CopyCommitId,
@@ -129,6 +151,24 @@ pub struct AppView {
     pub store: Entity<Store>,
     pub detail: Entity<Detail>,
     diff: Entity<DiffPane>,
+    /// The pages of the tiles pinned to the selected row, each a detail of its own with its
+    /// diff. A pinned terminal is drawn as it is, with none.
+    pages: HashMap<RowKey, Page>,
+    /// The tile sliding open out of its split, or shut into it, while one is.
+    tile_slide: Option<TileSlide>,
+    /// The lines of the selected row's tiling sliding to where they're even, while they are.
+    tile_glide: Option<TileGlide>,
+    tile_zoom: Option<TileZoom>,
+    row_drag: Option<RowDrag>,
+    row_tile: Option<RowTile>,
+    /// Whether the selected row's tiles are moving, sliding or dragged: see
+    /// [`Self::move_tiles`].
+    tiles_moving: bool,
+    /// The tile pressed by its bar, dragged once the pointer's moved far enough, until it's
+    /// let go and it's settled where it lands.
+    tile_drag: Option<TileDrag>,
+    /// The room the tiles share, in the window, as it was last drawn.
+    tile_room: Rc<Cell<Bounds<Pixels>>>,
     pub(crate) navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
     /// A menu with commands in it, waiting for the frame that registers the actions of the
@@ -271,21 +311,42 @@ impl AppHandle {
 }
 
 impl AppView {
-    /// Where the diff starts beside the detail's file list at `now`, when the selection has a
-    /// diff.
-    fn diff_left(&self, now: Instant, window: &Window, cx: &App) -> Option<f32> {
-        let store = self.store.read(cx);
-        let detail = self.detail.read(cx);
-        let has_diff = store.selection.is_some() && !detail.diff_hidden(cx);
+    /// Where the diff starts beside `detail`'s file list at `now`, when its page has a diff.
+    fn diff_left(detail: &Entity<Detail>, now: Instant, window: &Window, cx: &App) -> Option<f32> {
+        let detail = detail.read(cx);
+        let has_diff = detail.shows_page(cx) && !detail.diff_hidden(cx);
         has_diff.then(|| detail.diff_left(now, window, cx))
+    }
+
+    /// Make the details of the pages pinned to the selected row, and drop those of pages no
+    /// longer pinned there, which only the tiles on screen keep.
+    fn sync_pages(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let pinned = self.store.read(cx).pinned();
+        let pages =
+            (pinned.into_iter()).filter(|row| !matches!(row, RowKey::Row(Selection::Terminal(..))));
+        let mut kept = std::mem::take(&mut self.pages);
+        for row in pages {
+            let page = kept.remove(&row).unwrap_or_else(|| {
+                let (store, app) = (self.store.clone(), AppHandle::of(cx));
+                let pinned = Some(row.clone());
+                let detail = cx.new(|cx| Detail::new(store, app, pinned, window, cx));
+                let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
+                Page { detail, diff }
+            });
+            self.pages.insert(row, page);
+        }
     }
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(theme_for(store.read(cx), window));
         #[cfg(target_os = "macos")]
         place_traffic_lights(false, window, cx);
+        #[cfg(target_os = "macos")]
+        if backend::settings::dev_build() {
+            keep_drags_through_other_buttons();
+        }
         let app = AppHandle::of(cx);
-        let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
+        let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), None, window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
         window.focus(&navigator.focus_handle(cx), cx);
@@ -318,6 +379,49 @@ impl AppView {
                 StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
                 StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
                 StoreEvent::CommitBlocked => this.ask_where_blocked_commit_goes(window, cx),
+                StoreEvent::TilingChanged => {
+                    this.drop_stale_tile_drag(cx);
+                    this.drop_stale_row_tile(cx);
+                    this.drop_stale_zoom(cx);
+                    this.move_tiles(cx);
+                    this.sync_pages(window, cx)
+                }
+                StoreEvent::TilePinned(pinned) => {
+                    // A row dragged in slides on from where it's been held.
+                    if this.row_tile.is_none() {
+                        this.slide_tile(pinned.clone(), None, cx);
+                    }
+                    if !this.covered()
+                        && let Some(focus) = this.tile_focus(&Tile::Pinned(pinned.clone()), cx)
+                    {
+                        window.focus(&focus, cx);
+                    }
+                }
+                StoreEvent::TileClosed {
+                    before,
+                    tile,
+                    terminal,
+                } => {
+                    let going = Going {
+                        before: before.clone(),
+                        terminal: terminal.clone(),
+                        page: this.pages.remove(tile),
+                    };
+                    this.slide_tile(tile.clone(), Some(going), cx);
+                }
+                StoreEvent::RowDragEnded => {
+                    this.row_drag = None;
+                    this.move_tiles(cx);
+                }
+                // Another row's tiling, with nothing of this one's to slide.
+                StoreEvent::SelectionChanged => {
+                    this.tile_slide = None;
+                    this.tile_drag = None;
+                    this.tile_zoom = None;
+                    this.take_row_tile_back(cx);
+                    this.move_tiles(cx);
+                    this.sync_pages(window, cx)
+                }
                 _ => {}
             }),
             cx.observe_window_appearance(window, |this, window, cx| {
@@ -355,8 +459,13 @@ impl AppView {
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
             // list does once Apply selects the branch, they go to the navigator instead, or to
-            // the diff while a message is being written.
-            cx.on_focus_lost(window, |this, window, cx| this.restore_focus(window, cx)),
+            // the diff while a message is being written. A tile closed with them, or whose shell
+            // exited, gives them to the tile that had them before, as tmux's last pane does.
+            cx.on_focus_lost(window, |this, window, cx| {
+                if !this.tile_lost_keys(window, cx) {
+                    this.restore_focus(window, cx)
+                }
+            }),
             // The navigator ⌘1 brought out goes back once the keys leave it, as ⌘2 and ⌘3 take
             // them. GPUI blurs it as another app comes in front too, which leaves it out.
             cx.on_focus_out(
@@ -386,6 +495,15 @@ impl AppView {
             store,
             detail,
             diff,
+            pages: HashMap::new(),
+            tile_slide: None,
+            tile_glide: None,
+            tile_zoom: None,
+            row_drag: None,
+            row_tile: None,
+            tiles_moving: false,
+            tile_drag: None,
+            tile_room: Rc::default(),
             navigator,
             menu: None,
             pending_menu: None,
@@ -966,6 +1084,9 @@ impl AppView {
         // up and the next release drops nothing, as a key press stops it seeing the pointer.
         if cx.stop_active_drag(window) {
             return;
+        }
+        if self.tile_dragged() {
+            return self.let_go_tile(true, cx);
         }
         // The menu first, as it can be open over a modal.
         if self.menu.is_some() {
@@ -1849,12 +1970,130 @@ impl AppView {
         navigator_sliding: bool,
         files_sliding: bool,
         window: &Window,
-        cx: &App,
+        cx: &Context<Self>,
     ) -> Div {
         let theme = Theme::get(cx);
-        let bar = self.detail.read(cx).location_bar_height(window, cx);
+        let bar = self.detail.read(cx).top_strip_height(window, cx);
+        let store = self.store.read(cx);
+        let (areas, drawn_home) = (store.drawn_areas(), store.drawn_home());
+        let (dividers, lifted) = (store.drawn_dividers(), store.lifted_tile().cloned());
+        let home = drawn_home.unwrap_or(Area::WHOLE);
+        // Below the location bar, which runs across every tile: the room the tiles share. The
+        // detail draws the page in the home tile's area of it, under its bar while there are
+        // others, and the diff and the terminal selected go over that.
+        // A terminal there closes, a terminal pinned beside it taking its place, as terminals
+        // are alike.
+        let close_home = self.close_home(cx);
+        let home_bar = drawn_home.and_then(|_| {
+            let store = self.store.read(cx);
+            let (kind, title) = tile_label(store, &store.row_key(store.selection.as_ref()?));
+            let focus = self.tile_focus(&Tile::Home, cx);
+            let close = close_home.clone().map(|close| {
+                icon_button("close-home", Icon::Cross)
+                    .small()
+                    .tooltip_for("Close", &CloseTile)
+                    .on_click(move |_, _, cx| close(cx))
+            });
+            let grab = self.grab_tile(Tile::Home, cx);
+            let buttons = self.tile_buttons(&Tile::Home, cx).into_iter().chain(close);
+            // Over the detail, which would take the keys for its page rather than a terminal's.
+            Some(
+                tile_bar(kind, title, buttons, focus, grab, theme)
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .occlude(),
+            )
+        });
+        let inset = self.detail.read(cx).bar_inset(cx);
+        let page = div()
+            .absolute()
+            .top(dp(inset))
+            .bottom_0()
+            .left_0()
+            .right_0()
+            .when_some(
+                Self::diff_left(&self.detail, now, window, cx),
+                |el, left| {
+                    el.child(
+                        div()
+                            .absolute()
+                            .top(dp(self.detail.read(cx).view_header_height(cx)))
+                            .bottom_0()
+                            .right_0()
+                            .left(dp(left))
+                            // Over the files as they slide, edged as they are.
+                            .when(files_sliding, |el| {
+                                el.bg(theme.bg_1)
+                                    .occlude()
+                                    .child(edge(theme.border_3).left(fixed(-1.)))
+                            })
+                            .child(
+                                self.diff
+                                    .clone()
+                                    .cached(StyleRefinement::default().size_full()),
+                            ),
+                    )
+                },
+            )
+            .children(self.shown_terminal(cx).map(|terminal| {
+                div()
+                    .absolute()
+                    .inset_0()
+                    .child(terminal.cached(StyleRefinement::default().size_full()))
+            }));
+        // The detail draws the card under it; a terminal's edge is drawn over it here.
+        let home = placed(home)
+            .when_some(close_home, |el, close| {
+                el.on_action(move |_: &CloseTile, _, cx| close(cx))
+            })
+            .child(tile_content().child(page).children(home_bar))
+            .when(self.has_keys(&Tile::Home, window, cx), |el| {
+                el.child(card_edge(theme.focus_edge()))
+            })
+            .when(self.shown_terminal(cx).is_some(), |el| {
+                el.child(self.paste_outline(theme))
+            });
+        // Dragged by its bar or zoomed, over the others, as the detail draws its card and page.
+        let home = match lifted == Some(Tile::Home) {
+            true => on_top(home).into_any_element(),
+            false => home.into_any_element(),
+        };
+        let resting = self.store.read(cx).resting_tiling().cloned();
+        let sliding = (self.tile_slide.as_ref().map(|slide| slide.tile.clone()))
+            .or_else(|| self.row_tile.as_ref().and_then(RowTile::opening));
+        let pinned = (areas.into_iter().flatten()).filter_map(|(tile, area)| {
+            let on_top_of_others = lifted.as_ref() == Some(&tile);
+            let el = match tile {
+                Tile::Home => return None,
+                Tile::Pinned(pinned) if sliding.as_ref() == Some(&pinned) => {
+                    let rest = (resting.iter().flat_map(Tiling::areas))
+                        .find(|(tile, _)| *tile == Tile::Pinned(pinned.clone()))?;
+                    self.render_sliding(pinned, area, rest.1, now, window, theme, cx)?
+                }
+                Tile::Pinned(pinned) => self.render_pinned(pinned, area, now, window, theme, cx)?,
+            };
+            Some(match on_top_of_others {
+                true => on_top(el).into_any_element(),
+                false => el.into_any_element(),
+            })
+        });
+        let junctions = (crate::state::junctions(&dividers).into_iter())
+            .map(|junction| self.render_junction(junction, theme, cx));
+        let dividers =
+            (dividers.into_iter()).map(|divider| self.render_divider(divider, theme, cx));
+        let store = self.store.clone();
         div()
             .relative()
+            // Escape puts a tile dragged by its bar back, before the terminal with the keys,
+            // the dragged one's, would send it to its shell.
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                if this.tile_dragged() && event.keystroke.key == "escape" {
+                    this.let_go_tile(true, cx);
+                    cx.stop_propagation();
+                }
+            }))
             // Over the navigator as it slides, taking the pointer from it.
             .when(navigator_sliding, |el| el.bg(theme.bg_1).occlude())
             .child(
@@ -1862,57 +2101,1316 @@ impl AppView {
                     .clone()
                     .cached(StyleRefinement::default().size_full()),
             )
-            .when_some(self.diff_left(now, window, cx), |el, left| {
-                el.child(
-                    div()
-                        .absolute()
-                        .top(dp(bar + self.detail.read(cx).view_header_height(cx)))
-                        .bottom_0()
-                        .right_0()
-                        .left(dp(left))
-                        // Over the files as they slide, edged as they are.
-                        .when(files_sliding, |el| {
-                            el.bg(theme.bg_1)
-                                .occlude()
-                                .child(edge(theme.border_3).left(fixed(-1.)))
-                        })
-                        .child(
-                            self.diff
-                                .clone()
-                                .cached(StyleRefinement::default().size_full()),
-                        ),
-                )
-            })
-            .children(self.shown_terminal(cx).map(|terminal| {
+            .child(
+                // The cards' room, in from its edges as far as they are from each other.
                 div()
                     .absolute()
-                    .top(dp(bar))
-                    .bottom_0()
-                    .left_0()
-                    .right_0()
-                    .child(terminal.cached(StyleRefinement::default().size_full()))
-                    .child(self.paste_outline(theme))
-            }))
+                    .top(dp(bar + self.detail.read(cx).room_top(window, cx)))
+                    .bottom(dp(TILE_MARGIN))
+                    .left(dp(self.detail.read(cx).room_left()))
+                    .right(dp(TILE_MARGIN))
+                    .on_drag_move({
+                        let store = store.clone();
+                        move |event: &DragMoveEvent<Divider>, _, cx| {
+                            let divider = event.drag(cx).clone();
+                            move_divider(&store, &divider, event.bounds, event.event.position, cx)
+                        }
+                    })
+                    .on_drag_move(move |event: &DragMoveEvent<Junction>, _, cx| {
+                        for divider in event.drag(cx).dividers.clone() {
+                            move_divider(&store, &divider, event.bounds, event.event.position, cx)
+                        }
+                    })
+                    .child(self.watch_tile_drag(cx))
+                    .child(home)
+                    .children(pinned)
+                    .children(dividers)
+                    .children(junctions)
+                    .children(self.render_drop_zones(theme, cx))
+                    .children(self.render_row_zones(theme, cx)),
+            )
             .when(navigator_sliding, |el| {
                 el.child(edge(theme.border_3).left(fixed(-1.)))
             })
     }
 
-    /// Over the terminal shown, an outline while what's held over it would paste there, a row
-    /// or files from the Finder, as a row that takes a drop has. It's drawn here, where GPUI styles it again each frame of the
-    /// drag: the terminal's own view draws only when it changes, so one there would stay up
-    /// after a drag let go elsewhere or stopped with Escape.
-    fn paste_outline(&self, theme: &Theme) -> Div {
-        let (store, color) = (self.store.clone(), theme.pop);
+    /// A tile pinned beside the home tile, over `area` of the room below the header, edged
+    /// where it meets the tiles before it, with a button in its corner that closes it: a
+    /// terminal, or another row's page with its diff over it, as the home tile's has.
+    fn render_pinned(
+        &self,
+        pinned: RowKey,
+        area: Area,
+        now: Instant,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let terminal = matches!(pinned, RowKey::Row(Selection::Terminal(..)));
+        let keys = self.has_keys(&Tile::Pinned(pinned.clone()), window, cx);
+        let content = match &pinned {
+            RowKey::Row(Selection::Terminal(_, id)) => div().size_full().child(
+                (self.store.read(cx).terminals.get(*id).cloned())
+                    .or_else(|| self.going(&pinned)?.terminal.clone())?
+                    .cached(StyleRefinement::default().size_full()),
+            ),
+            row => {
+                let page = (self.pages.get(row)).or_else(|| self.going(row)?.page.as_ref())?;
+                let diff = Self::diff_left(&page.detail, now, window, cx).map(|left| {
+                    div()
+                        .absolute()
+                        .top(dp(page.detail.read(cx).view_header_height(cx)))
+                        .bottom_0()
+                        .right_0()
+                        .left(dp(left))
+                        .child((page.diff.clone()).cached(StyleRefinement::default().size_full()))
+                });
+                div()
+                    .relative()
+                    .size_full()
+                    .child((page.detail.clone()).cached(StyleRefinement::default().size_full()))
+                    .children(diff)
+            }
+        };
+        let (kind, title) = tile_label(self.store.read(cx), &pinned);
+        let focus = self.tile_focus(&Tile::Pinned(pinned.clone()), cx);
+        let grab = self.grab_tile(Tile::Pinned(pinned.clone()), cx);
+        let tile_buttons = self.tile_buttons(&Tile::Pinned(pinned.clone()), cx);
+        let id = SharedString::from(format!("close-{pinned:?}"));
+        let close = {
+            let store = self.store.clone();
+            move |cx: &mut App| store.update(cx, |store, cx| store.close_tile(&pinned, cx))
+        };
+        let (on_key, on_click) = (close.clone(), close);
+        let close = icon_button(id, Icon::Cross)
+            .small()
+            .tooltip_for("Close", &CloseTile)
+            .on_click(move |_, _, cx| on_click(cx));
+        let buttons = tile_buttons.into_iter().chain(Some(close));
+        let bar = tile_bar(kind, title, buttons, focus, grab, theme).flex_none();
+        Some(
+            placed(area)
+                // Over the home tile's detail, which spans the room under it, gaps and all.
+                .occlude()
+                .key_context("PinnedTile")
+                .on_action(move |_: &CloseTile, _, cx| on_key(cx))
+                .child(tile_card(theme))
+                .child(
+                    (tile_content().flex().flex_col())
+                        .child(bar)
+                        .child(div().flex_1().min_h_0().relative().child(content)),
+                )
+                .when(keys, |el| el.child(card_edge(theme.focus_edge())))
+                .when(terminal, |el| el.child(self.paste_outline(theme))),
+        )
+    }
+
+    /// A tile sliding open or shut, over `area` of the room in this frame, of `rest` it has at
+    /// rest: drawn at rest, from the edge of it that moves, the rest cut off, as the detail
+    /// slides in beside the navigator, so it lays out once. Shutting, it takes no pointer.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "render_pinned's, and the area at rest"
+    )]
+    fn render_sliding(
+        &self,
+        pinned: RowKey,
+        area: Area,
+        rest: Area,
+        now: Instant,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
+        let going = self.going(&pinned).is_some();
+        let (width, height) = (
+            rest.width / area.width.max(1e-4),
+            rest.height / area.height.max(1e-4),
+        );
+        // Where its leading edge stays put, as the first part of a division's does, its trailing
+        // edge moves, and it's drawn from that one.
+        let trailing = (area.left - rest.left).abs() < 1e-4 && (area.top - rest.top).abs() < 1e-4;
+        let inner = Area {
+            left: if trailing { 1. - width } else { 0. },
+            top: if trailing { 1. - height } else { 0. },
+            width,
+            height,
+        };
+        let tile = self.render_pinned(pinned, inner, now, window, theme, cx)?;
+        Some(placed(area).overflow_hidden().child(inert(tile, going)))
+    }
+
+    /// Over the tiles, the one dragged by its bar too, where the pointer lands it where, once
+    /// the right button shows it: the landings that lay the tiles out alike in a colour of their
+    /// own and named together once, in their biggest box, those it's over stronger.
+    fn render_drop_zones(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let drag = (self.tile_drag.as_ref())
+            .filter(|drag| drag.lifted && !drag.released && !drag.zones.is_empty())?;
+        let store = self.store.read(cx);
+        let home = store.row_key(store.selection.as_ref()?);
+        let least = self.least_tile(cx);
+        // Each layout the landings make, the tiling as it is first, and the landings making it.
+        let mut layouts: Vec<(Tiling, Vec<&Landing>)> = vec![(drag.before.clone(), Vec::new())];
+        let mut layout_of: Vec<(&Landing, usize)> = Vec::new();
+        for landing in drag.zones.iter().filter_map(|zone| zone.landing.as_ref()) {
+            if layout_of.iter().any(|(other, _)| *other == landing) {
+                continue;
+            }
+            let landed = drag.before.landed(&drag.tile, landing, least);
+            let ix = match layouts.iter().position(|(layout, _)| *layout == landed) {
+                Some(ix) => ix,
+                None => {
+                    layouts.push((landed, Vec::new()));
+                    layouts.len() - 1
+                }
+            };
+            if let Some((_, landings)) = layouts.get_mut(ix) {
+                landings.push(landing);
+            }
+            layout_of.push((landing, ix));
+        }
+        let layout = |landing: &Landing| {
+            (layout_of.iter()).find_map(|(other, ix)| (*other == landing).then_some(*ix))
+        };
+        let over = match &drag.pending {
+            Some((landing, _)) => layout(landing),
+            None => layout(&drag.landing),
+        };
+        let color = |ix: usize| gpui::hsla((ix as f32 * 0.618).fract(), 0.75, 0.5, 1.);
+        let placed = |zone: &DropZone| {
+            div()
+                .absolute()
+                .left(fixed(zone.left))
+                .top(fixed(zone.top))
+                .w(fixed(zone.right - zone.left))
+                .h(fixed(zone.bottom - zone.top))
+        };
+        let boxes = drag.zones.iter().filter_map(|zone| {
+            let ix = layout(zone.landing.as_ref()?)?;
+            let strength = if Some(ix) == over { 0.28 } else { 0.1 };
+            Some(placed(zone).bg(color(ix).opacity(strength)))
+        });
+        let area = |zone: &DropZone| (zone.right - zone.left) * (zone.bottom - zone.top);
+        let labels = layouts
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, (_, landings))| {
+                let biggest = (drag.zones.iter())
+                    .filter(|zone| zone.landing.as_ref().and_then(layout) == Some(ix))
+                    .max_by(|a, b| area(a).total_cmp(&area(b)))?;
+                let text = match ix {
+                    0 => "Stays".to_owned(),
+                    _ => (landings.iter())
+                        .map(|landing| landing_text(landing, store, &home))
+                        .collect::<Vec<_>>()
+                        .join(" = "),
+                };
+                let label = div()
+                    .px(dp(6.))
+                    .py(dp(2.))
+                    .rounded(dp(4.))
+                    .bg(theme.bg_1)
+                    .border_1()
+                    .border_color(color(ix))
+                    .text_size(dp(11.))
+                    .text_color(theme.text_1)
+                    .child(text);
+                Some((placed(biggest).flex().items_center().justify_center()).child(label))
+            });
+        let zones = div().absolute().inset_0().children(boxes).children(labels);
+        // Over the tile dragged, drawn on top itself.
+        Some(on_top(zones).priority(1))
+    }
+
+    /// Over the tiles, the two strips a row dragged from the navigator lands as a tile in, once
+    /// the right button or ⌥ shows them, as [`Self::render_drop_zones`] shows a tile's.
+    fn render_row_zones(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let drag = self.row_drag.as_ref().filter(|drag| drag.zones)?;
+        let room = self.tile_room.get().size;
+        let feel = self.store.read(cx).tile_drag_feel;
+        let width = f32::from(Theme::get(cx).scaled(feel.row_zone));
+        let strips = [(Side::Left, 0.), (Side::Right, 0.618)].into_iter();
+        let strips = strips.filter_map(|(side, hue)| {
+            self.row_landed(side, cx)?;
+            let (left, text) = match side {
+                Side::Right => (f32::from(room.width) - width, "Right side"),
+                Side::Left | Side::Top | Side::Bottom => (0., "Left side"),
+            };
+            let color = gpui::hsla(hue, 0.75, 0.5, 1.);
+            let over = drag.over.is_some_and(|(over, _)| over == side);
+            let strength = if over { 0.28 } else { 0.1 };
+            let label = div()
+                .px(dp(6.))
+                .py(dp(2.))
+                .rounded(dp(4.))
+                .bg(theme.bg_1)
+                .border_1()
+                .border_color(color)
+                .text_size(dp(11.))
+                .text_color(theme.text_1)
+                .child(text);
+            Some(
+                div()
+                    .absolute()
+                    .left(fixed(left))
+                    .top_0()
+                    .bottom_0()
+                    .w(fixed(width))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .bg(color.opacity(strength))
+                    .child(label),
+            )
+        });
+        let zones = div().absolute().inset_0().children(strips);
+        Some(on_top(zones).priority(1))
+    }
+
+    /// A strip over the gap between the cards of two parts of a division: drag it to move the
+    /// line between them, double-click it to share the division's room evenly again. A pill in
+    /// the middle of the gap shows it while the pointer's on it or it's dragged.
+    fn render_divider(&self, divider: Divider, theme: &Theme, cx: &Context<Self>) -> Div {
+        let id = SharedString::from(format!("divider-{:?}-{}", divider.path, divider.after));
+        let which = DividerDrag::Tiles(divider.path.clone(), divider.after);
+        let (this, path) = (cx.entity().downgrade(), divider.path.clone());
+        let strip = gap_divider(id, divider.axis, which.clone(), &self.store, theme, cx)
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    let paths = std::slice::from_ref(&path);
+                    (this.update(cx, |this, cx| this.even_out_tiles(paths, cx))).ok();
+                }
+            })
+            .on_drag(divider.clone(), mark_dragged(&self.store, which));
+        // A line with no breadth along the division, and the strip across it, the gap's width.
+        let room = divider.room;
+        match divider.axis {
+            Axis::Across => div()
+                .absolute()
+                .left(relative(divider.at))
+                .top(relative(room.top))
+                .h(relative(room.height))
+                .child(
+                    strip
+                        .top_0()
+                        .bottom_0()
+                        .left(dp(-TILE_MARGIN))
+                        .w(dp(2. * TILE_MARGIN)),
+                ),
+            Axis::Down => div()
+                .absolute()
+                .top(relative(divider.at))
+                .left(relative(room.left))
+                .w(relative(room.width))
+                .child(
+                    strip
+                        .left_0()
+                        .right_0()
+                        .top(dp(-TILE_MARGIN))
+                        .h(dp(2. * TILE_MARGIN)),
+                ),
+        }
+    }
+
+    /// A handle over where the lines between tiles meet: drag it to move them all at once,
+    /// double-click it to share each of their divisions' room evenly again.
+    fn render_junction(&self, junction: Junction, theme: &Theme, cx: &Context<Self>) -> Div {
+        let lines = (junction.dividers.iter())
+            .map(|divider| (divider.path.clone(), divider.after))
+            .collect::<Vec<_>>();
+        let id = SharedString::from(format!("junction-{lines:?}"));
+        let which = DividerDrag::Junction(lines);
+        let (this, at) = (cx.entity().downgrade(), junction.at);
+        let paths: Vec<Vec<usize>> = (junction.dividers.iter())
+            .map(|divider| divider.path.clone())
+            .collect();
+        let handle = gap_junction(id, &junction, &which, &self.store, theme, cx)
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    (this.update(cx, |this, cx| this.even_out_tiles(&paths, cx))).ok();
+                }
+            })
+            .on_drag(junction, mark_dragged(&self.store, which))
+            .left(dp(-JUNCTION_HANDLE / 2.))
+            .top(dp(-JUNCTION_HANDLE / 2.))
+            .size(dp(JUNCTION_HANDLE));
         div()
             .absolute()
-            .inset_0()
+            .left(relative(at.0))
+            .top(relative(at.1))
+            .child(handle)
+    }
+
+    /// What takes the keys in `tile` of the selected row's tiling, if it's open: the home
+    /// tile's terminal or page, or a pinned one's.
+    fn tile_focus(&self, tile: &Tile, cx: &App) -> Option<FocusHandle> {
+        match tile {
+            Tile::Home => Some(match self.shown_terminal(cx) {
+                Some(terminal) => terminal.focus_handle(cx),
+                None => self.detail.focus_handle(cx),
+            }),
+            Tile::Pinned(RowKey::Row(Selection::Terminal(_, id))) => {
+                Some(self.store.read(cx).terminals.get(*id)?.focus_handle(cx))
+            }
+            Tile::Pinned(row) => Some(self.pages.get(row)?.detail.focus_handle(cx)),
+        }
+    }
+
+    /// Whether `tile` of the selected row has the keys, the home tile with no others too.
+    fn has_keys(&self, tile: &Tile, window: &Window, cx: &App) -> bool {
+        (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
+    }
+
+    /// The tile of the selected row's tiling that has the keys, if one does.
+    fn tile_with_keys(&self, window: &Window, cx: &App) -> Option<Tile> {
+        let tiling = self.store.read(cx).tiling()?;
+        (tiling.areas().into_iter())
+            .map(|(tile, _)| tile)
+            .find(|tile| {
+                (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
+            })
+    }
+
+    /// Give the keys back to the tile of the selected row's tiling that had them last, or its
+    /// home tile, as when the row is clicked or the tile with them closes. Whether it has one.
+    pub(crate) fn focus_last_tile(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let store = self.store.read(cx);
+        if store.tiling().is_none() {
+            return false;
+        }
+        let last = store.last_tile_with_keys().unwrap_or(Tile::Home);
+        match self.tile_focus(&last, cx) {
+            Some(focus) => window.focus(&focus, cx),
+            None => self.focus_main(window, cx),
+        }
+        true
+    }
+
+    /// Give the keys to the tile after the one with them in the selected row's tiling, in the
+    /// order they're laid out, or the one before it going `back`, round past the ends, as
+    /// iTerm's ⌘] and ⌘[ go through its panes. From outside the tiles, the first or the last.
+    fn focus_next_tile(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
+        self.zoom_out(cx);
+        let Some(tiling) = self.store.read(cx).tiling() else {
+            return;
+        };
+        let tiles: Vec<Tile> = tiling.areas().into_iter().map(|(tile, _)| tile).collect();
+        let at = (self.tile_with_keys(window, cx))
+            .and_then(|tile| tiles.iter().position(|other| *other == tile));
+        let count = tiles.len();
+        let next = match at {
+            Some(at) if back => (at + count - 1) % count,
+            Some(at) => (at + 1) % count,
+            None if back => count - 1,
+            None => 0,
+        };
+        if let Some(focus) = tiles.get(next).and_then(|tile| self.tile_focus(tile, cx)) {
+            window.focus(&focus, cx);
+        }
+    }
+
+    /// Copy how the selected row's tiles are laid out, drawn in text, each by its name.
+    fn copy_tile_diagram(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (Some(tiling), Some(selection)) = (store.tiling(), &store.selection) else {
+            return;
+        };
+        let home = store.row_key(selection);
+        let label = |tile: &Tile| {
+            let row = match tile {
+                Tile::Home => &home,
+                Tile::Pinned(pinned) => pinned,
+            };
+            tile_label(store, row).1.to_string()
+        };
+        let diagram = tiling.diagram(label, 60, 18);
+        self.copy_text(diagram, cx);
+    }
+
+    /// Whether the tile of the selected row that had the keys last is gone, and they went to
+    /// the tile that had them before it.
+    fn tile_lost_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.covered() {
+            return false;
+        }
+        if !(self.store).update(cx, |store, _| store.forget_gone_tile_with_keys()) {
+            return false;
+        }
+        // The last tile beside the home one takes the row's tiling with it, so the home tile,
+        // all that's left, has them.
+        if !self.focus_last_tile(window, cx)
+            && let Some(focus) = self.tile_focus(&Tile::Home, cx)
+        {
+            window.focus(&focus, cx);
+        }
+        true
+    }
+
+    /// Note which tile of the selected row has the keys, for [`Self::focus_last_tile`].
+    fn note_tile_with_keys(&mut self, window: &Window, cx: &mut App) {
+        let Some(tile) = self.tile_with_keys(window, cx) else {
+            return;
+        };
+        (self.store).update(cx, |store, _| store.note_tile_with_keys(&tile));
+    }
+
+    /// Zoom the tile with the keys, or the one that had them last, or zoom back out.
+    fn zoom_with_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let last = self.store.read(cx).last_tile_with_keys();
+        let tile = self.tile_with_keys(window, cx).or(last);
+        self.toggle_zoom(tile.unwrap_or(Tile::Home), window, cx);
+    }
+
+    /// Have `tile` of the selected row's tiling grow over the others to take all their room, and
+    /// the keys, or go back to its place while a tile is zoomed.
+    fn toggle_zoom(&mut self, tile: Tile, window: &mut Window, cx: &mut Context<Self>) {
+        if self.zoomed().is_some() {
+            return self.zoom_out(cx);
+        }
+        let Some(tiling) = self.store.read(cx).tiling().cloned() else {
+            return;
+        };
+        if self.tile_dragged() || self.row_tile.is_some() {
+            return;
+        }
+        match self.tile_zoom.as_mut().filter(|zoom| zoom.tile == tile) {
+            Some(zoom) => {
+                zoom.open = true;
+                zoom.slide.start(true, cx);
+            }
+            None => {
+                let reflow = self.store.read(cx).tile_drag_feel.reflow;
+                let mut slide = Slide::lasting(millis(reflow));
+                slide.start(true, cx);
+                self.tile_zoom = Some(TileZoom {
+                    tile: tile.clone(),
+                    tiling,
+                    open: true,
+                    slide,
+                });
+            }
+        }
+        self.tile_slide = None;
+        self.tile_glide = None;
+        if let Some(focus) = self.tile_focus(&tile, cx) {
+            window.focus(&focus, cx);
+        }
+        self.move_tiles(cx);
+    }
+
+    /// The tile zoomed, or growing to be, not one on its way back.
+    fn zoomed(&self) -> Option<&Tile> {
+        (self.tile_zoom.as_ref())
+            .filter(|zoom| zoom.open)
+            .map(|zoom| &zoom.tile)
+    }
+
+    /// Send the tile zoomed back to its place.
+    fn zoom_out(&mut self, cx: &mut Context<Self>) {
+        if let Some(zoom) = self.tile_zoom.as_mut().filter(|zoom| zoom.open) {
+            zoom.open = false;
+            zoom.slide.start(false, cx);
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Forget the zoom once the tiling changes under it, as with a tile split or closed.
+    fn drop_stale_zoom(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        if (self.tile_zoom.as_ref()).is_some_and(|zoom| tiling != Some(&zoom.tiling)) {
+            self.tile_zoom = None;
+        }
+    }
+
+    /// Where the selected row's tiles are drawn at `now` around the tile zoomed, and whether
+    /// it's moving. Once it's back in its place, the zoom's over.
+    fn zoomed_tiling(&mut self, now: Instant) -> Option<(Drawn, bool)> {
+        let zoom = self.tile_zoom.as_ref()?;
+        let moving = zoom.slide.openness(now).is_some();
+        if !zoom.open && !moving {
+            self.tile_zoom = None;
+            return None;
+        }
+        let at = zoom.slide.share(zoom.open, now);
+        let drawn = Drawn {
+            areas: zoom.tiling.zoomed(&zoom.tile, at),
+            dividers: Vec::new(),
+            rest: zoom.tiling.clone(),
+            lifted: Some(zoom.tile.clone()),
+            zoomed: true,
+        };
+        Some((drawn, moving))
+    }
+
+    /// Slide `tile` open out of its split, or shut into it while it's `going`.
+    fn slide_tile(&mut self, tile: RowKey, going: Option<Going>, cx: &mut Context<Self>) {
+        let mut slide = Slide::lasting(TILE_SLIDE);
+        slide.start(going.is_none(), cx);
+        self.tile_slide = Some(TileSlide { tile, slide, going });
+        self.move_tiles(cx);
+        cx.notify();
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while a tile slides, and as it is at
+    /// rest with that tile in it. Once the slide's over, what it kept goes.
+    fn sliding_tiling(&mut self, now: Instant, cx: &App) -> Option<(Tiling, Tiling)> {
+        let slide = self.tile_slide.as_ref()?;
+        let rest = match &slide.going {
+            Some(going) => Some(going.before.clone()),
+            None => (self.store.read(cx).tiling())
+                .filter(|tiling| tiling.has(&Tile::Pinned(slide.tile.clone())))
+                .cloned(),
+        };
+        let sliding = (slide.slide.openness(now).zip(rest))
+            .map(|(open, rest)| (rest.opening(&slide.tile, open), rest));
+        if sliding.is_none() {
+            self.tile_slide = None;
+        }
+        sliding
+    }
+
+    /// Give each part of the divisions at `paths` of the selected row's tiling the same room,
+    /// the lines between them sliding there.
+    fn even_out_tiles(&mut self, paths: &[Vec<usize>], cx: &mut Context<Self>) {
+        let from = self.store.read(cx).tiling().cloned();
+        self.store.update(cx, |store, cx| {
+            for path in paths {
+                store.even_out_tiles(path, cx);
+            }
+        });
+        let to = self.store.read(cx).tiling().cloned();
+        if let (Some(from), Some(to)) = (from, to)
+            && from != to
+        {
+            let mut slide = Slide::lasting(TILE_SLIDE);
+            slide.start(true, cx);
+            self.tile_glide = Some(TileGlide { from, to, slide });
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Give each part of every division of the selected row's tiling the same room.
+    fn equalize_tiles(&mut self, cx: &mut Context<Self>) {
+        let paths = self.store.read(cx).tiling().map(Tiling::divisions);
+        self.even_out_tiles(&paths.unwrap_or_default(), cx);
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while its lines slide to where they're
+    /// even, and as it is, until that's over or it changes under them.
+    fn gliding_tiling(&mut self, now: Instant, cx: &App) -> Option<(Tiling, Tiling)> {
+        let glide = self.tile_glide.as_ref()?;
+        let still = self.store.read(cx).tiling() == Some(&glide.to);
+        let at = glide.slide.openness(now).filter(|_| still);
+        let gliding = at.map(|at| (glide.from.toward(&glide.to, at), glide.to.clone()));
+        if gliding.is_none() {
+            self.tile_glide = None;
+        }
+        gliding
+    }
+
+    /// What tile `pinned`, shutting, showed, kept to draw it going.
+    fn going(&self, pinned: &RowKey) -> Option<&Going> {
+        (self.tile_slide.as_ref())
+            .filter(|slide| slide.tile == *pinned)
+            .and_then(|slide| slide.going.as_ref())
+    }
+
+    /// Start dragging `tile` of the selected row's tiling by its bar, pressed `at` in the
+    /// window: it comes off once the pointer's moved far enough.
+    fn press_tile(&mut self, tile: Tile, at: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(before) = self.store.read(cx).tiling().cloned() else {
+            return;
+        };
+        if self.tile_zoom.is_some() {
+            return;
+        }
+        let room = self.tile_room.get();
+        let (width, height) = (f32::from(room.size.width), f32::from(room.size.height));
+        let Some(area) = before.area_of(&tile).filter(|_| width > 0. && height > 0.) else {
+            return;
+        };
+        let at = at - room.origin;
+        let grab = (
+            (f32::from(at.x) / width - area.left) / area.width.max(1e-4),
+            f32::from(at.y) - area.top * height,
+        );
+        self.tile_drag = Some(TileDrag {
+            from: before.areas(),
+            size_from: (area.width, area.height),
+            landed: before.clone(),
+            shown: before.clone(),
+            tile,
+            before,
+            pressed: at,
+            pointer: at,
+            grab,
+            lifted: false,
+            zones: Vec::new(),
+            option: false,
+            landing: Landing::Stay,
+            pending: None,
+            reflow: Slide::default(),
+            resize: Slide::default(),
+            released: false,
+        });
+    }
+
+    /// Follow the pointer with the tile pressed by its bar, past the lift: what lands it
+    /// where, and the other tiles make room there once it's rested over it. Whether the move
+    /// was the drag's, so nothing under the pointer sees it.
+    fn drag_tile(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) -> bool {
+        if self.tile_drag.as_ref().is_none_or(|drag| drag.released) {
+            return false;
+        }
+        // Let go where the app didn't see it, as over another window.
+        if !event.dragging() {
+            self.let_go_tile(false, cx);
+            return false;
+        }
+        let feel = self.store.read(cx).tile_drag_feel;
+        let theme = Theme::get(cx);
+        let lift = theme.scaled(feel.lift);
+        let room = self.tile_room.get();
+        let sizes = (
+            f32::from(theme.scaled(feel.edge)),
+            f32::from(theme.scaled(feel.right_edge)),
+            f32::from(theme.scaled(feel.bar)),
+        );
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return false;
+        };
+        let at = event.position - room.origin;
+        if !drag.lifted {
+            let moved = at - drag.pressed;
+            if f32::from(moved.x).hypot(f32::from(moved.y)) < f32::from(lift) {
+                return false;
+            }
+            drag.lifted = true;
+            self.tile_slide = None;
+        }
+        drag.pointer = at;
+        let over = drag.landing_under((at.x.into(), at.y.into()), room.size, sizes);
+        match over {
+            None => drag.pending = None,
+            Some(landing) => {
+                if landing == drag.landing {
+                    drag.pending = None;
+                } else if (drag.pending.as_ref()).is_none_or(|(pending, _)| *pending != landing) {
+                    drag.pending = Some((landing, clock::now()));
+                }
+            }
+        }
+        self.move_tiles(cx);
+        true
+    }
+
+    /// Let go of the tile dragged by its bar, or put it back where it was `back`, as Escape
+    /// does: it settles into its place, and the row's tiling is as it lands.
+    fn let_go_tile(&mut self, back: bool, cx: &mut Context<Self>) {
+        let reflow = self.store.read(cx).tile_drag_feel.reflow;
+        let room = self.tile_room.get().size;
+        let least = self.least_tile(cx);
+        let Some(drag) = self.tile_drag.as_mut().filter(|drag| !drag.released) else {
+            return;
+        };
+        if !drag.lifted {
+            self.tile_drag = None;
+            return;
+        }
+        let now = clock::now();
+        drag.from = drag.areas(now, room);
+        drag.released = true;
+        // Where the pointer is, though the tiles haven't made room there yet.
+        if let Some((landing, _)) = drag.pending.take() {
+            drag.landed = drag.before.landed(&drag.tile, &landing, least);
+        }
+        if back {
+            drag.landed = drag.before.clone();
+        }
+        drag.reflow = moving_for(reflow, cx);
+        let landed = (drag.landed != drag.before).then(|| drag.landed.clone());
+        if let Some(landed) = landed {
+            self.store
+                .update(cx, |store, cx| store.land_tiling(landed, cx));
+        }
+        self.move_tiles(cx);
+    }
+
+    /// The selected row's tiling with the row dragged from the navigator along `side`, from
+    /// how it was before that row's tile was tried out in it.
+    fn row_landed(&self, side: Side, cx: &App) -> Option<Tiling> {
+        let store = self.store.read(cx);
+        let pinned = store.row_key(store.dragged_row.as_ref()?);
+        let tiling = match self
+            .row_tile
+            .as_ref()
+            .filter(|tile| tile.settling.is_none())
+        {
+            Some(tile) => tile.before.as_ref(),
+            None => store.tiling(),
+        };
+        store.tiling_with(tiling, &pinned, side, self.least_tile(cx))
+    }
+
+    /// The side of the tiles a row dragged from the navigator lands as a tile with the pointer
+    /// at `position`: only in a strip along the left or the right of them, the rest of them
+    /// being left to the drops they take, as a terminal's paste.
+    fn row_zone_at(&self, position: Point<Pixels>, window: &Window, cx: &App) -> Option<Side> {
+        // A tile zoomed has all the room.
+        if self.tile_zoom.is_some() {
+            return None;
+        }
+        let store = self.store.read(cx);
+        let room = self.tile_room.get();
+        let at = position - room.origin;
+        let (x, y) = (f32::from(at.x), f32::from(at.y));
+        let theme = Theme::get(cx);
+        let width = f32::from(theme.scaled(store.tile_drag_feel.row_zone));
+        let margin = f32::from(theme.scaled(TILE_MARGIN));
+        let (room_width, room_height) = (f32::from(room.size.width), f32::from(room.size.height));
+        // Out over the detail, the navigator covers the left of the tiles.
+        let covered = match self.peek.open {
+            true => {
+                let navigator = self
+                    .detail
+                    .read(cx)
+                    .navigator_width(clock::now(), window, cx);
+                f32::from(theme.scaled(PEEK_INSET + navigator + PEEK_SHADOW))
+            }
+            false => -margin,
+        };
+        let side = match () {
+            _ if y < 0. || y > room_height + margin => return None,
+            _ if x >= covered && x < width => Side::Left,
+            _ if x >= room_width - width && x <= room_width + margin => Side::Right,
+            _ => return None,
+        };
+        self.row_landed(side, cx).map(|_| side)
+    }
+
+    /// Follow the pointer with a row dragged from the navigator: what's in the zone it's over,
+    /// the row's tile starts to slide in once it's rested there.
+    fn drag_row(&mut self, event: &MouseMoveEvent, window: &Window, cx: &mut Context<Self>) {
+        if !cx.has_active_drag() || self.store.read(cx).dragged_row.is_none() {
+            return;
+        }
+        let side = self.row_zone_at(event.position, window, cx);
+        let drag = self.row_drag.get_or_insert_default();
+        if drag.over.map(|(over, _)| over) != side {
+            drag.over = side.map(|side| (side, clock::now()));
+            (self.store).update(cx, |store, cx| {
+                store.tile_zone = side;
+                cx.notify()
+            });
+            self.move_tiles(cx);
+        }
+    }
+
+    /// Let go of a row dragged from the navigator: in a zone, its tile lands there, sliding on
+    /// from as far as it's come, and nothing under the pointer takes the drop. Whether it did.
+    fn let_go_row(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some((side, _)) = self.row_drag.as_ref().and_then(|drag| drag.over) else {
+            return false;
+        };
+        if self.row_tile.as_ref().is_some_and(|tile| tile.side != side) {
+            self.take_row_tile_back(cx);
+        }
+        if self.row_tile.is_none() {
+            self.bring_row_tile(side, cx);
+        }
+        let reflow = self.store.read(cx).tile_drag_feel.reflow;
+        let now = clock::now();
+        let Some(tile) = self.row_tile.as_mut() else {
+            return false;
+        };
+        tile.from = tile.areas(now);
+        tile.settling = Some(moving_for(reflow, cx));
+        let Tile::Pinned(pinned) = tile.tile.clone() else {
+            return false;
+        };
+        (self.store).update(cx, |store, cx| store.row_landed(pinned, cx));
+        self.move_tiles(cx);
+        true
+    }
+
+    /// Try the row dragged out as a tile along `side`, as it'd land there, drawn from where the
+    /// tiles are now.
+    fn bring_row_tile(&mut self, side: Side, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (Some(dragged), Some(selection)) = (&store.dragged_row, &store.selection) else {
+            return;
+        };
+        let (pinned, row) = (store.row_key(dragged), store.row_key(selection));
+        let Some(landed) = self.row_landed(side, cx) else {
+            return;
+        };
+        let before = store.tiling().cloned();
+        let tile = Tile::Pinned(pinned);
+        let mut from = before.clone().unwrap_or_default().areas();
+        let new = from.iter().all(|(other, _)| *other != tile);
+        if new {
+            // Nothing yet, at the side it comes in from.
+            let area = Area {
+                left: if side == Side::Right { 1. } else { 0. },
+                top: 0.,
+                width: 0.,
+                height: 1.,
+            };
+            from.push((tile.clone(), area));
+        }
+        let feel = store.tile_drag_feel;
+        let room = f32::from(self.tile_room.get().size.width).max(1.);
+        let peek = f32::from(Theme::get(cx).scaled(feel.row_peek)) / room;
+        let width = landed.area_of(&tile).map_or(1., |area| area.width);
+        let mut peeking = Slide::lasting(millis(feel.reflow));
+        peeking.start(true, cx);
+        self.tile_slide = None;
+        self.tile_glide = None;
+        self.row_tile = Some(RowTile {
+            tile,
+            new,
+            side,
+            row: row.clone(),
+            before: before.filter(|tiling| !tiling.is_home_only()),
+            landed: landed.clone(),
+            from,
+            held: (peek / width.max(1e-4)).min(1.),
+            open: true,
+            peeking,
+            settling: None,
+        });
+        (self.store).update(cx, |store, cx| store.try_tiling(row, Some(landed), cx));
+    }
+
+    /// Take the tile a row was tried out as away again, its row's tiling as it was, unless
+    /// it's been let go there.
+    fn take_row_tile_back(&mut self, cx: &mut Context<Self>) {
+        let Some(tile) = self.row_tile.take() else {
+            return;
+        };
+        if tile.settling.is_none() {
+            (self.store).update(cx, |store, cx| store.try_tiling(tile.row, tile.before, cx));
+        }
+    }
+
+    /// Forget the tile a row was tried out as once the tiling changes under it, as when a
+    /// terminal's shell exits.
+    fn drop_stale_row_tile(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        if (self.row_tile.as_ref()).is_some_and(|tile| tiling != Some(&tile.landed)) {
+            self.row_tile = None;
+        }
+    }
+
+    /// Move the tile of a row dragged in on: it starts to slide in once the pointer's rested in
+    /// a zone, slides back as it leaves, and goes once it's back, or has settled where it was
+    /// let go.
+    fn move_row_tile(&mut self, now: Instant, cx: &mut Context<Self>) {
+        let feel = self.store.read(cx).tile_drag_feel;
+        let rested = (self.row_drag.as_ref())
+            .and_then(|drag| drag.over)
+            .filter(|(_, since)| now.saturating_duration_since(*since) >= millis(feel.row_wait))
+            .map(|(side, _)| side);
+        let Some(tile) = self.row_tile.as_mut() else {
+            if let Some(side) = rested {
+                self.bring_row_tile(side, cx);
+            }
+            return;
+        };
+        if let Some(settling) = &tile.settling {
+            if settling.openness(now).is_none() {
+                self.row_tile = None;
+            }
+            return;
+        }
+        let wanted = rested == Some(tile.side);
+        if tile.open != wanted {
+            tile.open = wanted;
+            tile.peeking.start(wanted, cx);
+        }
+        if !tile.open && tile.peeking.openness(now).is_none() {
+            self.take_row_tile_back(cx);
+        }
+    }
+
+    /// Where the selected row's tiles are drawn at `now` around a row dragged in, and whether
+    /// they're moving.
+    fn row_tiling(&self, now: Instant) -> Option<(Drawn, bool)> {
+        let tile = self.row_tile.as_ref()?;
+        let moving = match &tile.settling {
+            Some(settling) => settling.openness(now).is_some(),
+            None => tile.peeking.openness(now).is_some(),
+        };
+        let drawn = Drawn {
+            areas: tile.areas(now),
+            dividers: Vec::new(),
+            rest: tile.landed.clone(),
+            lifted: None,
+            zoomed: false,
+        };
+        Some((drawn, moving))
+    }
+
+    /// Forget the tile dragged once the tiling it's dragged in changes under it, as when a
+    /// terminal's shell exits.
+    fn drop_stale_tile_drag(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        let stale = (self.tile_drag.as_ref()).is_some_and(|drag| {
+            let was = if drag.released {
+                &drag.landed
+            } else {
+                &drag.before
+            };
+            tiling != Some(was)
+        });
+        if stale {
+            self.tile_drag = None;
+        }
+    }
+
+    /// Draw the selected row's tiles where they are now, while one slides open or shut or is
+    /// dragged, and as they are once they're still. Before the frame, from what moves them and
+    /// from the frame before while they move, as a view notified while the window draws draws
+    /// again only in the frame after: the detail, which places the home tile, would lag a frame
+    /// behind the tiles drawn here.
+    fn move_tiles(&mut self, cx: &mut Context<Self>) {
+        let now = clock::now();
+        self.move_row_tile(now, cx);
+        let dragged = (self.dragged_tiling(now, cx))
+            .or_else(|| self.row_tiling(now))
+            .or_else(|| self.zoomed_tiling(now));
+        let (drawn, moving) = match dragged {
+            Some((drawn, moving)) => (Some(drawn), moving),
+            None => match (self.sliding_tiling(now, cx)).or_else(|| self.gliding_tiling(now, cx)) {
+                Some((drawn, rest)) => {
+                    let (areas, dividers) = (drawn.areas(), drawn.dividers());
+                    let (lifted, zoomed) = (None, false);
+                    (
+                        Some(Drawn {
+                            areas,
+                            dividers,
+                            rest,
+                            lifted,
+                            zoomed,
+                        }),
+                        true,
+                    )
+                }
+                None => (None, false),
+            },
+        };
+        // A row resting in a zone, before its tile starts to slide in, moves them next.
+        let waiting = (self.row_drag.as_ref()).is_some_and(|drag| drag.over.is_some())
+            && self.row_tile.is_none();
+        let moving = moving || waiting;
+        self.tiles_moving = moving;
+        let changed = (self.store).update(cx, |store, _| store.set_drawn(drawn));
+        if changed {
+            self.detail.update(cx, |_, cx| cx.notify());
+        }
+        // Drawn again while they move, if only to move on the frame after, as while the pointer
+        // rests before the tiles make room.
+        if changed || moving {
+            cx.notify();
+        }
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while a tile's dragged by its bar,
+    /// once the pointer's rested long enough over where it would land, and whether it's moving.
+    /// Once it's settled where it was let go, it's forgotten.
+    fn dragged_tiling(&mut self, now: Instant, cx: &App) -> Option<(Drawn, bool)> {
+        let feel = self.store.read(cx).tile_drag_feel;
+        let room = self.tile_room.get().size;
+        let least = self.least_tile(cx);
+        let drag = self.tile_drag.as_mut().filter(|drag| drag.lifted)?;
+        let rested = (drag.pending.as_ref())
+            .filter(|(_, since)| now.saturating_duration_since(*since) >= millis(feel.wait))
+            .map(|(landing, _)| landing.clone());
+        if let Some(landing) = rested {
+            drag.from = drag.areas(now, room);
+            drag.size_from =
+                (drag.from.last()).map_or(drag.size_from, |(_, area)| (area.width, area.height));
+            drag.landed = drag.before.landed(&drag.tile, &landing, least);
+            drag.shown = drag.before.shown_landing(&drag.tile, &landing, least);
+            drag.landing = landing;
+            drag.pending = None;
+            drag.reflow = moving_for(feel.reflow, cx);
+            drag.resize = moving_for(feel.resize, cx);
+        }
+        let moving = drag.pending.is_some()
+            || drag.reflow.openness(now).is_some()
+            || drag.resize.openness(now).is_some();
+        if drag.released && !moving {
+            self.tile_drag = None;
+            return None;
+        }
+        let drawn = Drawn {
+            areas: drag.areas(now, room),
+            dividers: Vec::new(),
+            rest: drag.drawn_tiling().clone(),
+            lifted: Some(drag.tile.clone()),
+            zoomed: false,
+        };
+        Some((drawn, moving))
+    }
+
+    /// The least a tile is dragged down to, in shares of the room's width and height.
+    fn least_tile(&self, cx: &App) -> (f32, f32) {
+        let room = self.tile_room.get().size;
+        let least = f32::from(Theme::get(cx).scaled(MIN_TILE));
+        (
+            least / f32::from(room.width).max(1.),
+            least / f32::from(room.height).max(1.),
+        )
+    }
+
+    /// The buttons on `tile`'s bar that zoom it and split it, as Zoom tile, Split right and
+    /// Split below do with the keys in it.
+    fn tile_buttons(&self, tile: &Tile, cx: &Context<Self>) -> [Button; 3] {
+        let button = |axis: Axis, icon: Icon, label: &'static str, action: &dyn gpui::Action| {
+            let (this, tile) = (cx.entity().downgrade(), tile.clone());
+            let id = SharedString::from(format!("{label}-{tile:?}"));
+            icon_button(id, icon)
+                .small()
+                .tooltip_for(label, action)
+                .on_click(move |_, window, cx| {
+                    let tile = tile.clone();
+                    (this.update(cx, |this, cx| this.split_tile(tile, axis, window, cx))).ok();
+                })
+        };
+        let (icon, label) = match self.zoomed() == Some(tile) {
+            true => (Icon::TileUnzoom, "Zoom out"),
+            false => (Icon::TileZoom, "Zoom"),
+        };
+        let (this, zoomed) = (cx.entity().downgrade(), tile.clone());
+        let zoom = icon_button(SharedString::from(format!("zoom-{tile:?}")), icon)
+            .small()
+            .tooltip_for(label, &ZoomTile)
+            .on_click(move |_, window, cx| {
+                let tile = zoomed.clone();
+                (this.update(cx, |this, cx| this.toggle_zoom(tile, window, cx))).ok();
+            });
+        [
+            zoom,
+            button(Axis::Across, Icon::SplitRight, "Split right", &SplitRight),
+            button(Axis::Down, Icon::SplitBelow, "Split below", &SplitBelow),
+        ]
+    }
+
+    /// What pressing `tile`'s bar does, besides giving it the keys: it can be dragged.
+    fn grab_tile(
+        &self,
+        tile: Tile,
+        cx: &Context<Self>,
+    ) -> impl Fn(&MouseDownEvent, &mut App) + 'static + use<> {
+        let this = cx.entity().downgrade();
+        move |event, cx| {
+            (this.update(cx, |this, cx| {
+                this.press_tile(tile.clone(), event.position, cx)
+            }))
+            .ok();
+        }
+    }
+
+    /// Over the room the tiles share: keeps where it is for a tile dragged by its bar, and
+    /// follows the pointer over the whole window while one is.
+    fn watch_tile_drag(&self, cx: &Context<Self>) -> impl IntoElement {
+        let (this, room) = (cx.entity().downgrade(), self.tile_room.clone());
+        gpui::canvas(
+            |_, _, _| {},
+            move |bounds, (), window, _| {
+                room.set(bounds);
+                let on_move = this.clone();
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                    if phase != DispatchPhase::Capture {
+                        return;
+                    }
+                    let taken = on_move.update(cx, |this, cx| {
+                        this.drag_row(event, window, cx);
+                        this.drag_tile(event, cx)
+                    });
+                    if taken.unwrap_or(false) {
+                        cx.stop_propagation();
+                    }
+                });
+                let on_up = this.clone();
+                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
+                        let landed = on_up.update(cx, |this, cx| {
+                            this.let_go_tile(false, cx);
+                            this.store.update(cx, |store, cx| {
+                                if store.dragged_divider.take().is_some() {
+                                    cx.notify();
+                                }
+                            });
+                            this.let_go_row(cx)
+                        });
+                        if landed.unwrap_or(false) {
+                            cx.stop_propagation();
+                        }
+                    }
+                });
+                // While one's dragged, in a build of its own, for testing how it lands: the
+                // right button shows where the pointer lands it where, or hides it, and the
+                // middle one saves a picture of the window.
+                if !backend::settings::dev_build() {
+                    return;
+                }
+                let on_down = this;
+                window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+                    let dragged = (on_down.upgrade()).is_some_and(|this| {
+                        this.read(cx).tile_dragged() || this.read(cx).row_dragged(cx)
+                    });
+                    if phase != DispatchPhase::Capture || !dragged {
+                        return;
+                    }
+                    let done = on_down.update(cx, |this, cx| match event.button {
+                        MouseButton::Right => this.toggle_drop_zones(cx),
+                        MouseButton::Middle => this.save_screenshot(window, cx),
+                        _ => false,
+                    });
+                    if done.unwrap_or(false) {
+                        cx.stop_propagation();
+                    }
+                });
+            },
+        )
+        .absolute()
+        .inset_0()
+    }
+
+    /// Show where the pointer lands the tile dragged by its bar where, or stop showing it, for
+    /// this drag alone. Whether it did, as one's dragged.
+    fn toggle_drop_zones(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.row_dragged(cx) {
+            let drag = self.row_drag.get_or_insert_default();
+            drag.zones = !drag.zones;
+            cx.notify();
+            return true;
+        }
+        let feel = self.store.read(cx).tile_drag_feel;
+        let theme = Theme::get(cx);
+        let sizes = (
+            f32::from(theme.scaled(feel.edge)),
+            f32::from(theme.scaled(feel.right_edge)),
+            f32::from(theme.scaled(feel.bar)),
+        );
+        let room = self.tile_room.get().size;
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return false;
+        };
+        drag.zones = match drag.zones.is_empty() {
+            true => drag.zones(room, sizes),
+            false => Vec::new(),
+        };
+        cx.notify();
+        true
+    }
+
+    /// Save a picture of the window where macOS saves screenshots, and copy it. Whether it
+    /// does, as only macOS does.
+    #[cfg(target_os = "macos")]
+    fn save_screenshot(&mut self, window: &Window, cx: &mut Context<Self>) -> bool {
+        let Some(number) = window_number(window) else {
+            return false;
+        };
+        let store = self.store.clone();
+        cx.spawn(async move |_, cx| {
+            let saved = backend::run(move || backend::screenshot::window(number)).await;
+            store.update(cx, |store, cx| match saved {
+                Ok((path, png)) => {
+                    let image = gpui::Image::from_bytes(gpui::ImageFormat::Png, png);
+                    cx.write_to_clipboard(ClipboardItem::new_image(&image));
+                    let name = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                    store.snack(format!("Saved and copied {}", name.unwrap_or_default()), cx);
+                }
+                Err(err) => store.failed("Couldn't take a screenshot", &err, cx),
+            })
+        })
+        .detach();
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn save_screenshot(&mut self, _: &Window, _: &mut Context<Self>) -> bool {
+        false
+    }
+
+    /// Show or hide where the tile dragged lands where as ⌥ goes down, not as it comes up.
+    fn option_changed(&mut self, held: bool, cx: &mut Context<Self>) {
+        if self.row_dragged(cx) {
+            let drag = self.row_drag.get_or_insert_default();
+            let pressed = held && !drag.option;
+            drag.option = held;
+            if pressed {
+                self.toggle_drop_zones(cx);
+            }
+            return;
+        }
+        if !self.tile_dragged() {
+            return;
+        }
+        let Some(drag) = self.tile_drag.as_mut() else {
+            return;
+        };
+        let pressed = held && !drag.option;
+        drag.option = held;
+        if pressed {
+            self.toggle_drop_zones(cx);
+        }
+    }
+
+    /// Whether a row's being dragged from the navigator.
+    fn row_dragged(&self, cx: &App) -> bool {
+        cx.has_active_drag() && self.store.read(cx).dragged_row.is_some()
+    }
+
+    /// Whether a tile's being dragged by its bar, come off and not let go yet.
+    fn tile_dragged(&self) -> bool {
+        (self.tile_drag.as_ref()).is_some_and(|drag| drag.lifted && !drag.released)
+    }
+
+    /// Close the selected terminal, the home tile, while a terminal pinned beside it would take
+    /// its place, as its shell exiting does.
+    fn close_home(&self, cx: &App) -> Option<impl Fn(&mut App) + Clone + 'static> {
+        let store = self.store.read(cx);
+        if store.home_heirs(&[]).is_empty() {
+            return None;
+        }
+        let Some(Selection::Terminal(_, id)) = store.selection else {
+            return None;
+        };
+        let store = self.store.clone();
+        Some(move |cx: &mut App| store.update(cx, |store, cx| store.close_terminal(id, cx)))
+    }
+
+    /// The tile of the selected row's tiling that has the keys: a pinned one, else its home
+    /// tile.
+    pub(crate) fn focused_tile(&self, window: &Window, cx: &App) -> Tile {
+        self.tile_with_keys(window, cx).unwrap_or(Tile::Home)
+    }
+
+    /// Over a terminal's card, its edge in pop while what's held over it would paste there, a
+    /// row or files from the Finder, as a row that takes a drop has. It's drawn here, where
+    /// GPUI styles it again each frame of the drag: the terminal's own view draws only when it
+    /// changes, and the detail under the home tile is cached, so one there would stay up after
+    /// a drag let go elsewhere or stopped with Escape.
+    fn paste_outline(&self, theme: &Theme) -> Div {
+        let (store, color) = (self.store.clone(), theme.pop);
+        card_edge(gpui::transparent_black())
             .drag_over::<Cut>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_1().border_color(color))
-            // Not once a commit or worktree the drag holds is gone, which pastes nothing.
+            // Not once a commit or worktree the drag holds is gone, which pastes nothing, nor
+            // where a row lands as a tile instead.
             .can_drop(move |dragged, _, cx| {
-                !dragged.is::<Cut>() || store.read(cx).pasted().is_some()
+                let store = store.read(cx);
+                store.tile_zone.is_none() && (!dragged.is::<Cut>() || store.pasted().is_some())
             })
     }
 
@@ -1929,7 +3427,7 @@ impl AppView {
         navigator_share: f32,
         files_sliding: bool,
         window: &Window,
-        cx: &App,
+        cx: &Context<Self>,
     ) -> Div {
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
         let sliding = self.detail_slide.openness(now).is_some();
@@ -2038,6 +3536,451 @@ impl AppView {
     }
 }
 
+/// A line over the edge of a tile's card, in `color`: the tile with the keys', in gray, or one
+/// a drag would paste into, in pop.
+fn card_edge(color: gpui::Hsla) -> Div {
+    crate::ui::inset_by(div(), TILE_MARGIN)
+        .rounded(dp(6.))
+        .border_1()
+        .border_color(color)
+}
+
+/// A tile's bar, `TILE_BAR` tall: what it shows, by `kind`'s icon and `title`, and `buttons`, as
+/// its ×. A press anywhere else on it gives `focus` the keys, the tile's, and `grab`s the tile,
+/// to drag it.
+fn tile_bar(
+    kind: Icon,
+    title: SharedString,
+    buttons: impl IntoIterator<Item = Button>,
+    focus: Option<FocusHandle>,
+    grab: impl Fn(&MouseDownEvent, &mut App) + 'static,
+    theme: &Theme,
+) -> Div {
+    h_flex()
+        .h(dp(TILE_BAR))
+        .pl(dp(8.))
+        .pr(dp(2.))
+        .gap(dp(6.))
+        .text_size(dp(12.))
+        .text_color(theme.text_2)
+        .child(small_icon(kind).text_color(theme.text_3))
+        .child(div().flex_grow(1.).min_w_0().truncate().child(title))
+        .child(h_flex().flex_none().children(buttons))
+        .on_mouse_down(MouseButton::Left, move |event, window, cx| {
+            if let Some(focus) = &focus {
+                window.focus(focus, cx);
+            }
+            grab(event, cx);
+        })
+}
+
+/// Where a tile dragged by its bar lands, in a few words, the tiles by what they show.
+fn landing_text(landing: &Landing, store: &Store, home: &RowKey) -> String {
+    let name = |tile: &Tile| {
+        let row = match tile {
+            Tile::Home => home,
+            Tile::Pinned(pinned) => pinned,
+        };
+        tile_label(store, row).1
+    };
+    let edge = |side: &Side| match side {
+        Side::Left => "left",
+        Side::Right => "right",
+        Side::Top => "top",
+        Side::Bottom => "bottom",
+    };
+    match landing {
+        Landing::Stay => "Stays".to_owned(),
+        Landing::Beside(tile, Side::Left) => format!("Left of {}", name(tile)),
+        Landing::Beside(tile, Side::Right) => format!("Right of {}", name(tile)),
+        Landing::Beside(tile, Side::Top) => format!("Above {}", name(tile)),
+        Landing::Beside(tile, Side::Bottom) => format!("Below {}", name(tile)),
+        Landing::Edge(side) => format!("Along the {}", edge(side)),
+        Landing::BelowRow => "Below its row".to_owned(),
+    }
+}
+
+/// What a tile pinned to `row` shows, as Go to anything names it: its kind's icon, and its
+/// name.
+pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
+    let Some(selection) = store.selection_of(row) else {
+        return (Icon::Commit, "Gone".into());
+    };
+    let workspace = store.workspace(selection.project());
+    let worktree = |checkout: &Checkout| -> SharedString {
+        checkout
+            .linked()
+            .map_or("Main worktree".into(), |name| name.to_string().into())
+    };
+    match &selection {
+        Selection::Terminal(_, id) => {
+            let title = store.terminals.title(*id).cloned();
+            (Icon::TextCode, title.unwrap_or("Terminal".into()))
+        }
+        Selection::Commit(project, id) | Selection::Upstream(project, _, id) => {
+            let title = store
+                .find_commit(project, *id)
+                .map(|(_, c)| commit_title(&c.title));
+            (Icon::Commit, title.unwrap_or_else(|| id.short().into()))
+        }
+        Selection::Branch(project, ref_name) => {
+            let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_ref()));
+            let name = match (branch, ref_name) {
+                (Some(branch), _) => store.name_of(project, branch).to_owned(),
+                (None, Some(ref_name)) => short_ref(ref_name).into_owned(),
+                (None, None) => "Unnamed branch".to_owned(),
+            };
+            (Icon::Branch, name.into())
+        }
+        Selection::Stack(..) => (Icon::Branch, "Stack".into()),
+        Selection::Branches(_) => (Icon::Branch, "Branches".into()),
+        Selection::History(_) => (Icon::Clock, "Operations history".into()),
+        Selection::Graph(_) => (Icon::Fork, "Graph".into()),
+        Selection::Project(project) => {
+            let name = store.project(project).map(|e| e.project.name.clone());
+            (Icon::Repo, name.unwrap_or_default().into())
+        }
+        Selection::Checkout(_, checkout) => (Icon::FolderCopy, worktree(checkout)),
+        Selection::Uncommitted(..) => (Icon::FolderCopy, "Uncommitted changes".into()),
+        Selection::Section(..) | Selection::Mesh(..) => (Icon::FolderCopy, "Worktrees".into()),
+    }
+}
+
+/// A pinned tile's page: a detail of its own, and the diff drawn over it.
+struct Page {
+    detail: Entity<Detail>,
+    diff: Entity<DiffPane>,
+}
+
+/// A tile sliding open out of the split it's pinned at, or shut back into it as it closes, as
+/// the detail slides in beside the navigator.
+struct TileSlide {
+    tile: RowKey,
+    slide: Slide,
+    /// Shutting, what it goes from.
+    going: Option<Going>,
+}
+
+/// The lines of a tiling sliding from where they were to where they are now.
+struct TileGlide {
+    from: Tiling,
+    to: Tiling,
+    slide: Slide,
+}
+
+/// A tile shutting: the tiling as it was with it there, and what it showed, kept to draw it
+/// going: the terminal that closed with it, or its page.
+struct Going {
+    before: Tiling,
+    terminal: Option<Entity<crate::terminal::Terminal>>,
+    page: Option<Page>,
+}
+
+/// A tile pressed by its bar, from then until it's let go and has settled where it lands.
+/// Positions are in the room the tiles share, in pixels.
+struct TileDrag {
+    tile: Tile,
+    /// The row's tiling as it was pressed.
+    before: Tiling,
+    pressed: Point<Pixels>,
+    pointer: Point<Pixels>,
+    /// Where the pointer holds the tile: the share of its width it's in from its left, and
+    /// how far down from its top, in pixels, as it's held by its bar.
+    grab: (f32, f32),
+    /// Whether the pointer's moved far enough for the tile to come off.
+    lifted: bool,
+    /// Where the pointer lands it where, in pixels in the room, while the right button or ⌥
+    /// has them shown in this drag.
+    zones: Vec<DropZone>,
+    /// Whether ⌥ was down as the modifiers last changed, so it shows them only as it goes down.
+    option: bool,
+    /// Where it lands, the tiling it makes there, and that tiling as it's drawn until it's let
+    /// go: see [`Tiling::shown_landing`].
+    landing: Landing,
+    landed: Tiling,
+    shown: Tiling,
+    /// Where the pointer is over, until it's rested there long enough for the tiles to make
+    /// room, and since when.
+    pending: Option<(Landing, Instant)>,
+    /// Where each tile was drawn as it last landed somewhere new, which they move on from,
+    /// and the dragged one's width and height then.
+    from: Vec<(Tile, Area)>,
+    size_from: (f32, f32),
+    /// The other tiles moving out of its way, and it growing or shrinking to its room there.
+    reflow: Slide,
+    resize: Slide,
+    /// Whether it's been let go, and settles into its place.
+    released: bool,
+}
+
+/// A tile of the selected row grown over the others to take all their room, or on its way
+/// there or back.
+struct TileZoom {
+    tile: Tile,
+    /// The tiling it's zoomed in, which the others stay as they are in.
+    tiling: Tiling,
+    /// Whether it's zoomed, not going back, and how far it's come.
+    open: bool,
+    slide: Slide,
+}
+
+/// A row of the navigator being dragged, as far as the tiles are concerned.
+#[derive(Default)]
+struct RowDrag {
+    /// The side whose zone the pointer's in, and since when.
+    over: Option<(Side, Instant)>,
+    /// Whether the right button or ⌥ has the zones shown in this drag.
+    zones: bool,
+    /// Whether ⌥ was down as the modifiers last changed, so it shows them only as it goes down.
+    option: bool,
+}
+
+/// The tile of a row dragged from the navigator, held in a zone or let go there: from the
+/// start it's in its row's tiling as it would land, and drawn in part of the way there.
+struct RowTile {
+    tile: Tile,
+    /// Whether it's a new tile, drawn at its final size and cut off, rather than one moving.
+    new: bool,
+    side: Side,
+    /// The row whose tiling it's in, and that tiling without it, with `None` the row alone.
+    row: RowKey,
+    before: Option<Tiling>,
+    landed: Tiling,
+    /// Where the tiles move on from.
+    from: Vec<(Tile, Area)>,
+    /// How much of the way there it comes while it's held.
+    held: f32,
+    /// Whether it's coming in or going back, and how far.
+    open: bool,
+    peeking: Slide,
+    /// Sliding the rest of the way, from `from`, once it's let go.
+    settling: Option<Slide>,
+}
+
+impl RowTile {
+    /// Where each tile is drawn at `now`.
+    fn areas(&self, now: Instant) -> Vec<(Tile, Area)> {
+        let at = match &self.settling {
+            Some(settling) => settling.openness(now).unwrap_or(1.),
+            None => self.held * self.peeking.share(self.open, now),
+        };
+        (self.landed.areas().into_iter())
+            .map(|(tile, area)| {
+                let was = (self.from.iter()).find(|(other, _)| *other == tile);
+                let drawn = was.map_or(area, |(_, was)| was.toward(area, at));
+                (tile, drawn)
+            })
+            .collect()
+    }
+
+    /// The row whose new tile is coming in, drawn at its final size.
+    fn opening(&self) -> Option<RowKey> {
+        match &self.tile {
+            Tile::Pinned(row) if self.new => Some(row.clone()),
+            Tile::Pinned(_) | Tile::Home => None,
+        }
+    }
+}
+
+/// A box of the room, in pixels, where the pointer lands a tile dragged by its bar at
+/// `landing`: nowhere, with `None`.
+#[derive(Debug, Clone, PartialEq)]
+struct DropZone {
+    landing: Option<Landing>,
+    left: f32,
+    top: f32,
+    right: f32,
+    bottom: f32,
+}
+
+/// How finely [`TileDrag::zones`] looks where the pointer lands the tile, in pixels.
+const ZONE_STEP: f32 = 6.;
+
+/// How far past the room [`TileDrag::zones`] looks, for the landings along its sides.
+const ZONE_BEYOND: f32 = 48.;
+
+impl TileDrag {
+    /// Where it lands with the pointer `at`, in pixels in the room, `room` big. How far in a
+    /// side's zone reaches and how tall a tile's bar's row is are in pixels.
+    fn landing_under(
+        &self,
+        at: (f32, f32),
+        room: gpui::Size<Pixels>,
+        (edge, right, bar): (f32, f32, f32),
+    ) -> Option<Landing> {
+        let (room_width, room_height) = (
+            f32::from(room.width).max(1.),
+            f32::from(room.height).max(1.),
+        );
+        let pointer = (at.0 / room_width, at.1 / room_height);
+        let zones = Zones {
+            edge: (edge / room_width, edge / room_height),
+            right: right / room_width,
+            bar: bar / room_height,
+        };
+        (self.before).landing_at(&self.tile, pointer, zones)
+    }
+
+    /// Where the pointer lands it where, over the room and a little past it, by asking
+    /// [`Self::landing_under`] every [`ZONE_STEP`] pixels: boxes of the same landing, a row's
+    /// run at a time, run on down while the rows below match.
+    fn zones(&self, room: gpui::Size<Pixels>, sizes: (f32, f32, f32)) -> Vec<DropZone> {
+        let (width, height) = (f32::from(room.width), f32::from(room.height));
+        let steps = |length: f32| ((length + 2. * ZONE_BEYOND) / ZONE_STEP).ceil() as usize;
+        let mut zones: Vec<DropZone> = Vec::new();
+        // The zones still open at the row above, by their run's left and right.
+        let mut open: Vec<usize> = Vec::new();
+        for row in 0..steps(height) {
+            let top = row as f32 * ZONE_STEP - ZONE_BEYOND;
+            let mut runs: Vec<(Option<Landing>, f32, f32)> = Vec::new();
+            for column in 0..steps(width) {
+                let left = column as f32 * ZONE_STEP - ZONE_BEYOND;
+                let middle = (left + ZONE_STEP / 2., top + ZONE_STEP / 2.);
+                let landing = self.landing_under(middle, room, sizes);
+                match runs.last_mut() {
+                    Some((was, _, right)) if *was == landing => *right = left + ZONE_STEP,
+                    _ => runs.push((landing, left, left + ZONE_STEP)),
+                }
+            }
+            let mut still_open = Vec::new();
+            for (landing, left, right) in runs {
+                let above = (open.iter().copied()).find(|ix| {
+                    zones.get(*ix).is_some_and(|zone| {
+                        zone.landing == landing && zone.left == left && zone.right == right
+                    })
+                });
+                match above.and_then(|ix| Some((ix, zones.get_mut(ix)?))) {
+                    Some((ix, zone)) => {
+                        zone.bottom = top + ZONE_STEP;
+                        still_open.push(ix);
+                    }
+                    None => {
+                        still_open.push(zones.len());
+                        let bottom = top + ZONE_STEP;
+                        zones.push(DropZone {
+                            landing,
+                            left,
+                            top,
+                            right,
+                            bottom,
+                        });
+                    }
+                }
+            }
+            open = still_open;
+        }
+        zones
+    }
+
+    /// What the tiles move to: as it would land while it's held, as it lands once it's let go.
+    fn drawn_tiling(&self) -> &Tiling {
+        match self.released {
+            true => &self.landed,
+            false => &self.shown,
+        }
+    }
+
+    /// Where each tile is drawn at `now`, the dragged one last, over the others: under the
+    /// pointer, as big as its room where it lands, until it's let go.
+    fn areas(&self, now: Instant, room: gpui::Size<Pixels>) -> Vec<(Tile, Area)> {
+        let reflow = self.reflow.openness(now).unwrap_or(1.);
+        let to = self.drawn_tiling().areas();
+        let from = |tile: &Tile| (self.from.iter()).find(|(other, _)| other == tile);
+        let mut areas: Vec<(Tile, Area)> = (to.iter())
+            .filter(|(tile, _)| *tile != self.tile)
+            .map(|(tile, area)| {
+                let was = from(tile).map_or(*area, |(_, was)| *was);
+                (tile.clone(), was.toward(*area, reflow))
+            })
+            .collect();
+        let Some(slot) = (to.iter())
+            .find(|(tile, _)| *tile == self.tile)
+            .map(|(_, a)| *a)
+        else {
+            return areas;
+        };
+        let dragged = match self.released {
+            true => from(&self.tile)
+                .map_or(slot, |(_, was)| *was)
+                .toward(slot, reflow),
+            false => {
+                let resize = self.resize.openness(now).unwrap_or(1.);
+                let (width, height) = (
+                    self.size_from.0 + (slot.width - self.size_from.0) * resize,
+                    self.size_from.1 + (slot.height - self.size_from.1) * resize,
+                );
+                let (room_width, room_height) = (
+                    f32::from(room.width).max(1.),
+                    f32::from(room.height).max(1.),
+                );
+                let down = self.grab.1.clamp(0., height * room_height);
+                Area {
+                    left: f32::from(self.pointer.x) / room_width - self.grab.0 * width,
+                    top: (f32::from(self.pointer.y) - down) / room_height,
+                    width,
+                    height,
+                }
+            }
+        };
+        areas.push((self.tile.clone(), dragged));
+        areas
+    }
+}
+
+/// The least a tile is dragged down to, in design pixels.
+const MIN_TILE: f32 = 160.;
+
+/// How long a tile takes to slide open out of its split or shut into it: quicker than a fold,
+/// as it's often a step on the way to typing in it.
+const TILE_SLIDE: std::time::Duration = std::time::Duration::from_millis(110);
+
+/// A motion `ms` long, set off now.
+fn moving_for(ms: f32, cx: &App) -> Slide {
+    let mut slide = Slide::lasting(millis(ms));
+    slide.start(true, cx);
+    slide
+}
+
+fn millis(ms: f32) -> Duration {
+    Duration::from_secs_f32(ms.max(0.) / 1000.)
+}
+
+/// How big the handle over a junction is, a little past the gaps that meet there.
+const JUNCTION_HANDLE: f32 = 16.;
+
+/// Move `divider` to `pointer`, in the room the tiles share, `bounds` big.
+fn move_divider(
+    store: &Entity<Store>,
+    divider: &Divider,
+    bounds: Bounds<Pixels>,
+    pointer: Point<Pixels>,
+    cx: &mut App,
+) {
+    let (along, length, start, share) = match divider.axis {
+        Axis::Across => (
+            pointer.x - bounds.left(),
+            bounds.size.width,
+            divider.room.left,
+            divider.room.width,
+        ),
+        Axis::Down => (
+            pointer.y - bounds.top(),
+            bounds.size.height,
+            divider.room.top,
+            divider.room.height,
+        ),
+    };
+    let room = f32::from(length) * share;
+    if room <= 0. {
+        return;
+    }
+    let at = (f32::from(along) / f32::from(length) - start) / share;
+    let min = f32::from(Theme::get(cx).scaled(MIN_TILE)) / room;
+    store.update(cx, |store, cx| {
+        store.move_divider(&divider.path, divider.after, at, min, cx)
+    });
+}
+
 impl Focusable for AppView {
     fn focus_handle(&self, cx: &App) -> FocusHandle {
         self.navigator.focus_handle(cx)
@@ -2049,6 +3992,8 @@ impl Render for AppView {
         // Every `dp` size is in rems, so this scales the whole window.
         window.set_rem_size(Theme::get(cx).scaled(crate::ui::BASE_REM));
         crate::ui::Covered::note(self.covered(), window, cx);
+        // GPUI draws the window again whenever the keys move.
+        self.note_tile_with_keys(window, cx);
         // After this frame, whose actions are the selection's now.
         if self.pending_menu.is_some() {
             let this = cx.entity().downgrade();
@@ -2064,11 +4009,21 @@ impl Render for AppView {
         let now = clock::now();
         let navigator_share = self.navigator_slide.share(self.navigator_open, now);
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        // Pinned pages fit their file lists to the same room.
+        for detail in std::iter::once(&self.detail).chain(self.pages.values().map(|p| &p.detail)) {
+            let detail = detail.read(cx);
+            detail.navigator_shown.set(navigator_share);
+            (detail.window_width).set(self.narrowing.map(|narrowing| narrowing.wide));
+        }
+        // Tiles sliding open or shut, or dragged, move on before the next frame.
+        let tile_sliding = self.tiles_moving;
+        if tile_sliding {
+            let this = cx.entity().downgrade();
+            window.on_next_frame(move |_, cx| {
+                (this.update(cx, |this, cx| this.move_tiles(cx))).ok();
+            });
+        }
         let detail = self.detail.read(cx);
-        detail.navigator_shown.set(navigator_share);
-        detail
-            .window_width
-            .set(self.narrowing.map(|narrowing| narrowing.wide));
         let files_sliding = detail.sliding(now);
         let peek_sliding = self.peek.slide.openness(now).is_some();
         // Likewise the navigator, beside as much of the detail as shows.
@@ -2101,9 +4056,14 @@ impl Render for AppView {
             .aria_label("GitButler")
             .key_context("Workspace")
             // Drop targets read ⌥ to tell moving from squashing.
-            .on_modifiers_changed(cx.listener(|this, _, _, cx| {
+            .on_modifiers_changed(cx.listener(|this, event: &ModifiersChangedEvent, _, cx| {
                 if cx.has_active_drag() || this.store.read(cx).cut.is_some() {
                     this.navigator.update(cx, |_, cx| cx.notify());
+                }
+                // In a build of its own, ⌥ shows where a tile dragged lands where, as the right
+                // button does.
+                if backend::settings::dev_build() {
+                    this.option_changed(event.modifiers.alt, cx);
                 }
             }))
             // GPUI counts nothing as under the pointer while the last input was a key, and a
@@ -2154,6 +4114,32 @@ impl Render for AppView {
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::new_terminal))
+            .on_action(
+                cx.listener(|this, _: &SplitRight, window, cx| {
+                    this.split(Axis::Across, window, cx)
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &SplitBelow, window, cx| this.split(Axis::Down, window, cx)),
+            )
+            .when(self.store.read(cx).tiling().is_some(), |el| {
+                el.on_action(
+                    cx.listener(|this, _: &ZoomTile, window, cx| this.zoom_with_keys(window, cx)),
+                )
+                .on_action(cx.listener(|this, _: &EqualizeTiles, _, cx| this.equalize_tiles(cx)))
+                .on_action(cx.listener(|this, _: &NextTile, window, cx| {
+                    this.focus_next_tile(false, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &PreviousTile, window, cx| {
+                    this.focus_next_tile(true, window, cx)
+                }))
+                // Only in a build of its own, to show how tiles are laid out in a report.
+                .when(backend::settings::dev_build(), |el| {
+                    el.on_action(
+                        cx.listener(|this, _: &CopyTileDiagram, _, cx| this.copy_tile_diagram(cx)),
+                    )
+                })
+            })
             // The selection doesn't decide: an operation that finished in another project is
             // still the last thing done.
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
@@ -2330,7 +4316,11 @@ impl Render for AppView {
                     // What the navigator's menus and keys, and the commit header's menu, do to
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
-                    .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
+                    .on_drag_move(resize_pane(
+                        Pane::Navigator,
+                        TILE_MARGIN,
+                        self.store.clone(),
+                    ))
                     .map(|el| match detail_share < 1. {
                         true => el.overflow_hidden().child(self.render_detail_aside(
                             now,
@@ -2473,6 +4463,54 @@ fn show_cursor_again(window: &Window) {
         if !ns_window.is_null() {
             let _: () = msg_send![ns_window, invalidateCursorRectsForView: view];
         }
+    }
+}
+
+/// Keep a drag going through a click of the right or middle button, as showing where a row
+/// lands and taking a picture of it are, in a build of its own: GPUI ends a drag as any button
+/// comes up, so AppKit keeps those releases from it while the left one's down.
+#[cfg(target_os = "macos")]
+fn keep_drags_through_other_buttons() {
+    use block2::RcBlock;
+    use objc2::{class, msg_send, runtime::AnyObject};
+
+    // `NSEventMaskRightMouseUp` and `NSEventMaskOtherMouseUp`.
+    const RELEASES: u64 = (1 << 4) | (1 << 26);
+    let keep = RcBlock::new(|event: *mut AnyObject| -> *mut AnyObject {
+        // SAFETY: `pressedMouseButtons` only reads which buttons are down.
+        let pressed: usize = unsafe { msg_send![class!(NSEvent), pressedMouseButtons] };
+        match pressed & 1 {
+            0 => event,
+            _ => std::ptr::null_mut(),
+        }
+    });
+    // SAFETY: AppKit copies the block, and calls it on the main thread with each event it's
+    // about to send, as this method's contract says; it keeps the monitor for the app's life.
+    unsafe {
+        let _: *mut AnyObject = msg_send![
+            class!(NSEvent),
+            addLocalMonitorForEventsMatchingMask: RELEASES,
+            handler: &*keep
+        ];
+    }
+}
+
+/// The number AppKit gives `window`, which `screencapture` takes.
+#[cfg(target_os = "macos")]
+fn window_number(window: &Window) -> Option<isize> {
+    use objc2::{msg_send, runtime::AnyObject};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let handle = HasWindowHandle::window_handle(window).ok()?;
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return None;
+    };
+    let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+    // SAFETY: `view` is the window's live NSView, used on the main thread, and `windowNumber`
+    // only reads its window's number.
+    unsafe {
+        let ns_window: *mut AnyObject = msg_send![view, window];
+        (!ns_window.is_null()).then(|| msg_send![ns_window, windowNumber])
     }
 }
 

@@ -3,11 +3,12 @@
 //! the new build.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::time::Instant;
 
 use gpui::{Context, Entity, SharedString, Subscription};
 
-use super::{ProjectId, Selection, Store, StoreEvent};
+use super::{Axis, ProjectId, RowKey, Selection, Store, StoreEvent, Tile, Tiling};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId, shell_quoted};
 #[cfg(unix)]
@@ -42,6 +43,9 @@ struct Open {
     /// The name the user gave it, if they did.
     named: Option<SharedString>,
     status: Status,
+    /// It was opened in a tile, which it lives in alone: the navigator doesn't list it, and it
+    /// closes with the tile.
+    tiled: bool,
     _events: Subscription,
 }
 
@@ -73,7 +77,8 @@ impl Terminals {
             .map(|open| &open.status)
     }
 
-    /// Those open on `project`'s `checkout`, in the order they opened.
+    /// Those open on `project`'s `checkout`, in the order they opened, but for those opened in
+    /// a tile, which live there alone.
     pub fn on<'a>(
         &'a self,
         project: &'a ProjectId,
@@ -81,7 +86,13 @@ impl Terminals {
     ) -> impl Iterator<Item = (TerminalId, &'a Entity<Terminal>)> + 'a {
         (self.open.iter())
             .filter(move |open| open.project == *project && open.checkout == *checkout)
+            .filter(|open| !open.tiled)
             .map(|open| (open.id, &open.terminal))
+    }
+
+    /// Whether terminal `id` was opened in a tile, which it lives in alone.
+    pub fn tiled(&self, id: TerminalId) -> bool {
+        self.open.iter().any(|open| open.id == id && open.tiled)
     }
 
     /// The checkout `selection` is a terminal on, if it is one.
@@ -117,6 +128,18 @@ impl Store {
         checkout: Checkout,
         cx: &mut Context<Self>,
     ) {
+        self.open_terminal_then(project, checkout, None, cx);
+    }
+
+    /// Open a terminal on `project`'s `checkout`. Once its shell has started, select it, or pin
+    /// it as `pin` says.
+    pub(super) fn open_terminal_then(
+        &mut self,
+        project: ProjectId,
+        checkout: Checkout,
+        pin: Option<(RowKey, Tile, Axis)>,
+        cx: &mut Context<Self>,
+    ) {
         let Some(cwd) = self.checkout_path(&project, &checkout) else {
             return;
         };
@@ -140,7 +163,7 @@ impl Store {
                             None,
                             store.workspace(&project),
                         );
-                        store.add_terminal(project, checkout, terminal, cx);
+                        store.add_terminal(project, checkout, terminal, pin, cx);
                     }
                     Err(err) => store.failed("Couldn't open a terminal", &err, cx),
                 }
@@ -155,10 +178,20 @@ impl Store {
         project: ProjectId,
         checkout: Checkout,
         terminal: Entity<Terminal>,
+        pin: Option<(RowKey, Tile, Axis)>,
         cx: &mut Context<Self>,
     ) {
         let id = TerminalId(self.terminals.opened + 1);
         self.insert_terminal(id, project.clone(), checkout, terminal, None, cx);
+        // With the tile it was to go beside gone, it opens as a terminal of its own does.
+        if let Some(pin) = pin {
+            self.set_tiled(id, true);
+            let row = RowKey::Row(Selection::Terminal(project.clone(), id));
+            if self.pin_into(pin, row, cx) {
+                return;
+            }
+            self.set_tiled(id, false);
+        }
         self.select(Some(Selection::Terminal(project, id)), cx);
         // A selection that stays put leaves the new one out of sight.
         self.show_terminals(cx);
@@ -189,6 +222,7 @@ impl Store {
             title,
             named,
             status,
+            tiled: false,
             _events: events,
         });
     }
@@ -304,15 +338,29 @@ impl Store {
         self.show_terminals(cx);
     }
 
-    /// Tells each terminal whether it's on screen: the one selected, while the window shows.
-    /// Those out of sight read and answer their shells but don't draw.
+    fn set_tiled(&mut self, id: TerminalId, tiled: bool) {
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
+            open.tiled = tiled;
+        }
+    }
+
+    /// Tells each terminal whether it's on screen: the one selected and those pinned beside it,
+    /// while the window shows. Those out of sight read and answer their shells but don't draw.
     pub(super) fn show_terminals(&mut self, cx: &mut Context<Self>) {
-        let on_screen = match &self.selection {
-            Some(Selection::Terminal(_, id)) if !self.hidden() => Some(*id),
+        let selected = match &self.selection {
+            Some(Selection::Terminal(_, id)) => Some(*id),
             _ => None,
         };
+        let pinned = self.pinned().into_iter().filter_map(|row| match row {
+            RowKey::Row(Selection::Terminal(_, id)) => Some(id),
+            _ => None,
+        });
+        let on_screen: Vec<TerminalId> = match self.hidden() {
+            true => Vec::new(),
+            false => selected.into_iter().chain(pinned).collect(),
+        };
         for open in &self.terminals.open {
-            let shown = on_screen == Some(open.id);
+            let shown = on_screen.contains(&open.id);
             open.terminal
                 .update(cx, |terminal, _| terminal.set_shown(shown));
         }
@@ -323,9 +371,11 @@ impl Store {
         self.close_terminals(&[id], cx);
     }
 
-    /// Close terminals `ids`, hanging up their shells. While one's selected, another terminal
-    /// on its worktree is, as the TUI goes on after removing something: the next one, else the
-    /// one above. With none, the worktree's first branch, the row below them, else the worktree.
+    /// Close terminals `ids`, hanging up their shells. While one's selected, a terminal pinned
+    /// beside it takes its place: see [`Self::hand_home_on`]. With none, another terminal on its
+    /// worktree is selected, as the TUI goes on after removing something: the next one, else
+    /// the one above. With none, the worktree's first branch, the row below them, else the
+    /// worktree.
     fn close_terminals(&mut self, ids: &[TerminalId], cx: &mut Context<Self>) {
         let selected = match &self.selection {
             Some(Selection::Terminal(_, selected)) if ids.contains(selected) => Some(*selected),
@@ -339,12 +389,26 @@ impl Store {
                 .collect();
             (project, checkout, listed)
         });
-        let before = self.terminals.open.len();
-        (self.terminals.open).retain(|open| !ids.contains(&open.id));
-        if self.terminals.open.len() == before {
+        let closed: HashMap<TerminalId, Entity<Terminal>> = (self.terminals.open.iter())
+            .filter(|open| ids.contains(&open.id))
+            .map(|open| (open.id, open.terminal.clone()))
+            .collect();
+        if closed.is_empty() {
             return;
         }
-        if let (Some(selected), Some((project, checkout, listed))) = (selected, place) {
+        (self.terminals.open).retain(|open| !ids.contains(&open.id));
+        let heir = selected.and_then(|_| self.hand_home_on(ids, cx));
+        self.unpin_terminals(&closed, cx);
+        if let Some((heir, before, tile)) = heir {
+            self.select(Some(heir), cx);
+            // After the selection, which stops a slide, and in the tiling of the row it's on.
+            let terminal = selected.and_then(|id| closed.get(&id)).cloned();
+            cx.emit(StoreEvent::TileClosed {
+                before,
+                tile,
+                terminal,
+            });
+        } else if let (Some(selected), Some((project, checkout, listed))) = (selected, place) {
             let at = listed
                 .iter()
                 .position(|id| *id == selected)
@@ -361,6 +425,39 @@ impl Store {
             self.select(Some(instead), cx);
         }
         cx.notify();
+    }
+
+    /// Give the selected terminal's place in its row's tiling, as it closes with `closing`, to
+    /// the terminal pinned there that had the keys last, else the first: the tiling, and what in
+    /// it had the keys, go to that terminal's row, which the navigator lists it as from now on,
+    /// as terminals are alike. The terminal to select, if there was one to take the place, with
+    /// the tiling as it was, for that row, and the tile closing in it.
+    fn hand_home_on(
+        &mut self,
+        closing: &[TerminalId],
+        cx: &mut Context<Self>,
+    ) -> Option<(Selection, Tiling, RowKey)> {
+        let heirs = self.home_heirs(closing);
+        let row = self.row_key(self.selection.as_ref()?);
+        let recent = self.tiles_with_keys.get(&row);
+        let heir = (recent.into_iter().flatten().rev())
+            .find(|shown| heirs.contains(shown))
+            .or(heirs.first())?
+            .clone();
+        let mut tiling = self.tilings.remove(&row)?;
+        let recent = self.tiles_with_keys.remove(&row).unwrap_or_default();
+        let before = tiling.before_promoting(&row, &heir);
+        tiling.promote(&heir);
+        if !tiling.is_home_only() {
+            self.tilings.insert(heir.clone(), tiling);
+        }
+        self.tiles_with_keys.insert(heir.clone(), recent);
+        cx.emit(StoreEvent::TilingChanged);
+        let RowKey::Row(selection @ Selection::Terminal(_, id)) = heir else {
+            return None;
+        };
+        self.set_tiled(id, false);
+        Some((selection, before, row))
     }
 
     /// Close the terminals whose project is gone, or whose linked worktree is gone or archived.

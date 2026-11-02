@@ -26,7 +26,7 @@ use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
     CardSlot, Move, Moving, Op, ProjectDrag, Slot, Stop, TerminalDrag, drag_preview,
-    project_preview, terminal_preview,
+    project_preview, row_preview, terminal_preview,
 };
 use crate::ui::{Icon, ROW_HEIGHT, icon_button};
 
@@ -167,7 +167,7 @@ impl Navigator {
     pub(super) fn project_drag(
         &self,
         el: Stateful<Div>,
-        id: &ProjectId,
+        item: &Selection,
         label: SharedString,
         reorders: bool,
         cx: &Context<Self>,
@@ -176,9 +176,10 @@ impl Navigator {
             return el;
         }
         let navigator = cx.entity().downgrade();
-        let preview = project_preview(label);
+        let preview = project_preview(self.store.clone(), label);
+        let preview = row_preview(self.store.clone(), item.clone(), preview);
         let drag = ProjectDrag {
-            id: id.clone(),
+            id: item.project().clone(),
             reorders,
         };
         el.on_drag(drag, move |drag, offset, window, cx| {
@@ -334,7 +335,7 @@ impl Navigator {
     pub(super) fn worktree_drag(
         &self,
         el: Stateful<Div>,
-        project: &ProjectId,
+        item: &Selection,
         name: &BStr,
         payload: Cut,
         chip: SharedString,
@@ -345,7 +346,8 @@ impl Navigator {
         }
         let navigator = cx.entity().downgrade();
         let preview = drag_preview(self.store.clone(), chip);
-        let dragged = (project.clone(), name.to_owned());
+        let preview = row_preview(self.store.clone(), item.clone(), preview);
+        let dragged = (item.project().clone(), name.to_owned());
         el.on_drag(payload, move |payload, offset, window, cx| {
             let pill = preview(payload, offset, window, cx);
             let (navigator, dragged) = (navigator.clone(), dragged.clone());
@@ -431,7 +433,7 @@ impl Navigator {
     pub(super) fn terminal_drag(
         &self,
         el: Stateful<Div>,
-        project: &ProjectId,
+        item: &Selection,
         id: TerminalId,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
@@ -440,8 +442,9 @@ impl Navigator {
         }
         let navigator = cx.entity().downgrade();
         let preview = terminal_preview(self.store.clone());
+        let preview = row_preview(self.store.clone(), item.clone(), preview);
         let drag = TerminalDrag {
-            project: project.clone(),
+            project: item.project().clone(),
             id,
         };
         el.on_drag(drag, move |drag, offset, window, cx| {
@@ -886,8 +889,8 @@ mod tests {
     fn a_dragged_card_goes_where_its_heading_would_be_nearest_the_pointer() {
         let (a, b) = (ProjectId::from("a"), ProjectId::from("b"));
         let c = ProjectId::from("c");
-        // Without b, a's card starts at 0, c's at 120 and the end at 180, the gap after each 20
-        // with the cards' edges, so the middles of their headings are 20, 140 and 200 down.
+        // Without b, a's card starts at 0, c's at 116 and the end at 172, the gap after each 16
+        // with the cards' edges, so the middles of their headings are 20, 136 and 192 down.
         let listed = [(&a, 100.), (&b, 400.), (&c, 40.)];
         let goes = |depth| nearest_slot(&listed, &b, depth);
         assert!(
@@ -895,19 +898,19 @@ mod tests {
             "above the cards, it goes first"
         );
         assert!(
-            goes(79.) == CardSlot::Before(a.clone()),
+            goes(77.) == CardSlot::Before(a.clone()),
             "nearer a's heading than c's"
         );
         assert!(
-            goes(81.) == CardSlot::Before(c.clone()),
+            goes(79.) == CardSlot::Before(c.clone()),
             "past halfway to c's"
         );
         assert!(
-            goes(169.) == CardSlot::Before(c.clone()),
+            goes(163.) == CardSlot::Before(c.clone()),
             "nearer c's heading than the end"
         );
         assert!(
-            goes(171.) == CardSlot::End,
+            goes(165.) == CardSlot::End,
             "past halfway to the end, it goes last"
         );
     }

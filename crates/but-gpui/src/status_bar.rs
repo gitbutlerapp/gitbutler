@@ -329,10 +329,12 @@ impl AppView {
         h_flex()
             .flex_none()
             .h(dp(STATUS_BAR_HEIGHT))
+            // Its controls as far above the window's bottom as below the cards, as the top
+            // bars' are from the window's top.
+            .pb(dp(8.))
             .px(dp(12.))
             .gap(dp(10.))
-            .border_t_1()
-            .border_color(theme.border_3)
+            // On the ground the cards are on, with nothing between, as the top bars are.
             .bg(theme.bg_2)
             .text_size(dp(12.))
             .text_color(theme.text_2)

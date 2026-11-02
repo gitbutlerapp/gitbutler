@@ -54,9 +54,12 @@ impl Detail {
             || crate::ui::draws_window_controls(window)
     }
 
-    /// The location bar's height, or nothing while it doesn't draw, for what sits below it.
-    pub(crate) fn location_bar_height(&self, window: &Window, cx: &App) -> f32 {
-        match self.location_bar_shown(window, cx) {
+    /// How tall the strip along the detail's top is, for what sits below it: the location
+    /// bar, or as much room for dragging the window while the bar's left out beside the
+    /// navigator, so the cards stay level with the navigator's, under its own bar. Nothing
+    /// with neither.
+    pub(crate) fn top_strip_height(&self, window: &Window, cx: &App) -> f32 {
+        match self.location_bar_shown(window, cx) || self.navigator_shown.get() > 0. {
             true => HEADER_HEIGHT,
             false => 0.,
         }
@@ -71,8 +74,7 @@ impl Detail {
     /// first among its files instead. Commits picked together keep theirs, which has no
     /// message.
     pub(super) fn commit_header_shown(&self, project: &ProjectId, id: CommitId, cx: &App) -> bool {
-        let store = self.store.read(cx);
-        store.prefs.shows(Part::CommitHeader) || store.among_picks(project, id)
+        self.store.read(cx).prefs.shows(Part::CommitHeader) || self.shows_picks(project, id, cx)
     }
 
     pub(super) fn render_header(
@@ -264,9 +266,6 @@ impl Detail {
         let last = crumbs.len().saturating_sub(1);
         // As ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
-        let toggle = icon_button("toggle-navigator", Icon::Sidebar)
-            .tooltip("Toggle navigator")
-            .dispatch(&crate::app::ToggleNavigator);
         h_flex()
             .h(dp(HEADER_HEIGHT))
             .flex_none()
@@ -284,12 +283,9 @@ impl Detail {
             })
             .map(crate::ui::drags_window)
             .gap(dp(12.))
+            // On the ground the detail's cards are on, which they edge.
             .bg(theme.bg_2)
-            .border_b_1()
-            .border_color(theme.border_3)
             .text_color(theme.text_2)
-            .child(above_drag(div().child(toggle)))
-            .child(div().flex_none().w(fixed(1.)).h(dp(16.)).bg(theme.border_3))
             .child(
                 h_flex().flex_1().min_w_0().gap(dp(6.)).children(
                     crumbs

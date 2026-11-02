@@ -152,7 +152,7 @@ impl Navigator {
                     if this.store.read(cx).moving.is_some() {
                         return this.nudge_move(cx);
                     }
-                    if this.menu_items(&menu_target, cx).is_empty() {
+                    if this.row_menu_items(&menu_target, cx).is_empty() {
                         return;
                     }
                     let picked = matches!(&menu_target,
@@ -165,7 +165,11 @@ impl Navigator {
                     }
                     // After selecting, which reads a commit, so its menu offers to unread it.
                     let target = menu_target.clone();
-                    this.open_menu(event.position, move |this, cx| this.menu_items(&target, cx), cx);
+                    this.open_menu(
+                        event.position,
+                        move |this, cx| this.row_menu_items(&target, cx),
+                        cx,
+                    );
                 }),
             )
             .into_any_element()

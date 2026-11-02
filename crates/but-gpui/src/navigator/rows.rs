@@ -31,7 +31,7 @@ pub(super) const CARD_PADDING: f32 = 3.;
 
 /// How much a card's edge adds above its first row and below its last: its padding and its
 /// 1px border.
-const CARD_EDGE: f32 = CARD_PADDING + 1.;
+pub(super) const CARD_EDGE: f32 = CARD_PADDING + 1.;
 
 /// How far below the top of its card the middle of a project's heading is.
 pub(super) const HEADING_MIDDLE: f32 = CARD_EDGE + HEADING_HEIGHT / 2.;
@@ -166,7 +166,7 @@ impl Row {
     /// rows sliding as cards trade places start where they're drawn.
     pub(super) fn height(&self) -> f32 {
         match self {
-            Row::Gap => 12. + 2. * CARD_EDGE,
+            Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::WorktreeDivider | Row::Between(_) => 12.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
@@ -1243,10 +1243,6 @@ mod rests_on_tests {
     use crate::state::Selection;
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_worktree_lists_each_branch_beneath_it_once() {
         let unnamed = Branch {
             name: "Unnamed branch".into(),

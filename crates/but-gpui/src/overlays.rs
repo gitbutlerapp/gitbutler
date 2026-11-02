@@ -458,7 +458,7 @@ impl AppView {
         };
         let navigator = self.navigator.read(cx);
         (
-            navigator.menu_items(&selection, cx),
+            navigator.row_menu_items(&selection, cx),
             navigator.row_bounds(&selection),
         )
     }

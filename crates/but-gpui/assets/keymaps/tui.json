@@ -3,7 +3,9 @@
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the
-// details, and the keys the app's lists and overlays need, as GitButler's keymap has them.
+// details, ⌘D and ⇧⌘D to split a tile and ⌘] and ⌘[ to go between tiles (Ghostty's keys for
+// them on Linux), and the keys the app's lists and overlays need, as GitButler's keymap has
+// them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -57,6 +59,33 @@
       "secondary-3": "app::FocusDiff",
       "secondary-b": "app::ToggleNavigator",
       "secondary-alt-b": "app::ToggleDetail"
+    }
+  },
+  // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
+  // next tile and the one before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, as Ghostty's
+  // does, and ⇧⌘W closes it, ⌘W being the window's. On macOS, where ⌘ leaves a terminal's Ctrl
+  // keys alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-d": "tiling::SplitRight",
+      "cmd-shift-d": "tiling::SplitBelow",
+      "cmd-]": "tiling::NextTile",
+      "cmd-[": "tiling::PreviousTile",
+      "cmd-shift-w": "tiling::CloseTile",
+      "cmd-shift-enter": "tiling::ZoomTile"
+    }
+  },
+  // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and
+  // Ctrl+Super+] and Ctrl+Super+[ go to the next tile and the one before. A text field keeps
+  // Ctrl+Shift+E, which selects to its line's end.
+  {
+    "os": ["linux"],
+    "bindings": {
+      "ctrl-shift-o": "tiling::SplitRight",
+      "ctrl-shift-e": "tiling::SplitBelow",
+      "ctrl-super-]": "tiling::NextTile",
+      "ctrl-super-[": "tiling::PreviousTile"
     }
   },
   // The TUI's status list: up and down, ⇧J and ⇧K between sections, g and ⇧G to either end. n

@@ -77,7 +77,7 @@ impl<K: Eq + Hash> Folds<K> {
             false => 1.,
         };
         let at = (self.moving.get(&key)).map_or(shut, |m| m.openness(now));
-        let since = set_out(open, at, now);
+        let since = set_out(open, at, FOLD, now);
         let height = (self.moving.remove(&key)).map_or_else(Rc::default, |m| m.height);
         self.moving.insert(
             key,
@@ -251,12 +251,14 @@ impl Move {
 }
 
 /// A pane sliding open or shut beside the others, as the navigator and the file list do, over
-/// [`FOLD`] as a fold moves. It keeps its width and its place as it goes, and the edge of the
-/// pane beside it moves across it, so neither lays out its rows again at every width. One
-/// turned back partway goes back from where it is. Under reduced motion, it opens and closes
-/// at once.
-#[derive(Default)]
-pub struct Slide(Option<Sliding>);
+/// [`FOLD`] as a fold moves, or as long as it's made to last. It keeps its width and its place
+/// as it goes, and the edge of the pane beside it moves across it, so neither lays out its rows
+/// again at every width. One turned back partway goes back from where it is. Under reduced
+/// motion, it opens and closes at once.
+pub struct Slide {
+    sliding: Option<Sliding>,
+    lasting: Duration,
+}
 
 #[derive(Clone, Copy)]
 struct Sliding {
@@ -264,11 +266,25 @@ struct Sliding {
     since: Instant,
 }
 
+impl Default for Slide {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
 impl Slide {
+    /// One that takes `lasting` to open or shut.
+    pub fn lasting(lasting: Duration) -> Self {
+        Self {
+            sliding: None,
+            lasting,
+        }
+    }
+
     /// The pane just opened, or shut: it moves there from where it is.
     pub fn start(&mut self, open: bool, cx: &App) {
         match cx.reduce_motion() {
-            true => self.0 = None,
+            true => self.sliding = None,
             false => self.start_at(open, clock::now()),
         }
     }
@@ -279,19 +295,20 @@ impl Slide {
             false => 1.,
         };
         let at = self.openness(now).unwrap_or(shut);
-        let since = set_out(open, at, now);
-        self.0 = Some(Sliding { open, since });
+        let since = set_out(open, at, self.lasting, now);
+        self.sliding = Some(Sliding { open, since });
     }
 
     /// How far open the pane is at `now`, from 0 shut to 1 open, while it moves; `None` at rest.
     pub fn openness(&self, now: Instant) -> Option<f32> {
-        let Sliding { open, since } = self.0?;
-        (now.saturating_duration_since(since) < FOLD).then(|| openness(open, since, now))
+        let Sliding { open, since } = self.sliding?;
+        (now.saturating_duration_since(since) < self.lasting)
+            .then(|| openness_over(open, since, now, self.lasting))
     }
 
     /// Whether the pane is closing at `now`, so it's still drawn.
     pub fn closing(&self, now: Instant) -> bool {
-        self.openness(now).is_some() && self.0.is_some_and(|s| !s.open)
+        self.openness(now).is_some() && self.sliding.is_some_and(|s| !s.open)
     }
 
     /// How much of the pane shows at `now`, from 0 to 1: as far as it's open while it moves,
@@ -311,19 +328,25 @@ pub fn edge(color: Hsla) -> Div {
     div().absolute().top_0().bottom_0().w(fixed(1.)).bg(color)
 }
 
-/// When a move toward `open` that's `at` open by `now` set out, so it goes on from there.
-fn set_out(open: bool, at: f32, now: Instant) -> Instant {
+/// When a move toward `open` that takes `lasting` and is `at` open by `now` set out, so it goes
+/// on from there.
+fn set_out(open: bool, at: f32, lasting: Duration, now: Instant) -> Instant {
     // How far along its way there a move that's at `at` now is.
     let along = match open {
         true => unease(at),
         false => unease(1. - at),
     };
-    (now.checked_sub(FOLD.mul_f32(along))).unwrap_or(now)
+    (now.checked_sub(lasting.mul_f32(along))).unwrap_or(now)
 }
 
 /// How far open a move toward `open` that set out at `since` is at `now`, from 0 to 1.
 pub fn openness(open: bool, since: Instant, now: Instant) -> f32 {
-    let along = now.saturating_duration_since(since).as_secs_f32() / FOLD.as_secs_f32();
+    openness_over(open, since, now, FOLD)
+}
+
+/// [`openness`] of a move that takes `lasting`.
+fn openness_over(open: bool, since: Instant, now: Instant, lasting: Duration) -> f32 {
+    let along = now.saturating_duration_since(since).as_secs_f32() / lasting.as_secs_f32();
     let eased = ease(along.clamp(0., 1.));
     match open {
         true => eased,
@@ -1087,6 +1110,24 @@ mod tests {
             "there, it rests"
         );
         assert_eq!(slide.share(false, there), 0., "and is drawn shut");
+    }
+
+    #[test]
+    fn a_slide_made_to_last_less_gets_there_sooner() {
+        let quick = FOLD / 2;
+        let mut slide = Slide::lasting(quick);
+        let start = Instant::now();
+        slide.start_at(true, start);
+        let halfway = slide.openness(start + quick / 2);
+        assert!(
+            halfway.is_some_and(|at| at > 0. && at < 1.),
+            "halfway through its own time, it's partway open"
+        );
+        assert!(
+            slide.openness(start + quick).is_none(),
+            "there in its own time, before a fold's"
+        );
+        assert_eq!(slide.share(true, start + quick), 1., "and is drawn open");
     }
 
     #[test]

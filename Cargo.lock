@@ -1692,6 +1692,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "block2 0.6.2",
  "bstr",
  "but-action",
  "but-api",

@@ -29,7 +29,8 @@ pub enum Keymap {
     /// and unfold, f to
     /// show and hide the files, ⌘B and ⌥⌘B the navigator and the details, / to filter or find,
     /// ⌘K for the command palette, ⌘P to go to anything and ⌘J to a terminal, ⌘T to open a
-    /// terminal, and ⌘R and ⇧⌘R to fetch and pull.
+    /// terminal, ⌘R and ⇧⌘R to fetch and pull, and ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and go between
+    /// tiles, or Ghostty's keys for them on Linux.
     Tui,
 }
 
@@ -266,8 +267,11 @@ mod tests {
                         let kept = ["super", "win", "cmd"]
                             .iter()
                             .any(|m| modifiers.contains(*m));
+                        // Linux desktops take Super with a letter, but Ctrl+Super chords are
+                        // apps' too there, as Ghostty's Ctrl+Super+] goes to the next split.
+                        let shared = os == "linux" && modifiers.contains("ctrl");
                         assert!(
-                            os == "macos" || !kept,
+                            os == "macos" || shared || !kept,
                             "{at} needs a modifier Windows and Linux keep for the system"
                         );
                     }

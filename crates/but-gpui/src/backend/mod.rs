@@ -24,6 +24,8 @@ mod ops;
 pub mod rebuild;
 pub mod reviews;
 pub mod saved;
+#[cfg(target_os = "macos")]
+pub mod screenshot;
 pub mod settings;
 pub mod upstream;
 pub mod watch;

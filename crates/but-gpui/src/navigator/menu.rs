@@ -9,8 +9,8 @@ use super::{ClickOpened, Navigator};
 use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
     CopyPath, CopyPullRequestLink, CopySelection, CutSelection, Expand, Fetch, MarkAllRead,
-    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SquashSelection,
-    StartCommit, ToggleRead, UpdateFromTarget,
+    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SplitBelow,
+    SplitRight, SquashSelection, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -293,6 +293,22 @@ impl Navigator {
                 first.separated = true;
             }
             items.splice(0..0, view);
+        }
+        items
+    }
+
+    /// What the row `target` offers: [`Self::menu_items`], and splitting its page, which picks
+    /// what shows beside it, but for picked commits, which the menu acts on together, and
+    /// another machine's work, which is only looked at.
+    pub(crate) fn row_menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
+        let mut items = self.menu_items(target, cx);
+        let store = self.store.read(cx);
+        let picked =
+            matches!(target, Selection::Commit(project, id) if store.is_picked(project, *id));
+        if !picked && !matches!(target, Selection::Mesh(..)) {
+            let mut right = MenuItem::command(&SplitRight, cx);
+            right.separated = !items.is_empty();
+            items.extend([right, MenuItem::command(&SplitBelow, cx)]);
         }
         items
     }

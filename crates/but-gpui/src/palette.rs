@@ -20,7 +20,8 @@ use crate::commands::{COMMANDS, Command};
 use crate::navigator::{lists_changes, mesh_choices, mesh_heading_choice, worktrees_listed};
 use crate::overlays::backdrop;
 use crate::state::{
-    Notice, ProjectEntry, ProjectId, Section, SectionKind, Selection, SelectionKind, Store, snack,
+    Axis, Notice, ProjectEntry, ProjectId, Section, SectionKind, Selection, SelectionKind, Store,
+    Tile, snack,
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -420,7 +421,7 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
 
 /// Go to anything's rows of `kind`, as the navigator lists them in the projects `open`. There's
 /// no wildcard: a new kind of row doesn't compile until it's decided here.
-fn go_to_choices(
+fn kind_choices(
     kind: SelectionKind,
     store: &Store,
     open: &[(&ProjectEntry, &Workspace)],
@@ -791,6 +792,16 @@ fn open_workspaces(store: &Store) -> Vec<(&ProjectEntry, &Workspace)> {
         .collect()
 }
 
+/// What Go to anything lists: every row of the navigator's it can go to, broadest first, as
+/// `Selection` lists its kinds, which an equal match keeps: a project before a branch of its
+/// name.
+fn go_to_choices(store: &Store) -> Vec<Choice> {
+    let open = open_workspaces(store);
+    (SelectionKind::iter())
+        .flat_map(|kind| kind_choices(kind, store, &open))
+        .collect()
+}
+
 /// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
 /// one's first, as the navigator lists them under each.
 fn terminal_choices(
@@ -1027,15 +1038,61 @@ impl AppView {
     /// Pick any row of the navigator's, a loaded project's by name, pull request title or
     /// commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
-        let store = self.store.read(cx);
-        let open = open_workspaces(store);
-        // Broadest first, as `Selection` lists its kinds, which an equal match keeps: a project
-        // before a branch of its name.
-        let choices = (SelectionKind::iter())
-            .flat_map(|kind| go_to_choices(kind, store, &open))
-            .collect();
+        let choices = go_to_choices(self.store.read(cx));
         let placeholder = "Go to anything in the navigator";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.wide = true;
+        }
+    }
+
+    /// Divide the tile with the keys along `axis`, giving the new tile a new terminal or what
+    /// Go to anything lists that can be pinned and the tiling doesn't show yet, picked here.
+    pub fn split(&mut self, axis: Axis, window: &mut Window, cx: &mut Context<Self>) {
+        let at = self.focused_tile(window, cx);
+        self.split_tile(at, axis, window, cx);
+    }
+
+    /// Pick what shows beside `at` of the selected row's tiling, along `axis`.
+    pub(crate) fn split_tile(
+        &mut self,
+        at: Tile,
+        axis: Axis,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let Some(selection) = store.selection.clone() else {
+            return;
+        };
+        let (row, shown) = (store.row_key(&selection), store.pinned());
+        let beside = at.clone();
+        let new_terminal = Choice::new("New terminal", move |this, _, cx| {
+            (this.store).update(cx, |store, cx| store.pin_terminal(beside, axis, cx))
+        })
+        .icon(Icon::TextCode);
+        let rest = go_to_choices(store).into_iter().filter_map(|choice| {
+            let pinned = store.row_key(choice.goes_to.as_ref()?);
+            if pinned == row || shown.contains(&pinned) {
+                return None;
+            }
+            // Not where it goes, which would select it rather than pin it, and so run once the
+            // keys are back in the tile it divides, which the new one takes from it.
+            let at = at.clone();
+            Some(Choice {
+                goes_to: None,
+                run: Box::new(move |this, _, _, cx| {
+                    (this.store).update(cx, |store, cx| store.pin(at, axis, pinned, cx))
+                }),
+                ..choice
+            })
+        });
+        let choices = std::iter::once(new_terminal).chain(rest).collect();
+        let placeholder = match axis {
+            Axis::Across => "Show to the right",
+            Axis::Down => "Show below",
+        };
+        self.open_picker(None, placeholder, "Show", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
         }

@@ -383,8 +383,8 @@ impl Detail {
 
     /// The operations of the History page selected.
     fn page_history(&self, cx: &App) -> Option<&History> {
-        match &self.store.read(cx).selection {
-            Some(Selection::History(project)) => self.history_for(project),
+        match self.selection(cx) {
+            Some(Selection::History(project)) => self.history_for(&project),
             _ => None,
         }
     }
@@ -474,7 +474,7 @@ impl Detail {
             && history.operations.len() < READ_FOR_FILTER
             && self.history_hidden.len() < Group::ALL.len()
             && self.shown_operations(history, cx).is_empty();
-        match (reads, self.store.read(cx).selection.clone()) {
+        match (reads, self.selection(cx)) {
             (true, Some(Selection::History(project))) => {
                 self.load_history(&project, true, cx);
                 true
@@ -548,7 +548,7 @@ impl Detail {
     /// Return on the list: restore to before the selected operation, after asking, as its
     /// menu's Restore does.
     fn restore_selected_operation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::History(project)) = self.store.read(cx).selection.clone() else {
+        let Some(Selection::History(project)) = self.selection(cx) else {
             return;
         };
         if let Some(id) = self.selected_operation(&project).map(|op| op.id) {
@@ -605,8 +605,8 @@ impl Detail {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let selected = match &self.store.read(cx).selection {
-            Some(Selection::History(project)) => self.selected_operation(project).map(|op| op.id),
+        let selected = match self.selection(cx) {
+            Some(Selection::History(project)) => self.selected_operation(&project).map(|op| op.id),
             _ => None,
         };
         el.when_some(selected, |el, id| {

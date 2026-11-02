@@ -36,6 +36,8 @@ libc.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 # The Dock icon (see `run`), scripted runs kept out of App Nap, the cursor shown again when the
 # window becomes key, and the window's least width lowered while it's narrowed to the navigator.
+# In a dev build, a drag kept going through a click of another button.
+block2 = "0.6.2"
 objc2 = "0.6.4"
 raw-window-handle = "0.6.2"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSData", "NSProcessInfo", "NSString", "objc2-core-foundation"] }

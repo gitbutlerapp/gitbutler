@@ -164,20 +164,17 @@ impl Detail {
 
     /// The selected branch and its pull request, while the tab shows it open: what the merge
     /// box is for, as the pull request actions are.
-    fn merge_box_review<'a>(
-        &'a self,
-        cx: &'a App,
-    ) -> Option<(&'a ProjectId, &'a FullName, &'a Review)> {
+    fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(ProjectId, FullName, &'a Review)> {
         let store = self.store.read(cx);
-        let selection = store.selection.as_ref()?;
-        let Selection::Branch(project, Some(ref_name)) = selection else {
+        let selection = self.selection(cx)?;
+        let Selection::Branch(project, Some(ref_name)) = &selection else {
             return None;
         };
         let review = self.selected_review(cx)?;
         let applies = self.review_tab
-            && crate::pr::on_forge(store, selection)
+            && crate::pr::on_forge(store, &selection)
             && store.review_state(project, review) == ReviewState::Open;
-        applies.then_some((project, ref_name, review))
+        applies.then(|| (project.clone(), ref_name.clone(), review))
     }
 
     /// Have the store ask the forge, when it hasn't lately, what the tab shows that the forge
@@ -214,7 +211,7 @@ impl Detail {
         let Some((project, _, review)) = self.merge_box_review(cx) else {
             return;
         };
-        let (project, review) = (project.clone(), review.clone());
+        let review = review.clone();
         (self.store).update(cx, |store, cx| {
             store.read_merge_status(&project, &review, cx)
         });
@@ -298,6 +295,7 @@ impl Detail {
     /// saying in its tooltip why it can't be pressed when GitHub's merge box wouldn't offer it.
     fn merge_section(&self, theme: &Theme, cx: &Context<Self>) -> Option<Div> {
         let (project, branch, review) = self.merge_box_review(cx)?;
+        let (project, branch) = (&project, &branch);
         let store = self.store.read(cx);
         let merge = crate::pr::mergeability(store, project, review);
         let title = headline(&merge);

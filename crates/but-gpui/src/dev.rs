@@ -10,12 +10,15 @@
 //! wait 500                # milliseconds
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
+//! mods alt                # hold modifiers alone, as `cmd`, `alt` and `shift`; with none, let
+//!                         # them go
 //! move 120 300            # window coordinates in logical pixels; with the button held
 //!                         # after `press` or `drag … hold`, a drag's move; append `cmd`,
 //!                         # `alt` or `shift` to hold them
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
-//! rclick 120 300
+//! rclick 120 300         # the right button, and mclick the middle one; with the left
+//!                         # held after `press`, they keep it down, as a hand does
 //! fclick 120 300          # the click that brings the window in front, which only does that
 //! press 120 300           # press the left button there and keep it down, so `move`s
 //!                         # drag with frames between them, as a hand does
@@ -874,6 +877,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke }), cx);
             window.dispatch_event(hold(Modifiers::default()), cx);
         }
+        "mods" => {
+            let event = ModifiersChangedEvent {
+                modifiers,
+                capslock: Default::default(),
+            };
+            window.dispatch_event(PlatformInput::ModifiersChanged(event), cx);
+        }
         "type" => {
             for ch in rest.chars() {
                 let key = if ch == ' ' {
@@ -948,13 +958,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 cx,
             );
         }
-        "click" | "rclick" | "dclick" | "tclick" | "fclick" => {
+        "click" | "rclick" | "mclick" | "dclick" | "tclick" | "fclick" => {
             let at = at()?;
-            let button = if command == "rclick" {
-                MouseButton::Right
-            } else {
-                MouseButton::Left
+            let button = match command {
+                "rclick" => MouseButton::Right,
+                "mclick" => MouseButton::Middle,
+                _ => MouseButton::Left,
             };
+            let held = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
             // A double or triple click is the clicks before it, then one with that count, a
             // frame apart, as a hand's are, so each sees what the one before it changed.
             let clicks = match command {
@@ -966,10 +977,14 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 if count > 1 {
                     frame(window, cx);
                 }
-                window.dispatch_event(mouse_move(at, None, modifiers), cx);
+                window.dispatch_event(mouse_move(at, held, modifiers), cx);
                 let first = command == "fclick";
                 window.dispatch_event(mouse_down(button, at, modifiers, count, first), cx);
-                window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
+                // With the left one held, AppKit's release of another button stops before the
+                // app, as `keep_drags_through_other_buttons` has it.
+                if held.is_none() {
+                    window.dispatch_event(mouse_up(button, at, modifiers, count), cx);
+                }
             }
         }
         "drag" => {

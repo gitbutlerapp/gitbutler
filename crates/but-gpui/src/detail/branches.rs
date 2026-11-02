@@ -351,17 +351,17 @@ impl Detail {
 
     /// The branches of the Branches page selected.
     fn page_branches(&self, cx: &App) -> Option<&Branches> {
-        match &self.store.read(cx).selection {
-            Some(Selection::Branches(project)) => self.branches_for(project),
+        match self.selection(cx) {
+            Some(Selection::Branches(project)) => self.branches_for(&project),
             _ => None,
         }
     }
 
     fn page_branches_mut(&mut self, cx: &App) -> Option<&mut Branches> {
-        match &self.store.read(cx).selection {
+        match self.selection(cx) {
             Some(Selection::Branches(project)) => self
                 .branches
-                .get_mut(project)
+                .get_mut(&project)
                 .filter(|b| b.failed.is_none()),
             _ => None,
         }
@@ -385,9 +385,9 @@ impl Detail {
 
     /// Whether the Branches page shows its overview beside the list, with no branch opened.
     pub(crate) fn showing_branches_overview(&self, cx: &App) -> bool {
-        match &self.store.read(cx).selection {
+        match self.selection(cx) {
             Some(Selection::Branches(project)) => self
-                .branches_for(project)
+                .branches_for(&project)
                 .is_none_or(|b| b.selected.is_none()),
             _ => false,
         }
@@ -396,7 +396,7 @@ impl Detail {
     /// Esc on the Branches page with a branch opened: back to the overview, whether it did. The
     /// app, which Esc is handled in, redraws for the diff that goes.
     pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
-        let opened = matches!(&self.store.read(cx).selection,
+        let opened = matches!(&self.selection(cx),
             Some(Selection::Branches(project)) if self.selected_other_branch(project).is_some());
         if opened {
             self.select_other_branch(None, cx);
@@ -1057,7 +1057,7 @@ impl Detail {
 
     /// Return on the list: apply the selected branch, as its menu's Apply does.
     fn apply_selected_branch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Branches(project)) = self.store.read(cx).selection.clone() else {
+        let Some(Selection::Branches(project)) = self.selection(cx) else {
             return;
         };
         if let Some(ref_name) = (self.selected_other_branch(&project)).map(|b| b.ref_name.clone()) {
@@ -1572,7 +1572,7 @@ impl Detail {
         el: Stateful<Div>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let Some(Selection::Branches(project)) = self.store.read(cx).selection.clone() else {
+        let Some(Selection::Branches(project)) = self.selection(cx) else {
             return el;
         };
         let opened = self.selected_other_branch(&project);

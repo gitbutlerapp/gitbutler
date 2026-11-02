@@ -725,7 +725,7 @@ impl Detail {
         }
         let Some(diff) = self.shown_diff() else {
             // Another machine's branch, until it's here.
-            if let Some(Selection::Mesh(project, id, pick)) = &self.store.read(cx).selection
+            if let Some(Selection::Mesh(project, id, pick)) = &self.selection(cx)
                 && !self.loading.is_some()
             {
                 let message = self.machine_placeholder(project, id, pick, theme, cx);
@@ -968,17 +968,18 @@ impl Detail {
     /// For a selected branch or stack with no commits, what but.dev's branch page says.
     fn nothing_committed(&self, cx: &App) -> Option<SharedString> {
         let store = self.store.read(cx);
-        let selection = store.selection.as_ref()?;
-        nothing_committed_in(store.workspace(selection.project())?, selection)
+        let selection = self.selection(cx)?;
+        nothing_committed_in(store.workspace(selection.project())?, &selection)
     }
 
     /// What a diff of commits with no changes in it says, as but.dev's branch page does: a
     /// branch the target already has changes nothing against it.
     fn changes_nothing(&self, cx: &App) -> SharedString {
         let store = self.store.read(cx);
-        let Some(selection) = store.selection.as_ref() else {
+        let Some(selection) = self.selection(cx) else {
             return "No changes".into();
         };
+        let selection = &selection;
         let workspace = store.workspace(selection.project());
         let branches: Vec<_> = match selection {
             // As when a merge's rename detection conflicts with no file to show for it.
@@ -2359,10 +2360,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn an_empty_lane_bottom_starts_on_what_its_lane_rests_on() {
         let ws = workspace(
             vec![

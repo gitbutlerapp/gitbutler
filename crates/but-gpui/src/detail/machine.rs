@@ -66,7 +66,7 @@ impl Detail {
         let Some(path) = store.path(project) else {
             return;
         };
-        let picked = match &store.selection {
+        let picked = match &self.selection(cx) {
             Some(Selection::Mesh(p, id, pick)) if p == project => {
                 pick.branch().map(|name| (id.clone(), name.to_owned()))
             }

@@ -28,6 +28,7 @@ mod picks;
 mod saved;
 mod seen;
 mod terminals;
+mod tiling;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
@@ -45,6 +46,10 @@ use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
 pub use terminals::Terminals;
+pub use tiling::{
+    Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, RowKey, Side, Tile, TileDragFeel,
+    Tiling, Zones, junctions,
+};
 
 pub type ProjectId = SharedString;
 
@@ -262,6 +267,19 @@ pub enum StoreEvent {
     AuthorMissing(ProjectId),
     /// A terminal was opened and selected, to type in.
     TerminalOpened,
+    /// A tile was pinned beside the selected page, to use.
+    TilePinned(RowKey),
+    /// `tile` was taken away from the selected row's tiling, which was `before`, so the app
+    /// view can draw it going: with the terminal it showed, which went with it, if it did.
+    TileClosed {
+        before: Tiling,
+        tile: RowKey,
+        terminal: Option<Entity<crate::terminal::Terminal>>,
+    },
+    /// A tile was pinned to a row or taken away.
+    TilingChanged,
+    /// The drag of a navigator row, which can land as a tile, ended.
+    RowDragEnded,
     /// This was asked to be selected by hand while a move was under way, which keeps the
     /// selection on what it moves: the move goes toward it instead, as a click on its row puts
     /// it, or where it'd land blinks where it can't, to say it's still on.
@@ -417,6 +435,25 @@ pub struct Store {
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
     pub terminals: Terminals,
+    /// How each row that has tiles pinned beside its page lays them out. A row missing here
+    /// shows its home tile alone.
+    tilings: HashMap<RowKey, Tiling>,
+    /// For each tiling, by its row, the rows its tiles show that had the keys, the last last:
+    /// the home tile's as the row itself. By row, so they keep as a terminal takes the home
+    /// tile's place.
+    tiles_with_keys: HashMap<RowKey, Vec<RowKey>>,
+    /// While a tile slides open or shut or is dragged, the selected row's tiling as it's drawn
+    /// in this frame: see [`Self::drawn_areas`].
+    drawn: Option<Drawn>,
+    /// How dragging a tile feels, for this run of the app.
+    pub tile_drag_feel: TileDragFeel,
+    /// The navigator row being dragged, which a side of the tiles shows as a tile.
+    pub dragged_row: Option<Selection>,
+    /// The side of the tiles letting that row go now shows it on.
+    pub tile_zone: Option<Side>,
+    /// The gap being dragged, between two tiles or the navigator and the detail, until the
+    /// button comes up: GPUI calls its strip unhovered as it's dragged.
+    pub dragged_divider: Option<DividerDrag>,
     /// Each project's operation in flight, one at a time until the reload after it lands, so
     /// the next sees what it did, plus those that run beside it ([`backend::OpKind::beside`]).
     /// Projects don't wait on each other.
@@ -564,6 +601,13 @@ impl Store {
             update_put_off: None,
             mesh: mesh::Mesh::start(cx),
             terminals: Terminals::default(),
+            tilings: HashMap::new(),
+            dragged_row: None,
+            tile_zone: None,
+            tiles_with_keys: HashMap::new(),
+            drawn: None,
+            tile_drag_feel: TileDragFeel::default(),
+            dragged_divider: None,
             running: Vec::new(),
             ops_started: 0,
             own_writes: HashMap::new(),

@@ -281,6 +281,22 @@ commands! {
     },
     crate::open_in::OpenInTerminal => "Open in terminal",
     crate::terminal::NewTerminal => "New terminal",
+    crate::app::SplitRight => "Split right" { aliases: &["Split vertically", "Pin to the right"] },
+    crate::app::SplitBelow => "Split below" {
+        aliases: &["Split down", "Split horizontally", "Pin below"],
+    },
+    crate::app::CloseTile => "Close tile" { aliases: &["Close pane", "Close split"] },
+    crate::app::EqualizeTiles => "Equalize tiles" {
+        aliases: &["Equalize splits", "Even out tiles", "Balance tiles", "Balance splits"],
+    },
+    crate::app::ZoomTile => "Zoom tile" {
+        aliases: &["Zoom split", "Maximize tile", "Maximize split"],
+    },
+    crate::app::NextTile => "Next tile" { aliases: &["Next split"] },
+    crate::app::PreviousTile => "Previous tile" { aliases: &["Previous split"] },
+    crate::app::CopyTileDiagram => "Copy tile layout as a diagram" {
+        aliases: &["Copy splits as ASCII", "Copy tiling diagram"],
+    },
     crate::navigator::CloseTerminal => "Close terminal" {
         aliases: &["Remove terminal", "Delete terminal", "Discard terminal"],
     },

@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Div, Entity, Hsla, Modifiers, Pixels, Point, SharedString, Window, div,
+    App, Context, Div, Entity, Hsla, Modifiers, Pixels, Point, SharedString, Window, anchored, div,
     prelude::*,
 };
 
@@ -12,7 +12,7 @@ use crate::backend::{
     self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
     short_ref,
 };
-use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store, branch_moved};
+use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Side, Store, branch_moved};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
@@ -1391,6 +1391,7 @@ impl Render for DragPreview {
             Some((_, lands)) => lands.then_some("Move here"),
             None => transfer.as_ref().map(Transfer::verb),
         };
+        let hint = tile_hint(store).or(hint);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         let named = |name: SharedString| pill_label(name).into_any_element();
         let (mark, label) = match (moved, &self.chip, &self.payload) {
@@ -1445,6 +1446,73 @@ fn folder_label(name: SharedString, files: usize, theme: &Theme) -> Div {
         .when(files > 1, |el| el.child(count_badge(files, theme)))
 }
 
+/// Start a drag with `preview` from navigator row `item`, as [`drag_preview`] and the others do,
+/// which lands as a tile along a side of the tiles.
+pub fn row_preview<T: 'static, W: Render>(
+    store: Entity<Store>,
+    item: Selection,
+    preview: impl Fn(&T, Point<Pixels>, &mut Window, &mut App) -> Entity<W> + 'static,
+) -> impl Fn(&T, Point<Pixels>, &mut Window, &mut App) -> Entity<W> + 'static {
+    move |value, offset, window, cx| {
+        let pill = preview(value, offset, window, cx);
+        store.update(cx, |store, _| store.dragged_row = Some(item.clone()));
+        let store = store.clone();
+        cx.observe_release(&pill, move |_, cx| {
+            store.update(cx, |store, cx| store.row_drag_ended(cx));
+        })
+        .detach();
+        pill
+    }
+}
+
+/// What the pill says letting go does in a side's zone.
+fn tile_hint(store: &Store) -> Option<&'static str> {
+    store.tile_zone.map(|side| match side {
+        Side::Right => "Show to the right",
+        Side::Left | Side::Top | Side::Bottom => "Show to the left",
+    })
+}
+
+/// A row with nothing else to drag it for, which only lands as a tile.
+pub struct PageDrag;
+
+/// Start a drag of a page's row shown as a pill with its `kind` and `label`, as
+/// [`drag_preview`] starts a cut's.
+pub fn page_preview(
+    store: Entity<Store>,
+    kind: Icon,
+    label: SharedString,
+) -> impl Fn(&PageDrag, Point<Pixels>, &mut Window, &mut App) -> Entity<PagePreview> + 'static {
+    move |_, offset, _, cx| {
+        let (store, label) = (store.clone(), label.clone());
+        cx.new(|_| PagePreview {
+            store,
+            kind,
+            label,
+            offset,
+        })
+    }
+}
+
+/// The pill that follows the pointer while a page's row is dragged.
+pub struct PagePreview {
+    store: Entity<Store>,
+    kind: Icon,
+    label: SharedString,
+    /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
+    offset: Point<Pixels>,
+}
+
+impl Render for PagePreview {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        let mark = small_icon(self.kind).text_color(theme.pop);
+        let hint = tile_hint(self.store.read(cx));
+        let label = pill_label(self.label.clone());
+        drag_pill(self.offset, mark, label, hint, 1, theme)
+    }
+}
+
 /// A project dragged by its heading, or by its main worktree's row: a watched project's card
 /// among the others while it `reorders`, and any into a terminal, which pastes its folder.
 pub struct ProjectDrag {
@@ -1455,18 +1523,24 @@ pub struct ProjectDrag {
 /// Start a drag of a project shown as a pill with its folder's `label`, as [`drag_preview`]
 /// starts a cut's.
 pub fn project_preview(
+    store: Entity<Store>,
     label: SharedString,
 ) -> impl Fn(&ProjectDrag, Point<Pixels>, &mut Window, &mut App) -> Entity<ProjectPreview> + 'static
 {
     move |_, offset, _, cx| {
-        let label = label.clone();
-        cx.new(|_| ProjectPreview { label, offset })
+        let (store, label) = (store.clone(), label.clone());
+        cx.new(|_| ProjectPreview {
+            store,
+            label,
+            offset,
+        })
     }
 }
 
 /// The pill that follows the pointer while a project is dragged, as a folder of the file list
 /// shows.
 pub struct ProjectPreview {
+    store: Entity<Store>,
     label: SharedString,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
     offset: Point<Pixels>,
@@ -1477,7 +1551,8 @@ impl Render for ProjectPreview {
         let theme = Theme::get(cx);
         // A project carries no files to count.
         let label = folder_label(self.label.clone(), 0, theme);
-        drag_pill(self.offset, folder_icon(), label, None, 1, theme)
+        let hint = tile_hint(self.store.read(cx));
+        drag_pill(self.offset, folder_icon(), label, hint, 1, theme)
     }
 }
 
@@ -1519,14 +1594,8 @@ impl Render for TerminalPreview {
         });
         let mark = small_icon(Icon::TextCode).text_color(theme.pop);
         let label = pill_label(SharedString::from(terminal_title(store, self.id)));
-        drag_pill(
-            self.offset,
-            mark,
-            label,
-            lands.then_some("Move here"),
-            1,
-            theme,
-        )
+        let hint = tile_hint(store).or(lands.then_some("Move here"));
+        drag_pill(self.offset, mark, label, hint, 1, theme)
     }
 }
 
@@ -1569,7 +1638,12 @@ pub fn drag_pill(
     div()
         .pl(offset.x + theme.scaled(14.))
         .pt(offset.y + theme.scaled(16.))
-        .child(div().relative().children(cards).child(pill))
+        // Kept in the window, for a zone along its right edge to say what it does.
+        .child(
+            anchored()
+                .snap_to_window()
+                .child(div().relative().children(cards).child(pill)),
+        )
 }
 
 /// Whether commits `ids`, as listed, are already where moving them `to` puts them: that run
