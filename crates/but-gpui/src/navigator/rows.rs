@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{App, SharedString};
@@ -484,7 +485,7 @@ impl Navigator {
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
-            let (inactive, active): (Vec<_>, Vec<_>) = (store.worktrees_in_order(id, workspace))
+            let (inactive, active): (Vec<_>, Vec<_>) = (worktrees_shown(store, id, workspace))
                 .into_iter()
                 .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
                 .partition(|wt| wt.is_inactive());
@@ -558,7 +559,7 @@ impl Navigator {
                 if rows.rows.len() == heading_end {
                     rows.truncate(main);
                 }
-                let worktrees = (store.worktrees_in_order(id, workspace).into_iter())
+                let worktrees = (worktrees_shown(store, id, workspace).into_iter())
                     .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
                 for wt in worktrees {
                     let wt_start = rows.rows.len();
@@ -917,6 +918,51 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
 /// opened, and while the selection's in one.
 pub(super) fn inactive_open(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
     in_inactive(store, id, inactive) || store.prefs.shown_inactive.contains(id.as_ref())
+}
+
+/// Project `id`'s linked worktrees in `workspace`, in the order kept for them, but one being
+/// moved, dragged by its heading or with the keys, where it'd land, among those listed with it
+/// as they were when the move started; one added meanwhile goes after them.
+fn worktrees_shown<'a>(
+    store: &Store,
+    id: &ProjectId,
+    workspace: &'a Workspace,
+) -> Vec<&'a Worktree> {
+    let mut worktrees = store.worktrees_in_order(id, workspace);
+    let shown = (store.moving.as_ref())
+        .filter(|moving| moving.project == *id)
+        .and_then(|moving| moving.worktree_order());
+    let Some(shown) = shown else {
+        return worktrees;
+    };
+    // Those listed with it trade the places they had among the rest.
+    let listed = |wt: &&Worktree| shown.contains(&wt.name);
+    let mut moved: Vec<&Worktree> = worktrees.iter().copied().filter(listed).collect();
+    moved.sort_by_key(|wt| shown.iter().position(|name| *name == wt.name));
+    let mut moved = moved.into_iter();
+    for place in worktrees.iter_mut().filter(|wt| listed(wt)) {
+        if let Some(wt) = moved.next() {
+            *place = wt;
+        }
+    }
+    worktrees
+}
+
+/// The linked worktrees of `project` listed with `name`, as they're listed now: the active
+/// ones, or the inactive ones under their heading, which it can't leave.
+pub(super) fn listed_with(
+    store: &Store,
+    project: &ProjectId,
+    name: &bstr::BStr,
+) -> Option<Arc<[bstr::BString]>> {
+    let workspace = store.workspace(project)?;
+    let inactive = workspace.find_worktree(name)?.is_inactive();
+    let listed = (worktrees_shown(store, project, workspace).into_iter())
+        .filter(|wt| {
+            wt.is_inactive() == inactive && !store.hides_worktree(project, wt.name.as_ref())
+        })
+        .map(|wt| wt.name.clone());
+    Some(listed.collect())
 }
 
 /// Whether `selection` is in `checkout`, which folding its heading hides: a branch, commit or

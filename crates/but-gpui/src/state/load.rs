@@ -881,8 +881,8 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
         .collect()
 }
 
-/// Follow the commits, branch or files `moving` moves, and where it lands them, from `old` to
-/// `new`, saying whether they're all still there.
+/// Follow the commits, branch, files or linked worktree `moving` moves, and where it lands
+/// them, from `old` to `new`, saying whether they're all still there.
 fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
     match &mut moving.what {
         // As they would if they were cut.
@@ -906,6 +906,11 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         }
         // A project's card and a terminal are where they are whatever the workspace has.
         Moving::Project(_) | Moving::Terminal { .. } => return true,
+        Moving::Worktree { name, .. } => {
+            if new.find_worktree(name.as_ref()).is_none() {
+                return false;
+            }
+        }
         Moving::Commits(commits) => {
             let followed: Option<Arc<[CommitId]>> = (commits.iter())
                 .map(|commit| follow_by_key(old, new, *commit))
@@ -933,7 +938,8 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
         }
         Stop::Into(Target::Branch(branch)) => new.find_branch(Some(branch)).is_some(),
         Stop::Into(Target::Uncommitted(checkout)) => new.uncommitted_in(checkout).is_some(),
-        Stop::NewStack { .. } | Stop::Card(_) | Stop::Terminal { .. } => true,
+        // One it'd go before that's gone puts it after the others.
+        Stop::NewStack { .. } | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => true,
     }
 }
 
@@ -1067,7 +1073,7 @@ fn watch(
 }
 
 /// Move `item` in `order` before `before`, or last, and whether it was there to move.
-pub(crate) fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
+fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -> bool {
     let Some(from) = order.iter().position(|other| other == item) else {
         return false;
     };
