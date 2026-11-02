@@ -89,7 +89,7 @@ but-oplog.workspace = true
 but-rebase.workspace = true
 but-secret.workspace = true
 but-settings.workspace = true
-but-transaction.workspace = true
+but-transaction = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 gitbutler-operating-modes.workspace = true
 gitbutler-project.workspace = true

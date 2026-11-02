@@ -574,6 +574,7 @@ impl Intent for TakeSnapshot {
             but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
                 ctx,
                 details,
+                &[],
                 perm.read_permission(),
             )?
             .commit(ctx, perm)

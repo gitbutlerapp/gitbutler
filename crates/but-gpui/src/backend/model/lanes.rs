@@ -200,6 +200,13 @@ impl Workspace {
         self.lanes.iter().flat_map(|lane| &lane.branches)
     }
 
+    /// Whether the main checkout takes a stack of its own beside the others: GitButler's
+    /// workspace holds them side by side, and a branch checked out on its own is set up in one,
+    /// which needs a target to start from.
+    pub fn takes_new_stacks(&self) -> bool {
+        self.managed || self.target_branch.is_some()
+    }
+
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
     pub fn stack_of(&self, ref_name: Option<&super::FullName>) -> Option<(&Lane, usize)> {
         self.lanes_in(&Checkout::Main).find_map(|stack| {

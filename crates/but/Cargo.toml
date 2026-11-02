@@ -25,6 +25,7 @@ packaged-but-distribution = []
 legacy = [
     "but-workspace/legacy",
     "but-api/legacy",
+    "but-transaction/legacy",
     "but-ctx/legacy",
     "dep:but-action",
     "dep:but-hunk-dependency",
@@ -77,7 +78,6 @@ but-db.workspace = true
 but-error.workspace = true
 but-utils.workspace = true
 
-but-oplog.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.

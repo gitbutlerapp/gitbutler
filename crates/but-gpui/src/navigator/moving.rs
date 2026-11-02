@@ -304,13 +304,15 @@ impl Rows {
 /// them is where they are: the one just above the first of them. `open` says whether a heading
 /// shows what it holds: a folded branch has only the new branches either side of it, so what's
 /// folded is stepped over and stays folded, and the main checkout's stacks show only while
-/// its heading's open, as a new stack goes before and after them. A linked worktree's lane
-/// takes new branches as a stack does.
+/// its heading's open, as a new stack goes before and after them, with `new_stacks`. A linked
+/// worktree's lane takes new branches as a stack does, and so does the stack checked out
+/// without the workspace.
 pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
     commits: &[CommitId],
     workspace: &Workspace,
+    new_stacks: bool,
     open: impl Fn(&Selection) -> bool,
 ) -> (Vec<Stop>, usize) {
     /// A stack's bottom branch, once its rows are walked, takes a new branch under it.
@@ -340,7 +342,7 @@ pub(super) fn stops<'a>(
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 in_main = open(heading);
-                before_first = in_main && workspace.managed;
+                before_first = in_main && new_stacks;
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
@@ -348,11 +350,7 @@ pub(super) fn stops<'a>(
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
             {
                 end_stack(&mut stops, &mut bottom);
-                // A linked worktree's lane takes new branches, and so does a stack of the
-                // workspace, but not the one branch checked out without it.
-                let lane = (workspace.lane_of(Some(name)))
-                    .filter(|(lane, _)| workspace.managed || lane.checkout != Checkout::Main);
-                if let Some((lane, at)) = lane {
+                if let Some((lane, at)) = workspace.lane_of(Some(name)) {
                     stops.push(Stop::NewBranch {
                         beside: name.clone(),
                         below: false,
@@ -396,14 +394,14 @@ pub(super) fn stops<'a>(
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 before_first = false;
-                if std::mem::take(&mut in_main) && workspace.managed {
+                if std::mem::take(&mut in_main) && new_stacks {
                     stops.push(Stop::NewStack { first: false });
                 }
             }
         }
     }
     end_stack(&mut stops, &mut bottom);
-    if in_main && workspace.managed {
+    if in_main && new_stacks {
         stops.push(Stop::NewStack { first: false });
     }
     (stops, start.unwrap_or_default())
@@ -621,7 +619,17 @@ impl Navigator {
                     | Moving::Terminal { .. }
                     | Moving::Files { .. } => &[],
                 };
-                let all = stops(self.shown_rows(), project, commits, workspace, open);
+                // Outside the workspace, landing in a stack of its own sets the workspace up,
+                // as `but move` does, on the target.
+                let new_stacks = workspace.takes_new_stacks();
+                let all = stops(
+                    self.shown_rows(),
+                    project,
+                    commits,
+                    workspace,
+                    new_stacks,
+                    open,
+                );
                 let Moving::Branch(branch) = what else {
                     return Some(all);
                 };
@@ -638,7 +646,14 @@ impl Navigator {
                 let open = |heading: &Selection| {
                     matches!(heading, Selection::Branch(..)) || self.open_as_built(heading)
                 };
-                let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                let (all, _) = stops(
+                    self.shown_rows(),
+                    project,
+                    &[],
+                    workspace,
+                    workspace.managed,
+                    open,
+                );
                 let mut stops: Vec<Stop> = all.into_iter().filter(|stop| lands(stop)).collect();
                 // The main checkout's changes can always go in a new branch of their own, after
                 // the rest, as where to commit with no branches, or outside the workspace,
@@ -1578,7 +1593,7 @@ mod tests {
     fn a_commit_stops_between_every_branch_and_commit_but_in_what_is_folded() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (stops, start) = stops(&rows, &project, &[id(2)], &ws, open);
+        let (stops, start) = stops(&rows, &project, &[id(2)], &ws, true, open);
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
@@ -1612,28 +1627,30 @@ new branch below agent
         clippy::disallowed_methods,
         reason = "a test, and snapbox looks for the file its snapshot is in"
     )]
-    fn a_folded_main_checkout_and_a_workspace_of_one_branch_take_no_new_branches() {
+    fn a_folded_main_checkout_takes_nothing_and_without_new_stacks_every_lane_takes_new_branches() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], &ws, |_| false);
+        let shut = |_: &Selection| false;
+        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], &ws, true, shut);
         assert!(
             folded.is_empty(),
             "nothing shows under the folded heading, and no new stack goes after it"
         );
-        let unmanaged = Workspace {
-            managed: false,
-            ..ws
-        };
-        let (stops, start) = stops(&rows, &project, &[id(1)], &unmanaged, open);
-        // Outside the workspace there's no stack to put a branch in, so folded typo has no
-        // stops, but a linked worktree's lane still takes one.
+        let (stops, start) = stops(&rows, &project, &[id(1)], &ws, false, open);
+        // As committing outside the workspace asks, which places its own new branch after the
+        // rest: every lane still takes new branches beside its own.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
+new branch above ui
 top of ui
 below 3
+new branch above api
 top of api
 below 2 <
+new branch below api
+new branch above typo
+new branch below typo
 new branch above agent
 top of agent
 below 5
@@ -1794,7 +1811,7 @@ into 1
     fn a_branch_stops_only_between_branches_and_where_it_is() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let (all, _) = stops(&rows, &project, &[], &ws, true, open);
         let api = full("refs/heads/api");
         // Below itself it doesn't move, and a branch keeps to its own side, out of wt.
         let lands = |stop: &Stop| match stop {
@@ -1821,6 +1838,49 @@ new branch above ui
 new branch above api <
 new branch above typo
 new branch below typo
+new stack
+
+"#]]
+        );
+    }
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn a_branch_stacked_outside_the_workspace_moves_within_its_stack_and_apart() {
+        let project = ProjectId::from("p");
+        let p = || project.clone();
+        let named = |name: &str| Some(full(&format!("refs/heads/{name}")));
+        // `top` checked out on `low`, without the workspace.
+        let ws = workspace(vec![vec![branch("top", &[2]), branch("low", &[1])]], vec![]);
+        let rows = [
+            Row::Item(Selection::Project(p())),
+            Row::Item(Selection::Uncommitted(p())),
+            Row::Item(Selection::Branch(p(), named("top"))),
+            Row::Item(Selection::Commit(p(), id(2))),
+            Row::Item(Selection::Branch(p(), named("low"))),
+            Row::Item(Selection::Commit(p(), id(1))),
+            Row::Item(Selection::Branches(p())),
+        ];
+        let (all, _) = stops(&rows, &project, &[], &ws, true, open);
+        // It's already right above low.
+        let above_low = Stop::NewBranch {
+            beside: full("refs/heads/low"),
+            below: false,
+        };
+        let lands = |stop: &Stop| *stop != above_low;
+        let (stops, start) = branch_stops(all, &full("refs/heads/top"), lands)
+            .expect("it can go below low, or in a stack of its own");
+        // Below low, or in a stack of its own, as the engine moves it there without the
+        // workspace too.
+        snapbox::assert_data_eq!(
+            describe(&stops, start),
+            snapbox::str![[r#"
+new stack first
+new branch above top <
+new branch below low
 new stack
 
 "#]]
