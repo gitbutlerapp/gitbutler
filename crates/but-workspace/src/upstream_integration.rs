@@ -69,6 +69,8 @@ struct AnnotatedNode {
     historically_integrated: bool,
     content_integrated: bool,
     review_integrated: bool,
+    /// The upstream commit whose content this node is known to have landed as.
+    upstream_commit: Option<gix::ObjectId>,
     /// Only set to Some on references. Set to Some(<reference getting
     /// integrated>) if all the nodes exclusive to the current reference are
     /// marked as content or historically integrated or if the reference itself
@@ -86,6 +88,7 @@ impl AnnotatedNode {
             historically_integrated: false,
             content_integrated: false,
             review_integrated: false,
+            upstream_commit: None,
             reference_integrated: None,
         }
     }
@@ -579,6 +582,22 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             // it has a parent commit that also has an edge that we're going to
             // re-parent to pointing to target, we drop this commit's edge
             // instead"
+            let landed = stack
+                .nodes
+                .iter()
+                .filter(|(node, attrs)| {
+                    attrs.to_rebase
+                        && !attrs.historically_integrated
+                        && attrs.upstream_commit.is_some()
+                        && matches!(editor.lookup_step(**node), Ok(Step::Pick(_)))
+                })
+                .map(|(node, _)| *node);
+            for node in editor.order_commit_selectors_by_parentage(landed)? {
+                if let Some(upstream) = stack.nodes.get(&node).and_then(|a| a.upstream_commit) {
+                    editor.integrate(node, upstream)?;
+                }
+            }
+
             for (node, attrs) in stack.nodes.iter() {
                 if !attrs.to_rebase {
                     continue;
@@ -773,9 +792,10 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
 
             if let Step::Pick(Pick { id, .. }) = step
-                && matches_by_workspace_commit.contains_key(&id)
+                && let Some(upstream) = matches_by_workspace_commit.get(&id)
             {
                 attrs.content_integrated = true;
+                attrs.upstream_commit = Some(*upstream);
             }
         }
 
@@ -856,12 +876,14 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                     selector_commit_id(editor, base)?,
                     selector_commit_id(editor, *r_sel)?,
                 )
-                && squash_in_lut(editor.repo(), &upstream_lut, base_id, top_id)?.is_some()
+                && let Some(upstream) =
+                    squash_in_lut(editor.repo(), &upstream_lut, base_id, top_id)?
             {
                 all_integrated = true;
                 for member in &members {
                     if let Some(attrs) = stack.nodes.get_mut(member) {
                         attrs.content_integrated = true;
+                        attrs.upstream_commit = Some(upstream);
                     }
                 }
             }

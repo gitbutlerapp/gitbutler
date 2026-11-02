@@ -400,11 +400,29 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// Replaces `target` with [Step::None], recording that it's gone without a replacement.
     pub fn prune(&mut self, target: impl ToCommitSelector) -> Result<()> {
+        self.remove_commit(target, None)
+    }
+
+    /// Replaces `target` with [Step::None], recording that `upstream` now has its changes.
+    pub fn integrate(
+        &mut self,
+        target: impl ToCommitSelector,
+        upstream: gix::ObjectId,
+    ) -> Result<()> {
+        self.remove_commit(target, Some(upstream))
+    }
+
+    fn remove_commit(
+        &mut self,
+        target: impl ToCommitSelector,
+        upstream: Option<gix::ObjectId>,
+    ) -> Result<()> {
         let target = target.to_commit_selector(self)?;
         if let Some(prec) = self.consume(target)? {
-            self.history
-                .successions
-                .push(Succession { prec, succ: None });
+            self.history.successions.push(Succession {
+                prec,
+                succ: upstream,
+            });
         }
         self.replace_with_none(target)?;
         Ok(())
