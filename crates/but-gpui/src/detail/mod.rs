@@ -334,6 +334,9 @@ pub struct Detail {
     waiting_since: Option<Instant>,
     _waiting: Task<()>,
     list: ListState,
+    /// The width the diff's undrawn rows were last given a height at, which gpui forgets
+    /// whenever the list's width changes.
+    estimated_width: Rc<Cell<Option<Pixels>>>,
     /// Where the uncommitted file list and a commit's or branch's file list are scrolled.
     uncommitted_files: ListState,
     diff_files: ListState,
@@ -749,6 +752,7 @@ impl Detail {
             waiting_since: None,
             _waiting: Task::ready(()),
             list: ListState::new(0, ListAlignment::Top, fixed(40.)),
+            estimated_width: Rc::default(),
             uncommitted_files: panes::side_list_state(),
             diff_files: panes::side_list_state(),
             listed_cursor: Default::default(),

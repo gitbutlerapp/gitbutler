@@ -813,6 +813,35 @@ impl Detail {
             )
             .absolute()
         });
+        // gpui forgets every row's height when the list's width changes, its first layout
+        // too, and counts the rows it hasn't drawn since as nothing, so the scrollbar took the
+        // diff for what had been drawn. Laid out after the list, this counts them a line tall
+        // again. That also takes the drawn rows' bounds, which reveals and the sticky header
+        // read: the next frame lays the rows out again, after its sticky header was worked out
+        // without them, so the one after draws it from them.
+        let estimate = {
+            let (list, width, line) = (
+                self.list.clone(),
+                self.estimated_width.clone(),
+                super::code_line(cx),
+            );
+            canvas(
+                move |_, window, _| {
+                    let drawn = list.viewport_bounds().size.width;
+                    if width.get() != Some(drawn) {
+                        width.set(Some(drawn));
+                        list.with_uniform_item_height(line);
+                        let pane = window.current_view();
+                        window.on_next_frame(move |window, cx| {
+                            cx.notify(pane);
+                            window.on_next_frame(move |_, cx| cx.notify(pane));
+                        });
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+        };
         ground()
             // With the bar above it, as far down as but.dev starts its first card.
             .pt(dp(7.))
@@ -868,6 +897,7 @@ impl Detail {
                         })
                         .size_full(),
                     )
+                    .child(estimate)
                     .children(sticky)
                     .children(scrollbar),
             )
