@@ -27,7 +27,7 @@ use crate::backend::{
     PushState, Workspace,
 };
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, Prefs, Selection};
+use crate::state::{Cut, Part, Prefs, Selection};
 use crate::theme::Theme;
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -1064,6 +1064,12 @@ impl Detail {
             true => !self.beside_files_shown(cx),
             false => !self.files_shown(cx),
         };
+        // Lite leaves the bar out once the files it'd toggle are beside the diff, as keys
+        // switch the rest.
+        let controls = prefs.shows(Part::DiffTools);
+        if !controls && !hidden {
+            return None;
+        }
         let files_key = shortcut(&ToggleFiles, cx);
         let glyph = match (toggles, hidden) {
             (false, _) => Icon::FileDiff,
@@ -1130,39 +1136,41 @@ impl Detail {
                 .bg(theme.bg_1)
                 .children(files)
                 .child(div().flex_1())
-                .child(toggle_group(
-                    theme,
-                    [
-                        flag(
-                            "diff-wrap",
-                            Icon::TextWrap,
-                            "Wrap long lines",
-                            wrap,
-                            &ToggleWrap,
-                        ),
-                        flag(
-                            "diff-backgrounds",
-                            Icon::TextBlock,
-                            "Toggle diff backgrounds",
-                            !plain,
-                            &TogglePlainLines,
-                        ),
-                    ],
-                ))
-                .child(segmented(
-                    false,
-                    theme,
-                    [
-                        layout("diff-split", "Split", "Side by side", split, &ToggleSplit),
-                        layout(
-                            "diff-unified",
-                            "Unified",
-                            "One above the other",
-                            !split,
-                            &ToggleSplit,
-                        ),
-                    ],
-                ))
+                .when(controls, |el| {
+                    el.child(toggle_group(
+                        theme,
+                        [
+                            flag(
+                                "diff-wrap",
+                                Icon::TextWrap,
+                                "Wrap long lines",
+                                wrap,
+                                &ToggleWrap,
+                            ),
+                            flag(
+                                "diff-backgrounds",
+                                Icon::TextBlock,
+                                "Toggle diff backgrounds",
+                                !plain,
+                                &TogglePlainLines,
+                            ),
+                        ],
+                    ))
+                    .child(segmented(
+                        false,
+                        theme,
+                        [
+                            layout("diff-split", "Split", "Side by side", split, &ToggleSplit),
+                            layout(
+                                "diff-unified",
+                                "Unified",
+                                "One above the other",
+                                !split,
+                                &ToggleSplit,
+                            ),
+                        ],
+                    ))
+                })
                 .into_any_element(),
         )
     }
@@ -1288,25 +1296,29 @@ impl Detail {
                             .child(commit_title(&commit.title)),
                     )
                 });
+                // Lite leaves the counts and buttons to the menu and the keys.
+                let controls = store.prefs.shows(Part::FileHeaderControls);
+                let has_trailing = controls || from.is_some();
                 let trailing = h_flex()
                     .flex_none()
                     .gap(dp(4.))
                     .children(from)
                     // The toggle last but one: showing text adds the whole-file button, which
                     // mustn't move it from under the pointer.
-                    .children(whole)
-                    .children(drawn)
-                    .child(more);
+                    .when(controls, |el| {
+                        el.children(whole).children(drawn).child(more)
+                    });
                 let header = diff::file_header(
                     file,
                     file_diff,
                     theme,
                     HeaderDecor {
-                        trailing: Some(trailing.into_any_element()),
+                        trailing: has_trailing.then(|| trailing.into_any_element()),
                         current,
                         solid,
                         folded: ends,
                         flat,
+                        uncounted: !controls,
                         closing: self.file_folds.closing(&file_diff.file.path),
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))

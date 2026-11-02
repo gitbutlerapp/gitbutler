@@ -465,6 +465,8 @@ pub struct HeaderDecor {
     pub blink: Option<usize>,
     /// Its file fills the pane alone, without a card around it.
     pub flat: bool,
+    /// Leaves out the lines the file changed, as Lite does.
+    pub uncounted: bool,
 }
 
 /// What the diff's owner adds to a line.
@@ -666,8 +668,10 @@ pub fn file_header(
                 })),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
-        .child(stats(added, removed, on, theme))
-        .children(change_scale(added, removed, theme))
+        .when(!decor.uncounted, |el| {
+            el.child(stats(added, removed, on, theme))
+                .children(change_scale(added, removed, theme))
+        })
         // Parts what the file changed from what can be done to it.
         .when(decor.trailing.is_some(), |el| {
             el.child(

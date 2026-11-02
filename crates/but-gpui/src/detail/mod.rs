@@ -2796,6 +2796,9 @@ impl Detail {
     /// the render's `header` gives one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
+            Some(Selection::Branch(..) | Selection::Stack(..)) if !self.branch_header_shown(cx) => {
+                0.
+            }
             Some(
                 Selection::Commit(..)
                 | Selection::Upstream(..)
@@ -3049,6 +3052,11 @@ impl Render for Detail {
                     }
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, cx))
+                    }
+                    Selection::Branch(..) | Selection::Stack(..)
+                        if !self.branch_header_shown(cx) =>
+                    {
+                        None
                     }
                     Selection::Branch(project, ref_name) => Some(self.render_branch_header(
                         project,
@@ -3334,7 +3342,9 @@ impl Render for Detail {
             })
             .size_full()
             .bg(theme.bg_1)
-            .child(self.render_header(selection.as_ref(), &theme, window, cx))
+            .when(self.location_bar_shown(window, cx), |el| {
+                el.child(self.render_header(selection.as_ref(), &theme, window, cx))
+            })
             .child(div().flex_1().min_h_0().child(body))
     }
 }

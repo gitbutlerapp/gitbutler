@@ -514,6 +514,18 @@ pub enum Interface {
 pub enum Part {
     /// The bar along the window's bottom, with what's under way and the keys that go with it.
     StatusBar,
+    /// The bar along the detail's top, with the navigator's toggle and the trail of where the
+    /// selection is. Only while the navigator shows, as the traffic lights and the toggle go
+    /// there then.
+    LocationBar,
+    /// The header across a branch's or a stack's page, with its name, commits and push state,
+    /// which the navigator's row has too.
+    BranchHeader,
+    /// The diff's wrap, backgrounds and split controls, which keys switch too.
+    DiffTools,
+    /// A file header's changed line counts and its buttons, which its right-click menu and
+    /// keys have too.
+    FileHeaderControls,
 }
 
 impl Prefs {
@@ -521,7 +533,14 @@ impl Prefs {
     pub fn shows(&self, part: Part) -> bool {
         match (self.interface, part) {
             (Interface::Full, _) => true,
-            (Interface::Lite, Part::StatusBar) => false,
+            (
+                Interface::Lite,
+                Part::StatusBar
+                | Part::LocationBar
+                | Part::BranchHeader
+                | Part::DiffTools
+                | Part::FileHeaderControls,
+            ) => false,
         }
     }
 

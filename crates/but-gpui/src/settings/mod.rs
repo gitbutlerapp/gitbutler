@@ -959,8 +959,10 @@ impl SettingsView {
         let lite = self.store.read(cx).prefs.interface == Interface::Lite;
         Row::new(
             "Lite interface",
-            "Leaves parts of the window out: so far the status bar. What's left out may change \
-             from one release to the next.",
+            "Leaves out parts of the window that repeat what's elsewhere or switch what keys \
+             do: the status bar, the location bar while the navigator shows, a branch's \
+             header, the diff's toolbar and the counts and buttons on each file. What's left \
+             out may change from one release to the next.",
             self.pref_switch(
                 "lite-interface",
                 lite,
@@ -973,7 +975,7 @@ impl SettingsView {
                 cx,
             ),
         )
-        .with_keywords("minimal compact hide status bar")
+        .with_keywords("minimal compact hide status bar breadcrumbs toolbar header")
     }
 
     fn fps_row(&self, cx: &Context<Self>) -> Row {

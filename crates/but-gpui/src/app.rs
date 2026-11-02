@@ -1851,6 +1851,7 @@ impl AppView {
         cx: &App,
     ) -> Div {
         let theme = Theme::get(cx);
+        let bar = self.detail.read(cx).location_bar_height(window, cx);
         div()
             .relative()
             // Over the navigator as it slides, taking the pointer from it.
@@ -1864,9 +1865,7 @@ impl AppView {
                 el.child(
                     div()
                         .absolute()
-                        .top(dp(
-                            HEADER_HEIGHT + self.detail.read(cx).view_header_height(cx)
-                        ))
+                        .top(dp(bar + self.detail.read(cx).view_header_height(cx)))
                         .bottom_0()
                         .right_0()
                         .left(dp(left))
@@ -1886,7 +1885,7 @@ impl AppView {
             .children(self.shown_terminal(cx).map(|terminal| {
                 div()
                     .absolute()
-                    .top(dp(HEADER_HEIGHT))
+                    .top(dp(bar))
                     .bottom_0()
                     .left_0()
                     .right_0()

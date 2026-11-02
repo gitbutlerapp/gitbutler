@@ -23,7 +23,7 @@ use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{ProjectId, Section, Selection};
+use crate::state::{Part, ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
@@ -39,6 +39,28 @@ use crate::ui::{
 };
 
 impl Detail {
+    /// Whether the location bar draws: always, unless Lite leaves it out while the navigator
+    /// shows whole, where the traffic lights and its toggle are then. Where the app draws the
+    /// window's buttons over the bar's right end, they need it.
+    pub(crate) fn location_bar_shown(&self, window: &Window, cx: &App) -> bool {
+        (self.store.read(cx).prefs).shows(Part::LocationBar)
+            || self.navigator_shown.get() < 1.
+            || crate::ui::draws_window_controls(window)
+    }
+
+    /// The location bar's height, or nothing while it doesn't draw, for what sits below it.
+    pub(crate) fn location_bar_height(&self, window: &Window, cx: &App) -> f32 {
+        match self.location_bar_shown(window, cx) {
+            true => HEADER_HEIGHT,
+            false => 0.,
+        }
+    }
+
+    /// Whether a branch's or a stack's page has its header: always, unless Lite leaves it out.
+    pub(super) fn branch_header_shown(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.shows(Part::BranchHeader)
+    }
+
     pub(super) fn render_header(
         &self,
         selection: Option<&Selection>,
