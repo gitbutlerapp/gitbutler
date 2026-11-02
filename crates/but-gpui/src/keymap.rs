@@ -302,6 +302,7 @@ mod tests {
                     ("terminal::NewTerminal", "secondary-t"),
                     ("app::ToggleNavigator", "secondary-b"),
                     ("app::ToggleDetail", "secondary-alt-b"),
+                    ("navigator::CopySelection", "y"),
                     ("navigator::SelectNext", "j"),
                     ("navigator::SelectPrevious", "k"),
                     ("diff::NextHunk", "j"),

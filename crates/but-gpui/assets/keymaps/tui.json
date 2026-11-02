@@ -1,9 +1,9 @@
 // A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
 // committing, moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
-// files, / to filter or find, ⌘K for the command palette, ⌘P to go to anything and ⌘J to a
-// terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go to the
-// navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the details,
-// and the keys the app's lists and overlays need, as GitButler's keymap has them.
+// files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
+// and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
+// to the navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the
+// details, and the keys the app's lists and overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -13,15 +13,17 @@
   {
     "bindings": { "secondary-k": "app::CommandPalette" }
   },
-  // : for the TUI's command line, ? for its help and Esc to go back. y copies the selection and
-  // ⇧Y picks what else of it to copy. u undoes and ⇧U redoes. ← and →, or h and l, go to the pane
-  // on that side, as l focuses the TUI's details and h its status.
+  // : for the TUI's command line, ? for its help and Esc to go back. y copies the selection, as
+  // ⌘C does, bound first so y is the key shown, and ⇧Y picks what else of it to copy. u undoes
+  // and ⇧U redoes. ← and →, or h and l, go to the pane on that side, as l focuses the TUI's
+  // details and h its status.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
       ":": "app::CommandPalette",
       "?": "settings::OpenKeyboardShortcuts",
       "escape": "app::Cancel",
+      "secondary-c": "navigator::CopySelection",
       "y": "navigator::CopySelection",
       "shift-y": "palette::CopyMore",
       "u": "app::Undo",
