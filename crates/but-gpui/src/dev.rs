@@ -920,7 +920,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             window.dispatch_event(
                 PlatformInput::ScrollWheel(ScrollWheelEvent {
                     position: point(Pixels::from(x), Pixels::from(y)),
-                    delta: ScrollDelta::Lines(point(0., -notches)),
+                    // As the platform sends a notch: a line, or on Windows the three lines its
+                    // setting gives one unless changed.
+                    delta: ScrollDelta::Lines(point(
+                        0.,
+                        -notches * if cfg!(target_os = "windows") { 3. } else { 1. },
+                    )),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
                 }),
