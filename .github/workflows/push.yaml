@@ -9,9 +9,10 @@ env:
   RUST_BACKTRACE: full
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # A new push to a pull request supersedes its last run. Master runs always finish:
-  # they save the caches pull requests restore, and show which merge broke master.
+  # A new push to a pull request supersedes its last run. Each master commit gets a group
+  # of its own, so no master run is cancelled or dropped from the queue: they save the
+  # caches pull requests restore, and show which merge broke master.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -686,6 +687,10 @@ jobs:
   publish-installer:
     needs: build-installer
     if: ${{ github.ref == 'refs/heads/master' }}
+    # Master runs overlap, so two must not upload to installers/latest at once.
+    concurrency:
+      group: publish-installer
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

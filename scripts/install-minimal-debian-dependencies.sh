@@ -10,9 +10,10 @@ if [[ -n "${apt_cache_archives_dir}" ]]; then
 fi
 
 # A mirror can stall a download without dropping the connection, which apt's own
-# timeouts don't catch, so each attempt is cut off and retried.
+# timeouts don't catch, so each attempt is cut off and retried. Without --error-on=any,
+# a failed index download is only a warning and isn't retried.
 for attempt in 1 2 3; do
-    if timeout 120 apt-get update "${apt_options[@]}"; then
+    if timeout 120 apt-get update --error-on=any "${apt_options[@]}"; then
         break
     fi
     if [[ "${attempt}" == 3 ]]; then
