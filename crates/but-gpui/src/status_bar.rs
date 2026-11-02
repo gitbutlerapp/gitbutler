@@ -97,11 +97,14 @@ impl AppView {
                     };
                     shortcut(&UseTargetMessage, cx).map(|keys| (keys, said))
                 }
-                (Op::Squash(_) | Op::Move | Op::Commit, _) => None,
+                (Op::Squash(_) | Op::Move | Op::Commit | Op::CherryPick, _) => None,
             };
-            // Commits or a branch squash instead of moving, or move instead of squashing.
+            // Commits or a branch squash instead of moving, or move instead of squashing, and
+            // commits cherry-picked move instead.
             let instead = match moving.op {
-                Op::Squash(_) => shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead")),
+                Op::Squash(_) | Op::CherryPick => {
+                    shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead"))
+                }
                 Op::Move => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
                 Op::Commit => None,
             };
@@ -123,11 +126,9 @@ impl AppView {
                 .collect();
             (state.into_any_element(), keys)
         } else if let Some(cut) = &store.cut {
-            // On another commit, a commit goes above it, below it with ⇧, or one that's cut
-            // rather than copied into it with ⌥.
+            // On another commit, a commit goes above it, below it with ⇧, or into it with ⌥.
             let onto_commit = matches!((cut, &store.selection),
-                (Cut::Commit(_, ids) | Cut::CherryPick(_, ids), Some(Selection::Commit(_, id)))
-                    if !ids.contains(id));
+                (Cut::Commit(_, ids), Some(Selection::Commit(_, id))) if !ids.contains(id));
             let paste = match (shortcut(&PasteHere, cx), onto_commit) {
                 (None, _) => Vec::new(),
                 (Some(keys), false) => vec![(keys, "paste here")],
@@ -146,7 +147,7 @@ impl AppView {
                 .gap(dp(6.))
                 .min_w_0()
                 .overflow_hidden()
-                .child(div().flex_none().text_color(theme.pop).child(cut.verb()))
+                .child(div().flex_none().text_color(theme.pop).child("Cut"))
                 .child(div().min_w_0().truncate().child(cut.describe(store)));
             // Not while typing, where ⌘V pastes text and esc leaves the field.
             let keys = match typing {

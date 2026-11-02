@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AnyElement, App, Context, Div, Hsla, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
 use super::order::moving_terminal;
 use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
@@ -20,7 +20,9 @@ use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots};
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, ROW_HEIGHT, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon};
+use crate::ui::{
+    Icon, ROW_HEIGHT, blink_once, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon,
+};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -32,7 +34,7 @@ fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
         moving.project == *project
             && matches!(
                 moving.what,
-                Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. }
+                Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_)
             )
     })
 }
@@ -276,6 +278,10 @@ impl Rows {
         let copies: Vec<Row> = match &moving.what {
             Moving::Commits(ids) => (ids.iter())
                 .map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)))
+                .collect(),
+            // As the commits they'd be, which [`ghost_row`] draws by their titles.
+            Moving::Copies(copies) => (copies.iter())
+                .map(|(id, _)| Row::Ghost(Selection::Commit(project.clone(), *id)))
                 .collect(),
             Moving::Branch(branch) => {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
@@ -590,9 +596,12 @@ impl Navigator {
                     .map(|(checkout, slot)| Stop::Terminal { checkout, slot });
                 return Some((stops.collect(), start));
             }
-            // Files are only squashed.
-            Moving::Files { .. } if op == Op::Move => return None,
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {}
+            // Files are only squashed, and committed, and only commits are cherry-picked, the
+            // workspace's or copies of others.
+            Moving::Files { .. } if matches!(op, Op::Move | Op::CherryPick) => return None,
+            Moving::Branch(_) if op == Op::CherryPick => return None,
+            Moving::Copies(_) if op != Op::CherryPick => return None,
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {}
         }
         let workspace = store.workspace(project)?;
         let open = |heading: &Selection| self.open_as_built(heading);
@@ -618,13 +627,27 @@ impl Navigator {
                     | Moving::Project(_)
                     | Moving::Worktree { .. }
                     | Moving::Terminal { .. }
-                    | Moving::Files { .. } => &[],
+                    | Moving::Files { .. }
+                    | Moving::Copies(_) => &[],
                 };
                 let all = stops(self.shown_rows(), project, commits, workspace, open);
                 let Moving::Branch(branch) = what else {
                     return Some(all);
                 };
                 branch_stops(all.0, branch, lands)
+            }
+            // Where commits moved can land. The workspace's start where they are, and copies of
+            // others, which are nowhere here, on top of the topmost branch, as a new commit
+            // does.
+            Op::CherryPick => {
+                let Moving::Commits(commits) = what else {
+                    let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                    let topmost = (all.iter())
+                        .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
+                        .unwrap_or_default();
+                    return Some((all, topmost));
+                };
+                Some(stops(self.shown_rows(), project, commits, workspace, open))
             }
             Op::Squash(_) => {
                 let home = (store.selection.as_ref()).and_then(Target::of)?;
@@ -672,13 +695,14 @@ impl Navigator {
         terminal_lists(self.shown_rows(), project, open).into()
     }
 
-    /// The stops of the move under way, and which of them it's at: where what it moves is, if
-    /// the one it was at is gone, as when it's folded away.
-    fn move_stops(&self, cx: &App) -> Option<(Vec<Stop>, usize)> {
+    /// The stops of the move under way, which of them it's at, and which it started from:
+    /// where what it moves is, also where it's at if the one it was at is gone, as when it's
+    /// folded away.
+    fn move_stops(&self, cx: &App) -> Option<(Vec<Stop>, usize, usize)> {
         let moving = self.store.read(cx).moving.as_ref()?;
         let (stops, start) = self.stops_for(&moving.project, &moving.what, moving.op, cx)?;
         let at = (stops.iter().position(|stop| *stop == moving.at)).unwrap_or(start);
-        Some((stops, at))
+        Some((stops, at, start))
     }
 
     /// Start moving the selected commit, with those picked with it, the selected branch, the
@@ -867,7 +891,7 @@ impl Navigator {
     }
 
     /// Start placing a commit of `worktree`'s uncommitted changes in `project`, from `start`
-    /// if it can go there, else on top of the topmost branch it can go on, as the TUI's commit
+    /// if it can go there, else on top of the topmost branch of `worktree`, as the TUI's commit
     /// mode does: the keys step through where it can go until Return commits it there, its
     /// message written first, or Escape lets go. The composer shows what goes in, and the
     /// message. So c and Return commit on top of the branch below the changes. The keys come
@@ -883,14 +907,22 @@ impl Navigator {
         let files = (self.detail.read(cx)).files_to_move(&project, worktree.clone(), cx);
         let what = Moving::Files {
             from: None,
-            worktree,
+            worktree: worktree.clone(),
             files: files.into(),
         };
         let stops = (self.stops_for(&project, &what, Op::Commit, cx))
             .map(|(stops, _)| stops)
             .unwrap_or_default();
+        // Its own checkout's topmost branch, else a new branch of its own: another checkout's
+        // branches take it only when stepped to.
+        let workspace = self.store.read(cx).workspace(&project);
+        let own = |branch: &FullName| {
+            (workspace.and_then(|ws| ws.lane_of(Some(branch))))
+                .is_some_and(|(lane, _)| lane.checkout == worktree)
+        };
         let topmost = (stops.iter())
-            .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
+            .position(|stop| matches!(stop, Stop::In(Destination::Branch(b)) if own(b)))
+            .or_else(|| (stops.iter()).position(|stop| matches!(stop, Stop::NewStack { .. })))
             .unwrap_or_default();
         let at = (start.filter(|start| stops.contains(start)))
             .or_else(|| stops.into_iter().nth(topmost));
@@ -949,7 +981,8 @@ impl Navigator {
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. } => start,
+                | Moving::Files { .. }
+                | Moving::Copies(_) => start,
             };
             let at = stops.get(start)?.clone();
             let home = Move {
@@ -974,13 +1007,78 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    /// Squash what `moving` moves, or move what it squashes, as `op` says: from what matches
-    /// where it's at, below a commit or into it, which show where it goes in the same place,
-    /// else from where it is.
+    /// Start cherry-picking the selected commit, with those picked with it, or the commit a
+    /// branch's remote has that it lists, as the TUI's p does: the keys step through where
+    /// copies of them can go until Return puts them there or Escape lets go. While commits are
+    /// being moved or squashed, cherry-pick them instead.
+    pub(crate) fn start_cherry_pick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        if let Some(moving) = store.moving.clone() {
+            return self.switch(moving, Op::CherryPick, cx);
+        }
+        let (project, what) = match store.selection.clone() {
+            Some(Selection::Commit(project, id)) => {
+                let ids = store.with_picks(&project, id);
+                (project, Moving::Commits(ids))
+            }
+            Some(Selection::Upstream(project, _, id)) => {
+                let remote = (store.workspace(&project))
+                    .and_then(|ws| ws.remote_commits().find(|commit| commit.id == id));
+                let Some(remote) = remote else {
+                    return;
+                };
+                // As `git cherry-pick` refuses: which side to take isn't said.
+                if remote.merge {
+                    return snack(&self.store, "A merge can't be cherry-picked", cx);
+                }
+                let copies = [(id, remote.title.clone().into())].into();
+                (project, Moving::Copies(copies))
+            }
+            _ => return,
+        };
+        self.cherry_pick(project, what, window, cx)
+    }
+
+    /// Start cherry-picking `what` into `project`: the workspace's commits from where they
+    /// are, and copies of others from the top of the topmost branch.
+    pub(crate) fn cherry_pick(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let op = Op::CherryPick;
+        // Somewhere besides where they are, which copies of others are nowhere here.
+        let copies = matches!(what, Moving::Copies(_));
+        let start = (self.stops_for(&project, &what, op, cx))
+            .filter(|(stops, _)| stops.len() > 1 || (copies && !stops.is_empty()))
+            .and_then(|(stops, start)| stops.into_iter().nth(start));
+        let Some(at) = start else {
+            return snack(&self.store, "Nowhere to cherry-pick it", cx);
+        };
+        let moving = Move {
+            project,
+            what,
+            at,
+            op,
+        };
+        self.reveal_selection = true;
+        self.store
+            .update(cx, |store, cx| store.set_moving(Some(moving), cx));
+        window.focus(&self.focus, cx);
+    }
+
+    /// Squash what `moving` moves, or move or cherry-pick what it squashes, as `op` says: from
+    /// what matches where it's at, below a commit or into it, which show where it goes in the
+    /// same place, or the same stop, where moving and cherry-picking both land, else from where
+    /// it is.
     fn switch(&mut self, moving: Move, op: Op, cx: &mut Context<Self>) {
         let same_op = matches!(
             (moving.op, op),
-            (Op::Move, Op::Move) | (Op::Squash(_), Op::Squash(_))
+            (Op::Move, Op::Move)
+                | (Op::Squash(_), Op::Squash(_))
+                | (Op::CherryPick, Op::CherryPick)
         );
         if same_op || !moving.of_commits() {
             return;
@@ -995,10 +1093,11 @@ impl Navigator {
             (Stop::In(Destination::BelowCommit(id)), Op::Squash(_)) => {
                 Some(Stop::Into(Target::Commit(*id)))
             }
-            (Stop::Into(Target::Commit(id)), Op::Move) => {
+            (Stop::Into(Target::Commit(id)), Op::Move | Op::CherryPick) => {
                 Some(Stop::In(Destination::BelowCommit(*id)))
             }
-            _ => None,
+            (_, Op::Move | Op::CherryPick) => Some(at.clone()),
+            (_, Op::Squash(_) | Op::Commit) => None,
         };
         let Some(at) =
             (same.filter(|stop| stops.contains(stop))).or_else(|| stops.into_iter().nth(start))
@@ -1040,7 +1139,7 @@ impl Navigator {
 
     /// Step the move `delta` places on, stopping at either end.
     pub(super) fn step_move(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some((stops, at)) = self.move_stops(cx) else {
+        let Some((stops, at, _)) = self.move_stops(cx) else {
             return;
         };
         let last = stops.len().saturating_sub(1) as isize;
@@ -1052,7 +1151,7 @@ impl Navigator {
     /// to a new stack, as ⇧J and ⇧K jump between sections. A branch, which lands only between
     /// branches, jumps between the tops of stacks, and a card from card to card, as it steps.
     pub(super) fn jump_move(&mut self, forward: bool, cx: &mut Context<Self>) {
-        let Some((stops, at)) = self.move_stops(cx) else {
+        let Some((stops, at, _)) = self.move_stops(cx) else {
             return;
         };
         let store = self.store.read(cx);
@@ -1103,6 +1202,33 @@ impl Navigator {
                 cx.notify();
             }
         });
+    }
+
+    /// Put the move under way where a click on `item`'s row says, as [`clicked_stop`] does,
+    /// as though the keys had stepped it there. A click it can't use leaves it where it is,
+    /// which blinks to say it's still on: a click on a row does nothing else while it's under
+    /// way, so a stray one never ends it.
+    pub(super) fn click_move(
+        &mut self,
+        item: &Selection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        window.focus(&self.focus, cx);
+        let store = self.store.read(cx);
+        let Some(moving) = store.moving.as_ref() else {
+            return;
+        };
+        let clicked = self.move_stops(cx).and_then(|(stops, at, start)| {
+            let own = matches!(mark(store, item), Some(Mark::Cut(_) | Mark::Copied(_)));
+            let checkout = store.checkout_of(item);
+            let ix = clicked_stop(&stops, (at, start), moving, item, own, checkout)?;
+            Some((stops, ix))
+        });
+        match clicked {
+            Some((stops, ix)) => self.move_to(stops, ix, cx),
+            None => self.nudge_move(cx),
+        }
     }
 
     /// Land what's being moved where the move is at, as dropping it there would, or squash it
@@ -1170,6 +1296,26 @@ impl Navigator {
             return (self.store)
                 .update(cx, |store, cx| store.order_terminals(&project, &order, cx));
         }
+        // Copies go where it's at, the commits staying where they are, and show there till
+        // they're there.
+        if let (Op::CherryPick, Some(ids)) = (moving.op, moving.picked()) {
+            let (project, at, lands) = (moving.project.clone(), moving.at.clone(), moving);
+            return self.store.update(cx, |store, cx| match at {
+                Stop::In(to) => {
+                    // Only staging comes back, which a cherry-pick never is.
+                    let transfer = Transfer::CherryPick { ids, to };
+                    let _ = transfer.perform(&project, Some(lands), store, cx);
+                }
+                Stop::NewBranch { beside, below } => {
+                    let beside = Some((beside, below));
+                    store.cherry_pick_to_new_branch(&project, ids, beside, false, lands, cx)
+                }
+                Stop::NewStack { first } => {
+                    store.cherry_pick_to_new_branch(&project, ids, None, first, lands, cx)
+                }
+                Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => {}
+            });
+        }
         // A branch's copy stays where it lands till it's there.
         if let Some((payload, target, place)) = moving.drop() {
             return self.app.update_later(window, cx, move |app, window, cx| {
@@ -1205,7 +1351,8 @@ impl Navigator {
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. },
+                | Moving::Files { .. }
+                | Moving::Copies(_),
                 _,
             ) => {}
         });
@@ -1268,6 +1415,82 @@ fn terminal_lists<'a>(
     lists
 }
 
+/// Whether `item`'s row is what's being moved where it goes where it'd land itself, rather than
+/// show a copy there: a project's card, by its heading, a linked worktree or a terminal.
+pub(super) fn goes_itself(store: &Store, item: &Selection) -> bool {
+    store.moving.as_ref().is_some_and(|moving| {
+        matches!(
+            moving.what,
+            Moving::Project(_) | Moving::Worktree { .. } | Moving::Terminal { .. }
+        ) && moving.holds(item)
+    })
+}
+
+/// Which of `stops` a click on `item`'s row puts `moving` at, `at` being the one it's at and
+/// `start` where it started, or `None` for a row it has no place at. `own` says the row is what
+/// moves, or of it, as a branch's commits are, which takes it back to where it started, but a
+/// commit being made, which started nowhere. `checkout` is where the row is.
+///
+/// Commits land under the commit clicked, or at the top of the branch clicked, or above it in a
+/// new branch while it's folded, as a branch does; what's squashed goes into the row clicked.
+/// A project's card, a linked worktree or a terminal takes the place of the one clicked, as
+/// dragging it there does, or of the card or worktree a row clicked is in; a terminal goes last
+/// in the worktree clicked.
+fn clicked_stop(
+    stops: &[Stop],
+    (at, start): (usize, usize),
+    moving: &Move,
+    item: &Selection,
+    own: bool,
+    checkout: Option<Checkout>,
+) -> Option<usize> {
+    let find = |stop: Stop| stops.iter().position(|other| *other == stop);
+    // Before the one clicked coming from below it, after it coming from above.
+    let instead_of = |stop: Stop| find(stop).map(|ix| if ix < at { ix } else { ix + 1 });
+    let project = item.project();
+    match &moving.what {
+        Moving::Project(_) if *project == moving.project => Some(at),
+        Moving::Project(_) => instead_of(Stop::Card(Slot::Before(project.clone()))),
+        _ if *project != moving.project => None,
+        Moving::Worktree { name, .. } => match checkout? {
+            Checkout::Linked(other) if other == *name => Some(at),
+            Checkout::Linked(other) => instead_of(Stop::Worktree(Slot::Before(other))),
+            Checkout::Main => None,
+        },
+        Moving::Terminal { id, .. } => match item {
+            Selection::Terminal(_, other) if other == id => Some(at),
+            Selection::Terminal(_, other) => instead_of(Stop::Terminal {
+                checkout: checkout?,
+                slot: Slot::Before(*other),
+            }),
+            _ => find(Stop::Terminal {
+                checkout: checkout?,
+                slot: Slot::End,
+            }),
+        },
+        Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {
+            if own {
+                return (moving.op != Op::Commit).then_some(start);
+            }
+            match (moving.op, item) {
+                (Op::Squash(_), _) => find(Stop::Into(Target::of(item)?)),
+                (Op::Move | Op::CherryPick | Op::Commit, Selection::Commit(_, id)) => {
+                    find(Stop::In(Destination::BelowCommit(*id)))
+                }
+                (Op::Move | Op::CherryPick | Op::Commit, Selection::Branch(_, Some(name))) => {
+                    find(Stop::In(Destination::Branch(name.clone()))).or_else(|| {
+                        find(Stop::NewBranch {
+                            beside: name.clone(),
+                            below: false,
+                        })
+                    })
+                }
+                (Op::Move | Op::CherryPick | Op::Commit, _) => None,
+            }
+        }
+    }
+}
+
 /// The worktree of `project`'s that `heading` heads: the main one or a linked one.
 pub(super) fn worktree_headed(heading: &Selection, project: &ProjectId) -> Option<Checkout> {
     match heading {
@@ -1307,25 +1530,45 @@ fn branch_stops(
 /// its own row is while the move is at where it is, set in by `inset` as an item row is, and
 /// outlined with the copies `outlined_with` says are above and below it. A branch's copy is its
 /// row alone, folded, which heads its commits wherever it goes.
+/// The title of commit `id` that the cherry-pick shown in `project` copies from outside the
+/// workspace, if it's one of those.
+fn copied_title(store: &Store, project: &ProjectId, id: CommitId) -> Option<SharedString> {
+    let Moving::Copies(copies) = &shown(store, project)?.what else {
+        return None;
+    };
+    let (_, title) = copies.iter().find(|(copy, _)| *copy == id)?;
+    Some(title.clone())
+}
+
+/// A copy of `item`'s row where what's moving would land, set in by `inset`, outlined as one
+/// with the copies above and below as `outlined_with` says, and blinking, as a click the move
+/// can't use reminds the user of it, by which `blink` it's in.
 pub(super) fn ghost_row(
     item: &Selection,
     inset: f32,
     outlined_with: (bool, bool),
+    blink: Option<usize>,
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
+    // In the colour of what's being done with it, as what it's of is marked.
     let style = RowStyle {
         held: true,
+        mark: mark_of(store, item.project(), theme),
         outlined_with,
+        blink,
         ..RowStyle::plain(theme, inset)
     };
     let row = match item {
-        Selection::Commit(project, id) => (store.find_commit(project, *id)).map(|(_, commit)| {
-            let id = format!("ghost-{project}-{}", id.0);
-            style
-                .commit(id, project, commit, store, None)
-                .into_any_element()
-        }),
+        Selection::Commit(project, id) => {
+            let row = format!("ghost-{project}-{}", id.0);
+            match store.find_commit(project, *id) {
+                Some((_, commit)) => Some(style.commit(row, project, commit, store, None)),
+                // A copy of a commit from outside the workspace, as the commit it'd be.
+                None => copied_title(store, project, *id).map(|title| style.copy(row, title)),
+            }
+            .map(IntoElement::into_any_element)
+        }
         Selection::Branch(project, ref_name) => (store.workspace(project))
             .and_then(|ws| ws.find_branch(ref_name.as_ref()))
             .map(|branch| {
@@ -1340,16 +1583,18 @@ pub(super) fn ghost_row(
 
 /// The commit uncommitted changes being committed in `project` would make, where it'd go,
 /// set in by `inset` as a commit row is: titled as its message is written, outlined in the
-/// colour of committing, as copies of what's moving are in theirs.
+/// colour of committing, as copies of what's moving are in theirs, and blinking as they do.
 pub(super) fn new_commit_row(
     project: &ProjectId,
     inset: f32,
+    blink: Option<usize>,
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
     let style = RowStyle {
         held: true,
         mark: Op::Commit.colour(theme),
+        blink,
         ..RowStyle::plain(theme, inset)
     };
     let title = shown(store, project).and_then(|moving| moving.commit_title(store));
@@ -1367,8 +1612,8 @@ pub(super) fn new_commit_row(
 
 /// What a squash goes into outlined over its row, as dropping on it outlines it but in a
 /// squash's colour, its top and bottom `edges` from the row's, as [`SquashOutline::edges`]
-/// says, over the rows it passes.
-pub(super) fn squash_outline(edges: (f32, f32), theme: &Theme) -> AnyElement {
+/// says, over the rows it passes, blinking as copies of what's moving do.
+pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Theme) -> AnyElement {
     let (top, bottom) = edges;
     let outline = div()
         .absolute()
@@ -1379,7 +1624,11 @@ pub(super) fn squash_outline(edges: (f32, f32), theme: &Theme) -> AnyElement {
         .rounded(dp(4.))
         .border_1()
         .border_color(theme.blue)
-        .bg(theme.blue.opacity(0.14));
+        .bg(theme.blue.opacity(0.14))
+        .when_some(blink, |el, n| {
+            let shape = div().absolute().inset_0().rounded(dp(4.));
+            el.child(blink_once(("blink", n), shape, theme.blue))
+        });
     on_top(outline).priority(2).into_any_element()
 }
 
@@ -1422,7 +1671,7 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
                 .into_any_element()
         }
         Gone::Branch { id, name } => branch_copy(id.clone(), name.clone(), style),
-        Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), theme),
+        Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), None, theme),
     };
     let guides = guides.iter().map(|at| guide(*at, theme));
     div()
@@ -1439,10 +1688,16 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
 }
 
 /// The new branch commits being moved or made would land in at stop `at`, over their copies,
-/// set in by `inset` as an item row is, marked in `mark`, the colour of what's doing it. It
-/// names the branch it goes above or below in their stack, or says it's independent, in a stack
-/// of its own.
-pub(super) fn ghost_branch_row(at: &Stop, inset: f32, mark: Hsla, theme: &Theme) -> AnyElement {
+/// set in by `inset` as an item row is, marked in `mark`, the colour of what's doing it, and
+/// blinking as they do. It names the branch it goes above or below in their stack, or says
+/// it's independent, in a stack of its own.
+pub(super) fn ghost_branch_row(
+    at: &Stop,
+    inset: f32,
+    mark: Hsla,
+    blink: Option<usize>,
+    theme: &Theme,
+) -> AnyElement {
     let beside = match at {
         Stop::NewBranch { beside, below } => {
             let side = if *below { "below" } else { "above" };
@@ -1470,6 +1725,10 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, mark: Hsla, theme: &Theme)
         .border_dashed()
         .border_color(mark)
         .text_color(mark)
+        .when_some(blink, |el, n| {
+            let shape = div().absolute().inset_0().rounded(dp(4.));
+            el.relative().child(blink_once(("blink", n), shape, mark))
+        })
         .child(small_icon(Icon::Branch).text_color(mark))
         .child(
             // One phrase, a space apart, the branch's name as it's written in its row.
@@ -1490,12 +1749,16 @@ pub(super) fn ghost_branch_row(at: &Stop, inset: f32, mark: Hsla, theme: &Theme)
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, RowKey, branch_stops, squash_stops, stops, taken_away, terminal_lists};
+    use std::sync::Arc;
+
+    use super::{
+        Row, RowKey, branch_stops, clicked_stop, squash_stops, stops, taken_away, terminal_lists,
+    };
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
-    use crate::backend::{Checkout, CommitId, Destination, Workspace, short_ref};
+    use crate::backend::{Checkout, CommitId, Destination, Messages, Workspace, short_ref};
     use crate::state::{ProjectId, Selection};
     use crate::terminal::TerminalId;
-    use crate::transfer::{Slot, Stop, Target, group_slots};
+    use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, group_slots, slots};
 
     /// Whether `heading` shows what it holds, as [`listed`] lists them: all but typo.
     fn open(heading: &Selection) -> bool {
@@ -1727,6 +1990,26 @@ new branch below agent
     }
 
     #[test]
+    fn a_cherry_pick_landing_takes_nothing_away_as_the_commit_stays() {
+        let project = ProjectId::from("p");
+        let p = || project.clone();
+        let branch = |name: &str| {
+            let name = full(&format!("refs/heads/{name}"));
+            Some(RowKey::Item(Selection::Branch(p(), Some(name))))
+        };
+        let commit = |n: usize| Some(RowKey::Commit(p(), n.to_string()));
+        let left = || Some(RowKey::Left(Box::new(RowKey::Commit(p(), "3".into()))));
+        // Commit 3's copy at the top of api, then landed there as commit 9, a new change.
+        let copied = [branch("ui"), left(), commit(2), branch("api"), commit(3)];
+        let landed = [branch("ui"), commit(3), commit(2), branch("api"), commit(9)];
+        assert_eq!(
+            taken_away(&copied, &landed, false, false),
+            [],
+            "3 takes its own row back where it is, as a move let go of does"
+        );
+    }
+
+    #[test]
     fn what_a_squash_takes_away_stays_under_the_row_above_it_as_it_ends() {
         let project = ProjectId::from("p");
         let p = || project.clone();
@@ -1944,6 +2227,284 @@ last on empty
             lists.first(),
             Some(&(Checkout::Main, vec![TerminalId(1), TerminalId(2)])),
             "the main worktree's terminals, as listed"
+        );
+    }
+
+    /// Commit 2 of `listed`'s being moved as `op`, with the stops a move of it has.
+    fn moving_commit(project: &ProjectId, op: Op) -> (Move, Vec<Stop>, usize) {
+        let (ws, rows) = listed(project);
+        let (stops, start) = stops(&rows, project, &[id(2)], &ws, open);
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Commits(Arc::from([id(2)])),
+            at: stops[start].clone(),
+            op,
+        };
+        (moving, stops, start)
+    }
+
+    /// The stop `clicked` says a click puts a move at, as `describe` names it.
+    fn named(stops: &[Stop], clicked: Option<usize>) -> Option<String> {
+        let ix = clicked?;
+        Some(describe(&stops[ix..=ix], usize::MAX).trim().to_owned())
+    }
+
+    #[test]
+    fn a_click_puts_commits_under_the_commit_clicked() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let clicked = clicked_stop(
+            &stops,
+            (start, start),
+            &moving,
+            &Selection::Commit(project, id(1)),
+            false,
+            None,
+        );
+        assert_eq!(
+            named(&stops, clicked).as_deref(),
+            Some("below 1"),
+            "a commit takes what's moving right under it"
+        );
+    }
+
+    #[test]
+    fn a_click_puts_commits_at_the_top_of_the_branch_clicked() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let ui = Selection::Branch(project, Some(full("refs/heads/ui")));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &ui, false, None);
+        assert_eq!(
+            named(&stops, clicked).as_deref(),
+            Some("top of ui"),
+            "an open branch takes it at its top"
+        );
+    }
+
+    #[test]
+    fn a_click_on_a_folded_branch_puts_commits_in_a_new_branch_above_it() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let typo = Selection::Branch(project, Some(full("refs/heads/typo")));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &typo, false, None);
+        assert_eq!(
+            named(&stops, clicked).as_deref(),
+            Some("new branch above typo"),
+            "folded, its top is out of sight, so it goes above it"
+        );
+    }
+
+    #[test]
+    fn a_click_on_what_moves_takes_it_back_where_it_started() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let clicked = clicked_stop(
+            &stops,
+            (0, start),
+            &moving,
+            &Selection::Commit(project, id(2)),
+            true,
+            None,
+        );
+        assert_eq!(clicked, Some(start), "it goes back from the first stop");
+    }
+
+    #[test]
+    fn a_click_on_the_changes_being_committed_leaves_the_new_commit_where_it_is() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Commit);
+        let clicked = clicked_stop(
+            &stops,
+            (0, start),
+            &moving,
+            &Selection::Uncommitted(project, Checkout::Main),
+            true,
+            None,
+        );
+        assert_eq!(
+            clicked, None,
+            "a commit being made started nowhere to go back to"
+        );
+    }
+
+    #[test]
+    fn a_click_in_another_project_leaves_commits_where_they_are() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let elsewhere = Selection::Commit(ProjectId::from("q"), id(1));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &elsewhere, false, None);
+        assert_eq!(clicked, None, "commits move only within their project");
+    }
+
+    #[test]
+    fn a_click_on_a_row_commits_cant_land_at_leaves_them_where_they_are() {
+        let project = ProjectId::from("p");
+        let (moving, stops, start) = moving_commit(&project, Op::Move);
+        let terminal = Selection::Terminal(project, TerminalId(1));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &terminal, false, None);
+        assert_eq!(clicked, None, "a terminal takes no commits");
+    }
+
+    #[test]
+    fn a_click_squashes_into_the_row_clicked() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let home = Target::Commit(id(2));
+        let (stops, start) =
+            squash_stops(&rows, &project, &ws, &home, open, |_| true).expect("2 is listed");
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Commits(Arc::from([id(2)])),
+            at: stops[start].clone(),
+            op: Op::Squash(Messages::Both),
+        };
+        let three = Selection::Commit(project, id(3));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &three, false, None);
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Into(Target::Commit(id(3)))),
+            "the commit clicked takes the squash"
+        );
+    }
+
+    #[test]
+    fn a_click_on_a_row_nothing_squashes_into_leaves_the_squash_where_it_is() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let home = Target::Commit(id(2));
+        let (stops, start) =
+            squash_stops(&rows, &project, &ws, &home, open, |_| true).expect("2 is listed");
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Commits(Arc::from([id(2)])),
+            at: stops[start].clone(),
+            op: Op::Squash(Messages::Both),
+        };
+        let branches = Selection::Branches(project);
+        let clicked = clicked_stop(&stops, (start, start), &moving, &branches, false, None);
+        assert_eq!(clicked, None, "the Branches page is nothing to squash into");
+    }
+
+    /// Card `b` among `a`, `b`, `c` being moved, at `at`, with the stops a move of it has.
+    fn moving_card(at: usize) -> (Move, Vec<Stop>, usize) {
+        let [a, b, c] = ["a", "b", "c"].map(ProjectId::from);
+        let order: Arc<[ProjectId]> = Arc::from([a, b.clone(), c]);
+        let (slots, start) = slots(&order, &b).expect("b is listed");
+        let stops: Vec<Stop> = slots.into_iter().map(Stop::Card).collect();
+        let moving = Move {
+            project: b,
+            what: Moving::Project(order),
+            at: stops[at].clone(),
+            op: Op::Move,
+        };
+        (moving, stops, start)
+    }
+
+    #[test]
+    fn a_click_on_a_card_below_puts_the_card_moving_after_it() {
+        let (moving, stops, start) = moving_card(1);
+        let c = Selection::Project(ProjectId::from("c"));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &c, false, None);
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Card(Slot::End)),
+            "it takes c's place, after it"
+        );
+    }
+
+    #[test]
+    fn a_click_on_a_card_above_puts_the_card_moving_before_it() {
+        let (moving, stops, start) = moving_card(1);
+        let a = Selection::Checkout(ProjectId::from("a"), Checkout::Main);
+        let clicked = clicked_stop(&stops, (start, start), &moving, &a, false, None);
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Card(Slot::Before(ProjectId::from("a")))),
+            "any row of a's card puts it in a's place, before it"
+        );
+    }
+
+    #[test]
+    fn a_click_on_the_card_moving_leaves_it_where_it_is() {
+        let (moving, stops, start) = moving_card(2);
+        let b = Selection::Project(ProjectId::from("b"));
+        let clicked = clicked_stop(&stops, (2, start), &moving, &b, false, None);
+        assert_eq!(clicked, Some(2), "it's already where it's shown");
+    }
+
+    #[test]
+    fn a_click_in_a_worktree_puts_the_terminal_moving_last_in_it() {
+        let project = ProjectId::from("p");
+        let lists = [
+            (Checkout::Main, vec![TerminalId(1), TerminalId(2)]),
+            (Checkout::Linked("wt".into()), vec![]),
+        ];
+        let (slots, start) = group_slots(&lists, &TerminalId(1)).expect("1 is listed");
+        let stops: Vec<Stop> = (slots.into_iter())
+            .map(|(checkout, slot)| Stop::Terminal { checkout, slot })
+            .collect();
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Terminal {
+                id: TerminalId(1),
+                lists: Arc::from(lists),
+            },
+            at: stops[start].clone(),
+            op: Op::Move,
+        };
+        let agent = Selection::Branch(project, Some(full("refs/heads/agent")));
+        let wt = Checkout::Linked("wt".into());
+        let clicked = clicked_stop(
+            &stops,
+            (start, start),
+            &moving,
+            &agent,
+            false,
+            Some(wt.clone()),
+        );
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Terminal {
+                checkout: wt,
+                slot: Slot::End
+            }),
+            "a branch of wt's takes it under wt's heading"
+        );
+    }
+
+    #[test]
+    fn a_click_on_the_next_terminal_puts_the_terminal_moving_after_it() {
+        let project = ProjectId::from("p");
+        let lists = [(Checkout::Main, vec![TerminalId(1), TerminalId(2)])];
+        let (slots, start) = group_slots(&lists, &TerminalId(1)).expect("1 is listed");
+        let stops: Vec<Stop> = (slots.into_iter())
+            .map(|(checkout, slot)| Stop::Terminal { checkout, slot })
+            .collect();
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Terminal {
+                id: TerminalId(1),
+                lists: Arc::from(lists),
+            },
+            at: stops[start].clone(),
+            op: Op::Move,
+        };
+        let two = Selection::Terminal(project, TerminalId(2));
+        let clicked = clicked_stop(
+            &stops,
+            (start, start),
+            &moving,
+            &two,
+            false,
+            Some(Checkout::Main),
+        );
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Terminal {
+                checkout: Checkout::Main,
+                slot: Slot::End
+            }),
+            "they trade places"
         );
     }
 }

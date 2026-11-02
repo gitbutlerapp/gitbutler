@@ -26,8 +26,9 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetComm
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, Pane, ProjectId, Section, Selection};
+use crate::state::{Pane, ProjectId, Section, Selection};
 use crate::theme::Theme;
+use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::inert;
 use crate::ui::markdown;
@@ -1333,12 +1334,14 @@ impl Detail {
             return el;
         };
         let incoming = id == commit.id && commit.incoming && !commit.merge;
+        let title: SharedString = commit.title.clone().into();
         let el = Self::copy_on::<CopyCommitId>(el, id.0.to_string(), cx);
         el.when(incoming, |el| {
             el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
-                let cut = Cut::CherryPick(project.clone(), [id].into());
-                this.app
-                    .update_later(window, cx, move |app, _, cx| app.cut(cut, cx))
+                let (project, copies) = (project.clone(), [(id, title.clone())].into());
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.cherry_pick(project, Moving::Copies(copies), window, cx)
+                })
             }))
         })
     }

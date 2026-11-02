@@ -1168,6 +1168,17 @@ fn tab_within(dialog: &FocusHandle, back: bool, window: &mut Window, cx: &mut Ap
     }
 }
 
+/// The priority what covers the window is drawn at: a modal, a prompt, the palette, toasts,
+/// menus and the window's own buttons. Above what [`crate::ui::fold::on_top`] draws, a row
+/// sliding or the copy of what's being moved, which would show through otherwise. They stack
+/// among themselves in the order they're drawn.
+pub(crate) const OVERLAY: usize = 10;
+
+/// `el` drawn over the rest of the window, as [`OVERLAY`] says.
+pub(crate) fn overlay(el: impl IntoElement) -> AnyElement {
+    deferred(el).with_priority(OVERLAY).into_any_element()
+}
+
 /// `card` at `position`, kept inside the window, over everything as a native menu is: what's
 /// under it neither hovers nor shows a tooltip, and a press outside it only runs `close`.
 pub(crate) fn floating(
@@ -1185,6 +1196,6 @@ pub(crate) fn floating(
                 .child(card.on_mouse_down_out(close)),
         ),
     )
-    .with_priority(2)
+    .with_priority(OVERLAY)
     .into_any_element()
 }

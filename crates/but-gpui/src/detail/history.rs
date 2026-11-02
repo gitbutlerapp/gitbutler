@@ -825,7 +825,7 @@ impl Detail {
                     .tooltip(Tooltip::text("Show this commit"))
                     .on_click(move |_, _, cx| {
                         let selection = Selection::Commit(project.clone(), id);
-                        store.update(cx, |store, cx| store.select(Some(selection), cx))
+                        store.update(cx, |store, cx| store.select_by_hand(selection, cx));
                     })
             })
             .into_any_element()

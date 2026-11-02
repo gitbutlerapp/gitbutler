@@ -1055,10 +1055,50 @@ impl Store {
                 commits: ids,
                 beside,
                 first,
+                copy: false,
             },
             move |store, (rewritten, _), cx| {
                 store.follow(&rewritten, cx);
                 store.snack_undoable("Moved to a new branch", cx)
+            },
+            cx,
+        );
+    }
+
+    /// Put copies of commits `ids` of `project` in a new branch, as [`Self::move_to_new_branch`]
+    /// puts them, landing the cherry-pick with the keys `lands`, and select the newest copy.
+    pub fn cherry_pick_to_new_branch(
+        &mut self,
+        project: &ProjectId,
+        ids: Arc<[CommitId]>,
+        beside: Option<(FullName, bool)>,
+        first: bool,
+        lands: crate::transfer::Move,
+        cx: &mut Context<Self>,
+    ) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Cherry-pick to a new branch",
+            Overlay {
+                lands: Some(lands),
+                ..Overlay::default()
+            },
+            backend::MoveToNewBranch {
+                commits: ids,
+                beside,
+                first,
+                copy: true,
+            },
+            move |store, (rewritten, name), cx| {
+                let newest = (store.workspace(&selected))
+                    .and_then(|ws| ws.find_branch(Some(&name))?.commits.first())
+                    .map(|commit| Selection::Commit(selected.clone(), commit.id));
+                match newest {
+                    Some(newest) => store.select(Some(newest), cx),
+                    None => store.follow(&rewritten, cx),
+                }
+                store.snack_undoable("Cherry-picked to a new branch", cx)
             },
             cx,
         );

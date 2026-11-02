@@ -32,9 +32,10 @@ impl Navigator {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let dragging = cx.has_active_drag();
-        // What a drop or a paste would carry: the drag while there is one, else the cut.
+        // What a drop or a paste would carry: the drag while there is one, else the cut. Not a
+        // drag that can't land, which leaves the rows as they are.
         let pending = match dragging {
-            true => store.dragging.as_ref(),
+            true => (store.dragging.as_ref()).filter(|_| self.drops(store)),
             false => store.cut.as_ref(),
         };
         let takes = !dragging || self.takes_drop(&target, store);
@@ -147,6 +148,10 @@ impl Navigator {
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    // No menu while something is being moved, which is all a click can do then.
+                    if this.store.read(cx).moving.is_some() {
+                        return this.nudge_move(cx);
+                    }
                     if this.menu_items(&menu_target, cx).is_empty() {
                         return;
                     }
@@ -305,14 +310,12 @@ impl Navigator {
 
 /// Where on `target` a drop of `payload` at `y`, from 0 at its top to 1 at its bottom,
 /// lands. A commit dragged onto another goes above it in the top quarter, below it in the
-/// bottom one, and into it between; a copy of one, which can't go into another, splits it in
-/// halves. Anything else goes into its target, or with ⇧ a branch below another.
+/// bottom one, and into it between. Anything else goes into its target, or with ⇧ a branch
+/// below another.
 fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place {
     match (payload, target) {
         (Cut::Commit(..), Selection::Commit(..)) if y < 0.25 => Place::Above,
         (Cut::Commit(..), Selection::Commit(..)) if y > 0.75 => Place::Below,
-        (Cut::CherryPick(..), Selection::Commit(..)) if y < 0.5 => Place::Above,
-        (Cut::CherryPick(..), Selection::Commit(..)) => Place::Below,
         // A branch's heading: its lower half puts the dragged branch below it, its upper half
         // stacks it on top.
         (Cut::Branch(..), Selection::Branch(..)) if y > 0.5 => Place::Below,

@@ -613,7 +613,8 @@ pub fn file_header(
         .when_some(decor.blink, |el, n| {
             let shape = (div().absolute().inset_0().rounded_t(dp(6.)))
                 .when(decor.folded, |el| el.rounded_b(dp(6.)));
-            el.relative().child(blink_once(("blink", n), shape, theme))
+            el.relative()
+                .child(blink_once(("blink", n), shape, theme.pop))
         })
         .child(fold::chevron(
             "fold",
@@ -791,7 +792,8 @@ pub fn hunk_header(
                 .whitespace_nowrap()
                 .when_some(decor.blink, |el, n| {
                     let shape = div().absolute().inset_0().rounded(dp(6.));
-                    el.relative().child(blink_once(("blink", n), shape, theme))
+                    el.relative()
+                        .child(blink_once(("blink", n), shape, theme.pop))
                 })
                 // The owner shows the hidden lines on a click.
                 .when(unmodified > 0, |el| {
