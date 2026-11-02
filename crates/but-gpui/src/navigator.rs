@@ -57,10 +57,12 @@ pub(crate) use order::{
     ShowActiveProjects, ShowAllProjects, SortProjectsByActivity, SortProjectsByName,
 };
 mod mesh;
+pub(crate) use mesh::{mesh_choices, mesh_heading_choice};
 mod moving;
 mod order;
 mod rename;
 mod rows;
+pub(crate) use rows::{lists_changes, worktrees_listed};
 
 use moving::Mark;
 use rows::{

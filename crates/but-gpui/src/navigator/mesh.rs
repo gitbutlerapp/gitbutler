@@ -5,15 +5,19 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, SharedString, Window, div, prelude::*};
 
 use super::rows::{COMMIT_INDENT, Fold, Row, Rows, found, matches};
 use super::{ClickOpened, Navigator, RowStyle, STEP, change_counts, click_opens, double_click};
 use crate::app::{CopyPath, CopySelection};
+use crate::backend::Workspace;
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
-use crate::state::{MeshBranch, MeshPick, ProjectId, Section, Selection, Store};
-use crate::ui::{Icon, Tooltip, faint, icon, review, small_icon};
+use crate::palette::{Choice, heading_choice};
+use crate::state::{
+    MeshBranch, MeshPick, ProjectEntry, ProjectId, Section, Selection, Store, snack,
+};
+use crate::ui::{Icon, Tooltip, commit_title, faint, icon, review, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -141,16 +145,11 @@ impl Navigator {
             return None;
         };
         let store = self.store.read(cx);
-        let checkout = store.mesh_checkout(project, key)?;
+        let (checkout, branch, commit) = picked(store, project, key, pick)?;
         let theme = style.theme;
         let quiet = style.quiet();
-        let branch = match pick.branch() {
-            Some(name) => Some(checkout.branches.iter().find(|b| b.name == name)?),
-            None => None,
-        };
-        let row = match (pick, branch) {
-            (MeshPick::Commit(_, id), Some(branch)) => {
-                let commit = (branch.commits.iter()).find(|c| c.id == *id)?;
+        let row = match (pick, branch, commit) {
+            (MeshPick::Commit(..), _, Some(commit)) => {
                 let (glyph, color) = match commit.pushed {
                     true => (Icon::CommitFill, style.muted()),
                     false => (Icon::Commit, theme.blue),
@@ -160,7 +159,7 @@ impl Navigator {
                 let title = commit.title.clone().into();
                 style.commit_line(id, COMMIT_INDENT, glyph, title, false, None)
             }
-            (MeshPick::Branch(name), Some(branch)) => {
+            (MeshPick::Branch(name), Some(branch), _) => {
                 let fold = (project.clone(), key.clone(), name.clone());
                 let clicked = ClickOpened::Elsewhere(fold.clone());
                 let on_commit = matches!(&store.selection,
@@ -201,7 +200,7 @@ impl Navigator {
                     .children(style.unpushed(unpushed))
                     .when(n > 0, |el| el.on_click(click_opens(clicked, toggle, cx)))
             }
-            (MeshPick::Checkout, _) => {
+            (MeshPick::Checkout, ..) => {
                 let fold = (project.clone(), key.clone());
                 let inside = matches!(&store.selection,
                     Some(Selection::Mesh(p, i, pick)) if (p, i) == (project, key) && pick.branch().is_some());
@@ -432,4 +431,115 @@ impl Navigator {
         items.push(MenuItem::command(&CopyPath, cx).keys(&CopySelection, cx));
         items
     }
+}
+
+/// Go to anything's row for the heading over `entry`'s checkouts on the user's other machines,
+/// as the navigator names it, while there are any; none while a commit is checked out here,
+/// which the navigator hides them for.
+pub(crate) fn mesh_heading_choice(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Option<Choice> {
+    if workspace.editing.is_some() || store.mesh_checkouts(&entry.id).is_empty() {
+        return None;
+    }
+    let id = entry.id.clone();
+    let heads = move |store: &Store| !store.mesh_checkouts(&id).is_empty();
+    let (label, gone) = ("Network worktrees", "No network worktrees anymore");
+    let choice = heading_choice(&entry.id, Section::Mesh, label, Icon::Globe, gone, heads);
+    Some(choice.details(several.then_some(entry.project.name.as_str())))
+}
+
+/// Go to anything's rows for `entry`'s checkouts on the user's other machines, each followed
+/// by its branches and their commits, as the navigator lists them; none while a commit is
+/// checked out here.
+pub(crate) fn mesh_choices(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    if workspace.editing.is_some() {
+        return Vec::new();
+    }
+    let project = several.then_some(entry.project.name.as_str());
+    let mut choices = Vec::new();
+    for checkout in store.mesh_checkouts(&entry.id) {
+        let key: Arc<str> = checkout.id.as_str().into();
+        let label = checkout.label();
+        let choice = |pick, label, icon, details: &[&str]| {
+            let details = details.iter().copied().chain(project);
+            mesh_choice(&entry.id, &key, pick, label, icon).details(details)
+        };
+        choices.push(choice(
+            MeshPick::Checkout,
+            label.clone().into(),
+            Icon::Computer,
+            &[],
+        ));
+        for branch in &checkout.branches {
+            let pick = MeshPick::Branch(branch.name.clone());
+            let name = branch.name.clone().into();
+            choices.push(choice(pick, name, Icon::Branch, &[&label]));
+            for commit in &branch.commits {
+                let pick = MeshPick::Commit(branch.name.clone(), commit.id);
+                let title = commit_title(&commit.title);
+                let details = [commit.id.short(), branch.name.clone()];
+                let details = details.each_ref().map(String::as_str);
+                choices.push(choice(pick, title, Icon::Commit, &details).commit_id(commit.id));
+            }
+        }
+    }
+    choices
+}
+
+/// Go to anything's row for `pick` in `project`'s checkout `key` on another machine.
+fn mesh_choice(
+    project: &ProjectId,
+    key: &Arc<str>,
+    pick: MeshPick,
+    label: SharedString,
+    icon: Icon,
+) -> Choice {
+    let goes_to = Selection::Mesh(project.clone(), key.clone(), pick.clone());
+    let selection = goes_to.clone();
+    let gone = format!("{label} left your mesh meanwhile");
+    let (project, key) = (project.clone(), key.clone());
+    let choice = Choice::new(label, move |this, window, cx| {
+        // Gone from what the mesh last reported since the picker opened.
+        if picked(this.store.read(cx), &project, &key, &pick).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(selection, window, cx)
+    });
+    choice.icon(icon).goes_to(goes_to)
+}
+
+/// What `pick` names in `project`'s checkout `key` on another machine, as the mesh last
+/// reported it: the checkout, the branch picked or holding the commit picked, and that commit.
+/// `None` once the mesh no longer reports it.
+fn picked<'a>(
+    store: &'a Store,
+    project: &ProjectId,
+    key: &str,
+    pick: &MeshPick,
+) -> Option<(
+    &'a mesh::Checkout,
+    Option<&'a mesh::Branch>,
+    Option<&'a mesh::Commit>,
+)> {
+    let checkout = store.mesh_checkout(project, key)?;
+    let branch = match pick.branch() {
+        Some(name) => Some(checkout.branches.iter().find(|b| b.name == name)?),
+        None => None,
+    };
+    let commit = match (pick, branch) {
+        (MeshPick::Commit(_, id), Some(branch)) => {
+            Some(branch.commits.iter().find(|c| c.id == *id)?)
+        }
+        _ => None,
+    };
+    Some((checkout, branch, commit))
 }

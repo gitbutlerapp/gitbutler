@@ -488,9 +488,8 @@ impl Navigator {
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
-            let (inactive, active): (Vec<_>, Vec<_>) = (worktrees_shown(store, id, workspace))
+            let (inactive, active): (Vec<_>, Vec<_>) = (worktrees_listed(store, id, workspace))
                 .into_iter()
-                .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
                 .partition(|wt| wt.is_inactive(store.prefs.inactive_after));
             for wt in active {
                 self.worktree_rows(store, id, wt, on_branches(wt), rows);
@@ -561,9 +560,7 @@ impl Navigator {
                 if rows.rows.len() == heading_end {
                     rows.truncate(main);
                 }
-                let worktrees = (worktrees_shown(store, id, workspace).into_iter())
-                    .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
-                for wt in worktrees {
+                for wt in worktrees_listed(store, id, workspace) {
                     let wt_start = rows.rows.len();
                     let wt_own = found(terms, &[wt.name.to_string().as_str()]);
                     let item = Selection::Checkout(id.clone(), Checkout::Linked(wt.name.clone()));
@@ -953,6 +950,18 @@ fn worktrees_shown<'a>(
     worktrees
 }
 
+/// Project `id`'s linked worktrees the navigator lists, in the order [`worktrees_shown`] gives:
+/// all but those an operation under way takes away.
+pub(crate) fn worktrees_listed<'a>(
+    store: &Store,
+    id: &ProjectId,
+    workspace: &'a Workspace,
+) -> Vec<&'a Worktree> {
+    (worktrees_shown(store, id, workspace).into_iter())
+        .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
+        .collect()
+}
+
 /// The linked worktrees of `project` listed with `name`, as they're listed now: the active
 /// ones, or the inactive ones under their heading, which it can't leave.
 pub(super) fn listed_with(
@@ -963,10 +972,8 @@ pub(super) fn listed_with(
     let workspace = store.workspace(project)?;
     let after = store.prefs.inactive_after;
     let inactive = workspace.find_worktree(name)?.is_inactive(after);
-    let listed = (worktrees_shown(store, project, workspace).into_iter())
-        .filter(|wt| {
-            wt.is_inactive(after) == inactive && !store.hides_worktree(project, wt.name.as_ref())
-        })
+    let listed = (worktrees_listed(store, project, workspace).into_iter())
+        .filter(|wt| wt.is_inactive(after) == inactive)
         .map(|wt| wt.name.clone());
     Some(listed.collect())
 }
@@ -984,8 +991,19 @@ pub(super) fn in_checkout(
         || store.terminals.checkout_of(selection) == Some(checkout)
 }
 
-/// `project`'s `checkout`'s uncommitted changes, first under its heading, listed only while
-/// there are some: with none, there's nothing to show or commit.
+/// Whether `project`'s `checkout`'s uncommitted changes are listed, first under its heading:
+/// only while there are some, as with none there's nothing to show or commit.
+pub(crate) fn lists_changes(
+    store: &Store,
+    workspace: &Workspace,
+    project: &ProjectId,
+    checkout: &Checkout,
+) -> bool {
+    (workspace.uncommitted_in(checkout))
+        .is_some_and(|files| !store.uncommitted_shown(project, checkout, files).is_empty())
+}
+
+/// `project`'s `checkout`'s uncommitted changes' row, while [`lists_changes`] says it's listed.
 fn changes_row(
     store: &Store,
     workspace: &Workspace,
@@ -993,10 +1011,7 @@ fn changes_row(
     checkout: &Checkout,
     rows: &mut Rows,
 ) {
-    let Some(files) = workspace.uncommitted_in(checkout) else {
-        return;
-    };
-    if !store.uncommitted_shown(project, checkout, files).is_empty() {
+    if lists_changes(store, workspace, project, checkout) {
         rows.push(Row::Item(Selection::Uncommitted(
             project.clone(),
             checkout.clone(),

@@ -1744,6 +1744,7 @@ dependencies = [
  "serde_json_lenient",
  "shell-words",
  "snapbox",
+ "strum 0.27.2",
  "syntect",
  "tempfile",
  "tokio",
