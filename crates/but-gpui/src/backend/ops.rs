@@ -860,18 +860,19 @@ impl Intent for InsertEmptyCommit {
 
 /// Put copies of `commits`, listed newest first, at `to` in one go, keeping the originals
 /// where they are. The oldest goes in first and each newer one on top, as in their history.
+/// Done is what it rewrote, and the newest copy.
 pub struct CherryPick {
     pub commits: Arc<[CommitId]>,
     pub to: Destination,
 }
 
 impl Intent for CherryPick {
-    type Done = Rewritten;
+    type Done = (Rewritten, Option<CommitId>);
 
-    fn apply(self, run: &mut Run) -> Result<Rewritten> {
+    fn apply(self, run: &mut Run) -> Result<(Rewritten, Option<CommitId>)> {
         let Self { commits, to } = self;
         let (relative_to, side) = to.relative_to();
-        let workspace = run.locked(|ctx, perm| {
+        let (newest, workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
@@ -882,12 +883,13 @@ impl Intent for CherryPick {
                 DryRun::No,
                 |mut tx| {
                     let oldest_first = commits.iter().rev().map(|id| id.0);
-                    tx.cherry_pick_commits(oldest_first, relative_to, side, false)?;
-                    Ok(())
+                    let copies = tx.cherry_pick_commits(oldest_first, relative_to, side, false)?;
+                    let newest = copies.last().map(|copy| CommitId(copy.id));
+                    Ok(but_transaction::Commit(newest))
                 },
             )
         })?;
-        Ok(rewritten(&workspace))
+        Ok((rewritten(&workspace), newest))
     }
 }
 
@@ -1420,12 +1422,14 @@ impl Intent for SplitOff {
 
 /// Move `commits` into a new branch of their own: beside the other stacks, after them or with
 /// `first` before them, or in the stack of branch `beside`, right above it, or right below it
-/// with `true`.
+/// with `true`. With `copy`, copies of them go there instead, as [`CherryPick`] puts them, and
+/// they stay where they are.
 /// Done is what moved, and the new branch's full name.
 pub struct MoveToNewBranch {
     pub commits: Arc<[CommitId]>,
     pub beside: Option<(FullName, bool)>,
     pub first: bool,
+    pub copy: bool,
 }
 
 impl Intent for MoveToNewBranch {
@@ -1436,7 +1440,12 @@ impl Intent for MoveToNewBranch {
             commits,
             beside,
             first,
+            copy,
         } = self;
+        let details = match copy {
+            true => SnapshotDetails::new(OperationKind::CherryPick).with_count(commits.len()),
+            false => SnapshotDetails::new(OperationKind::MoveCommit),
+        };
         run.locked(|ctx, perm| {
             let name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
             let sbm = SingleBranchMode::new(ctx, perm.read_permission(), false)?;
@@ -1444,7 +1453,7 @@ impl Intent for MoveToNewBranch {
             let workspace = sbm.transaction_with_workspace_setup(
                 ctx,
                 &mut meta,
-                SnapshotDetails::new(OperationKind::MoveCommit),
+                details,
                 &[name.as_ref()],
                 perm,
                 beside.is_none(),
@@ -1463,11 +1472,14 @@ impl Intent for MoveToNewBranch {
                             first.then_some(0),
                         )?,
                     }
-                    tx.move_commits(
-                        commits.iter().map(|commit| commit.0),
-                        RelativeTo::Reference(name.clone()),
-                        InsertSide::Below,
-                    )
+                    let to = RelativeTo::Reference(name.clone());
+                    let ids = commits.iter().map(|commit| commit.0);
+                    match copy {
+                        true => tx
+                            .cherry_pick_commits(ids.rev(), to, InsertSide::Below, false)
+                            .map(drop),
+                        false => tx.move_commits(ids, to, InsertSide::Below),
+                    }
                 },
             )?;
             Ok((rewritten(&workspace), name))
@@ -3303,6 +3315,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 commits: [commit].into(),
                 beside: None,
                 first: false,
+                copy: false,
             };
             let ((_, name), _) = crate::backend::apply(path, moving).unwrap();
             let moved = newest_entry(path);
@@ -3688,6 +3701,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                     commits: [moved].into(),
                     beside: Some((full("refs/heads/feature"), below)),
                     first: false,
+                    copy: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
                 let titles = |branch: &str| {
@@ -3715,6 +3729,61 @@ below true: feature [edit, second], <new> [second]
     }
 
     #[test]
+    fn a_cherry_pick_to_a_new_stack_copies_the_commits_and_leaves_them_where_they_are() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+            let second = head(path);
+            crate::backend::apply(path, name_at(second, "feature")).unwrap();
+            let copying = MoveToNewBranch {
+                commits: [second, edit].into(),
+                beside: None,
+                first: false,
+                copy: true,
+            };
+            let ((_, new), _) = crate::backend::apply(path, copying).unwrap();
+            let said = format!(
+                "feature [{}], <new> [{}]",
+                titles_on(path, "feature"),
+                titles_on(path, &new.to_string()),
+            );
+            // Each branch lists its commits newest first, down to the target: the copies keep
+            // the order the originals have, which stay on feature.
+            snapbox::assert_data_eq!(
+                said,
+                snapbox::str!["feature [second, edit], <new> [second, edit]"]
+            );
+        })
+    }
+
+    #[test]
+    fn a_cherry_pick_says_which_copy_is_newest() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, edit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            git(path, &["commit", "-q", "--allow-empty", "-m", "second"]);
+            let second = head(path);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "third"]);
+            let third = head(path);
+            crate::backend::apply(path, name_at(third, "feature")).unwrap();
+            let picking = CherryPick {
+                commits: [third, second].into(),
+                to: Destination::AboveCommit(edit),
+            };
+            let ((_, newest), _) = crate::backend::apply(path, picking).unwrap();
+            let newest = newest.expect("two commits were copied");
+            let title = git(path, &["log", "-1", "--format=%s", &newest.0.to_string()]);
+            assert_eq!(
+                title.trim(),
+                "third",
+                "the newer of the two is copied last, on top"
+            );
+            assert_ne!(newest, third, "it's a copy, not the original");
+        })
+    }
+
+    #[test]
     fn a_move_to_a_new_stack_puts_it_after_the_others_or_first() {
         let mut said = String::new();
         for first in [false, true] {
@@ -3728,6 +3797,7 @@ below true: feature [edit, second], <new> [second]
                     commits: [second].into(),
                     beside: None,
                     first,
+                    copy: false,
                 };
                 let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
@@ -3794,6 +3864,7 @@ first true: <new>, feature
                         commits: [moved].into(),
                         beside: Some((full("refs/heads/agent"), below)),
                         first: false,
+                        copy: false,
                     };
                     let ((_, new), _) = crate::backend::apply(path, moving).unwrap();
                     let workspace =
@@ -4563,6 +4634,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
                             commits: [head(path)].into(),
                             beside: None,
                             first: false,
+                            copy: false,
                         };
                         crate::backend::apply(path, moving).unwrap();
                     }
@@ -4840,6 +4912,7 @@ third
                 commits: [edit].into(),
                 beside: None,
                 first: false,
+                copy: false,
             };
             let ((rewritten, _), _) = crate::backend::apply(path, moving).unwrap();
             let edit = rewritten.get(&edit).copied().unwrap_or(edit);

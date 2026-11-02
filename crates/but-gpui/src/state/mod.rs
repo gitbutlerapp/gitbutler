@@ -135,9 +135,6 @@ impl Selection {
 pub enum Cut {
     /// Commits to move, the picked ones together, in the order they're listed.
     Commit(ProjectId, Arc<[CommitId]>),
-    /// Commits to put copies of somewhere else, the picked ones together, in the order
-    /// they're listed.
-    CherryPick(ProjectId, Arc<[CommitId]>),
     /// A branch to stack on another, without the branches above it.
     Branch(ProjectId, FullName),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
@@ -157,7 +154,6 @@ impl Cut {
     pub fn project(&self) -> &ProjectId {
         match self {
             Cut::Commit(project, _)
-            | Cut::CherryPick(project, _)
             | Cut::Branch(project, _)
             | Cut::Files { project, .. }
             | Cut::Worktree(project, _) => project,
@@ -187,20 +183,10 @@ impl Cut {
         }
     }
 
-    /// "Cherry-picking" for a cherry-pick, which leaves the commit where it is; "Cut"
-    /// otherwise. Not "Copied", which ⌘C says of the clipboard.
-    pub fn verb(&self) -> &'static str {
-        if matches!(self, Cut::CherryPick(..)) {
-            "Cherry-picking"
-        } else {
-            "Cut"
-        }
-    }
-
     /// What's cut, a commit by its title where the workspace has one for it.
     pub fn describe(&self, store: &Store) -> String {
         match self {
-            Cut::Commit(project, ids) | Cut::CherryPick(project, ids) => match &**ids {
+            Cut::Commit(project, ids) => match &**ids {
                 [id] => match store.find_commit(project, *id) {
                     Some((_, commit)) if !commit.title.is_empty() => {
                         format!("\"{}\"", commit.title)
@@ -232,7 +218,7 @@ impl Cut {
             Some(vec![path.display().to_string()])
         };
         match self {
-            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) => (ids.iter())
+            Cut::Commit(_, ids) => (ids.iter())
                 .map(|id| Some(workspace.find_commit(*id)?.1.reference()))
                 .collect(),
             Cut::Branch(_, ref_name) => Some(vec![short_ref(ref_name).into_owned()]),

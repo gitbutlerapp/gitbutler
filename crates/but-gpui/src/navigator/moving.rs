@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AnyElement, App, Context, Div, Hsla, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
 use super::order::moving_terminal;
 use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
@@ -32,7 +32,7 @@ fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
         moving.project == *project
             && matches!(
                 moving.what,
-                Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. }
+                Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_)
             )
     })
 }
@@ -276,6 +276,10 @@ impl Rows {
         let copies: Vec<Row> = match &moving.what {
             Moving::Commits(ids) => (ids.iter())
                 .map(|id| Row::Ghost(Selection::Commit(project.clone(), *id)))
+                .collect(),
+            // As the commits they'd be, which [`ghost_row`] draws by their titles.
+            Moving::Copies(copies) => (copies.iter())
+                .map(|(id, _)| Row::Ghost(Selection::Commit(project.clone(), *id)))
                 .collect(),
             Moving::Branch(branch) => {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
@@ -590,9 +594,12 @@ impl Navigator {
                     .map(|(checkout, slot)| Stop::Terminal { checkout, slot });
                 return Some((stops.collect(), start));
             }
-            // Files are only squashed.
-            Moving::Files { .. } if op == Op::Move => return None,
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {}
+            // Files are only squashed, and committed, and only commits are cherry-picked, the
+            // workspace's or copies of others.
+            Moving::Files { .. } if matches!(op, Op::Move | Op::CherryPick) => return None,
+            Moving::Branch(_) if op == Op::CherryPick => return None,
+            Moving::Copies(_) if op != Op::CherryPick => return None,
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {}
         }
         let workspace = store.workspace(project)?;
         let open = |heading: &Selection| self.open_as_built(heading);
@@ -618,13 +625,27 @@ impl Navigator {
                     | Moving::Project(_)
                     | Moving::Worktree { .. }
                     | Moving::Terminal { .. }
-                    | Moving::Files { .. } => &[],
+                    | Moving::Files { .. }
+                    | Moving::Copies(_) => &[],
                 };
                 let all = stops(self.shown_rows(), project, commits, workspace, open);
                 let Moving::Branch(branch) = what else {
                     return Some(all);
                 };
                 branch_stops(all.0, branch, lands)
+            }
+            // Where commits moved can land. The workspace's start where they are, and copies of
+            // others, which are nowhere here, on top of the topmost branch, as a new commit
+            // does.
+            Op::CherryPick => {
+                let Moving::Commits(commits) = what else {
+                    let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                    let topmost = (all.iter())
+                        .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
+                        .unwrap_or_default();
+                    return Some((all, topmost));
+                };
+                Some(stops(self.shown_rows(), project, commits, workspace, open))
             }
             Op::Squash(_) => {
                 let home = (store.selection.as_ref()).and_then(Target::of)?;
@@ -949,7 +970,8 @@ impl Navigator {
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. } => start,
+                | Moving::Files { .. }
+                | Moving::Copies(_) => start,
             };
             let at = stops.get(start)?.clone();
             let home = Move {
@@ -974,13 +996,78 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    /// Squash what `moving` moves, or move what it squashes, as `op` says: from what matches
-    /// where it's at, below a commit or into it, which show where it goes in the same place,
-    /// else from where it is.
+    /// Start cherry-picking the selected commit, with those picked with it, or the commit a
+    /// branch's remote has that it lists, as the TUI's p does: the keys step through where
+    /// copies of them can go until Return puts them there or Escape lets go. While commits are
+    /// being moved or squashed, cherry-pick them instead.
+    pub(crate) fn start_cherry_pick(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        if let Some(moving) = store.moving.clone() {
+            return self.switch(moving, Op::CherryPick, cx);
+        }
+        let (project, what) = match store.selection.clone() {
+            Some(Selection::Commit(project, id)) => {
+                let ids = store.with_picks(&project, id);
+                (project, Moving::Commits(ids))
+            }
+            Some(Selection::Upstream(project, _, id)) => {
+                let remote = (store.workspace(&project))
+                    .and_then(|ws| ws.remote_commits().find(|commit| commit.id == id));
+                let Some(remote) = remote else {
+                    return;
+                };
+                // As `git cherry-pick` refuses: which side to take isn't said.
+                if remote.merge {
+                    return snack(&self.store, "A merge can't be cherry-picked", cx);
+                }
+                let copies = [(id, remote.title.clone().into())].into();
+                (project, Moving::Copies(copies))
+            }
+            _ => return,
+        };
+        self.cherry_pick(project, what, window, cx)
+    }
+
+    /// Start cherry-picking `what` into `project`: the workspace's commits from where they
+    /// are, and copies of others from the top of the topmost branch.
+    pub(crate) fn cherry_pick(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let op = Op::CherryPick;
+        // Somewhere besides where they are, which copies of others are nowhere here.
+        let copies = matches!(what, Moving::Copies(_));
+        let start = (self.stops_for(&project, &what, op, cx))
+            .filter(|(stops, _)| stops.len() > 1 || (copies && !stops.is_empty()))
+            .and_then(|(stops, start)| stops.into_iter().nth(start));
+        let Some(at) = start else {
+            return snack(&self.store, "Nowhere to cherry-pick it", cx);
+        };
+        let moving = Move {
+            project,
+            what,
+            at,
+            op,
+        };
+        self.reveal_selection = true;
+        self.store
+            .update(cx, |store, cx| store.set_moving(Some(moving), cx));
+        window.focus(&self.focus, cx);
+    }
+
+    /// Squash what `moving` moves, or move or cherry-pick what it squashes, as `op` says: from
+    /// what matches where it's at, below a commit or into it, which show where it goes in the
+    /// same place, or the same stop, where moving and cherry-picking both land, else from where
+    /// it is.
     fn switch(&mut self, moving: Move, op: Op, cx: &mut Context<Self>) {
         let same_op = matches!(
             (moving.op, op),
-            (Op::Move, Op::Move) | (Op::Squash(_), Op::Squash(_))
+            (Op::Move, Op::Move)
+                | (Op::Squash(_), Op::Squash(_))
+                | (Op::CherryPick, Op::CherryPick)
         );
         if same_op || !moving.of_commits() {
             return;
@@ -995,10 +1082,11 @@ impl Navigator {
             (Stop::In(Destination::BelowCommit(id)), Op::Squash(_)) => {
                 Some(Stop::Into(Target::Commit(*id)))
             }
-            (Stop::Into(Target::Commit(id)), Op::Move) => {
+            (Stop::Into(Target::Commit(id)), Op::Move | Op::CherryPick) => {
                 Some(Stop::In(Destination::BelowCommit(*id)))
             }
-            _ => None,
+            (_, Op::Move | Op::CherryPick) => Some(at.clone()),
+            (_, Op::Squash(_) | Op::Commit) => None,
         };
         let Some(at) =
             (same.filter(|stop| stops.contains(stop))).or_else(|| stops.into_iter().nth(start))
@@ -1170,6 +1258,26 @@ impl Navigator {
             return (self.store)
                 .update(cx, |store, cx| store.order_terminals(&project, &order, cx));
         }
+        // Copies go where it's at, the commits staying where they are, and show there till
+        // they're there.
+        if let (Op::CherryPick, Some(ids)) = (moving.op, moving.picked()) {
+            let (project, at, lands) = (moving.project.clone(), moving.at.clone(), moving);
+            return self.store.update(cx, |store, cx| match at {
+                Stop::In(to) => {
+                    // Only staging comes back, which a cherry-pick never is.
+                    let transfer = Transfer::CherryPick { ids, to };
+                    let _ = transfer.perform(&project, Some(lands), store, cx);
+                }
+                Stop::NewBranch { beside, below } => {
+                    let beside = Some((beside, below));
+                    store.cherry_pick_to_new_branch(&project, ids, beside, false, lands, cx)
+                }
+                Stop::NewStack { first } => {
+                    store.cherry_pick_to_new_branch(&project, ids, None, first, lands, cx)
+                }
+                Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => {}
+            });
+        }
         // A branch's copy stays where it lands till it's there.
         if let Some((payload, target, place)) = moving.drop() {
             return self.app.update_later(window, cx, move |app, window, cx| {
@@ -1205,7 +1313,8 @@ impl Navigator {
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. },
+                | Moving::Files { .. }
+                | Moving::Copies(_),
                 _,
             ) => {}
         });
@@ -1307,6 +1416,16 @@ fn branch_stops(
 /// its own row is while the move is at where it is, set in by `inset` as an item row is, and
 /// outlined with the copies `outlined_with` says are above and below it. A branch's copy is its
 /// row alone, folded, which heads its commits wherever it goes.
+/// The title of commit `id` that the cherry-pick shown in `project` copies from outside the
+/// workspace, if it's one of those.
+fn copied_title(store: &Store, project: &ProjectId, id: CommitId) -> Option<SharedString> {
+    let Moving::Copies(copies) = &shown(store, project)?.what else {
+        return None;
+    };
+    let (_, title) = copies.iter().find(|(copy, _)| *copy == id)?;
+    Some(title.clone())
+}
+
 pub(super) fn ghost_row(
     item: &Selection,
     inset: f32,
@@ -1314,18 +1433,23 @@ pub(super) fn ghost_row(
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
+    // In the colour of what's being done with it, as what it's of is marked.
     let style = RowStyle {
         held: true,
+        mark: mark_of(store, item.project(), theme),
         outlined_with,
         ..RowStyle::plain(theme, inset)
     };
     let row = match item {
-        Selection::Commit(project, id) => (store.find_commit(project, *id)).map(|(_, commit)| {
-            let id = format!("ghost-{project}-{}", id.0);
-            style
-                .commit(id, project, commit, store, None)
-                .into_any_element()
-        }),
+        Selection::Commit(project, id) => {
+            let row = format!("ghost-{project}-{}", id.0);
+            match store.find_commit(project, *id) {
+                Some((_, commit)) => Some(style.commit(row, project, commit, store, None)),
+                // A copy of a commit from outside the workspace, as the commit it'd be.
+                None => copied_title(store, project, *id).map(|title| style.copy(row, title)),
+            }
+            .map(IntoElement::into_any_element)
+        }
         Selection::Branch(project, ref_name) => (store.workspace(project))
             .and_then(|ws| ws.find_branch(ref_name.as_ref()))
             .map(|branch| {
@@ -1723,6 +1847,26 @@ new branch below agent
             taken_away(&both, &below_one, false, true),
             [(1, 0), (2, 0)],
             "commits landing together go under the row above the first"
+        );
+    }
+
+    #[test]
+    fn a_cherry_pick_landing_takes_nothing_away_as_the_commit_stays() {
+        let project = ProjectId::from("p");
+        let p = || project.clone();
+        let branch = |name: &str| {
+            let name = full(&format!("refs/heads/{name}"));
+            Some(RowKey::Item(Selection::Branch(p(), Some(name))))
+        };
+        let commit = |n: usize| Some(RowKey::Commit(p(), n.to_string()));
+        let left = || Some(RowKey::Left(Box::new(RowKey::Commit(p(), "3".into()))));
+        // Commit 3's copy at the top of api, then landed there as commit 9, a new change.
+        let copied = [branch("ui"), left(), commit(2), branch("api"), commit(3)];
+        let landed = [branch("ui"), commit(3), commit(2), branch("api"), commit(9)];
+        assert_eq!(
+            taken_away(&copied, &landed, false, false),
+            [],
+            "3 takes its own row back where it is, as a move let go of does"
         );
     }
 

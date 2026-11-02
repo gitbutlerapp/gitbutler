@@ -890,10 +890,25 @@ impl AppView {
         self.transfer(&cut, &target, place, window, cx);
     }
 
+    /// Start cherry-picking `what` into `project` from a page of the detail: the navigator
+    /// takes the keys to place the copies, coming out over the detail while it's hidden, as ⌘1
+    /// brings it.
+    pub(crate) fn cherry_pick(
+        &mut self,
+        project: ProjectId,
+        what: Moving,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.focus_navigator(&FocusNavigator, window, cx);
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.cherry_pick(project, what, window, cx)
+        });
+    }
+
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
         let message = format!(
-            "{} {}, ready to paste with {}",
-            cut.verb(),
+            "Cut {}, ready to paste with {}",
             cut.describe(self.store.read(cx)),
             crate::ui::keys_text("⌘V")
         );
@@ -968,7 +983,7 @@ impl AppView {
                 }
                 return;
             }
-            Some(Op::Move | Op::Squash(_)) => {
+            Some(Op::Move | Op::Squash(_) | Op::CherryPick) => {
                 return self
                     .store
                     .update(cx, |store, cx| store.set_moving(None, cx));
