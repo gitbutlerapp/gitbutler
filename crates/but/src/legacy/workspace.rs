@@ -54,7 +54,6 @@ fn head_info(
 ) -> anyhow::Result<(RefInfo, gix::hash::Kind)> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let object_hash = repo.object_hash();
-    let meta = ctx.meta()?;
     let edit_mode_workspace_ref = edit_mode_workspace_ref(&repo)?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below. Only seed worktree tips when querying from
@@ -67,14 +66,7 @@ fn head_info(
             .as_ref()
             .map(|ref_name| repo.find_reference(ref_name.as_ref()))
             .transpose()?;
-        ref_info::workspace(
-            &repo,
-            &meta,
-            &mut db,
-            ctx.project_meta()?,
-            &options,
-            seen_from,
-        )?
+        ref_info::workspace(&repo, &mut db, ctx.project_meta()?, &options, seen_from)?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -136,7 +128,7 @@ fn applied_stacks_with_options(
     ctx: &Context,
     expensive_commit_info: bool,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.meta()?)?;
+    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta())?;
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     Ok(head_info_stacks(
         &info,
@@ -161,7 +153,7 @@ fn applied_lanes_with_options(
     ctx: &Context,
     expensive_commit_info: bool,
 ) -> anyhow::Result<Vec<HeadInfoStack>> {
-    let metadata = workspace_metadata(&ctx.meta()?)?;
+    let metadata = workspace_metadata(&ctx.db.get_cache()?.meta())?;
     let (info, object_hash) = head_info(ctx, expensive_commit_info)?;
     let null_id = object_hash.null();
     let mut lanes = head_info_stacks(&info, metadata.as_ref(), null_id);
@@ -228,7 +220,7 @@ pub fn review_chain(
         .map(Some)
 }
 
-fn workspace_metadata(meta: &impl but_core::RefMetadata) -> anyhow::Result<Option<Workspace>> {
+fn workspace_metadata(meta: &but_db::Meta<'_>) -> anyhow::Result<Option<Workspace>> {
     let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
     Ok(meta
         .workspace_opt(workspace_ref.as_ref())?

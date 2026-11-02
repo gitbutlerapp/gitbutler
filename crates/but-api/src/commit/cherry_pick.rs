@@ -47,10 +47,9 @@ pub fn commit_cherry_pick_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
     let source_commit_count = source_commit_ids.iter().collect::<HashSet<_>>().len();
-    let mut meta = ctx.meta()?;
+
     let (new_commits, workspace) = with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CherryPick).with_count(source_commit_count),
         &[],

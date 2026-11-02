@@ -1,5 +1,4 @@
 //! A loose collection of states that users typically encounter.
-use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
@@ -12,7 +11,7 @@ use crate::ref_info::{
 
 #[test]
 fn two_commits_require_force_push() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("01-one-rewritten-one-local-after-push")?;
+    let (repo, description, mut db) = scenario("01-one-rewritten-one-local-after-push")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -35,7 +34,7 @@ We change the name of the first commit and also need the similarity to be detect
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -106,8 +105,7 @@ Ok(
 
 #[test]
 fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) =
-        scenario("01.5-one-rewritten-one-local-after-push-merge")?;
+    let (repo, description, mut db) = scenario("01.5-one-rewritten-one-local-after-push-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -132,7 +130,6 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
 
     let (info, workspace) = crate::ref_info::with_workspace_commit::head_info_and_workspace(
         &repo,
-        &meta,
         &mut db,
         standard_options(),
     )?;
@@ -233,7 +230,7 @@ Ok(
 
 #[test]
 fn remote_diverged() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("02-diverged-remote")?;
+    let (repo, description, mut db) = scenario("02-diverged-remote")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -256,7 +253,7 @@ The tip of the local branch isn't in the ancestry of the remote anymore.
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -329,7 +326,7 @@ Ok(
 
 #[test]
 fn remote_diverged_merge() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("02.5-diverged-remote-merge")?;
+    let (repo, description, mut db) = scenario("02.5-diverged-remote-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -357,7 +354,7 @@ We'd not want to see the remote unique commit anymore as it's also considered in
         .raw()
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -428,7 +425,7 @@ Ok(
 
 #[test]
 fn remote_behind() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("03-remote-one-behind")?;
+    let (repo, description, mut db) = scenario("03-remote-one-behind")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -447,7 +444,7 @@ A can be pushed as it has local, unpushed commits
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -518,7 +515,7 @@ Ok(
 
 #[test]
 fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("03.5-remote-one-behind-merge-no-ff")?;
+    let (repo, description, mut db) = scenario("03.5-remote-one-behind-merge-no-ff")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -543,7 +540,7 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
         .raw()
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -614,7 +611,7 @@ Ok(
 
 #[test]
 fn remote_ahead() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("04-remote-one-ahead-ff")?;
+    let (repo, description, mut db) = scenario("04-remote-one-ahead-ff")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -634,7 +631,7 @@ There are no unpushed local commits, the remote is one ahead (FF)
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -706,7 +703,7 @@ Ok(
 
 #[test]
 fn remote_ahead_merge_ff() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("04.5-remote-one-ahead-ff-merge")?;
+    let (repo, description, mut db) = scenario("04.5-remote-one-ahead-ff-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -726,7 +723,7 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &mut db, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -774,13 +771,6 @@ Ok(
     Ok(())
 }
 
-pub fn scenario(
-    name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    String,
-    but_db::DbHandle,
-)> {
+pub fn scenario(name: &str) -> anyhow::Result<(gix::Repository, String, but_db::DbHandle)> {
     named_read_only_in_memory_scenario_with_description("journey02", name)
 }

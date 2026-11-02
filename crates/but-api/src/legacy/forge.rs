@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    RefMetadata as _, RepositoryExt,
+    RepositoryExt,
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::ProjectMeta,
 };
@@ -617,7 +617,9 @@ mod tests {
         persist_review_association(&ctx, branch_name.as_ref(), 42)?;
 
         assert_eq!(
-            ctx.meta()?
+            ctx.db
+                .get_cache()?
+                .meta()
                 .branch(branch_name.as_ref())?
                 .review
                 .pull_request,
@@ -1482,10 +1484,10 @@ fn persist_review_association(
     if in_worktree_lane {
         return Ok(());
     }
-    let mut meta = ctx.meta()?;
-    let mut branch = meta.branch(branch_name)?;
+    let mut db = ctx.db.get_cache_mut()?;
+    let mut branch = db.meta().branch(branch_name)?;
     branch.review.pull_request = Some(review_number);
-    meta.set_branch(&branch)
+    db.meta_mut()?.set_branch(&branch)
 }
 
 /// Merge a review on the forge.

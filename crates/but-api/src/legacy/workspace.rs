@@ -25,14 +25,12 @@ use crate::commit::json::ChangesSource;
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.meta()?;
     // The worktree-discovering database borrow must end before the gerrit handle
     // borrows the database again below.
     let ws = {
         let mut db = ctx.db.get_cache_mut()?;
         but_workspace::ref_info::workspace(
             &repo,
-            &meta,
             &mut db,
             ctx.project_meta()?,
             &but_graph::init::Options {
@@ -75,11 +73,10 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
-    let meta = ctx.meta()?;
-    let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
+    let (_guard, repo, ws, db) = ctx.workspace_and_db()?;
     // This is the graph the rebase editor is built from, which is walked from the entrypoint as well.
     let heads = Vec::from_iter(ws.graph.entrypoint()?.commit().map(|commit| commit.id));
-    but_graph::nosegment::workspace_segment_graph(&ws, &repo, &meta, heads)?.open_as_svg();
+    but_graph::nosegment::workspace_segment_graph(&ws, &repo, &db.meta(), heads)?.open_as_svg();
     Ok(())
 }
 
@@ -155,7 +152,6 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -167,7 +163,12 @@ pub fn branch_details(
         .try_into()
         .map_err(anyhow::Error::from)?;
         let project_meta = ctx.project_meta()?;
-        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta, &project_meta)
+        but_workspace::branch_details(
+            &repo,
+            ref_name.as_ref(),
+            &ctx.db.get_cache()?.meta(),
+            &project_meta,
+        )
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;
@@ -287,9 +288,8 @@ pub fn stash_into_branch(
 
     let outcome = {
         let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+        let editor = Editor::create(&mut ws, &repo, &mut db)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -438,11 +438,9 @@ pub fn workspace_branch_and_ancestors_push_only(
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<gitbutler_git::PushResult> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
     let ws = but_workspace::ref_info::workspace(
         &repo,
-        &meta,
         &mut db,
         ctx.project_meta()?,
         &but_graph::init::Options {

@@ -1,5 +1,3 @@
-use but_core::RefMetadata;
-
 use crate::{
     command::{
         undo::run_mutate_undo_roundtrip_test,
@@ -493,7 +491,7 @@ fn can_undo_and_redo_single_branch_move_switch_from_workspace() {
         env.setup_metadata(&["A", "B"]);
         let tips_before = env.invoke_git("rev-parse A B gitbutler/workspace");
         let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-        let workspace_before = (*env.meta().workspace(workspace_ref).unwrap()).clone();
+        let workspace_before = (*env.meta().meta().workspace(workspace_ref).unwrap()).clone();
         let mut refs_after = String::new();
 
         run_mutate_undo_roundtrip_test(&env, |env| {
@@ -519,7 +517,7 @@ fn can_undo_and_redo_single_branch_move_switch_from_workspace() {
             "undo must restore all original branch and workspace tips"
         );
         assert_eq!(
-            *env.meta().workspace(workspace_ref).unwrap(),
+            *env.meta().meta().workspace(workspace_ref).unwrap(),
             workspace_before,
             "undo must restore the original workspace metadata"
         );
@@ -545,7 +543,7 @@ fn can_undo_single_branch_move_reentering_existing_workspace() {
     let commit = env.invoke_git("rev-parse one");
     let tips_before = env.invoke_git("rev-parse one two gitbutler/workspace");
     let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
-    let workspace_before = (*env.meta().workspace(workspace_ref).unwrap()).clone();
+    let workspace_before = (*env.meta().meta().workspace(workspace_ref).unwrap()).clone();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but(format!("move {commit} -b moved"))
@@ -569,7 +567,7 @@ fn can_undo_single_branch_move_reentering_existing_workspace() {
         "undo must restore the pre-existing workspace and branch tips"
     );
     assert_eq!(
-        *env.meta().workspace(workspace_ref).unwrap(),
+        *env.meta().meta().workspace(workspace_ref).unwrap(),
         workspace_before,
         "undo must restore the pre-existing workspace metadata"
     );

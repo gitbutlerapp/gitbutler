@@ -31,10 +31,9 @@ pub fn commit_amend(
     let mut guard = ctx.exclusive_worktree_access();
     let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
     let worktree = crate::worktrees::open_changes_source(ctx, &changes_source)?;
-    let mut meta = ctx.meta()?;
+
     let (amended, workspace) = with_transaction_with_perm(
         ctx,
-        &mut meta,
         guard.write_permission(),
         SnapshotDetails::new(OperationKind::AmendCommit),
         worktree_ref.as_ref().map(|name| name.as_ref()).as_slice(),

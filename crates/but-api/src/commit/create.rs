@@ -36,10 +36,9 @@ pub fn commit_create(
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
     let worktree = crate::worktrees::open_changes_source(ctx, &changes_source)?;
-    let mut meta = ctx.meta()?;
+
     let (created, workspace) = with_transaction_with_perm(
         ctx,
-        &mut meta,
         perm,
         SnapshotDetails::new(OperationKind::CreateCommit),
         worktree_ref.as_ref().map(|name| name.as_ref()).as_slice(),

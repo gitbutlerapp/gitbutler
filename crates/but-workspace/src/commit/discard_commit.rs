@@ -1,5 +1,4 @@
 use anyhow::bail;
-use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 
 use crate::editor_workspace::leave_unnecessary_workspace;
@@ -12,10 +11,10 @@ use crate::editor_workspace::leave_unnecessary_workspace;
 ///
 /// A workspace that is unnecessary afterwards is left, see
 /// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
-pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn discard_commits<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     subject_commits: impl IntoIterator<Item = gix::ObjectId>,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
     let mut seen = gix::hashtable::HashSet::default();
     let mut count = 0usize;
     for commit_id in subject_commits {
