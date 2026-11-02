@@ -793,6 +793,23 @@ where
         })
     }
 
+    /// Move `changes` out of `source` into a new commit placed at `relative_to`, which replaces
+    /// `source` along with what's left of it.
+    pub fn split_commit(
+        &mut self,
+        source: ObjectId,
+        changes: Vec<but_core::DiffSpec>,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let blank = self.insert_blank_commit(relative_to, side)?;
+        self.rebase(|mut editor, commit_mappings| {
+            editor.split_from(commit_mappings.map(source), blank.id)?;
+            Ok(((), editor.rebase()?))
+        })?;
+        self.move_committed_changes_between(source, blank.id, changes)
+    }
+
     pub fn move_committed_changes_between(
         &mut self,
         source: ObjectId,
