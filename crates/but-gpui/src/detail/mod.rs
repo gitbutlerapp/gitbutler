@@ -55,7 +55,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Cut, FileSort, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent, snack,
+    Cut, FileSort, FileView, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent,
+    snack,
 };
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
@@ -701,7 +702,7 @@ impl Detail {
                     .collect();
                 this.forget(gone, cx);
                 let prefs = &store.read(cx).prefs;
-                let order = (prefs.file_tree, prefs.file_sort);
+                let order = (prefs.file_view == FileView::Tree, prefs.file_sort);
                 if let Some(diff) =
                     (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
                 {
@@ -1318,7 +1319,7 @@ impl Detail {
         // The keys step through the files as the list shows them: in the order picked, and
         // in a tree, folder by folder. Copied only when that's not how they came.
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
+        let (tree, sort) = (prefs.file_view == FileView::Tree, prefs.file_sort);
         let order = |a: &FileDiff, b: &FileDiff| {
             let folders = match tree {
                 true => file_tree::folder_order(&a.file.path, &b.file.path),
@@ -2019,7 +2020,7 @@ impl Detail {
             (ranked(&self.filter_terms(cx), shown, |(_, path)| *path).into_iter())
                 .map(|(file, _)| file)
                 .unzip();
-        if !self.store.read(cx).prefs.file_tree {
+        if self.store.read(cx).prefs.file_view == FileView::List {
             return shown;
         }
         (unfolded(&paths, collapsed).into_iter())

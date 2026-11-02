@@ -297,6 +297,16 @@ pub(super) struct Restored {
     pub(super) fresh: bool,
 }
 
+/// How file lists show their files, as but.dev's can.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FileView {
+    /// As a tree of their folders.
+    #[default]
+    Tree,
+    /// Flat, each with its folder beside its name.
+    List,
+}
+
 /// The order file lists show files in, as but.dev's do.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FileSort {
@@ -400,8 +410,8 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
-    /// File lists show their files as a tree of folders rather than flat.
-    pub file_tree: bool,
+    /// How file lists show their files.
+    pub file_view: FileView,
     /// The order file lists show files in.
     pub file_sort: FileSort,
     /// A file tree's folders always show the lines their files add and remove, rather than
