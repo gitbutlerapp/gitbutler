@@ -2117,10 +2117,6 @@ impl Navigator {
             if terminal(store) && store.selection.as_ref() != Some(&clicked) {
                 this.select_row(&clicked, event.modifiers(), window, cx)
             }
-            // A terminal clicked takes the keys, as Return gives them it.
-            if let Selection::Terminal(..) = clicked {
-                this.enter_terminal(window, cx)
-            }
         }))
     }
 
