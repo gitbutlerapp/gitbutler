@@ -1,5 +1,8 @@
 [profile.ci]
 fail-fast = false
+# Reports a test as slow each minute and ends it after four, so a hung test fails its
+# job instead of holding a runner until the job times out.
+slow-timeout = { period = "60s", terminate-after = 4 }
 
 [profile.ci.junit]
 path = "junit.xml"

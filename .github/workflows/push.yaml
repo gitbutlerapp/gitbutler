@@ -10,7 +10,9 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push to a pull request supersedes its last run. Master runs always finish:
+  # they save the caches pull requests restore, and show which merge broke master.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,6 +21,7 @@ permissions:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
@@ -79,20 +82,11 @@ jobs:
             install_script:
               - 'scripts/install.sh'
 
-  # This smoke test is here only because we have somewhat poor visibility on the scheduled nightly
-  # builds (whether they fail or succeed). It's my hope that by having this as a non-required check
-  # on every push, we'll be quicker to detect that there is an incompatibility.
-  #
-  # It should absolutely _not_ be a required check, however, as it checks nightly <-> release. The
-  # fact that the latest nightly is incompatible with the latest release cannot possibly be related
-  # to the current push. This is just a signal for us that we should check it out.
-  smoke-test-adjacent-release-compatibility:
-    uses: ./.github/workflows/smoke-test-version-compatibility.yaml
-
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -104,6 +98,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,6 +110,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -126,6 +122,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -159,6 +156,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.but_sdk == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -191,6 +189,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read
@@ -242,6 +241,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: read
@@ -250,7 +250,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Install cargo-machete
-        run: cargo install --locked cargo-machete --version 0.9.1
+        run: |
+          # To update, change the version and take the checksum from the release's
+          # cargo-machete-<VERSION>-x86_64-unknown-linux-musl.tar.gz.sha256 artifact.
+          curl -LsSf https://github.com/bnjbvr/cargo-machete/releases/download/v0.9.1/cargo-machete-v0.9.1-x86_64-unknown-linux-musl.tar.gz -o cargo-machete.tar.gz
+          echo "640b0814480b401e4e72201e52a13e1311b8eb8d7c27faa08bbe9886f252f26d  cargo-machete.tar.gz" | sha256sum -c -
+          tar -xzf cargo-machete.tar.gz --strip-components=1 -C ${CARGO_HOME:-~/.cargo}/bin cargo-machete-v0.9.1-x86_64-unknown-linux-musl/cargo-machete
+          rm cargo-machete.tar.gz
       - name: Run cargo-machete on workspace
         run: cargo machete
 
@@ -258,6 +264,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -270,6 +277,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       CARGO_TERM_COLOR: always
       RUSTDOCFLAGS: -D warnings
@@ -288,7 +296,7 @@ jobs:
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       # fontconfig's build script looks it up with pkg-config.
       - name: Dependencies for the GPUI client
-        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Check documentation
         run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
 
@@ -300,6 +308,7 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-15]
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 50
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
@@ -339,7 +348,7 @@ jobs:
       # The libraries GPUI links to on Linux, for its windows and its font lookup.
       - name: Dependencies for the GPUI client
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
+        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Install cargo-nextest (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -415,6 +424,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: read
@@ -451,6 +461,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read
@@ -481,6 +492,7 @@ jobs:
   check-rust-windows:
     needs: changes
     runs-on: windows-latest
+    timeout-minutes: 25
     if: ${{ needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
@@ -506,6 +518,7 @@ jobs:
   test-rust-windows:
     needs: changes
     runs-on: windows-latest
+    timeout-minutes: 35
     if: ${{ needs.changes.outputs.rust == 'true' }}
     env:
       CARGO_TERM_COLOR: always
@@ -550,6 +563,7 @@ jobs:
             target: ""
 
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 20
 
     env:
       CARGO_TERM_COLOR: always
@@ -586,6 +600,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
     permissions: {}
     outputs:
       release_version: ${{ steps.fetch.outputs.release_version }}
@@ -615,6 +630,7 @@ jobs:
           - platform: ubuntu-22.04 # [linux, x64]
           - platform: ubuntu-22.04-arm # [linux, ARM64]
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -650,6 +666,7 @@ jobs:
           - platform: ubuntu-22.04-arm # [linux, ARM64]
             artifact_id: linux-aarch64
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     steps:
       - name: Download ${{ matrix.artifact_id }} installer
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -670,6 +687,7 @@ jobs:
     needs: build-installer
     if: ${{ github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -735,6 +753,7 @@ jobs:
       - build-installer
       - but-sdk-build-check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -747,6 +766,7 @@ jobs:
   # Check that all `actions/checkout` in CI jobs have `persist-credentials: false`.
   check-no-persist-credentials:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     env:
       GLOB: .github/workflows/*.@(yaml|yml)
@@ -776,6 +796,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read

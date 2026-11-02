@@ -23,6 +23,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.should_run == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: read
@@ -132,7 +133,7 @@ jobs:
       packages: read
     container:
       image: ghcr.io/gitbutlerapp/ci-base-image@sha256:c0ab58bb5f1cd99beb36861f460895be77515f4dd252df736c27c117a8e04a92
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
       DESKTOP_PORT: 3000
       BUTLER_PORT: 6978
@@ -215,6 +216,7 @@ jobs:
     needs: [changes, playwright_shards]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Verify Playwright shards
