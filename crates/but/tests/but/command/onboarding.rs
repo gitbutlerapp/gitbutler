@@ -556,11 +556,28 @@ Hint: run `but help` for all commands
 #[test]
 fn migration_leaves_branch_tracking_a_local_branch_alone() {
     // a legacy target a remote fetches, and one no remote fetches
-    for (setup, target) in [
-        ("true", "origin/main"),
+    for (setup, target, expected_stderr) in [
+        (
+            "true",
+            "origin/main",
+            // origin fetches into origin/main, so main is the branch to track it
+            snapbox::str![[r#"
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, [..]
+
+Hint: Make a local branch track origin/main with `git branch --set-upstream-to=origin/main main`, or choose a local target branch with `but config target <branch>`
+
+"#]],
+        ),
         (
             "git config remote.gb-local.url . && git update-ref refs/remotes/gb-local/main main",
             "gb-local/main",
+            // no remote fetches into gb-local/main, so no branch maps to it
+            snapbox::str![[r#"
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, [..]
+
+Hint: Choose a local target branch with `but config target <branch>`
+
+"#]],
         ),
     ] {
         let env = Sandbox::open_with_default_settings("single-branch-mode");
@@ -574,12 +591,7 @@ fn migration_leaves_branch_tracking_a_local_branch_alone() {
         env.but("status")
             .assert()
             .failure()
-            .stderr_eq(snapbox::str![[r#"
-Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, [..]
-
-Hint: Make a local branch track [..] with `git branch --set-upstream-to=[..] <branch>`, or choose a local target branch with `but config target <branch>`
-
-"#]]);
+            .stderr_eq(expected_stderr);
         assert_eq!(
             env.invoke_git("rev-parse --abbrev-ref main@{upstream}"),
             "trunk",
