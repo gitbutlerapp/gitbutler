@@ -354,6 +354,46 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(step)
     }
 
+    /// Replaces `subjects` with [Step::None], recording that they and `target` turned into one
+    /// commit, which takes the place of [Self::replace_with_none] when commits are folded together.
+    ///
+    /// `target` is the output from now on, whatever it's rewritten to next.
+    pub fn fold_into(
+        &mut self,
+        subjects: impl IntoIterator<Item = impl ToCommitSelector>,
+        target: impl ToCommitSelector,
+    ) -> Result<()> {
+        let target = target.to_commit_selector(self)?;
+        let mut precs: Vec<_> = self.consume(target)?.into_iter().collect();
+        for subject in subjects {
+            let subject = subject.to_commit_selector(self)?;
+            precs.extend(self.consume(subject)?);
+            self.replace_with_none(subject)?;
+        }
+        self.emerge(target, precs)
+    }
+
+    fn consume(&mut self, target: impl ToCommitSelector) -> Result<Option<gix::ObjectId>> {
+        let target = self
+            .history
+            .normalize_selector(target.to_commit_selector(self)?)?;
+        let Step::Pick(pick) = &self.graph[target.id] else {
+            bail!("BUG: to_commit_selector should have asserted Step::Pick");
+        };
+        Ok(self.history.consume(pick))
+    }
+
+    fn emerge(&mut self, target: impl ToCommitSelector, precs: Vec<gix::ObjectId>) -> Result<()> {
+        let target = self
+            .history
+            .normalize_selector(target.to_commit_selector(self)?)?;
+        let Step::Pick(pick) = &mut self.graph[target.id] else {
+            bail!("BUG: to_commit_selector should have asserted Step::Pick");
+        };
+        self.history.emerge(pick, precs);
+        Ok(())
+    }
+
     /// Updates the pick to another pick and records a commit mapping.
     ///
     /// The function also receives a reference to self to work around borrow checker issues.

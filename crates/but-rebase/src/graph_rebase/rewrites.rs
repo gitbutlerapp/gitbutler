@@ -7,7 +7,8 @@ use but_core::RefMetadata;
 use but_evo::Rewrite;
 
 use crate::graph_rebase::{
-    Step, SuccessfulRebase, rebase::order_steps_picking, workspace::is_workspace_commit,
+    Pick, RevisionHistory, Step, SuccessfulRebase, rebase::order_steps_picking,
+    workspace::is_workspace_commit,
 };
 
 /// Where a commit came from.
@@ -33,6 +34,52 @@ impl Lineage {
         } else {
             &self.precs
         }
+    }
+}
+
+/// A commit and what it turned into.
+#[derive(Debug, Clone)]
+pub(crate) struct Succession {
+    pub(crate) prec: gix::ObjectId,
+    pub(crate) succ: gix::ObjectId,
+}
+
+impl RevisionHistory {
+    /// The commit that `pick` feeds into a fold or split as, which only abbreviates rewrites.
+    ///
+    /// The output of an earlier fold or split keeps its own place in the hypergraph, under the ID
+    /// it has now.
+    pub(crate) fn consume(&mut self, pick: &Pick) -> Option<gix::ObjectId> {
+        if pick.exclude_from_tracking {
+            return None;
+        }
+        let Some(lineage) = self.lineages.get_mut(&pick.id) else {
+            return Some(pick.id);
+        };
+        if lineage.precs.is_empty() {
+            return lineage.original;
+        }
+        let precs = std::mem::take(&mut lineage.precs);
+        self.successions
+            .extend(precs.into_iter().map(|prec| Succession {
+                prec,
+                succ: pick.id,
+            }));
+        Some(pick.id)
+    }
+
+    /// Makes `pick` the output of a fold or split of `precs`, which starts tracking it if it
+    /// wasn't yet.
+    pub(crate) fn emerge(&mut self, pick: &mut Pick, precs: Vec<gix::ObjectId>) {
+        let original = (!pick.exclude_from_tracking).then_some(pick.id);
+        pick.exclude_from_tracking = false;
+        self.lineages
+            .entry(pick.id)
+            .or_insert(Lineage {
+                original,
+                precs: Vec::new(),
+            })
+            .precs = precs;
     }
 }
 
@@ -104,6 +151,9 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             for prec in lineage.precs() {
                 incidence.connect(*prec, pick.id);
             }
+        }
+        for Succession { prec, succ } in &self.history.successions {
+            incidence.connect(*prec, *succ);
         }
         Ok(incidence.into_rewrites())
     }

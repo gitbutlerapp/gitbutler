@@ -3,12 +3,96 @@ use bstr::ByteSlice as _;
 use but_rebase::graph_rebase::{Editor, LookupStep};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::commit::squash_commits;
-use snapbox::IntoData;
+use snapbox::{IntoData, ToDebug as _};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments,
     named_writable_scenario_with_description_and_graph as writable_scenario,
 };
+
+#[test]
+fn squashing_records_a_fold_with_the_target_first() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        writable_scenario("reword-three-commits", |_| {})?;
+    let three = repo.rev_parse_single("three")?.detach();
+    let two = repo.rev_parse_single("two")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let outcome = squash_commits(
+        editor,
+        vec![three],
+        two,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    // `two` is the target and `three` the subject, and `one` below them wasn't touched.
+    snapbox::assert_data_eq!(
+        outcome.rebase.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Fold {
+        precs: [
+            Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+            Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        ],
+        succ: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+    },
+]
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn squashing_the_output_of_a_fold_is_a_second_fold() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        writable_scenario("reword-three-commits", |_| {})?;
+    let three = repo.rev_parse_single("three")?.detach();
+    let two = repo.rev_parse_single("two")?.detach();
+    let one = repo.rev_parse_single("one")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let first = squash_commits(
+        editor,
+        vec![three],
+        two,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+    let outcome = squash_commits(
+        first.rebase.into_editor(),
+        vec![first.commit_selector],
+        one,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    // Each squash is its own hyperedge, even though the commit between them was never a ref.
+    snapbox::assert_data_eq!(
+        outcome.rebase.rewrites()?.to_debug(),
+        snapbox::str![[r#"
+[
+    Fold {
+        precs: [
+            Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+            Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        ],
+        succ: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+    },
+    Fold {
+        precs: [
+            Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4),
+            Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+        ],
+        succ: Sha1(ff55d6f1d51b966de340c6b9f80184c4d2f70a7e),
+    },
+]
+
+"#]]
+    );
+    Ok(())
+}
 
 #[test]
 fn squash_top_commit_into_parent() -> Result<()> {

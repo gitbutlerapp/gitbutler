@@ -27,7 +27,7 @@ use gix::{
 };
 
 use crate::graph_rebase::{
-    rewrites::Lineage,
+    rewrites::{Lineage, Succession},
     util::{OrderedParentKind, collect_ordered_parents},
 };
 
@@ -781,6 +781,9 @@ pub struct RevisionHistory {
     /// Unintuatively, the keys are the _new_ commits, and the values hold what
     /// they came from.
     lineages: BTreeMap<gix::ObjectId, Lineage>,
+    /// What's settled: the commits that went into a fold or split that was
+    /// consumed in turn.
+    successions: Vec<Succession>,
     /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
