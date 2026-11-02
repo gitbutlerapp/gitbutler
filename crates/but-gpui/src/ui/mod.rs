@@ -191,6 +191,10 @@ macro_rules! icons {
         }
 
         impl Icon {
+            /// Every icon, for the stories' grid.
+            #[cfg(feature = "stories")]
+            pub const ALL: &[Icon] = &[$(Icon::$variant,)* $(Icon::$own,)*];
+
             pub fn path(self) -> &'static str {
                 match self {
                     $(Icon::$variant => concat!("icons/", $name, ".svg"),)*

@@ -299,7 +299,7 @@ impl Theme {
     }
 
     /// GitButler's own colours, light or dark, the terminals' too.
-    fn gitbutler(dark: bool, code: CodeSize) -> Self {
+    pub(crate) fn gitbutler(dark: bool, code: CodeSize) -> Self {
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };

@@ -14,12 +14,20 @@ rust-version = "1.98"
 name = "gitbutler-gpui"
 path = "src/main.rs"
 
+[[bin]]
+name = "gitbutler-gpui-stories"
+path = "src/bin/gitbutler-gpui-stories.rs"
+required-features = ["stories"]
+
 [lints]
 workspace = true
 
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
 dev-script = ["gpui/test-support", "gpui_platform/test-support"]
+## A window of the shared controls in their states, as `gitbutler-gpui-stories`, see
+## `src/stories`.
+stories = []
 
 [target.'cfg(unix)'.dependencies]
 # Build and restart's Cancel stops the build's whole process group.
