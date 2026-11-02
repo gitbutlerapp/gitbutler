@@ -33,7 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{Move, Op, ProjectDrag, Stop, drag_preview};
+use crate::transfer::{Move, Op, ProjectDrag, Stop, TerminalDrag, drag_preview};
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
@@ -2566,14 +2566,19 @@ impl Navigator {
         let store = self.store.read(cx);
         let title = store.terminals.title(id)?.clone();
         let status = store.terminals.status(id)?;
+        let field = self.rename_field(item, style.theme, cx);
+        let renaming = field.is_some();
         let row = style
             .row(format!("terminal-{}", id.0), 6.)
             .child(icon(Icon::TextCode).text_color(style.muted()))
-            .child(match self.rename_field(item, style.theme, cx) {
+            .child(match field {
                 Some(field) => field,
                 None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
             })
             .children(status_mark(status, !store.hidden(), style))
+            .when(!renaming, |el| {
+                self.terminal_drag(el, item.project(), id, cx)
+            })
             .map(|el| self.selectable(el, item, cx));
         Some(row.into_any_element())
     }
@@ -3857,6 +3862,7 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::resize_drawer))
             .on_drag_move(cx.listener(Self::follow_project_drag))
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
+            .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, _, cx| {
                 this.drag_moved(event.bounds.contains(&event.event.position), cx)
             }))
@@ -3865,8 +3871,14 @@ impl Render for Navigator {
                     this.drag_moved(event.bounds.contains(&event.event.position), cx)
                 }),
             )
+            .on_drag_move(
+                cx.listener(|this, event: &DragMoveEvent<TerminalDrag>, _, cx| {
+                    this.drag_moved(event.bounds.contains(&event.event.position), cx)
+                }),
+            )
             .on_drop(cx.listener(Self::drop_project))
             .on_drop(cx.listener(Self::drop_worktree))
+            .on_drop(cx.listener(Self::drop_terminal))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                 this.pointer_over = *hovered;
@@ -3960,6 +3972,11 @@ impl Render for Navigator {
                             }))
                             .on_drag_move(cx.listener(
                                 |this, event: &DragMoveEvent<ProjectDrag>, w, cx| {
+                                    this.scroll_near_edge(event.event.position, event.bounds, w, cx)
+                                },
+                            ))
+                            .on_drag_move(cx.listener(
+                                |this, event: &DragMoveEvent<TerminalDrag>, w, cx| {
                                     this.scroll_near_edge(event.event.position, event.bounds, w, cx)
                                 },
                             )),

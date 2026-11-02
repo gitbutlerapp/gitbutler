@@ -1,6 +1,7 @@
 //! The order of the watched projects' cards: as the user drags them, by name, or by last
 //! activity, from the header's view menu, which also folds them all or opens them all. Also
-//! dragging a card or a linked worktree to another place, the others sliding to make room, and
+//! dragging a card, a linked worktree or a terminal to another place, the others sliding to
+//! make room, and
 //! how the projects not watched are listed.
 
 use std::cmp::Reverse;
@@ -15,14 +16,17 @@ use gpui::{
 use bstr::{BStr, BString};
 
 use super::Navigator;
+use super::moving::worktree_headed;
 use super::rows::{HEADING_MIDDLE, Row, in_checkout, last_active, listed_with, span_height};
 use crate::app::{AppView, MoveHere};
 use crate::backend::Checkout;
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
+use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
-    CardSlot, Move, Moving, Op, ProjectDrag, Slot, Stop, drag_preview, project_preview,
+    CardSlot, Move, Moving, Op, ProjectDrag, Slot, Stop, TerminalDrag, drag_preview,
+    project_preview, terminal_preview,
 };
 use crate::ui::{Icon, ROW_HEIGHT, icon_button};
 
@@ -220,6 +224,25 @@ impl Navigator {
         self.hold(project, held, listed, slot.map(Stop::Worktree), cx);
     }
 
+    /// Show terminal `id` of `project` at `stop`, among the terminals of its worktrees, as the
+    /// move of it under way does, starting one among those listed now if there's none; or with
+    /// `None` end that move, it going back.
+    fn hold_terminal(
+        &self,
+        project: &ProjectId,
+        id: TerminalId,
+        stop: Option<(Checkout, Slot<TerminalId>)>,
+        cx: &mut Context<Self>,
+    ) {
+        let held = |what: &Moving| matches!(what, Moving::Terminal { id: held, .. } if *held == id);
+        let listed = |store: &Store| {
+            let lists = self.listed_terminals(store, project);
+            Some(Moving::Terminal { id, lists })
+        };
+        let stop = stop.map(|(checkout, slot)| Stop::Terminal { checkout, slot });
+        self.hold(project, held, listed, stop, cx);
+    }
+
     /// Have the move under way in `project` of what `held` says it moves be at `at`, starting
     /// one moving what `listed` says if there's none; or with `None` end that move.
     fn hold(
@@ -382,6 +405,69 @@ impl Navigator {
         }
     }
 
+    /// Let `el`, terminal `id`'s row in `project`, drag it under a pill with its title, the
+    /// terminal going among those of its project's worktrees as it goes (see
+    /// [`Self::follow_terminal_drag`]), as moving it with the keys does.
+    pub(super) fn terminal_drag(
+        &self,
+        el: Stateful<Div>,
+        project: &ProjectId,
+        id: TerminalId,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        let navigator = cx.entity().downgrade();
+        let preview = terminal_preview(self.store.clone());
+        let drag = TerminalDrag {
+            project: project.clone(),
+            id,
+        };
+        el.on_drag(drag, move |drag, offset, window, cx| {
+            let pill = preview(drag, offset, window, cx);
+            let (navigator, project, id) = (navigator.clone(), drag.project.clone(), drag.id);
+            // A drop anywhere else, or none, puts it back where it was.
+            cx.observe_release(&pill, move |_, cx| {
+                (navigator.update(cx, |this, cx| this.hold_terminal(&project, id, None, cx))).ok();
+            })
+            .detach();
+            pill
+        })
+    }
+
+    /// Show the terminal dragged by its row where letting go puts it, as [`terminal_slot`]
+    /// says, the terminals around it sliding to make room; away from its project's card, it
+    /// stays where it is.
+    pub(super) fn follow_terminal_drag(
+        &mut self,
+        event: &DragMoveEvent<TerminalDrag>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = event.event.position;
+        let drag = event.drag(cx);
+        let (project, id) = (drag.project.clone(), drag.id);
+        let depth = (event.bounds.contains(&at))
+            .then(|| self.depth_at(at, Theme::get(cx)))
+            .flatten();
+        let stop = depth.and_then(|depth| {
+            let lists = self.listed_terminals(self.store.read(cx), &project);
+            terminal_slot(&self.rows, &project, id, &lists, depth)
+        });
+        self.hold_terminal(&project, id, stop, cx);
+    }
+
+    /// Let go of the terminal dragged by its row where it's shown, as Return lands it.
+    pub(super) fn drop_terminal(
+        &mut self,
+        drag: &TerminalDrag,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let moving = moving_terminal(self.store.read(cx), &drag.project);
+        if moving.is_some_and(|(id, _)| id == drag.id) {
+            self.move_here(&MoveHere, window, cx);
+        }
+    }
+
     /// The rows of the card being moved, dragged by its heading or with the keys, while it
     /// shows where it'd go, and once it's let go of until the cards stop sliding.
     pub(super) fn held_card(&mut self, store: &Store) -> Option<Range<usize>> {
@@ -505,6 +591,31 @@ fn moving_worktree<'a>(
     }
 }
 
+/// The terminals of a project's worktrees, each with those open on it in order.
+type TerminalLists = Arc<[(Checkout, Vec<TerminalId>)]>;
+
+/// The terminal moving in `project`, if one is, and the terminals of its worktrees as the move
+/// of it under way started.
+pub(super) fn moving_terminal<'a>(
+    store: &'a Store,
+    project: &ProjectId,
+) -> Option<(TerminalId, &'a TerminalLists)> {
+    let moving = (store.moving.as_ref()).filter(|moving| moving.project == *project)?;
+    match &moving.what {
+        Moving::Terminal { id, lists } => Some((*id, lists)),
+        _ => None,
+    }
+}
+
+/// The rows of `project`'s card in `rows`, and how far down its top is ([`span_height`]), if a
+/// pointer `depth` down the rows is on it.
+fn card_at(rows: &[Row], project: &ProjectId, depth: f32) -> Option<(Range<usize>, f32)> {
+    let (_, card) = cards(rows).into_iter().find(|(id, _)| *id == project)?;
+    let top = span_height(rows, 0..card.start);
+    let on = depth >= top && depth < top + span_height(rows, card.clone());
+    on.then_some((card, top))
+}
+
 /// Whether linked worktree `dragged`, by its project and name, dragged by its heading, is
 /// moving, shown where it'd go.
 pub(super) fn worktree_held(dragged: Option<&(ProjectId, BString)>, store: &Store) -> bool {
@@ -525,11 +636,7 @@ fn worktree_slot(
     order: &[BString],
     depth: f32,
 ) -> Option<Slot<BString>> {
-    let (_, card) = cards(rows).into_iter().find(|(id, _)| *id == project)?;
-    let top = span_height(rows, 0..card.start);
-    if depth < top || depth >= top + span_height(rows, card.clone()) {
-        return None;
-    }
+    let (card, _) = card_at(rows, project, depth)?;
     // Each one listed with it as shown, by its name, how far down its heading is, and how tall
     // it is, down through the divider below it.
     let shown: Vec<(&BString, f32, f32)> = card
@@ -569,13 +676,68 @@ fn worktree_slot(
     })
 }
 
+/// Where terminal `id` of `project`, dragged by its row, goes among the terminals of the
+/// worktrees `lists` has, as `rows` show them, from a pointer `depth` down the rows
+/// ([`span_height`]): the place, before one of the others or after them all under a worktree's
+/// heading, where its row would be nearest the pointer. Off its project's card it goes nowhere.
+/// Its own row is left out of how far down each place is, so where it's shown now never
+/// changes where it goes.
+fn terminal_slot(
+    rows: &[Row],
+    project: &ProjectId,
+    id: TerminalId,
+    lists: &[(Checkout, Vec<TerminalId>)],
+    depth: f32,
+) -> Option<(Checkout, Slot<TerminalId>)> {
+    let (card, top) = card_at(rows, project, depth)?;
+    let listed = |checkout: Checkout| {
+        (lists.iter()).find_map(|(on, list)| (*on == checkout).then_some((on, list)))
+    };
+    // How far down each place is, the rows above it but its own, and which it is.
+    let mut places: Vec<(f32, (Checkout, Slot<TerminalId>))> = Vec::new();
+    // The worktree whose terminals are listed from here, while it's one of those `lists` has.
+    let mut under: Option<(&Checkout, &Vec<TerminalId>)> = None;
+    let mut at = top;
+    for row in rows.get(card)? {
+        match row {
+            Row::Item(Selection::Terminal(p, terminal)) if p == project => {
+                if *terminal == id {
+                    continue;
+                }
+                if let Some((on, _)) = under.filter(|(_, list)| list.contains(terminal)) {
+                    places.push((at, (Checkout::clone(on), Slot::Before(*terminal))));
+                }
+            }
+            row => {
+                if let Some((on, _)) = under.take() {
+                    places.push((at, (Checkout::clone(on), Slot::End)));
+                }
+                under = match row {
+                    Row::Item(heading) => worktree_headed(heading, project).and_then(listed),
+                    _ => None,
+                };
+            }
+        }
+        at += row.height();
+    }
+    if let Some((on, _)) = under {
+        places.push((at, (on.clone(), Slot::End)));
+    }
+    let off = |top: f32| (top + ROW_HEIGHT / 2. - depth).abs();
+    let (_, nearest) = (places.into_iter()).min_by(|(a, _), (b, _)| off(*a).total_cmp(&off(*b)))?;
+    Some(nearest)
+}
+
 #[cfg(test)]
 mod tests {
     use bstr::BString;
 
-    use super::{CardSlot, Row, cards, nearest_slot, worktree_slot};
+    use super::{CardSlot, Row, cards, nearest_slot, terminal_slot, worktree_slot};
+    use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
+    use crate::terminal::TerminalId;
     use crate::transfer::Slot;
+    use crate::ui::ROW_HEIGHT;
 
     /// Project `p`'s card with linked worktrees `a`, `b` and `c` listed in `order`, each its
     /// heading, `b` open on two more rows, and a divider below; and its rows, with how far down
@@ -731,6 +893,94 @@ mod tests {
             assert!(
                 went.windows(2).all(|pair| pair.first() == pair.last()),
                 "only the other cards set the places, so showing b in one never moves it on"
+            );
+        }
+    }
+
+    /// Project `p`'s card with terminals `main` open under its main worktree, above two
+    /// branches, and `linked` under linked worktree `w`, above one; then linked worktree `f`,
+    /// folded.
+    fn terminals(main: &[u64], linked: &[u64]) -> (ProjectId, Vec<Row>) {
+        let p = ProjectId::from("p");
+        let terminal = |n: &u64| Row::Item(Selection::Terminal(p.clone(), TerminalId(*n)));
+        let branch = || Row::Item(Selection::Branch(p.clone(), None));
+        let mut rows = vec![
+            Row::Item(Selection::Project(p.clone())),
+            Row::Item(Selection::Uncommitted(p.clone())),
+        ];
+        rows.extend(main.iter().map(terminal));
+        rows.extend([branch(), branch(), Row::WorktreeDivider]);
+        rows.push(Row::Item(Selection::Worktree(p.clone(), "w".into())));
+        rows.extend(linked.iter().map(terminal));
+        rows.extend([branch(), Row::WorktreeDivider]);
+        rows.push(Row::Item(Selection::Worktree(p.clone(), "f".into())));
+        rows.extend([
+            Row::WorktreeDivider,
+            Row::Item(Selection::Branches(p.clone())),
+        ]);
+        (p, rows)
+    }
+
+    /// The terminals of the worktrees open as the move started: 1 and 2 on the main one, 3
+    /// on `w`, and none of folded `f`'s.
+    fn lists() -> Vec<(Checkout, Vec<TerminalId>)> {
+        vec![
+            (Checkout::Main, vec![TerminalId(1), TerminalId(2)]),
+            (Checkout::Linked("w".into()), vec![TerminalId(3)]),
+        ]
+    }
+
+    #[test]
+    fn a_dragged_terminal_goes_where_its_row_would_be_nearest_among_every_open_worktree() {
+        let (p, rows) = terminals(&[1, 2], &[3]);
+        let lists = lists();
+        let middle = |ix: usize| super::span_height(&rows, 0..ix) + ROW_HEIGHT / 2.;
+        let goes = |depth| terminal_slot(&rows, &p, TerminalId(2), &lists, depth);
+        let (main, w) = (Checkout::Main, Checkout::Linked("w".into()));
+        assert!(
+            goes(middle(2)) == Some((main.clone(), Slot::Before(TerminalId(1)))),
+            "over terminal 1 it goes before it"
+        );
+        assert!(
+            goes(middle(3)) == Some((main, Slot::End)),
+            "over its own row it stays where it is, after 1"
+        );
+        assert!(
+            goes(middle(7)) == Some((w.clone(), Slot::Before(TerminalId(3)))),
+            "over w's heading it goes first under it, as its row would be there once it's gone \
+             from the main worktree"
+        );
+        assert!(
+            goes(middle(8)) == Some((w.clone(), Slot::End)),
+            "over terminal 3 it goes after it, as 3 moves up a row once it's gone from the main \
+             worktree"
+        );
+        assert!(
+            goes(middle(11)) == Some((w, Slot::End)),
+            "folded f lists no terminals to go among, so the nearest place is under w"
+        );
+        assert!(
+            goes(-10.).is_none() && goes(super::span_height(&rows, 0..rows.len())).is_none(),
+            "off its project's card it goes nowhere"
+        );
+    }
+
+    #[test]
+    fn where_a_dragged_terminal_shows_never_changes_where_it_goes() {
+        let lists = lists();
+        let shown = [
+            terminals(&[1, 2], &[3]),
+            terminals(&[2, 1], &[3]),
+            terminals(&[2], &[1, 3]),
+            terminals(&[2], &[3, 1]),
+        ];
+        for depth in (0..400).map(|d| d as f32) {
+            let went: Vec<_> = (shown.iter())
+                .map(|(p, rows)| terminal_slot(rows, p, TerminalId(1), &lists, depth))
+                .collect();
+            assert!(
+                went.windows(2).all(|pair| pair.first() == pair.last()),
+                "only the others set where it goes, at {depth}"
             );
         }
     }

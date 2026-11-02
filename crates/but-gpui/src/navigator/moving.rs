@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use gpui::{AnyElement, App, Context, Div, Hsla, Window, div, prelude::*};
 
+use super::order::moving_terminal;
 use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
 use super::{CARD_MARGIN, Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, UseTargetMessage};
@@ -657,6 +658,21 @@ impl Navigator {
         self.folds_seen.get(&fold).copied().unwrap_or(true)
     }
 
+    /// The terminals of `project`'s worktrees for a move of one among them to start from: as
+    /// the move of one under way started, which the rows show elsewhere, else as they're
+    /// listed now (see [`terminal_lists`]).
+    pub(super) fn listed_terminals(
+        &self,
+        store: &Store,
+        project: &ProjectId,
+    ) -> Arc<[(Checkout, Vec<TerminalId>)]> {
+        if let Some((_, lists)) = moving_terminal(store, project) {
+            return lists.clone();
+        }
+        let open = |heading: &Selection| self.open_as_built(heading);
+        terminal_lists(self.shown_rows(), project, open).into()
+    }
+
     /// The stops of the move under way, and which of them it's at: where what it moves is, if
     /// the one it was at is gone, as when it's folded away.
     fn move_stops(&self, cx: &App) -> Option<(Vec<Stop>, usize)> {
@@ -699,8 +715,7 @@ impl Navigator {
             }
             // Among the terminals of its project's worktrees as they're listed now.
             Some(Selection::Terminal(project, id)) => {
-                let open = |heading: &Selection| self.open_as_built(heading);
-                let lists = terminal_lists(self.shown_rows(), &project, open).into();
+                let lists = self.listed_terminals(store, &project);
                 (project, Moving::Terminal { id, lists })
             }
             _ => match commits_selected(store) {
@@ -1234,29 +1249,34 @@ fn terminal_lists<'a>(
     // Under a heading of the project's that's open now.
     let mut under = false;
     for row in rows {
-        let checkout = match row {
-            Row::Item(heading @ Selection::Uncommitted(p)) if p == project => {
-                Some((heading, Checkout::Main))
-            }
-            Row::Item(heading @ Selection::Worktree(p, name)) if p == project => {
-                Some((heading, Checkout::Linked(name.clone())))
-            }
-            Row::Item(Selection::Terminal(p, id)) if p == project && under => {
-                if let Some((_, list)) = lists.last_mut() {
-                    list.push(*id);
-                }
-                None
-            }
-            _ => None,
+        let Row::Item(item) = row else {
+            continue;
         };
-        if let Some((heading, checkout)) = checkout {
-            under = open(heading);
+        if let Selection::Terminal(p, id) = item {
+            if p == project
+                && under
+                && let Some((_, list)) = lists.last_mut()
+            {
+                list.push(*id);
+            }
+        } else if let Some(checkout) = worktree_headed(item, project) {
+            under = open(item);
             if under {
                 lists.push((checkout, Vec::new()));
             }
         }
     }
     lists
+}
+
+/// The worktree of `project`'s that `heading` heads: the main one, headed by its uncommitted
+/// changes, or a linked one.
+pub(super) fn worktree_headed(heading: &Selection, project: &ProjectId) -> Option<Checkout> {
+    match heading {
+        Selection::Uncommitted(p) if p == project => Some(Checkout::Main),
+        Selection::Worktree(p, name) if p == project => Some(Checkout::Linked(name.clone())),
+        _ => None,
+    }
 }
 
 /// The stops of `all` a branch lands at, between branches, as a new branch would, and where it

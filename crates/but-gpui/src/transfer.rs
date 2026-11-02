@@ -1414,6 +1414,55 @@ impl Render for ProjectPreview {
     }
 }
 
+/// A terminal dragged by its row, among the terminals of its project's worktrees, the others
+/// making room for it where it'd go, as moving it with the keys does.
+pub struct TerminalDrag {
+    pub project: ProjectId,
+    pub id: TerminalId,
+}
+
+/// Start a drag of a terminal shown as a pill with its title, as [`drag_preview`] starts a
+/// cut's.
+pub fn terminal_preview(
+    store: Entity<Store>,
+) -> impl Fn(&TerminalDrag, Point<Pixels>, &mut Window, &mut App) -> Entity<TerminalPreview> + 'static
+{
+    move |drag, offset, _, cx| {
+        let (store, id) = (store.clone(), drag.id);
+        cx.new(|_| TerminalPreview { store, id, offset })
+    }
+}
+
+/// The pill that follows the pointer while a terminal is dragged, and whether letting go
+/// moves it.
+pub struct TerminalPreview {
+    store: Entity<Store>,
+    id: TerminalId,
+    /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
+    offset: Point<Pixels>,
+}
+
+impl Render for TerminalPreview {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        let store = self.store.read(cx);
+        let lands = (store.moving.as_ref()).is_some_and(|moving| {
+            matches!(moving.what, Moving::Terminal { id, .. } if id == self.id)
+                && moving.lands(store)
+        });
+        let mark = small_icon(Icon::TextCode).text_color(theme.pop);
+        let label = pill_label(SharedString::from(terminal_title(store, self.id)));
+        drag_pill(
+            self.offset,
+            mark,
+            label,
+            lands.then_some("Move here"),
+            1,
+            theme,
+        )
+    }
+}
+
 /// What a dragged row shows under the pointer: a pill with its `mark`, `label` and what
 /// letting go does there (`hint`), on a stack of cards when it's `carried` more than one
 /// thing, below and right of the pointer as a tooltip sits, clear of the row it's over and the
