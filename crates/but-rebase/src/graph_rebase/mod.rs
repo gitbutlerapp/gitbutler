@@ -769,7 +769,7 @@ pub struct RevisionHistory {
     /// they came from.
     lineages: BTreeMap<gix::ObjectId, Lineage>,
     /// What's settled: the commits that went into a fold or split that was
-    /// consumed in turn.
+    /// consumed in turn, and the commits that were removed.
     successions: Vec<Succession>,
     /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
