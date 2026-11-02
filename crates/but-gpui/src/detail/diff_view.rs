@@ -811,6 +811,9 @@ impl Detail {
             canvas(
                 |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
                 move |_, hitbox, window, _| {
+                    // Only the diff's pane redraws, as for the list's own scrolling: the file
+                    // list and the rest of the detail stay as they are.
+                    let pane = window.current_view();
                     window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
                         if phase != DispatchPhase::Bubble || !hitbox.should_handle_scroll(window) {
                             return;
@@ -818,7 +821,8 @@ impl Detail {
                         let Some(lines) = wheel_lines(event) else {
                             return;
                         };
-                        (entity.update(cx, |detail, cx| detail.scroll_lines(lines, cx))).ok();
+                        (entity.update(cx, |detail, cx| detail.scroll_diff_lines(lines, cx))).ok();
+                        cx.notify(pane);
                         cx.stop_propagation();
                     });
                 },

@@ -1842,13 +1842,19 @@ impl Detail {
     /// Scroll the diff `lines` code lines, down or, negative, up, leaving the cursor and the
     /// keys where they are, as ⇧J and ⇧K read on from the file list.
     fn scroll_lines(&mut self, lines: f32, cx: &mut Context<Self>) {
+        self.scroll_diff_lines(lines, cx);
+        cx.notify();
+    }
+
+    /// Scroll the diff as [`Self::scroll_lines`] does, without drawing the detail again: only
+    /// the diff's pane, which its caller redraws, shows where the diff is.
+    pub(super) fn scroll_diff_lines(&mut self, lines: f32, cx: &App) {
         self.glide = None;
         // Within the diff: past its end the list would scroll on into nothing.
         let at = -self.list.scroll_px_offset_for_scrollbar().y;
         let max = self.list.max_offset_for_scrollbar().y.max(Pixels::ZERO);
         let by = (code_line(cx) * lines).max(-at).min(max - at);
         self.list.scroll_by(by);
-        cx.notify();
     }
 
     /// Where the view goes in `rows` of `files` to keep showing what's at its top now: the
