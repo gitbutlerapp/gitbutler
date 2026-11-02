@@ -310,7 +310,8 @@ impl GraphView {
             | StoreEvent::Pending(_)
             | StoreEvent::AuthorMissing(_)
             | StoreEvent::TerminalOpened
-            | StoreEvent::MoveToward(_) => {}
+            | StoreEvent::MoveToward(_)
+            | StoreEvent::CommitBlocked => {}
         })]);
         GraphView {
             store,

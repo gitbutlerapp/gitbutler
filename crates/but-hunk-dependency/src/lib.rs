@@ -140,6 +140,8 @@ use crate::ui::HunkLockTarget;
 /// Types and conversions for use in `tauri`.
 pub mod ui;
 
+pub mod rejection;
+
 mod utils;
 
 /// Produce one [`InputStack`] instance for each [`but_graph::workspace::Stack`] for use in [`WorkspaceRanges::try_from_stacks`].

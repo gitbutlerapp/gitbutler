@@ -631,7 +631,8 @@ impl Detail {
                 // The app view asks for it, and gives a terminal opened the keys.
                 StoreEvent::AuthorMissing(_)
                 | StoreEvent::TerminalOpened
-                | StoreEvent::MoveToward(_) => {}
+                | StoreEvent::MoveToward(_)
+                | StoreEvent::CommitBlocked => {}
             }),
             cx.subscribe_in(
                 &file_filter,

@@ -1705,6 +1705,7 @@ dependencies = [
  "but-forge-storage",
  "but-github",
  "but-gitlab",
+ "but-hunk-dependency",
  "but-llm",
  "but-oplog",
  "but-path",

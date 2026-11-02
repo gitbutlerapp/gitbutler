@@ -983,6 +983,8 @@ pub struct Button {
     tooltip_action: Option<Box<dyn Action>>,
     /// Which half of a [`dropdown_button`] it is, squared where the halves meet.
     half: Option<Half>,
+    /// Narrower than its label when its row has no room to spare: see [`Button::shrinks`].
+    shrinks: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -1009,6 +1011,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         tooltip_key: None,
         tooltip_action: None,
         half: None,
+        shrinks: false,
     }
 }
 
@@ -1050,6 +1053,14 @@ impl Button {
 
     pub fn small(mut self) -> Self {
         self.small = true;
+        self
+    }
+
+    /// Narrower than its label when its row has no room to spare, which it then cuts short with
+    /// an ellipsis, as a long branch name in it would otherwise push its row past its edge.
+    /// Buttons that shrink share what the row lacks; the rest keep their width.
+    pub fn shrinks(mut self) -> Self {
+        self.shrinks = true;
         self
     }
 
@@ -1153,13 +1164,17 @@ impl RenderOnce for Button {
             false => (dp(28.), dp(28.), dp(16.)),
         };
         let has_label = self.label.is_some();
+        let shrinks = self.shrinks;
         // What a screen reader calls it: its text, or for an icon its tooltip.
         let name = self.label.clone().or_else(|| self.tooltip.clone());
         h_flex()
             .id(self.id)
             .role(Role::Button)
             .when_some(name, |el, name| el.aria_label(name))
-            .flex_none()
+            .map(|el| match shrinks {
+                true => el.min_w_0(),
+                false => el.flex_none(),
+            })
             .h(height)
             .gap(dp(if self.small { 4. } else { 6. }))
             .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
@@ -1189,7 +1204,10 @@ impl RenderOnce for Button {
                 let opacity = if has_label { 0.7 } else { 0.8 };
                 el.child(icon(kind).size(icon_size).text_color(fg.opacity(opacity)))
             })
-            .when_some(self.label, |el, label| el.child(label))
+            .when_some(self.label, |el, label| match shrinks {
+                true => el.child(div().min_w_0().truncate().child(label)),
+                false => el.child(label),
+            })
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
                 let enabled = self.disabled.is_none();
                 let key = self.tooltip_key.filter(|_| enabled);

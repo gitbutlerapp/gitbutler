@@ -24,6 +24,7 @@ mod app;
 mod backend;
 mod clock;
 mod commands;
+mod commit_blocked;
 mod detail;
 #[cfg(feature = "dev-script")]
 #[expect(
