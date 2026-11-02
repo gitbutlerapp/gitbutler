@@ -984,9 +984,9 @@ impl Detail {
             // Not the default branch, which a worktree can have checked out.
             return (workspace.target_branch.as_ref() != Some(&branch)).then_some(branch);
         }
-        // One of its own branches: a linked worktree's are committed to there.
+        // The branch picked, its own or a linked worktree's.
         if let Some(target) = &self.commit_target
-            && (workspace.branches_in(&Checkout::Main)).any(|branch| {
+            && workspace.all_branches().any(|branch| {
                 branch.ref_name.as_ref() == Some(target) && takes_commits(store, project, branch)
             })
         {
@@ -1531,8 +1531,8 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Where the commit goes, said as `label`, which picks another branch in the main checkout.
-    /// A linked worktree's commits go on its own branches.
+    /// Where the commit goes, said as `label`, which picks another branch, the main
+    /// checkout's or a linked worktree's. A linked worktree's commits go on its own branches.
     fn render_target_picker(
         &self,
         label: String,
@@ -1574,7 +1574,7 @@ impl Detail {
         };
         let store = self.store.read(cx);
         let place = store.place(&Selection::Uncommitted(project.clone(), Checkout::Main));
-        let mut choices: Vec<Choice> = (workspace.branches_in(&Checkout::Main))
+        let mut choices: Vec<Choice> = (workspace.all_branches())
             .filter(|branch| takes_commits(store, &project, branch))
             .filter_map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone()?);
@@ -1597,10 +1597,13 @@ impl Detail {
                     }))
                     .ok();
                 });
-                Some(if current == branch.ref_name {
-                    choice.detail("Current")
-                } else {
-                    choice
+                // A linked worktree's branch by the worktree it's in.
+                let linked = (workspace.lane_of(branch.ref_name.as_ref()))
+                    .and_then(|(lane, _)| lane.checkout.linked().map(|name| name.to_string()));
+                Some(match (current == branch.ref_name, linked) {
+                    (true, _) => choice.detail("Current"),
+                    (false, Some(worktree)) => choice.detail(worktree),
+                    (false, None) => choice,
                 })
             })
             .collect();

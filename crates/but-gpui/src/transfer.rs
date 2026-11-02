@@ -641,19 +641,22 @@ impl Move {
     }
 
     /// Where committing puts a new commit where it's at, if it can go there: on top of a
-    /// branch of the checkout the changes are in, right below one of its commits, or in a new
-    /// branch beside one of them; from the main checkout, in a new branch of its own too, which
-    /// starts from the target and outside the workspace sets it up, as moving there does. Not
-    /// on the default branch, which work stays off.
+    /// branch of any checkout, right below one of its commits, or in a new branch beside one of
+    /// them, as a drop of the changes on a branch commits them there; from the main checkout,
+    /// in a new branch of its own too, which starts from the target and outside the workspace
+    /// sets it up, as moving there does. Not on the default branch, which work stays off.
     pub fn commit_to(&self, store: &Store) -> Option<CommitTo> {
+        self.commit_in(store.workspace(&self.project)?)
+    }
+
+    /// [`Self::commit_to`] in `workspace`.
+    fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
             return None;
         };
-        let workspace = store.workspace(&self.project)?;
         let takes = |branch: &FullName| {
             workspace.target_branch.as_ref() != Some(branch)
-                && (workspace.lane_of(Some(branch)))
-                    .is_some_and(|(lane, _)| lane.checkout == *worktree)
+                && workspace.lane_of(Some(branch)).is_some()
         };
         match &self.at {
             Stop::In(Destination::Branch(branch)) => {
@@ -870,22 +873,21 @@ impl Transfer {
         {
             return None;
         }
-        // A branch moves among its own: a linked worktree's within its lane, the workspace's
-        // among its stacks, and yours under a worktree's from its heading. Across, the
-        // worktree would be left detached and the commits the branch started from would
-        // come along.
+        let workspace = store.workspace(target.project())?;
+        // A branch moves into any lane, the workspace's or a linked worktree's, and under a
+        // worktree's other branches from its heading. Not out of a worktree's lane when it's
+        // the only branch there, which would leave the worktree detached, nor across lanes
+        // with one branch checked out on its own, which the engine refuses.
         if let Cut::Branch(project, branch) = payload {
             let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
             let from = side(&Selection::Branch(project.clone(), Some(branch.clone())));
-            let stays = match target {
-                Selection::Checkout(_, Checkout::Linked(_)) => from.is_none(),
-                _ => from == side(target),
-            };
-            if !stays {
+            let across = from != side(target);
+            let own_heading =
+                matches!(target, Selection::Checkout(_, Checkout::Linked(_))) && !across;
+            if own_heading || (across && (!workspace.managed || detaches(workspace, branch))) {
                 return None;
             }
         }
-        let workspace = store.workspace(target.project())?;
         // Work goes on a branch of its own, not the default branch a linked worktree can have
         // checked out: commits there would leave it apart from its upstream.
         if let Selection::Branch(_, Some(branch)) = target
@@ -1258,6 +1260,16 @@ impl Transfer {
         }
         None
     }
+}
+
+/// Whether moving `branch` out of its lane leaves a linked worktree with no branch checked
+/// out, as `move_branch` detaches it: it's the only branch of the worktree's lane.
+fn detaches(workspace: &Workspace, branch: &FullName) -> bool {
+    workspace.lane_of(Some(branch)).is_some_and(|(lane, _)| {
+        lane.checkout.is_linked()
+            && (lane.branches.iter())
+                .all(|other| other.ref_name.as_ref().is_none_or(|name| name == branch))
+    })
 }
 
 /// Whether `target` is the checkout commit `id`'s changes uncommit into, by its heading or its
@@ -1717,6 +1729,81 @@ mod tests {
             !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(&ws),
             "nothing is cherry-picked into a commit"
         );
+    }
+
+    #[test]
+    fn a_commit_of_one_checkouts_changes_goes_on_any_checkouts_branches() {
+        use crate::backend::model::build::{branch, full, id, workspace, worktree};
+        // ui's commits newest first: 2, 1; feat's, in linked worktree wt: 4, 3.
+        let ws = workspace(
+            vec![vec![branch("ui", &[2, 1])]],
+            vec![worktree("wt", None, vec![branch("feat", &[4, 3])])],
+        );
+        let committing = |from: Checkout, at: Stop| {
+            Move {
+                project: ProjectId::from("p"),
+                what: Moving::Files {
+                    from: None,
+                    worktree: from,
+                    files: Arc::from([]),
+                },
+                at,
+                op: Op::Commit,
+            }
+            .commit_in(&ws)
+        };
+        let wt = || Checkout::Linked("wt".into());
+        let top = |name: &str| Stop::In(Destination::Branch(full(&format!("refs/heads/{name}"))));
+        assert!(
+            matches!(
+                committing(Checkout::Main, top("feat")),
+                Some(CommitTo::Branch(_))
+            ),
+            "the main checkout's changes go on top of the worktree's branch"
+        );
+        assert!(
+            matches!(committing(wt(), top("ui")), Some(CommitTo::Branch(_))),
+            "the worktree's changes go on top of a branch of the main checkout"
+        );
+        assert!(
+            matches!(
+                committing(wt(), Stop::In(Destination::BelowCommit(id(2)))),
+                Some(CommitTo::BelowCommit { .. })
+            ),
+            "and right below one of its commits"
+        );
+        let beside_ui = Stop::NewBranch {
+            beside: full("refs/heads/ui"),
+            below: false,
+        };
+        assert!(
+            committing(wt(), beside_ui).is_some(),
+            "and in a new branch beside one of them"
+        );
+        assert!(
+            committing(wt(), Stop::NewStack { first: false }).is_none(),
+            "a worktree's changes make no stack of their own, which the backend refuses"
+        );
+    }
+
+    #[test]
+    fn only_a_worktrees_last_branch_moving_out_detaches_it() {
+        use crate::backend::model::build::{branch, full, workspace, worktree};
+        let ws = workspace(
+            vec![vec![branch("ui", &[1])]],
+            vec![
+                worktree("solo", None, vec![branch("only", &[2])]),
+                worktree("pair", None, vec![branch("top", &[4]), branch("low", &[3])]),
+            ],
+        );
+        let detaches = |name: &str| detaches(&ws, &full(&format!("refs/heads/{name}")));
+        assert!(
+            detaches("only"),
+            "solo would be left with no branch checked out"
+        );
+        assert!(!detaches("top"), "pair goes on to low, the branch below it");
+        assert!(!detaches("low"), "pair keeps top");
+        assert!(!detaches("ui"), "the main checkout has no lane to leave");
     }
 
     #[test]
