@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use gpui::{App, Context, Entity, SharedString, Subscription};
+use gpui::{Context, Entity, SharedString, Subscription};
 
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{self, Checkout};
@@ -70,13 +70,6 @@ impl Terminals {
         (self.open.iter())
             .find(|open| open.id == id)
             .map(|open| &open.status)
-    }
-
-    /// The user is looking at terminal `id`, so a result it showed is no news.
-    pub(super) fn seen(&mut self, id: TerminalId, cx: &mut App) {
-        if let Some(open) = self.open.iter_mut().find(|open| open.id == id) {
-            open.status = open.terminal.update(cx, |terminal, _| terminal.seen());
-        }
     }
 
     /// Those open on `project`'s `checkout`, in the order they opened.
@@ -257,9 +250,6 @@ impl Store {
     fn restatus_terminal(&mut self, id: TerminalId, status: Status, cx: &mut Context<Self>) {
         if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
             open.status = status;
-        }
-        if matches!(&self.selection, Some(Selection::Terminal(_, shown)) if *shown == id) {
-            self.terminals.seen(id, cx);
         }
         cx.notify();
     }

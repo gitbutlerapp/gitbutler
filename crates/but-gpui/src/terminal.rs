@@ -186,11 +186,6 @@ impl Terminal {
         self.tty.status()
     }
 
-    /// The status once the user has seen this.
-    pub fn seen(&mut self) -> Status {
-        self.tty.seen()
-    }
-
     /// Whether this is on screen, for the emulator to draw only then. Out of sight, it doesn't
     /// have the keys.
     pub fn set_shown(&mut self, shown: bool) {
@@ -206,14 +201,19 @@ impl Terminal {
         self.tty.detach()
     }
 
+    /// Tells of what the program running is at, if that changed since last told.
+    fn restatused(&mut self, cx: &mut Context<Self>) {
+        if let Some(status) = self.tty.restatused() {
+            cx.emit(TerminalEvent::Restatused(status));
+        }
+    }
+
     /// The emulator has more to show.
     fn updated(&mut self, cx: &mut Context<Self>) {
         if let Some(title) = self.tty.retitled() {
             cx.emit(TerminalEvent::Retitled(shown_title(&title)));
         }
-        if let Some(status) = self.tty.restatused() {
-            cx.emit(TerminalEvent::Restatused(status));
-        }
+        self.restatused(cx);
         if let Some(text) = self.tty.copied() {
             cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
@@ -570,6 +570,8 @@ impl Render for Terminal {
         let focused = self.focus.is_focused(window);
         // GPUI draws the window again as focus moves and as it comes in front or goes behind.
         self.tty.set_focused(focused && window.is_window_active());
+        // Given the keys, a result it showed is no news.
+        self.restatused(cx);
         let pointer_style = match (&self.link, self.tty.tracks_mouse()) {
             (Some(_), _) => CursorStyle::PointingHand,
             (None, true) => CursorStyle::Arrow,
