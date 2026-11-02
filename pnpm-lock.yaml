@@ -729,8 +729,8 @@ importers:
         specifier: workspace:*
         version: link:../but-sdk
       '@gitbutler/design-core':
-        specifier: 10.0.0
-        version: 10.0.0
+        specifier: 11.0.0
+        version: 11.0.0
       '@hono/node-server':
         specifier: 2.0.10
         version: 2.0.10(hono@4.12.32)
@@ -2099,9 +2099,6 @@ packages:
     resolution: {integrity: sha512-hbJZo40EcrlsucX0vyXJXFA+cQ8P64vnHZLrjxdK03WEhmKsV3/6if928RVl8KI6wpzSi0vkPUbxJMbFNLlnWw==}
     peerDependencies:
       svelte: ^3.59.1
-
-  '@gitbutler/design-core@10.0.0':
-    resolution: {integrity: sha512-ZTYr4tRr+xKgq16gmGG0iOZDjDV8ApMnpT3AialdPAZ7sCMEzKBTM3xWPVDvfuzcKiJXXnwqpWu+sh74/NlgIQ==}
 
   '@gitbutler/design-core@11.0.0':
     resolution: {integrity: sha512-QUV7z1HSASBAt1PZBmtTIH0xEwFYN4cKg5MBjZDEPQ/wxanLpkeAiIwwtuq5nYJO8oipJteyJ5jhrmm6rtwKdw==}
@@ -10469,8 +10466,6 @@ snapshots:
       throttle-debounce: 5.0.0
     transitivePeerDependencies:
       - supports-color
-
-  '@gitbutler/design-core@10.0.0': {}
 
   '@gitbutler/design-core@11.0.0': {}
 

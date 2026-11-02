@@ -8,6 +8,7 @@
 	--gb-bg-2: var(--bg-2);
 	--gb-border-2: var(--border-2);
 	--gb-border-3: var(--border-3);
+	--gb-shadow-card: 0 2px 4px 0 #0000001a, 0 0 0 1px var(--border-section);
 	--gb-text-1: var(--text-1);
 	--gb-text-2: var(--text-2);
 	--gb-local: var(--commit-local);
@@ -131,7 +132,7 @@ h1 {
 	overflow: hidden;
 	border-radius: var(--radius-card);
 	background: var(--gb-bg-1);
-	box-shadow: var(--shadow-card);
+	box-shadow: var(--gb-shadow-card);
 }
 
 .stack-header {
@@ -368,7 +369,7 @@ code {
 	border: 1px solid var(--gb-border-3);
 	border-radius: var(--radius-card);
 	background: var(--gb-bg-1);
-	box-shadow: var(--shadow-card);
+	box-shadow: var(--gb-shadow-card);
 }
 
 .details-content {
