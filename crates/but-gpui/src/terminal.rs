@@ -15,11 +15,11 @@ use but_tty::{
 };
 use futures::StreamExt;
 use gpui::{
-    App, Bounds, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
-    ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent,
-    Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign,
-    TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    App, AvailableSpace, Bounds, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity,
+    EventEmitter, ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla,
+    KeyDownEvent, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task,
+    TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
 use crate::state::{Cut, Store};
@@ -584,47 +584,6 @@ impl Render for Terminal {
         let measured = Rc::new(Cell::new(self.wanted));
         let drawn = self.grid.clone();
         let pointer = this.clone();
-        let grid = canvas(
-            move |bounds, window, cx| {
-                drawn.set(Grid {
-                    origin: bounds.origin,
-                    cell: gpui::size(cell_width, cell_height),
-                });
-                let size = Size {
-                    cols: ((bounds.size.width / cell_width).floor() as u16).max(2),
-                    rows: ((bounds.size.height / cell_height).floor() as u16).max(1),
-                    cell_width: f32::from(cell_width).round() as u16,
-                    cell_height: f32::from(cell_height).round() as u16,
-                };
-                if size != measured.get() {
-                    measured.set(size);
-                    window.defer(cx, move |_, cx| {
-                        this.update(cx, |this, cx| this.resize(size, cx)).ok();
-                    });
-                }
-                window.insert_hitbox(bounds, HitboxBehavior::Normal)
-            },
-            move |bounds, hitbox, window, cx| {
-                let cell = gpui::size(cell_width, cell_height);
-                let link = link.as_deref();
-                paint_rows(&rows.rows, bounds.origin, cell, bold, link, window, cx);
-                window.on_mouse_event({
-                    let this = pointer.clone();
-                    move |event: &MouseMoveEvent, phase, window, cx| {
-                        let hovered = hitbox.is_hovered(window);
-                        (this.update(cx, |this, cx| this.mouse_move(event, phase, hovered, cx)))
-                            .ok();
-                    }
-                });
-                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
-                    pointer
-                        .update(cx, |this, _| this.mouse_up(event, phase))
-                        .ok();
-                });
-            },
-        )
-        .absolute()
-        .size_full();
         let (background, foreground) = (hsla(frame.background), hsla(frame.foreground));
         let cursor_color = hsla(frame.cursor_color);
         // A bar or underline is a device pixel thick, as Ghostty's.
@@ -654,6 +613,50 @@ impl Render for Terminal {
                 _ => at.bg(cursor_color).text_color(background).child(text),
             }
         });
+        let mut cursor = div().size_full().children(cursor).into_any_element();
+        let grid = canvas(
+            move |bounds, window, cx| {
+                let size = Size {
+                    cols: ((bounds.size.width / cell_width).floor() as u16).max(2),
+                    rows: ((bounds.size.height / cell_height).floor() as u16).max(1),
+                    cell_width: f32::from(cell_width).round() as u16,
+                    cell_height: f32::from(cell_height).round() as u16,
+                };
+                let cell = gpui::size(cell_width, cell_height);
+                let centred = Grid::centred(bounds, cell, size, scale);
+                drawn.set(centred);
+                if size != measured.get() {
+                    measured.set(size);
+                    window.defer(cx, move |_, cx| {
+                        this.update(cx, |this, cx| this.resize(size, cx)).ok();
+                    });
+                }
+                let space = bounds.size.map(AvailableSpace::Definite);
+                cursor.prepaint_as_root(centred.origin, space, window, cx);
+                let hitbox = window.insert_hitbox(bounds, HitboxBehavior::Normal);
+                (hitbox, centred, cursor)
+            },
+            move |_, (hitbox, grid, mut cursor), window, cx| {
+                let link = link.as_deref();
+                paint_rows(&rows.rows, grid.origin, grid.cell, bold, link, window, cx);
+                cursor.paint(window, cx);
+                window.on_mouse_event({
+                    let this = pointer.clone();
+                    move |event: &MouseMoveEvent, phase, window, cx| {
+                        let hovered = hitbox.is_hovered(window);
+                        (this.update(cx, |this, cx| this.mouse_move(event, phase, hovered, cx)))
+                            .ok();
+                    }
+                });
+                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                    pointer
+                        .update(cx, |this, _| this.mouse_up(event, phase))
+                        .ok();
+                });
+            },
+        )
+        .absolute()
+        .size_full();
         div()
             .id("terminal")
             .key_context("Terminal TextInput")
@@ -677,14 +680,7 @@ impl Render for Terminal {
             })
             .text_size(dp(text_size))
             .line_height(cell_height)
-            .child(
-                div()
-                    .relative()
-                    .size_full()
-                    .overflow_hidden()
-                    .child(grid)
-                    .children(cursor),
-            )
+            .child(div().relative().size_full().overflow_hidden().child(grid))
     }
 }
 
@@ -696,6 +692,22 @@ struct Grid {
 }
 
 impl Grid {
+    /// `size`'s cells in the middle of `bounds`, to the device pixel, so what they leave over
+    /// falls evenly on every side, as Ghostty's `window-padding-balance` does.
+    fn centred(bounds: Bounds<Pixels>, cell: gpui::Size<Pixels>, size: Size, scale: f32) -> Self {
+        let margin = |room: Pixels, cells: Pixels| {
+            ((room - cells).max(fixed(0.)) * scale / 2.).round() / scale
+        };
+        let offset = gpui::point(
+            margin(bounds.size.width, cell.width * f32::from(size.cols)),
+            margin(bounds.size.height, cell.height * f32::from(size.rows)),
+        );
+        Self {
+            origin: bounds.origin + offset,
+            cell,
+        }
+    }
+
     /// Until it's drawn, cells are the size the shell was told.
     fn opening(size: Size) -> Self {
         Self {
@@ -1052,6 +1064,47 @@ mod tests {
             (at.x / 8.) as u16 + 1,
             61,
             "7.8px cells drawn map onto the 8px cells the encoders count in, not column 59"
+        );
+    }
+
+    fn centred_in(width: f32, height: f32, cols: u16, rows: u16, scale: f32) -> Point<Pixels> {
+        let bounds = Bounds::new(
+            gpui::point(fixed(10.), fixed(20.)),
+            gpui::size(fixed(width), fixed(height)),
+        );
+        let size = Size {
+            cols,
+            rows,
+            ..Terminal::OPENING
+        };
+        let cell = gpui::size(fixed(8.), fixed(16.));
+        Grid::centred(bounds, cell, size, scale).origin
+    }
+
+    #[test]
+    fn what_whole_cells_leave_over_falls_evenly_on_both_sides() {
+        assert_eq!(
+            centred_in(102., 54., 12, 3, 1.),
+            gpui::point(fixed(13.), fixed(23.)),
+            "6px across and down leave 3px on either side"
+        );
+    }
+
+    #[test]
+    fn a_grid_stays_on_the_device_pixels() {
+        assert_eq!(
+            centred_in(100.8, 49., 12, 3, 2.),
+            gpui::point(fixed(12.5), fixed(20.5)),
+            "2.4px either side is nearest 2.5px at 2x, and flooring it would skew the grid left"
+        );
+    }
+
+    #[test]
+    fn a_grid_wider_than_its_bounds_starts_at_their_edge() {
+        assert_eq!(
+            centred_in(10., 10., 2, 1, 1.),
+            gpui::point(fixed(10.), fixed(20.)),
+            "the two columns a shell always gets overflow on the right, as the row does below"
         );
     }
 
