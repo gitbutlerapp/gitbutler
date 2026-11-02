@@ -26,7 +26,7 @@ pub(crate) fn apply(
         status,
         applied_branches,
         tracking,
-    } = but_workspace::branch::apply_stack(editor, branch.as_ref())?;
+    } = but_workspace::branch::apply_stack(editor, branch.as_ref(), None)?;
     rebase.materialize(Default::default())?;
     if let Some(tracking) = tracking {
         tracking.write(&repo)?;

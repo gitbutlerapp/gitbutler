@@ -71,7 +71,7 @@ fn apply_stack(
         status,
         applied_branches,
         tracking,
-    } = but_workspace::branch::apply_stack(editor, branch)?;
+    } = but_workspace::branch::apply_stack(editor, branch, None)?;
     rebase.materialize(Default::default())?;
     if let Some(tracking) = tracking {
         tracking.write(repo)?;
@@ -151,7 +151,7 @@ fn apply_and_unapply_compose_in_one_editor() -> anyhow::Result<()> {
     let mut ws = workspace(&repo, &meta, &mut db)?;
 
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let applied = but_workspace::branch::apply_stack(editor, r("refs/heads/C"))?;
+    let applied = but_workspace::branch::apply_stack(editor, r("refs/heads/C"), None)?;
     let rebase =
         but_workspace::branch::unapply_stack(applied.rebase.into_editor(), r("refs/heads/B"))?;
     rebase.materialize(Default::default())?;
@@ -247,6 +247,47 @@ fn apply_adds_a_branch_as_the_last_lane() -> anyhow::Result<()> {
 "#]]
     );
     assert_worktree_files(&repo, &["a", "b", "c"], &[]);
+    Ok(())
+}
+
+#[test]
+fn apply_adds_a_branch_at_the_given_order() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) = two_stacks(Options {
+        unapplied_branch: true,
+        ..Default::default()
+    })?;
+    let mut ws = workspace(&repo, &meta, &mut db)?;
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let out = but_workspace::branch::apply_stack(editor, r("refs/heads/C"), 1)?;
+    out.rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "C wasn't applied before"
+    );
+    // C becomes the second parent of the workspace commit, between A and B.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*-.   70c2cd7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /  
+| | * e16577c (B) add b
+| * | 9cbf901 (C) add c
+| |/  
+* | dcc139a (A) add A2
+* | a33af50 add A1
+|/  
+* 0dc3733 (origin/main, main) add M
+
+"#]]
+    );
+    assert_eq!(
+        applied_stacks_in_metadata(&meta)?,
+        ["A", "C", "B"],
+        "the metadata follows the parent order"
+    );
     Ok(())
 }
 

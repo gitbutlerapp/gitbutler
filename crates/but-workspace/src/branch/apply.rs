@@ -195,7 +195,8 @@ impl LocalTracking {
     }
 }
 
-/// Ensure that `branch` is a parent of the workspace commit.
+/// Ensure that `branch` is a parent of the workspace commit, at `order` among its parents if it
+/// isn't one yet, or as its last parent if `order` is `None` or past the end.
 ///
 /// If there is no workspace commit, one is first created with `HEAD` as its parent.
 ///
@@ -205,10 +206,11 @@ impl LocalTracking {
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
 /// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
 /// returned to be written after materializing.
-#[instrument(skip(editor), err(Debug))]
+#[instrument(skip(editor, order), err(Debug))]
 pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     branch: &FullNameRef,
+    order: impl Into<Option<usize>>,
 ) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta, M>> {
     let (branch, remote_tracking_branch) = if branch.category() == Some(Category::RemoteBranch) {
         // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
@@ -385,7 +387,7 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             branch_selector
         }
     };
-    editor.insert_parent(workspace_commit, branch_selector, None)?;
+    editor.insert_parent(workspace_commit, branch_selector, order.into())?;
     for empty_parent in empty_parents {
         editor.remove_edges(workspace_commit, empty_parent)?;
     }
