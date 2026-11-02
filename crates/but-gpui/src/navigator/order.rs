@@ -344,13 +344,19 @@ impl Navigator {
             let pill = preview(payload, offset, window, cx);
             let (navigator, dragged) = (navigator.clone(), dragged.clone());
             let started = dragged.clone();
-            (navigator.update(cx, |this, _| this.dragged_worktree = Some(started))).ok();
+            (navigator.update(cx, |this, cx| {
+                this.dragged_worktree = Some(started);
+                cx.notify()
+            }))
+            .ok();
             // A drop anywhere else, or none, puts it back where it was.
             cx.observe_release(&pill, move |_, cx| {
                 (navigator.update(cx, |this, cx| {
                     this.dragged_worktree = None;
                     let (project, name) = &dragged;
-                    this.hold_worktree(project, name.as_ref(), None, cx)
+                    this.hold_worktree(project, name.as_ref(), None, cx);
+                    // Let go where it was, nothing moved, but its heading no longer shows held.
+                    cx.notify()
                 }))
                 .ok();
             })
