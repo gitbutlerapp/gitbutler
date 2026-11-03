@@ -102,6 +102,13 @@ jobs:
             -F "tags[language]=typescript" \
             -F "tags[type]=e2e" \
             https://tests.but.dev/v1/uploads
+      # One run failed with "No space left on device" on a runner with 83 GB free on others.
+      - name: Disk usage
+        if: failure()
+        run: |
+          df -h
+          df -i /__w
+          du -sh target ~/.cargo 2>/dev/null || true
       - name: Flatten test results
         if: failure()
         run: |
