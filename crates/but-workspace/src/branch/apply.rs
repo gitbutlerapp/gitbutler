@@ -53,6 +53,24 @@ impl std::fmt::Debug for ConflictingStack {
     }
 }
 
+/// Attached to the error of [apply_stack()] if the branch shares commits with a stack of the
+/// workspace, so callers can tell it apart from other failures.
+#[derive(Debug, Clone)]
+pub struct OverlapErrorContext {
+    /// The branch that couldn't be applied.
+    pub branch: gix::refs::FullName,
+}
+
+impl std::fmt::Display for OverlapErrorContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "'{}' overlaps with a stack of the workspace",
+            self.branch.shorten()
+        )
+    }
+}
+
 /// What kind of apply operation completed.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -201,7 +219,7 @@ impl LocalTracking {
 /// If there is no workspace commit, one is first created with `HEAD` as its parent.
 ///
 /// For each parent of the workspace commit P, `target..branch` must have no commits in common with
-/// `target..P`.
+/// `target..P`, or the error carries an [`OverlapErrorContext`].
 ///
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
 /// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
@@ -372,10 +390,16 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
                     commit.id.to_hex_with_len(7).to_string()
                 }
             };
-            bail_precondition!(
-                "Cannot apply '{}' as it overlaps with {parent_label}",
-                branch.shorten()
-            );
+            return Err(anyhow::Error::msg(OverlapErrorContext {
+                branch: branch.to_owned(),
+            })
+            .context(
+                but_error::Context::new(format!(
+                    "Cannot apply '{}' as it overlaps with {parent_label}",
+                    branch.shorten()
+                ))
+                .with_code(but_error::Code::PreconditionFailed),
+            ));
         }
     }
 

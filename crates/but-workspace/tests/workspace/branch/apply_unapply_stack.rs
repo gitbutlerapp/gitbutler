@@ -352,6 +352,10 @@ fn apply_refuses_an_overlapping_branch() -> anyhow::Result<()> {
         err.to_string(),
         snapbox::str!["Cannot apply 'D' as it overlaps with 'A'"]
     );
+    assert!(
+        err.downcast_ref::<apply::OverlapErrorContext>().is_some(),
+        "callers can tell an overlap apart from other failures"
+    );
     assert_eq!(
         visualize_commit_graph_all(&repo)?,
         before,
