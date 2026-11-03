@@ -10,6 +10,11 @@ heading takes 24px above (twice the text gap), 20px for h3 and below, and 8px
 below, collapsing into the next block's margin. Margins collapse, so a box next
 to a paragraph gets 16, not 28.
 
+**Text reads narrow; media spreads wide.** Headings, paragraphs, lists, quotes
+and code keep to a 540px column, a comfortable line. Tables, images, galleries
+and video take the full 740px, centred on the same axis, so they break out of
+the text on both sides.
+
 **Type.** Body/13 on a 160% line. H1 is 20, H2 18, H3 16, all semibold on a
 130% line so a wrapped heading reads as one: design-core's `text-h1`,
 `text-h2` and `text-h3`, Figma's Markdown/H1–H3. Levels four to six stay at body
