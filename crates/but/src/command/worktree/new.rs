@@ -73,7 +73,7 @@ impl NewOperation {
         let ref_name = match name {
             Some(name) => {
                 let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-                Some(name.resolve_for_creation(&repo, &ws)?)
+                Some(name.resolve_unused_local_name(&repo, &ws, None)?)
             }
             None => None,
         };

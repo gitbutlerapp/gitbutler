@@ -11,7 +11,7 @@ use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
 
-use super::{Options, Outcome, consumed};
+use super::{Options, Outcome, UncommittedChangesInTheWay, consumed};
 
 /// Perform all file operations necessary to turn the *worktree* of `repo` into
 /// `new_head_id^{tree}`.
@@ -156,10 +156,13 @@ pub fn safe_checkout_from_head(
                     .collect::<Vec<_>>();
                 paths.sort();
                 paths.dedup();
-                bail_precondition!(
-                    "Uncommitted files would be overwritten by checkout: {}",
-                    paths.join(", ")
-                );
+                return Err(anyhow::anyhow!(UncommittedChangesInTheWay).context(
+                    but_error::Context::new(format!(
+                        "Uncommitted files would be overwritten by checkout: {}",
+                        paths.join(", ")
+                    ))
+                    .with_code(but_error::Code::PreconditionFailed),
+                ));
             }
         }
 

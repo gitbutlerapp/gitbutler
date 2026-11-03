@@ -941,7 +941,57 @@ fn create_commit_on_branch_that_is_not_applied_fails() {
         .stderr_eq(snapbox::str![[r#"
 Error: A branch named 'existing' exists but is not applied
 
-Hint: Run `but apply existing` to apply the branch first
+Hint: Pick another name, or run `but apply existing` if you meant that branch
+
+"#]]);
+}
+
+#[test]
+fn create_commit_on_branch_with_invalid_name_suggests_a_valid_one() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("first", "Some text");
+
+    env.but("commit -m 'add first' -b 'bad name'")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'bad name'
+
+Invalid branch name
+
+Hint: Try 'bad-name' instead
+
+"#]]);
+}
+
+#[test]
+fn create_commit_on_branch_with_name_that_cannot_be_created_says_what_to_do() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.invoke_git("update-ref refs/remotes/origin/taken main");
+    env.invoke_git("branch fix");
+
+    env.file("first", "Some text");
+
+    env.but("commit -m 'add first' -b taken")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: A branch named 'taken' exists on remote 'origin'
+
+Hint: Pick another name, or run `but apply origin/taken` if you meant that branch
+
+"#]]);
+
+    env.but("commit -m 'add first' -b fix/first")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch name 'fix/first' collides with existing branch 'fix'
+
+Hint: Pick another name
 
 "#]]);
 }
@@ -1041,6 +1091,8 @@ fn failed_commit_switch_preserves_selected_changes_in_single_branch_mode() {
         .stderr_eq(snapbox::str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first"
 
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
+
 "#]]);
 
     // Both the selected addition and the unselected modification must survive failure.
@@ -1110,6 +1162,8 @@ fn failed_commit_switch_preserves_selected_changes_in_workspace_mode() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first"
+
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
 "#]]);
 
@@ -1186,6 +1240,8 @@ fn failed_commit_switch_to_existing_branch_rolls_back_materialization() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first"
+
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
 "#]]);
 
@@ -1267,6 +1323,8 @@ fn failed_commit_switch_restores_ad_hoc_stack_refs() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first.txt"
+
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
 "#]]);
 
@@ -4310,6 +4368,8 @@ fn committing_above_another_branch_and_naming_the_new_branch_with_invalid_name()
         .stderr_eq(snapbox::str![[r#"
 Error: A branch named 'B' is already applied
 
+Hint: Pick another name
+
 "#]]);
 
     env.but("unapply B").assert().success();
@@ -4319,6 +4379,8 @@ Error: A branch named 'B' is already applied
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: A branch named 'B' exists but is not applied
+
+Hint: Pick another name, or run `but apply B` if you meant that branch
 
 "#]]);
 }
@@ -4934,7 +4996,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: A branch named 'two' exists but is not applied
 
-Hint: Run `but apply two` to apply the branch first
+Hint: Pick another name, or run `but apply two` if you meant that branch
 
 "#]]);
 }

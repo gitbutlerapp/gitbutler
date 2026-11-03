@@ -35,6 +35,19 @@ pub struct Outcome {
     pub conflict_occurred: bool,
 }
 
+/// Why [super::safe_checkout_from_head()] refused: uncommitted changes would be overwritten.
+///
+/// It sits below the [`but_error::Context`] with the message, so callers can tell this refusal
+/// from other preconditions by downcasting to it.
+#[derive(Debug)]
+pub struct UncommittedChangesInTheWay;
+
+impl std::fmt::Display for UncommittedChangesInTheWay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("uncommitted changes are in the way")
+    }
+}
+
 mod consumed;
 pub(crate) mod function;
 mod utils;

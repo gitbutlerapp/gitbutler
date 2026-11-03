@@ -604,6 +604,8 @@ fn unapply_last_branch_preserves_conflicting_uncommitted_changes() {
         .stderr_eq(str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "collision"
 
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
+
 "#]]);
 
     snapbox::assert_data_eq!(env.git_log(), before);
@@ -686,6 +688,8 @@ fn unapply_last_branch_checkout_failure_preserves_existing_workspace() {
         .failure()
         .stderr_eq(str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "collision"
+
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
 "#]]);
 

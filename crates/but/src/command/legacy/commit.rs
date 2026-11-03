@@ -656,9 +656,7 @@ pub fn route_commit_operation(
             } else {
                 reject_workspace_target(repo, ws, &cli_id, "to")?;
                 let branch = BranchArg(cli_id.0);
-                let branch_name = branch
-                    .resolve_for_creation(repo, ws)
-                    .with_hint(|| format!("Run `but apply {branch}` to apply the branch first"))?;
+                let branch_name = branch.resolve_for_creation(repo, ws)?;
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
