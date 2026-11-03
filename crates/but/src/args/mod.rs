@@ -280,6 +280,10 @@ pub enum Subcommands {
         /// Show full commit messages and files changed for each commit
         #[clap(short = 'v', long = "verbose")]
         verbose: bool,
+        /// Show how many lines each changed file added and removed. For a branch, this is the
+        /// same as `--verbose`.
+        #[clap(long)]
+        stat: bool,
     },
 
     #[cfg(feature = "legacy")]
@@ -1154,6 +1158,7 @@ pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
         Some(match subcommand {
             "commit" => commit::ERROR_EXAMPLES,
             "amend" => amend::ERROR_EXAMPLES,
+            "diff" => diff::ERROR_EXAMPLES,
             "move" => r#move::ERROR_EXAMPLES,
             "squash" => squash::ERROR_EXAMPLES,
             _ => return None,

@@ -104,6 +104,21 @@ impl InvokedDirectory {
             .collect();
         Some(components?.join("/"))
     }
+
+    /// `path`, which is absolute or relative to this directory or the root of the checkout, as a
+    /// path from the root of the checkout if it exists there. An empty path names nothing, not
+    /// this directory.
+    pub fn existing_path_from_root(&self, path: &str) -> Option<PathBuf> {
+        if path.is_empty() {
+            return None;
+        }
+        [&self.current, &self.root]
+            .into_iter()
+            .find_map(|directory| {
+                let path = directory.join(path).canonicalize().ok()?;
+                Some(path.strip_prefix(&self.root).ok()?.to_owned())
+            })
+    }
 }
 
 /// The checkout that an uncommitted change lives in.

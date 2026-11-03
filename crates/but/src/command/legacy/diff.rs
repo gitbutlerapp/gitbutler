@@ -1,12 +1,16 @@
+use std::path::Path;
+
 use bstr::BString;
-use but_core::TreeStatusKind;
+use but_core::{TreeStatusKind, diff::LineStats};
 use but_ctx::Context;
 use gix::refs::FullName;
+use itertools::Itertools as _;
 use nonempty::NonEmpty;
+use ratatui::text::Line;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliResult, IdMap,
+    CliResult, IdMap,
     args::{
         atoms::{CliIdArg, Purpose, ResolvedCliIdArg},
         diff::Platform,
@@ -16,7 +20,7 @@ use crate::{
     theme::{Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        change_source::{ChangeSourceId, InvokedFrom},
+        change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, conflicted_worktree_paths},
         diff_rendering::{
             self, DetailsLine, DiffLineWriter, IdGen, WithSyntaxHighlighting, load_syntax_set,
         },
@@ -29,7 +33,8 @@ const CLEAR_TO_END_OF_LINE: &str = "\x1b[0K";
 #[derive(Debug)]
 pub struct DiffOutcome<'a> {
     ctx: &'a mut Context,
-    target: DiffOperation,
+    targets: Vec<DiffOperation>,
+    stat: bool,
 }
 
 impl CliOutputHuman for DiffOutcome<'_> {
@@ -39,7 +44,11 @@ impl CliOutputHuman for DiffOutcome<'_> {
         _agent: bool,
         theme: &'static Theme,
     ) -> anyhow::Result<()> {
-        let Self { ctx, target } = self;
+        let Self { ctx, targets, stat } = self;
+
+        if stat {
+            return write_stat(ctx, &targets, theme, &mut DiffWriter { out, theme });
+        }
 
         let syntax_set = load_syntax_set();
         let syntax_theme = theme.load_syntax_highlighting_theme()?;
@@ -55,72 +64,80 @@ impl CliOutputHuman for DiffOutcome<'_> {
             skip_line_stats: true,
         };
 
-        match target {
-            DiffOperation::Uncommitted(source) => {
-                diff_rendering::render_uncommitted_source(
-                    ctx,
-                    source,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
+        for (index, target) in targets.into_iter().enumerate() {
+            if index > 0 {
+                writer.write_section_separator()?;
             }
-            DiffOperation::Commit { commit } => {
-                diff_rendering::render_commit(
-                    commit.commit_id,
-                    commit.change_id,
-                    ctx,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
-            }
-            DiffOperation::Branch { branch } => {
-                let branch = branch.shorten().to_string();
-                diff_rendering::render_branch(
-                    branch,
-                    ctx,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
-            }
-            DiffOperation::UncommittedHunkOrFile { hunk } => {
-                diff_rendering::render_uncommitted_hunk(
-                    *hunk,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
-            }
-            DiffOperation::CommittedFile { commit, path } => {
-                diff_rendering::render_committed_file(
-                    commit.commit_id,
-                    path,
-                    ctx,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
-            }
-            DiffOperation::CommittedHunk { hunk } => {
-                diff_rendering::render_committed_hunk(*hunk, theme, &mut id_gen, &mut writer)?;
-            }
-            DiffOperation::PathPrefix { id, hunks } => {
-                diff_rendering::render_path_prefix(
-                    &id,
-                    hunks,
-                    ctx,
-                    theme,
-                    &mut id_gen,
-                    options,
-                    &mut writer,
-                )?;
+            match target {
+                DiffOperation::Uncommitted(source) => {
+                    diff_rendering::render_uncommitted_source(
+                        ctx,
+                        source,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::Commit { commit } => {
+                    diff_rendering::render_commit(
+                        commit.commit_id,
+                        commit.change_id,
+                        ctx,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::Branch { branch } => {
+                    let branch = branch.shorten().to_string();
+                    diff_rendering::render_branch(
+                        branch,
+                        ctx,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::UncommittedHunkOrFile { hunk } => {
+                    diff_rendering::render_uncommitted_hunk(
+                        *hunk,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::CommittedFile { commit, path } => {
+                    diff_rendering::render_committed_file(
+                        commit.commit_id,
+                        path,
+                        ctx,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::CommittedHunk { hunk } => {
+                    diff_rendering::render_committed_hunk(*hunk, theme, &mut id_gen, &mut writer)?;
+                }
+                DiffOperation::PathPrefix { id, hunks } => {
+                    diff_rendering::render_path_prefix(
+                        &id,
+                        hunks,
+                        ctx,
+                        theme,
+                        &mut id_gen,
+                        options,
+                        &mut writer,
+                    )?;
+                }
+                DiffOperation::CleanPath { path } => {
+                    writer.write_non_selectable_text(clean_path_line(&path, theme))?;
+                }
             }
         }
 
@@ -132,7 +149,13 @@ impl CliOutput for DiffOutcome<'_> {
     fn on_json(self) -> impl Serialize {
         struct DeferredOutput<'a> {
             ctx: &'a Context,
-            target: DiffOperation,
+            targets: Vec<DiffOperation>,
+            stat: bool,
+        }
+
+        #[derive(Serialize)]
+        struct StatOutput {
+            files: Vec<FileStat>,
         }
 
         impl Serialize for DeferredOutput<'_> {
@@ -140,14 +163,20 @@ impl CliOutput for DiffOutcome<'_> {
             where
                 S: serde::Serializer,
             {
-                let output = build_output(self.ctx, &self.target)
-                    .map_err(<S::Error as serde::ser::Error>::custom)?;
-                output.serialize(serializer)
+                use serde::ser::Error as _;
+
+                if self.stat {
+                    let files = file_stats(self.ctx, &self.targets).map_err(S::Error::custom)?;
+                    StatOutput { files }.serialize(serializer)
+                } else {
+                    let output = build_output(self.ctx, &self.targets).map_err(S::Error::custom)?;
+                    output.serialize(serializer)
+                }
             }
         }
 
-        let Self { ctx, target } = self;
-        DeferredOutput { ctx, target }
+        let Self { ctx, targets, stat } = self;
+        DeferredOutput { ctx, targets, stat }
     }
 }
 
@@ -307,8 +336,16 @@ fn commit_changes(
         .collect())
 }
 
-fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output> {
-    let changes = match target {
+fn build_output(ctx: &Context, targets: &[DiffOperation]) -> anyhow::Result<Output> {
+    let mut changes = Vec::new();
+    for target in targets {
+        changes.extend(target_changes(ctx, target)?);
+    }
+    Ok(Output { changes })
+}
+
+fn target_changes(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Vec<Change>> {
+    Ok(match target {
         DiffOperation::Uncommitted(source) => {
             let id_map = IdMap::legacy_new_from_context(ctx)?;
             hunk_changes(
@@ -348,9 +385,112 @@ fn build_output(ctx: &Context, target: &DiffOperation) -> anyhow::Result<Output>
                 .map(|hunk| (hunk.id.as_str(), &hunk.hunk, hunk.tree_status))
                 .collect(),
         ),
-    };
+        DiffOperation::CleanPath { .. } => Vec::new(),
+    })
+}
 
-    Ok(Output { changes })
+/// A file and its line counts. Binary and too large files have no lines to count.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileStat {
+    path: String,
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    old_path: Option<String>,
+    insertions: u64,
+    deletions: u64,
+}
+
+impl FileStat {
+    /// `changes` must be of one file, which is more than one change if it has several hunks.
+    fn new(changes: &[Change]) -> Self {
+        let count_lines_starting_with = |marker| {
+            changes
+                .iter()
+                .filter_map(|change| match &change.diff {
+                    Diff::Patch { hunks, .. } => Some(hunks),
+                    Diff::Binary | Diff::TooLarge { .. } => None,
+                })
+                .flatten()
+                .flat_map(|hunk| hunk.diff.lines())
+                .filter(|line| line.starts_with(marker))
+                .count() as u64
+        };
+        let Change {
+            path,
+            status,
+            old_path,
+            ..
+        } = &changes[0];
+        FileStat {
+            path: path.clone(),
+            status: status.clone(),
+            old_path: old_path.clone(),
+            insertions: count_lines_starting_with('+'),
+            deletions: count_lines_starting_with('-'),
+        }
+    }
+}
+
+/// Group by target, as one path in two targets can be different files: all changes of a target are
+/// from one checkout or commit.
+fn file_stats(ctx: &Context, targets: &[DiffOperation]) -> anyhow::Result<Vec<FileStat>> {
+    let mut files = Vec::new();
+    for target in targets {
+        let changes = target_changes(ctx, target)?;
+        files.extend(changes.chunk_by(|a, b| a.path == b.path).map(FileStat::new));
+    }
+    Ok(files)
+}
+
+fn write_stat(
+    ctx: &Context,
+    targets: &[DiffOperation],
+    theme: &'static Theme,
+    writer: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let files = file_stats(ctx, targets)?;
+    let names = files
+        .iter()
+        .map(|file| match &file.old_path {
+            Some(old_path) => format!("{old_path} => {}", file.path),
+            None => file.path.clone(),
+        })
+        .collect::<Vec<_>>();
+    let name_width = names
+        .iter()
+        .map(|name| name.chars().count())
+        .max()
+        .unwrap_or(0);
+
+    let mut total = LineStats {
+        files_changed: files.len() as u64,
+        ..LineStats::default()
+    };
+    for (file, name) in files.iter().zip(&names) {
+        total.lines_added += file.insertions;
+        total.lines_removed += file.deletions;
+        writer.write_non_selectable_text(diff_rendering::render_file_line_stats(
+            name,
+            name_width,
+            file.insertions,
+            file.deletions,
+        ))?;
+    }
+    if !files.is_empty() {
+        writer.write_non_selectable_text(diff_rendering::render_line_stats(total))?;
+    }
+
+    for target in targets {
+        if let DiffOperation::CleanPath { path } = target {
+            writer.write_non_selectable_text(clean_path_line(path, theme))?;
+        }
+    }
+    Ok(())
+}
+
+fn clean_path_line(path: &str, theme: &'static Theme) -> Line<'static> {
+    Line::from(format!("'{path}' has no uncommitted changes")).style(theme.hint)
 }
 
 struct DiffWriter<'a> {
@@ -425,25 +565,57 @@ pub fn diff<'a>(
     let guard = ctx.shared_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
 
-    let op = resolve(ctx, &id_map, args, invoked_from)?;
-    Ok(run(ctx, op)?)
+    let Platform { targets, stat } = args;
+    let targets = resolve(ctx, &id_map, targets, invoked_from)?;
+    Ok(run(ctx, targets, stat)?)
 }
 
 fn resolve(
     ctx: &Context,
     id_map: &IdMap,
-    args: Platform,
+    targets: Vec<CliIdArg>,
+    invoked_from: &InvokedFrom,
+) -> CliResult<Vec<DiffOperation>> {
+    if targets.is_empty() {
+        let source = invoked_from.managed_source(id_map)?;
+        return Ok(vec![DiffOperation::Uncommitted(source)]);
+    }
+
+    let repo = ctx.repo.get()?;
+    let operations = targets
+        .iter()
+        .map(|target| resolve_target(ctx, target, &targets, &repo, id_map, invoked_from))
+        .collect::<CliResult<Vec<_>>>()?;
+
+    // `git diff <a> <b>` compares the two, so showing each in turn would read like a comparison.
+    let has_revision = operations.iter().any(|operation| {
+        matches!(
+            operation,
+            DiffOperation::Commit { .. } | DiffOperation::Branch { .. }
+        )
+    });
+    if has_revision && operations.len() > 1 {
+        return Err(
+            bad_input("A commit or branch must be the only target of `but diff`")
+                .hint(
+                    "To compare two revisions, run `git diff <a> <b>`. To see each target on its own, run `but diff <target>` once per target.",
+                )
+                .into(),
+        );
+    }
+    Ok(operations)
+}
+
+fn resolve_target(
+    ctx: &Context,
+    target: &CliIdArg,
+    targets: &[CliIdArg],
+    repo: &gix::Repository,
+    id_map: &IdMap,
     invoked_from: &InvokedFrom,
 ) -> CliResult<DiffOperation> {
-    let Platform { target } = args;
-
-    let resolved_target = if let Some(target) = target {
-        let repo = ctx.repo.get()?;
-        target
-            .try_resolve(&repo, id_map, Purpose::Target, None)?
-            .ok_or_else(|| unresolved_target_error(&target, &repo, id_map))?
-    } else {
-        ResolvedCliIdArg::Uncommitted(invoked_from.managed_source(id_map)?)
+    let Some(resolved_target) = target.try_resolve(repo, id_map, Purpose::Target, None)? else {
+        return resolve_missing_target(ctx, target, targets, repo, id_map, invoked_from);
     };
 
     match resolved_target {
@@ -485,22 +657,69 @@ fn resolve(
 /// Agents often pass Git revisions like `HEAD~1` or `main...HEAD`, which are not CLI IDs.
 /// When a target fails to resolve but Git can parse it, point at `git diff` in addition
 /// to the generic missing-target hint.
-fn unresolved_target_error(target: &CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliError {
+///
+/// A path that exists resolves to nothing when it has no changes. That is an empty diff, not a
+/// mistake.
+fn resolve_missing_target(
+    ctx: &Context,
+    target: &CliIdArg,
+    targets: &[CliIdArg],
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    invoked_from: &InvokedFrom,
+) -> CliResult<DiffOperation> {
     let err = bad_input(format!("Could not find target: '{target}'"));
     if repo.rev_parse(target.0.as_str()).is_ok() {
-        err.hint(format!(
-            "To diff it as a Git revision, run `git diff {target}`. {}",
-            CliIdArg::TARGET_MISSING_HINT
-        ))
-        .into()
-    } else {
-        err.hint(target.missing_hint(CliIdArg::TARGET_MISSING_HINT, repo, id_map))
-            .into()
+        let targets = targets.iter().join(" ");
+        return Err(err
+            .hint(format!(
+                "To diff it as a Git revision, run `git diff {targets}`. {}",
+                CliIdArg::TARGET_MISSING_HINT
+            ))
+            .into());
     }
+
+    if is_clean_path(ctx, target, repo, id_map, invoked_from)? {
+        return Ok(DiffOperation::CleanPath {
+            path: target.to_string(),
+        });
+    }
+    Err(err
+        .hint(target.missing_hint(CliIdArg::TARGET_MISSING_HINT, repo, id_map))
+        .into())
 }
 
-fn run(ctx: &mut Context, op: DiffOperation) -> anyhow::Result<DiffOutcome<'_>> {
-    Ok(DiffOutcome { ctx, target: op })
+/// Whether `target`, which resolved to nothing, is a path in the checkout `but` runs in without
+/// changes. A checkout GitButler doesn't manage has no known changes, and a file with unresolved
+/// conflicts has no CLI ID.
+fn is_clean_path(
+    ctx: &Context,
+    target: &CliIdArg,
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    invoked_from: &InvokedFrom,
+) -> CliResult<bool> {
+    let Some(path) = invoked_from
+        .directory
+        .as_ref()
+        .and_then(|directory| directory.existing_path_from_root(&target.0))
+    else {
+        return Ok(false);
+    };
+    let source = invoked_from.managed_source(id_map)?;
+    let checkout = ChangeSourceRepo::open(ctx, &source)?;
+    let conflicted = conflicted_worktree_paths(checkout.repo(repo))?;
+    Ok(!conflicted
+        .iter()
+        .any(|file| Path::new(file).starts_with(&path)))
+}
+
+fn run(
+    ctx: &mut Context,
+    targets: Vec<DiffOperation>,
+    stat: bool,
+) -> anyhow::Result<DiffOutcome<'_>> {
+    Ok(DiffOutcome { ctx, targets, stat })
 }
 
 #[derive(Debug)]
@@ -525,5 +744,9 @@ enum DiffOperation {
     PathPrefix {
         id: String,
         hunks: NonEmpty<IdAndHunk>,
+    },
+    /// A path that exists, as named on the command line, without uncommitted changes.
+    CleanPath {
+        path: String,
     },
 }

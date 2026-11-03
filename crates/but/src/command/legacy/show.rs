@@ -18,9 +18,12 @@ pub(crate) fn show_commit(
     out: &mut OutputChannel,
     commit_id_str: &str,
     verbose: bool,
+    stat: bool,
 ) -> Result<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx)?;
+    // A branch's verbose output already has the line counts.
+    let verbose = verbose || stat;
 
     // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
@@ -180,9 +183,19 @@ pub(crate) fn show_commit(
                     but_core::TreeStatus::Rename { .. } => ("R", t.renaming),
                 };
 
+                let line_counts = if stat {
+                    let file = super::file_change_from_tree_change(&repo, change.clone())?;
+                    format!(
+                        "  ({}, {})",
+                        t.addition.paint(format!("+{}", file.insertions)),
+                        t.deletion.paint(format!("-{}", file.deletions))
+                    )
+                } else {
+                    String::new()
+                };
                 writeln!(
                     out,
-                    "  {} {}",
+                    "  {} {}{line_counts}",
                     status_color.paint(status_char),
                     change.path.to_str_lossy()
                 )?;
@@ -190,21 +203,12 @@ pub(crate) fn show_commit(
         }
     } else if let Some(out) = out.for_json() {
         // JSON output
-        let changes = tree_changes.into_tree_changes();
-        let mut files = Vec::new();
-        for change in &changes {
-            let status = match &change.status {
-                but_core::TreeStatus::Addition { .. } => "added",
-                but_core::TreeStatus::Deletion { .. } => "deleted",
-                but_core::TreeStatus::Modification { .. } => "modified",
-                but_core::TreeStatus::Rename { .. } => "renamed",
-            };
-
-            files.push(serde_json::json!({
-                "path": change.path.to_str_lossy(),
-                "status": status
-            }));
-        }
+        // Always include the line counts, as for a branch, so tools don't need an extra flag.
+        let files = tree_changes
+            .into_tree_changes()
+            .into_iter()
+            .map(|change| super::file_change_from_tree_change(&repo, change))
+            .collect::<Result<Vec<_>>>()?;
 
         let author_sig = decoded.author()?;
         let committer_sig = decoded.committer()?;
