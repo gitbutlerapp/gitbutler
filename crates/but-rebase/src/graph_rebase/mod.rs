@@ -7,7 +7,7 @@
 mod creation;
 pub mod rebase;
 pub mod traverse;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
 use but_core::ChangeId;
@@ -804,6 +804,18 @@ impl RevisionHistory {
             .remove(&from)
             .unwrap_or_else(|| Lineage::rewrite_of(from));
         self.lineages.insert(to, lineage);
+    }
+
+    /// Drops the lineages of commits that didn't make it into `graph`.
+    pub(crate) fn retain_commits_in(&mut self, graph: &StepGraph) {
+        let commits: HashSet<_> = graph
+            .node_weights()
+            .filter_map(|step| match step {
+                Step::Pick(pick) => Some(pick.id),
+                Step::Reference { .. } | Step::None => None,
+            })
+            .collect();
+        self.lineages.retain(|commit, _| commits.contains(commit));
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.

@@ -75,6 +75,11 @@ fn discarding_the_output_of_a_fold_prunes_only_that_commit() -> Result<()> {
 
 "#]]
     );
+    let mappings = outcome.history.commit_mappings();
+    assert!(
+        !mappings.contains_key(&two) && !mappings.contains_key(&three),
+        "neither commit carries on as anything, so neither maps to the commit that was discarded"
+    );
     Ok(())
 }
 
