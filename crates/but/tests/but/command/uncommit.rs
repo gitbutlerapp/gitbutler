@@ -252,6 +252,99 @@ fn uncommit_command_on_commit() {
 "#]]);
 }
 
+/// The refusal is bad input that names only the commits in the way, and its hint gets the user out.
+#[test]
+fn uncommit_refuses_a_commit_that_a_later_commit_depends_on() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    // These become `mot`, `lmk` and `vyr`: `lmk` depends on `mot`, and `vyr` depends on neither.
+    env.file("file", "first\n");
+    env.but("commit -m 'add file'").assert().success();
+    env.file("file", "first\nsecond\n");
+    env.but("commit -m 'change file'").assert().success();
+    env.file("unrelated", "content\n");
+    env.but("commit -m 'add unrelated'").assert().success();
+
+    env.but("uncommit mot")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Cannot uncommit commits that would result in merge conflicts
+
+Hint: Later commits depend on these changes. Run `but uncommit lmk` first, then retry
+
+"#]]);
+
+    env.but("uncommit lmk").assert().success();
+    env.but("uncommit mot").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   qs A file
+┊
+┊╭┄ br [a-branch-1]
+┊●   vyr add unrelated
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
+/// A commit that was conflicted before the uncommit ran isn't a conflict the uncommit would cause.
+#[test]
+fn uncommit_ignores_a_commit_that_was_already_conflicted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    // These become `mot` and `lmk` on one branch, and `tlm` on another.
+    env.but("branch new conflicted").assert().success();
+    env.file("file", "first\n");
+    env.but("commit -b conflicted -m 'add file' file")
+        .assert()
+        .success();
+    env.file("file", "first\nsecond\n");
+    env.but("commit -b conflicted -m 'change file' file")
+        .assert()
+        .success();
+    env.but("branch new other").assert().success();
+    env.file("unrelated", "content\n");
+    env.but("commit -b other -m 'add unrelated' unrelated")
+        .assert()
+        .success();
+    env.but("move mot --above lmk").assert().success();
+
+    env.but("uncommit tlm").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted]
+┊   tt A unrelated
+┊
+┊╭┄ ot [other] (no commits)
+├╯
+┊
+┊╭┄ co [conflicted]
+┊●   mot add file
+┊●   lmk change file (no changes) {conflicted}
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "message" <id>` to commit them
+
+"#]]);
+}
+
 #[test]
 fn uncommit_rejects_merged_upstream_commit() {
     let env =
