@@ -376,13 +376,21 @@ fn push_refuses_conflicted_commits() {
     let env = sandbox_with_conflicted_commit();
 
     // The refusal is bad input: only that prints a hint, and it names the commit to start with.
-    env.but("push A").assert().failure().stderr_eq(str![[r#"
+    // A dry run gives the same refusal. `origin` is this repository, so the dry run's fetch
+    // makes `A` look pushed, and the refusal can't depend on `A` having something to preview.
+    for command in ["push A", "push A --dry-run", "--json push A --dry-run"] {
+        env.but(command)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
 Error: Cannot push branch 'A': the push would include 1 conflicted commit.
 Conflicted commits: nyo
 
 Hint: Start resolving with `but resolve conflicts nyo`, then push again
 
 "#]]);
+    }
     env.but("resolve conflicts nyo").assert().success();
 }
 
@@ -541,13 +549,16 @@ fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
     add_worktree_with_commit(&env, "W", "A");
     env.invoke_git("update-ref refs/heads/A A~1");
 
-    env.but("push W").assert().failure().stderr_eq(str![[r#"
+    // No branch names the conflicted commit, so a dry run needs the push's whole scope too.
+    for command in ["push W", "push W --dry-run"] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'W': the push would include 1 conflicted commit.
 Conflicted commits: [..]
 
 Hint: Start resolving with `but resolve conflicts [..]`, then push again
 
 "#]]);
+    }
 }
 
 #[test]

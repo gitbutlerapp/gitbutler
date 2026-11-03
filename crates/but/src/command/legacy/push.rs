@@ -197,6 +197,8 @@ fn handle_dry_run(
         // Resolve branch name
         let id_map = IdMap::legacy_new_from_context(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
+        // A refused push sends nothing, so there is nothing to preview.
+        check_for_conflicted_commits(ctx, &branch_name)?;
         let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
         let to_push = crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())?;
 
