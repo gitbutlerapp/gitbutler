@@ -195,3 +195,70 @@ For more information, try '--help'.
 
 "#]]);
 }
+
+#[test]
+fn a_common_word_names_the_command_to_run_without_the_nearest_spelling_tip() {
+    let env = Sandbox::empty();
+
+    // Clap's own tip for `stage` is `status`, which doesn't commit anything.
+    env.but("stage f.txt").assert().failure().stderr_eq(str![[r#"
+
+note: `but stage` doesn't exist. `but` has no staging area, so name the changes when you commit them:
+
+    but commit -b <branch> -m "message" <file-or-id>...
+
+error: unrecognized subcommand 'stage'
+
+Usage: but [OPTIONS] [COMMAND]
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn a_word_under_a_subcommand_names_the_command_to_run() {
+    let env = Sandbox::empty();
+
+    env.but("branch rename a b")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+
+note: `but branch rename` doesn't exist. Rename an applied branch with:
+
+    but reword <branch> -m <new-name>
+
+error: unrecognized subcommand 'rename'
+
+Usage: but branch [OPTIONS] [COMMAND]
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn an_executable_for_a_common_word_runs_without_a_note() {
+    let env = Sandbox::empty();
+    let bin = env.projects_root().join("external-cmd-bin");
+    fs::create_dir_all(&bin).unwrap();
+    let helper = bin.join("but-stage");
+    fs::write(&helper, "#!/bin/sh\nprintf 'staged %s\\n' \"$@\"\n").unwrap();
+    let mut perms = fs::metadata(&helper).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&helper, perms).unwrap();
+
+    let path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{path}", bin.display());
+
+    env.but("stage f.txt")
+        .env("PATH", new_path)
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .stdout_eq(str![[r#"
+staged f.txt
+
+"#]]);
+}
