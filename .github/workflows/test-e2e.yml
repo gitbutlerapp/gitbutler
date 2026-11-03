@@ -48,11 +48,11 @@ jobs:
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
+      # Master builds everything pull requests build, without testing it, so the cache it
+      # saves holds all of it.
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-        if: ${{ github.ref != 'refs/heads/master' }}
       - name: Build CLI, SvelteKit, and tauri-driver
-        if: ${{ github.ref != 'refs/heads/master' }}
         run: |
           cargo build -p but &
           cargo_pid=$!
@@ -69,11 +69,7 @@ jobs:
           [ -n "$td_pid" ] && { wait "$td_pid" || status=1; }
           exit "$status"
       - name: Build Tauri
-        if: ${{ github.ref != 'refs/heads/master' }}
         run: pnpm build:test
-      - name: Build CLI (cache warming)
-        if: ${{ github.ref == 'refs/heads/master' }}
-        run: cargo build -p but
 
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
@@ -106,6 +102,13 @@ jobs:
             -F "tags[language]=typescript" \
             -F "tags[type]=e2e" \
             https://tests.but.dev/v1/uploads
+      # One run failed with "No space left on device" on a runner with 83 GB free on others.
+      - name: Disk usage
+        if: failure()
+        run: |
+          df -h
+          df -i /__w
+          du -sh target ~/.cargo 2>/dev/null || true
       - name: Flatten test results
         if: failure()
         run: |
