@@ -68,7 +68,7 @@
 /* The indent: one guide per level, and the chevron of a row that folds in its own step. */
 .steps {
 	display: flex;
-	column-gap: var(--gap-icon-text);
+	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
 }
@@ -79,7 +79,7 @@
 	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
-	width: 14px;
+	width: 12px;
 }
 
 /* Runs the row's full height and on through the pixel between rows, so the guides of the rows
