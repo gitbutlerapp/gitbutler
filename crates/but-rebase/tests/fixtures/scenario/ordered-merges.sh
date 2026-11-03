@@ -33,6 +33,8 @@ git init nested
   commit baax p3
   git checkout -q --detach c1
   commit aab p2
+  git checkout -q --detach c1
+  empty probe
 )
 
 git init reverted
@@ -44,6 +46,8 @@ git init reverted
   commit baax p3
   git checkout -q --detach c1
   commit aab p2
+  git checkout -q --detach c1
+  empty probe
 )
 
 git init five-leaves

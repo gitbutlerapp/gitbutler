@@ -1317,3 +1317,96 @@ fn workspace_merge_surfaces_delete_vs_modify_conflict() -> Result<()> {
 
     Ok(())
 }
+
+mod ordered_merges {
+    use anyhow::Result;
+    use but_core::commit::SignCommit;
+    use but_rebase::graph_rebase::cherry_pick::{
+        CherryPickOutcome, PickMode, TreeMergeMode, cherry_pick,
+    };
+
+    fn merged_letters(scenario: &str, orders: &[&[&str]]) -> Result<String> {
+        let repo = but_testsupport::read_only_in_memory_scenario_named("ordered-merges", scenario)?;
+        let probe = repo.rev_parse_single("probe")?.detach();
+        let mut out = String::new();
+        for order in orders {
+            let ontos = order
+                .iter()
+                .map(|name| Ok(repo.rev_parse_single(*name)?.detach()))
+                .collect::<Result<Vec<_>>>()?;
+            let outcome = cherry_pick(
+                &repo,
+                probe,
+                &ontos,
+                PickMode::Force,
+                TreeMergeMode::WithRenames,
+                SignCommit::No,
+            )?;
+            let merged = match outcome {
+                CherryPickOutcome::Commit {
+                    id,
+                    conflicted: false,
+                    ..
+                } => {
+                    let file = repo
+                        .find_commit(id)?
+                        .tree()?
+                        .lookup_entry_by_path("file")?
+                        .expect("every commit has the file")
+                        .object()?;
+                    file.data
+                        .split(|byte| *byte == b'\n')
+                        .filter(|line| !line.is_empty() && *line != b"-")
+                        .map(|line| String::from_utf8_lossy(line).into_owned())
+                        .collect()
+                }
+                outcome => format!("{outcome:?}"),
+            };
+            out.push_str(&format!("{}: {merged}\n", order.join(" ")));
+        }
+        Ok(out)
+    }
+
+    #[test]
+    fn parents_merge_along_the_history_they_share() -> Result<()> {
+        // p3 merges with p1 over c2, the commit they share, rather than over c1.
+        snapbox::assert_data_eq!(
+            merged_letters(
+                "nested",
+                &[
+                    &["p1", "p2", "p3"],
+                    &["p2", "p1", "p3"],
+                    &["p1", "p3", "p2"],
+                    &["p1", "p2", "c2"],
+                ]
+            )?,
+            snapbox::str![[r#"
+p1 p2 p3: cbbx
+p2 p1 p3: cbbx
+p1 p3 p2: cbbx
+p1 p2 c2: cbb
+
+"#]]
+        );
+        // p1 undid c2's change, and merging p3 over c1 would bring it back.
+        snapbox::assert_data_eq!(
+            merged_letters(
+                "reverted",
+                &[
+                    &["p1", "p2", "p3"],
+                    &["p2", "p1", "p3"],
+                    &["p1", "p3", "p2"],
+                    &["p1", "p2", "c2"],
+                ]
+            )?,
+            snapbox::str![[r#"
+p1 p2 p3: acbx
+p2 p1 p3: acbx
+p1 p3 p2: acbx
+p1 p2 c2: acb
+
+"#]]
+        );
+        Ok(())
+    }
+}
