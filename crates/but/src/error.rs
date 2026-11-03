@@ -183,15 +183,19 @@ where
                 "Run `but switch --workspace` and start conflict resolution with `but resolve`",
             ));
         }
-        // A linked worktree refuses a checkout only when its uncommitted changes are in the way.
-        if error.is::<but_rebase::graph_rebase::materialize::LinkedWorktreeCheckout>()
-            && error
-                .downcast_ref::<but_error::Context>()
-                .is_some_and(|ctx| ctx.code == but_error::Code::PreconditionFailed)
+        if error.is::<but_core::worktree::checkout::UncommittedChangesInTheWay>()
+            && let Some(refusal) = error.downcast_ref::<but_error::Context>()
         {
             return CliError::BadInput(
-                bad_input(format!("{error:#}"))
-                    .hint("Run `but commit` or `but discard` in that worktree, then retry"),
+                match error
+                    .downcast_ref::<but_rebase::graph_rebase::materialize::LinkedWorktreeCheckout>()
+                {
+                    Some(worktree) => bad_input(format!("{worktree}: {refusal}"))
+                        .hint("Run `but commit` or `but discard` in that worktree, then retry"),
+                    None => bad_input(refusal.to_string())
+                        .code("PreconditionFailed")
+                        .hint("Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry"),
+                },
             );
         }
         #[cfg(feature = "legacy")]

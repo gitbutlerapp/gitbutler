@@ -3057,11 +3057,9 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
     snapbox::assert_data_eq!(
         err.to_debug(),
         snapbox::str![[r#"
-Context {
-    code: PreconditionFailed,
-    message: Some(
-        "Uncommitted files would be overwritten by checkout: \"B\"",
-    ),
+Error {
+    context: "Uncommitted files would be overwritten by checkout: \"B\"",
+    source: UncommittedChangesInTheWay,
 }
 
 "#]]

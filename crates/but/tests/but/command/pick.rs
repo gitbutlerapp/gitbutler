@@ -82,6 +82,8 @@ fn failed_pick_switch_to_existing_branch_rolls_back_materialization() {
         .stderr_eq(str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first"
 
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
+
 "#]]);
 
     // The unselected modification must survive; picked.txt must not leak into the worktree.
@@ -157,6 +159,8 @@ fn failed_pick_switch_restores_ad_hoc_stack_refs() {
         .failure()
         .stderr_eq(str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "first.txt"
+
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
 "#]]);
 
@@ -572,6 +576,8 @@ fn pick_relative_to_branch_rejects_existing_new_branch_name() {
             .stderr_eq(str![[r#"
 Error: A branch named 'B' is already applied
 
+Hint: Pick another name
+
 "#]]);
     }
 
@@ -583,6 +589,8 @@ Error: A branch named 'B' is already applied
             .failure()
             .stderr_eq(str![[r#"
 Error: A branch named 'B' exists but is not applied
+
+Hint: Pick another name, or run `but apply B` if you meant that branch
 
 "#]]);
     }

@@ -108,6 +108,8 @@ fn rejects_naming_an_anonymous_segment_after_an_existing_branch() {
         .stderr_eq(str![[r#"
 Error: A branch named 'A' is already applied
 
+Hint: Pick another name
+
 "#]]);
 }
 
@@ -314,7 +316,44 @@ fn reword_branch_rejects_branch_name_that_already_exists() {
         .stderr_eq(str![[r#"
 Error: A branch named 'existing' is already applied
 
+Hint: Pick another name
+
 "#]]);
+}
+
+#[test]
+fn reword_branch_rejects_name_nesting_with_another_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("branch fix");
+
+    env.but("reword A -m fix/thing")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Branch name 'fix/thing' collides with existing branch 'fix'
+
+Hint: Pick another name
+
+"#]]);
+}
+
+#[test]
+fn reword_branch_may_take_names_that_creating_a_branch_refuses() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("update-ref refs/remotes/origin/taken main");
+
+    env.but("reword A -m taken")
+        .assert()
+        .success()
+        .stderr_eq(str![[]]);
+    // Nesting under its own name is fine, as the rename frees that name.
+    env.but("reword taken -m taken/nested")
+        .assert()
+        .success()
+        .stderr_eq(str![[]]);
 }
 
 #[test]

@@ -4326,6 +4326,8 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: A branch named 'B' exists but is not applied
 
+Hint: Pick another name, or run `but apply B` if you meant that branch
+
 "#]]);
 }
 

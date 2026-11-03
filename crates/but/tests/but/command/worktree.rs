@@ -693,6 +693,34 @@ Hint: Omit --above to check out the existing branch, or pass a new name
 }
 
 #[test]
+fn new_may_take_a_name_that_only_a_remote_has() {
+    let env = adopted_sandbox();
+    env.invoke_git("update-ref refs/remotes/origin/taken main");
+
+    env.but("worktree new taken")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+}
+
+#[test]
+fn new_refuses_a_name_nesting_with_another_branch() {
+    let env = adopted_sandbox();
+    env.invoke_git("branch fix main");
+
+    env.but("worktree new fix/thing")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch name 'fix/thing' collides with existing branch 'fix'
+
+Hint: Pick another name
+
+"#]]);
+}
+
+#[test]
 fn new_retried_after_a_failing_post_checkout_hook_names_the_worktree() {
     let env = adopted_sandbox();
     env.file(

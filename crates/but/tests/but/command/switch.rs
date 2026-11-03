@@ -875,6 +875,8 @@ Hint: run `but branch new` to create a new branch to work on
         .stderr_eq(str![[r#"
 Error: Uncommitted files would be overwritten by checkout: "one"
 
+Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
+
 "#]]);
 
     env.but("status -f")
