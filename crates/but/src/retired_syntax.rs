@@ -324,9 +324,8 @@ struct RetiredAmend {
 }
 
 /// Retired amend failures: the `--changes` flag is the only marker. Bare
-/// positionals are left to the plain parse error — `but amend <a> <b>` is
-/// just as likely a modern invocation missing `--target`, and a retired
-/// reading would reverse it.
+/// positionals parse as sources — `but amend <a> <b>` is just as likely a
+/// modern invocation without `--target`, and a retired reading would reverse it.
 fn amend_hint(tail: &[OsString], agent: bool) -> Option<String> {
     if !has_retired_flag(tail, &["--changes", "-p"]) {
         return None;
