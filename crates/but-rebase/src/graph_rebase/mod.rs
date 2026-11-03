@@ -27,7 +27,7 @@ use gix::{
 };
 
 use crate::graph_rebase::{
-    rewrites::{Lineage, Succession},
+    rewrites::Lineage,
     util::{OrderedParentKind, collect_ordered_parents},
 };
 
@@ -42,6 +42,7 @@ mod merge_tree;
 pub mod mutate;
 pub mod ordering;
 mod rewrites;
+pub use rewrites::Succession;
 pub(crate) mod util;
 pub mod workspace;
 pub use workspace::{GraphWorkspace, Subgraph};

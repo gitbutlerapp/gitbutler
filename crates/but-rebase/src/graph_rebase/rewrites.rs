@@ -1,6 +1,6 @@
 //! Hyperedges between the commits from before a session and the commits it left behind.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
 use but_core::RefMetadata;
@@ -38,13 +38,66 @@ impl Lineage {
 }
 
 /// A commit and what it turned into, which is nothing if it was pruned.
-#[derive(Debug, Clone)]
-pub(crate) struct Succession {
-    pub(crate) prec: gix::ObjectId,
-    pub(crate) succ: Option<gix::ObjectId>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Succession {
+    /// The commit that's gone.
+    pub prec: gix::ObjectId,
+    /// What it turned into.
+    pub succ: Option<gix::ObjectId>,
 }
 
 impl RevisionHistory {
+    /// What every commit that's gone turned into, as one row for each commit it ended up in, or
+    /// a row without a `succ` if it didn't end up in any.
+    ///
+    /// Use [`Self::continuations()`] to find the one commit to keep pointing at.
+    pub fn commit_mappings(&self) -> Vec<Succession> {
+        let mut succs: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for (commit, lineage) in &self.lineages {
+            for prec in lineage.precs() {
+                succs.entry(*prec).or_default().push(Some(*commit));
+            }
+        }
+        for Succession { prec, succ } in &self.successions {
+            succs.entry(*prec).or_default().push(*succ);
+        }
+        let mut mappings = Vec::new();
+        for prec in succs.keys().copied() {
+            let ends = self.ends(&succs, prec);
+            if ends.is_empty() {
+                mappings.push(Succession { prec, succ: None });
+            }
+            mappings.extend(
+                ends.into_iter()
+                    .filter(|end| *end != prec)
+                    .map(|end| Succession {
+                        prec,
+                        succ: Some(end),
+                    }),
+            );
+        }
+        mappings
+    }
+
+    fn ends(
+        &self,
+        succs: &BTreeMap<gix::ObjectId, Vec<Option<gix::ObjectId>>>,
+        start: gix::ObjectId,
+    ) -> BTreeSet<gix::ObjectId> {
+        let mut seen = BTreeSet::from([start]);
+        let mut pending = vec![start];
+        let mut ends = BTreeSet::new();
+        while let Some(commit) = pending.pop() {
+            let nexts = succs.get(&commit);
+            if nexts.is_none() || self.lineages.contains_key(&commit) {
+                ends.insert(commit);
+            }
+            let nexts = nexts.into_iter().flatten().flatten().copied();
+            pending.extend(nexts.filter(|next| seen.insert(*next)));
+        }
+        ends
+    }
+
     /// The commit that `pick` feeds into a fold or split as, which only abbreviates rewrites.
     ///
     /// The output of an earlier fold or split keeps its own place in the hypergraph, under the ID

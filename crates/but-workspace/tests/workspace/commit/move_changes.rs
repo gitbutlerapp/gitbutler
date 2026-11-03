@@ -130,6 +130,51 @@ fn folding_one_half_of_each_of_two_splits_is_a_fold_between_them() -> Result<()>
 
 "#]]
     );
+    // Each original reaches what's left of it and the commit they now share.
+    snapbox::assert_data_eq!(
+        outcome.rebase.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+[
+    Succession {
+        prec: Sha1(0cf46ba9cd6f1285a930cfdba8f4795c96ce5c20),
+        succ: Some(
+            Sha1(5dcea5492787303ae262152859fa924e7017a398),
+        ),
+    },
+    Succession {
+        prec: Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+        succ: Some(
+            Sha1(5dcea5492787303ae262152859fa924e7017a398),
+        ),
+    },
+    Succession {
+        prec: Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+        succ: Some(
+            Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
+        ),
+    },
+    Succession {
+        prec: Sha1(288a385368b0ee35aa726bcb02cc7c940381d966),
+        succ: Some(
+            Sha1(5dcea5492787303ae262152859fa924e7017a398),
+        ),
+    },
+    Succession {
+        prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        succ: Some(
+            Sha1(5dcea5492787303ae262152859fa924e7017a398),
+        ),
+    },
+    Succession {
+        prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        succ: Some(
+            Sha1(830f8f5e69dc6becd18e9db7733a5ec7dfcd2868),
+        ),
+    },
+]
+
+"#]]
+    );
     Ok(())
 }
 
@@ -270,6 +315,31 @@ fn discarding_half_of_a_split_prunes_that_half() -> Result<()> {
     Replace {
         prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
         succ: Sha1(b5e5f88a9d51e96f468dc8ca95e069d69cc1b262),
+    },
+]
+
+"#]]
+    );
+    // The half that was discarded leaves a row of its own, but `two` isn't gone.
+    snapbox::assert_data_eq!(
+        rebase.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+[
+    Succession {
+        prec: Sha1(0cf46ba9cd6f1285a930cfdba8f4795c96ce5c20),
+        succ: None,
+    },
+    Succession {
+        prec: Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+        succ: Some(
+            Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
+        ),
+    },
+    Succession {
+        prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        succ: Some(
+            Sha1(b5e5f88a9d51e96f468dc8ca95e069d69cc1b262),
+        ),
     },
 ]
 
