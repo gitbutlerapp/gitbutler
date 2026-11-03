@@ -10,8 +10,9 @@ heading takes 24px above (twice the text gap), 20px for h3 and below, and 8px
 below, collapsing into the next block's margin. Margins collapse, so a box next
 to a paragraph gets 16, not 28.
 
-**Type.** Body/13 on a 160% line. H1 is 18, H2 16, H3 14, all semibold on a
-130% line so a wrapped heading reads as one. Levels four to six stay at body
+**Type.** Body/13 on a 160% line. H1 is 20, H2 18, H3 16, all semibold on a
+130% line so a wrapped heading reads as one: design-core's `text-h1`,
+`text-h2` and `text-h3`, Figma's Markdown/H1–H3. Levels four to six stay at body
 size, semibold only; Figma has no component for them, and a description that
 needs a fourth level needs fewer levels.
 
