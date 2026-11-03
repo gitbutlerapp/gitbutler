@@ -28,4 +28,5 @@ and keeps it from vanishing on a `--bg-2` panel. A blockquote is
 a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
 `--border-section` ring inset inside `--radius-card` corners, so a white
 screenshot has an edge on a white panel, and opens externally on click. A
-table's cells are bordered in `--border-3` under a `--bg-2` header row.
+table is a Table, as anywhere else in the app: the card `DescriptionList`
+draws, column names in `--text-2`, a hairline under each row but the last.
