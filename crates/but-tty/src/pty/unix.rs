@@ -328,7 +328,7 @@ fn shell_command(
         .current_dir(cwd)
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
-        // Ghostty's, the emulator's, as Claude Code reports progress only to terminals it knows.
+        // Advertise Ghostty compatibility so Claude Code sends progress reports.
         .env("TERM_PROGRAM", "ghostty")
         .env("TERM_PROGRAM_VERSION", "1.3.2")
         .env_remove("TERMINFO")

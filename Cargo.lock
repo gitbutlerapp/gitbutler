@@ -2121,8 +2121,8 @@ dependencies = [
  "anyhow",
  "futures",
  "libc",
- "libghostty-vt",
  "parking_lot",
+ "rustty-vt",
  "serde",
  "serde_json",
  "tempfile",
@@ -3032,6 +3032,15 @@ name = "crc-catalog"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
+
+[[package]]
+name = "crc32c"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f132a176423ee852e8f0a35d43088d1850966b50745be818a88b76f64b1c6cb"
+dependencies = [
+ "rustc_version",
+]
 
 [[package]]
 name = "crc32fast"
@@ -7298,18 +7307,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "int-enum"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98e2fe9fba0e74e6b4cbc96a06d473ee6f2dd675f4b26ef6391a4973060c7ed1"
-dependencies = [
- "proc-macro2",
- "proc-macro2-diagnostics",
- "quote",
- "syn 3.0.9",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7747,21 +7744,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libghostty-vt"
-version = "0.2.1"
-source = "git+https://github.com/uzaaft/libghostty-rs?rev=9ede35b8ea94a55ed3608408d67e102883129f1e#9ede35b8ea94a55ed3608408d67e102883129f1e"
-dependencies = [
- "bitflags 2.13.0",
- "int-enum",
- "libghostty-vt-sys",
-]
-
-[[package]]
-name = "libghostty-vt-sys"
-version = "0.2.1"
-source = "git+https://github.com/uzaaft/libghostty-rs?rev=9ede35b8ea94a55ed3608408d67e102883129f1e#9ede35b8ea94a55ed3608408d67e102883129f1e"
-
-[[package]]
 name = "libgit2-sys"
 version = "0.18.5+1.9.4"
 source = "git+https://github.com/gitbutlerapp/git2-rs?rev=a87a7bb3f6843504339fe7434ee0732a3e968f3e#a87a7bb3f6843504339fe7434ee0732a3e968f3e"
@@ -7985,6 +7967,15 @@ dependencies = [
  "float_next_after",
  "lyon_path",
  "num-traits",
+]
+
+[[package]]
+name = "lz4_flex"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ef0d4ed8669f8f8826eb00dc878084aa8f253506c4fd5e8f58f5bce72ddb97e"
+dependencies = [
+ "twox-hash",
 ]
 
 [[package]]
@@ -9855,17 +9846,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro2-diagnostics"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df921e1ef974ebc8dd9effdb0c037a96928ae8cbf871438e02d6fd67204b595e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.9",
-]
-
-[[package]]
 name = "prodash"
 version = "31.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10533,9 +10513,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.12.4"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1292b7759ae1cb9ec195452d1390a074f0cd8541ab7a5a8c31cd6db45d4a6ba"
+checksum = "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -10545,9 +10525,9 @@ dependencies = [
 
 [[package]]
 name = "regex-automata"
-version = "0.4.14"
+version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e1dd4122fc1595e8162618945476892eefca7b88c52820e74af6262213cae8f"
+checksum = "ad8553b9b26413251cbf30e620595c7a41b3887f03da04579c0e6b0d6a06b4b2"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -10982,6 +10962,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustty-parser"
+version = "0.1.0"
+source = "git+https://github.com/Byron/rustty?branch=rustty#cce4e7f38a2042db5e116beedc5241f668e81a83"
+dependencies = [
+ "simdutf8",
+ "wide",
+]
+
+[[package]]
+name = "rustty-vt"
+version = "0.1.0"
+source = "git+https://github.com/Byron/rustty?branch=rustty#cce4e7f38a2042db5e116beedc5241f668e81a83"
+dependencies = [
+ "base64 0.22.1",
+ "bytemuck",
+ "crc32c",
+ "flate2",
+ "libc",
+ "lz4_flex",
+ "png 0.18.1",
+ "regex",
+ "rustty-parser",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "wide",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11022,6 +11031,15 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
+name = "safe_arch"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42c6efa15875e6ecb39ca61fb0b0c1a40b84fac5a5ffe71eef7d1000c8eb3f5f"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "same-file"
@@ -13843,6 +13861,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "2.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86a801b3cea342a06d468c8710662aa29e5e05e4f5c0d62f00bbb7f2ad7941c2"
+
+[[package]]
 name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14820,6 +14844,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48d7cd18d4acb58fb3cdfe9ea54e6cd96a4e7d4cc45c56338b236e82dad47248"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "wide"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d920ac99c3c8edce110cb8d07dbb324d6d026011dce85b1e9355b70f0adacc4f"
+dependencies = [
+ "bytemuck",
+ "safe_arch",
 ]
 
 [[package]]

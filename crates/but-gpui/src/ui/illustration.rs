@@ -113,7 +113,7 @@ mod tests {
     fn every_drawing_draws_in_every_theme() {
         use crate::theme::{Appearance, CodeSize, ColorScheme, Theme};
         let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::ui::Assets));
-        let rgb = |r, g, b| but_tty::RgbColor { r, g, b };
+        let rgb = |r, g, b| [r, g, b];
         let dark_scheme = but_tty::Colors {
             background: Some(rgb(0x1e, 0x1e, 0x2e)),
             foreground: Some(rgb(0xcd, 0xd6, 0xf4)),

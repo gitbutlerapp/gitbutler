@@ -1,5 +1,5 @@
 //! A terminal without a screen: the user's shell on a pseudo-terminal, emulated by
-//! libghostty-vt on a thread of its own. What it's given is in bytes and cells, what it gives
+//! rustty-vt on a thread of its own. What it's given is in bytes and cells, what it gives
 //! back is a frame of styled text to draw, and what the emulator answers the shell goes
 //! straight back to it.
 
@@ -30,10 +30,21 @@ pub use pty::Size;
 use pty::{Output, Pty};
 pub use vt::{Cursor, Frame, Row, Run, Status, Style};
 
-pub use libghostty_vt::key::{Key, Mods};
-pub use libghostty_vt::mouse;
-pub use libghostty_vt::render::CursorVisualStyle;
-pub use libghostty_vt::style::{RgbColor, Underline};
+pub use rustty_vt::{CursorShape as CursorVisualStyle, Key, Modifiers as Mods, Underline};
+
+/// Red, green and blue channels of a terminal colour.
+pub type RgbColor = [u8; 3];
+
+pub mod mouse {
+    pub use rustty_vt::{MouseAction as Action, MouseButton as Button};
+
+    /// Position on the terminal surface, in pixels.
+    #[derive(Clone, Copy)]
+    pub struct Position {
+        pub x: f32,
+        pub y: f32,
+    }
+}
 
 /// A shell just started, with nothing emulating it yet, so it can start off the UI thread.
 pub struct Shell {
@@ -271,17 +282,13 @@ impl Terminal {
     }
 
     pub fn select_release(&mut self, at: mouse::Position) {
-        self.run(move |emulator| {
-            emulator.vt.select_release(at).ok();
-        });
+        self.run(move |emulator| emulator.vt.select_release(at));
     }
 
     /// Scrolls a row the way the drag went past the top or bottom, if it did, taking the
     /// selection on to `at`.
     pub fn select_autoscroll(&mut self, at: mouse::Position, rectangle: bool) {
-        self.run(move |emulator| {
-            emulator.vt.select_autoscroll(at, rectangle).ok();
-        });
+        self.run(move |emulator| emulator.vt.select_autoscroll(at, rectangle));
     }
 
     pub fn select_all(&mut self) {
@@ -361,7 +368,7 @@ mod tests {
         cell_height: 16,
     };
 
-    const BLACK: RgbColor = RgbColor { r: 0, g: 0, b: 0 };
+    const BLACK: RgbColor = [0, 0, 0];
 
     fn started() -> Terminal {
         let shell = Shell::spawn(&std::env::temp_dir(), SIZE, None).unwrap();

@@ -7,7 +7,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use libghostty_vt::style::RgbColor;
+use crate::RgbColor;
 
 const CONFIG_FILES: [&str; 2] = ["config", "config.ghostty"];
 
@@ -302,7 +302,7 @@ fn rgb(value: &str) -> Option<RgbColor> {
         return None;
     }
     let [_, r, g, b] = u32::from_str_radix(hex, 16).ok()?.to_be_bytes();
-    Some(RgbColor { r, g, b })
+    Some([r, g, b])
 }
 
 #[cfg(test)]
@@ -310,7 +310,7 @@ mod tests {
     use super::*;
 
     const fn c(r: u8, g: u8, b: u8) -> RgbColor {
-        RgbColor { r, g, b }
+        [r, g, b]
     }
 
     #[test]

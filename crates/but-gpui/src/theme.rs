@@ -563,8 +563,8 @@ const GHOSTTY_ANSI: [u32; 16] = [
     0xd54e53, 0xb9ca4a, 0xe7c547, 0x7aa6da, 0xc397d8, 0x70c0b1, 0xeaeaea,
 ];
 
-fn hex(color: RgbColor) -> u32 {
-    u32::from(color.r) << 16 | u32::from(color.g) << 8 | u32::from(color.b)
+fn hex([r, g, b]: RgbColor) -> u32 {
+    u32::from(r) << 16 | u32::from(g) << 8 | u32::from(b)
 }
 
 fn color(hex: u32) -> Hsla {
@@ -620,7 +620,7 @@ fn readable_on(accent: u32, ink: u32, ground: u32) -> u32 {
 
 fn rgb_color(hex: u32) -> RgbColor {
     let [_, r, g, b] = hex.to_be_bytes();
-    RgbColor { r, g, b }
+    [r, g, b]
 }
 
 /// A colour as the `#rrggbb` it was made from.
@@ -641,7 +641,7 @@ mod tests {
 
     fn rgb(hex: u32) -> RgbColor {
         let [_, r, g, b] = hex.to_be_bytes();
-        RgbColor { r, g, b }
+        [r, g, b]
     }
 
     fn palette(background: u32, foreground: u32, ansi: [u32; 8]) -> Colors {

@@ -1,5 +1,5 @@
 //! Terminals opened on a worktree: the user's shell on a pseudo-terminal, emulated by
-//! libghostty-vt and drawn where the detail goes. They end with the app.
+//! rustty-vt and drawn where the detail goes. They end with the app.
 
 use std::cell::Cell;
 use std::ops::Range;
@@ -355,12 +355,7 @@ impl Terminal {
         match (self.held, phase) {
             (Some(Held::Reported), DispatchPhase::Capture) => {
                 let button = event.pressed_button.and_then(button);
-                self.report(
-                    mouse::Action::Motion,
-                    button,
-                    event.position,
-                    event.modifiers,
-                );
+                self.report(mouse::Action::Move, button, event.position, event.modifiers);
                 cx.stop_propagation();
             }
             (Some(Held::Selecting { .. }), DispatchPhase::Capture) => {
@@ -376,7 +371,7 @@ impl Terminal {
             }
             (None, DispatchPhase::Bubble) => {
                 if hovered && self.reports(event.modifiers) {
-                    self.report(mouse::Action::Motion, None, event.position, event.modifiers);
+                    self.report(mouse::Action::Move, None, event.position, event.modifiers);
                 }
                 self.hover(hovered.then_some(event.position), event.modifiers, cx);
             }
@@ -606,7 +601,7 @@ impl Render for Terminal {
             // unfocused whatever it is, as in Ghostty.
             match style {
                 _ if !focused => at.border_1().border_color(cursor_color),
-                CursorVisualStyle::BlockHollow => at.border_1().border_color(cursor_color),
+                CursorVisualStyle::HollowBlock => at.border_1().border_color(cursor_color),
                 CursorVisualStyle::Bar => at.w(thickness).bg(cursor_color),
                 // Where the text's underline is drawn.
                 CursorVisualStyle::Underline => at
@@ -616,8 +611,7 @@ impl Render for Terminal {
                     )
                     .h(thickness)
                     .bg(cursor_color),
-                // A block, as is the default, for a shape libghostty adds later.
-                _ => at.bg(cursor_color).text_color(background).child(text),
+                CursorVisualStyle::Block => at.bg(cursor_color).text_color(background).child(text),
             }
         });
         let mut cursor = div().size_full().children(cursor).into_any_element();
@@ -784,11 +778,12 @@ fn button(button: MouseButton) -> Option<mouse::Button> {
 }
 
 fn mods(modifiers: Modifiers) -> Mods {
-    let mut mods = Mods::empty();
-    mods.set(Mods::SHIFT, modifiers.shift);
-    mods.set(Mods::ALT, modifiers.alt);
-    mods.set(Mods::CTRL, modifiers.control);
-    mods
+    Mods {
+        shift: modifiers.shift,
+        alt: modifiers.alt,
+        control: modifiers.control,
+        ..Mods::default()
+    }
 }
 
 /// What the shell titled the terminal, or that it's one.
@@ -928,11 +923,11 @@ fn shown_text(row: &Row) -> impl Iterator<Item = (u16, &str, &Run)> {
     })
 }
 
-fn hsla(color: RgbColor) -> Hsla {
+fn hsla([r, g, b]: RgbColor) -> Hsla {
     Rgba {
-        r: f32::from(color.r) / 255.,
-        g: f32::from(color.g) / 255.,
-        b: f32::from(color.b) / 255.,
+        r: f32::from(r) / 255.,
+        g: f32::from(g) / 255.,
+        b: f32::from(b) / 255.,
         a: 1.,
     }
     .into()
@@ -941,114 +936,35 @@ fn hsla(color: RgbColor) -> Hsla {
 fn rgb_color(color: Hsla) -> RgbColor {
     let rgba = Rgba::from(color);
     let byte = |channel: f32| (channel * 255.).round() as u8;
-    RgbColor {
-        r: byte(rgba.r),
-        g: byte(rgba.g),
-        b: byte(rgba.b),
-    }
+    [byte(rgba.r), byte(rgba.g), byte(rgba.b)]
 }
 
 /// The physical key GPUI names `key`, for the encoder to look up what to send.
 fn key_for(key: &str) -> Key {
     let mut chars = key.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
-        const LETTERS: [Key; 26] = [
-            Key::A,
-            Key::B,
-            Key::C,
-            Key::D,
-            Key::E,
-            Key::F,
-            Key::G,
-            Key::H,
-            Key::I,
-            Key::J,
-            Key::K,
-            Key::L,
-            Key::M,
-            Key::N,
-            Key::O,
-            Key::P,
-            Key::Q,
-            Key::R,
-            Key::S,
-            Key::T,
-            Key::U,
-            Key::V,
-            Key::W,
-            Key::X,
-            Key::Y,
-            Key::Z,
-        ];
-        const DIGITS: [Key; 10] = [
-            Key::Digit0,
-            Key::Digit1,
-            Key::Digit2,
-            Key::Digit3,
-            Key::Digit4,
-            Key::Digit5,
-            Key::Digit6,
-            Key::Digit7,
-            Key::Digit8,
-            Key::Digit9,
-        ];
-        return match c.to_ascii_lowercase() {
-            c @ 'a'..='z' => LETTERS
-                .get(usize::from(c as u8 - b'a'))
-                .copied()
-                .unwrap_or(Key::Unidentified),
-            c @ '0'..='9' => DIGITS
-                .get(usize::from(c as u8 - b'0'))
-                .copied()
-                .unwrap_or(Key::Unidentified),
-            '`' => Key::Backquote,
-            '\\' => Key::Backslash,
-            '[' => Key::BracketLeft,
-            ']' => Key::BracketRight,
-            ',' => Key::Comma,
-            '=' => Key::Equal,
-            '-' => Key::Minus,
-            '.' => Key::Period,
-            '\'' => Key::Quote,
-            ';' => Key::Semicolon,
-            '/' => Key::Slash,
-            ' ' => Key::Space,
-            _ => Key::Unidentified,
-        };
+        return Key::Char(c.to_ascii_lowercase());
     }
-    const FUNCTION: [Key; 12] = [
-        Key::F1,
-        Key::F2,
-        Key::F3,
-        Key::F4,
-        Key::F5,
-        Key::F6,
-        Key::F7,
-        Key::F8,
-        Key::F9,
-        Key::F10,
-        Key::F11,
-        Key::F12,
-    ];
     match key {
         "enter" => Key::Enter,
         "backspace" => Key::Backspace,
         "tab" => Key::Tab,
         "escape" => Key::Escape,
-        "space" => Key::Space,
+        "space" => Key::Char(' '),
         "delete" => Key::Delete,
         "insert" => Key::Insert,
         "home" => Key::Home,
         "end" => Key::End,
         "pageup" => Key::PageUp,
         "pagedown" => Key::PageDown,
-        "up" => Key::ArrowUp,
-        "down" => Key::ArrowDown,
-        "left" => Key::ArrowLeft,
-        "right" => Key::ArrowRight,
+        "up" => Key::Up,
+        "down" => Key::Down,
+        "left" => Key::Left,
+        "right" => Key::Right,
         _ => (key.strip_prefix('f'))
-            .and_then(|n| n.parse::<usize>().ok())
-            .and_then(|n| FUNCTION.get(n.wrapping_sub(1)).copied())
+            .and_then(|n| n.parse::<u8>().ok())
+            .filter(|n| (1..=12).contains(n))
+            .map(Key::Function)
             .unwrap_or(Key::Unidentified),
     }
 }
@@ -1058,6 +974,36 @@ mod tests {
     use but_tty::Style;
 
     use super::*;
+
+    #[test]
+    fn gpui_key_names_reach_the_terminal_encoder() {
+        for (name, expected) in [
+            ("A", Key::Char('a')),
+            ("3", Key::Char('3')),
+            ("[", Key::Char('[')),
+            ("space", Key::Char(' ')),
+            ("enter", Key::Enter),
+            ("up", Key::Up),
+            ("f1", Key::Function(1)),
+            ("f12", Key::Function(12)),
+            ("f0", Key::Unidentified),
+            ("f13", Key::Unidentified),
+            ("unknown", Key::Unidentified),
+        ] {
+            assert_eq!(key_for(name), expected, "GPUI key name: {name}");
+        }
+        let modifiers = mods(Modifiers {
+            shift: true,
+            alt: true,
+            control: true,
+            platform: true,
+            ..Modifiers::default()
+        });
+        assert!(
+            modifiers.shift && modifiers.alt && modifiers.control && !modifiers.super_key,
+            "terminal modifiers retain shift, alt and control; platform chords belong to the app"
+        );
+    }
 
     #[test]
     fn a_point_over_a_fractional_cell_lands_in_that_cell_on_the_surface() {
@@ -1134,7 +1080,7 @@ mod tests {
     }
 
     const PLAIN: Style = Style {
-        fg: RgbColor { r: 0, g: 0, b: 0 },
+        fg: [0, 0, 0],
         bg: None,
         bold: false,
         underline: Underline::None,
@@ -1148,7 +1094,7 @@ mod tests {
             (shown_text(row).map(|(column, text, _)| (column, text.to_owned()))).collect()
         };
         let number = Style {
-            fg: RgbColor { r: 9, g: 9, b: 9 },
+            fg: [9, 9, 9],
             ..PLAIN
         };
         let narrow = row(&[("  12 ", 5, number), ("fn main()  ", 11, PLAIN)]);
@@ -1225,7 +1171,7 @@ mod tests {
     #[test]
     fn backgrounds_side_by_side_in_one_colour_are_joined() {
         let on = |r| Style {
-            bg: Some(RgbColor { r, g: 0, b: 0 }),
+            bg: Some([r, 0, 0]),
             ..PLAIN
         };
         let row = row(&[
@@ -1236,7 +1182,7 @@ mod tests {
             ("y", 1, on(2)),
         ]);
         let joined: Vec<_> = (backgrounds(&row).into_iter())
-            .map(|(columns, color)| (columns, color.r))
+            .map(|(columns, [r, _, _])| (columns, r))
             .collect();
         assert_eq!(
             joined,

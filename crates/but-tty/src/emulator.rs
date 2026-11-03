@@ -1,5 +1,5 @@
 //! The emulator on a thread of its own, where what the shell writes is read, answered and
-//! drawn, so a program printing without pause never holds up the UI. libghostty's terminal
+//! drawn, so a program printing without pause never holds up the UI. rustty's terminal
 //! can't leave the thread it was made on, so what the UI does to it is sent there to run.
 
 use std::sync::Arc;
@@ -104,16 +104,9 @@ pub(crate) fn start(
     std::thread::Builder::new()
         .name("terminal".into())
         .spawn(move || {
-            let vt = match Vt::new(size) {
-                Ok(vt) => vt,
-                Err(err) => {
-                    ready.send(Err(err)).ok();
-                    return;
-                }
-            };
             let mut emulator = Emulator {
                 pty,
-                vt,
+                vt: Vt::new(size),
                 chosen: Colors::default(),
                 unshown: true,
                 ended: false,
@@ -121,11 +114,11 @@ pub(crate) fn start(
             };
             setup(&mut emulator);
             emulator.publish(&showing);
-            if ready.send(Ok(())).is_ok() {
+            if ready.send(()).is_ok() {
                 run(emulator, output, received, &showing, wake);
             }
         })?;
-    started.recv()??;
+    started.recv()?;
     Ok(Started {
         messages,
         shown,
@@ -284,7 +277,7 @@ impl Emulator {
             shown.stale = due && !draw;
             (draw, changed)
         };
-        let frame = draw.then(|| self.vt.frame(&self.chosen).unwrap_or_default());
+        let frame = draw.then(|| self.vt.frame(&self.chosen));
         let hold_until = self.vt.hold_deadline();
         let mut shown = shown.lock();
         if let Some(frame) = frame {

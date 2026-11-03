@@ -138,8 +138,6 @@ jobs:
         with:
           # One cache for both channels: their builds differ only in the nightly feature.
           shared-key: app-release-build-${{ matrix.target }}${{ matrix.platform }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 

@@ -1,32 +1,27 @@
-//! The emulator: libghostty-vt's terminal, with the encoders that turn keys, the mouse and
-//! pastes into what the shell reads, and the frames drawn from it.
+//! Rustty's terminal, input encoders, and the frames drawn from it.
 
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::ops::Range;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use libghostty_vt::error::Error;
-use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
-use libghostty_vt::focus;
-use libghostty_vt::key::{self, Key, Mods};
-use libghostty_vt::mouse;
-use libghostty_vt::render::{CellIterator, CursorVisualStyle, Dirty, RowId, RowIterator};
-use libghostty_vt::screen::{CellWide, Screen};
-use libghostty_vt::selection::gesture::{self, Gesture};
-use libghostty_vt::style::{RgbColor, Underline};
-use libghostty_vt::terminal::{
-    ClipboardWriteError, ColorScheme, Mode, Point as GridPoint, PointCoordinate, ProgramStatus,
-    ProgramStatusState, ProgressReport, ProgressState, ScrollViewport,
+use anyhow::Context;
+#[cfg(unix)]
+use rustty_vt::formatter::{Format, TerminalExtra};
+use rustty_vt::program_status;
+use rustty_vt::query::{self, ColorScheme};
+use rustty_vt::render::{CursorKey, RenderCursor, RowKey, ViewKey};
+use rustty_vt::selection::DEFAULT_WORD_BOUNDARIES;
+use rustty_vt::selection_gesture as gesture;
+use rustty_vt::{
+    Effect, EffectHandler, GridPoint, KeyEncodeOptions, KeyEvent, MouseEncodeOptions, MouseEvent,
+    ScrollbackLimits, Terminal, clipboard,
 };
-use libghostty_vt::{RenderState, paste};
 
-use super::{Colors, Size};
+use super::{Colors, CursorVisualStyle, Key, Mods, RgbColor, Size, Underline, mouse};
 
 /// How a run of cells draws; its background only where it isn't the default.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Style {
     pub fg: RgbColor,
     pub bg: Option<RgbColor>,
@@ -37,7 +32,7 @@ pub struct Style {
 }
 
 /// A row's text, in runs of cells that draw alike.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Row {
     pub text: String,
     pub runs: Vec<Run>,
@@ -45,7 +40,7 @@ pub struct Row {
 
 /// Cells side by side that draw alike. A wide character is a run of its own, so each of a
 /// run's characters takes one column but for that one.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Run {
     /// The bytes of the row's text it covers.
     pub text: Range<usize>,
@@ -58,7 +53,7 @@ pub struct Run {
 
 /// The cursor's cell, by column and row, with the text under it and the shape the program
 /// last set (DECSCUSR), as nvim's bar in insert mode.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Cursor {
     pub x: u16,
     pub y: u16,
@@ -67,7 +62,7 @@ pub struct Cursor {
 }
 
 /// What a frame draws. A row that didn't change is the one the frame before drew.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Frame {
     pub rows: Vec<Arc<Row>>,
     pub cursor: Option<Cursor>,
@@ -92,34 +87,30 @@ pub enum Status {
 
 impl Status {
     /// The root record of a report; records beneath it are parts of the work.
-    fn reported(report: ProgramStatus<'_>) -> Option<Self> {
-        if !report.id().is_empty() {
+    fn reported(report: program_status::Report) -> Option<Self> {
+        if report.id.is_some() {
             return None;
         }
-        let message = || String::from_utf8_lossy(report.message()).into_owned();
-        match report.state().ok()? {
-            ProgramStatusState::Idle | ProgramStatusState::Clear => Some(Self::Idle),
-            ProgramStatusState::Working => Some(Self::Working),
-            ProgramStatusState::Blocked => Some(Self::Blocked(message())),
-            ProgramStatusState::Done => Some(Self::Done),
-            ProgramStatusState::Error => Some(Self::Failed(message())),
-            _ => None,
-        }
+        Some(match report.state {
+            program_status::State::Idle | program_status::State::Clear => Self::Idle,
+            program_status::State::Working => Self::Working,
+            program_status::State::Blocked => Self::Blocked(report.message),
+            program_status::State::Done => Self::Done,
+            program_status::State::Error => Self::Failed(report.message),
+        })
     }
 
-    /// What a progress report (OSC 9;4) says, as pi and Claude Code send it for a turn, keeping
-    /// what the work under way ends in once the progress is removed: done, or failed if it
-    /// reported an error, as it goes on after one. It has no word for blocked.
-    fn progressed(report: ProgressReport<'_>, ending: &mut Self) -> Option<Self> {
-        match report.state().ok()? {
-            ProgressState::Remove => Some(std::mem::take(ending)),
-            ProgressState::Set | ProgressState::Indeterminate => {
+    /// Keep the outcome until a progress report removes the task.
+    fn progressed(state: u8, ending: &mut Self) -> Option<Self> {
+        match state {
+            0 => Some(std::mem::take(ending)),
+            1 | 3 => {
                 if *ending == Self::Idle {
                     *ending = Self::Done;
                 }
                 Some(Self::Working)
             }
-            ProgressState::Error => {
+            2 => {
                 *ending = Self::Failed(String::new());
                 Some(Self::Working)
             }
@@ -128,175 +119,60 @@ impl Status {
     }
 }
 
-/// How long a program may hold the screen on the frame it began updating from before it's
-/// drawn as it is, as one that crashed or forgot never ends the hold. Ghostty's too.
+/// A program that never ends synchronized output must not freeze its display.
 const HOLD_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// The emulator and what it's read and written with.
 pub(crate) struct Vt {
-    term: libghostty_vt::Terminal<'static, 'static>,
-    drawer: Rc<RefCell<Drawer>>,
-    /// The frame shown while the program updates the screen in one go (synchronized output,
-    /// 2026), as nvim redraws, so a half-drawn screen never shows.
-    hold: Rc<Cell<Option<Hold>>>,
-    /// Whether a hold takes the frame it began from: only while the terminal is on screen, as
-    /// one out of sight draws nothing to keep.
-    capturing: Rc<Cell<bool>>,
-    keys: key::Encoder<'static>,
-    key: key::Event<'static>,
-    mouse: mouse::Encoder<'static>,
-    pointer: mouse::Event<'static>,
-    selecting: Gesture<'static>,
-    press: gesture::PressEvent<'static>,
-    drag: gesture::DragEvent<'static>,
-    release: gesture::ReleaseEvent<'static>,
-    tick: gesture::AutoscrollTickEvent<'static>,
-    /// When the gesture was last told a press was, by clicks rather than the clock.
+    term: Terminal,
+    drawer: Drawer,
+    hold: Option<Hold>,
+    capturing: bool,
+    selecting: gesture::SelectionGesture,
+    /// The synthetic click time preserves the platform's repeat classification.
     pressed: Duration,
-    /// What the emulator answers the shell's queries with, to send it.
-    replies: Rc<Cell<Vec<u8>>>,
-    retitled: Rc<Cell<bool>>,
-    reported: Rc<Cell<Option<Status>>>,
-    /// Whether the program running reports its status by OSC 7501, which then speaks over its
-    /// progress reports, as one may send both.
-    reports_status: Rc<Cell<bool>>,
-    /// What the work the program running reported progress on ends in once the progress is
-    /// removed: idle if none is under way.
-    progress_ending: Rc<Cell<Status>>,
-    /// The text the program running last copied (OSC 52), for the clipboard.
-    copied: Rc<Cell<Option<String>>>,
-    /// Whether the default background reads as light or dark, once the colours are set, for
-    /// programs that ask (996) or want to be told when it changes (2031).
-    scheme: Rc<Cell<Option<ColorScheme>>>,
+    last_mouse_cell: Option<[u16; 2]>,
+    replies: Vec<u8>,
+    retitled: bool,
+    reported: Option<Status>,
+    reports_status: bool,
+    progress_ending: Status,
+    copied: Option<String>,
     size: Size,
 }
 
 impl Vt {
-    pub(crate) fn new(size: Size) -> libghostty_vt::error::Result<Self> {
-        use libghostty_vt::terminal::{
-            ConformanceLevel, DeviceAttributeFeature, DeviceAttributes, DeviceType,
-            PrimaryDeviceAttributes, SecondaryDeviceAttributes, TertiaryDeviceAttributes,
-        };
-        let mut term = libghostty_vt::Terminal::new(size.cols, size.rows)?;
-        // Ghostty's default `scrollback-limit`.
-        term.set_scrollback_max_bytes(Some(10_000_000))?;
-        let replies = Rc::new(Cell::new(Vec::new()));
-        let retitled = Rc::new(Cell::new(false));
-        let reported = Rc::new(Cell::new(None));
-        let reports_status = Rc::new(Cell::new(false));
-        let progress_ending = Rc::new(Cell::new(Status::Idle));
-        let copied = Rc::new(Cell::new(None));
-        let scheme = Rc::new(Cell::new(None));
-        let (sent, titled) = (replies.clone(), retitled.clone());
-        let (copy, told) = (copied.clone(), scheme.clone());
-        let (heard, spoke) = (reported.clone(), reports_status.clone());
-        let (progressed, by_status, ends) = (
-            reported.clone(),
-            reports_status.clone(),
-            progress_ending.clone(),
+    pub(crate) fn new(size: Size) -> Self {
+        let mut term = Terminal::with_limits(
+            size.cols,
+            size.rows,
+            ScrollbackLimits {
+                bytes: Some(10_000_000),
+                lines: None,
+            },
         );
-        let drawer = Rc::new(RefCell::new(Drawer {
-            state: RenderState::new()?,
-            rows: RowIterator::new()?,
-            cells: CellIterator::new()?,
-            chosen: Colors::default(),
-            drawn: HashMap::new(),
-            last: Arc::default(),
-            redraw_all: true,
-        }));
-        let hold = Rc::new(Cell::new(None));
-        let capturing = Rc::new(Cell::new(true));
-        let (capture, held, shown) = (drawer.clone(), hold.clone(), capturing.clone());
-        // Called as a hold begins, before anything the program wrote after, so the frame taken
-        // is the one it means to leave up. It runs inside libghostty, where a panic aborts.
-        term.on_render_hold(move |term, holds| {
-            let frame = (holds && shown.get())
-                .then(|| capture.try_borrow_mut().ok()?.frame(term).ok())
-                .flatten();
-            held.set(frame.map(|frame| Hold {
-                frame,
-                since: Instant::now(),
-            }));
-        })?
-        .on_pty_write(move |_, bytes| {
-            let mut all = sent.take();
-            all.extend_from_slice(bytes);
-            sent.set(all);
-        })?
-        .on_title_changed(move |_| titled.set(true))?
-        // Its text, wherever the program says to copy to, as macOS has the one clipboard. Programs
-        // may only write it: one that asks to read it (OSC 52 ?) isn't answered.
-        .on_clipboard_write(move |_, write| {
-            let text = (write.contents())
-                .find(|content| content.mime.starts_with(b"text/plain"))
-                .map(|content| String::from_utf8_lossy(content.data).into_owned());
-            match text {
-                Some(text) => {
-                    copy.set(Some(text));
-                    write.reply(Ok(()), false);
-                }
-                None => write.reply(Err(ClipboardWriteError::Unsupported), false),
-            }
-        })?
-        .on_color_scheme(move |_| told.get())?
-        // Set, it has the terminal tell programs that ask that it listens.
-        .on_program_status(move |_, report| {
-            if let Some(status) = Status::reported(report) {
-                heard.set(Some(status));
-                spoke.set(true);
-            }
-        })?
-        .on_progress_report(move |_, report| {
-            if by_status.get() {
-                return;
-            }
-            let mut ending = ends.take();
-            if let Some(status) = Status::progressed(report, &mut ending) {
-                progressed.set(Some(status));
-            }
-            ends.set(ending);
-        })?
-        // Shells and editors wait on the answer to which terminal this is.
-        .on_device_attributes(|_| {
-            Some(DeviceAttributes {
-                primary: PrimaryDeviceAttributes::new(
-                    ConformanceLevel::VT220,
-                    &[DeviceAttributeFeature::ANSI_COLOR],
-                ),
-                secondary: SecondaryDeviceAttributes {
-                    device_type: DeviceType::VT220,
-                    firmware_version: 0,
-                    rom_cartridge: 0,
-                },
-                tertiary: TertiaryDeviceAttributes { unit_id: 0 },
-            })
-        })?;
-        let mut mouse = mouse::Encoder::new()?;
-        mouse.set_track_last_cell(true).set_size(encoder_size(size));
-        Ok(Self {
+        term.set_graphics_limit(0);
+        term.program_status_events = true;
+        term.set_pixel_size(
+            u32::from(size.cols) * u32::from(size.cell_width),
+            u32::from(size.rows) * u32::from(size.cell_height),
+        );
+        Self {
             term,
-            drawer,
-            hold,
-            capturing,
-            keys: key::Encoder::new()?,
-            key: key::Event::new()?,
-            mouse,
-            pointer: mouse::Event::new()?,
-            selecting: Gesture::new()?,
-            press: gesture::PressEvent::new()?,
-            drag: gesture::DragEvent::new()?,
-            release: gesture::ReleaseEvent::new()?,
-            tick: gesture::AutoscrollTickEvent::new()?,
+            drawer: Drawer::default(),
+            hold: None,
+            capturing: true,
+            selecting: gesture::SelectionGesture::default(),
             pressed: Duration::ZERO,
-            replies,
-            retitled,
-            reported,
-            reports_status,
-            progress_ending,
-            copied,
-            scheme,
+            last_mouse_cell: None,
+            replies: Vec::new(),
+            retitled: false,
+            reported: None,
+            reports_status: false,
+            progress_ending: Status::Idle,
+            copied: None,
             size,
-        })
+        }
     }
 
     pub(crate) fn key(
@@ -306,94 +182,90 @@ impl Vt {
         text: Option<String>,
         unshifted: Option<char>,
     ) -> Vec<u8> {
-        self.keys.set_options_from_terminal(&self.term);
-        let event = &mut self.key;
-        event
-            .set_action(key::Action::Press)
-            .set_key(key)
-            .set_mods(mods)
-            .set_consumed_mods(mods_spent_on_text(mods))
-            .set_utf8(text)
-            .set_unshifted_codepoint(unshifted.unwrap_or('\0'));
-        let mut bytes = Vec::new();
-        self.keys.encode_to_vec(&self.key, &mut bytes).ok();
-        bytes
+        self.term.encode_key_with_options(
+            &KeyEvent {
+                key,
+                modifiers: mods,
+                consumed_modifiers: Mods {
+                    shift: mods.shift,
+                    alt: cfg!(target_os = "macos") && mods.alt,
+                    ..Mods::default()
+                },
+                text,
+                unshifted,
+                ..KeyEvent::new(key)
+            },
+            KeyEncodeOptions {
+                macos_option_as_alt: !cfg!(target_os = "macos"),
+            },
+        )
     }
 
-    /// Takes what the program wrote, and the mouse tracking it may have asked for with it.
-    /// Taking that clears which cell motion was last told of, so it's taken here rather than
-    /// with each motion.
-    // ponytail: a program that writes as it's told of motion is told of each move within a cell;
-    // take the tracking per event once Ghostty's setopt_from_terminal keeps the cell, as setopt
-    // does, when nothing changed.
+    /// Native synchronous callbacks observe controls before later batched text.
     pub(crate) fn write(&mut self, bytes: &[u8]) {
-        self.term.vt_write(bytes);
-        self.mouse.set_options_from_terminal(&self.term);
+        let mut defaults = self.term.query_defaults.clone();
+        defaults.size.get_or_insert(self.term.query_size());
+        self.term.feed_with_handler(
+            bytes,
+            &mut Host {
+                drawer: &mut self.drawer,
+                hold: &mut self.hold,
+                capturing: self.capturing,
+                replies: &mut self.replies,
+                retitled: &mut self.retitled,
+                reported: &mut self.reported,
+                reports_status: &mut self.reports_status,
+                progress_ending: &mut self.progress_ending,
+                copied: &mut self.copied,
+                last_mouse_cell: &mut self.last_mouse_cell,
+                defaults: &defaults,
+            },
+        );
     }
 
     pub(crate) fn size(&self) -> Size {
         self.size
     }
 
-    /// The title the shell set, lossily as text.
     pub(crate) fn title(&self) -> String {
-        String::from_utf8_lossy(self.term.title().unwrap_or_default()).into_owned()
+        self.term.title.clone()
     }
 
-    /// The title, if the shell set one since this was last asked.
     pub(crate) fn retitled(&mut self) -> Option<String> {
-        self.retitled.take().then(|| self.title())
+        std::mem::take(&mut self.retitled).then(|| self.title())
     }
 
-    /// What the program running last reported, if it did since this was last asked.
     pub(crate) fn reported(&mut self) -> Option<Status> {
         self.reported.take()
     }
 
-    /// The program that reported has gone, so the next is heard by whichever way it reports.
-    pub(crate) fn reporter_gone(&self) {
-        self.reports_status.set(false);
-        self.progress_ending.set(Status::Idle);
+    pub(crate) fn reporter_gone(&mut self) {
+        self.reports_status = false;
+        self.progress_ending = Status::Idle;
     }
 
-    /// The text the program running copied, if it did since this was last asked.
     pub(crate) fn copied(&mut self) -> Option<String> {
         self.copied.take()
     }
 
-    /// The terminal gaining or losing the keys, as told to a program that asked (1004), as
-    /// nvim does to reload files changed meanwhile.
     pub(crate) fn focus(&self, focused: bool) -> Vec<u8> {
-        if !self.term.mode(Mode::FOCUS_EVENT).unwrap_or(false) {
-            return Vec::new();
-        }
-        let event = match focused {
-            true => focus::Event::Gained,
-            false => focus::Event::Lost,
-        };
-        let mut bytes = [0; 8];
-        let written = event.encode(&mut bytes).unwrap_or(0);
-        bytes[..written].to_vec()
+        self.term.encode_focus(focused)
     }
 
-    /// What the emulator answered the shell's queries with since this was last asked.
     pub(crate) fn take_replies(&mut self) -> Vec<u8> {
-        self.replies.take()
+        std::mem::take(&mut self.replies)
     }
 
-    /// Typing shows the bottom, and drops the selection.
     pub(crate) fn typed(&mut self) {
-        self.term.scroll_viewport(ScrollViewport::Bottom);
-        self.term.set_selection(None).ok();
+        self.term.screen_mut().scroll_viewport(isize::MIN);
+        self.term.screen_mut().selection = None;
     }
 
     pub(crate) fn tracks_mouse(&self) -> bool {
-        self.term.is_mouse_tracking().unwrap_or(false)
+        self.term.mouse_mode != 0
     }
 
-    /// The defaults `colors` sets, with `background` and `foreground` where it sets none.
-    /// Returns, for a program that asked to be told (2031), that the background now reads as
-    /// light or dark, if it changed.
+    /// Configure defaults without discarding application color overrides.
     pub(crate) fn set_colors(
         &mut self,
         colors: &Colors,
@@ -402,44 +274,41 @@ impl Vt {
     ) -> Vec<u8> {
         let background = colors.background.unwrap_or(background);
         let scheme = scheme_of(background);
-        let rescheme = self.scheme.replace(Some(scheme)) != Some(scheme);
-        let term = &mut self.term;
-        term.set_default_bg_color(Some(background)).ok();
-        term.set_default_fg_color(Some(colors.foreground.unwrap_or(foreground)))
-            .ok();
-        term.set_default_cursor_color(colors.cursor).ok();
-        term.set_default_color_palette(None).ok();
-        if let Ok(mut palette) = term.default_color_palette() {
-            for &(index, color) in &colors.palette {
-                if let Some(entry) = palette.0.get_mut(usize::from(index)) {
-                    *entry = color;
-                }
-            }
-            term.set_default_color_palette(Some(palette)).ok();
+        let rescheme = self.term.query_defaults.color_scheme.replace(scheme) != Some(scheme);
+        let mut palette = rustty_vt::default_palette();
+        for &(index, color) in &colors.palette {
+            palette[usize::from(index)] = color;
         }
-        if !(rescheme && term.mode(Mode::COLOR_SCHEME_REPORT).unwrap_or(false)) {
-            return Vec::new();
+        self.term.set_default_colors(
+            Some(colors.foreground.unwrap_or(foreground)),
+            Some(background),
+            colors.cursor,
+            &palette,
+        );
+        if rescheme && self.term.modes.dec(2031) {
+            scheme.encode()
+        } else {
+            Vec::new()
         }
-        let mut bytes = [0; 16];
-        let written = scheme.encode_report(&mut bytes).unwrap_or(0);
-        bytes[..written].to_vec()
     }
 
-    /// Sizes the emulator and, so motion is told of once a cell, the mouse encoder only when
-    /// the size changes. Returns the new size as reported to a program that asked to be told
-    /// in-band (2048), as nvim does, which then redraws only once it's told.
     pub(crate) fn resize(&mut self, size: Size) -> Vec<u8> {
         self.size = size;
-        let cell = (u32::from(size.cell_width), u32::from(size.cell_height));
-        (self.term)
-            .resize(size.cols, size.rows, cell.0, cell.1)
-            .ok();
-        self.mouse.set_size(encoder_size(size));
+        self.hold = None;
+        self.last_mouse_cell = None;
+        let effects = self.term.resize_with_cell_size(
+            size.cols,
+            size.rows,
+            Some((u32::from(size.cell_width), u32::from(size.cell_height))),
+        );
+        for effect in effects {
+            if let Effect::Write(bytes) = effect {
+                self.replies.extend_from_slice(&bytes);
+            }
+        }
         self.take_replies()
     }
 
-    /// `button` going `action` over `at` on the grid, for a program tracking the mouse; nothing
-    /// for what it doesn't track, or motion within the cell it was last told of.
     pub(crate) fn mouse(
         &mut self,
         action: mouse::Action,
@@ -447,33 +316,41 @@ impl Vt {
         at: mouse::Position,
         mods: Mods,
     ) -> Vec<u8> {
-        (self.mouse).set_any_button_pressed(action != mouse::Action::Release && button.is_some());
-        (self.pointer)
-            .set_action(action)
-            .set_button(button)
-            .set_mods(mods)
-            .set_position(at);
-        let mut bytes = Vec::new();
-        self.mouse.encode_to_vec(&self.pointer, &mut bytes).ok();
-        bytes
+        self.term.encode_mouse(
+            MouseEvent {
+                action,
+                button,
+                x: f64::from(at.x),
+                y: f64::from(at.y),
+                modifiers: mods,
+            },
+            MouseEncodeOptions {
+                screen_size: [
+                    f64::from(self.size.cols) * f64::from(self.size.cell_width),
+                    f64::from(self.size.rows) * f64::from(self.size.cell_height),
+                ],
+                cell_size: [
+                    u32::from(self.size.cell_width.max(1)),
+                    u32::from(self.size.cell_height.max(1)),
+                ],
+                padding: [0.; 4],
+                any_button_pressed: action != mouse::Action::Release && button.is_some(),
+                last_cell: Some(&mut self.last_mouse_cell),
+            },
+        )
     }
 
-    /// The wheel turned `lines` up, or down if negative, over `at` on the grid, for a program
-    /// tracking the mouse.
     fn wheel(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
         let button = if lines > 0. {
-            mouse::Button::Four
+            mouse::Button::WheelUp
         } else {
-            mouse::Button::Five
+            mouse::Button::WheelDown
         };
         (0..lines.abs() as usize)
             .flat_map(|_| self.mouse(mouse::Action::Press, Some(button), at, mods))
             .collect()
     }
 
-    /// The wheel turned `lines` up, or down if negative, over `at` on the surface: told to a
-    /// program tracking the mouse, sent as arrows to an alternate screen that asks for them,
-    /// or else scrolling back through what scrolled off.
     pub(crate) fn scroll(&mut self, lines: f32, at: mouse::Position, mods: Mods) -> Vec<u8> {
         if self.tracks_mouse() {
             return self.wheel(lines, at, mods);
@@ -481,329 +358,374 @@ impl Vt {
         if let Some(arrows) = self.alternate_scroll(lines) {
             return arrows;
         }
-        (self.term).scroll_viewport(ScrollViewport::Delta(-(lines as isize)));
+        self.term.screen_mut().scroll_viewport(lines as isize);
         Vec::new()
     }
 
-    /// The arrows the wheel turning `lines` up, or down if negative, sends a program on the
-    /// alternate screen that asks for them (1007), as less and man do, or none.
     fn alternate_scroll(&mut self, lines: f32) -> Option<Vec<u8>> {
-        let alternate = matches!(self.term.active_screen(), Ok(Screen::Alternate));
-        if !(alternate && self.term.mode(Mode::ALT_SCROLL).unwrap_or(false)) {
+        if !(self.term.is_alternate_screen() && self.term.modes.dec(1007)) {
             return None;
         }
-        let arrow = if lines > 0. {
-            Key::ArrowUp
-        } else {
-            Key::ArrowDown
-        };
-        let arrows = (0..lines.abs() as usize)
-            .flat_map(|_| self.key(arrow, Mods::empty(), None, None))
-            .collect();
-        Some(arrows)
+        let arrow = if lines > 0. { Key::Up } else { Key::Down };
+        Some(
+            (0..lines.abs() as usize)
+                .flat_map(|_| self.key(arrow, Mods::default(), None, None))
+                .collect(),
+        )
     }
 
-    /// A left press over `at` on the surface, `repeated` when the platform counts it the next
-    /// click in a row. Those are given the gesture at the time of the click before and others
-    /// a gap later, so double and triple clicks keep to the system's speed, as Ghostty's do.
+    fn point(&self, at: mouse::Position) -> Option<GridPoint> {
+        let [x, y] = viewport(at, self.size);
+        let row = self.term.screen().viewport().nth(y as usize)?;
+        (x < row.cells.len() as u32).then_some(GridPoint {
+            row: row.id,
+            col: x as usize,
+        })
+    }
+
     pub(crate) fn select_press(
         &mut self,
         at: mouse::Position,
         repeated: bool,
-    ) -> libghostty_vt::error::Result<()> {
+    ) -> anyhow::Result<()> {
         const REPEAT: Duration = Duration::from_secs(1);
         if !repeated {
             self.pressed += 2 * REPEAT;
         }
-        (self.press)
-            .set_position(f64::from(at.x), f64::from(at.y))?
-            .set_time(self.pressed)?
-            .set_repeat_interval(REPEAT)?;
-        let cell = self
-            .term
-            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
-        let selection = self.press.apply(&mut self.selecting, &self.term, cell)?;
-        self.term.set_selection(selection.as_ref())?;
+        let point = self
+            .point(at)
+            .context("selection is outside the terminal")?;
+        let selection = self.selecting.press(
+            &mut self.term,
+            gesture::Press {
+                time: Some(self.pressed.as_nanos() as i128),
+                point,
+                xpos: f64::from(at.x),
+                ypos: f64::from(at.y),
+                max_distance: f64::MAX,
+                repeat_interval: REPEAT.as_nanos() as u64,
+                word_boundaries: DEFAULT_WORD_BOUNDARIES,
+                behaviors: gesture::DEFAULT_BEHAVIORS,
+            },
+        );
+        self.term.screen_mut().selection = selection;
         Ok(())
     }
 
-    /// The press dragged to `at` on the surface; a block between it and where it began if
-    /// `rectangle`.
     pub(crate) fn select_drag(
         &mut self,
         at: mouse::Position,
         rectangle: bool,
-    ) -> libghostty_vt::error::Result<()> {
-        (self.drag)
-            .set_position(f64::from(at.x), f64::from(at.y))?
-            .set_rectangle(rectangle)?;
-        let cell = self
-            .term
-            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
-        let selection =
-            self.drag
-                .apply(&mut self.selecting, &self.term, cell, geometry(self.size))?;
-        self.term.set_selection(selection.as_ref())?;
+    ) -> anyhow::Result<()> {
+        let point = self
+            .point(at)
+            .context("selection is outside the terminal")?;
+        self.term.screen_mut().selection = self.selecting.drag(
+            &self.term,
+            gesture::Drag {
+                point,
+                xpos: f64::from(at.x),
+                ypos: f64::from(at.y),
+                rectangle,
+                word_boundaries: DEFAULT_WORD_BOUNDARIES,
+                geometry: geometry(self.size),
+            },
+        );
         Ok(())
     }
 
-    pub(crate) fn select_release(
-        &mut self,
-        at: mouse::Position,
-    ) -> libghostty_vt::error::Result<()> {
-        let cell = self
-            .term
-            .grid_ref(GridPoint::Viewport(viewport(at, self.size)))?;
-        (self.release).apply(&mut self.selecting, &self.term, Some(cell))
+    pub(crate) fn select_release(&mut self, at: mouse::Position) {
+        self.selecting.release(&self.term, self.point(at));
     }
 
-    /// What's selected, as Ghostty copies it: lines the terminal wrapped joined again, and
-    /// without the blanks trailing each.
     pub(crate) fn selected(&self) -> Option<String> {
-        let selection = self.term.selection().ok()??;
-        let options = FormatterOptions::new()
-            .with_format(Format::Plain)
-            .with_unwrap(true)
-            .with_trim(true)
-            .with_selection(&selection);
-        let text = Formatter::new(&self.term, options)
-            .ok()?
-            .format_alloc(None)
-            .ok()?;
-        Some(String::from_utf8_lossy(&text).into_owned())
+        self.term.screen().selection_text()
     }
 
     pub(crate) fn select_all(&mut self) {
-        if let Ok(Some(all)) = self.term.select_all() {
-            self.term.set_selection(Some(&all)).ok();
-        }
+        self.term.screen_mut().selection = self.term.screen().select_all();
     }
 
-    /// Whether the selection's drag went past the top or bottom, for the viewport to follow.
     #[cfg(test)]
     pub(crate) fn autoscrolling(&self) -> bool {
-        (self.selecting.autoscroll(&self.term)).is_ok_and(|to| to != gesture::Autoscroll::None)
+        self.selecting.autoscroll() != gesture::Autoscroll::None
     }
 
-    /// Scrolls a row the way the drag went past, and takes the selection on to `at` on the
-    /// surface. A press the scrolling lost leaves the selection as it was.
-    pub(crate) fn select_autoscroll(
-        &mut self,
-        at: mouse::Position,
-        rectangle: bool,
-    ) -> libghostty_vt::error::Result<()> {
-        (self.tick)
-            .set_position(f64::from(at.x), f64::from(at.y))?
-            .set_rectangle(rectangle)?;
-        let cell = viewport(at, self.size);
-        let selection =
-            (self.tick).apply(&mut self.selecting, &self.term, cell, geometry(self.size))?;
-        if let Some(selection) = selection {
-            self.term.set_selection(Some(&selection))?;
+    pub(crate) fn select_autoscroll(&mut self, at: mouse::Position, rectangle: bool) {
+        let selection = self.selecting.autoscroll_tick(
+            &mut self.term,
+            gesture::AutoscrollTick {
+                viewport: viewport(at, self.size),
+                xpos: f64::from(at.x),
+                ypos: f64::from(at.y),
+                rectangle,
+                word_boundaries: DEFAULT_WORD_BOUNDARIES,
+                geometry: geometry(self.size),
+            },
+        );
+        if selection.is_some() {
+            self.term.screen_mut().selection = selection;
         }
-        Ok(())
     }
 
     pub(crate) fn paste(&self, text: &str) -> Vec<u8> {
-        let bracketed = self.term.mode(Mode::BRACKETED_PASTE).unwrap_or(false);
-        let mut data = text.as_bytes().to_vec();
-        let mut bytes = vec![0; data.len() + 12];
-        let written = paste::encode(&mut data, bracketed, &mut bytes).unwrap_or(0);
-        bytes.truncate(written);
-        bytes
+        self.term.encode_paste(text)
     }
 
     /// The screen with its scrollback, modes and title, as what builds the same in a fresh one.
     /// An alternate screen comes without the one behind it.
     #[cfg(unix)]
-    pub(crate) fn screen(&self) -> libghostty_vt::error::Result<Vec<u8>> {
-        let options = FormatterOptions::new()
-            .with_format(Format::Vt)
-            .with_modes(true)
-            .with_scrolling_region(true)
-            .with_pwd(true)
-            .with_keyboard(true)
-            .with_cursor(true)
-            .with_style(true)
-            .with_hyperlink(true)
-            .with_protection(true)
-            .with_kitty_keyboard(true)
-            .with_charsets(true);
-        let title = self.term.title().unwrap_or_default();
+    pub(crate) fn screen(&self) -> anyhow::Result<Vec<u8>> {
+        let mut formatter = self.term.formatter(Format::Vt);
+        formatter.extra = TerminalExtra {
+            palette: false,
+            ..TerminalExtra::ALL
+        };
         let mut screen = b"\x1b]2;".to_vec();
-        screen.extend_from_slice(title);
+        screen.extend_from_slice(self.term.title_bytes());
         screen.extend_from_slice(b"\x1b\\");
-        screen.extend_from_slice(&Formatter::new(&self.term, options)?.format_alloc(None)?);
+        // Serialize application overrides only; theme defaults belong to the new host.
+        use rustty_vt::color::Target;
+        for target in (0..=255).map(Target::Palette).chain([
+            Target::Foreground,
+            Target::Background,
+            Target::Cursor,
+        ]) {
+            if let Some([r, g, b]) = self.term.color_override(target) {
+                let name = match target {
+                    Target::Palette(index) => index.to_string(),
+                    Target::Foreground => "foreground".into(),
+                    Target::Background => "background".into(),
+                    Target::Cursor => "cursor".into(),
+                };
+                screen.extend_from_slice(
+                    format!("\x1b]21;{name}=rgb:{r:02x}/{g:02x}/{b:02x}\x1b\\").as_bytes(),
+                );
+            }
+        }
+        screen.extend_from_slice(
+            &formatter
+                .format()
+                .context("formatting terminal for reattachment")?,
+        );
         Ok(screen)
     }
 
-    /// What to draw, with what's selected in `chosen`'s selection colours, or the default
-    /// colours swapped where it sets none, as Ghostty does. While the program holds the screen,
-    /// the frame it began updating from, until it's done or the hold times out.
-    /// The frame before, the same one, when nothing changed.
-    pub(crate) fn frame(&mut self, chosen: &Colors) -> libghostty_vt::error::Result<Arc<Frame>> {
+    pub(crate) fn frame(&mut self, chosen: &Colors) -> Arc<Frame> {
         self.end_timed_out_hold();
-        let hold = self.hold.take();
-        if let Some(frame) = hold.as_ref().map(|hold| hold.frame.clone()) {
-            self.hold.set(hold);
-            return Ok(frame);
+        if let Some(hold) = &self.hold {
+            return hold.frame.clone();
         }
-        let mut drawer = self.drawer.borrow_mut();
-        if drawer.chosen != *chosen {
-            drawer.chosen = chosen.clone();
-            // libghostty doesn't know these colours, so every row is drawn in them again.
-            drawer.redraw_all = true;
-        }
-        drawer.frame(&self.term)
+        self.drawer.chosen = chosen.clone();
+        self.drawer.frame(&self.term)
     }
 
-    /// Ends the program's hold on the screen if it timed out, drawn or not, and returns whether
-    /// it did.
     pub(crate) fn end_timed_out_hold(&mut self) -> bool {
-        let hold = self.hold.take();
-        if hold
+        if self
+            .hold
             .as_ref()
-            .is_some_and(|hold| hold.since.elapsed() < HOLD_TIMEOUT)
+            .is_some_and(|hold| hold.since.elapsed() >= HOLD_TIMEOUT)
         {
-            self.hold.set(hold);
-            return false;
+            self.hold = None;
+            self.term.set_mode(true, 2026, false);
+            true
+        } else {
+            false
         }
-        // Setting the mode doesn't call back, so the hold is over here.
-        hold.is_some() && self.term.set_mode(Mode::SYNC_OUTPUT, false).is_ok()
     }
 
-    /// When the program's hold on the screen times out, if it holds it.
     pub(crate) fn hold_deadline(&self) -> Option<Instant> {
-        let hold = self.hold.take();
-        let deadline = hold.as_ref().map(|hold| hold.since + HOLD_TIMEOUT);
-        self.hold.set(hold);
-        deadline
+        self.hold.as_ref().map(|hold| hold.since + HOLD_TIMEOUT)
     }
 
-    /// Whether the terminal is on screen, for holds to take the frame they began from.
-    pub(crate) fn set_capturing(&self, shown: bool) {
-        self.capturing.set(shown);
+    pub(crate) fn set_capturing(&mut self, shown: bool) {
+        self.capturing = shown;
     }
 }
 
-/// What frames are drawn from, shared with the callback that takes one as a hold begins.
+/// Host policy and synchronous effects; the terminal owns all protocol parsing.
+struct Host<'a> {
+    drawer: &'a mut Drawer,
+    hold: &'a mut Option<Hold>,
+    capturing: bool,
+    replies: &'a mut Vec<u8>,
+    retitled: &'a mut bool,
+    reported: &'a mut Option<Status>,
+    reports_status: &'a mut bool,
+    progress_ending: &'a mut Status,
+    copied: &'a mut Option<String>,
+    defaults: &'a query::Defaults,
+    last_mouse_cell: &'a mut Option<[u16; 2]>,
+}
+
+impl EffectHandler for Host<'_> {
+    fn effect(&mut self, effect: Effect) {
+        match effect {
+            Effect::Write(bytes) => self.replies.extend_from_slice(&bytes),
+            Effect::Title(_) => *self.retitled = true,
+            Effect::ProgramStatus(report) => {
+                if let Some(status) = Status::reported(report) {
+                    *self.reported = Some(status);
+                    *self.reports_status = true;
+                }
+            }
+            Effect::Progress { state, .. } if !*self.reports_status => {
+                if let Some(status) = Status::progressed(state, self.progress_ending) {
+                    *self.reported = Some(status);
+                }
+            }
+            Effect::ProgramStatusReset | Effect::ProgressReset => {
+                *self.reports_status = false;
+                *self.progress_ending = Status::Idle;
+                *self.reported = Some(Status::Idle);
+            }
+            _ => {}
+        }
+    }
+
+    fn synchronized_output(&mut self, terminal: &Terminal, enabled: bool) {
+        *self.hold = (enabled && self.capturing).then(|| Hold {
+            frame: self.drawer.frame(terminal),
+            since: Instant::now(),
+        });
+    }
+    fn mouse_tracking_changed(&mut self, _: u16, _: u16) {
+        *self.last_mouse_cell = None;
+    }
+    fn color_scheme(&mut self) -> Option<ColorScheme> {
+        self.defaults.color_scheme
+    }
+    fn device_attributes(&mut self) -> Option<query::DeviceAttributes> {
+        self.defaults.device_attributes.clone()
+    }
+    fn size(&mut self) -> Option<query::Size> {
+        self.defaults
+            .size_reports
+            .then_some(self.defaults.size)
+            .flatten()
+    }
+    fn enquiry(&mut self) -> Vec<u8> {
+        self.defaults.enquiry.clone()
+    }
+    fn xtversion(&mut self) -> Vec<u8> {
+        self.defaults.xtversion.clone()
+    }
+    fn clipboard_read_enabled(&self) -> bool {
+        false
+    }
+    fn clipboard_write(&mut self, write: &clipboard::Write) -> clipboard::WriteResult {
+        let text = write
+            .contents
+            .iter()
+            .find(|content| content.mime.starts_with(b"text/plain"))
+            .map(|content| String::from_utf8_lossy(&content.data).into_owned());
+        match text {
+            Some(text) => {
+                *self.copied = Some(text);
+                clipboard::WriteResult::Success { remember: false }
+            }
+            None => clipboard::WriteResult::Unsupported,
+        }
+    }
+}
+
+#[derive(Default)]
 struct Drawer {
-    state: RenderState<'static>,
-    rows: RowIterator<'static>,
-    cells: CellIterator<'static>,
-    /// The selection colours frames draw in: those the last frame drawn was asked for.
     chosen: Colors,
-    /// The rows the last frame drew, by id. libghostty marks those that changed since, so the
-    /// rest are drawn as they were, as Ghostty's renderer does: a program rewriting a line
-    /// many times a second draws that line, not the screen.
-    drawn: HashMap<RowId, Arc<Row>>,
-    /// The last frame drawn, again while nothing changed.
+    drawn: HashMap<u64, (RowKey, Arc<Row>)>,
     last: Arc<Frame>,
-    /// Whether every row is to be drawn again, as libghostty can't tell.
-    redraw_all: bool,
+    seen: Option<(ViewKey, Colors)>,
+    palette: Vec<RgbColor>,
+    cursor_seen: Option<CursorKey>,
+    #[cfg(test)]
+    extracted_cells: usize,
 }
 
-/// The frame a program's hold on the screen began from, and when.
 struct Hold {
     frame: Arc<Frame>,
     since: Instant,
 }
 
 impl Drawer {
-    /// The frame now, as [`Vt::frame`]. One that fails partway leaves rows marked drawn that
-    /// it didn't keep, so the next draws them all.
-    fn frame(
-        &mut self,
-        term: &libghostty_vt::Terminal<'static, '_>,
-    ) -> libghostty_vt::error::Result<Arc<Frame>> {
-        let frame = self.draw(term);
-        match &frame {
-            Ok(frame) => self.last = frame.clone(),
-            Err(_) => self.redraw_all = true,
-        }
-        frame
-    }
-
-    fn draw(
-        &mut self,
-        term: &libghostty_vt::Terminal<'static, '_>,
-    ) -> libghostty_vt::error::Result<Arc<Frame>> {
-        let snapshot = self.state.update(term)?;
-        let colors = snapshot.colors()?;
-        let cursor = match snapshot.cursor_visible()? {
-            true => snapshot.cursor_viewport()?,
-            false => None,
+    fn frame(&mut self, term: &Terminal) -> Arc<Frame> {
+        let screen = term.screen();
+        let seen = (screen.render_key(), self.chosen.clone());
+        let (foreground, background) = if term.modes.dec(5) {
+            (term.background, term.foreground)
+        } else {
+            (term.foreground, term.background)
         };
-        let cursor_style = snapshot.cursor_visual_style()?;
         let mut frame = Frame {
-            background: colors.background,
-            foreground: colors.foreground,
-            cursor_color: colors.cursor.unwrap_or(colors.foreground),
+            background,
+            foreground,
+            cursor_color: term.cursor_color.unwrap_or(foreground),
             ..Frame::default()
         };
-        let last = &self.last;
-        // A program setting the default colours (OSC 10 and 11) marks no row, but a row is
-        // drawn in them. The palette, the selection and the size mark every row.
-        let recoloured = (frame.background, frame.foreground) != (last.background, last.foreground);
         let full =
-            std::mem::take(&mut self.redraw_all) || recoloured || snapshot.dirty()? == Dirty::Full;
-        // Nor does the cursor moving, or the program reshaping it.
-        let cursor_changed = cursor.map(|cursor| (cursor.x, cursor.y, cursor_style))
-            != (last.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y, cursor.style));
-        if !full
-            && !cursor_changed
-            && frame.cursor_color == last.cursor_color
-            && snapshot.dirty()? == Dirty::Clean
-        {
-            return Ok(self.last.clone());
-        }
-        let selected_bg = (self.chosen.selection_background).unwrap_or(colors.foreground);
-        let selected_fg = (self.chosen.selection_foreground).unwrap_or(colors.background);
-        let mut rows = self.rows.update(&snapshot)?;
-        let mut cell_text = String::new();
-        let mut uri = Vec::from([0; 256]);
+            self.seen.as_ref().is_none_or(|previous| {
+                !previous.0.same_row_layout(&seen.0) || previous.1 != seen.1
+            }) || (self.last.foreground, self.last.background) != (foreground, background)
+                || self.palette != term.palette;
+        let selected_bg = self.chosen.selection_background.unwrap_or(foreground);
+        let selected_fg = self.chosen.selection_foreground.unwrap_or(background);
+        let view = screen.render_view();
+        let cursor = view.cursor();
+        let cursor_now = cursor.map(|cursor| cursor.key());
+        let draw_cursor = |cursor: RenderCursor<'_>, text: &str| Cursor {
+            x: cursor.x as u16,
+            y: cursor.y as u16,
+            text: text.to_owned(),
+            style: cursor.shape,
+        };
         let mut drawn_now = HashMap::with_capacity(self.drawn.len());
-        let mut y = 0;
-        while let Some(row) = rows.next() {
-            let id = row.id()?;
-            // The cursor's row is drawn again for the text under it.
-            let cursor_here = cursor.is_some_and(|cursor| cursor.y == y);
-            let unchanged = !full && !cursor_here && !row.dirty()?;
-            if let Some(drawn) = unchanged.then(|| self.drawn.get(&id)).flatten() {
-                drawn_now.insert(id, drawn.clone());
-                frame.rows.push(drawn.clone());
-                y += 1;
+        for (y, rendered) in view.rows().enumerate() {
+            let key = rendered.key();
+            let row = rendered.row;
+            let cursor = cursor.filter(|cursor| cursor.y == y);
+            if !full
+                && let Some((previous_key, previous)) = self.drawn.get(&key.id)
+                && *previous_key == key
+            {
+                let previous = previous.clone();
+                drawn_now.insert(key.id, (key, previous.clone()));
+                frame.rows.push(previous);
+                if let Some(cursor) = cursor {
+                    if self.cursor_seen == cursor_now {
+                        frame.cursor = self.last.cursor.clone();
+                    } else if let Some(text) = cursor.text() {
+                        #[cfg(test)]
+                        {
+                            self.extracted_cells += 1;
+                        }
+                        frame.cursor = Some(draw_cursor(cursor, text.as_str()));
+                    }
+                }
                 continue;
             }
+            #[cfg(test)]
+            {
+                self.extracted_cells += row.cells.len();
+            }
             let mut drawn = Row::default();
-            let selected = row.selection()?.map(|range| range.start_x..=range.end_x);
-            // May say so of a row that has none, so each cell is asked again.
-            let linking = row.raw_row()?.has_hyperlink()?;
-            let mut cells = self.cells.update(row)?;
-            let mut x = 0;
             let mut after_wide = false;
-            while let Some(cell) = cells.next() {
-                let at = x;
-                x += 1;
-                let raw = cell.raw_cell()?;
-                let wide = match raw.wide()? {
-                    CellWide::Narrow => false,
-                    CellWide::Wide => true,
-                    CellWide::SpacerTail | CellWide::SpacerHead => continue,
-                };
-                cell_text.clear();
-                if cell.graphemes_len()? > 0 {
-                    cell.graphemes_utf8(&mut cell_text)?;
-                } else {
-                    cell_text.push(' ');
+            for (x, cell) in row.cells.iter().enumerate() {
+                if cell.width() == 0 || cell.spacer_head() {
+                    continue;
                 }
-                let attributes = cell.style()?;
-                let mut fg = cell.fg_color()?.unwrap_or(colors.foreground);
-                let mut bg = cell.bg_color()?.unwrap_or(colors.background);
+                let wide = cell.width() == 2;
+                let text = row.text(x);
+                let text = if text.is_empty() { " " } else { text.as_str() };
+                let attributes = row.style(x);
+                let mut fg = term.resolve_color(attributes.foreground, foreground);
+                let mut bg = term.resolve_color(attributes.background, background);
                 if attributes.inverse {
                     std::mem::swap(&mut fg, &mut bg);
                 }
-                if selected.as_ref().is_some_and(|range| range.contains(&at)) {
+                if rendered
+                    .selection
+                    .as_ref()
+                    .is_some_and(|range| range.contains(&x))
+                {
                     (fg, bg) = (selected_fg, selected_bg);
                 }
                 if attributes.invisible {
@@ -811,36 +733,28 @@ impl Drawer {
                 }
                 let style = Style {
                     fg,
-                    bg: (bg != colors.background).then_some(bg),
+                    bg: (bg != background).then_some(bg),
                     bold: attributes.bold,
                     underline: attributes.underline,
                     strikethrough: attributes.strikethrough,
                     faint: attributes.faint,
                 };
-                if cursor.is_some_and(|c| c.x == at && c.y == y) {
-                    frame.cursor = Some(Cursor {
-                        x: at,
-                        y,
-                        text: cell_text.clone(),
-                        style: cursor_style,
-                    });
+                if let Some(cursor) = cursor.filter(|cursor| cursor.x == x) {
+                    frame.cursor = Some(draw_cursor(cursor, text));
                 }
-                let link = match linking && raw.has_hyperlink()? {
-                    true => {
-                        let uri = link_uri(term, at, y, &mut uri)?;
-                        // Cells of one link share what it links to with the run before.
-                        match drawn.runs.last().and_then(|last| last.link.as_ref()) {
-                            Some(last) if last.as_bytes() == uri => Some(last.clone()),
-                            _ => (std::str::from_utf8(uri).ok())
-                                .filter(|uri| !uri.is_empty())
-                                .map(Arc::from),
-                        }
-                    }
-                    false => None,
-                };
+                let link = row
+                    .hyperlink(x)
+                    .and_then(|link| std::str::from_utf8(link.uri_bytes()).ok())
+                    .filter(|uri| !uri.is_empty())
+                    .map(
+                        |uri| match drawn.runs.last().and_then(|run| run.link.as_ref()) {
+                            Some(last) if last.as_ref() == uri => last.clone(),
+                            _ => Arc::from(uri),
+                        },
+                    );
                 let start = drawn.text.len();
-                drawn.text.push_str(&cell_text);
-                let end = (drawn.text.len(), at + if wide { 2 } else { 1 });
+                drawn.text.push_str(text);
+                let end = (drawn.text.len(), x as u16 + u16::from(cell.width()));
                 match drawn.runs.last_mut() {
                     Some(last)
                         if last.style == style && last.link == link && !wide && !after_wide =>
@@ -849,67 +763,51 @@ impl Drawer {
                     }
                     _ => drawn.runs.push(Run {
                         text: start..end.0,
-                        columns: at..end.1,
+                        columns: x as u16..end.1,
                         style,
                         link,
                     }),
                 }
                 after_wide = wide;
             }
-            row.set_dirty(false)?;
-            let drawn = Arc::new(drawn);
-            drawn_now.insert(id, drawn.clone());
+            let drawn = match self.drawn.remove(&key.id) {
+                Some((_, previous)) if previous.as_ref() == &drawn => previous,
+                _ => Arc::new(drawn),
+            };
+            drawn_now.insert(key.id, (key, drawn.clone()));
             frame.rows.push(drawn);
-            y += 1;
         }
+        self.cursor_seen = cursor_now;
         self.drawn = drawn_now;
-        snapshot.set_dirty(Dirty::Clean)?;
-        Ok(Arc::new(frame))
-    }
-}
-
-/// What the cell at `x` and `y` on the viewport links to (OSC 8), empty if nothing, read into
-/// `uri`, which grows to fit it.
-fn link_uri<'uri>(
-    term: &libghostty_vt::Terminal<'static, '_>,
-    x: u16,
-    y: u16,
-    uri: &'uri mut Vec<u8>,
-) -> libghostty_vt::error::Result<&'uri [u8]> {
-    let at = PointCoordinate { x, y: u32::from(y) };
-    let cell = term.grid_ref(GridPoint::Viewport(at))?;
-    let len = match cell.hyperlink_uri(uri) {
-        Err(Error::OutOfSpace { required }) => {
-            uri.resize(required, 0);
-            cell.hyperlink_uri(uri)?
+        self.seen = Some(seen);
+        self.palette.clone_from(&term.palette);
+        // Eq lets Arc<Row> compare shared pointers without reading cached text.
+        if *self.last != frame {
+            self.last = Arc::new(frame);
         }
-        len => len?,
-    };
-    Ok(&uri[..len])
+        self.last.clone()
+    }
 }
 
-/// Whether `background` reads as light or dark, by its perceived brightness, as Ghostty tells.
-fn scheme_of(background: RgbColor) -> ColorScheme {
-    let RgbColor { r, g, b } = background;
+fn scheme_of([r, g, b]: RgbColor) -> ColorScheme {
     let brightness = 0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b);
-    match brightness > 127.5 {
-        true => ColorScheme::Light,
-        false => ColorScheme::Dark,
+    if brightness > 127.5 {
+        ColorScheme::Light
+    } else {
+        ColorScheme::Dark
     }
 }
 
-/// The viewport cell under `at` on the surface, or the nearest one when it's outside.
-fn viewport(at: mouse::Position, size: Size) -> PointCoordinate {
+fn viewport(at: mouse::Position, size: Size) -> [u32; 2] {
     let index = |at: f32, cell: u16, count: u16| {
-        ((at / f32::from(cell.max(1))).max(0.) as u16).min(count.saturating_sub(1))
+        u32::from(((at / f32::from(cell.max(1))).max(0.) as u16).min(count.saturating_sub(1)))
     };
-    PointCoordinate {
-        x: index(at.x, size.cell_width, size.cols),
-        y: u32::from(index(at.y, size.cell_height, size.rows)),
-    }
+    [
+        index(at.x, size.cell_width, size.cols),
+        index(at.y, size.cell_height, size.rows),
+    ]
 }
 
-/// The surface the selection gesture measures drags and edges on.
 fn geometry(size: Size) -> gesture::Geometry {
     gesture::Geometry {
         columns: u32::from(size.cols),
@@ -919,32 +817,10 @@ fn geometry(size: Size) -> gesture::Geometry {
     }
 }
 
-fn mods_spent_on_text(mods: Mods) -> Mods {
-    let layout_mods = if cfg!(target_os = "macos") {
-        Mods::SHIFT | Mods::ALT
-    } else {
-        Mods::SHIFT
-    };
-    mods & layout_mods
-}
-
-fn encoder_size(size: Size) -> mouse::EncoderSize {
-    let (cell_width, cell_height) = (u32::from(size.cell_width), u32::from(size.cell_height));
-    mouse::EncoderSize {
-        screen_width: u32::from(size.cols) * cell_width,
-        screen_height: u32::from(size.rows) * cell_height,
-        cell_width: cell_width.max(1),
-        cell_height: cell_height.max(1),
-        padding_top: 0,
-        padding_bottom: 0,
-        padding_right: 0,
-        padding_left: 0,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustty_vt::Selection;
 
     const SIZE: Size = Size {
         cols: 80,
@@ -952,21 +828,12 @@ mod tests {
         cell_width: 8,
         cell_height: 16,
     };
-
-    #[test]
-    fn a_program_asking_for_status_is_answered_before_what_it_asked_after() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"\x1b]7501;?\x07\x1b[c");
-        let replies = String::from_utf8(vt.take_replies()).unwrap();
-        assert!(
-            replies.starts_with("\x1b]7501;?:states=") && replies.contains("\x1b[?"),
-            "Claude Code takes the attributes as the end of the replies, so these come first: {replies:?}"
-        );
-    }
+    const DARK: RgbColor = [0x29, 0x29, 0x29];
+    const LIGHT: RgbColor = [0xff, 0xff, 0xff];
 
     #[test]
     fn reports_on_the_root_record_are_the_status() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b]7501;state=working:app=claude-code\x07");
         assert_eq!(vt.reported(), Some(Status::Working));
         assert_eq!(vt.reported(), None, "a report is told once");
@@ -986,7 +853,7 @@ mod tests {
 
     #[test]
     fn progress_reports_are_the_status_too() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b]9;4;0\x07");
         assert_eq!(vt.reported(), Some(Status::Idle), "nothing was under way");
 
@@ -1038,7 +905,7 @@ mod tests {
 
     #[test]
     fn a_program_reporting_its_status_is_heard_over_its_progress() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b]9;4;3\x07\x1b]7501;state=blocked\x07\x1b]9;4;3\x07");
         assert_eq!(
             vt.reported(),
@@ -1063,8 +930,8 @@ mod tests {
     }
 
     #[test]
-    fn a_program_copying_puts_its_text_on_the_clipboard() {
-        let mut vt = Vt::new(SIZE).unwrap();
+    fn programs_can_write_but_cannot_read_the_clipboard() {
+        let mut vt = Vt::new(SIZE);
         // "copied!" in base64, as nvim and tmux send it.
         vt.write(b"\x1b]52;c;Y29waWVkIQ==\x07");
         assert_eq!(
@@ -1079,11 +946,6 @@ mod tests {
             Some("primary"),
             "the primary selection is the clipboard too"
         );
-    }
-
-    #[test]
-    fn a_program_asking_to_read_the_clipboard_is_not_answered() {
-        let mut vt = Vt::new(SIZE).unwrap();
         vt.write(b"\x1b]52;c;?\x07");
         assert_eq!(
             (vt.take_replies(), vt.copied()),
@@ -1093,35 +955,8 @@ mod tests {
     }
 
     #[test]
-    fn focus_is_told_only_to_a_program_that_asks() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        assert_eq!(
-            vt.focus(false),
-            b"",
-            "unasked, a shell would read it as typed"
-        );
-        vt.write(b"\x1b[?1004h");
-        assert_eq!(
-            (vt.focus(false), vt.focus(true)),
-            (b"\x1b[O".to_vec(), b"\x1b[I".to_vec()),
-            "nvim asks (1004) and is told the terminal lost the keys, then has them again"
-        );
-    }
-
-    const DARK: RgbColor = RgbColor {
-        r: 0x29,
-        g: 0x29,
-        b: 0x29,
-    };
-    const LIGHT: RgbColor = RgbColor {
-        r: 0xff,
-        g: 0xff,
-        b: 0xff,
-    };
-
-    #[test]
     fn a_program_asking_is_told_when_the_background_turns_light_or_dark() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         assert_eq!(
             vt.set_colors(&Colors::default(), DARK, LIGHT),
             b"",
@@ -1138,6 +973,12 @@ mod tests {
             b"",
             "and nothing more while it stays light"
         );
+        vt.write(b"\x1b[?996n");
+        assert_eq!(
+            vt.take_replies(),
+            b"\x1b[?997;2n",
+            "queries use the current host background"
+        );
         let colors = Colors {
             background: Some(DARK),
             ..Colors::default()
@@ -1150,20 +991,8 @@ mod tests {
     }
 
     #[test]
-    fn a_program_asking_whether_the_background_is_light_or_dark_is_told() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.set_colors(&Colors::default(), LIGHT, DARK);
-        vt.write(b"\x1b[?996n");
-        assert_eq!(
-            vt.take_replies(),
-            b"\x1b[?997;2n",
-            "asked (996), it says light"
-        );
-    }
-
-    #[test]
     fn a_program_asking_for_in_band_size_reports_is_told_each_resize() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         let wider = Size { cols: 100, ..SIZE };
         assert_eq!(vt.resize(wider), b"", "unasked, the shell has SIGWINCH");
         vt.write(b"\x1b[?2048h");
@@ -1176,13 +1005,13 @@ mod tests {
     }
 
     fn first_row(vt: &mut Vt) -> String {
-        let frame = vt.frame(&Colors::default()).unwrap();
+        let frame = vt.frame(&Colors::default());
         frame.rows[0].text.trim_end().to_owned()
     }
 
     #[test]
     fn a_synchronized_update_shows_the_frame_from_before_until_it_is_done() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"before");
         vt.write(b"\x1b[?2026h\x1b[2J\x1b[Hhalf");
         assert_eq!(
@@ -1213,7 +1042,7 @@ mod tests {
 
     #[test]
     fn out_of_sight_a_hold_keeps_no_frame() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.set_capturing(false);
         vt.write(b"before\x1b[?2026hafter");
         assert_eq!(
@@ -1225,12 +1054,12 @@ mod tests {
 
     #[test]
     fn a_hold_never_ended_times_out() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"before\x1b[?2026hafter");
         assert!(vt.hold_deadline().is_some(), "the program holds the screen");
         let mut hold = vt.hold.take().unwrap();
         hold.since -= HOLD_TIMEOUT;
-        vt.hold.set(Some(hold));
+        vt.hold = Some(hold);
         assert_eq!(
             first_row(&mut vt),
             "beforeafter",
@@ -1241,10 +1070,18 @@ mod tests {
 
     #[test]
     fn a_key_without_an_unshifted_codepoint_does_not_take_the_last_keys() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b[>1u");
-        vt.key(Key::A, Mods::empty(), Some("a".into()), Some('a'));
-        let sent = vt.key(Key::Space, Mods::SHIFT, Some(" ".into()), None);
+        vt.key(Key::Char('a'), Mods::default(), Some("a".into()), Some('a'));
+        let sent = vt.key(
+            Key::Char(' '),
+            Mods {
+                shift: true,
+                ..Mods::default()
+            },
+            Some(" ".into()),
+            None,
+        );
         assert_eq!(
             String::from_utf8(sent).unwrap(),
             " ",
@@ -1255,21 +1092,41 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn option_types_what_the_layout_puts_there_under_the_kitty_protocol() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b[>1u");
-        let hash = vt.key(Key::Digit3, Mods::ALT, Some("#".into()), Some('3'));
+        let hash = vt.key(
+            Key::Char('3'),
+            Mods {
+                alt: true,
+                ..Mods::default()
+            },
+            Some("#".into()),
+            Some('3'),
+        );
         assert_eq!(
             hash, b"#",
             "a British layout's hash is typed, not reported as alt+3"
         );
-        let shifted = Mods::ALT | Mods::SHIFT;
-        let ring = vt.key(Key::A, shifted, Some("\u{c5}".into()), Some('a'));
+        let shifted = Mods {
+            alt: true,
+            shift: true,
+            ..Mods::default()
+        };
+        let ring = vt.key(Key::Char('a'), shifted, Some("\u{c5}".into()), Some('a'));
         assert_eq!(
             String::from_utf8(ring).unwrap(),
             "\u{c5}",
             "option and shift together type too"
         );
-        let word_left = vt.key(Key::ArrowLeft, Mods::ALT, None, None);
+        let word_left = vt.key(
+            Key::Left,
+            Mods {
+                alt: true,
+                ..Mods::default()
+            },
+            None,
+            None,
+        );
         assert_eq!(
             String::from_utf8(word_left).unwrap(),
             "\x1b[1;3D",
@@ -1279,11 +1136,11 @@ mod tests {
 
     #[test]
     fn wheel_reports_to_a_program_tracking_the_mouse() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b[?1003h\x1b[?1006h");
         let at = mouse::Position { x: 20., y: 40. };
-        let up = vt.wheel(2., at, Mods::empty());
-        let down = vt.wheel(-1., at, Mods::empty());
+        let up = vt.wheel(2., at, Mods::default());
+        let down = vt.wheel(-1., at, Mods::default());
         assert_eq!(
             (up, down),
             (
@@ -1296,7 +1153,7 @@ mod tests {
 
     #[test]
     fn a_drag_reports_its_press_each_cell_it_crosses_and_its_release() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"\x1b[?1002h\x1b[?1006h");
         let cell = |col: f32, row: f32| mouse::Position {
             x: col * 8. + 4.,
@@ -1304,13 +1161,13 @@ mod tests {
         };
         let left = Some(mouse::Button::Left);
         let mut send = |action, button, at| {
-            String::from_utf8(vt.mouse(action, button, at, Mods::empty())).unwrap()
+            String::from_utf8(vt.mouse(action, button, at, Mods::default())).unwrap()
         };
         let sent = [
-            send(mouse::Action::Motion, None, cell(1., 1.)),
+            send(mouse::Action::Move, None, cell(1., 1.)),
             send(mouse::Action::Press, left, cell(2., 1.)),
-            send(mouse::Action::Motion, left, cell(5., 1.)),
-            send(mouse::Action::Motion, left, cell(5.2, 1.)),
+            send(mouse::Action::Move, left, cell(5., 1.)),
+            send(mouse::Action::Move, left, cell(5.2, 1.)),
             send(mouse::Action::Release, left, cell(5., 1.)),
         ];
         assert_eq!(
@@ -1322,35 +1179,68 @@ mod tests {
     }
 
     #[test]
-    fn selected_cells_draw_in_the_default_colours_swapped() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"hello world");
-        let cell = |x| {
-            let point = libghostty_vt::terminal::PointCoordinate { x, y: 0 };
-            vt.term
-                .grid_ref(libghostty_vt::terminal::Point::Viewport(point))
-                .unwrap()
-        };
-        let hello = libghostty_vt::selection::Selection::new(cell(0), cell(4), false);
-        vt.term.set_selection(Some(&hello)).unwrap();
-        let frame = vt.frame(&Colors::default()).unwrap();
-        let row = &frame.rows[0];
-        let backgrounds: Vec<_> = (row.runs.iter())
-            .map(|run| (row.text[run.text.clone()].trim_end(), run.style.bg))
-            .take(2)
-            .collect();
+    fn selecting_a_wide_spacer_highlights_its_glyph_and_only_redraws_affected_rows() {
+        let mut vt = Vt::new(Size {
+            cols: 8,
+            rows: 3,
+            ..SIZE
+        });
+        vt.write("漢\r\nsecond\r\nthird".as_bytes());
+        let before = vt.frame(&Colors::default());
+        vt.drawer.extracted_cells = 0;
+        let spacer = vt.term.screen().point(0, 1).unwrap();
+        vt.term.screen_mut().selection = Some(Selection {
+            start: spacer,
+            end: spacer,
+            rectangular: false,
+        });
+        let selected = vt.frame(&Colors::default());
+        let glyph = &selected.rows[0].runs[0];
         assert_eq!(
-            backgrounds,
-            [("hello", Some(frame.foreground)), (" world", None)],
-            "only the selection is drawn, on the foreground colour"
+            (glyph.columns.clone(), glyph.style.fg, glyph.style.bg),
+            (0..2, selected.background, Some(selected.foreground)),
+            "selecting the trailing half highlights the whole wide glyph"
+        );
+        assert_eq!(
+            std::mem::take(&mut vt.drawer.extracted_cells),
+            8,
+            "only the row gaining a selection is extracted"
+        );
+        assert!(
+            Arc::ptr_eq(&before.rows[1], &selected.rows[1])
+                && Arc::ptr_eq(&before.rows[2], &selected.rows[2]),
+            "unselected rows retain their rendered allocations"
+        );
+
+        vt.term.screen_mut().selection = Some(Selection {
+            start: vt.term.screen().point(1, 0).unwrap(),
+            end: vt.term.screen().point(1, 3).unwrap(),
+            rectangular: false,
+        });
+        let moved = vt.frame(&Colors::default());
+        assert_eq!(
+            (
+                moved.rows[0].runs[0].style.bg,
+                moved.rows[1].runs[0].style.bg
+            ),
+            (None, Some(moved.foreground)),
+            "moving the selection clears the old highlight and draws the new one"
+        );
+        assert_eq!(
+            vt.drawer.extracted_cells, 16,
+            "only the rows gaining and losing selection are extracted"
+        );
+        assert!(
+            Arc::ptr_eq(&selected.rows[2], &moved.rows[2]),
+            "the unrelated row is still reused"
         );
     }
 
     #[test]
     fn runs_take_their_columns_and_a_wide_character_has_one_of_its_own() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write("ab漢cd".as_bytes());
-        let frame = vt.frame(&Colors::default()).unwrap();
+        let frame = vt.frame(&Colors::default());
         let row = &frame.rows[0];
         let runs: Vec<_> = (row.runs.iter())
             .map(|run| (row.text[run.text.clone()].trim_end(), run.columns.clone()))
@@ -1364,7 +1254,7 @@ mod tests {
 
     /// The text of each run on the first row with what it links to, without the blanks after.
     fn links(vt: &mut Vt) -> Vec<(String, Option<String>)> {
-        let frame = vt.frame(&Colors::default()).unwrap();
+        let frame = vt.frame(&Colors::default());
         let row = &frame.rows[0];
         (row.runs.iter())
             .map(|run| {
@@ -1376,152 +1266,74 @@ mod tests {
     }
 
     #[test]
-    fn a_run_takes_what_its_cells_link_to() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"see \x1b]8;;https://example.com\x1b\\the docs\x1b]8;;\x1b\\ for more");
+    fn hyperlinks_split_runs_and_stop_at_the_closing_sequence() {
+        let mut vt = Vt::new(SIZE);
+        vt.write(b"see \x1b]8;;https://a.example\x1b\\one\x1b]8;;https://b.example\x1b\\two\x1b]8;;\x1b\\ end");
         assert_eq!(
             links(&mut vt),
             [
                 ("see".to_owned(), None),
-                (
-                    "the docs".to_owned(),
-                    Some("https://example.com".to_owned())
-                ),
-                (" for more".to_owned(), None),
-            ],
-            "only the cells written between OSC 8's opening and closing link, in a run of their own"
-        );
-    }
-
-    #[test]
-    fn links_side_by_side_in_one_style_are_runs_of_their_own() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"\x1b]8;;https://a.example\x1b\\one\x1b]8;;https://b.example\x1b\\two");
-        assert_eq!(
-            links(&mut vt),
-            [
                 ("one".to_owned(), Some("https://a.example".to_owned())),
                 ("two".to_owned(), Some("https://b.example".to_owned())),
+                (" end".to_owned(), None),
             ],
-            "each link is told apart though nothing else about the cells differs"
+            "adjacent links and unlinked text remain separate runs in the same style"
         );
     }
 
     #[test]
-    fn a_link_longer_than_the_buffer_is_read_whole() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        let uri = format!("https://example.com/{}", "a".repeat(1000));
-        vt.write(format!("\x1b]8;;{uri}\x1b\\long\x1b]8;;\x1b\\").as_bytes());
+    fn reverse_video_swaps_default_colors() {
+        let mut vt = Vt::new(SIZE);
+        vt.set_colors(&Colors::default(), DARK, LIGHT);
+        vt.write(b"text");
+        vt.frame(&Colors::default());
+        vt.write(b"\x1b[?5h");
+        let frame = vt.frame(&Colors::default());
         assert_eq!(
-            links(&mut vt),
-            [("long".to_owned(), Some(uri))],
-            "the buffer grows to fit a URI past its first 256 bytes"
+            (frame.background, frame.foreground, frame.cursor_color),
+            (LIGHT, DARK, DARK),
+            "reverse video applies to the entire display's defaults"
+        );
+        assert_eq!(
+            frame.rows[0].runs[0].style.fg, DARK,
+            "default text uses the reversed foreground"
         );
     }
 
     #[test]
-    fn only_rows_that_changed_are_drawn_again() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        let text = |frame: &Frame| -> Vec<String> {
-            (frame.rows.iter())
-                .map(|row| row.text.trim_end().to_owned())
-                .collect()
-        };
-        vt.write(b"first\r\nsecond\r\n");
-        let before = vt.frame(&Colors::default()).unwrap();
-        vt.write(b"third");
-        let after = vt.frame(&Colors::default()).unwrap();
-        assert!(
-            Arc::ptr_eq(&before.rows[0], &after.rows[0]),
-            "a row that didn't change is the one drawn before"
-        );
+    fn renewed_mouse_tracking_reports_the_current_cell() {
+        let mut vt = Vt::new(SIZE);
+        let at = mouse::Position { x: 4., y: 8. };
+        vt.write(b"\x1b[?1003h\x1b[?1006h");
+        let first = vt.mouse(mouse::Action::Move, None, at, Mods::default());
+        assert!(!first.is_empty(), "the first motion reports its cell");
+        vt.write(b"\x1b[?1003l\x1b[?1003h");
         assert_eq!(
-            text(&after)[..3],
-            ["first", "second", "third"],
-            "the changed one is drawn"
-        );
-
-        for n in 0..29 {
-            vt.write(format!("\r\nline {n}").as_bytes());
-        }
-        vt.frame(&Colors::default()).unwrap();
-        vt.write(b"\r\nline 29");
-        let scrolled = vt.frame(&Colors::default()).unwrap();
-        let expected: Vec<String> = (6..30).map(|n| format!("line {n}")).collect();
-        assert_eq!(
-            text(&scrolled),
-            expected,
-            "scrolled, each row shows what it should"
-        );
-    }
-
-    #[test]
-    fn a_screen_that_did_not_change_is_the_frame_before() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"hello");
-        let before = vt.frame(&Colors::default()).unwrap();
-        let motion = mouse::Position { x: 4., y: 8. };
-        vt.mouse(mouse::Action::Motion, None, motion, Mods::empty());
-        let after = vt.frame(&Colors::default()).unwrap();
-        assert!(
-            Arc::ptr_eq(&before, &after),
-            "the mouse over a program not tracking it changes nothing to draw"
-        );
-        vt.write(b"\x1b[H");
-        let moved = vt.frame(&Colors::default()).unwrap();
-        assert_eq!(
-            (moved.cursor.as_ref()).map(|cursor| (cursor.x, cursor.y)),
-            Some((0, 0)),
-            "the cursor moving is drawn, though it marks no row"
-        );
-    }
-
-    #[test]
-    fn the_cursor_takes_the_shape_the_program_sets() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        vt.write(b"hello");
-        let block = vt.frame(&Colors::default()).unwrap();
-        assert_eq!(
-            block.cursor.as_ref().map(|cursor| cursor.style),
-            Some(CursorVisualStyle::Block),
-            "a block until the program says otherwise"
-        );
-        // As nvim does entering insert mode.
-        vt.write(b"\x1b[6 q");
-        let bar = vt.frame(&Colors::default()).unwrap();
-        assert_eq!(
-            bar.cursor.as_ref().map(|cursor| cursor.style),
-            Some(CursorVisualStyle::Bar),
-            "the new shape is drawn, though it marks no row and the cursor stays put"
+            vt.mouse(mouse::Action::Move, None, at, Mods::default()),
+            first,
+            "a new mouse-tracking session has not seen the previous cell"
         );
     }
 
     #[test]
     fn rows_are_drawn_again_in_colours_a_program_sets() {
-        let mut vt = Vt::new(SIZE).unwrap();
-        let (black, white) = (
-            RgbColor { r: 0, g: 0, b: 0 },
-            RgbColor {
-                r: 255,
-                g: 255,
-                b: 255,
-            },
-        );
+        let mut vt = Vt::new(SIZE);
+        let (black, white) = ([0, 0, 0], [255, 255, 255]);
         vt.set_colors(&Colors::default(), black, white);
         vt.write(b"hello\r\n");
-        vt.frame(&Colors::default()).unwrap();
+        vt.frame(&Colors::default());
         vt.write(b"\x1b]10;rgb:ff/00/00\x07");
-        let frame = vt.frame(&Colors::default()).unwrap();
+        let frame = vt.frame(&Colors::default());
         assert_eq!(
             frame.rows[0].runs[0].style.fg,
-            RgbColor { r: 255, g: 0, b: 0 },
+            [255, 0, 0],
             "text in the default colour turns red with it, though OSC 10 marks no row"
         );
     }
 
     #[test]
     fn the_wheel_sends_arrows_to_an_alternate_screen() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         assert_eq!(
             vt.alternate_scroll(1.),
             None,
@@ -1545,7 +1357,7 @@ mod tests {
 
     /// The text of each run on the first row drawn on a background of its own.
     fn highlighted(vt: &mut Vt) -> Vec<String> {
-        let frame = vt.frame(&Colors::default()).unwrap();
+        let frame = vt.frame(&Colors::default());
         let row = &frame.rows[0];
         (row.runs.iter())
             .filter(|run| run.style.bg.is_some())
@@ -1555,14 +1367,14 @@ mod tests {
 
     #[test]
     fn a_double_click_dragged_selects_by_word() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         vt.write(b"hello brave new world");
         let over = |col: f32| mouse::Position {
             x: col * 8. + 4.,
             y: 8.,
         };
         vt.select_press(over(7.), false).unwrap();
-        vt.select_release(over(7.)).unwrap();
+        vt.select_release(over(7.));
         assert_eq!(
             highlighted(&mut vt),
             Vec::<String>::new(),
@@ -1580,7 +1392,12 @@ mod tests {
             ["brave new world"],
             "dragging from it takes whole words up to the one under the pointer"
         );
-        vt.select_release(over(18.)).unwrap();
+        assert_eq!(
+            vt.selected().as_deref(),
+            Some("brave new world"),
+            "copying exposes the drag selection"
+        );
+        vt.select_release(over(18.));
         vt.select_press(over(7.), false).unwrap();
         assert_eq!(
             highlighted(&mut vt),
@@ -1591,7 +1408,7 @@ mod tests {
 
     #[test]
     fn a_selection_dragged_above_the_top_scrolls_up_a_row_a_tick() {
-        let mut vt = Vt::new(SIZE).unwrap();
+        let mut vt = Vt::new(SIZE);
         for n in 0..60 {
             vt.write(format!("line {n}\r\n").as_bytes());
         }
@@ -1600,7 +1417,7 @@ mod tests {
             y: row * 16. + 8.,
         };
         let first_row = |vt: &mut Vt| {
-            vt.frame(&Colors::default()).unwrap().rows[0]
+            vt.frame(&Colors::default()).rows[0]
                 .text
                 .trim_end()
                 .to_owned()
@@ -1614,7 +1431,7 @@ mod tests {
         vt.select_drag(row(-1.), false).unwrap();
         assert!(vt.autoscrolling(), "above the top it asks to scroll");
         for _ in 0..3 {
-            vt.select_autoscroll(row(-1.), false).unwrap();
+            vt.select_autoscroll(row(-1.), false);
         }
         assert_eq!(
             first_row(&mut vt),
@@ -1626,75 +1443,262 @@ mod tests {
             ["line 34"],
             "the selection follows to the top"
         );
-        vt.select_release(row(-1.)).unwrap();
+        vt.select_release(row(-1.));
         assert!(!vt.autoscrolling(), "letting go stops it");
     }
 
     #[test]
-    fn copying_all_joins_what_the_terminal_wrapped() {
-        let size = Size {
-            cols: 10,
-            rows: 4,
-            ..SIZE
-        };
-        let mut vt = Vt::new(size).unwrap();
-        assert_eq!(vt.selected(), None, "nothing is selected to copy");
-        vt.write(b"0123456789abc  \r\nend");
-        vt.select_all();
+    fn the_host_explicitly_rejects_graphics_before_answering_the_next_query() {
+        let mut vt = Vt::new(SIZE);
+        vt.write(b"\x1b_Ga=T,i=1,s=1,v=1,f=24;AQID\x1b\\ok\x1b[c");
         assert_eq!(
-            vt.selected().as_deref(),
-            Some("0123456789abc\nend"),
-            "a line wrapped at the edge copies as one, with no trailing blanks or rows"
+            vt.take_replies(),
+            b"\x1b_Gi=1;ENOTSUP: graphics disabled\x1b\\\x1b[?62;22c",
+            "graphics clients receive an error through the host's ordered reply path"
+        );
+        assert_eq!(
+            vt.term.graphics().limit,
+            0,
+            "this host has no image renderer"
+        );
+        assert!(
+            vt.term.graphics().images.is_empty() && vt.term.graphics().placements.is_empty(),
+            "rejected graphics retain no images or placements"
+        );
+        assert_eq!(first_row(&mut vt), "ok", "following text still renders");
+    }
+
+    #[test]
+    fn cached_frames_reuse_unchanged_rows_through_rewrites_scrolls_and_resets() {
+        let mut vt = Vt::new(Size {
+            cols: 8,
+            rows: 3,
+            ..SIZE
+        });
+        vt.write(b"first\r\nsecond");
+        let before = vt.frame(&Colors::default());
+        assert_eq!(
+            std::mem::take(&mut vt.drawer.extracted_cells),
+            24,
+            "the first frame extracts all 8 by 3 cells"
+        );
+        vt.mouse(
+            mouse::Action::Move,
+            None,
+            mouse::Position { x: 4., y: 8. },
+            Mods::default(),
+        );
+        assert!(
+            Arc::ptr_eq(&before, &vt.frame(&Colors::default())),
+            "an unchanged screen reuses its frame"
+        );
+        assert_eq!(
+            vt.drawer.extracted_cells, 0,
+            "cached cells need no extraction"
+        );
+        vt.write(b"\x1b[2;1Hrewrite");
+        let after = vt.frame(&Colors::default());
+        assert_eq!(
+            std::mem::take(&mut vt.drawer.extracted_cells),
+            8,
+            "only the rewritten row is extracted"
+        );
+        assert!(
+            Arc::ptr_eq(&before.rows[0], &after.rows[0]),
+            "the preceding row is reused"
+        );
+        assert!(
+            Arc::ptr_eq(&before.rows[2], &after.rows[2]),
+            "the following row is reused"
+        );
+        assert_eq!(
+            after.rows[1].text.trim_end(),
+            "rewrite",
+            "the changed row shows the new text"
+        );
+        assert!(
+            Arc::ptr_eq(&after, &vt.frame(&Colors::default())),
+            "the next unchanged frame reuses the rewritten screen"
+        );
+        assert_eq!(vt.drawer.extracted_cells, 0, "the new frame is cached too");
+        // The hold callback is read-only and can also reuse every unchanged cell.
+        vt.write(b"\x1b[?2026h\x1b[?2026h\x1b[?2026l");
+        assert_eq!(
+            vt.drawer.extracted_cells, 0,
+            "repeated holds reuse the unchanged cells"
+        );
+        vt.write(b"\x1b[2;1Hrewrite");
+        assert!(
+            Arc::ptr_eq(&after, &vt.frame(&Colors::default())),
+            "rewriting identical content retains the frame despite new row revisions"
+        );
+        vt.write(b"\r\nthird\r\nfourth");
+        let scrolled = vt.frame(&Colors::default());
+        assert!(
+            Arc::ptr_eq(&after.rows[1], &scrolled.rows[0]),
+            "scrolling reuses the same row at its new position"
+        );
+        assert_eq!(
+            scrolled.rows[2].text.trim_end(),
+            "fourth",
+            "newly visible text is drawn"
+        );
+        vt.write(b"\x1bcabc");
+        vt.frame(&Colors::default());
+        vt.write(b"\x1bcxyz");
+        assert_eq!(
+            first_row(&mut vt),
+            "xyz",
+            "resets never reuse a prior screen's rows"
+        );
+    }
+
+    #[test]
+    fn cached_rows_follow_native_mutations_and_cursor_changes_without_redrawing_other_rows() {
+        let mut vt = Vt::new(SIZE);
+        vt.write("漢\r\nsecond".as_bytes());
+        let fresh = vt.frame(&Colors::default());
+        let cursor = fresh.cursor.as_ref().unwrap();
+        assert_eq!(
+            (cursor.style, cursor.text.as_str()),
+            (CursorVisualStyle::Block, " "),
+            "a fresh blank cursor contains a space"
+        );
+        vt.drawer.extracted_cells = 0;
+        vt.term.screen_mut().set_cell_text(2, 0, "x");
+        assert_eq!(
+            vt.frame(&Colors::default()).rows[2].text.trim_end(),
+            "x",
+            "direct screen mutations invalidate the rendered row"
+        );
+        assert_eq!(
+            std::mem::take(&mut vt.drawer.extracted_cells),
+            80,
+            "only the directly mutated row is extracted"
+        );
+        vt.write(b"\x1b[6 q");
+        let blank = vt.frame(&Colors::default());
+        let cursor = blank.cursor.as_ref().unwrap();
+        assert_eq!(
+            (cursor.style, cursor.text.as_str()),
+            (CursorVisualStyle::Bar, " "),
+            "a new cursor shape over cached cells retains the blank text"
+        );
+        vt.drawer.extracted_cells = 0;
+        vt.write(b"\x1b[H");
+        let cursor = vt.frame(&Colors::default()).cursor.clone().unwrap();
+        assert_eq!(
+            (cursor.x, cursor.y, cursor.style, cursor.text.as_str()),
+            (0, 0, CursorVisualStyle::Bar, "漢"),
+            "cursor movement and shape changes retain the cached cell's text"
+        );
+        assert!(
+            std::mem::take(&mut vt.drawer.extracted_cells) <= 1,
+            "a cursor change needs at most its own cell"
+        );
+        vt.write(b"\x1b[?25l");
+        assert!(
+            vt.frame(&Colors::default()).cursor.is_none(),
+            "the program can hide its cursor"
+        );
+        assert_eq!(
+            vt.drawer.extracted_cells, 0,
+            "hiding the cursor extracts no cells"
+        );
+        vt.write(b"\x1b[?25h\x1b[1;2H");
+        assert!(
+            vt.frame(&Colors::default()).cursor.is_none(),
+            "a wide spacer has no cursor text"
+        );
+        vt.drawer.extracted_cells = 0;
+        vt.frame(&Colors::default());
+        assert_eq!(
+            vt.drawer.extracted_cells, 0,
+            "the spacer cursor state is cached"
         );
     }
 
     #[cfg(unix)]
-    fn plain(vt: &Vt) -> String {
-        let options = FormatterOptions::new().with_format(Format::Plain);
-        let text = Formatter::new(&vt.term, options)
-            .unwrap()
-            .format_alloc(None)
-            .unwrap();
-        String::from_utf8(text.to_vec()).unwrap()
-    }
-
-    #[cfg(unix)]
     #[test]
-    fn a_screen_written_into_a_fresh_terminal_builds_the_same() {
+    fn handoff_preserves_content_and_application_overrides_while_accepting_the_new_theme() {
         let size = Size {
             cols: 20,
             rows: 4,
             ..SIZE
         };
-        let mut vt = Vt::new(size).unwrap();
-        vt.write(b"\x1b[31mred\x1b[0m\r\n");
-        for n in 0..10 {
-            vt.write(format!("line {n}\r\n").as_bytes());
-        }
-        vt.write(b"\x1b]2;working\x07\x1b[?2004h\x1b[2;5Hhere");
-
-        let mut fresh = Vt::new(size).unwrap();
+        let mut vt = Vt::new(size);
+        vt.set_colors(
+            &Colors {
+                palette: vec![(1, [200, 0, 0]), (2, [0, 200, 0])],
+                ..Colors::default()
+            },
+            DARK,
+            LIGHT,
+        );
+        vt.write(b"scrollback\r\none\r\ntwo\r\nthree\r\n");
+        vt.write(b"\x1b]2;working\x07\x1b]4;1;rgb:12/34/56\x07\x1b]10;rgb:23/45/67\x07\x1b[31m\x1b]8;;https://example.com\x07link\x1b]8;;\x07\x1b[32mgreen\x1b[0m\x1b[?2004h\x1b[>1u\x1b[6 q");
+        let mut fresh = Vt::new(size);
         fresh.write(&vt.screen().unwrap());
+        fresh.set_colors(
+            &Colors {
+                palette: vec![(1, [100, 0, 0]), (2, [0, 100, 0])],
+                ..Colors::default()
+            },
+            [9, 8, 7],
+            [6, 5, 4],
+        );
+        let text = fresh.term.formatter(Format::Plain).format().unwrap();
+        assert_eq!(
+            text,
+            vt.term.formatter(Format::Plain).format().unwrap(),
+            "all text survives handoff"
+        );
+        assert!(
+            text.starts_with(b"scrollback\n"),
+            "the serialized content includes history"
+        );
+        assert_eq!(
+            (
+                fresh.term.title_bytes(),
+                fresh.term.modes.dec(2004),
+                fresh.term.screen().kitty_keyboard.current()
+            ),
+            (
+                b"working".as_slice(),
+                true,
+                vt.term.screen().kitty_keyboard.current()
+            ),
+            "the title, paste mode and negotiated keyboard protocol survive handoff"
+        );
+        assert_eq!(
+            (fresh.term.foreground, fresh.term.background),
+            ([0x23, 0x45, 0x67], [9, 8, 7]),
+            "application overrides survive while unset colors follow the receiving theme"
+        );
+        let frame = fresh.frame(&Colors::default());
+        let row = &frame.rows[3];
+        assert_eq!(
+            (row.runs[0].style.fg, row.runs[1].style.fg),
+            ([0x12, 0x34, 0x56], [0, 100, 0]),
+            "rendered palette colors preserve the application override and accept the new theme default"
+        );
+        assert_eq!(
+            row.runs[0].link.as_deref(),
+            Some("https://example.com"),
+            "rendered text keeps its hyperlink"
+        );
+        let cursor = frame.cursor.as_ref().unwrap();
+        assert_eq!(
+            (cursor.x, cursor.y, cursor.style),
+            (9, 3, CursorVisualStyle::Bar),
+            "the cursor retains its position and shape"
+        );
+    }
 
-        assert_eq!(
-            plain(&fresh),
-            plain(&vt),
-            "the same text, scrollback included"
-        );
-        assert!(
-            plain(&fresh).starts_with("red\nline 0"),
-            "the scrollback is there"
-        );
-        let cursor = |vt: &Vt| (vt.term.cursor_x().unwrap(), vt.term.cursor_y().unwrap());
-        assert_eq!(cursor(&fresh), cursor(&vt), "the cursor is where it was");
-        assert_eq!(
-            fresh.term.title().unwrap(),
-            b"working",
-            "the title carries over"
-        );
-        assert!(
-            fresh.term.mode(Mode::BRACKETED_PASTE).unwrap(),
-            "the modes the shell set carry over"
-        );
+    #[test]
+    fn synchronous_host_retains_ordered_status_geometry_and_identity_replies() {
+        let mut vt = Vt::new(SIZE);
+        vt.write(b"\x1b]7501;?\x1b\\\x1b[18t\x1b[14t\x1b[16t\x1b[?2048h\x1b[>0q\x1b[c");
+        assert_eq!(vt.take_replies(), b"\x1b]7501;?:states=idle,working,done,blocked,error:kinds=permission,question,auth\x1b\\\x1b[8;24;80t\x1b[4;384;640t\x1b[6;16;8t\x1b[48;24;80;384;640t\x1bP>|ghostty 0.1.0\x1b\\\x1b[?62;22c", "status, geometry and identity replies follow query order");
     }
 }

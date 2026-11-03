@@ -232,7 +232,7 @@ fn environment() -> Vec<u16> {
     for (name, value) in [
         ("TERM", "xterm-256color"),
         ("COLORTERM", "truecolor"),
-        // Ghostty's, the emulator's, as Claude Code reports progress only to terminals it knows.
+        // Advertise Ghostty compatibility so Claude Code sends progress reports.
         ("TERM_PROGRAM", "ghostty"),
         ("TERM_PROGRAM_VERSION", "1.3.2"),
     ] {

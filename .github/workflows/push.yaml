@@ -207,8 +207,6 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - run: cargo fmt --check --all
       - name: cargo clippy
         run: |
@@ -241,8 +239,6 @@ jobs:
         with:
           shared-key: check-features
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - run: |
           # should work without the "legacy" feature
           cargo check -p but-testsupport --all-targets
@@ -315,8 +311,6 @@ jobs:
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       # fontconfig's build script looks it up with pkg-config.
@@ -367,8 +361,6 @@ jobs:
           # A GPUI-only run builds a fraction of the dependencies, and saving that would leave
           # the next full run to rebuild the rest.
           save-if: ${{ github.ref == 'refs/heads/master' && needs.changes.outputs.rust_core == 'true' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
@@ -469,8 +461,6 @@ jobs:
         with:
           shared-key: cargo-test-no-tauri-${{ runner.os }}
           save-if: false
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Dependencies for the GPUI client
@@ -551,8 +541,6 @@ jobs:
         with:
           shared-key: cargo-check-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: "cargo check"
         run: cargo check --workspace --all-targets --features windows
       # The GPUI client's Windows code: the lint job runs on Linux, which builds it as a stub.
@@ -577,8 +565,6 @@ jobs:
         with:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       - name: "cargo test -p but-gpui -p but-tty"
         run: cargo test -p but-gpui -p but-tty
 
@@ -598,8 +584,6 @@ jobs:
         with:
           shared-key: cargo-build-tauri-windows
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
       # The desktop app with the native client, as Windows builds ship it: GPUI's and Tauri's
       # resources only clash when the executable links.
       - name: "cargo build -p gitbutler-tauri --features windows,builtin-gpui"

@@ -112,7 +112,7 @@ image = { version = "0.25.1", default-features = false, features = ["png", "jpeg
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "b797d011ecc6b733025461cc98fae6f9f8719429" }
 # Pull request descriptions as formatted text. Only its parser: none of its HTML output.
 pulldown-cmark = { version = "0.13.4", default-features = false }
-# The embedded terminals: shells on pseudo-terminals, emulated by libghostty-vt.
+# The embedded terminals: shells on pseudo-terminals, emulated by rustty-vt.
 but-tty.workspace = true
 # Quotes the paths of files dropped on a terminal for the shell.
 shell-words.workspace = true

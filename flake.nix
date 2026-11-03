@@ -25,19 +25,6 @@
       playwrightBrowsers = nixpkgs-playwright.legacyPackages.${system}.playwright-driver.browsers;
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-      # libghostty-vt-sys (via but-tty) builds libghostty-vt with Zig 0.17.x.
-      # On macOS that build runs Apple tools (`xcrun nmedit`) the Nix SDK lacks,
-      # so Zig gets the system toolchain instead, like libghostty-rs's own shell.
-      zig =
-        if pkgs.stdenv.hostPlatform.isDarwin
-        then
-          pkgs.writeShellScriptBin "zig" ''
-            unset SDKROOT DEVELOPER_DIR
-            PATH=$(echo "$PATH" | tr ':' '\n' | grep -v xcbuild | paste -sd: -)
-            exec ${pkgs.zig_0_17}/bin/zig "$@"
-          ''
-        else pkgs.zig_0_17;
-
       # Nix's cc links with nixpkgs' ld64, which links the GPUI client 2.4x slower than the
       # linker Xcode and the Command Line Tools ship, so Cargo links with that one when it's
       # installed. Nix's ld wrapper is bypassed, so its library search paths are passed on.
@@ -66,7 +53,6 @@
           playwrightBrowsers
           pkgs.cargo-flamegraph
           pkgs.cargo-machete
-          zig
         ];
 
         env =
