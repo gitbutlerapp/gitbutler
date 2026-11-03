@@ -149,7 +149,7 @@ impl Sandbox {
             .env("NOPAGER", "1")
     }
 
-    fn with_updated_env(&self, cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
+    pub fn with_updated_env(&self, cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
         isolate_snapbox_cmd_with_additional_removals(cmd, but::AGENT_ENVIRONMENT_VARIABLES)
             .env("E2E_TEST_APP_DATA_DIR", self.app_data_dir())
             .current_dir(self.projects_root())
