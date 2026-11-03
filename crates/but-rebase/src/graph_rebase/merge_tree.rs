@@ -130,13 +130,125 @@ impl Walk<'_, '_> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum MergeTree {
+    Commit(gix::ObjectId),
+    Fork {
+        base: Option<gix::ObjectId>,
+        branches: Vec<MergeTree>,
+    },
+}
+
+impl MergeTree {
+    pub(crate) fn new(repo: &gix::Repository, tips: &[gix::ObjectId]) -> Result<Option<Self>> {
+        if tips.is_empty() {
+            return Ok(None);
+        }
+        let history = SharedHistory::walk(repo, tips)?;
+        let ranks = history.ranks();
+        let mut groups = Groups(
+            tips.iter()
+                .enumerate()
+                .map(|(first_tip, tip)| Group {
+                    tree: Some(MergeTree::Commit(*tip)),
+                    first_tip,
+                    joined: None,
+                })
+                .collect(),
+        );
+        let mut arrived = vec![Vec::new(); history.commits.len()];
+        for (group, tip) in history.tips.iter().enumerate() {
+            arrived[*tip].push(group);
+        }
+
+        let mut order: Vec<usize> = (0..history.commits.len()).collect();
+        order.sort_by_key(|index| std::cmp::Reverse(ranks[*index]));
+        for equal_rank in order.chunk_by(|a, b| ranks[*a] == ranks[*b]) {
+            let mut equal_rank = equal_rank.to_vec();
+            equal_rank.sort_by_cached_key(|index| {
+                let first_tip = groups
+                    .roots(&arrived[*index])
+                    .first()
+                    .map(|root| groups.0[*root].first_tip);
+                (first_tip, history.commits[*index].id)
+            });
+            for index in equal_rank {
+                if groups.live() == 1 {
+                    break;
+                }
+                let roots = groups.roots(&arrived[index]);
+                let group = match roots.as_slice() {
+                    [] => continue,
+                    [root] => *root,
+                    roots => groups.join(Some(history.commits[index].id), roots),
+                };
+                for parent in &history.commits[index].parents {
+                    arrived[*parent].push(group);
+                }
+            }
+        }
+
+        let roots = groups.roots(&(0..tips.len()).collect::<Vec<_>>());
+        let root = match roots.as_slice() {
+            [root] => *root,
+            roots => groups.join(None, roots),
+        };
+        Ok(groups.0[root].tree.take())
+    }
+}
+
+struct Group {
+    tree: Option<MergeTree>,
+    first_tip: usize,
+    joined: Option<usize>,
+}
+
+struct Groups(Vec<Group>);
+
+impl Groups {
+    fn root(&self, mut group: usize) -> usize {
+        while let Some(joined) = self.0[group].joined {
+            group = joined;
+        }
+        group
+    }
+
+    fn roots(&self, groups: &[usize]) -> Vec<usize> {
+        let mut roots: Vec<_> = groups.iter().map(|group| self.root(*group)).collect();
+        roots.sort_by_key(|root| self.0[*root].first_tip);
+        roots.dedup();
+        roots
+    }
+
+    fn live(&self) -> usize {
+        self.0.iter().filter(|group| group.tree.is_some()).count()
+    }
+
+    fn join(&mut self, base: Option<gix::ObjectId>, roots: &[usize]) -> usize {
+        let joined = self.0.len();
+        let branches = roots
+            .iter()
+            .map(|root| {
+                self.0[*root].joined = Some(joined);
+                self.0[*root].tree.take().expect("roots are live")
+            })
+            .collect();
+        self.0.push(Group {
+            tree: Some(MergeTree::Fork { base, branches }),
+            first_tip: self.0[roots[0]].first_tip,
+            joined: None,
+        });
+        joined
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
     use anyhow::Result;
 
-    use super::SharedHistory;
+    use super::{MergeTree, SharedHistory};
 
     struct Scenario {
         repo: gix::Repository,
@@ -212,6 +324,25 @@ mod tests {
                     format!("{name:>2} {floor} {}\n", rank.generation)
                 })
                 .collect())
+        }
+        fn merge_tree(&self, tips: &[&str]) -> Result<String> {
+            let tree = MergeTree::new(&self.repo, &self.ids(tips)?)?.expect("tips were given");
+            Ok(self.render(&tree))
+        }
+
+        fn render(&self, tree: &MergeTree) -> String {
+            match tree {
+                MergeTree::Commit(id) => self.name(*id).to_owned(),
+                MergeTree::Fork { base, branches } => format!(
+                    "fork {} [{}]",
+                    base.map_or("none", |base| self.name(base)),
+                    branches
+                        .iter()
+                        .map(|branch| self.render(branch))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            }
         }
     }
 
@@ -349,6 +480,55 @@ s2       2
 s1       1
 
 "#]]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn merge_trees_join_the_groups_sharing_the_most_history_first() -> Result<()> {
+        let nested = Scenario::open("nested")?;
+        // p1 and p3 share c2, so they merge there before p2 joins them at c1.
+        snapbox::assert_data_eq!(
+            nested.merge_tree(&["p1", "p2", "p3"])?,
+            snapbox::str!["fork c1 [fork c2 [p1, p3], p2]"]
+        );
+        // Branches keep the order of their first tip.
+        snapbox::assert_data_eq!(
+            nested.merge_tree(&["p2", "p1", "p3"])?,
+            snapbox::str!["fork c1 [p2, fork c2 [p1, p3]]"]
+        );
+        // A tip inside another tip's history forks at itself.
+        snapbox::assert_data_eq!(
+            nested.merge_tree(&["p1", "p2", "c2"])?,
+            snapbox::str!["fork c1 [fork c2 [p1, c2], p2]"]
+        );
+        // The same tip twice forks at itself too.
+        snapbox::assert_data_eq!(
+            nested.merge_tree(&["p1", "p1"])?,
+            snapbox::str!["fork p1 [p1, p1]"]
+        );
+        // A single tip needs no merge at all.
+        snapbox::assert_data_eq!(nested.merge_tree(&["p1"])?, snapbox::str!["p1"]);
+
+        // Each fork is merged on its own before the two are merged at Z.
+        snapbox::assert_data_eq!(
+            Scenario::open("five-leaves")?.merge_tree(&["c1", "c4", "c2", "c5", "c3"])?,
+            snapbox::str!["fork Z [fork A [c1, c2, c3], fork B [c4, c5]]"]
+        );
+        // Of the two best merge-bases, X is the deeper.
+        snapbox::assert_data_eq!(
+            Scenario::open("criss-cross")?.merge_tree(&["a", "b"])?,
+            snapbox::str!["fork X [a, b]"]
+        );
+        // Unrelated histories merge without a base.
+        snapbox::assert_data_eq!(
+            Scenario::open("unrelated")?.merge_tree(&["r1", "r2"])?,
+            snapbox::str!["fork none [r1, r2]"]
+        );
+        // The merged-in root line doesn't hide m2.
+        snapbox::assert_data_eq!(
+            Scenario::open("merged-root")?.merge_tree(&["a", "b"])?,
+            snapbox::str!["fork m2 [a, b]"]
         );
         Ok(())
     }
