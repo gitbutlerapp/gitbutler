@@ -205,6 +205,72 @@ fn push_dry_run_ignores_unreachable_unrelated_remote() {
 }
 
 #[test]
+fn push_shows_gits_reason_when_the_remote_is_unreachable() {
+    let env = repo_with_unpushed_branch();
+    env.invoke_git("remote set-url origin /nonexistent/path/origin.git");
+
+    env.but("push branchB").assert().failure().stderr_eq(str![[r#"
+Error: fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
+
+    // A bare push lists what failed per branch, so the reason and the hint have to be there.
+    env.but("push").assert().failure().stdout_eq(str![[r#"
+
+
+✗ Failed to push 2 branches:
+    branchB - fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+    A - fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]).stderr_eq(str![[r#"
+Error: failed to push 2 of 2 branches
+
+"#]]);
+}
+
+/// Git reached the remote and can't write the refs it fetched, because `origin/blocked` is in the
+/// way of `origin/blocked/ref`. The remote isn't at fault, so this stays an internal error.
+#[test]
+fn a_fetch_that_cannot_write_its_refs_stays_an_internal_error() {
+    let env = repo_with_unpushed_branch();
+    let remote_git = env.app_data_dir().join("origin.git");
+    env.invoke_git(&format!(
+        "-C {} branch blocked/ref main",
+        remote_git.display()
+    ));
+    env.invoke_git("update-ref refs/remotes/origin/blocked HEAD");
+
+    env.but("push --dry-run branchB")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: fetching remote `origin` failed
+
+Caused by:
+    0: backend error: git command exited with non-zero exit code 1:
+...
+"#]]);
+}
+
+#[test]
 fn push_dry_run_of_a_stacked_branch_lists_the_branches_beneath_it() {
     let env = repo_with_unpushed_branch();
     env.but("branch new branchC --above branchB")

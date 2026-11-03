@@ -1144,6 +1144,54 @@ fn pull_ignores_unreachable_unrelated_remote() {
     env.but("pull").assert().success();
 }
 
+/// With the network down every remote fails, and only the target's failure stops the pull, so
+/// that's the reason to show. `broken` sorts first, so the first failure isn't the target's.
+#[test]
+fn pull_shows_gits_reason_when_the_target_remote_is_unreachable() {
+    let env = single_branch_integration_scenario();
+    env.invoke_git("remote set-url origin /nonexistent/path/origin.git");
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+
+    env.but("pull").assert().failure().stderr_eq(str![[r#"
+Error: fatal: '/nonexistent/path/origin.git' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
+}
+
+/// Git reports a refused key as "Permission denied", which is a failure of its own kind.
+#[cfg(unix)]
+#[test]
+fn pull_shows_gits_reason_when_ssh_refuses_the_credentials() {
+    let env = single_branch_integration_scenario();
+    let fake_ssh = env.app_data_dir().join("fake-ssh");
+    let fake_ssh = fake_ssh.display();
+    env.invoke_bash(format!(
+        r#"
+        printf '#!/bin/sh\necho "git@example.invalid: Permission denied (publickey)." >&2\nexit 255\n' > {fake_ssh}
+        chmod +x {fake_ssh}
+        git config core.sshCommand {fake_ssh}
+        git remote set-url origin ssh://git@example.invalid/project.git
+        "#
+    ));
+
+    env.but("pull").assert().failure().stderr_eq(str![[r#"
+Error: git@example.invalid: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+
+Hint: Check the remote's URL with `git remote -v`, your network connection and your credentials, then retry
+
+"#]]);
+}
+
 #[test]
 fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(

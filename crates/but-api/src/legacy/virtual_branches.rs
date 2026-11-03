@@ -777,12 +777,12 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
         })
     };
     let askpass = Some(action.unwrap_or_else(|| "unknown".to_string()));
-    let fetch_errors: Vec<(String, String)> = remotes
+    let fetch_errors: Vec<(String, anyhow::Error)> = remotes
         .iter()
         .filter_map(|remote| {
             ctx.fetch(remote, askpass.clone())
                 .err()
-                .map(|err| (remote.clone(), err.to_string()))
+                .map(|err| (remote.clone(), err))
         })
         .collect();
 
@@ -812,25 +812,20 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     //
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
     gitbutler_project::update(gitbutler_project::UpdateRequest {
-        project_data_last_fetched: Some(project_data_last_fetched.clone()),
+        project_data_last_fetched: Some(project_data_last_fetched),
         ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id.clone())
     })
     .context("failed to update project with last fetched timestamp")?;
 
-    if let FetchResult::Error { error, .. } = project_data_last_fetched {
-        // The target counts as failed when its fetch errored — and also when it isn't among the
-        // configured remotes at all (stale target metadata), since it was then never fetched and
-        // cannot vouch for anything.
-        let target_failed = match &target_fetch_remote {
-            Some(target) => {
-                !remotes.iter().any(|remote| remote == target)
-                    || fetch_errors.iter().any(|(remote, _)| remote == target)
-            }
-            None => true,
-        };
-        if target_failed {
-            return Err(anyhow!(error));
-        }
+    // A target that isn't among the configured remotes (stale target metadata) was never fetched
+    // and cannot vouch for anything, so then, as without a target, any failure fails the call.
+    let target = target_fetch_remote.filter(|target| remotes.contains(target));
+    if let Some((remote, err)) = fetch_errors
+        .into_iter()
+        .find(|(remote, _)| target.as_ref().is_none_or(|target| target == remote))
+    {
+        // Keep the failure itself, so that callers can tell why it failed.
+        return Err(err.context(format!("fetching remote `{remote}` failed")));
     }
 
     let guard = ctx.shared_worktree_access();
