@@ -1,0 +1,13 @@
+/* The card rows sit in, as DescriptionList and RowGroup draw it: the border is the element's own,
+   so it counts in the layout and the rows sit inside it. */
+.card {
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+
+	/* The card draws the hairline between its rows, not each row, so the last row never doubles the
+	   card's border. Inset, so the hairline takes no height and every one-line row is the same. */
+	& > * + * {
+		box-shadow: inset 0 1px 0 var(--border-section);
+	}
+}

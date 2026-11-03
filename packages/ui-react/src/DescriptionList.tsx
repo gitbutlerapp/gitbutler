@@ -1,3 +1,4 @@
+import card from "./card.module.css";
 import { classes } from "./classes.ts";
 import { Code } from "./Code.tsx";
 import { CopyButton } from "./copy-button.tsx";
@@ -13,7 +14,7 @@ import type { ComponentProps, FC, ReactNode } from "react";
  * @import import { DescriptionList, DescriptionListItem } from "@gitbutler/ui-react/DescriptionList.tsx";
  */
 export const DescriptionList: FC<ComponentProps<"dl">> = ({ className, ...props }) => (
-	<dl {...props} className={classes("text-13", styles.list, className)} />
+	<dl {...props} className={classes("text-13", card.card, styles.list, className)} />
 );
 
 /**

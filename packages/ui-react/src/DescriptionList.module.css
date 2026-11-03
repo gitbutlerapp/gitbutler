@@ -1,8 +1,5 @@
 .list {
 	margin: 0;
-	border: 1px solid var(--border-section);
-	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
 }
 
 /* The same inset on every side. A one-line row is the minimum height; the block padding is for a
@@ -13,11 +10,6 @@
 	min-height: 40px;
 	padding: 10px;
 	gap: var(--space-2xl);
-
-	/* Inset, so the hairline takes no height and every one-line row is the same. */
-	& + & {
-		box-shadow: inset 0 1px 0 var(--border-section);
-	}
 }
 
 /* A fixed column, so the values line up down the card; a long name wraps within it. */
