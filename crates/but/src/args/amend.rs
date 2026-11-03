@@ -17,8 +17,12 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
     /// The commit to amend into; a branch means its newest commit.
+    ///
+    /// If omitted, the changes go to the newest commit of the branch checked out where they are.
+    /// With `gitbutler/workspace` checked out that takes exactly one applied branch, and
+    /// `--target` is required otherwise.
     #[clap(short, long, value_name = "COMMIT_OR_BRANCH")]
-    pub target: CliIdArg,
+    pub target: Option<CliIdArg>,
 
     /// One or more uncommitted files or hunks to amend.
     ///

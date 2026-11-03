@@ -103,7 +103,7 @@ fn metrics_use_invoked_command_names() {
     {
         assert_command(
             Subcommands::Amend(crate::args::amend::Platform {
-                target: CliIdArg("c1".into()),
+                target: Some(CliIdArg("c1".into())),
                 sources: vec![CliIdArg("a1".into())],
                 allow_merged: Default::default(),
             }),
@@ -476,10 +476,10 @@ fn parse_errors_name_the_command_reason_and_flag_without_user_text() {
         ("status private-name", "status", "UnknownArgument", None),
         // The command can't be built without its required argument.
         (
-            "amend",
-            "amend",
+            "uncommit",
+            "uncommit",
             "MissingRequiredArgument",
-            Some("--target"),
+            Some("<SOURCES>..."),
         ),
     ];
     for (line, command, code, arg_name) in cases {

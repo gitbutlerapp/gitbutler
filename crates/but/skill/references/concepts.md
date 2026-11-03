@@ -113,7 +113,7 @@ from anywhere, and `@:<path>` to the main worktree. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
 source: the change lands on the target and leaves that worktree's uncommitted area. `but discard`
 on one discards it in that worktree, and isn't recorded in the oplog, so `but undo` can't bring
-it back. Without a target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
+it back. Without a target flag, worktree changes commit or amend to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
 at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
@@ -129,7 +129,7 @@ Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names
 worktree's area ID (`<id>:@`), not `@`; `but uncommit` infers it.
 IDs are the same whichever checkout `but` runs in, and `@` always means the main worktree's
 area. Only what a command falls back to when no location is named depends on it: run from
-inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
+inside a linked worktree, a bare `but commit`, `but diff` and `but amend`, and `but squash`
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
 without a target go on its branch, and a bare `but discard` discards that worktree's changes.
 `but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
