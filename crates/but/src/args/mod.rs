@@ -135,7 +135,8 @@ pub enum HelpTopic {
     /// * **Branch:**
     ///     - The entire branch name
     ///     - An exact short ID for the branch name, as shown by `but status`
-    /// * **Uncommitted file:** A path-derived ID that is typically 1-3 characters
+    /// * **Uncommitted file:** A path-derived ID that is typically 1-3 characters, or the path of
+    ///   the file or a directory above it, from the repository root or the current directory
     /// * **Uncommitted hunk:** `<uncommitted_file_cli_id>:<hunk_cli_id>`
     ///     - Run `but diff` to show all current uncommitted hunks and their IDs
     /// * **Uncommitted area:** Always `@`

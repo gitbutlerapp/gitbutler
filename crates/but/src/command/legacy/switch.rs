@@ -34,7 +34,7 @@ pub fn switch(
     args: Platform,
     invoked_from: &InvokedFrom,
 ) -> CliResult<SwitchOutcome> {
-    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from {
+    if let Some(worktree) = &invoked_from.linked_worktree {
         return Err(bad_input(format!("Cannot switch from worktree {worktree}"))
             .hint("Run `but switch` from the main worktree")
             .into());

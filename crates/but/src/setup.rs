@@ -235,7 +235,7 @@ pub fn init_ctx(
 /// its changes or show none. Worktrees already on disk when GitButler first reads a repository
 /// start out archived, which includes the one an agent harness made before its first `but` call.
 fn unarchive_invoked_worktree(ctx: &Context, directory: &Path) -> anyhow::Result<()> {
-    let InvokedFrom::LinkedWorktree(name) = InvokedFrom::discover(directory)? else {
+    let Some(name) = InvokedFrom::discover(directory)?.linked_worktree else {
         return Ok(());
     };
     let archived = ctx

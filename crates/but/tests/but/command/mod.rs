@@ -41,6 +41,8 @@ mod onboarding;
 #[cfg(feature = "nightly")]
 mod open;
 #[cfg(feature = "legacy")]
+mod path_spellings;
+#[cfg(feature = "legacy")]
 mod pick;
 #[cfg(feature = "legacy")]
 mod pr;

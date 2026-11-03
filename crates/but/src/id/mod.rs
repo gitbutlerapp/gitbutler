@@ -22,7 +22,9 @@ use crate::id::{
     uncommitted_info::UncommittedInfo,
 };
 use crate::theme;
-use crate::utils::change_source::{self, ChangeSourceId, InvokedFrom, SourceChanges};
+use crate::utils::change_source::{
+    self, ChangeSourceId, InvokedDirectory, InvokedFrom, SourceChanges,
+};
 use crate::utils::{detect_agent, get_change_id_for_commit};
 
 mod file_info;
@@ -788,6 +790,8 @@ pub struct IdMap {
     /// The checkout a bare path names a file in: where `but` was invoked from, or `None` when
     /// that isn't known, so a bare path names nothing rather than a file in some other checkout.
     paths_in: Option<ChangeSourceId>,
+    /// Where `but` runs in that checkout, which a path can also be relative to.
+    invoked_directory: Option<InvokedDirectory>,
 
     /// Maps full reverse hex IDs to uncommitted files.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
@@ -962,6 +966,7 @@ impl IdMap {
             uncommitted_hunks,
             diff_context_lines,
             paths_in,
+            invoked_directory: None,
         })
     }
 
@@ -1128,14 +1133,16 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(
+        let mut id_map = Self::new(
             stacks,
             sources,
             commit_id_to_change_id,
             worktrees,
             ctx.settings.context_lines,
             invoked_from.map(InvokedFrom::checkout),
-        )
+        )?;
+        id_map.invoked_directory = invoked_from.and_then(|from| from.directory.clone());
+        Ok(id_map)
     }
 }
 
@@ -1215,6 +1222,52 @@ impl IdMap {
                 source: source.clone(),
             },
         })]
+    }
+
+    /// The paths from the root of the main worktree that `word` may name, or none when `but` runs
+    /// in another checkout.
+    pub(crate) fn main_worktree_paths(&self, word: &str) -> Vec<String> {
+        if self.paths_in != Some(ChangeSourceId::Head) {
+            return Vec::new();
+        }
+        let from_invoked_directory = self
+            .invoked_directory
+            .as_ref()
+            .and_then(|directory| directory.path_from_root(word));
+        std::iter::once(word.to_owned())
+            .chain(from_invoked_directory)
+            .collect()
+    }
+
+    /// What `word` names as a path, other than a file from the root of the checkout: a directory
+    /// from the root, and a file or else a directory from where `but` runs. These compete so that
+    /// a word naming several of them is refused, rather than acting on changes the user may not
+    /// mean. An empty word names nothing, not the directory `but` runs in.
+    fn parse_word_as_path<'a>(&'a self, word: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+        let Some(paths_in) = self.paths_in.as_ref().filter(|_| !word.is_empty()) else {
+            return Vec::new();
+        };
+        let directory = format!("{}/", word.trim_end_matches('/'));
+        let mut matches = self.parse_uncommitted_path_prefix(&directory, paths_in);
+        let Some(path) = self
+            .invoked_directory
+            .as_ref()
+            .and_then(|directory| directory.path_from_root(word))
+        else {
+            return matches;
+        };
+        let files = self.parse_uncommitted_filename(&path, paths_in);
+        if files.is_empty() {
+            let directory = if path.is_empty() {
+                path
+            } else {
+                format!("{path}/")
+            };
+            matches.extend(self.parse_uncommitted_path_prefix(&directory, paths_in));
+        } else {
+            matches.extend(files);
+        }
+        matches
     }
 
     /// Whether `element` is exactly a branch segment or stack short ID
@@ -1545,6 +1598,23 @@ impl IdMap {
             }
         }
 
+        // Other spellings of a path come last, so that a word keeps what it names above: IDs in
+        // particular are printed for the user to pass back. A path from the root, the way
+        // `but status` prints it, competes with what the same word names from where `but` runs.
+        let is_path_from_root = entity.ends_with('/')
+            || self.paths_in.as_ref().is_some_and(|paths_in| {
+                !self.parse_uncommitted_filename(entity, paths_in).is_empty()
+            });
+        if is_path_from_root
+            || (cli_ids.is_empty() && !self.is_displayed_branch_or_stack_id(entity))
+        {
+            cli_ids.extend(
+                self.parse_word_as_path(entity)
+                    .into_iter()
+                    .filter_map(|node| node.to_cli_id()),
+            );
+        }
+
         let mut deduped = Vec::new();
         'next: for cli_id in cli_ids {
             for existing in &deduped {
@@ -1701,6 +1771,18 @@ impl IdMap {
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
     match (lhs, rhs) {
         (CliId::UncommittedHunkOrFile(lhs), CliId::UncommittedHunkOrFile(rhs)) => lhs == rhs,
+        (
+            CliId::PathPrefix {
+                id: lhs,
+                source: lhs_source,
+                ..
+            },
+            CliId::PathPrefix {
+                id: rhs,
+                source: rhs_source,
+                ..
+            },
+        ) => lhs == rhs && lhs_source == rhs_source,
         (CliId::Commit { commit: l, id: _ }, CliId::Commit { commit: r, id: _ }) => l == r,
         (
             CliId::CommittedFile {
@@ -1839,7 +1921,7 @@ pub enum CliId {
     UncommittedHunkOrFile(UncommittedHunkOrFile),
     /// A path prefix, representing several uncommitted hunks.
     PathPrefix {
-        /// The ID as given by the user
+        /// The prefix, from the root of the checkout
         id: ShortId,
         /// The hunk assignments with their associated short IDs
         hunks: NonEmpty<IdAndHunk>,

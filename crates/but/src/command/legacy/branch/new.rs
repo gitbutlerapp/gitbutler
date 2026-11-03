@@ -81,7 +81,7 @@ fn resolve(
 
     match (above, below) {
         (None, None) => {
-            if let InvokedFrom::LinkedWorktree(worktree) = invoked_from {
+            if let Some(worktree) = &invoked_from.linked_worktree {
                 return Err(bad_input(format!(
                     "Cannot create an unstacked branch from worktree {worktree}"
                 ))

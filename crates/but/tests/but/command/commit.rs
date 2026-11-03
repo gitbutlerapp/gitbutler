@@ -2882,7 +2882,7 @@ hellooooo
         .stderr_eq(snapbox::str![[r#"
 Error: Ambiguous uncommitted change 'qs:7', matches multiple items
 
-Hint: Use a longer ID to disambiguate
+Hint: Use a longer ID to disambiguate. A path starting with `./` or `../` is read only from the current directory.
 
 "#]]);
 }
@@ -4178,7 +4178,7 @@ fn commit_uncommitted_area_with_a_file_named_at_is_ambiguous() {
         .stderr_eq(snapbox::str![[r#"
 Error: Ambiguous uncommitted change '@', matches multiple items
 
-Hint: Use a longer ID to disambiguate
+Hint: Use a longer ID to disambiguate. A path starting with `./` or `../` is read only from the current directory.
 
 "#]]);
 }
