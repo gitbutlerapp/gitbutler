@@ -1471,7 +1471,13 @@ impl Navigator {
             let taken = self.stand_ins(&keys, was, (ended, landing), clock::now(), store);
             stand_ins.extend(taken);
             self.stand_ins = stand_ins;
-            let offsets = self.slides(&rows, &keys, held, every, landing);
+            let offsets = self.slides(
+                &rows,
+                &keys,
+                held,
+                every || changes_came_or_went(&self.rows, &rows),
+                landing,
+            );
             self.reorder.start(offsets, cx);
             self.row_keys = keys;
         }
@@ -3604,6 +3610,14 @@ fn as_deep(old: &[Row], new: &[Row], from: usize, top: ListOffset, theme: &Theme
         item_ix: new.len(),
         offset_in_item: Pixels::ZERO,
     }
+}
+
+/// Whether going from `old` to `new` only lists or unlists checkouts' uncommitted changes.
+fn changes_came_or_went(old: &[Row], new: &[Row]) -> bool {
+    fn others(rows: &[Row]) -> impl Iterator<Item = &Row> {
+        (rows.iter()).filter(|row| !matches!(row, Row::Item(Selection::Uncommitted(..))))
+    }
+    old.len() != new.len() && others(old).eq(others(new))
 }
 
 /// Whether `list` shows its first row from its top.
