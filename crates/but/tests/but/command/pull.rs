@@ -1982,6 +1982,18 @@ Branch "wt-conflict" is checked out in a worktree, where conflicts can't be look
         .find(|commit| commit["conflicted"].as_bool() == Some(true))
         .and_then(|commit| commit["cliId"].as_str())
         .expect("the worktree holds a conflicted commit");
+
+    // Edit mode can't check that commit out, so it points at the route that works.
+    env.but(format!("resolve {commit}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Commit [..] can't be checked out for resolution because it is not on a branch applied to the workspace.
+
+Hint: Run `but resolve conflicts [..]`, then `but resolve apply <path>:<N> --commit [..]`. Deletions, renames and binary files can't be resolved this way
+
+"#]]);
+
     env.but(format!("resolve conflicts {commit}"))
         .assert()
         .success()

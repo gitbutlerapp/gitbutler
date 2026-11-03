@@ -296,8 +296,15 @@ fn enter_resolution(
         }
     }
 
-    let stack_id = found_stack_id
-        .ok_or_else(|| anyhow::anyhow!("Could not find stack containing commit {commit_ref}"))?;
+    let Some(stack_id) = found_stack_id else {
+        return Err(bad_input(format!(
+            "Commit {commit_ref} can't be checked out for resolution because it is not on a branch applied to the workspace."
+        ))
+        .hint(format!(
+            "Run `but resolve conflicts {commit_id_str}`, then `but resolve apply <path>:<N> --commit {commit_id_str}`. Deletions, renames and binary files can't be resolved this way"
+        ))
+        .into());
+    };
 
     drop(commit);
     drop(repo);
