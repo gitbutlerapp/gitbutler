@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { CiStatus, MetaCount, type MetaCountType } from "./MetaCount.tsx";
 
 const types: Array<MetaCountType> = [
@@ -21,7 +21,7 @@ const types: Array<MetaCountType> = [
 	"cpu-danger",
 ];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/MetaCount",
 	id: "components-metacount",
 	component: MetaCount,
@@ -30,9 +30,6 @@ const meta = preview.meta({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2572-3286",
 		},
-	},
-	argTypes: {
-		type: { control: "select", options: types },
 	},
 	args: { type: "unpushed", children: "4" },
 });

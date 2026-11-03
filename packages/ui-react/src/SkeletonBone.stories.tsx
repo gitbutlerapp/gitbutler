@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { SkeletonBone } from "./SkeletonBone.tsx";
 
 const FIGMA = "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/SkeletonBone",
 	id: "components-skeleton-bone",
 	component: SkeletonBone,

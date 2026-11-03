@@ -1,8 +1,8 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { SwitchButton, type SwitchButtonVariant } from "./SwitchButton.tsx";
 import { useState } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/SwitchButton",
 	id: "components-switchbutton",
 	component: SwitchButton,
@@ -13,8 +13,6 @@ const meta = preview.meta({
 		},
 	},
 });
-
-const variants = ["ghost", "outline"] as const satisfies ReadonlyArray<SwitchButtonVariant>;
 
 const Toggleable = ({
 	label,
@@ -32,11 +30,6 @@ const Toggleable = ({
 };
 
 export const Default = meta.story({
-	argTypes: {
-		variant: { control: "radio", options: variants },
-		label: { control: "text" },
-		disabled: { control: "boolean" },
-	},
 	args: {
 		label: "Draft",
 		variant: "ghost",

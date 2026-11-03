@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { PickerDialog, type PickerDialogGroup } from "./PickerDialog.tsx";
@@ -28,7 +28,7 @@ const groups: Array<PickerDialogGroup<Branch>> = [
 	},
 ];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/PickerDialog",
 	id: "components-pickerdialog",
 	// The bare name, not `PickerDialog<Branch>`: the manifest resolves the component by it. The

@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { DiffFile } from "./DiffFile.tsx";
 import { DiffFileHeader } from "./DiffFileHeader.tsx";
 import { DiffFileList } from "./DiffFileList.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/DiffFileList",
 	id: "components-difffilelist",
 	component: DiffFileList,

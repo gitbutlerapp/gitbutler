@@ -1,20 +1,15 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Icon } from "./Icon.tsx";
 import { icons } from "./icons.ts";
 
 const iconNames = Array.from(icons.keys()).sort((a, b) => a.localeCompare(b));
 
-const meta = preview.type<{ args: { size: number } }>().meta({
+const meta = stories<{ size: number }>({
 	title: "Icons/Icon",
 	id: "components-icon",
-	argTypes: {
-		size: {
-			control: { type: "range", min: 8, max: 128, step: 4 },
-		},
-	},
 });
 
-/** One icon, at the size the controls set. */
+/** One icon, at 16px. */
 export const Default = meta.story({
 	args: { size: 16 },
 	render: (args) => <Icon name="branch" size={args.size} />,

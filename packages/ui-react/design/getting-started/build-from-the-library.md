@@ -2,13 +2,10 @@
 
 **Build from the library.** Every control users touch — a button, a switch, a
 segmented toggle, a popup — already has a component in `@gitbutler/ui-react`
-(`packages/ui-react/src/`), with a spec in ⚛️ Core or a Storybook story,
-published at <https://master--6ab536f5f40e41db628ccf1b.chromatic.com>. Use it
-even when hand-styling in the feature's CSS module would be quicker: a control
-styled locally drifts. Look up props and the import rather than guessing, in
-the Storybook manifest,
-<https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
-or its MCP server, `https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp`.
+(`packages/ui-react/src/`), with a spec in ⚛️ Core and stories beside it. Use
+it even when hand-styling in the feature's CSS module would be quicker: a
+control styled locally drifts. Look up props and the import rather than
+guessing, in the component's source and JSDoc.
 
 **If the library lacks it, think twice, then ask.** Check whether a variant or
 prop of an existing component fits — a small size, an icon-only mode — and if

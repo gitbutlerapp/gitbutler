@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Avatar, type AvatarSize } from "./Avatar.tsx";
 
 const sizes: Array<AvatarSize> = [14, 16, 18];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Avatar",
 	id: "components-avatar",
 	component: Avatar,
@@ -14,7 +14,6 @@ const meta = preview.meta({
 		},
 	},
 	args: { src: "https://avatars.githubusercontent.com/u/7453394?v=4", seed: "PavelLaptev" },
-	argTypes: { size: { control: "select", options: sizes } },
 });
 
 export const Default = meta.story({});

@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState, type FC, type ReactNode } from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
@@ -20,7 +20,7 @@ import {
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=${node}`;
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Sidebar/SidebarRow",
 	id: "components-sidebarrow",
 	component: BranchItem,

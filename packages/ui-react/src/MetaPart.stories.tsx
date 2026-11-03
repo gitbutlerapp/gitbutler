@@ -1,11 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { MetaCount } from "./MetaCount.tsx";
-import { MetaPart, MetaWord, type MetaPartTone } from "./MetaPart.tsx";
+import { MetaPart, MetaWord } from "./MetaPart.tsx";
 import { ViewHeader } from "./ViewHeader.tsx";
 
-const tones: Array<MetaPartTone> = ["neutral", "green", "amber", "blue", "red"];
-
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/MetaPart",
 	id: "components-metapart",
 	component: MetaPart,
@@ -14,9 +12,6 @@ const meta = preview.meta({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3006-44182",
 		},
-	},
-	argTypes: {
-		tone: { control: "select", options: tones },
 	},
 	args: { icon: "pr", tone: "neutral", children: "2 PRs" },
 });

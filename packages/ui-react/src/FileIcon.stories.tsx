@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { FileIcon } from "./FileIcon.tsx";
 import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from "./file-icons/typeMap.ts";
 
@@ -9,7 +9,7 @@ for (const [extension, icon] of Object.entries(symbolFileExtensionsToIcons))
 for (const [name, icon] of Object.entries(symbolFileNamesToIcons))
 	if (!samples.has(icon)) samples.set(icon, name);
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Icons/FileIcon",
 	id: "components-fileicon",
 	component: FileIcon,

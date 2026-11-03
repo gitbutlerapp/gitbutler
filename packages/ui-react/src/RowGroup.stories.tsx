@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useId, useState } from "react";
 import { Badge } from "./Badge.tsx";
 import { Cell } from "./Cell.tsx";
@@ -14,7 +14,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/RowGroup",
 	id: "components-rowgroup",
 	component: RowGroup,

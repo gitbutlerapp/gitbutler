@@ -1,8 +1,8 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { ScrollArea, ScrollBars } from "./ScrollArea.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/ScrollArea",
 	id: "components-scrollarea",
 	component: ScrollArea,

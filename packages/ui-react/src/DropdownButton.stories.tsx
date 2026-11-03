@@ -1,10 +1,10 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { DropdownButton, type DropdownButtonVariant } from "./DropdownButton.tsx";
 import { Kbd } from "./Kbd.tsx";
 import { Tooltip } from "@base-ui/react";
 import { useState } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/DropdownButton",
 	id: "components-dropdownbutton",
 	component: DropdownButton,
@@ -25,7 +25,7 @@ const meta = preview.meta({
 
 const variants = ["pop", "gray", "outline"] as const satisfies ReadonlyArray<DropdownButtonVariant>;
 
-/** Stands in for the native menu, which Storybook has no host process for. */
+/** Stands in for the native menu, which the docs site has no host process for. */
 const Demo = ({
 	label = "Button",
 	variant,
@@ -57,12 +57,6 @@ const Demo = ({
 };
 
 export const Default = meta.story({
-	argTypes: {
-		variant: { control: "radio", options: variants },
-		children: { control: "text" },
-		disabled: { control: "boolean" },
-		menuDisabled: { control: "boolean" },
-	},
 	args: {
 		children: "Button",
 		menuLabel: "Button options",

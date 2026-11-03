@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
@@ -12,7 +12,7 @@ import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.ts
 import { MetaCount } from "./MetaCount.tsx";
 import type { FC } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Preview/ViewHeader",
 	id: "components-viewheader",
 	component: ViewHeader,

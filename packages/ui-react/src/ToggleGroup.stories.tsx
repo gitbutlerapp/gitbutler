@@ -1,10 +1,10 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ToggleGroup, Toggle } from "@base-ui/react";
 import { Badge } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/ToggleGroup",
 	id: "components-togglegroup",
 	// The library's part is the styles; the story composes them on Base UI's ToggleGroup.

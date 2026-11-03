@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import type { FC } from "react";
 import { Group, Panel } from "react-resizable-panels";
 import { ResizeHandle } from "./ResizeHandle.tsx";
@@ -12,7 +12,7 @@ const Pane: FC<{ label: string }> = ({ label }) => (
 	</div>
 );
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/ResizeHandle",
 	id: "components-resizehandle",
 	component: ResizeHandle,

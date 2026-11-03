@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
-import { Snackbar, type SnackbarVariant } from "./Snackbar.tsx";
+import { stories } from "../docs/stories.ts";
+import { Snackbar } from "./Snackbar.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Snackbar",
 	id: "components-snackbar",
 	component: Snackbar,
@@ -10,13 +10,6 @@ const meta = preview.meta({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1706-1682",
 		},
-	},
-	argTypes: {
-		variant: {
-			control: "inline-radio",
-			options: ["info", "warning", "danger", "safe"] satisfies Array<SnackbarVariant>,
-		},
-		icon: { control: "text" },
 	},
 	args: {
 		variant: "info",

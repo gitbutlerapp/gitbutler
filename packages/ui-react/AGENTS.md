@@ -83,10 +83,10 @@ Two files, split the way the code is:
   components are on six pages, by what they are for: Actions, Inputs,
   Overlays, Content & status, Preview (a details view's header and the bar
   above it), and Sidebar. A new component's section goes at
-  the end of its group's page, with its examples section under it. Storybook
-  shelves the stories in the same groups (plus Icons, which Figma keeps on its
-  own page): a stories file names its group in `title` and keeps its old `id`,
-  so the story ids below don't change when a component moves group.
+  the end of its group's page, with its examples section under it. The docs
+  site shelves the stories in the same groups (plus Icons, which Figma keeps
+  on its own page): a stories file names its group in `title` and keeps its
+  old `id`, so the addresses below don't change when a component moves group.
 - **Client**, the working file —
   <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: app
   components on the ⚙️ Meta page, the full screens, and drafts on the
@@ -148,21 +148,45 @@ dependency sets a variable at runtime that the script can't see, or a
 component reads a knob its host may set, add it to `KNOWN_RUNTIME` in the
 script with who sets it.
 
-### Stories
+### Stories and the docs site
 
 Every component has a story beside it, in both themes, and a component that
 lives only in code is half a component. `pnpm check` holds the package to it
 through `scripts/check-stories.mjs`, which fails on a component no story
-imports. Storybook runs on port 6007 and lists the stories under
-`components/`:
+imports.
+
+A stories file describes its page with `stories()` from `docs/stories.ts`,
+and each story with `meta.story()`:
+
+```tsx
+const meta = stories({ title: "Content & status/Badge", id: "components-badge", component: Badge });
+export const Default = meta.story({ args: { children: "42" } });
+```
+
+A story takes `args`, a `render(args)`, `decorators`, `parameters` (`design`,
+the Figma link, and `layout`) and a `play` function. The docs site, in
+`docs/`, is a small Vite app that draws every page with these components: one
+page per component under its group's heading, every story on it with its
+JSDoc, and the design notes from `DESIGN.md` and `design/`. It runs on port
+6007:
 
 ```console
 $ pnpm -F @gitbutler/ui-react demos
 ```
 
+A page is at `http://localhost:6007/?page=components-<name>`. A story renders
+alone at `http://localhost:6007/?story=components-<name>--<export>`, with its
+`play` function run; append `&theme=dark` for the dark theme. Overlays' stories
+and full-window ones are shown that way on their page, each in a frame of its
+own. Check colour, font and spacing from computed styles rather than by eye. A
+story links its Figma component through the `design` parameter; keep the link
+when you add a story, and compare the two sides when either changes.
+`grep -l 'type: "figma"' src/*.stories.tsx` lists the stories that have one;
+a story without one has no drawn spec yet.
+
 `test` runs the unit tests and then every story as a test in headless
-Chromium. A story fails when it throws while rendering or its `play` function
-fails. Run the stories alone with:
+Chromium (`docs/stories.test.tsx`). A story fails when it throws while
+rendering or its `play` function fails. Run the stories alone with:
 
 ```console
 $ pnpm -F @gitbutler/ui-react test:stories
@@ -174,26 +198,18 @@ They need Playwright's Chromium, once per checkout:
 $ pnpm -F @gitbutler/ui-react playwright:install:unit
 ```
 
-A story renders alone at
-`http://localhost:6007/iframe.html?id=components-<name>--<export>&viewMode=story`;
-append `&globals=theme:dark` for the dark theme. Check colour, font and
-spacing from computed styles rather than by eye. A story links its Figma
-component through the `design` parameter; keep the link when you add a story,
-and compare the two sides when either changes.
-
 ### Default, then examples
 
-A component's stories are one entry in Storybook, in one order:
+A component's stories are one page, in one order:
 
-- **`Default` first:** the simplest use of the component, its props on the
-  controls where they have any to show. It answers what the component is and
-  accepts. `pnpm check` fails on a stories file that opens with anything
-  else.
+- **`Default` first:** the simplest use of the component. It answers what
+  the component is and accepts. `pnpm check` fails on a stories file that
+  opens with anything else.
 - **Examples after it:** each named after what it shows — a state
   (`OnlyAdditions`, `NothingToList`) or a surface the app builds from it
   (`Confirm`, `SelectProject`, `CommandPalette`). An example is written as
   the app writes it: its own state, real copy, rendered open, since its
-  source is what an agent copies from `docs-show`.
+  source is what an agent copies from.
 
 A surface built from several components is an example of the outermost one:
 the upload confirmation is Modal's, the project picker is Popup's (a
@@ -204,82 +220,19 @@ directly under the component's own section, on its group's page, one
 instance per story, named as the story is; an example story links its
 instance through the `design` parameter.
 
-### The manifest
+### Looking up a component
 
-Storybook writes `/manifests/components.json` (and `components.html`, to
-read) from the stories: every component, its props from the TypeScript
-types, its stories with their source, and the import to write. An agent
-reads it instead of guessing an API. Two things about it to know:
+Before using a component, read its source and JSDoc in `src/` and its stories
+beside it, rather than guessing. Use only props the types declare; if one
+seems missing, ask instead of inventing it. A component's JSDoc names the
+import to write in its `@import` tag, as
+`@import import { Badge } from "@gitbutler/ui-react/Badge.tsx";`; give a new
+component one. A styling helper is not how a control is offered:
+`getButtonClassName` is for making another component look like a button, and
+a button is `<Button>`.
 
-- The import to write is the `@import` tag in each component's JSDoc, as
-  `@import import { Badge } from "@gitbutler/ui-react/Badge.tsx";`. Give a
-  new component one: without it the manifest falls back to the package
-  root, and there is no such barrel. Storybook reads the tag through
-  `experimentalReactComponentMeta` in `.storybook/main.ts`.
-- The link to the Figma component is the story's `design` parameter, not
-  the manifest. `grep -l 'type: "figma"' src/*.stories.tsx` lists the stories
-  that have one; a story without one has no drawn spec yet.
-
-A story with no component behind it carries `tags: ["!manifest"]` and says
-why. That is also why a styling helper is not how a control is offered: `getButtonClassName` is for making
-another component look like a button, and a button is `<Button>`, which the
-manifest documents.
-
-### The Storybook MCP server
-
-While Storybook runs, it serves an MCP server at `http://localhost:6007/mcp`
-(`@storybook/addon-mcp`). Add it to your agent once:
-
-```console
-$ claude mcp add --transport http gitbutler-storybook http://localhost:6007/mcp
-```
-
-Each design notes page has an `.mdx` beside its `.md` in `design/`, under
-Storybook's Design section, so the published Storybook shows them and the MCP
-server's `docs-list` lists them; `design/overview.mdx` renders DESIGN.md. The
-MDX renders the Markdown file itself, so edit the `.md`, never the page. What
-the MDX writes is the title, a one-line summary (the description `docs-list`
-shows) and the file's raw URL, since `docs-show` returns the MDX source, not
-the rendered text. A new page takes a Markdown file, an MDX beside it titled
-`Design/<Group>/<Name>` after its folder and file name (that is how links
-between the files find their Storybook page), and a row in DESIGN.md.
-
-Before using a component, ask it rather than guessing: `docs-list` lists the
-components, `docs-show` gives one's props, its stories and the import to
-write, and `docs-show-story` a whole story. Use only props it documents; if
-one seems missing, ask instead of inventing it.
-`stories-find-by-component` finds the stories a file renders in, and
-`stories-preview` links to them. The published Storybook serves the same docs
-tools without a local one. The repository's `.mcp.json` connects Claude Code
-to it (it asks once); another agent, or one outside this repo, adds it:
-
-```console
-$ claude mcp add --transport http gitbutler-storybook-published https://master--6ab536f5f40e41db628ccf1b.chromatic.com/mcp
-```
-
-The published server can time out, most often while a new master Storybook
-deploys. Fall back in order: the manifest at
-<https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>,
-a static file that keeps answering, then the component's own source and JSDoc
-in `src/`, which the manifest is built from. Never guess a prop because the
-tools were down.
-
-### Accessibility
-
-`@storybook/addon-a11y` runs axe on every story: the Accessibility tab under
-a story lists contrast failures, controls without a name and misused roles.
-Check it for a new or changed story. It catches the mechanical part of
-DESIGN.md's rules (an icon-only button's `aria-label`, a field's label,
-contrast), not whether a label makes sense.
-
-### Chromatic
-
-`.github/workflows/chromatic.yml` publishes the Storybook to Chromatic's
-public "GitButler UI" project: from master as the published Storybook, at
-<https://master--6ab536f5f40e41db628ccf1b.chromatic.com>, and for a pull request that touches the
-stories, as a preview with a UI Review check that compares every story's
-screenshot with master's. A visual change waits there to be accepted rather
-than failing the build; accept it when it is the change you meant.
+A new design notes page is a Markdown file in its folder under `design/` and a
+row in DESIGN.md; the site finds it and titles it from its heading.
 
 ### Linting & formatting
 

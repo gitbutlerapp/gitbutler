@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { CodeBlock } from "./CodeBlock.tsx";
 import { Step, Steps } from "./Steps.tsx";
 
@@ -9,7 +9,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Steps",
 	id: "components-steps",
 	component: Steps,

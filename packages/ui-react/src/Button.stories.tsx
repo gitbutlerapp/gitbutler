@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
-import { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button.tsx";
+import { stories } from "../docs/stories.ts";
+import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import React from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/Button",
 	id: "components-button",
 	component: Button,
@@ -21,27 +21,6 @@ export const Default = meta.story({
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=292-232&t=Sw2wSDYXtPlZ9Cao-1",
-		},
-	},
-	argTypes: {
-		variant: {
-			control: "select",
-			options: [
-				"pop",
-				"gray",
-				"outline",
-				"outline-inverted",
-				"danger",
-				"ghost",
-				"ghost-inverted",
-			] satisfies Array<ButtonVariant>,
-		},
-		size: {
-			control: "radio",
-			options: ["regular", "small"] satisfies Array<ButtonSize>,
-		},
-		showIcon: {
-			control: "boolean",
 		},
 	},
 	args: {

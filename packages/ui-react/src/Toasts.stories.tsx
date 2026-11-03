@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Toast, type ToastManagerAddOptions } from "@base-ui/react";
 import type { FC } from "react";
 import { Button } from "./Button.tsx";
@@ -25,7 +25,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Toasts",
 	id: "components-toasts",
 	component: Toasts,

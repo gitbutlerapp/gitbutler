@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type ReactNode, useRef, useState } from "react";
 import { Button } from "./Button.tsx";
@@ -9,7 +9,7 @@ import { Icon } from "./Icon.tsx";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/FileList",
 	id: "components-filelist",
 	component: FileListItem,
@@ -18,10 +18,6 @@ const meta = preview.meta({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2341-2564",
 		},
-	},
-	argTypes: {
-		status: { control: "select", options: statuses },
-		directoryPosition: { control: "inline-radio", options: ["trail", "lead"] },
 	},
 	args: {
 		name: "userSlice.ts",

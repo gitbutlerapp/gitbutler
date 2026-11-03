@@ -1,15 +1,12 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Logo, type LogoName } from "./Logo.tsx";
 
 const names = ["github", "gitlab", "bitbucket"] satisfies Array<LogoName>;
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Icons/Logo",
 	id: "components-logo",
 	component: Logo,
-	argTypes: {
-		name: { control: "inline-radio", options: names },
-	},
 	args: {
 		name: "github" as LogoName,
 		muted: false,

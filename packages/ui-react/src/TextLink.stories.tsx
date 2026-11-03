@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { TextLink } from "./TextLink.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/TextLink",
 	id: "components-textlink",
 	component: TextLink,
@@ -14,7 +14,7 @@ const meta = preview.meta({
 	args: {
 		href: "https://github.com/gitbutlerapp/gitbutler/pull/15941",
 		children: "#15941",
-		// Storybook has no system browser to hand the link to.
+		// The docs site has no system browser to hand the link to.
 		onClick: (evt) => evt.preventDefault(),
 	},
 });

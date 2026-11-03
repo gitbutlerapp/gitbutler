@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import type { FC } from "react";
 import { Button } from "./Button.tsx";
 import { Toast } from "@base-ui/react";
@@ -58,7 +58,7 @@ const Playground: FC = () => (
 	</>
 );
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Snackbars",
 	id: "components-snackbars",
 	component: Snackbars,

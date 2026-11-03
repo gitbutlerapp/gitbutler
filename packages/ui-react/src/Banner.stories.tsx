@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Banner, type BannerVariant } from "./Banner.tsx";
 import { Button } from "./Button.tsx";
 
@@ -9,18 +9,11 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Banner",
 	id: "components-banner",
 	component: Banner,
 	parameters: figma("2763-6872"),
-	argTypes: {
-		variant: {
-			control: "inline-radio",
-			options: ["warn", "danger", "pop", "safe", "gray"] satisfies Array<BannerVariant>,
-		},
-		icon: { control: "text" },
-	},
 	args: {
 		variant: "warn",
 		title: "Live updates paused · may be out of date",

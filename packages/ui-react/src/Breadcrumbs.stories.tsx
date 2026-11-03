@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs.tsx";
 import { MenuRadioGroup, MenuRadioItem } from "./Menu.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Preview/Breadcrumbs",
 	id: "components-breadcrumbs",
 	component: Breadcrumbs,

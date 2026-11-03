@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { CopyableId } from "./CopyableId.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/CopyableId",
 	id: "components-copyableid",
 	component: CopyableId,

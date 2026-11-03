@@ -1,12 +1,10 @@
-import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 /**
- * Every story as a test, in headless Chromium: it renders without throwing
- * and its play function passes. The stories come from .storybook/main.ts.
+ * Every story as a test, in headless Chromium: it renders without throwing and its play function
+ * passes. The test is `docs/stories.test.tsx`.
  */
 export default defineConfig({
-	plugins: [storybookTest({ configDir: ".storybook" })],
 	// Base UI is pre-bundled with whichever copy of React Vite finds first; without
 	// these a story renders against two Reacts and hooks read a null dispatcher.
 	// Listing them up front also stops Vite re-optimizing mid-run and reloading.
@@ -19,10 +17,13 @@ export default defineConfig({
 			"react-dom",
 			"react-dom/client",
 			"@base-ui/react",
+			"@testing-library/dom",
+			"@testing-library/user-event",
 		],
 	},
 	test: {
-		name: "storybook",
+		name: "stories",
+		include: ["docs/stories.test.tsx"],
 		browser: {
 			enabled: true,
 			headless: true,

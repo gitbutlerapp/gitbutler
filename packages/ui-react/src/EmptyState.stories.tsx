@@ -1,10 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 import { Icon } from "./Icon.tsx";
-import { illustrations, type IllustrationName } from "./illustrations.ts";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/EmptyState",
 	id: "components-emptystate",
 	component: EmptyState,
@@ -12,12 +11,6 @@ const meta = preview.meta({
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1852-4694",
-		},
-	},
-	argTypes: {
-		illustration: {
-			control: "select",
-			options: [undefined, ...(Object.keys(illustrations) as Array<IllustrationName>)],
 		},
 	},
 	args: {

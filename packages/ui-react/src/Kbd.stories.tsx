@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Kbd } from "./Kbd.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/Kbd",
 	id: "components-kbd",
 	component: Kbd,

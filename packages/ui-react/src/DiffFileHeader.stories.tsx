@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { Badge } from "./Badge.tsx";
 import { DiffFileHeader, type DiffFileReviewState } from "./DiffFileHeader.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/DiffFileHeader",
 	id: "components-difffileheader",
 	component: DiffFileHeader,
@@ -12,9 +12,6 @@ const meta = preview.meta({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2415-6189",
 		},
-	},
-	argTypes: {
-		reviewState: { control: "inline-radio", options: ["unreviewed", "reviewed", "changed"] },
 	},
 	args: {
 		path: "src/components/Button.svelte",

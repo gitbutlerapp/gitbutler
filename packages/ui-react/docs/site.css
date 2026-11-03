@@ -1,0 +1,234 @@
+/* The docs site and a story's frame. Plain classes, prefixed so they can't meet the components'
+   own. */
+
+@import "@gitbutler/design-core/core";
+@import "../src/base.css";
+
+body {
+	margin: 0;
+	background-color: var(--bg-1);
+	color: var(--text-1);
+	font-family: var(--fontfamily-base);
+}
+
+/* A story alone, laid out as its `layout` parameter says. */
+body[data-layout="padded"] {
+	padding: 16px;
+}
+
+body[data-layout="centered"] {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+}
+
+/* The page beside the sidebar, which is fixed to the left. */
+.docs-site {
+	min-height: 100vh;
+	padding-left: 240px;
+	background-color: var(--bg-2);
+}
+
+.docs-site-sidebar {
+	display: flex;
+	z-index: 1;
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	flex-direction: column;
+	width: 240px;
+	padding: 16px 12px;
+	gap: 16px;
+	background-color: var(--bg-2);
+	color: var(--text-1);
+	font-family: var(--fontfamily-base);
+}
+
+.docs-site-top {
+	display: flex;
+	flex-direction: column;
+	padding: 0 4px;
+	gap: 16px;
+}
+
+.docs-site-scroll {
+	flex: 1;
+	min-height: 0;
+}
+
+.docs-site-nav {
+	display: flex;
+	flex-direction: column;
+	padding: 0 4px;
+	gap: 20px;
+}
+
+/* A card's row, tightened to a list of pages. */
+.docs-site-nav .docs-site-page {
+	padding: 6px 8px;
+	border-radius: var(--radius-control);
+}
+
+.docs-site-search {
+	min-width: 0;
+}
+
+.docs-site-page[aria-current="page"] {
+	background-color: var(--bg-3);
+}
+
+.docs-site-theme {
+	align-self: stretch;
+}
+
+.docs-site-main {
+	min-height: calc(100vh - 16px);
+	margin: 8px 8px 8px 0;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+/* The design notes: Markdown, set as the component pages' prose is. */
+.docs-site-prose {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 48px 32px 64px;
+	color: var(--text-2);
+	font-size: 0.875rem;
+	line-height: var(--font-line-height-body);
+
+	& :is(h1, h2, h3, h4) {
+		margin: 32px 0 12px;
+		color: var(--text-1);
+		font-weight: var(--font-weight-semibold);
+		line-height: var(--font-line-height-default);
+	}
+
+	& h1 {
+		margin-top: 0;
+		font-size: 1.5rem;
+	}
+
+	& h2 {
+		font-size: 1rem;
+	}
+
+	& :is(h3, h4) {
+		font-size: 0.875rem;
+	}
+
+	& :is(p, ul, ol, table, pre) {
+		margin: 0 0 12px;
+	}
+
+	& :is(ul, ol) {
+		padding-left: 20px;
+	}
+
+	& strong {
+		color: var(--text-1);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	& a {
+		color: var(--text-1);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	& code {
+		padding: 1px 4px;
+		border-radius: var(--radius-xs);
+		background-color: var(--bg-3);
+		font-size: 0.8125rem;
+		font-family: var(--fontfamily-mono);
+	}
+
+	& table {
+		border-collapse: collapse;
+	}
+
+	& :is(th, td) {
+		padding: 6px 12px 6px 0;
+		border-bottom: 1px solid var(--border-3);
+		text-align: start;
+		vertical-align: top;
+	}
+
+	& th {
+		color: var(--text-1);
+		font-weight: var(--font-weight-semibold);
+	}
+}
+
+/* A component's page. */
+
+.docs-page {
+	display: flex;
+	flex-direction: column;
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 48px 32px 64px;
+	gap: 40px;
+	color: var(--text-1);
+	font-family: var(--fontfamily-base);
+}
+
+.docs-page-header {
+	display: flex;
+	flex-direction: column;
+	padding-bottom: 32px;
+	gap: 12px;
+	border-bottom: 1px solid var(--border-3);
+}
+
+/* The page's one title, above the 11–16 scale the components keep to. */
+.docs-page-title {
+	margin: 0;
+	font-weight: var(--font-weight-semibold);
+	font-size: 1.5rem;
+	line-height: var(--font-line-height-default);
+}
+
+.docs-page-prose {
+	margin: 0;
+	color: var(--text-2);
+	font-size: 0.875rem;
+	line-height: var(--font-line-height-body);
+}
+
+.docs-page-example {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.docs-page-example-title {
+	margin: 0;
+	font-weight: var(--font-weight-semibold);
+	font-size: 1rem;
+	line-height: var(--font-line-height-default);
+}
+
+.docs-page-canvas {
+	padding: 24px;
+	overflow: auto;
+}
+
+.docs-page-frame {
+	display: block;
+	width: 100%;
+	height: 480px;
+	border: 0;
+	border-radius: inherit;
+}
+
+.docs-page-neighbours {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	padding-top: 32px;
+	gap: 12px;
+	border-top: 1px solid var(--border-3);
+}
