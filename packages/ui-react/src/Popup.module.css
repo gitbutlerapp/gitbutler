@@ -126,6 +126,14 @@
 	gap: var(--gap-icon-text);
 }
 
+/* A full-size button in a 24px place, as ⚛️ Core's Back container holds it: pulled 4px out to the
+   start so its arrow sits on the content's edge, and 2px into the line above and below so the
+   title row stays 24 tall. */
+.modalBack {
+	margin-inline-start: -4px;
+	margin-block: -2px;
+}
+
 .modalTitle {
 	margin: 0;
 	color: var(--text-1);
