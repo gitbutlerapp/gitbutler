@@ -208,6 +208,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         }
 
         history.add_revision(graph_mapping);
+        history.retain_commits_in(&output_graph);
 
         Ok(SuccessfulRebase {
             repo: self.repo,
