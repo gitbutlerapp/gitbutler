@@ -1005,35 +1005,21 @@ pub fn resolve_target(
             reword,
         }),
         ResolvedCliIdArgRef::Branch(branch_name) => {
-            let branch_name = BranchArg(branch_name.to_owned())
-                .resolve_local_branch_name()
-                .map_err(ResolveTargetError::Other)?;
-
-            for stack in &head_info.stacks {
-                for segment in &stack.segments {
-                    let Some(ref_info) = &segment.ref_info else {
-                        continue;
-                    };
-                    if ref_info.ref_name == branch_name {
-                        let commit = segment
-                            .commits
-                            .first()
-                            .map(|commit| commit.id)
-                            .or(ref_info.commit_id);
-                        return if let Some(commit) = commit {
-                            Ok(SquashTarget::Commit {
-                                commit: CommitId::try_from_commit_id(commit, repo)
-                                    .map_err(ResolveTargetError::Other)?,
-                                reword,
-                            })
-                        } else {
-                            Err(ResolveTargetError::CannotBeEmptyBranch)
-                        };
-                    }
-                }
-            }
-
-            Err(ResolveTargetError::NotFound)
+            let segment = BranchArg(branch_name.to_owned())
+                .try_resolve_segment(head_info)
+                .into_internal_error()
+                .map_err(ResolveTargetError::Other)?
+                .ok_or(ResolveTargetError::NotFound)?;
+            // The commit an empty branch points at isn't its own, so amending it would rewrite
+            // another segment or the target.
+            let commit = segment
+                .tip()
+                .ok_or(ResolveTargetError::CannotBeEmptyBranch)?;
+            Ok(SquashTarget::Commit {
+                commit: CommitId::try_from_commit_id(commit, repo)
+                    .map_err(ResolveTargetError::Other)?,
+                reword,
+            })
         }
         ResolvedCliIdArgRef::Uncommitted(source) => {
             resolve_uncommit_target(source.clone(), sources, reword, head_info)
