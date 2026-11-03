@@ -8,7 +8,7 @@ use command_group::AsyncCommandGroup;
 use crate::{
     args::Args,
     command::worktree::archive::{self, ArchivalOperation},
-    error::{CliResult, bad_input},
+    error::{BadInput, CliResult, bad_input},
     utils::{OutputChannel, binary_path::current_exe_for_but_exec, change_source::InvokedFrom},
 };
 
@@ -52,6 +52,34 @@ pub(crate) struct InitCtxOptions {
     /// Controls whether single-branch initialization must lazily infer a target.
     /// Defaults to `TargetRequirement::Required`.
     pub target_requirement: TargetRequirement,
+}
+
+/// Explain why no repository could be opened at `dir`, suggesting `but init` only where it can work.
+fn discovery_failure(dir: &Path, err: &anyhow::Error) -> BadInput {
+    let no_repo = crate::is_not_in_git_repository_error(err);
+    let dot_git = dir.strip_prefix(".").unwrap_or(dir).join(".git");
+    // Discovery looks past a broken `.git`, but `but init` refuses to replace one.
+    if no_repo
+        && dot_git
+            .symlink_metadata()
+            .is_err_and(|err| err.kind() == std::io::ErrorKind::NotFound)
+    {
+        return bad_input(format!("No git repository found at {}", dot_git.display()))
+            .hint("Run `but init` to initialize a Git repository.")
+            .code("NoGitRepository");
+    }
+    let reason = match gix::discover::is_git(&dot_git) {
+        Err(broken) if no_repo => format!("{broken:#}"),
+        _ => format!("{err:#}"),
+    };
+    // Other discovery failures stay uncoded, so filtering out the code can't hide them.
+    bad_input(format!(
+        "Could not open a Git repository in {}: {reason}",
+        std::path::absolute(dir).map_or("the current directory".into(), |dir| dir
+            .display()
+            .to_string())
+    ))
+    .hint("Change to a directory with a working Git repository.")
 }
 
 /// Gets or initializes a non-bare repository context.
@@ -111,25 +139,8 @@ pub fn init_ctx(
 ) -> CliResult<Context> {
     let app_settings = crate::app_settings()?;
     // lets try to get the repo from the current directory
-    let repo = match but_ctx::discover_main_repo(&args.current_dir) {
-        Ok(repo) => repo,
-        Err(err) => {
-            let mut no_repo = bad_input(format!(
-                "No git repository found at {}",
-                args.current_dir
-                    .strip_prefix(".")
-                    .unwrap_or(&args.current_dir)
-                    .join(".git")
-                    .display()
-            ))
-            .hint("Run `but init` to initialize a Git repository.");
-            // Other discovery failures stay uncoded, so filtering out the code can't hide them.
-            if crate::is_not_in_git_repository_error(&err) {
-                no_repo = no_repo.code("NoGitRepository");
-            }
-            return Err(no_repo.into());
-        }
-    };
+    let repo = but_ctx::discover_main_repo(&args.current_dir)
+        .map_err(|err| discovery_failure(&args.current_dir, &err))?;
 
     // Check if we're on gitbutler/workspace with non-workspace commits on top
     // before creating the context

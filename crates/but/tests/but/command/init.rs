@@ -114,6 +114,58 @@ Error: Failed to initialize Git repository at .
     );
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn broken_git_path_is_reported_without_suggesting_init() {
+    let dangling_file = Sandbox::empty();
+    dangling_file.file(".git", "gitdir: /nonexistent\n");
+    let corrupt_file = Sandbox::empty();
+    corrupt_file.file(".git", "not a git file\n");
+    let invalid_directory = Sandbox::empty();
+    invalid_directory.file(".git/config", "preserve invalid repository\n");
+    #[cfg(unix)]
+    let dangling_symlink = Sandbox::empty();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(
+        "/nonexistent",
+        dangling_symlink.projects_root().join(".git"),
+    )
+    .unwrap();
+
+    for (env, reason) in [
+        (dangling_file, r#"Missing HEAD at ".git/HEAD""#),
+        (corrupt_file, "Format should be 'gitdir: <path>'[..]"),
+        (invalid_directory, r#"Missing HEAD at ".git/HEAD""#),
+        #[cfg(unix)]
+        (dangling_symlink, "Could not retrieve metadata of [..]"),
+    ] {
+        env.but("status").assert().failure().stderr_eq(format!(
+            "Error: Could not open a Git repository in [..]: {reason}\n\n\
+             Hint: Change to a directory with a working Git repository.\n"
+        ));
+        env.but("init").assert().failure();
+    }
+}
+
+#[cfg(all(feature = "legacy", unix))]
+#[test]
+fn deleted_directory_is_reported_without_suggesting_init() {
+    let env = Sandbox::empty();
+    std::fs::create_dir(env.projects_root().join("gone")).unwrap();
+    // A process can't start in a directory that is already gone, so a shell deletes it first.
+    env.with_updated_env(snapbox::cmd::Command::new("sh"))
+        .args(["-c", r#"cd gone && rmdir ../gone && exec "$0" status"#])
+        .arg(snapbox::cmd::cargo_bin!("but"))
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not open a Git repository in the current directory: Could not obtain the current working directory[..]
+
+Hint: Change to a directory with a working Git repository.
+
+"#]]);
+}
+
 #[test]
 fn json_and_current_directory() {
     let env = Sandbox::empty();
