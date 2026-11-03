@@ -11,6 +11,11 @@ pub mod list;
 pub mod new;
 pub mod remove;
 
+/// The refusal `E` from gix, if that is what stopped the operation behind `err`.
+fn gix_refusal<E: std::error::Error + 'static>(err: &anyhow::Error) -> Option<&E> {
+    err.downcast_ref::<gix::Error>()?.downcast_any_ref()
+}
+
 /// The stable name of the worktree `arg` refers to: its exact name, then its checkout path, as
 /// archived worktrees have no CLI ID, then the CLI ID of an active one.
 ///

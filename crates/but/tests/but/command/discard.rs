@@ -1333,7 +1333,7 @@ fn discarding_the_top_of_a_dirty_worktree_is_refused() {
         .stderr_eq(snapbox::str![[r#"
 Error: Worktree wt-feature has uncommitted changes
 
-Hint: Use `but worktree remove --force wt-feature` to remove it anyway
+Hint: Run `but -C [..]/worktrees/wt-feature commit -m "<message>"` to keep them, or `but worktree remove wt-feature --force` to discard them
 
 "#]]);
 }
