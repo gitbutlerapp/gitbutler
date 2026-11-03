@@ -521,6 +521,9 @@ pub enum Part {
     /// The header across a branch's or a stack's page, with its name, commits and push state,
     /// which the navigator's row has too.
     BranchHeader,
+    /// The header across a commit's page, with its message, author, ID and push state, which
+    /// Lite lists first among its files instead, as the commit's message.
+    CommitHeader,
     /// The diff's wrap, backgrounds and split controls, which keys switch too.
     DiffTools,
     /// A file header's changed line counts and its buttons, which its right-click menu and
@@ -538,6 +541,7 @@ impl Prefs {
                 Part::StatusBar
                 | Part::LocationBar
                 | Part::BranchHeader
+                | Part::CommitHeader
                 | Part::DiffTools
                 | Part::FileHeaderControls,
             ) => false,

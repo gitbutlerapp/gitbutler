@@ -31,6 +31,9 @@ pub fn file_header_height(titled: bool) -> f32 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
+    /// The messages, a commit's or a branch's commits', above the files, where Lite lists them
+    /// in place of the page's header.
+    Message,
     File(usize),
     Hunk {
         file: usize,
@@ -126,7 +129,7 @@ impl DiffRow {
             | DiffRow::Pair { file, .. }
             | DiffRow::Context { file, .. }
             | DiffRow::Conflict { file, .. } => Some(file),
-            DiffRow::Gap => None,
+            DiffRow::Message | DiffRow::Gap => None,
         }
     }
 }

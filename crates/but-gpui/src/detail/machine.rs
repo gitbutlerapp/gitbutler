@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, SharedString, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*};
 
 use super::Detail;
 use super::panes::{
@@ -222,12 +222,13 @@ impl Detail {
         id: &Arc<str>,
         pick: &MeshPick,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
         match (pick, store.mesh_checkout(project, id)) {
             (MeshPick::Checkout, Some(checkout)) => uncommitted_list(checkout, theme, cx),
-            _ => self.render_diff_file_list(theme, cx),
+            _ => self.render_diff_file_list(theme, window, cx),
         }
     }
 

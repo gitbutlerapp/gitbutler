@@ -137,7 +137,8 @@ impl Detail {
         if self.tabs_focus.is_focused(window) {
             return true;
         }
-        let top = (self.listed_files(cx).first()).is_none_or(|&file| file == self.current_file());
+        let top =
+            (self.listed_files(cx).first()).is_none_or(|&file| Some(file) == self.current_file());
         let up = self.files_focus.is_focused(window) && top && self.selected_review(cx).is_some();
         if up {
             self.focus_tabs(window, cx);
