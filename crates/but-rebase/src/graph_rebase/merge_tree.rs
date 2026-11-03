@@ -35,6 +35,53 @@ impl SharedHistory {
             tips,
         })
     }
+
+    pub(crate) fn ranks(&self) -> Vec<Rank> {
+        let mut ranks: Vec<Option<Rank>> = vec![None; self.commits.len()];
+        for start in 0..self.commits.len() {
+            let mut stack = vec![start];
+            while let Some(&index) = stack.last() {
+                if ranks[index].is_some() {
+                    stack.pop();
+                    continue;
+                }
+                let parents = &self.commits[index].parents;
+                let pending: Vec<_> = parents
+                    .iter()
+                    .copied()
+                    .filter(|parent| ranks[*parent].is_none())
+                    .collect();
+                if !pending.is_empty() {
+                    stack.extend(pending);
+                    continue;
+                }
+                let parent_ranks: Vec<Rank> = parents
+                    .iter()
+                    .map(|parent| ranks[*parent].expect("parents come first"))
+                    .collect();
+                ranks[index] = Some(Rank {
+                    reaches_floor: self.floor == Some(index)
+                        || parent_ranks.iter().any(|rank| rank.reaches_floor),
+                    generation: 1 + parent_ranks
+                        .iter()
+                        .map(|rank| rank.generation)
+                        .max()
+                        .unwrap_or(0),
+                });
+                stack.pop();
+            }
+        }
+        ranks
+            .into_iter()
+            .map(|rank| rank.expect("every commit was reached"))
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Rank {
+    reaches_floor: bool,
+    generation: usize,
 }
 
 struct Walk<'repo, 'cache> {
@@ -148,6 +195,24 @@ mod tests {
                 tips.join(" ")
             ))
         }
+        fn ranks(&self, tips: &[&str]) -> Result<String> {
+            let history = SharedHistory::walk(&self.repo, &self.ids(tips)?)?;
+            let ranks = history.ranks();
+            let mut lines: Vec<_> = history
+                .commits
+                .iter()
+                .zip(&ranks)
+                .map(|(commit, rank)| (std::cmp::Reverse(*rank), self.name(commit.id)))
+                .collect();
+            lines.sort();
+            Ok(lines
+                .into_iter()
+                .map(|(std::cmp::Reverse(rank), name)| {
+                    let floor = if rank.reaches_floor { "floor" } else { "     " };
+                    format!("{name:>2} {floor} {}\n", rank.generation)
+                })
+                .collect())
+        }
     }
 
     #[test]
@@ -252,6 +317,36 @@ s1 ->
 s2 -> s1
 tips: a b
 floor: m2
+
+"#]]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ranks_are_generations_in_the_shared_history() -> Result<()> {
+        // X is deeper than Y, so it ranks above it though neither contains the other.
+        snapbox::assert_data_eq!(
+            Scenario::open("criss-cross")?.ranks(&["a", "b"])?,
+            snapbox::str![[r#"
+ a floor 4
+ b floor 4
+ X floor 3
+X1 floor 2
+ Y floor 2
+ Z floor 1
+
+"#]]
+        );
+        // The subtree's line never reaches m2, so it ranks below everything that does.
+        snapbox::assert_data_eq!(
+            Scenario::open("merged-root")?.ranks(&["a", "b"])?,
+            snapbox::str![[r#"
+ a floor 3
+ b floor 2
+m2 floor 1
+s2       2
+s1       1
 
 "#]]
         );
