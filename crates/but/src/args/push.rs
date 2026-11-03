@@ -44,7 +44,7 @@ pub struct Command {
     /// Mark change as private (Gerrit)
     #[clap(long, short = 'p', hide = true)]
     pub private: bool,
-    /// Show what would be pushed without actually pushing
+    /// Show what would be pushed without pushing, and exit non-zero if the push would be refused
     #[clap(long, short = 'd')]
     pub dry_run: bool,
 
