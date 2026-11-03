@@ -35,6 +35,7 @@ pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
 pub mod merge_commit_changes;
+mod merge_tree;
 pub mod mutate;
 pub mod ordering;
 pub(crate) mod util;
