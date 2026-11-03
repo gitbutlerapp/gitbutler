@@ -48,7 +48,7 @@ pub mod help {
         writeln!(out, "Options:")?;
         writeln!(
             out,
-            "  -d, --dry-run                     Show what would be pushed without actually pushing"
+            "  -d, --dry-run                     Show what would be pushed without pushing, and exit non-zero if the push would be refused"
         )?;
         writeln!(
             out,

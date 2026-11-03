@@ -70,7 +70,7 @@ pub async fn handle(
 
     // If dry-run, show what would be pushed
     if args.dry_run {
-        return handle_dry_run(ctx, &args.branch_id, out);
+        return handle_dry_run(ctx, &args, out);
     }
 
     let id_map = {
@@ -176,11 +176,7 @@ struct DryRunResult {
     branches: Vec<DryRunBranchInfo>,
 }
 
-fn handle_dry_run(
-    ctx: &mut Context,
-    branch_id: &Option<String>,
-    out: &mut OutputChannel,
-) -> CliResult<()> {
+fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     let mut progress = out.progress_channel();
 
@@ -192,14 +188,19 @@ fn handle_dry_run(
     // Get all branches with info
     let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
+    let mut refusals = std::collections::HashMap::new();
+    let mut outcome: CliResult<()> = Ok(());
+
     // Filter based on branch_id if provided
-    let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
+    let branches_to_show: Vec<_> = if let Some(branch_id) = &args.branch_id {
         // Resolve branch name
         let id_map = IdMap::legacy_new_from_context(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
-        // A refused push sends nothing, so there is nothing to preview.
-        check_for_conflicted_commits(ctx, &branch_name)?;
         let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
+        // A refused push sends nothing, so there is nothing to preview.
+        MergedUpstream::from_ctx(ctx, args.allow_merged)?
+            .ensure_branch_not_merged(branch.as_ref())?;
+        check_for_conflicted_commits(ctx, &branch_name)?;
         let to_push = crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())?;
 
         branches_with_info
@@ -207,6 +208,45 @@ fn handle_dry_run(
             .filter(|(name, _, _)| to_push.contains(name))
             .collect()
     } else {
+        // A non-interactive bare push makes one push per lane and reports each refusal, while the
+        // other lanes still go out. A refused push also leaves behind the branches it would have
+        // taken along. Like that push, report everything first and then exit non-zero.
+        let candidates = get_push_candidates(ctx)?;
+        let attempted = candidates.len();
+        let mut refused = 0;
+        let mut clean = Vec::new();
+        for candidate in candidates {
+            match check_for_conflicted_commits(ctx, &candidate.branch_name) {
+                Ok(()) => clean.push(candidate.branch_name),
+                Err(refusal @ CliError::BadInput(_)) => {
+                    refused += 1;
+                    for beneath in candidate.includes {
+                        let note = format!(
+                            "Would not be pushed, because the push of '{}' would be refused.",
+                            candidate.branch_name
+                        );
+                        refusals.insert(beneath, note);
+                    }
+                    refusals.insert(candidate.branch_name, plain_text_error(&refusal));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+        if refused > 0 {
+            // A worktree resting on a branch beneath a refused push still sends that branch.
+            for name in clean {
+                let branch = gix::refs::Category::LocalBranch.to_full_name(name.as_str())?;
+                for pushed in crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())? {
+                    refusals.remove(&pushed);
+                }
+            }
+            outcome = Err(bad_input(format!(
+                "would refuse to push {refused} of {attempted} branch{}",
+                if attempted == 1 { "" } else { "es" }
+            ))
+            .into());
+        }
+
         // Show all branches with unpushed commits
         branches_with_info
             .into_iter()
@@ -306,6 +346,7 @@ fn handle_dry_run(
                 } else {
                     None
                 };
+                let warning = refusals.get(branch_name).cloned().or(warning);
 
                 // Determine if this branch is stacked on another branch
                 // by finding a branch whose tip matches this branch's base_commit
@@ -341,7 +382,7 @@ fn handle_dry_run(
     }
 
     let Some(human) = out.for_human() else {
-        return Ok(());
+        return outcome;
     };
 
     writeln!(human)?;
@@ -461,7 +502,11 @@ fn handle_dry_run(
                 "{}  {} {} {}",
                 t.hint.paint(line_prefix),
                 t.success.paint("→"),
-                t.hint.paint("Would push to:"),
+                t.hint.paint(if refusals.contains_key(&info.branch_name) {
+                    "Would not push to:"
+                } else {
+                    "Would push to:"
+                }),
                 t.remote_branch
                     .paint(format!("{}/{}", info.remote, branch_name))
             )?;
@@ -531,12 +576,14 @@ fn handle_dry_run(
             // Show warning if present
             if let Some(warning) = &info.warning {
                 writeln!(human)?;
+                // A refusal spans several lines, which all belong inside the gutter.
+                let warning = warning.replace('\n', &format!("\n{line_prefix}    "));
                 writeln!(
                     human,
                     "{}  {} {}",
                     t.hint.paint(line_prefix),
                     t.sym().warning.error(),
-                    t.error.paint(warning)
+                    t.error.paint(&warning)
                 )?;
             }
 
@@ -555,6 +602,9 @@ fn handle_dry_run(
 
         writeln!(human)?;
     }
+
+    // The summary below counts every branch and invites the push, so a refusal ends the output.
+    outcome?;
 
     let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
     let total_branches = dry_run_infos.len();
@@ -747,8 +797,7 @@ async fn push_all_branches(
             }
             Err(e) => {
                 only_refusals &= matches!(e, CliError::BadInput(_));
-                // A refusal renders with its hint, which also has to reach JSON as plain text.
-                let error = strip_ansi_codes(e.to_string().trim_end()).into_owned();
+                let error = plain_text_error(&e);
                 writeln!(progress, "{} {}", t.sym().error, t.error.paint(&error))?;
                 failed_branches.push(FailedBranch {
                     branch_name: branch_name.clone(),
@@ -856,6 +905,11 @@ async fn push_all_branches(
     }
 
     Ok(())
+}
+
+/// An error as plain text. A refusal renders with its hint, which also has to reach JSON.
+fn plain_text_error(error: &CliError) -> String {
+    strip_ansi_codes(error.to_string().trim_end()).into_owned()
 }
 
 fn handle_no_branch_specified(

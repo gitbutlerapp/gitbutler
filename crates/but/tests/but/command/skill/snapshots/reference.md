@@ -231,7 +231,7 @@ Push changes in a branch to remote
 - `[BRANCH]` Branch name or CLI ID to push; the branches below it in its stack are pushed with it. If omitted, a terminal prompts for a selection and a non-interactive run pushes every stack with unpushed commits
 - `-s, --skip-force-push-protection` Skip force push protection checks
 - `--no-hooks` Bypass pre-push hooks
-- `-d, --dry-run` Show what would be pushed without actually pushing
+- `-d, --dry-run` Show what would be pushed without pushing, and exit non-zero if the push would be refused
 
 ### but pull
 Update applied branches and worktrees onto the latest target
