@@ -260,31 +260,37 @@ pub fn may_pass(err: &anyhow::Error) -> bool {
 }
 
 /// Ask the forge about the CI of each branch with a pull request, a request per branch, and
-/// say whether that changed what the cache has.
-pub fn refresh_checks(path: &Path) -> Result<bool> {
+/// say what the cache now knows, as [`Workspace::checks`](super::Workspace::checks).
+pub fn refresh_checks(path: &Path) -> Result<u64> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    // Serializing a check leaves out when it was last synced.
-    let cached = || {
-        let mut refs = (ctx.db.get_cache().ok())
-            .and_then(|db| db.ci_checks().list_all_references().ok())
-            .unwrap_or_default();
-        refs.sort();
-        let checks: Vec<_> = (refs.iter())
-            .map(|name| {
-                let cache_only = Some(but_forge::CacheConfig::CacheOnly);
-                let mut checks =
-                    forge::list_ci_checks_for_ref(&ctx, name, cache_only).unwrap_or_default();
-                checks.sort_by_key(|check| check.id);
-                (name, checks)
-            })
-            .collect();
-        serde_json::to_string(&checks).unwrap_or_default()
-    };
-    let before = cached();
     forge::warm_ci_checks_cache(&ctx)?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed checks");
-    Ok(cached() != before)
+    Ok(checks_fingerprint(&ctx))
+}
+
+/// A hash of the CI checks the forge cache knows, reading only the cache.
+pub(super) fn checks_fingerprint(ctx: &Context) -> u64 {
+    use std::hash::{Hash as _, Hasher as _};
+    let mut refs = (ctx.db.get_cache().ok())
+        .and_then(|db| db.ci_checks().list_all_references().ok())
+        .unwrap_or_default();
+    refs.sort();
+    let checks: Vec<_> = (refs.iter())
+        .map(|name| {
+            let cache_only = Some(but_forge::CacheConfig::CacheOnly);
+            let mut checks =
+                forge::list_ci_checks_for_ref(ctx, name, cache_only).unwrap_or_default();
+            checks.sort_by_key(|check| check.id);
+            (name, checks)
+        })
+        .collect();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // Serializing a check leaves out when it was last synced.
+    serde_json::to_string(&checks)
+        .unwrap_or_default()
+        .hash(&mut hasher);
+    hasher.finish()
 }
 
 /// What a new pull request for `branch` starts with: the branch it would merge into, and a
@@ -750,7 +756,7 @@ mod tests {
     };
 
     use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks};
-    use crate::backend::ops::tests::repo_with;
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::{LineKind, Note, load_workspace, open};
 
     #[test]
@@ -792,6 +798,45 @@ mod tests {
             let err = err.context("Failed to list open pull requests");
             assert_eq!(may_pass(&err), passes, "{what}");
         }
+    }
+
+    #[test]
+    fn a_workspace_read_tells_a_check_moving_on_from_a_sync_that_changed_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let origin = "https://github.com/o/r.git";
+            git(path, &["remote", "set-url", "origin", origin]);
+            let read = || load_workspace(path, Default::default()).unwrap().checks;
+            // A context of its own, as another process has.
+            let write = |status: &str, synced: &str| {
+                let check = serde_json::from_value(serde_json::json!({
+                    "id": 1, "name": "test", "reference": "feature", "status_type": status,
+                    "status_conclusion": null, "status_completed_at": null, "started_at": null,
+                    "output_summary": "", "output_text": "", "output_title": "", "head_sha": "",
+                    "url": "", "html_url": "", "details_url": "", "pull_requests": "[]",
+                    "last_sync_at": synced, "struct_version": but_forge::CiCheck::struct_version(),
+                }))
+                .unwrap();
+                let ctx = open(path).unwrap();
+                let mut db = ctx.db.get_cache_mut().unwrap();
+                let table = db.ci_checks_mut().unwrap();
+                table.set_for_reference("feature", vec![check]).unwrap();
+            };
+            write("Queued", "2026-11-03T10:00:00");
+            let synced = read();
+
+            write("Queued", "2026-11-03T10:01:00");
+            assert_eq!(
+                read(),
+                synced,
+                "every refresh stamps each row, which mustn't reload the project every minute"
+            );
+
+            write("InProgress", "2026-11-03T10:02:00");
+            assert_ne!(read(), synced, "a check moving on shows, whoever wrote it");
+        })
     }
 
     #[test]

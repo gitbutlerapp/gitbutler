@@ -456,8 +456,13 @@ impl Store {
                 };
                 let reloaded = this.update(cx, |store, cx| {
                     match checked {
-                        Some(Ok(true)) => store.load(&id, Reload::commits(), cx),
-                        Some(Ok(false)) | None => {}
+                        // Against what the project read last, as with the pull requests.
+                        Some(Ok(checks)) => {
+                            if store.workspace(&id).map(|ws| ws.checks) != Some(checks) {
+                                store.load(&id, Reload::commits(), cx);
+                            }
+                        }
+                        None => {}
                         Some(Err(err)) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
                     }
                     store.forge_checking = None;
