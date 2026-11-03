@@ -145,7 +145,7 @@ pub fn init_ctx(
     // Check if we're on gitbutler/workspace with non-workspace commits on top
     // before creating the context
     if matches!(options.workspace_check, WorkspaceCheck::Enabled) {
-        check_workspace_commits_before_init(&repo, out)?;
+        check_workspace_commits_before_init(&repo)?;
     }
 
     let (ctx, fetch_interval_minutes, last_fetch) = {
@@ -459,11 +459,8 @@ fn spawn_background_sync(
 }
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.
-/// If so, inform the user and suggest running teardown to preserve their work.
-fn check_workspace_commits_before_init(
-    repo: &gix::Repository,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+/// If so, refuse and point at `but teardown`, which keeps that work.
+fn check_workspace_commits_before_init(repo: &gix::Repository) -> CliResult<()> {
     let head = repo.head()?;
     let head_name = head
         .referent_name()
@@ -484,28 +481,16 @@ fn check_workspace_commits_before_init(
 
     // If the first line is NOT a workspace commit, someone has committed on top
     if !first_line.starts_with("GitButler Workspace Commit") {
-        if let Some(writer) = out.for_human_ui() {
-            writeln!(writer)?;
-            writeln!(
-                writer,
-                "{}",
-                theme::get()
-                    .attention
-                    .paint("⚠ Detected commits on top of gitbutler/workspace")
-            )?;
-            writeln!(writer)?;
-            writeln!(
-                writer,
-                "{}",
-                theme::get().hint.paint("GitButler detected that you have committed directly on the\ngitbutler/workspace branch. To preserve your work and\nfix up things, please run `but teardown`.")
-            )?;
-            writeln!(writer)?;
-        }
-
-        // After teardown, we should not continue with the original command
-        anyhow::bail!(
-            "GitButler mode exit required: please run `but teardown` to preserve your work."
-        );
+        return Err(bad_input(
+            "The tip of gitbutler/workspace is not a workspace commit, \
+            most likely because `git commit` added a commit on top of it.",
+        )
+        .hint(
+            "Run `but teardown`. It undoes commits on top of the workspace commit and keeps \
+            their changes as uncommitted. It then leaves workspace mode on one applied branch; \
+            the others stay unapplied until you run `but apply <branch>`.",
+        )
+        .into());
     }
 
     Ok(())

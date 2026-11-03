@@ -640,10 +640,11 @@ pub enum Subcommands {
     ///
     /// This command:
     /// - Creates an oplog snapshot of the current state
+    /// - Undoes any commits made directly on gitbutler/workspace, keeping their changes uncommitted
     /// - Finds the first active branch and checks it out
     ///     - Alternatively, use `--checkout-to <branch>` to override this default
-    /// - Cherry-picks any dangling commits from gitbutler/workspace
-    /// - Provides instructions on how to return to GitButler mode
+    ///
+    /// Other applied branches stay unapplied until you run `but apply <branch>`.
     ///
     /// This is useful when you want to temporarily or permanently leave GitButler
     /// management and work with standard Git commands.
