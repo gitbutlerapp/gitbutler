@@ -69,6 +69,90 @@ pub fn target_commits(
     Ok((commits, more))
 }
 
+/// The paths [`target_commits_changing`] looks for.
+#[derive(Debug, Clone)]
+pub enum PathQuery {
+    /// The file or folder at this path, from the top of the repository.
+    Whole(bstr::BString),
+    /// Any path with these letters in a row, in any case.
+    Letters(String),
+}
+
+impl PathQuery {
+    fn names(&self, path: &bstr::BStr) -> bool {
+        match self {
+            Self::Whole(whole) => (path.strip_prefix(whole.as_slice()))
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(b"/")),
+            Self::Letters(letters) => {
+                (path.to_str_lossy().to_lowercase()).contains(&letters.to_lowercase())
+            }
+        }
+    }
+}
+
+/// Up to `limit` of the commits [`target_commits`] lists that changed a path `query` names,
+/// after `after` or from the tip; and whether there are more. Each is compared with its first
+/// parent, so a merge counts for all it brought in. Renames aren't followed.
+pub fn target_commits_changing(
+    path: &Path,
+    query: &PathQuery,
+    after: Option<CommitId>,
+    limit: u32,
+) -> Result<(Vec<TargetCommit>, bool)> {
+    /// How many commits to read at a time, which measured faster than the API's most of 1000.
+    const READ: u32 = 200;
+    let ctx = open(path)?;
+    let cached = cached_reviews(&ctx);
+    let (mut found, mut cursor) = (Vec::new(), after);
+    loop {
+        let (page, more) = target_page(&ctx, &cached, cursor, READ)?;
+        cursor = page.last().map(|commit| commit.id);
+        let repo = ctx.repo.get()?;
+        let mut diffs = repo.diff_resource_cache_for_tree_diff()?;
+        for target in page {
+            let commit = repo.find_commit(target.id.0)?;
+            let old = match present_first_parent(&commit) {
+                Some(parent) => repo.find_commit(parent)?.tree().ok(),
+                // A shallow clone's oldest commit, whose parent is missing, didn't add all it has.
+                None if commit.parent_ids().next().is_some() => None,
+                None => Some(repo.empty_tree()),
+            };
+            // A tree this clone doesn't have, as a treeless one, says nothing of what changed.
+            let (Some(old), Ok(new)) = (old, commit.tree()) else {
+                continue;
+            };
+            if changes_path(&old, &new, &mut diffs, query)? {
+                if found.len() == limit as usize {
+                    return Ok((found, true));
+                }
+                found.push(target);
+            }
+        }
+        if !more || cursor.is_none() {
+            return Ok((found, false));
+        }
+    }
+}
+
+/// Whether trees `old` and `new` differ at a path `query` names.
+fn changes_path(
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+    diffs: &mut gix::diff::blob::Platform,
+    query: &PathQuery,
+) -> Result<bool> {
+    let mut changed = false;
+    (old.changes()?)
+        .options(|options| {
+            options.track_path().track_rewrites(None);
+        })
+        .for_each_to_obtain_tree_with_cache(new, diffs, |change| {
+            changed = changed || query.names(change.location());
+            Ok(std::ops::ControlFlow::Continue(()))
+        })?;
+    Ok(changed)
+}
+
 /// The newest `limit` of the target's commits the workspace doesn't have yet, each named by
 /// the pull request it merged, as the project's page names them, with the pull requests the
 /// forge cache has, `cached`.
@@ -1771,5 +1855,96 @@ refs/heads/wt
         );
         let other = anyhow::anyhow!("failed to connect");
         assert_eq!(push_refusal(&other), None, "not protection at all");
+    }
+
+    #[test]
+    fn the_commits_that_changed_a_path_are_found_by_whole_path_or_letters() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            git(path, &["init", "-q", "-b", "main"]);
+            git(path, &["config", "user.name", "Ann"]);
+            git(path, &["config", "user.email", "ann@example.com"]);
+            git(path, &["config", "commit.gpgsign", "false"]);
+            let commit = |file: &str, message: &str| {
+                let file = path.join(file);
+                std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                std::fs::write(file, message).unwrap();
+                git(path, &["add", "."]);
+                git(path, &["commit", "-q", "-m", message]);
+            };
+            commit("src/app.rs", "add app");
+            commit("README.md", "add readme");
+            commit("src/app.rs", "change app");
+            commit("docs/README.md", "add docs");
+            git(path, &["checkout", "-q", "-b", "side"]);
+            commit("src/app.rs", "change app on side");
+            git(path, &["checkout", "-q", "main"]);
+            git(
+                path,
+                &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
+            );
+            git(path, &["rm", "-q", "src/app.rs"]);
+            git(path, &["commit", "-q", "-m", "delete app"]);
+            commit("README.md", "change readme");
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
+
+            let titles = |commits: &[super::TargetCommit]| -> Vec<String> {
+                commits.iter().map(|c| c.title.clone()).collect()
+            };
+            let whole = |path: &str| super::PathQuery::Whole(path.into());
+            for (query, expected, why) in [
+                (
+                    whole("src/app.rs"),
+                    &["delete app", "merge side", "change app", "add app"][..],
+                    "a file gone from the tip still has its history, and a merge stands for what \
+                     it brought in along the target's own line",
+                ),
+                (
+                    whole("README.md"),
+                    &["change readme", "add readme"][..],
+                    "a whole path leaves out a file of that name in a folder",
+                ),
+                (
+                    whole("docs"),
+                    &["add docs"][..],
+                    "a folder, by its whole path",
+                ),
+                (
+                    super::PathQuery::Letters("ReadMe".to_owned()),
+                    &["change readme", "add docs", "add readme"][..],
+                    "letters find it anywhere, in any case",
+                ),
+                (
+                    whole("app"),
+                    &[][..],
+                    "a whole path doesn't match part of a name",
+                ),
+            ] {
+                let (commits, more) =
+                    super::target_commits_changing(path, &query, None, 10).unwrap();
+                assert_eq!(titles(&commits), expected, "{query:?}: {why}");
+                assert!(!more, "{query:?}: ten is more than it finds");
+            }
+
+            let app = whole("src/app.rs");
+            let (first, more) = super::target_commits_changing(path, &app, None, 2).unwrap();
+            assert_eq!(titles(&first), ["delete app", "merge side"]);
+            assert!(more, "older commits changed it too");
+            let after = first.last().map(|c| c.id);
+            let (rest, more) = super::target_commits_changing(path, &app, after, 2).unwrap();
+            assert_eq!(
+                titles(&rest),
+                ["change app", "add app"],
+                "the next page goes on below the last one found"
+            );
+            assert!(!more, "those were the last that changed it");
+
+            let invalid = bstr::BStr::new(b"src/\xff.rs");
+            assert!(
+                !whole("src/\u{fffd}.rs").names(invalid),
+                "a name that only reads the same once decoded is another file"
+            );
+        });
     }
 }

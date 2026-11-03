@@ -11,6 +11,7 @@ use gpui::{
     div, prelude::*,
 };
 
+mod changed_path;
 mod shipped;
 
 use super::panes::{
@@ -22,7 +23,7 @@ use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use super::{Detail, PageFold};
 use crate::app::{CopyCommitId, OpenPullRequest};
-use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
+use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
@@ -103,6 +104,25 @@ pub(super) struct Upstream {
 }
 
 impl Upstream {
+    /// A page with nothing read yet, filtered to `view`.
+    fn unread(view: View) -> Self {
+        Self {
+            commits: Vec::new(),
+            more: false,
+            selected: None,
+            merged_pick: None,
+            summary: None,
+            // Whether it has a remote isn't known yet, which `None` would say it hasn't.
+            fetch: Some((None, None)),
+            unconnected_forge: None,
+            seen: (0, Instant::now()),
+            failed: None,
+            paging: Cell::new(Paging::Idle),
+            pending: None,
+            view,
+        }
+    }
+
     /// The activity's days picked, while any are.
     fn picked_days(&self) -> Option<&BTreeSet<i64>> {
         Some(&self.view.days.slots).filter(|days| !days.is_empty())
@@ -124,6 +144,8 @@ struct View {
     days: SlotPick,
     person: Option<String>,
     area: Option<String>,
+    /// Only the commits that changed these paths are read.
+    path: Option<PathQuery>,
     open_merges: HashSet<CommitId>,
 }
 
@@ -145,6 +167,8 @@ enum Row {
     More,
     /// Past the activity's days, while filtering: older ones, read on a click.
     Older,
+    /// Looking through what the commits changed for the words in the filter.
+    ChangedPath,
 }
 
 impl Detail {
@@ -189,7 +213,10 @@ impl Detail {
             || current.is_some_and(|u| {
                 u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
             });
+        let changing = current.and_then(|u| u.view.path.clone());
         let limit = match more {
+            // The commits found, however far back they are.
+            true if changing.is_some() => PAGE,
             true if words => PAGE * 100,
             true if reading_back => PAGE * 8,
             true => PAGE,
@@ -200,7 +227,7 @@ impl Detail {
         let forge = workspace.and_then(|ws| ws.forge);
         // What merged lately, only with the newest page: paging further back keeps what was
         // read.
-        let newest = after.is_none();
+        let newest = !more;
         let now = crate::ui::now();
         // The branches the header counts are the Branches page's, read on their own rather
         // than waited for; that page then opens with them.
@@ -213,7 +240,12 @@ impl Detail {
                 // after it.
                 std::thread::scope(|scope| {
                     let summary = newest.then(|| scope.spawn(|| upstream::overview(&path, now)));
-                    let (mut commits, mut more) = upstream::target_commits(&path, after, limit)?;
+                    let (mut commits, mut more) = match &changing {
+                        Some(query) => {
+                            upstream::target_commits_changing(&path, query, after, limit)?
+                        }
+                        None => upstream::target_commits(&path, after, limit)?,
+                    };
                     // The newest page stops where the workspace forked off, often a commit or
                     // two in, so the rest of a page is read with it rather than a wait after.
                     let short = PAGE.saturating_sub(commits.len() as u32);
@@ -239,7 +271,7 @@ impl Detail {
                 let ((commits, mut has_more), fetch, unconnected_forge, summary) = match result {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
-                    Err(err) if after.is_some() => {
+                    Err(err) if more => {
                         if let Some(upstream) = this.upstream.get_mut(&project) {
                             upstream.paging.set(Paging::Failed);
                             // A commit waited for isn't, rather than with every reload.
@@ -264,18 +296,10 @@ impl Detail {
                         this.upstream.insert(
                             project.clone(),
                             Upstream {
-                                commits: Vec::new(),
-                                more: false,
-                                selected: None,
-                                merged_pick: None,
-                                summary: None,
                                 fetch,
-                                unconnected_forge: None,
                                 seen: (seen, Instant::now()),
                                 failed: Some(backend::read_failure(&err)),
-                                paging: Cell::new(Paging::Idle),
-                                pending: None,
-                                view,
+                                ..Upstream::unread(view)
                             },
                         );
                         this.refresh_diff(false, cx);
@@ -293,7 +317,7 @@ impl Detail {
                 // it cut short the reload after a fetch.
                 let now = (seen, Instant::now());
                 let (mut list, was, pick, seen, summary, older) = match previous {
-                    Some(previous) if after.is_some() => (
+                    Some(previous) if more => (
                         previous.commits,
                         previous.selected,
                         previous.merged_pick,
@@ -327,6 +351,12 @@ impl Detail {
                         Picked::Shipped => summary.is_some(),
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
+                    // The newest that changed the path, rather than what merged lately.
+                    .or_else(|| {
+                        (view.path.as_ref())
+                            .and(list.first())
+                            .map(|c| Picked::Commit(c.id))
+                    })
                     .or_else(|| opening(summary.as_ref(), &list));
                 // A commit picked before it was listed, once it is, while it can be: what merged
                 // lately goes back no further than the summary's first day.
@@ -352,6 +382,9 @@ impl Detail {
                         view,
                     },
                 );
+                if selected != was {
+                    this.open_at_path_filtered(&project);
+                }
                 this.refresh_diff(false, cx);
                 this.load_selected_merge(&project, cx);
                 // Left since, the page keeps the pick for later rather than taking over what's
@@ -851,12 +884,15 @@ impl Detail {
             rows.push(Row::More);
         } else if rows.is_empty() && picked.is_some() {
             rows.push(Row::Heading(format!("No commits on {target} then")));
-        } else if rows.is_empty() && bounded {
+        } else if rows.is_empty() && (bounded || upstream.view.path.is_some()) {
             rows.push(Row::Heading(format!("No commits on {target} match")));
         }
         if upstream.more && past && filtered && picked.is_none() && who.is_none() && area.is_none()
         {
             rows.push(Row::Older);
+        }
+        if filtered {
+            rows.insert(0, Row::ChangedPath);
         }
         rows
     }
@@ -1283,6 +1319,7 @@ impl Detail {
             // Picked now, a commit still waited for no longer is.
             upstream.pending = None;
         }
+        self.open_at_path_filtered(project);
         self.message_open = false;
         self.load_selected_merge(project, cx);
         self.show_picked(cx);
@@ -1812,7 +1849,12 @@ impl Detail {
                 cx,
             ),
             // The page lists what it read, whether or not the project is expanded and loaded.
-            Some(upstream) if upstream.commits.is_empty() => {
+            // Not while it's being read again for a path, or when no commit changed that path.
+            Some(upstream)
+                if upstream.commits.is_empty()
+                    && !upstream.more
+                    && upstream.view.path.is_none() =>
+            {
                 // A target the remote renamed or deleted is said so, not as if never picked.
                 let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
                 let unpushed = (entry.workspace.as_ref()).and_then(|ws| ws.target_branch.clone());
@@ -2005,6 +2047,16 @@ impl Detail {
                                     }))
                                     .into_any_element()
                             }
+                            Row::ChangedPath => {
+                                let project = shown.clone();
+                                list_row("target-changed-path", false, theme)
+                                    .text_color(theme.text_2)
+                                    .child("Search changed paths")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.search_paths(&project, cx)
+                                    }))
+                                    .into_any_element()
+                            }
                             // Drawn once it scrolls into view, which reads the next page.
                             Row::More => {
                                 let project = shown.clone();
@@ -2045,6 +2097,7 @@ impl Detail {
                     cx,
                 )
                 .child(self.filter_field(&self.target_filter, window, cx))
+                .children(self.render_path_filter(project, upstream, theme, cx))
                 .children(self.render_activity(project, upstream, theme, cx))
                 .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
                 .children(self.render_people(project, upstream, window, cx))
