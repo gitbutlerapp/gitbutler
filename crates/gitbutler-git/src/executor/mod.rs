@@ -51,6 +51,10 @@ pub unsafe trait GitExecutor {
     ///
     /// Returns a tuple of `(exit_code, stdout, stderr)`.
     ///
+    /// `stdin`, if given, is written to the command's standard input,
+    /// which is closed once written; otherwise the command reads
+    /// nothing from it.
+    ///
     /// To the best of their abilities, child processes should
     /// be killed if the future is dropped.
     ///
@@ -61,6 +65,7 @@ pub unsafe trait GitExecutor {
         args: &[&str],
         cwd: P,
         envs: Option<HashMap<String, String>>,
+        stdin: Option<&[u8]>,
     ) -> Result<(usize, String, String), Self::Error>;
 
     /// Executes the given Git command with sane defaults.
@@ -73,6 +78,7 @@ pub unsafe trait GitExecutor {
         args: &[&str],
         cwd: P,
         envs: Option<HashMap<String, String>>,
+        stdin: Option<&[u8]>,
     ) -> Result<(usize, String, String), Self::Error> {
         let mut args = args.as_ref().to_vec();
 
@@ -86,7 +92,7 @@ pub unsafe trait GitExecutor {
         envs.insert("GIT_TERMINAL_PROMPT".into(), "0".into());
         envs.insert("LC_ALL".into(), "C".into()); // Force English. We need this for parsing output.
 
-        self.execute_raw(&args, cwd, Some(envs)).await
+        self.execute_raw(&args, cwd, Some(envs), stdin).await
     }
 
     /// Creates a named pipe server that is compatible with

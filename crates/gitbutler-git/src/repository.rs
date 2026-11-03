@@ -96,6 +96,7 @@ async fn execute_with_auth_harness<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
+    stdin: Option<&[u8]>,
     on_prompt: Option<F>,
 ) -> Result<(usize, String, String), Error<E>>
 where
@@ -113,9 +114,9 @@ where
         .collect();
 
     if let Some(on_prompt) = on_prompt {
-        execute_with_indirect_askpass(harness_env, executor, &args, envs, on_prompt).await
+        execute_with_indirect_askpass(harness_env, executor, &args, stdin, envs, on_prompt).await
     } else {
-        execute_direct(harness_env, executor, &args, envs).await
+        execute_direct(harness_env, executor, &args, stdin, envs).await
     }
 }
 
@@ -159,6 +160,7 @@ async fn execute_with_indirect_askpass<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
+    stdin: Option<&[u8]>,
     mut envs: HashMap<String, String>,
     mut on_prompt: F,
 ) -> Result<(usize, String, String), Error<E>>
@@ -262,7 +264,7 @@ where
     let mut child_process = core::pin::pin! {
         async {
             executor
-                .execute(args, cwd, Some(envs))
+                .execute(args, cwd, Some(envs), stdin)
                 .await
                 .map_err(Error::<E>::Exec)
         }.fuse()
@@ -345,6 +347,7 @@ async fn execute_direct<P, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
+    stdin: Option<&[u8]>,
     envs: HashMap<String, String>,
 ) -> Result<(usize, String, String), Error<E>>
 where
@@ -356,7 +359,7 @@ where
     };
 
     executor
-        .execute(args, cwd, Some(envs))
+        .execute(args, cwd, Some(envs), stdin)
         .await
         .map_err(Error::<E>::Exec)
 }
@@ -478,9 +481,71 @@ where
     args.push(remote);
     args.extend(refspecs.iter().map(String::as_str));
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+    )
+    .await?;
+    fetch_outcome::<E>(status, args, stdout, stderr)
+}
 
+/// Fetches `object_ids` from `remote` into the repository at `repo_path`, the way Git itself
+/// fetches objects missing from a partial clone (`promisor-remote.c`): without negotiation,
+/// as the objects are known to be missing, and without writing refs, tags or `FETCH_HEAD`.
+/// The ids are passed on standard input, as there may be many.
+///
+/// `remote` has to allow fetching objects by id, which the promisor remote of a partial clone
+/// does. See [`fetch()`] for `on_prompt`.
+pub async fn fetch_objects<P, F, Fut, E>(
+    repo_path: P,
+    executor: E,
+    remote: &str,
+    object_ids: &[gix::ObjectId],
+    on_prompt: Option<F>,
+) -> Result<(), crate::Error<Error<E>>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let args = vec![
+        "-c",
+        "fetch.negotiationAlgorithm=noop",
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        "--no-write-fetch-head",
+        "--recurse-submodules=no",
+        "--filter=blob:none",
+        "--stdin",
+        remote,
+    ];
+    let stdin = object_ids
+        .iter()
+        .map(|id| format!("{id}\n"))
+        .collect::<String>();
+
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path.as_ref()),
+        &executor,
+        &args,
+        Some(stdin.as_bytes()),
+        on_prompt,
+    )
+    .await?;
+    fetch_outcome::<E>(status, args, stdout, stderr)
+}
+
+fn fetch_outcome<E: GitExecutor>(
+    status: usize,
+    args: Vec<&str>,
+    stdout: String,
+    stderr: String,
+) -> Result<(), crate::Error<Error<E>>> {
     if status == 0 {
         Ok(())
     } else {
@@ -574,8 +639,14 @@ where
         args.push(opt.as_str());
     }
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Repo(repo_path),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+    )
+    .await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -651,9 +722,14 @@ where
     let target_dir_str = target_dir.to_string_lossy();
     let args = vec!["clone", "--", repository_url, &target_dir_str];
 
-    let (status, stdout, stderr) =
-        execute_with_auth_harness(HarnessEnv::Global(work_dir), &executor, &args, on_prompt)
-            .await?;
+    let (status, stdout, stderr) = execute_with_auth_harness(
+        HarnessEnv::Global(work_dir),
+        &executor,
+        &args,
+        None,
+        on_prompt,
+    )
+    .await?;
 
     if status == 0 {
         Ok(())

@@ -8,7 +8,7 @@ mod windows;
 use std::{collections::HashMap, path::Path};
 
 use gix::bstr::ByteSlice;
-use tokio::process::Command;
+use tokio::{io::AsyncWriteExt as _, process::Command};
 
 #[cfg(unix)]
 pub use self::unix::TokioAskpassServer;
@@ -29,6 +29,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
         args: &[&str],
         cwd: P,
         envs: Option<HashMap<String, String>>,
+        stdin: Option<&[u8]>,
     ) -> Result<(usize, String, String), Self::Error> {
         let git_exe = gix::path::env::exe_invocation();
         let mut cmd = Command::new(git_exe);
@@ -62,7 +63,32 @@ unsafe impl super::GitExecutor for TokioExecutor {
             }
         }
 
-        let output = cmd.output().await?;
+        let output = match stdin {
+            Some(input) => {
+                cmd.stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped());
+                let mut child = cmd.spawn()?;
+                let mut child_stdin = child.stdin.take().expect("stdin was piped");
+                // Write and read at the same time, so neither pipe fills up while the other
+                // side waits.
+                let (written, output) = tokio::join!(
+                    async move {
+                        child_stdin.write_all(input).await?;
+                        child_stdin.shutdown().await
+                    },
+                    child.wait_with_output()
+                );
+                let output = output?;
+                // A command that failed early may not have read its input; its own error is
+                // the one to report.
+                if output.status.success() {
+                    written?;
+                }
+                output
+            }
+            None => cmd.output().await?,
+        };
 
         debug_log_sanitised_git_cmd(&mut cmd);
 
