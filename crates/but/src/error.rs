@@ -77,6 +77,10 @@ impl BadInput {
     }
 }
 
+/// The hint for when restoring a snapshot would have to move a branch checked out in a worktree.
+pub(crate) const REVERSE_OPERATION_HINT: &str = "Reverse the operation with its inverse instead, \
+    such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`";
+
 /// The hint for a remote-tracking target that no local branch tracks.
 pub(crate) fn track_remote_target_hint(
     unresolved: &but_core::ref_metadata::UnresolvedLegacyTargetRefError,
@@ -191,11 +195,7 @@ where
         }
         #[cfg(feature = "legacy")]
         if let Some(refusal) = error.downcast_ref::<gitbutler_oplog::BranchInOtherWorktree>() {
-            return CliError::BadInput(bad_input(refusal.to_string()).hint(
-                "Reverse the operation with its inverse instead, such as \
-                `but move <commit> --branch <branch>`, `but reword <commit>` or \
-                `but uncommit <commit>`",
-            ));
+            return CliError::BadInput(bad_input(refusal.to_string()).hint(REVERSE_OPERATION_HINT));
         }
         if let Some(unresolved) =
             error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()

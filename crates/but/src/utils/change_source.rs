@@ -43,6 +43,13 @@ impl InvokedFrom {
         })
     }
 
+    /// Whether `dir` is the root of this checkout.
+    pub fn is_rooted_at(&self, dir: &Path) -> bool {
+        self.directory
+            .as_ref()
+            .is_some_and(|directory| dir.canonicalize().is_ok_and(|dir| dir == directory.root))
+    }
+
     /// The checkout itself, whether or not GitButler manages it.
     pub fn checkout(&self) -> ChangeSourceId {
         match &self.linked_worktree {

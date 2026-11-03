@@ -3,14 +3,19 @@
 use but_api::{json::HexHash, legacy::oplog::RestoreKind};
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
-use gitbutler_oplog::entry::OperationKind;
+use gitbutler_oplog::{BranchInOtherWorktree, entry::OperationKind};
 use serde::Serialize;
 
 use crate::{
     CliResult,
     args::{redo, undo},
+    bad_input,
+    error::{BadInput, REVERSE_OPERATION_HINT},
     theme::{self, Theme},
-    utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
+    utils::{
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, change_source::InvokedFrom,
+        shorten_object_id,
+    },
 };
 
 #[derive(Debug, Copy, Clone)]
@@ -128,20 +133,87 @@ pub fn undo(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: undo::Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<UndoRedoOutcome> {
-    let operation = resolve_undo(args)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    Ok(run(ctx, guard.write_permission(), operation)?)
+    run_from(ctx, resolve_undo(args)?, invoked_from)
 }
 
 pub fn redo(
     ctx: &mut Context,
     _out: IntermediateChannel<'_>,
     args: redo::Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<UndoRedoOutcome> {
-    let operation = resolve_redo(args)?;
+    run_from(ctx, resolve_redo(args)?, invoked_from)
+}
+
+/// [`run`], with a refusal that says so when the branch in the way is the one this linked worktree
+/// has checked out, as the repository `run` restores is always the main checkout.
+fn run_from(
+    ctx: &mut Context,
+    operation: Operation,
+    invoked_from: &InvokedFrom,
+) -> CliResult<UndoRedoOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    Ok(run(ctx, guard.write_permission(), operation)?)
+    let result = run(ctx, guard.write_permission(), operation);
+    if let Err(error) = &result
+        && let Some(refusal) = error.downcast_ref::<BranchInOtherWorktree>()
+        && refusal
+            .dirs
+            .iter()
+            .all(|dir| invoked_from.is_rooted_at(dir))
+    {
+        return Err(refused_in_this_worktree(ctx, operation, refusal)?.into());
+    }
+    Ok(result?)
+}
+
+fn refused_in_this_worktree(
+    ctx: &Context,
+    operation: Operation,
+    refusal: &BranchInOtherWorktree,
+) -> anyhow::Result<BadInput> {
+    let branch = refusal.branch.shorten();
+    let (command, commit) = match operation {
+        Operation::Undo => ("but undo", commit_to_uncommit(ctx, refusal)?),
+        Operation::Redo => ("but redo", None),
+    };
+    let hint = match commit {
+        Some(commit) => format!(
+            "Run `but uncommit {commit}` to take the commit off '{branch}' and keep its changes uncommitted"
+        ),
+        None => REVERSE_OPERATION_HINT.to_owned(),
+    };
+    Ok(bad_input(format!(
+        "Cannot restore branch '{branch}' because it is checked out in this linked worktree, \
+        and `{command}` only restores the main checkout"
+    ))
+    .hint(hint))
+}
+
+/// The commit `refusal` is about if `but undo` wants to reverse creating it: the last operation
+/// made a commit, and that commit is all that `refusal`'s branch gained since. A commit without
+/// GitButler's headers came from elsewhere, so that operation didn't make it.
+fn commit_to_uncommit(
+    ctx: &Context,
+    refusal: &BranchInOtherWorktree,
+) -> anyhow::Result<Option<String>> {
+    let made_a_commit = but_api::legacy::oplog::get_undo_target_snapshot(ctx)?
+        .and_then(|snapshot| snapshot.details)
+        .is_some_and(|details| details.operation == OperationKind::CreateCommit);
+    if !made_a_commit {
+        return Ok(None);
+    }
+    let repo = ctx.repo.get()?;
+    let tip = but_core::Commit::try_from(
+        repo.find_reference(refusal.branch.as_ref())?
+            .peel_to_commit()?,
+    )?;
+    let gained_only_tip = refusal
+        .restored_tip
+        .is_none_or(|restored| tip.parents.first() == Some(&restored));
+    Ok((tip.headers().is_some() && gained_only_tip)
+        .then(|| shorten_object_id(&repo, tip.id.detach())))
 }
 
 fn resolve_undo(undo::Platform {}: undo::Platform) -> CliResult<Operation> {
