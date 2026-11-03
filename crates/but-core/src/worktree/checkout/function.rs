@@ -165,7 +165,20 @@ pub fn safe_checkout_from_head(
 
         let mut checkout_opts = git2::build::CheckoutBuilder::new();
         checkout_opts.baseline(&wd_tree);
+        // libgit2 writes the index without Git's fsmonitor token and untracked cache, which
+        // would make the next status scan the whole worktree again.
+        let index_with_fsmonitor_data = repo
+            .open_index()
+            .ok()
+            .filter(|index| index.fs_monitor().is_some());
         git2_repo.checkout_index(Some(&mut checkout_target), Some(&mut checkout_opts))?;
+        if let Some(before) = index_with_fsmonitor_data {
+            let mut index = repo.open_index()?;
+            if index.fs_monitor().is_none() {
+                index.carry_over_fsmonitor_data_from(&before);
+                index.write(Default::default())?;
+            }
+        }
     }
 
     let mut head_update = None;

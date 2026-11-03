@@ -208,14 +208,16 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.90.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43", default-features = false, features = [
+# This is schacon/gitoxide's `gitbutler-fsmonitor` branch: upstream 4dc73c31a plus status support
+# for Git's fsmonitor daemon and untracked cache. Go back to GitoxideLabs once that lands there.
+gix = { version = "0.90.0", git = "https://github.com/schacon/gitoxide", rev = "82a4932a1db68810e727187a90175065b81ee021", default-features = false, features = [
     "sha1",
     "sha256",
     "anyhow",
     "auto-chain-error",
     "zlib-sirocco"
 ] }
-gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
+gix-testtools = { version = "0.22.0", git = "https://github.com/schacon/gitoxide", rev = "82a4932a1db68810e727187a90175065b81ee021" }
 
 
 git2 = { version = "0.21.0", features = [
@@ -322,7 +324,7 @@ sapling-renderdag = "0.1.0"
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.89` line on the same git revision.
 # This is relevant to force `git-meta` to use our version.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
+gix = { git = "https://github.com/schacon/gitoxide", rev = "82a4932a1db68810e727187a90175065b81ee021" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 # GPUI's Linux event loop, as Zed patches it: each turn runs queued tasks for about 10ms, then
 # lets input and frames through, rather than run them all. Only GPUI uses it.
