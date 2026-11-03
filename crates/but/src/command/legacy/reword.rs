@@ -31,7 +31,7 @@ pub(crate) fn reword_target(
     // Formats without an interactive editor must provide the new message up front.
     if message.is_none() && !format && !out.format().allows_human_ui() {
         return Err(bad_input(
-            "A message must be provided via --message (-m) for this output format",
+            "A message must be provided via --message (-m) or --file (-F) for this output format",
         )
         .into());
     }
