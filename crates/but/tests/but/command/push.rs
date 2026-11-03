@@ -1,6 +1,8 @@
-use snapbox::str;
+use snapbox::{IntoData as _, str};
 
-use super::util::{add_worktree_with_commit, sandbox_with_conflicted_commit};
+use super::util::{
+    add_worktree_with_commit, find_branch, sandbox_with_conflicted_commit, status_json,
+};
 use crate::utils::{CommandExt, Sandbox};
 
 fn repo_with_unpushed_branch() -> Sandbox {
@@ -373,11 +375,119 @@ fn push_keeps_an_upstream_already_configured() {
 fn push_refuses_conflicted_commits() {
     let env = sandbox_with_conflicted_commit();
 
-    // Try to push the branch - should fail with an error about conflicted commits.
+    // The refusal is bad input: only that prints a hint, and it names the commit to start with.
     env.but("push A").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'A': the push would include 1 conflicted commit.
-Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]]);
+    env.but("resolve conflicts nyo").assert().success();
+}
+
+#[test]
+fn push_of_several_conflicted_commits_starts_resolving_at_the_oldest() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "pull-conflicts-in-both-branches-of-stack",
+    );
+    env.setup_metadata_at_target(&["A"], "main");
+    env.but("pull").assert().success();
+
+    // Commits list newest first, and resolving a commit rebases those above it.
+    env.but("push A").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'A': the push would include 2 conflicted commits.
+Conflicted commits: wmr, trk
+
+Hint: Start resolving with `but resolve conflicts trk`, then push again
+
+"#]]);
+}
+
+#[test]
+fn push_hint_for_conflicted_commits_works_with_a_branch_checked_out() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+    env.but("pull").assert().success();
+
+    // `but resolve <commit>` refuses while a branch is checked out, so the hint can't name it.
+    env.but("push A").assert().failure().stderr_eq(str![[r#"
+Error: Cannot push branch 'A': the push would include 1 conflicted commit.
+Conflicted commits: rou
+
+Hint: Start resolving with `but resolve conflicts rou`, then push again
+
+"#]]);
+    env.but("resolve conflicts rou").assert().success();
+}
+
+#[test]
+fn bare_push_reports_a_conflict_refusal_with_its_hint() {
+    let env = sandbox_with_conflicted_commit();
+
+    // An internal error reaches `main`, which prints a backtrace with this set. Bad input exits first.
+    env.but("push")
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+
+
+✗ Failed to push 1 branch:
+    A - Cannot push branch 'A': the push would include 1 conflicted commit.
+Conflicted commits: nyo
+
+Hint: Start resolving with `but resolve conflicts nyo`, then push again
+
+"#]])
+        .stderr_eq(str![[r#"
+Error: failed to push 1 of 1 branch
+
+"#]]);
+    env.but("--json push")
+        .assert()
+        .failure()
+        .stdout_eq(str![[r#"
+{
+  "pushed": [],
+  "failed": [
+    {
+      "branchName": "A",
+      "error": "Cannot push branch 'A': the push would include 1 conflicted commit.\nConflicted commits: nyo\n\nHint: Start resolving with `but resolve conflicts nyo`, then push again"
+    }
+  ]
+}
+
+"#]].raw());
+}
+
+#[test]
+fn push_of_something_that_is_not_an_applied_branch_is_bad_input() {
+    let env = repo_with_unpushed_branch();
+
+    // Only bad input prints a hint. A dry run resolves the name the same way.
+    for command in ["push nosuch", "push nosuch --dry-run"] {
+        env.but(command).assert().failure().stderr_eq(str![[r#"
+Error: Branch 'nosuch' not found. Available branches:
+  - A
+  - branchB
+
+Hint: If 'nosuch' exists but isn't applied, run `but apply nosuch` first
+
+"#]]);
+    }
+    let status = status_json(&env);
+    let commit = find_branch(&status, "branchB")["commits"][0]["cliId"]
+        .as_str()
+        .expect("branchB has a commit");
+    env.but(format!("push {commit}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Expected branch identifier, got a commit.
+
+Hint: Use a branch name from `but status`
 
 "#]]);
 }
@@ -418,7 +528,8 @@ fn push_refuses_conflicted_commits_on_ancestors() {
     env.but("push B").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'B': the push would include 1 conflicted commit.
 Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+Hint: Start resolving with `but resolve conflicts [..]`, then push again
 
 "#]]);
 }
@@ -433,7 +544,8 @@ fn push_refuses_conflicted_commits_in_anonymous_segments_beneath_a_worktree() {
     env.but("push W").assert().failure().stderr_eq(str![[r#"
 Error: Cannot push branch 'W': the push would include 1 conflicted commit.
 Conflicted commits: [..]
-Please resolve conflicts before pushing using 'but resolve <commit>'.
+
+Hint: Start resolving with `but resolve conflicts [..]`, then push again
 
 "#]]);
 }
