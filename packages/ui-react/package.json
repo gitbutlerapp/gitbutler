@@ -33,12 +33,12 @@
 		"react-resizable-panels": "^4.11.2"
 	},
 	"peerDependencies": {
-		"@gitbutler/design-core": "^11.0.0",
+		"@gitbutler/design-core": "^11.1.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
-		"@gitbutler/design-core": "11.0.0",
+		"@gitbutler/design-core": "11.1.0",
 		"@playwright/test": "catalog:",
 		"@storybook/addon-a11y": "^10.6.0",
 		"@storybook/addon-designs": "^11.1.4",
