@@ -1113,6 +1113,33 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
 
 "#]]
     );
+    // The upstream commit was never a step, but it's what both commits ended up in.
+    snapbox::assert_data_eq!(
+        rebase.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+[
+    Succession {
+        prec: Sha1(2d37747467a90cd19b3967499eaa56e2f7598c45),
+        succ: Some(
+            Sha1(6ad6d0787d11e68ca31a72e6da4384d3ecce8df0),
+        ),
+    },
+    Succession {
+        prec: Sha1(54346808f70395483bef8f2e8d91830893065626),
+        succ: Some(
+            Sha1(039050a05168d2a11969ffa4cec34e0aa2117e91),
+        ),
+    },
+    Succession {
+        prec: Sha1(860210a6a95e6f81e01a754758e5912ee55638bc),
+        succ: Some(
+            Sha1(039050a05168d2a11969ffa4cec34e0aa2117e91),
+        ),
+    },
+]
+
+"#]]
+    );
     rebase.materialize(Default::default())?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;

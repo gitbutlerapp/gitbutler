@@ -75,6 +75,27 @@ fn discarding_the_output_of_a_fold_prunes_only_that_commit() -> Result<()> {
 
 "#]]
     );
+    // Both commits ended up in a commit that isn't there, so they ended up nowhere.
+    snapbox::assert_data_eq!(
+        outcome.history.commit_mappings().to_debug(),
+        snapbox::str![[r#"
+[
+    Succession {
+        prec: Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d),
+        succ: None,
+    },
+    Succession {
+        prec: Sha1(38b324344688fb48822cb0865a175193e8c96f15),
+        succ: None,
+    },
+    Succession {
+        prec: Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae),
+        succ: None,
+    },
+]
+
+"#]]
+    );
     let mappings = outcome.history.continuations();
     assert!(
         !mappings.contains_key(&two) && !mappings.contains_key(&three),
