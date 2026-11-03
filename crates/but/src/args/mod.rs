@@ -571,10 +571,13 @@ pub enum Subcommands {
     Reword {
         /// Commit ID to edit, branch ID to rename, or anonymous branch ID to name
         target: CliIdArg,
-        /// The new commit message or branch name. Without it, a terminal opens the editor
+        /// The new commit message or branch name. Without it or `-F`, a terminal opens the editor
         /// and a non-interactive run fails.
         #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]
         message: Option<String>,
+        /// Read the new commit message or branch name from `FILE`, or from stdin when `FILE` is `-`.
+        #[clap(short = 'F', long, value_name = "FILE", conflicts_with_all = ["message", "fix_formatting"])]
+        file: Option<atoms::MessageFileArg>,
         /// Format the existing commit message to 72-char line wrapping without opening an editor
         #[clap(
             id = "fix_formatting",

@@ -1404,11 +1404,16 @@ async fn dispatch_subcommand(
         Subcommands::Reword {
             target,
             message,
+            file,
             format,
             diff,
             no_diff,
             allow_merged,
         } => {
+            let message = match file {
+                Some(file) => Some(file.read_non_empty(&args.current_dir)?),
+                None => message,
+            };
             let status_after = args.status_after;
             out.begin_status_after(status_after);
             status_after_data = Some(status_after);

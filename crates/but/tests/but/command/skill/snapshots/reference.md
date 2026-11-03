@@ -183,7 +183,8 @@ Amend uncommitted changes into the commits they belong to
 ### but reword <TARGET>
 Edit the commit message of the specified commit
 - `<TARGET>` Commit ID to edit, branch ID to rename, or anonymous branch ID to name
-- `-m, --message <MESSAGE>` The new commit message or branch name. Without it, a terminal opens the editor and a non-interactive run fails
+- `-m, --message <MESSAGE>` The new commit message or branch name. Without it or -F, a terminal opens the editor and a non-interactive run fails
+- `-F, --file <FILE>` Read the new commit message or branch name from FILE, or from stdin when FILE is -
 - `-f, --fix-formatting` Format the existing commit message to 72-char line wrapping without opening an editor
 
 ### but uncommit <SOURCES>...
