@@ -328,9 +328,8 @@ pub mod merge {
             let mut ran_merge_trials_loop_safety = false;
             #[expect(clippy::indexing_slicing)]
             'retry_loop: loop {
-                let mut prev_base_sidx = None;
+                let mut merged_sidxs = Vec::new();
                 let mut merge_tree_id = None;
-                let mut previous_tip = None;
                 let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
                 let labels_uninteresting_as_no_conflict_allowed = repo.default_merge_labels();
                 'tips_loop: for tip_idx in 0..tips.len() {
@@ -347,19 +346,12 @@ pub mod merge {
                         continue;
                     }
                     let this_tree_id = peel_to_tree(commit_id.attach(repo))?;
-                    if let Some((prev_tree_id, prev_sidx)) = previous_tip {
-                        let (base_tree_id, base_sidx) = {
-                            // This is critical: we enforce using the lowest merge-base by using
-                            // the previous iterations merge-base.
-                            // This is the same as computing the merge-base between the new
-                            // (non-existing merge-commit) and the next tip.
-                            let left = prev_base_sidx.unwrap_or(prev_sidx);
-                            compute_merge_base(graph, repo, left, sidx)?
-                        };
+                    if let Some(prev_tree_id) = merge_tree_id {
+                        let base_tree_id = compute_merge_base(graph, repo, &merged_sidxs, sidx)?;
 
                         let mut merge = repo.merge_trees(
                             base_tree_id,
-                            merge_tree_id.unwrap_or(prev_tree_id),
+                            prev_tree_id,
                             this_tree_id,
                             labels_uninteresting_as_no_conflict_allowed,
                             merge_options.clone(),
@@ -447,8 +439,12 @@ pub mod merge {
                         {
                             // This stack merged cleanly, and now we have to merge the hero into that result to see if it works.
                             // This tells us if this is stack merges cleanly or causes a real conflict in conjunction with hero.
-                            let base_tree_id =
-                                compute_merge_base(graph, repo, base_sidx, hero_sidx)?.0;
+                            let base_tree_id = compute_merge_base(
+                                graph,
+                                repo,
+                                &[&merged_sidxs[..], &[sidx]].concat(),
+                                hero_sidx,
+                            )?;
                             let merge = repo.merge_trees(
                                 base_tree_id,
                                 merge.tree.write()?,
@@ -468,10 +464,11 @@ pub mod merge {
                                 continue 'tips_loop;
                             }
                         }
-                        prev_base_sidx = Some(base_sidx);
                         merge_tree_id = merge.tree.write()?.detach().into();
+                    } else {
+                        merge_tree_id = Some(this_tree_id);
                     }
-                    previous_tip = Some((this_tree_id, sidx));
+                    merged_sidxs.push(sidx);
                 }
 
                 let (stacks, conflicting_stacks) = tips.iter().fold(
@@ -506,12 +503,8 @@ pub mod merge {
                     )
                 }
 
-                let merge_tree_id = merge_tree_id
-                    .or({
-                        // Just one stack?
-                        previous_tip.map(|t| t.0)
-                    })
-                    .context("having stacks means the loop ran once")?;
+                let merge_tree_id =
+                    merge_tree_id.context("having stacks means the loop ran once")?;
 
                 // Finally, create the merge-commit itself.
                 let mut ws_commit =
@@ -571,32 +564,38 @@ pub mod merge {
         }
     }
 
+    /// Return the tree of the merge-base between `right` and the merge of the `merged` segments.
+    ///
+    /// That merge has the history of all `merged` segments, so its base with `right` is the
+    /// merge-base they have with `right` that is closest to the tips, with the lowest generation.
     fn compute_merge_base(
         graph: &but_graph::Graph,
         repo: &gix::Repository,
-        left: SegmentIndex,
+        merged: &[SegmentIndex],
         right: SegmentIndex,
-    ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
-        let base_sidx = graph.find_merge_base(left, right).with_context(|| {
-            format!(
-                "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
-                l = left.index(),
-                r = right.index()
-            )
-        })?;
+    ) -> anyhow::Result<gix::ObjectId> {
+        let base_sidx = merged
+            .iter()
+            .filter_map(|left| graph.find_merge_base(*left, right))
+            .min_by_key(|base| graph[*base].generation)
+            .with_context(|| {
+                format!(
+                    "Couldn't find merge-base between segment {r} and {merged:?} - they are disjoint in the commit-graph",
+                    r = right.index()
+                )
+            })?;
         let base_commit_id = graph
             .tip_skip_empty(base_sidx)
             .with_context(|| {
                 format!(
-                    "Base segment {base} between {l} and {r} didn't have  single commit reachable",
+                    "Base segment {base} between {r} and {merged:?} didn't have  single commit reachable",
                     base = base_sidx.index(),
-                    l = left.index(),
                     r = right.index()
                 )
             })?
             .id
             .attach(repo);
-        Ok((peel_to_tree(base_commit_id)?, base_sidx))
+        peel_to_tree(base_commit_id)
     }
 
     fn peel_to_tree(commit: gix::Id) -> anyhow::Result<gix::ObjectId> {
