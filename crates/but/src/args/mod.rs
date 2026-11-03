@@ -414,20 +414,31 @@ pub enum Subcommands {
     /// Resolve conflicts in a commit or in uncommitted files.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
-    /// use this command to enter resolution mode, resolve the conflicts, and finalize.
+    /// list its conflicts and resolve them without checking the commit out. This works with
+    /// `gitbutler/workspace` or a single branch checked out, and for a worktree's branch.
     /// Uncommitted files marked `{conflicted}` by `but status` are resolved with
     /// `but resolve <path>...` once they hold the desired content (or were deleted).
     ///
     /// ## Workflow
+    ///
+    /// 1. List the conflicts: `but resolve conflicts <commit-id>`
+    /// 2. Resolve each one with the `but resolve apply` command it prints
+    /// 3. Repeat until no conflicts remain
+    ///
+    /// Alternatively, resolve with AI in one step: `but resolve <commit-id> --ai`,
+    /// or `but resolve --ai` to resolve all conflicted commits in the workspace, oldest first.
+    ///
+    /// ## Resolution mode
+    ///
+    /// To run code against a resolution (build or test at that commit), or for a conflict
+    /// `apply` can't take (such as a deletion, a rename or a binary file), check the commit
+    /// out instead. This needs `gitbutler/workspace` and a branch applied to it.
     ///
     /// 1. Enter resolution mode: `but resolve <commit-id>`
     /// 2. Resolve conflicts in your editor (remove conflict markers)
     /// 3. Check remaining conflicts: `but resolve status`
     /// 4. Finalize resolution: `but resolve finish`
     ///    Or cancel: `but resolve cancel`
-    ///
-    /// Alternatively, resolve with AI in one step: `but resolve <commit-id> --ai`,
-    /// or `but resolve --ai` to resolve all conflicted commits, oldest first.
     ///
     /// When in resolution mode, `but status` will also show that you're resolving conflicts.
     ///
@@ -440,8 +451,9 @@ pub enum Subcommands {
         /// A commit to enter resolution mode for, or one or more conflicted uncommitted
         /// files (as listed by `but status`) to mark as resolved with their current
         /// worktree content. Resolution mode checks the commit out until `finish` or
-        /// `cancel`, and is refused while a single branch is checked out; the `conflicts` and
-        /// `apply` subcommands resolve a commit without it, in either case.
+        /// `cancel`, and is refused while a single branch is checked out or for a commit on a
+        /// worktree's branch; the `conflicts` and `apply` subcommands resolve a commit without
+        /// it, in either case.
         targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///

@@ -98,7 +98,7 @@ Discard branches, commits, or changes
 
 ### but resolve [TARGETS]...
 Resolve conflicts in a commit or in uncommitted files
-- `[TARGETS]...` A commit to enter resolution mode for, or one or more conflicted uncommitted files (as listed by but status) to mark as resolved with their current worktree content. Resolution mode checks the commit out until finish or cancel, and is refused while a single branch is checked out; the conflicts and apply subcommands resolve a commit without it, in either case
+- `[TARGETS]...` A commit to enter resolution mode for, or one or more conflicted uncommitted files (as listed by but status) to mark as resolved with their current worktree content. Resolution mode checks the commit out until finish or cancel, and is refused while a single branch is checked out or for a commit on a worktree's branch; the conflicts and apply subcommands resolve a commit without it, in either case
 - `--ai` Resolve the conflicts with the configured AI model and apply the result. With a commit ID this resolves only that commit; without one it resolves all conflicted commits in the workspace, oldest first. Undo the result with but undo.
 
 ### but resolve conflicts [COMMIT]
