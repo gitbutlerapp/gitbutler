@@ -493,8 +493,9 @@ pub struct Store {
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
     forge_queued: HashSet<ProjectId>,
-    /// Projects whose last forge refresh failed, which the minute poll leaves alone.
-    forge_failed: HashSet<ProjectId>,
+    /// Projects whose last forge refresh failed, and whether that may pass by itself, so the
+    /// minute poll asks again. The others it leaves alone.
+    forge_failed: HashMap<ProjectId, bool>,
     /// No part of the window shows, as behind another app's or with the display asleep.
     /// Nobody sees the projects change then, so what watchers saw waits in `unseen`, read
     /// once the window shows again.
@@ -611,7 +612,7 @@ impl Store {
             _change_listener: Self::reload_on_change(changed, cx),
             forge_requests,
             forge_queued: HashSet::new(),
-            forge_failed: HashSet::new(),
+            forge_failed: HashMap::new(),
             hidden: false,
             unseen: HashMap::new(),
             forge_skipped: 0,

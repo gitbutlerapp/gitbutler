@@ -211,14 +211,14 @@ impl Store {
 
     /// Ask the forges that failed again, as once an account to read them with is added.
     pub fn retry_forges(&mut self) {
-        for id in std::mem::take(&mut self.forge_failed) {
+        for id in std::mem::take(&mut self.forge_failed).into_keys() {
             self.refresh_forge(&id);
         }
     }
 
     /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
     pub fn forge_failed(&self, id: &ProjectId) -> bool {
-        self.forge_failed.contains(id)
+        self.forge_failed.contains_key(id)
     }
 
     /// When asking `id`'s forge last worked in this run, in seconds since the epoch.
@@ -368,9 +368,6 @@ impl Store {
                 cx.background_executor()
                     .timer(Duration::from_secs(60))
                     .await;
-                // Not the projects that failed last time: that's a missing account or a
-                // keychain prompt the user turned down, and asking again every minute
-                // would only nag. Opening a project or pushing asks again.
                 let Ok(()) = this.update(cx, |store, cx| {
                     match store.hidden && store.forge_skipped + 1 < HIDDEN_EVERY {
                         true => store.forge_skipped += 1,
@@ -388,7 +385,10 @@ impl Store {
         tracing::debug!(hidden = self.hidden, "asking the forges");
         self.forge_skipped = 0;
         for id in self.expanded_ids() {
-            if !self.forge_failed.contains(&id) {
+            // Not after a failure that stays, as a missing account or a keychain prompt the
+            // user turned down: asking again every minute would only nag. Opening a project or
+            // pushing asks again.
+            if self.forge_failed.get(&id) != Some(&false) {
                 self.refresh_forge(&id);
             }
         }
@@ -433,12 +433,16 @@ impl Store {
                             store.fetch_soon.insert(id.clone());
                         }
                         // The forge's answers are in the commits and branches, not the files.
-                        if refreshed.changed {
+                        // Other processes write the cache too, so what counts is what the
+                        // project read last, not what this refresh changed.
+                        if store.workspace(&id).map(|ws| ws.reviews) != Some(refreshed.reviews) {
                             store.load(&id, Reload::commits(), cx);
                         }
                     }
-                    Err(_) => {
-                        store.forge_failed.insert(id.clone());
+                    Err(err) => {
+                        store
+                            .forge_failed
+                            .insert(id.clone(), reviews::may_pass(err));
                     }
                 }) else {
                     return;

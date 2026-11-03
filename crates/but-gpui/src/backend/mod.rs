@@ -354,6 +354,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         Ok((side?, view))
     })?;
     let (uncommitted, refs) = side;
+    let cached = reviews::cached_reviews(&ctx);
+    let reviews = reviews_fingerprint(&cached);
     let info = match view {
         Ok(info) => info,
         Err(editing) => {
@@ -362,13 +364,13 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 tree,
                 git_operation,
                 refs,
+                reviews,
                 editing: Some(editing),
                 ..Default::default()
             });
         }
     };
 
-    let cached = reviews::cached_reviews(&ctx);
     let mut lanes: Vec<Lane> = info
         .stacks
         .iter()
@@ -419,12 +421,13 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         remoteless,
         editing: None,
         // The branches the worktrees shown have checked out, which the Branches page leaves off.
-        refs: (worktrees.iter()).fold(refs ^ reviews_fingerprint(&cached), |sum, w| {
+        refs: (worktrees.iter()).fold(refs ^ reviews, |sum, w| {
             use std::hash::{Hash as _, Hasher as _};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             w.branch.hash(&mut hasher);
             sum ^ hasher.finish()
         }),
+        reviews,
         worktrees,
         archived_worktrees,
         oplog: history::newest_entries(&ctx),
@@ -522,7 +525,8 @@ fn worktree_branches(
 }
 
 /// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or of
-/// a change to one, as its description edited, has the Branches page list them again.
+/// a change to one, as its description edited, has the project read them again and the
+/// Branches page list them again.
 fn reviews_fingerprint(cached: &HashMap<u64, but_forge::ForgeReview>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
     // Order-free, as the map's order isn't fixed.
@@ -531,7 +535,16 @@ fn reviews_fingerprint(cached: &HashMap<u64, but_forge::ForgeReview>) -> u64 {
         let settled = (&review.merged_at, &review.closed_at);
         // When it changed rather than its description, which can be long.
         let changed = &review.modified_at;
-        (review.number, &review.title, review.draft, settled, changed).hash(&mut hasher);
+        let auto_merge = review.auto_merge_enabled;
+        (
+            review.number,
+            &review.title,
+            review.draft,
+            auto_merge,
+            settled,
+            changed,
+        )
+            .hash(&mut hasher);
         sum ^ hasher.finish()
     })
 }
