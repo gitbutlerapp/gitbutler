@@ -1,7 +1,7 @@
 //! Cherry picking generalised for N to M cases.
 
 use crate::commit::DateMode;
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use bstr::BString;
 use but_core::{
     ChangeId, RepositoryExt as _,
@@ -403,27 +403,19 @@ fn merged_tree_from_commits(
     tree_merge_mode: TreeMergeMode,
     preference: TreeKind,
 ) -> Result<MergeOutcome> {
-    let mut to_merge = commits.to_vec();
-    to_merge.reverse();
-    let Some(first) = to_merge.pop() else {
+    let independent = independent_commits(repo, commits)?;
+    let Some((first, rest)) = independent.split_first() else {
         // Handle the case where no commits are given.
         return Ok(MergeOutcome::NoCommit);
     };
     let mut sum = find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
 
-    let mut base: Option<Option<gix::ObjectId>> = None;
-
-    while let Some(commit) = to_merge.pop() {
-        if let Some(base_commit) = base {
-            if let Some(base_commit) = base_commit {
-                base = Some(merge_base(repo, base_commit, commit)?);
-            }
-        } else {
-            base = Some(merge_base(repo, first, commit)?);
-        }
-        let Some(base) = base else {
-            bail!("BUG: Base is None, this should never happen");
-        };
+    for (idx, commit) in rest.iter().enumerate() {
+        // `sum` has all commits before this one, so the base is what any of them shares with it.
+        let base = repo
+            .merge_bases_many(*commit, &independent[..=idx])?
+            .first()
+            .map(|id| id.detach());
 
         let commit = but_core::Commit::from_id(commit.attach(repo))?;
         let tree = find_real_tree(&commit, preference)?;
@@ -458,6 +450,36 @@ fn merged_tree_from_commits(
     }
 
     Ok(MergeOutcome::Success(sum.detach()))
+}
+
+/// Return `commits` in order, without repetitions and without the commits another one of them
+/// descends from, as Git does with the commits it merges.
+///
+/// Such a commit adds nothing to the merge as the descendant has seen its changes, and may have
+/// undone them. Merging it anyway could bring them back or conflict, depending on the order.
+fn independent_commits(
+    repo: &gix::Repository,
+    commits: &[gix::ObjectId],
+) -> Result<Vec<gix::ObjectId>> {
+    let mut independent = commits.to_vec();
+    if commits.len() < 2 {
+        return Ok(independent);
+    }
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
+    // Going backwards keeps the first of repeated commits, and the positions still to visit.
+    for idx in (0..commits.len()).rev() {
+        let mut others = independent.clone();
+        let commit = others.remove(idx);
+        if !others.is_empty()
+            && repo
+                .merge_bases_many_with_graph(commit, &others, &mut graph)?
+                .contains(&commit.attach(repo))
+        {
+            independent.remove(idx);
+        }
+    }
+    Ok(independent)
 }
 
 fn merge_base(

@@ -1317,3 +1317,112 @@ fn workspace_merge_surfaces_delete_vs_modify_conflict() -> Result<()> {
 
     Ok(())
 }
+
+/// Pick `workspace` onto `ontos` like a rebase does, and return the clean result.
+fn pick_workspace_onto(
+    repo: &gix::Repository,
+    workspace: gix::ObjectId,
+    ontos: &[gix::ObjectId],
+) -> Result<gix::ObjectId> {
+    let result = cherry_pick(
+        repo,
+        workspace,
+        ontos,
+        PickMode::Force,
+        TreeMergeMode::WithoutRenames,
+        SignCommit::No,
+    )?;
+    let CherryPickOutcome::Commit {
+        id,
+        conflicted: false,
+        ..
+    } = result
+    else {
+        bail!("{ontos:?} should merge cleanly, got: {result:?}");
+    };
+    assert_eq!(
+        get_parents(&id.attach(repo))?,
+        ontos,
+        "all parents are kept, including those that add nothing to the merge"
+    );
+    Ok(id)
+}
+
+#[test]
+fn parents_contained_in_other_parents_leave_the_tree_unchanged() -> Result<()> {
+    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick-mixed-bases")?;
+    let id = |rev: &str| -> Result<gix::ObjectId> { Ok(repo.rev_parse_single(rev)?.detach()) };
+    let tree = |id: gix::ObjectId| -> Result<gix::ObjectId> {
+        Ok(repo.find_commit(id)?.tree_id()?.detach())
+    };
+
+    for (workspace, ontos, why) in [
+        (
+            "ws-older-reverts-main",
+            &["main", "older", "reverts-main"][..],
+            "`main` conflicts with `older`, but `reverts-main` already undid its change",
+        ),
+        (
+            "ws-older-reverts-main",
+            &["older", "main", "reverts-main"],
+            "the same conflict, in the middle",
+        ),
+        (
+            "ws-older-reverts-main",
+            &["older", "reverts-main", "main"],
+            "the same conflict, at the end",
+        ),
+        (
+            "ws-adds-base-reverts-main",
+            &["adds-base", "reverts-main", "main"],
+            "`main` merges cleanly here, but must not bring the reverted change back",
+        ),
+        (
+            "ws-edits-main-adds-main",
+            &["edits-main", "adds-main", "base", "main"],
+            "`base` must not become the merge base of `main`, which `edits-main` changed",
+        ),
+        (
+            "ws-edits-main-adds-main",
+            &["main", "edits-main", "main", "adds-main", "edits-main"],
+            "a commit that is a parent more than once counts once",
+        ),
+    ] {
+        let workspace = id(workspace)?;
+        let ontos = ontos
+            .iter()
+            .map(|rev| id(rev))
+            .collect::<Result<Vec<_>>>()?;
+
+        let picked = pick_workspace_onto(&repo, workspace, &ontos)?;
+        assert_eq!(tree(picked)?, tree(workspace)?, "{why}");
+
+        let picked_again = pick_workspace_onto(&repo, picked, &ontos)?;
+        assert_eq!(
+            tree(picked_again)?,
+            tree(workspace)?,
+            "the parents of a commit are merged the same way as the new parents: {why}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn merge_base_of_a_parent_accounts_for_all_parents_before_it() -> Result<()> {
+    let (repo, _tmpdir, _meta, _db) = fixture_writable("cherry-pick-mixed-bases")?;
+    let id = |rev: &str| -> Result<gix::ObjectId> { Ok(repo.rev_parse_single(rev)?.detach()) };
+
+    let picked = pick_workspace_onto(
+        &repo,
+        id("ws-adds-base-edits-main")?,
+        &[id("adds-base")?, id("edits-main")?, id("adds-main")?],
+    )?;
+
+    assert_eq!(
+        repo.find_commit(picked)?.tree_id()?,
+        repo.find_commit(id("ws-adds-base-edits-main-adds-main")?)?
+            .tree_id()?,
+        "`adds-main` shares `main` with `edits-main`, even if `adds-base` is older"
+    );
+    Ok(())
+}
