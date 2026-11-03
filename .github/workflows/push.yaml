@@ -364,7 +364,9 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-no-tauri-${{ runner.os }}
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          # A GPUI-only run builds a fraction of the dependencies, and saving that would leave
+          # the next full run to rebuild the rest.
+          save-if: ${{ github.ref == 'refs/heads/master' && needs.changes.outputs.rust_core == 'true' }}
       - name: Install Zig
         uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
