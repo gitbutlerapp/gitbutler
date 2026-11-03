@@ -5,16 +5,23 @@
 
 use std::ops::Range;
 
+use strum::IntoEnumIterator as _;
+
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, ScrollHandle,
     SharedString, Subscription, Window, actions, div, prelude::*, relative,
 };
 
 use crate::app::AppView;
-use crate::backend::{Branch, Checkout, Commit, Workspace, Worktree, short_ref};
+use crate::backend::{
+    Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree, short_ref,
+};
 use crate::commands::{COMMANDS, Command};
+use crate::navigator::{lists_changes, mesh_choices, mesh_heading_choice, worktrees_listed};
 use crate::overlays::backdrop;
-use crate::state::{Notice, ProjectEntry, Section, Selection, Store, snack};
+use crate::state::{
+    Notice, ProjectEntry, ProjectId, Section, SectionKind, Selection, SelectionKind, Store, snack,
+};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -99,7 +106,7 @@ impl Choice {
     }
 
     /// Its detail as `parts` joined with " · ", or none when there are none.
-    fn details<'a>(self, parts: impl IntoIterator<Item = &'a str>) -> Choice {
+    pub(crate) fn details<'a>(self, parts: impl IntoIterator<Item = &'a str>) -> Choice {
         let parts: Vec<&str> = parts.into_iter().collect();
         match parts.is_empty() {
             true => self,
@@ -107,12 +114,18 @@ impl Choice {
         }
     }
 
-    fn icon(mut self, icon: Icon) -> Choice {
+    pub(crate) fn icon(mut self, icon: Icon) -> Choice {
         self.icon = Some(icon);
         self
     }
 
-    fn goes_to(mut self, selection: Selection) -> Choice {
+    /// Found by commit `id` typed from its start: see [`Choice::id`].
+    pub(crate) fn commit_id(mut self, id: CommitId) -> Choice {
+        self.id = Some(id.0.to_string().into());
+        self
+    }
+
+    pub(crate) fn goes_to(mut self, selection: Selection) -> Choice {
         self.goes_to = Some(selection);
         self
     }
@@ -405,30 +418,143 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
         .goes_to(Selection::Project(entry.id.clone()))
 }
 
-/// Go to anything's rows for a loaded project's pages, as the navigator names them.
-fn page_choices(entry: &ProjectEntry, several: bool) -> [Choice; 3] {
-    let id = &entry.id;
-    let pages = [
-        (Selection::Branches(id.clone()), "Branches", Icon::Branch),
-        (
-            Selection::History(id.clone()),
-            "Operations history",
-            Icon::Clock,
-        ),
-        (Selection::Graph(id.clone()), "Graph", Icon::Fork),
-    ];
+/// Go to anything's rows of `kind`, as the navigator lists them in the projects `open`. There's
+/// no wildcard: a new kind of row doesn't compile until it's decided here.
+fn go_to_choices(
+    kind: SelectionKind,
+    store: &Store,
+    open: &[(&ProjectEntry, &Workspace)],
+) -> Vec<Choice> {
+    let several = open.len() > 1;
+    // Not while a commit is checked out, which the navigator hides most rows for.
+    let unedited = || (open.iter()).filter(|(_, workspace)| workspace.editing.is_none());
+    let page = |page: fn(ProjectId) -> Selection, label, icon| {
+        unedited()
+            .map(|(entry, _)| page_choice(entry, page(entry.id.clone()), label, icon, several))
+            .collect()
+    };
+    match kind {
+        SelectionKind::Project => store.projects.iter().map(project_choice).collect(),
+        SelectionKind::Branches => page(Selection::Branches, "Branches", Icon::Branch),
+        SelectionKind::History => page(Selection::History, "Operations history", Icon::Clock),
+        SelectionKind::Graph => page(Selection::Graph, "Graph", Icon::Fork),
+        SelectionKind::Section => (SectionKind::iter())
+            .flat_map(|section| {
+                (open.iter()).flat_map(move |(entry, workspace)| {
+                    section_choices(section, store, entry, workspace, several)
+                })
+            })
+            .collect(),
+        SelectionKind::Checkout => (open.iter())
+            .flat_map(|(entry, workspace)| {
+                let main = (workspace.editing.is_none()).then(|| {
+                    let main = Selection::Checkout(entry.id.clone(), Checkout::Main);
+                    page_choice(entry, main, "Main worktree", Icon::Folder, several)
+                });
+                let linked = (worktrees_listed(store, &entry.id, workspace).into_iter())
+                    .map(move |wt| worktree_choice(entry, wt, several));
+                main.into_iter().chain(linked)
+            })
+            .collect(),
+        SelectionKind::Uncommitted => (open.iter())
+            .flat_map(|(entry, workspace)| uncommitted_choices(store, entry, workspace, several))
+            .collect(),
+        SelectionKind::Terminal => unedited()
+            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several))
+            .collect(),
+        SelectionKind::Branch => (open.iter())
+            .flat_map(|(entry, workspace)| {
+                (workspace.all_branches())
+                    .filter(|branch| branch.ref_name.is_some())
+                    .map(move |branch| branch_choice(store, entry, branch, several))
+            })
+            .collect(),
+        // Not a row: the navigator lists a stack's branches, not the stack.
+        SelectionKind::Stack => Vec::new(),
+        SelectionKind::Commit => (open.iter())
+            .flat_map(|(entry, workspace)| {
+                workspace.all_branches().flat_map(move |branch| {
+                    (branch.commits.iter())
+                        .filter(move |commit| !store.hides_commit(&entry.id, &commit.key))
+                        .map(move |commit| commit_choice(store, entry, branch, commit, several))
+                })
+            })
+            .collect(),
+        SelectionKind::Upstream => (open.iter())
+            .flat_map(|(entry, workspace)| {
+                upstream_commit_choices(store, entry, workspace, several)
+            })
+            .collect(),
+        SelectionKind::Mesh => (open.iter())
+            .flat_map(|(entry, workspace)| mesh_choices(store, entry, workspace, several))
+            .collect(),
+    }
+}
+
+/// Go to anything's rows for the headings over a loaded project's sections of `kind`, as the
+/// navigator names them, while they hold anything.
+fn section_choices(
+    kind: SectionKind,
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    match kind {
+        SectionKind::Upstream => {
+            let target = upstream_choice(entry, workspace, several);
+            let branches = (workspace.all_branches())
+                .filter_map(|branch| remote_choice(store, entry, branch, several));
+            target.into_iter().chain(branches).collect()
+        }
+        SectionKind::Inactive => inactive_choice(store, entry, several).into_iter().collect(),
+        SectionKind::Mesh => mesh_heading_choice(store, entry, workspace, several)
+            .into_iter()
+            .collect(),
+    }
+}
+
+/// Go to anything's row for one of a loaded project's pages or its main worktree, as the
+/// navigator names it.
+fn page_choice(
+    entry: &ProjectEntry,
+    page: Selection,
+    label: &'static str,
+    icon: Icon,
+    several: bool,
+) -> Choice {
+    let gone = format!("{} was removed meanwhile", entry.project.name);
+    let goes_to = page.clone();
+    let choice = Choice::new(label, move |this, window, cx| {
+        if this.store.read(cx).project(page.project()).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(page, window, cx)
+    });
     let project = several.then_some(entry.project.name.as_str());
-    pages.map(|(page, label, icon)| {
-        let gone = format!("{} was removed meanwhile", entry.project.name);
-        let goes_to = page.clone();
-        let choice = Choice::new(label, move |this, window, cx| {
-            if this.store.read(cx).project(page.project()).is_none() {
-                return snack(&this.store, gone, cx);
-            }
-            this.select(page, window, cx)
-        });
-        choice.icon(icon).details(project).goes_to(goes_to)
-    })
+    choice.icon(icon).details(project).goes_to(goes_to)
+}
+
+/// Go to anything's row for the heading over `section` of `project`'s card, as the navigator
+/// names it; `gone` once `heads` says it heads nothing, as after a pull or an update.
+pub(crate) fn heading_choice(
+    project: &ProjectId,
+    section: Section,
+    label: impl Into<SharedString>,
+    icon: Icon,
+    gone: impl Into<SharedString>,
+    heads: impl Fn(&Store) -> bool + 'static,
+) -> Choice {
+    let heading = Selection::Section(project.clone(), section);
+    let goes_to = heading.clone();
+    let gone = gone.into();
+    let choice = Choice::new(label, move |this, window, cx| {
+        if !heads(this.store.read(cx)) {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(heading, window, cx)
+    });
+    choice.icon(icon).goes_to(goes_to)
 }
 
 /// Go to anything's row for the heading over what's new on a loaded project's target, as the
@@ -439,19 +565,199 @@ fn upstream_choice(entry: &ProjectEntry, workspace: &Workspace, several: bool) -
     }
     let target = &workspace.target.as_ref()?.name;
     let id = entry.id.clone();
-    let heading = Selection::Section(id.clone(), Section::Upstream(None));
-    let goes_to = heading.clone();
-    let gone = format!("Nothing new on {target} anymore");
-    let choice = Choice::new(format!("New on {target}"), move |this, window, cx| {
-        // Taken in since the picker opened, as by an update.
-        if (this.store.read(cx).workspace(&id)).is_none_or(|ws| ws.upstream(None).is_empty()) {
+    let heads =
+        move |store: &Store| (store.workspace(&id)).is_some_and(|ws| !ws.upstream(None).is_empty());
+    let (label, gone) = (
+        format!("New on {target}"),
+        format!("Nothing new on {target} anymore"),
+    );
+    let section = Section::Upstream(None);
+    let choice = heading_choice(&entry.id, section, label, Icon::ArrowLineDown, gone, heads);
+    Some(choice.details(several.then_some(entry.project.name.as_str())))
+}
+
+/// Go to anything's row for the heading over the commits only `branch`'s remote has, as the
+/// navigator names it, the branch beside it, while there are any.
+fn remote_choice(
+    store: &Store,
+    entry: &ProjectEntry,
+    branch: &Branch,
+    several: bool,
+) -> Option<Choice> {
+    let ref_name = branch.ref_name.clone()?;
+    if branch.incoming.is_empty() || store.hides_branch(&entry.id, &ref_name) {
+        return None;
+    }
+    let label = match &branch.remote {
+        Some(remote) => format!("On {remote}"),
+        None => "On the remote".to_owned(),
+    };
+    let gone = format!("Nothing new on {}'s remote anymore", branch.name);
+    let id = entry.id.clone();
+    let section = Section::Upstream(Some(ref_name.clone()));
+    let heads = move |store: &Store| {
+        (store.workspace(&id)).is_some_and(|ws| !ws.upstream(Some(&ref_name)).is_empty())
+    };
+    let choice = heading_choice(&entry.id, section, label, Icon::ArrowLineDown, gone, heads);
+    let project = several.then_some(entry.project.name.as_str());
+    Some(choice.details(std::iter::once(store.label_of(&entry.id, branch)).chain(project)))
+}
+
+/// Go to anything's rows for the commits only a remote has, as the navigator lists them under
+/// their headings: the target's new ones, then each branch's remote's. Not those a merge
+/// brought in, which load only as it opens.
+fn upstream_commit_choices(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    let target = (workspace.target.as_ref()).map(|target| {
+        let place = format!("New on {}", target.name);
+        (None, place, workspace.upstream(None))
+    });
+    let branches = (workspace.all_branches())
+        .filter(|branch| {
+            (branch.ref_name.as_ref()).is_some_and(|r| !store.hides_branch(&entry.id, r))
+        })
+        .map(|branch| {
+            let place = store.label_of(&entry.id, branch).to_owned();
+            (branch.ref_name.clone(), place, &branch.incoming[..])
+        });
+    let mut choices = Vec::new();
+    for (owner, place, commits) in target.into_iter().chain(branches) {
+        for commit in commits {
+            choices.push(upstream_commit_choice(
+                entry,
+                owner.clone(),
+                &place,
+                commit,
+                several,
+            ));
+        }
+    }
+    choices
+}
+
+/// Go to anything's row for a commit only a remote has, by its title, its short id and where
+/// it's new beside it, where typing either finds it.
+fn upstream_commit_choice(
+    entry: &ProjectEntry,
+    owner: Option<FullName>,
+    place: &str,
+    commit: &RemoteCommit,
+    several: bool,
+) -> Choice {
+    let (id, commit_id) = (entry.id.clone(), commit.id);
+    let goes_to = Selection::Upstream(id.clone(), owner.clone(), commit.id);
+    let selection = goes_to.clone();
+    let short = commit.id.short();
+    let gone = format!("Commit {short} was taken in meanwhile");
+    let choice = Choice::new(commit_title(&commit.title), move |this, window, cx| {
+        // Pulled, or the workspace updated, since the picker opened.
+        if (this.store.read(cx).workspace(&id)).is_none_or(|ws| {
+            !ws.upstream(owner.as_ref())
+                .iter()
+                .any(|c| c.id == commit_id)
+        }) {
             return snack(&this.store, gone, cx);
         }
-        this.select(heading, window, cx)
+        this.select(selection, window, cx)
     });
     let project = several.then_some(entry.project.name.as_str());
-    let choice = choice.icon(Icon::ArrowLineDown).details(project);
-    Some(choice.goes_to(goes_to))
+    let details = [short.as_str(), place];
+    (choice.icon(Icon::ArrowDown))
+        .details(details.into_iter().chain(project))
+        .goes_to(goes_to)
+        .commit_id(commit.id)
+}
+
+/// Go to anything's row for the heading over a loaded project's inactive worktrees, as the
+/// navigator names it, while there are any.
+fn inactive_choice(store: &Store, entry: &ProjectEntry, several: bool) -> Option<Choice> {
+    if store.inactive_worktrees(&entry.id).is_empty() {
+        return None;
+    }
+    let id = entry.id.clone();
+    // Worked in since the picker opened.
+    let heads = move |store: &Store| !store.inactive_worktrees(&id).is_empty();
+    let (label, gone) = ("Inactive worktrees", "No inactive worktrees anymore");
+    let choice = heading_choice(
+        &entry.id,
+        Section::Inactive,
+        label,
+        Icon::Clock,
+        gone,
+        heads,
+    );
+    Some(choice.details(several.then_some(entry.project.name.as_str())))
+}
+
+/// Go to anything's rows for a loaded project's uncommitted changes, the main worktree's first,
+/// as the navigator lists them under each worktree while there are some; while a commit is
+/// checked out, the edit's, which takes their place.
+fn uncommitted_choices(
+    store: &Store,
+    entry: &ProjectEntry,
+    workspace: &Workspace,
+    several: bool,
+) -> Vec<Choice> {
+    if workspace.editing.is_some() {
+        return vec![uncommitted_choice(entry, Checkout::Main, true, several)];
+    }
+    let linked = (worktrees_listed(store, &entry.id, workspace).into_iter())
+        .map(|wt| Checkout::Linked(wt.name.clone()));
+    std::iter::once(Checkout::Main)
+        .chain(linked)
+        .filter(|checkout| lists_changes(store, workspace, &entry.id, checkout))
+        .map(|checkout| uncommitted_choice(entry, checkout, false, several))
+        .collect()
+}
+
+/// Go to anything's row for a worktree's uncommitted changes, or while `editing`, the commit
+/// checked out's, the worktree they're in beside it.
+fn uncommitted_choice(
+    entry: &ProjectEntry,
+    checkout: Checkout,
+    editing: bool,
+    several: bool,
+) -> Choice {
+    let id = entry.id.clone();
+    let goes_to = Selection::Uncommitted(id.clone(), checkout.clone());
+    let selection = goes_to.clone();
+    let worktree = (checkout.linked()).map_or("Main worktree".to_owned(), |name| name.to_string());
+    let (label, icon, gone) = match editing {
+        true => (
+            "Editing a commit",
+            Icon::Diff,
+            "The edit ended meanwhile".to_owned(),
+        ),
+        false => (
+            "Uncommitted changes",
+            Icon::FileDiff,
+            format!("No uncommitted changes in {worktree} anymore"),
+        ),
+    };
+    let choice = Choice::new(label, move |this, window, cx| {
+        // Committed or discarded since the picker opened, or the edit finished.
+        let listed = {
+            let store = this.store.read(cx);
+            (store.workspace(&id)).is_some_and(|ws| match editing {
+                true => ws.editing.is_some(),
+                false => ws.editing.is_none() && lists_changes(store, ws, &id, &checkout),
+            })
+        };
+        if !listed {
+            return snack(&this.store, gone, cx);
+        }
+        this.select(selection, window, cx)
+    });
+    let project = several.then_some(entry.project.name.as_str());
+    let details = (!editing)
+        .then_some(worktree.as_str())
+        .into_iter()
+        .chain(project);
+    choice.icon(icon).details(details).goes_to(goes_to)
 }
 
 /// Go to anything's row for a linked worktree, the branch it has checked out beside it.
@@ -493,8 +799,7 @@ fn terminal_choices(
     workspace: &Workspace,
     several: bool,
 ) -> Vec<Choice> {
-    let linked = (workspace.worktrees.iter())
-        .filter(|wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
+    let linked = (worktrees_listed(store, &entry.id, workspace).into_iter())
         .map(|wt| Checkout::Linked(wt.name.clone()));
     let mut choices = Vec::new();
     for checkout in std::iter::once(Checkout::Main).chain(linked) {
@@ -587,13 +892,10 @@ fn commit_choice(
             None => snack(&this.store, gone, cx),
         }
     });
-    let choice = (choice.icon(Icon::Commit))
+    (choice.icon(Icon::Commit))
         .details(details.into_iter().chain(project))
-        .goes_to(goes_to);
-    Choice {
-        id: Some(commit.id.0.to_string().into()),
-        ..choice
-    }
+        .goes_to(goes_to)
+        .commit_id(commit.id)
 }
 
 impl AppView {
@@ -722,45 +1024,17 @@ impl AppView {
         }
     }
 
-    /// Pick a project, or a page, what's new on the target, linked worktree, terminal, branch or
-    /// commit of a loaded one, by name, pull request title or commit id, and select it.
+    /// Pick any row of the navigator's, a loaded project's by name, pull request title or
+    /// commit id, and select it.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let open = open_workspaces(store);
-        let several = open.len() > 1;
-        // Broadest first, which an equal match keeps: a project before a branch of its name.
-        let projects = store.projects.iter().map(project_choice);
-        // Not while a commit is checked out, which the navigator hides them for.
-        let pages = (open.iter())
-            .filter(|(_, workspace)| workspace.editing.is_none())
-            .flat_map(|(entry, _)| page_choices(entry, several));
-        let upstream = (open.iter())
-            .filter_map(|(entry, workspace)| upstream_choice(entry, workspace, several));
-        let worktrees = open.iter().flat_map(|(entry, workspace)| {
-            (workspace.worktrees.iter())
-                .filter(move |wt| !store.hides_worktree(&entry.id, wt.name.as_ref()))
-                .map(move |wt| worktree_choice(entry, wt, several))
-        });
-        // Not while a commit is checked out either, which the navigator hides them for too.
-        let terminals = (open.iter())
-            .filter(|(_, workspace)| workspace.editing.is_none())
-            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several));
-        let branches = open.iter().flat_map(|(entry, workspace)| {
-            (workspace.all_branches())
-                .filter(|branch| branch.ref_name.is_some())
-                .map(move |branch| branch_choice(store, entry, branch, several))
-        });
-        let commits = open.iter().flat_map(|(entry, workspace)| {
-            workspace.all_branches().flat_map(move |branch| {
-                (branch.commits.iter())
-                    .filter(move |commit| !store.hides_commit(&entry.id, &commit.key))
-                    .map(move |commit| commit_choice(store, entry, branch, commit, several))
-            })
-        });
-        let choices = (projects.chain(pages).chain(upstream).chain(worktrees))
-            .chain(terminals.chain(branches).chain(commits))
+        // Broadest first, as `Selection` lists its kinds, which an equal match keeps: a project
+        // before a branch of its name.
+        let choices = (SelectionKind::iter())
+            .flat_map(|kind| go_to_choices(kind, store, &open))
             .collect();
-        let placeholder = "Go to a project, worktree, terminal, branch or commit";
+        let placeholder = "Go to anything in the navigator";
         self.open_picker(None, placeholder, "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;

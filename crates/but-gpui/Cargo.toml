@@ -69,6 +69,8 @@ rusqlite.workspace = true
 # The keymap, in Zed's format: JSON with comments, bindings kept in the file's order.
 serde_json_lenient.workspace = true
 indexmap = { workspace = true, features = ["serde"] }
+# Every kind of navigator row, which Go to anything decides on one by one.
+strum = { version = "0.27", features = ["derive"] }
 
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true

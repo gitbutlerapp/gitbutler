@@ -48,40 +48,46 @@ pub use terminals::Terminals;
 
 pub type ProjectId = SharedString;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// What's selected: a row of the navigator's, or a page reached from one. Its kinds are listed
+/// broadest first, the order Go to anything offers them in, and each needs a decision there
+/// ([`SelectionKind`]).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumDiscriminants)]
+#[strum_discriminants(name(SelectionKind), derive(strum::EnumIter))]
 pub enum Selection {
     Project(ProjectId),
-    /// A worktree's heading, the main one's or a linked one's by name, whose page is its
-    /// overview: what's going on in it and what just happened there.
-    Checkout(ProjectId, Checkout),
-    /// A worktree's uncommitted changes, first under its heading, whose page is their files
-    /// and diff; the main worktree's are also the files of a commit being edited.
-    Uncommitted(ProjectId, Checkout),
-    /// A branch by its full ref, or `None` for an unnamed one.
-    Branch(ProjectId, Option<FullName>),
-    Commit(ProjectId, CommitId),
     /// The branches outside the workspace, to apply or delete.
     Branches(ProjectId),
     /// The operation log, to look back at and restore.
     History(ProjectId),
     /// The project's commits drawn as a graph, the workspace's and the history below them.
     Graph(ProjectId),
+    /// The heading over a section of a project's card, whose page shows what it folds away.
+    Section(ProjectId, Section),
+    /// A worktree's heading, the main one's or a linked one's by name, whose page is its
+    /// overview: what's going on in it and what just happened there.
+    Checkout(ProjectId, Checkout),
+    /// A worktree's uncommitted changes, first under its heading, whose page is their files
+    /// and diff; the main worktree's are also the files of a commit being edited.
+    Uncommitted(ProjectId, Checkout),
+    /// A terminal open on one of the project's worktrees.
+    Terminal(ProjectId, crate::terminal::TerminalId),
+    /// A branch by its full ref, or `None` for an unnamed one.
+    Branch(ProjectId, Option<FullName>),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, Option<FullName>),
-    /// A checkout of the project on one of the user's other machines, by the mesh's id for
-    /// it, or a branch or commit in it.
-    Mesh(ProjectId, Arc<str>, MeshPick),
+    Commit(ProjectId, CommitId),
     /// A commit only a remote has: one of a branch's (by its full ref) its remote has, or
     /// with `None` one of the target's the workspace doesn't have yet.
     Upstream(ProjectId, Option<FullName>, CommitId),
-    /// The heading over a section of a project's card, whose page shows what it folds away.
-    Section(ProjectId, Section),
-    /// A terminal open on one of the project's worktrees.
-    Terminal(ProjectId, crate::terminal::TerminalId),
+    /// A checkout of the project on one of the user's other machines, by the mesh's id for
+    /// it, or a branch or commit in it.
+    Mesh(ProjectId, Arc<str>, MeshPick),
 }
 
-/// A section of a project's card that folds away under its heading.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// A section of a project's card that folds away under its heading. Each kind needs a
+/// decision in Go to anything too ([`SectionKind`]).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumDiscriminants)]
+#[strum_discriminants(name(SectionKind), derive(strum::EnumIter))]
 pub enum Section {
     /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
     /// target's new ones.
