@@ -1972,6 +1972,39 @@ To undo this operation:
 Branch "wt-conflict" is checked out in a worktree, where conflicts can't be looked up by branch name yet. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`.
 
 "#]]);
+
+    // The same goes for `apply`, so the command `conflicts` prints has to name the commit too.
+    let status = status_json(&env);
+    let commit = status["worktrees"][0]["branches"][0]["commits"]
+        .as_array()
+        .expect("the worktree lane lists its commits")
+        .iter()
+        .find(|commit| commit["conflicted"].as_bool() == Some(true))
+        .and_then(|commit| commit["cliId"].as_str())
+        .expect("the worktree holds a conflicted commit");
+    env.but(format!("resolve conflicts {commit}"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..]
+
+upstream.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+
+>>> theirs (this commit)
+worktree
+
+Resolve with `but resolve apply <path>[:<N>] --commit [..] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit [..]`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+    env.but(format!(
+        "resolve apply upstream.txt --commit {commit} --ours"
+    ))
+    .assert()
+    .success();
 }
 
 #[test]

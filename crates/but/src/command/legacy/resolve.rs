@@ -913,11 +913,12 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
         }
         // With several conflicted commits, a bare `apply` targets the default
         // commit, not necessarily the one listed here — pin it in the hint.
-        let commit_flag = (target.other_conflicted > 0)
-            .then_some(target.branch.as_deref())
-            .flatten()
-            .map(|branch| format!(" --commit {branch}"))
-            .unwrap_or_default();
+        // It can't find a worktree's commit at all, and that has no branch here.
+        let commit_flag = match (target.branch.as_deref(), commit) {
+            (Some(branch), _) if target.other_conflicted > 0 => format!(" --commit {branch}"),
+            (None, Some(commit)) => format!(" --commit {commit}"),
+            _ => String::new(),
+        };
         writeln!(
             human_out,
             "{}",
