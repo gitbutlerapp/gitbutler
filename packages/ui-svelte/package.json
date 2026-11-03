@@ -62,7 +62,7 @@
 		"postcss-pxtorem": "catalog:postcss",
 		"rimraf": "^6.1.3",
 		"shiki": "^4.0.2",
-		"storybook": "^10.2.19",
+		"storybook": "^10.6.2",
 		"svelte-check": "catalog:svelte",
 		"svgo": "^3.3.4",
 		"vite": "catalog:",
