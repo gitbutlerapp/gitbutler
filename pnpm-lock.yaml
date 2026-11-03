@@ -729,8 +729,8 @@ importers:
         specifier: workspace:*
         version: link:../but-sdk
       '@gitbutler/design-core':
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 11.2.0
+        version: 11.2.0
       '@hono/node-server':
         specifier: 2.0.10
         version: 2.0.10(hono@4.12.32)
@@ -969,8 +969,8 @@ importers:
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@gitbutler/design-core':
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 11.2.0
+        version: 11.2.0
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.58.2
@@ -2080,8 +2080,8 @@ packages:
     peerDependencies:
       svelte: ^3.59.1
 
-  '@gitbutler/design-core@11.1.0':
-    resolution: {integrity: sha512-+IA7H7OEGjm9f65vPifWikppkvs8U8XJlnIIxtlRMlH5dpwvDUCQzLgheR3Q1jEbrd6brM8HIEn0Pwv7Airdow==}
+  '@gitbutler/design-core@11.2.0':
+    resolution: {integrity: sha512-Sc7j75EPTsL3sK839mqqnIOcP1/MLztE/eWH1D/M73uqQ9YZbFlGQ5b3ELD9TUZ5Ri0swLfrb8Zu3ieYyQC4vA==}
 
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
@@ -10218,7 +10218,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@gitbutler/design-core@11.1.0': {}
+  '@gitbutler/design-core@11.2.0': {}
 
   '@gitbutler/design-core@2.2.2': {}
 

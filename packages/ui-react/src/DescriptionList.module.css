@@ -2,13 +2,12 @@
 	margin: 0;
 }
 
-/* The same inset on every side. A one-line row is the minimum height; the block padding is for a
-   name that wraps. */
+/* A one-line row is the minimum height; the block padding is for a name that wraps. */
 .item {
 	display: flex;
 	align-items: center;
 	min-height: 40px;
-	padding: 10px;
+	padding: 10px var(--padding-row);
 	gap: var(--space-2xl);
 }
 

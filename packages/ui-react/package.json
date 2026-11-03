@@ -28,12 +28,12 @@
 		"react-resizable-panels": "^4.11.2"
 	},
 	"peerDependencies": {
-		"@gitbutler/design-core": "^11.1.0",
+		"@gitbutler/design-core": "^11.2.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
-		"@gitbutler/design-core": "11.1.0",
+		"@gitbutler/design-core": "11.2.0",
 		"@playwright/test": "catalog:",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/user-event": "^14.6.1",
