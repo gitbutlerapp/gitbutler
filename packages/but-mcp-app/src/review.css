@@ -31,7 +31,7 @@
 	gap: 10px;
 	border-radius: var(--radius-card);
 	background: var(--gb-bg-1);
-	box-shadow: var(--shadow-card);
+	box-shadow: var(--gb-shadow-card);
 }
 
 .review-card-header {

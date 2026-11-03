@@ -1,0 +1,18 @@
+/* Clips the rows' grounds, a hover or a disabled row's grey, to the card's corners. */
+.group {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+
+	/* The end rows follow the card's corner inside its border, so a focus ring there turns the
+	   corner with it rather than being cut by the clip. */
+	& > :first-child {
+		border-start-start-radius: calc(var(--radius-card) - 1px);
+		border-start-end-radius: calc(var(--radius-card) - 1px);
+	}
+
+	& > :last-child {
+		border-end-start-radius: calc(var(--radius-card) - 1px);
+		border-end-end-radius: calc(var(--radius-card) - 1px);
+	}
+}

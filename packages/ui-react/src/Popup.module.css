@@ -111,12 +111,12 @@
 	}
 }
 
-/* Title and description a step apart, still well inside the stack gap to the body. */
+/* Title and description a stack gap apart, so a long description doesn't crowd the title. */
 .modalHeader {
 	display: flex;
 	flex: none;
 	flex-direction: column;
-	gap: var(--space-lg);
+	gap: var(--space-2xl);
 }
 
 /* A drilled-in step's Back button, then its title, on one line. */
@@ -186,12 +186,13 @@
 }
 
 /* .modalPart's padding, restated for the viewport: its own place among the modal's parts is the
-   area's. */
+   area's. Its children a step further apart than the stack gap, so a modal of several parts,
+   each a titled list or a code block, reads as parts rather than one run. */
 .modalBody {
 	display: flex;
 	flex-direction: column;
 	padding: var(--gap-stack) var(--padding-modal) 0;
-	gap: var(--gap-stack);
+	gap: var(--space-3xl);
 	color: var(--text-1);
 }
 
@@ -201,6 +202,17 @@
 
 .modalBodyArea:last-child > .modalBody {
 	padding-bottom: var(--padding-modal);
+}
+
+/* Over a body, the header holds the room to it itself, so the hairline the scrolled body draws
+   under it keeps that room rather than sitting on the description. A step more than the gap
+   inside the header, so the description reads as the header's and the content as its own. */
+.modalHeader:has(+ .modalBodyArea) {
+	padding-bottom: var(--space-3xl);
+}
+
+.modalHeader + .modalBodyArea > .modalBody {
+	padding-top: 0;
 }
 
 .modalFooter {

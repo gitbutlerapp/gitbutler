@@ -1,0 +1,95 @@
+/* Steps sit a section apart, so each reads as its own thing; the counter numbers the markers. */
+.steps {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	gap: var(--space-3xl);
+	list-style: none;
+	counter-reset: step;
+}
+
+.step {
+	display: flex;
+	gap: var(--space-2xl);
+	counter-increment: step;
+}
+
+/* The marker, and under it the line that runs to the end of the step. */
+.rail {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	align-items: center;
+	width: 20px;
+	gap: var(--space-lg);
+}
+
+.marker {
+	--icon-size: 14px;
+
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: var(--radius-full);
+}
+
+.number::before {
+	content: counter(step);
+}
+
+/* The text's own colour, faint, as the line under it is. */
+.lightGray {
+	background-color: color-mix(in srgb, var(--text-1) 10%, transparent);
+	color: var(--text-1);
+}
+
+.fillGray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+}
+
+.safe {
+	background-color: var(--fill-safe-bg);
+	color: var(--fill-safe-fg);
+}
+
+/* Runs on through the gap between steps to stop as far above the next marker as it starts below
+   this one. */
+.connector {
+	flex: 1;
+	width: 2px;
+	margin-bottom: calc(var(--space-lg) - var(--space-3xl));
+	background-color: color-mix(in srgb, var(--text-1) 10%, transparent);
+
+	.step:last-child & {
+		display: none;
+	}
+}
+
+/* Inset by 2px, so the title's line sits centred on the 20px marker. */
+.body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	padding-block: 2px;
+	gap: var(--space-3xl);
+}
+
+.header {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-lg);
+}
+
+.title {
+	color: var(--text-1);
+}
+
+.description {
+	color: var(--text-2);
+}

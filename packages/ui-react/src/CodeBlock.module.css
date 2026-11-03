@@ -1,0 +1,57 @@
+/* As Markdown draws a code block (design/patterns/markdown.md): mono 12 on --bg-2 in a
+   --border-section ring, at --radius-card. The ring is inset, so the block keeps its size. */
+.block {
+	--code-line-height: calc(12px * 1.6);
+	--code-padding-block: 8px;
+
+	display: flex;
+	align-items: flex-start;
+	overflow: hidden;
+	border-radius: var(--radius-card);
+	background-color: var(--bg-2);
+	box-shadow: inset 0 0 0 1px var(--border-section);
+}
+
+.scroll {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Fades an edge while the line runs on past it, so a cut-off command reads as one that scrolls. */
+.viewport {
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 min(20px, var(--scroll-area-overflow-x-start)),
+		#000 calc(100% - min(20px, var(--scroll-area-overflow-x-end))),
+		transparent
+	);
+}
+
+/* As wide as its longest line, padding included, so the end of a line that scrolls into view
+   keeps the block's inset. */
+.code {
+	width: max-content;
+	min-width: 100%;
+	margin: 0;
+	padding: var(--code-padding-block) 12px;
+	color: var(--text-1);
+	font-size: 12px;
+	line-height: var(--code-line-height);
+	font-family: var(--font-family-mono);
+	white-space: pre;
+	tab-size: 4;
+}
+
+/* Generated content, so a selection by hand leaves it behind; the empty alternative keeps a screen
+   reader from reading a dollar sign before every command. */
+.code[data-prompt] .line::before {
+	content: "$ " / "";
+	color: var(--text-3);
+}
+
+/* Centred on the first line, so on a one-line block it sits in the middle. */
+.copy {
+	margin: calc(var(--code-padding-block) + (var(--code-line-height) - var(--size-control-sm)) / 2)
+		6px 0 0;
+}

@@ -1,0 +1,113 @@
+/* Resets what a <button>, <a> or <label> brings, since the row may render as any of them. No
+   ground of its own: it sits on its card's, or whatever holds it. */
+.cell {
+	display: flex;
+	align-items: flex-start;
+	width: 100%;
+	margin: 0;
+	padding: 14px;
+	gap: var(--space-3xl);
+	border: none;
+	background-color: transparent;
+	color: var(--text-1);
+	font: inherit;
+	text-align: start;
+	text-decoration: none;
+	transition: var(--transition-button);
+
+	/* A label's focus lands on its switch, but the row is what reads as the control, as in
+	   SwitchButton. */
+	&:focus-visible,
+	&:is(label):has(:focus-visible) {
+		outline: var(--focus-ring);
+		outline-offset: -1.5px;
+	}
+
+	/* Only a row that does something tints; a static row's controls answer on their own. */
+	&:is(a[href], button:enabled, label):not([data-disabled]):hover {
+		background-color: var(--bg-hover);
+	}
+
+	/* The ground stays whole and the content fades; the card's hairline above stays too. */
+	&[data-disabled] {
+		background-color: var(--bg-2);
+
+		& > * {
+			opacity: 0.5;
+		}
+
+		/* A disabled Switch, Checkbox or Radio declares its own fade on itself, so it is restated
+		   there rather than inherited: the row's fade is the only one. */
+		& * {
+			--disabled-opacity: 100%;
+		}
+	}
+}
+
+.leading {
+	display: flex;
+	flex-shrink: 0;
+	color: var(--text-2);
+}
+
+.text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	gap: var(--space-md);
+}
+
+.titleLine {
+	display: flex;
+	align-items: center;
+	gap: var(--gap-icon-text);
+}
+
+.icon {
+	color: var(--text-2);
+}
+
+/* Takes the line's slack, so the badge and the chevron sit at its end. */
+.label {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	margin-inline-end: auto;
+	gap: var(--space-sm);
+}
+
+.title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.badge {
+	display: flex;
+	flex-shrink: 0;
+}
+
+.description {
+	color: var(--text-2);
+	text-wrap: pretty;
+}
+
+.meta {
+	--icon-size: 14px;
+
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-md);
+	color: var(--text-2);
+}
+
+/* As tall as the title's line (14px at 1.2), so a control centres on the title rather than on the
+   row, and a taller one grows down from it. */
+.trailing {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	min-height: 17px;
+}
