@@ -1357,10 +1357,8 @@ pub fn run(
             reword,
             source: _,
         }) => {
-            let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
-            let mut builder =
-                DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+            let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo);
             for source in &sources {
                 match source {
                     UncommittedSquashSource::HunkOrFile(source) => {
@@ -1389,10 +1387,8 @@ pub fn run(
             reword,
             source: _,
         } => {
-            let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
-            let mut builder =
-                DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+            let mut builder = DiffSpecBuilder::for_change_source(&source_repo, &repo);
             builder.push_changes_from_uncommitted_area()?;
             let changes = builder.into_diff_specs();
 
@@ -1412,9 +1408,8 @@ pub fn run(
             sources,
             reword,
         } => {
-            let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
-            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let mut builder = DiffSpecBuilder::new(&repo);
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder
@@ -1463,9 +1458,8 @@ pub fn run(
             }
         },
         SquashOperation::UncommitCommittedChanges(UncommitChangesOperation { source, sources }) => {
-            let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
-            let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+            let mut builder = DiffSpecBuilder::new(&repo);
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder

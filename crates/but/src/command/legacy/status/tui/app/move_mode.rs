@@ -616,7 +616,7 @@ fn changes_in_committed<'a>(
     changes: impl IntoIterator<Item = &'a CommittedMark>,
 ) -> anyhow::Result<NonEmpty<DiffSpec>> {
     let repo = ctx.repo.get()?;
-    let mut builder = DiffSpecBuilder::new(&repo, ctx.settings.context_lines);
+    let mut builder = DiffSpecBuilder::new(&repo);
     for change in changes {
         match change {
             CommittedMark::File(file) => {

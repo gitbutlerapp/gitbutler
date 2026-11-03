@@ -155,29 +155,78 @@ pub fn active_worktree_sources(ctx: &Context) -> anyhow::Result<Vec<BString>> {
 /// Every caller that builds a [`crate::IdMap`] must pass the same set of sources:
 /// short IDs are disambiguated against the whole namespace, so a map built from
 /// fewer sources can hand out IDs that the next command cannot resolve.
+///
+/// `hunks` decides whether each changed file is diffed into its hunks. Files and
+/// commits get the same IDs either way, as those only depend on paths and change IDs.
 pub fn changes_by_source(
     repo: &gix::Repository,
     context_lines: u32,
     worktree_names: Vec<BString>,
     head_changes: Vec<but_core::ui::TreeChange>,
+    hunks: Hunks,
 ) -> anyhow::Result<Vec<SourceChanges>> {
     let mut out = Vec::with_capacity(worktree_names.len() + 1);
-    let head_changes_with_hunks = but_core::changes_with_hunks(repo, head_changes, context_lines);
     out.push(SourceChanges {
         source: ChangeSourceId::Head,
-        changes_with_hunks: head_changes_with_hunks.collect(),
+        changes_with_hunks: hunks.split(repo, head_changes, context_lines),
     });
     for name in worktree_names {
         let wt_repo = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())?;
         let changes = but_core::diff::ui::worktree_changes(&wt_repo)?.changes;
-        let changes_with_hunks =
-            but_core::changes_with_hunks(&wt_repo, changes, context_lines).collect();
         out.push(SourceChanges {
             source: ChangeSourceId::Worktree(name),
-            changes_with_hunks,
+            changes_with_hunks: hunks.split(&wt_repo, changes, context_lines),
         });
     }
     Ok(out)
+}
+
+/// How much of each uncommitted file's change [`changes_by_source()`] works out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hunks {
+    /// Diff each file and split it into its hunks, for commands that show hunks or take
+    /// hunk IDs.
+    Diffed,
+    /// Treat each file as a single whole-file hunk without reading its contents, for
+    /// commands that only show or take files, commits and branches.
+    ///
+    /// Diffing is what makes building IDs expensive when files are large, and hunk IDs
+    /// are derived from hunk contents only, so nothing else depends on it.
+    WholeFiles,
+}
+
+impl Hunks {
+    /// What a command that takes uncommitted changes as `args` needs: hunks only when one of
+    /// them could name a hunk, which is written `<file>:<hunk>`. A `:` can also scope a path to
+    /// a worktree, which then diffs needlessly but resolves the same.
+    pub fn for_uncommitted_args<'a>(
+        args: impl IntoIterator<Item = &'a crate::args::atoms::CliIdArg>,
+    ) -> Self {
+        if args.into_iter().any(|arg| arg.0.contains(':')) {
+            Hunks::Diffed
+        } else {
+            Hunks::WholeFiles
+        }
+    }
+
+    fn split(
+        self,
+        repo: &gix::Repository,
+        changes: Vec<but_core::ui::TreeChange>,
+        context_lines: u32,
+    ) -> Vec<(but_core::TreeChange, NonEmpty<but_core::SingleHunk>)> {
+        match self {
+            Hunks::Diffed => but_core::changes_with_hunks(repo, changes, context_lines).collect(),
+            Hunks::WholeFiles => changes
+                .into_iter()
+                .map(|change| {
+                    let change = but_core::TreeChange::from(change);
+                    let hunks = but_core::SingleHunk::from_tree_change(&change, None);
+                    (change, hunks)
+                })
+                .collect(),
+        }
+    }
 }
 
 /// The single checkout that all of `sources` name.

@@ -24,7 +24,7 @@ pub fn delete(
     branch_args: Vec<CliIdArg>,
 ) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
+    let id_map = IdMap::new_from_context_without_hunks(ctx, guard.read_permission(), None)?;
 
     let (branches, in_workspace, outside) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;

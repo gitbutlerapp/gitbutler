@@ -4095,6 +4095,7 @@ mod util {
                 uncommitted_hunks,
                 diff_context_lines: _,
                 paths_in: _,
+                head_worktree_changes: _,
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
                                     parent_id: Option<gix::ObjectId>|
@@ -4134,6 +4135,7 @@ mod util {
                 uncommitted_hunks,
                 diff_context_lines: _,
                 paths_in: _,
+                head_worktree_changes: _,
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
             writeln!(f, "workspace_and_remote_commits_count: {commits_count}")?;

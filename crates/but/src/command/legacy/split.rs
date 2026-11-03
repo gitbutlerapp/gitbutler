@@ -60,10 +60,9 @@ fn resolve(
         allow_merged: _,
     } = args;
 
-    let context_lines = ctx.settings.context_lines;
     let repo = ctx.repo.get()?;
 
-    let mut builder = DiffSpecBuilder::new(&repo, context_lines);
+    let mut builder = DiffSpecBuilder::new(&repo);
 
     let mut tree_changes = None;
     let mut head_source_commit = None;

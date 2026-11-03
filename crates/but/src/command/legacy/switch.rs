@@ -61,7 +61,7 @@ fn resolve(
 
     if let Some(target) = target {
         let repo = ctx.repo.get()?;
-        let id_map = IdMap::new_from_context(ctx, perm, Some(invoked_from))?;
+        let id_map = IdMap::new_from_context_without_hunks(ctx, perm, Some(invoked_from))?;
         let branch = target.resolve_existing_local_branch(&repo, &id_map)?;
         Ok(SwitchOperation::Branch { branch })
     } else {

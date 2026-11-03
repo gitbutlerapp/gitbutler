@@ -13,7 +13,11 @@ use crate::{
     command::legacy::squash::{
         self, HowToRewordTarget, ResolveTargetError, ResolvedSquashArgsRef, SquashOperation,
     },
-    utils::{IntermediateChannel, change_source::InvokedFrom, merged_upstream::MergedUpstream},
+    utils::{
+        IntermediateChannel,
+        change_source::{Hunks, InvokedFrom},
+        merged_upstream::MergedUpstream,
+    },
 };
 
 pub fn amend(
@@ -24,7 +28,12 @@ pub fn amend(
 ) -> CliResult<(squash::SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
+    let id_map = IdMap::new_from_context_with_hunks(
+        ctx,
+        guard.read_permission(),
+        Some(invoked_from),
+        Hunks::for_uncommitted_args(&args.sources),
+    )?;
 
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
     let merged = MergedUpstream::new(

@@ -591,6 +591,11 @@ fn build_status_context(
 
     // Worktree state needs the database, so it is read before the repo handle below.
     let worktree_names = crate::utils::change_source::active_worktree_sources(ctx)?;
+    // Printed status shows files, not hunks, so it skips diffing them. The TUI shows hunks.
+    let hunks = match &render_mode {
+        StatusRenderMode::Oneshot(_) => crate::utils::change_source::Hunks::WholeFiles,
+        StatusRenderMode::Tui(_) => crate::utils::change_source::Hunks::Diffed,
+    };
     let sources = {
         let repo = ctx.repo.get()?;
         crate::utils::change_source::changes_by_source(
@@ -598,6 +603,7 @@ fn build_status_context(
             ctx.settings.context_lines,
             worktree_names,
             worktree_changes.worktree_changes.changes.clone(),
+            hunks,
         )?
     };
     // Kept for the tree status letters; the hunks move into the ID map.

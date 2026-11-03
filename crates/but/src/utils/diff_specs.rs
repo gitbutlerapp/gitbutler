@@ -14,7 +14,6 @@ pub struct DiffSpecBuilder<'a> {
     repo: &'a gix::Repository,
     /// The checkout `repo` reads, which uncommitted changes must come from.
     source: ChangeSourceId,
-    context_lines: u32,
     worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
     /// The changes of the commit that committed hunks were last pushed from.
     commit_changes: Option<(gix::ObjectId, Vec<but_core::ui::TreeChange>)>,
@@ -24,11 +23,10 @@ pub struct DiffSpecBuilder<'a> {
 impl<'a> DiffSpecBuilder<'a> {
     /// A builder reading the main worktree, which refuses uncommitted changes
     /// from any other checkout.
-    pub fn new(repo: &'a gix::Repository, context_lines: u32) -> Self {
+    pub fn new(repo: &'a gix::Repository) -> Self {
         Self {
             repo,
             source: ChangeSourceId::Head,
-            context_lines,
             worktree_changes: None,
             commit_changes: None,
             diff_specs: Default::default(),
@@ -37,15 +35,10 @@ impl<'a> DiffSpecBuilder<'a> {
 
     /// A builder reading the checkout `source_repo` was opened for, so the repo
     /// and the source it accepts changes from cannot drift apart.
-    pub fn for_change_source(
-        source_repo: &'a ChangeSourceRepo,
-        main: &'a gix::Repository,
-        context_lines: u32,
-    ) -> Self {
+    pub fn for_change_source(source_repo: &'a ChangeSourceRepo, main: &'a gix::Repository) -> Self {
         Self {
             repo: source_repo.repo(main),
             source: source_repo.source(),
-            context_lines,
             worktree_changes: None,
             commit_changes: None,
             diff_specs: Default::default(),
@@ -127,6 +120,13 @@ impl<'a> DiffSpecBuilder<'a> {
                 self.source.describe()
             );
         }
+        if uncommitted.is_entire_file {
+            // The whole file is selected: a spec without hunk headers takes the file as it is
+            // in the worktree, which is what selecting all of its hunks amounts to, without the
+            // commit engine having to diff the file again to place them.
+            let path = uncommitted.hunks.first().hunk.path.clone();
+            return self.push_hunks([whole_file_hunk(path)]);
+        }
         let hunks = uncommitted.hunks.iter().cloned();
         self.push_hunks(hunks.map(|id_and_hunk| id_and_hunk.hunk))
     }
@@ -194,8 +194,11 @@ impl<'a> DiffSpecBuilder<'a> {
     }
 
     pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
+        // Everything uncommitted means every file as a whole, so there is nothing to diff.
         let changes = self.worktree_changes()?.to_vec();
-        let hunks = but_core::hunks_from_changes(self.repo, changes.clone(), self.context_lines);
+        let hunks = changes
+            .iter()
+            .map(|change| whole_file_hunk(change.path_bytes.clone()));
         self.push_hunks_with_changes(hunks, &changes);
         Ok(())
     }
@@ -207,6 +210,13 @@ impl<'a> DiffSpecBuilder<'a> {
         let changes = self.worktree_changes()?.to_vec();
         self.push_hunks_with_changes(hunks, &changes);
         Ok(())
+    }
+
+    /// Use `changes` as the worktree changes of this builder's checkout instead of reading them,
+    /// for when they were just read under the same worktree lock.
+    pub fn with_worktree_changes(mut self, changes: Vec<but_core::ui::TreeChange>) -> Self {
+        self.worktree_changes = Some(changes);
+        self
     }
 
     #[expect(dead_code)]
@@ -280,6 +290,11 @@ impl<'a> DiffSpecBuilder<'a> {
         let mut reconciled_changes: Vec<DiffSpec> = vec![];
         for change in self.diff_specs.iter() {
             match reconciled_changes.last_mut() {
+                // No hunk headers is the whole file, which contains every hunk.
+                Some(last) if last.path == change.path && last.hunk_headers.is_empty() => {}
+                Some(last) if last.path == change.path && change.hunk_headers.is_empty() => {
+                    last.hunk_headers.clear();
+                }
                 Some(last) if last.path == change.path => {
                     for hunk in change.hunk_headers.iter() {
                         match last.hunk_headers.binary_search(hunk) {
@@ -353,5 +368,14 @@ impl<'a> DiffSpecBuilder<'a> {
             source_id,
         )?;
         Ok(tree_changes.into_iter().map(Into::into).collect())
+    }
+}
+
+/// A hunk that stands for all of `path`'s changes, which a [`DiffSpec`] carries as no hunk headers.
+fn whole_file_hunk(path: BString) -> but_core::SingleHunk {
+    but_core::SingleHunk {
+        hunk_header: None,
+        path,
+        diff: None,
     }
 }

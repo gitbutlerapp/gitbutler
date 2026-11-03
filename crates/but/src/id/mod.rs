@@ -793,6 +793,8 @@ pub struct IdMap {
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
+    /// The main worktree's changes these IDs were made from, when this map read them itself.
+    head_worktree_changes: Option<Vec<but_core::ui::TreeChange>>,
 }
 
 fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
@@ -962,6 +964,7 @@ impl IdMap {
             uncommitted_hunks,
             diff_context_lines,
             paths_in,
+            head_worktree_changes: None,
         })
     }
 
@@ -1065,6 +1068,32 @@ impl IdMap {
         Self::new_from_context(ctx, guard.read_permission(), None)
     }
 
+    /// Like [`legacy_new_from_context()`](Self::legacy_new_from_context), but without
+    /// uncommitted hunk IDs, see [`new_from_context_without_hunks()`](Self::new_from_context_without_hunks).
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn legacy_new_from_context_without_hunks(ctx: &Context) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        Self::new_from_context_without_hunks(ctx, guard.read_permission(), None)
+    }
+
+    /// Like [`new_from_context()`](Self::new_from_context), but each uncommitted file is a
+    /// single whole-file hunk instead of being diffed into its hunks.
+    ///
+    /// Branches, commits and uncommitted files get exactly the IDs they get from
+    /// [`new_from_context()`](Self::new_from_context), so it is meant for commands that
+    /// neither show uncommitted hunks nor take their IDs: it skips reading and diffing
+    /// every changed file, which dominates when files are large.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn new_from_context_without_hunks(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+    ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, change_source::Hunks::WholeFiles)
+    }
+
     ///
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
     /// `perm` is needed to obtain a read-only workspace, and bare paths name files in the
@@ -1077,6 +1106,28 @@ impl IdMap {
         perm: &RepoShared,
         invoked_from: Option<&InvokedFrom>,
     ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, change_source::Hunks::Diffed)
+    }
+
+    /// Like [`new_from_context()`](Self::new_from_context), with `hunks` deciding whether
+    /// uncommitted files are diffed into their hunks.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    pub fn new_from_context_with_hunks(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+        hunks: change_source::Hunks,
+    ) -> anyhow::Result<Self> {
+        Self::from_context(ctx, perm, invoked_from, hunks)
+    }
+
+    fn from_context(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+        hunks: change_source::Hunks,
+    ) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
         // Worktree state reconciles archived rows and thus needs the database, so it must
         // be read before the handle below is borrowed.
@@ -1087,8 +1138,14 @@ impl IdMap {
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
         let head_changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        let sources =
-            change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
+        let head_worktree_changes = head_changes.clone();
+        let sources = change_source::changes_by_source(
+            &repo,
+            context_lines,
+            worktree_names,
+            head_changes,
+            hunks,
+        )?;
 
         let (stacks, worktrees) =
             without_padding_commits(&repo, ws.stacks.clone(), ws.worktrees.clone());
@@ -1128,14 +1185,24 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(
+        let mut map = Self::new(
             stacks,
             sources,
             commit_id_to_change_id,
             worktrees,
             ctx.settings.context_lines,
             invoked_from.map(InvokedFrom::checkout),
-        )
+        )?;
+        map.head_worktree_changes = Some(head_worktree_changes);
+        Ok(map)
+    }
+
+    /// The main worktree's changes as this map read them, if it read them itself.
+    ///
+    /// A command holding the worktree lock since the map was built can use them instead of
+    /// scanning the worktree again, as nothing can have changed them in between.
+    pub fn head_worktree_changes(&self) -> Option<&[but_core::ui::TreeChange]> {
+        self.head_worktree_changes.as_deref()
     }
 }
 

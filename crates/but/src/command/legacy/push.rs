@@ -71,7 +71,7 @@ pub async fn handle(
 
     let id_map = {
         let guard = ctx.shared_worktree_access();
-        IdMap::new_from_context(ctx, guard.read_permission(), None)?
+        IdMap::new_from_context_without_hunks(ctx, guard.read_permission(), None)?
     };
 
     // If no branch_id is provided, show all branches and prompt or push all
@@ -191,7 +191,7 @@ fn handle_dry_run(
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
         // Resolve branch name
-        let id_map = IdMap::legacy_new_from_context(ctx)?;
+        let id_map = IdMap::legacy_new_from_context_without_hunks(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
         let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
         let to_push = crate::legacy::workspace::branches_to_push(ctx, branch.as_ref())?;
@@ -1250,7 +1250,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
     }
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
     // Only pay for the map when the error actually prints.
-    let id_map = crate::IdMap::legacy_new_from_context(ctx).ok();
+    let id_map = crate::IdMap::legacy_new_from_context_without_hunks(ctx).ok();
     let conflicted_commits: Vec<String> = conflicted
         .iter()
         .map(|id| {

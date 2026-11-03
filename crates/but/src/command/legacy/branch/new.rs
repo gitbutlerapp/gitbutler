@@ -32,7 +32,8 @@ pub fn new(
     invoked_from: &InvokedFrom,
 ) -> CliResult<NewOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
+    let id_map =
+        IdMap::new_from_context_without_hunks(ctx, guard.read_permission(), Some(invoked_from))?;
 
     let operation = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
