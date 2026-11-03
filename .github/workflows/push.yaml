@@ -501,7 +501,9 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # A build with no cache must finish within this limit. A job that times out saves no cache,
+    # so the next run also starts with no cache.
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
