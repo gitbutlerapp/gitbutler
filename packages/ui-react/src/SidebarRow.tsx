@@ -191,8 +191,8 @@ const Row: FC<
 
 /**
  * A machine in the sidebar: the card's header when the sidebar is grouped by machine, a row
- * inside a repository when grouped by repository. Its picture is the host's (`icon`, 14px), the
- * same whether it is online or not: its light says which, so the picture doesn't read as disabled.
+ * inside a repository when grouped by repository. Its `icon` is an {@link Icon} for the host, the
+ * same whether it is online or not: its light says which, so the icon doesn't read as disabled.
  *
  * Folded, its `meta` sums up what it holds (`repos`, or `worktrees` when grouped by repository)
  * and its age. Open as a card's header, it shows no age: its age is the newest of the rows under

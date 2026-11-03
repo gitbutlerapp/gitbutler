@@ -16,7 +16,6 @@ import {
 	WorktreeDivider,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
-import { machinePictures } from "./story-assets/machines.ts";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=${node}`;
@@ -137,7 +136,7 @@ const machine = (
 		name="pavel--macbook-pro-2"
 		online
 		folded={false}
-		icon={<img src={machinePictures[0].src} alt="" width={14} height={14} />}
+		icon={<Icon name="laptop" />}
 		menu={menu("Machine")}
 	/>
 );
@@ -642,7 +641,7 @@ export const OfflineMachine = meta.story({
 			name="studio-desktop"
 			online={false}
 			folded
-			icon={<img src={machinePictures[0].src} alt="" width={14} height={14} />}
+			icon={<Icon name="desktop" />}
 			meta={
 				<>
 					<MetaCount type="repos">4</MetaCount>
@@ -975,10 +974,6 @@ export const Paging = meta.story({
 	),
 });
 
-const picture = (index: number) => (
-	<img src={machinePictures[index]?.src} alt="" width={14} height={14} />
-);
-
 /** One repository's card when the sidebar is grouped by repository: its machines, folded or open. */
 const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 	const age = (value: string) => <MetaCount type="age">{value}</MetaCount>;
@@ -988,7 +983,7 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 				name="pavel--macbook-pro-2"
 				online
 				folded={!open}
-				icon={picture(0)}
+				icon={<Icon name="laptop" />}
 				meta={
 					open ? undefined : (
 						<>
@@ -1066,7 +1061,7 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 				name="studio-desktop"
 				online={false}
 				folded={!open}
-				icon={picture(6)}
+				icon={<Icon name="desktop" />}
 				meta={
 					open ? (
 						<>
