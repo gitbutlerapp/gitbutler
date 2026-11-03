@@ -43,7 +43,7 @@
 		"@storybook/addon-a11y": "^10.6.0",
 		"@storybook/addon-designs": "^11.1.4",
 		"@storybook/addon-docs": "^10.6.0",
-		"@storybook/addon-mcp": "^10.6.0",
+		"@storybook/addon-mcp": "^10.6.5",
 		"@storybook/addon-vitest": "^10.6.0",
 		"@storybook/react-vite": "^10.6.0",
 		"@types/react": "^19.2.14",
