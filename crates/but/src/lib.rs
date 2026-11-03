@@ -753,9 +753,7 @@ async fn dispatch_subcommand(
                     command::config::exec(&mut ctx, out, cmd).await
                 }
                 Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
-                    command::config::forge_config(out, forge_cmd.clone())
-                        .await
-                        .map_err(CliError::from)
+                    command::config::forge_config(out, forge_cmd.clone()).await
                 }
                 Some(args::config::Subcommands::Ai {
                     cmd: ai_cmd,
@@ -1579,7 +1577,14 @@ async fn dispatch_subcommand(
                     // Parse early to fail fast on invalid content
                     let review_message = match message_content {
                         Some(content) => Some(
-                            command::legacy::forge::review::parse_review_message(&content)?,
+                            command::legacy::forge::review::parse_review_message(
+                                content.trim_start(),
+                            )
+                            .ok_or_else(|| {
+                                bad_input("Aborting due to empty PR title").hint(
+                                    "Put the title on the first line of the message, or use `-t` for the default title and description",
+                                )
+                            })?,
                         ),
                         None => None,
                     };
@@ -1610,7 +1615,7 @@ async fn dispatch_subcommand(
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")?;
+                    .map_err(|err| err.context("Failed to create forge review for branch."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
@@ -1625,19 +1630,19 @@ async fn dispatch_subcommand(
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
-                        .context("Failed to set the auto-merge state.")?;
+                        .map_err(|err| err.context("Failed to set the auto-merge state."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
-                        .context("Failed to set reviews as draft.")?;
+                        .map_err(|err| err.context("Failed to set reviews as draft."))?;
                     None
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
-                        .context("Failed to set reviews as ready-for-review.")?;
+                        .map_err(|err| err.context("Failed to set reviews as ready-for-review."))?;
                     None
                 }
                 None => {
@@ -1655,7 +1660,7 @@ async fn dispatch_subcommand(
                         out,
                     )
                     .await
-                    .context("Failed to create forge review for branch.")?;
+                    .map_err(|err| err.context("Failed to create forge review for branch."))?;
                     None
                 }
             }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
-    CliId, IdMap,
+    CliId, CliResult, IdMap, bad_input,
     id::parser::parse_sources,
     legacy::workspace::{HeadInfoBranch, HeadInfoStack},
     theme::{self, Paint},
@@ -23,7 +23,7 @@ pub async fn enable_auto_merge(
     selector: Option<String>,
     off: bool,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
@@ -132,7 +132,7 @@ pub async fn set_draftiness(
     selector: Option<String>,
     draft: bool,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
@@ -315,7 +315,7 @@ pub async fn create_review(
     draft: bool,
     message: Option<ForgeReviewMessage>,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
@@ -372,13 +372,21 @@ pub async fn create_review(
         out,
         maybe_branch_names,
     )
-    .await
+    .await?;
+    Ok(())
 }
 
 /// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
-async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Error> {
+async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<()> {
     let (storage, forge_repo_info, preferred_forge_user) = {
-        let remote_url = ctx.project_meta()?.target_remote_url(&*ctx.repo.get()?)?;
+        let remote_url = ctx
+            .project_meta()?
+            .target_remote_url(&*ctx.repo.get()?)
+            .map_err(|err| {
+                bad_input(format!("{err:#}")).hint(
+                    "Run `but config push-remote <name>`, first adding the remote with `git remote add <name> <url>` if it is missing, then retry",
+                )
+            })?;
         let forge_repo_info = but_forge::derive_forge_repo_info(
             &remote_url,
             ctx.legacy_project
@@ -394,40 +402,42 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
     };
 
     let forge_repo_info = forge_repo_info.ok_or_else(|| {
-        anyhow::anyhow!(
-            "Unable to determine the forge for this project. Is target branch associated with a supported forge?"
+        bad_input(
+            "Unable to determine the forge for this project. Is target branch associated with a supported forge?",
+        )
+        .hint(
+            "If this is a self-hosted GitHub or GitLab, run `but config forge auth` in a terminal (an agent has to ask the user to run it). Otherwise, run `but push <branch>` and open the review on the forge's website",
         )
     })?;
 
-    let account_validity =
-        but_forge::check_forge_account_is_valid(preferred_forge_user, &forge_repo_info, &storage)
-            .await?;
-
     let forge_display_name = match forge_repo_info.forge {
         but_forge::ForgeName::Azure => {
-            anyhow::bail!("Azure is unsupported at the minute. Sorry 😞.");
+            return Err(bad_input("Azure is unsupported at the minute. Sorry 😞.")
+                .hint("Run `but push <branch>` and open the review on the Azure DevOps website")
+                .into());
         }
         but_forge::ForgeName::GitHub => "GitHub",
         but_forge::ForgeName::GitLab => "GitLab",
         but_forge::ForgeName::Bitbucket => "Bitbucket",
     };
 
-    match account_validity {
-        but_forge::ForgeAccountValidity::Invalid => Err(anyhow::anyhow!(
-            "Known account is not correctly authenticated.\nRun '{}' to authenticate with {}.",
-            "but config forge auth",
-            forge_display_name
-        )),
-        but_forge::ForgeAccountValidity::NoCredentials => Err(anyhow::anyhow!(
-            "No authenticated forge users found.\nRun '{}' to authenticate with {}.",
-            "but config forge auth",
-            forge_display_name
-        )),
-        but_forge::ForgeAccountValidity::Valid => {
-            // All good, continue
-            Ok(())
+    let account_validity =
+        but_forge::check_forge_account_is_valid(preferred_forge_user, &forge_repo_info, &storage)
+            .await?;
+
+    let refusal = match account_validity {
+        // An unreachable forge reports `Invalid` too, as the credentials check can't tell them apart.
+        but_forge::ForgeAccountValidity::Invalid => {
+            "Known account is not correctly authenticated, or the forge can't be reached."
         }
-    }
+        but_forge::ForgeAccountValidity::NoCredentials => "No authenticated forge users found.",
+        but_forge::ForgeAccountValidity::Valid => return Ok(()),
+    };
+    Err(bad_input(refusal)
+        .hint(format!(
+            "Run `but config forge auth` in a terminal to authenticate with {forge_display_name}, then retry. It prompts for input, so an agent has to ask the user to run it"
+        ))
+        .into())
 }
 
 /// Get list of branch names that don't have PRs yet.
@@ -897,12 +907,13 @@ pub struct ForgeReviewMessage {
     pub body: String,
 }
 
-pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage> {
+/// Split `content` into a title, its first line, and a body. Return `None` if the first line is blank,
+/// which is how the review editor's user aborts.
+pub fn parse_review_message(content: &str) -> Option<ForgeReviewMessage> {
     let mut lines = content.lines();
-    let title = lines.next().unwrap_or("").trim().to_string();
-
+    let title = lines.next()?.trim().to_string();
     if title.is_empty() {
-        anyhow::bail!("Aborting due to empty PR title");
+        return None;
     }
 
     // Skip any leading blank lines after the title, then collect the rest as description
@@ -913,7 +924,7 @@ pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage>
         .trim()
         .to_string();
 
-    Ok(ForgeReviewMessage { title, body })
+    Some(ForgeReviewMessage { title, body })
 }
 
 async fn publish_review_for_branch(
@@ -1119,7 +1130,8 @@ HTML comments are stripped before submit.
 
     let content = get_text::from_editor("pr_message", &template, ".md")?.to_string();
     let content_without_comments = get_text::strip_html_comments(&content);
-    let message = parse_review_message(&content_without_comments)?;
+    let message = parse_review_message(&content_without_comments)
+        .context("Aborting due to empty PR title")?;
     Ok((message.title, message.body))
 }
 
@@ -1563,24 +1575,18 @@ mod tests {
     }
 
     #[test]
-    fn parse_pr_message_empty_string_fails() {
-        let result = parse_review_message("");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("empty PR title"));
+    fn parse_pr_message_empty_string_has_no_title() {
+        assert!(parse_review_message("").is_none());
     }
 
     #[test]
-    fn parse_pr_message_whitespace_only_fails() {
-        let result = parse_review_message("   \n\n   ");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("empty PR title"));
+    fn parse_pr_message_whitespace_only_has_no_title() {
+        assert!(parse_review_message("   \n\n   ").is_none());
     }
 
     #[test]
-    fn parse_pr_message_blank_first_line_fails() {
-        let result = parse_review_message("\nActual title on second line");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("empty PR title"));
+    fn parse_pr_message_blank_first_line_has_no_title() {
+        assert!(parse_review_message("\nActual title on second line").is_none());
     }
 
     #[test]
