@@ -1730,8 +1730,7 @@ async fn dispatch_subcommand(
                 ff_only,
                 whole_stack,
             )
-            .context("Failed to merge branch.")
-            .map_err(Into::into);
+            .map_err(|err| err.context("Failed to merge branch."));
             if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,

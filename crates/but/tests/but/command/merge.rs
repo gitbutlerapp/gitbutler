@@ -14,7 +14,7 @@ fn merge_in_edit_mode_is_refused_before_confirmation() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Failed to merge branch. `but merge` requires the GitButler workspace or a checked-out branch.
+Error: `but merge` requires the GitButler workspace or a checked-out branch.
 
 "#]]);
 }
@@ -34,7 +34,7 @@ fn merge_in_single_branch_mode_refuses_detached_head() {
         .failure()
         .stdout_eq(str![])
         .stderr_eq(str![[r#"
-Failed to merge branch. `but merge` requires the GitButler workspace or a checked-out branch.
+Error: `but merge` requires the GitButler workspace or a checked-out branch.
 
 "#]]);
 
@@ -115,7 +115,7 @@ fn merge_bottom_segment_in_single_branch_mode_keeps_checkout() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to merge branch. Refusing to land `B`: it is stacked on top of 1 other segment(s) (A) whose commits would also be published to origin/main. Land the bottom segment `A`, or pass --whole-stack to land `B` together with everything below it.
+Error: Refusing to land `B`: it is stacked on top of 1 other segment(s) (A) whose commits would also be published to origin/main. Land the bottom segment `A`, or pass --whole-stack to land `B` together with everything below it.
 
 "#]]);
     assert_eq!(
@@ -396,7 +396,7 @@ fn merge_refuses_self_remote_target_checked_out_in_worktree() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to merge branch. Cannot land onto `main`: it is checked out in [..]main-worktree. Check out another branch there first.
+Error: Cannot land onto `main`: it is checked out in [..]main-worktree. Check out another branch there first.
 
 "#]]);
 
@@ -544,26 +544,13 @@ fn merge_refuses_non_bottom_stack_segment() {
 
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
-    let output = env
-        .but("merge top-seg --yes")
+    env.but("merge top-seg --yes")
         .assert()
         .failure()
-        .get_output()
-        .stderr
-        .clone();
-    let stderr = String::from_utf8_lossy(&output);
-    assert!(
-        stderr.contains("Refusing to land"),
-        "landing a non-bottom segment must be refused; got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("bottom-seg"),
-        "the refusal must name the lower segment that would be carried along; got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("--whole-stack"),
-        "the refusal must advertise the explicit whole-stack opt-in; got:\n{stderr}"
-    );
+        .stderr_eq(str![[r#"
+Error: Refusing to land `top-seg`: it is stacked on top of 1 other segment(s) (bottom-seg) whose commits would also be published to gb-local/main. Land the bottom segment `bottom-seg`, or pass --whole-stack to land `top-seg` together with everything below it.
+
+"#]]);
     assert_eq!(
         target_before,
         env.invoke_git("rev-parse gb-local/main"),
@@ -640,22 +627,13 @@ fn merge_whole_stack_refuses_conflicted_lower_segment() {
         .assert()
         .success();
 
-    let output = env
-        .but("merge top-seg --whole-stack --yes")
+    env.but("merge top-seg --whole-stack --yes")
         .assert()
         .failure()
-        .get_output()
-        .stderr
-        .clone();
-    let stderr = String::from_utf8_lossy(&output);
-    assert!(
-        stderr.contains("conflicted commit"),
-        "a conflicted commit below the named segment must refuse the whole-stack land; got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("but resolve"),
-        "the refusal must point at the resolution command; got:\n{stderr}"
-    );
+        .stderr_eq(str![[r#"
+Error: Cannot land `top-seg`: it would publish 1 conflicted commit ([..]). Resolve them first with `but resolve <commit>`.
+
+"#]]);
 }
 
 /// `--whole-stack` always means "the entire stack lands": naming anything but the top segment is
@@ -681,22 +659,13 @@ fn merge_whole_stack_refuses_non_top_segment() {
 
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
-    let output = env
-        .but("merge bottom-seg --whole-stack --yes")
+    env.but("merge bottom-seg --whole-stack --yes")
         .assert()
         .failure()
-        .get_output()
-        .stderr
-        .clone();
-    let stderr = String::from_utf8_lossy(&output);
-    assert!(
-        stderr.contains("not the top of its stack"),
-        "--whole-stack on a non-top segment must be refused; got:\n{stderr}"
-    );
-    assert!(
-        stderr.contains("top-seg"),
-        "the refusal must point at the actual top segment to name; got:\n{stderr}"
-    );
+        .stderr_eq(str![[r#"
+Error: Refusing to land `bottom-seg` with --whole-stack: it is not the top of its stack. --whole-stack lands the entire stack; name its top segment `top-seg` instead.
+
+"#]]);
     assert_eq!(
         target_before,
         env.invoke_git("rev-parse gb-local/main"),
@@ -756,18 +725,13 @@ fn merge_rename_no_silent_mismerge() {
     env.invoke_git(&format!("update-ref refs/remotes/gb-local/main {diverged}"));
 
     // The conflicting rename must be detected and the land must bail before mutating the target.
-    let output = env
-        .but("merge rename-branch --yes")
+    env.but("merge rename-branch --yes")
         .assert()
         .failure()
-        .get_output()
-        .stderr
-        .clone();
-    let stderr = String::from_utf8_lossy(&output);
-    assert!(
-        stderr.to_lowercase().contains("conflict"),
-        "a conflicting rename must bail (rename tracking ON), not silently mismerge; got:\n{stderr}"
-    );
+        .stderr_eq(str![[r#"
+Error: Cannot merge rename-branch: merging into gb-local/main resulted in conflicts.[..] Rebase rename-branch onto the target and resolve, then re-run `but merge rename-branch`.
+
+"#]]);
     assert_eq!(
         diverged,
         env.invoke_git("rev-parse gb-local/main"),
@@ -824,7 +788,7 @@ fn merge_ff_only_refuses_diverged_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Failed to merge branch. Cannot fast-forward gb-local/main to feature: the branch has diverged from the target. Rebase feature onto the target (`but pull`), or re-run without `--ff-only` to create a merge commit.
+Error: Cannot fast-forward gb-local/main to feature: the branch has diverged from the target. Rebase feature onto the target (`but pull`), or re-run without `--ff-only` to create a merge commit.
 
 "#]]);
     assert_eq!(
@@ -867,18 +831,25 @@ fn merge_without_yes_refuses_non_interactively() {
 
     let target_before = env.invoke_git("rev-parse gb-local/main");
 
-    let output = env
-        .but("merge first-branch")
+    env.but("merge first-branch")
         .assert()
         .failure()
-        .get_output()
-        .stderr
-        .clone();
-    let stderr = String::from_utf8_lossy(&output);
-    assert!(
-        stderr.contains("Re-run with --yes"),
-        "a non-interactive land without --yes must refuse and point at --yes; got:\n{stderr}"
-    );
+        .stderr_eq(str![[r#"
+Error: Refusing to directly update gb-local/main without confirmation.
+
+Hint: `but merge first-branch --yes` skips the confirmation and publishes to gb-local/main. Run it only if a person approved landing without a pull request.
+
+"#]]);
+    // The hinted command repeats the flags, so it lands what was asked for.
+    env.but("merge first-branch --no-ff --whole-stack")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Refusing to directly update gb-local/main without confirmation.
+
+Hint: `but merge first-branch --no-ff --whole-stack --yes` skips the confirmation and publishes to gb-local/main. Run it only if a person approved landing without a pull request.
+
+"#]]);
     assert_eq!(
         target_before,
         env.invoke_git("rev-parse gb-local/main"),
@@ -889,6 +860,45 @@ fn merge_without_yes_refuses_non_interactively() {
         1,
         "the branch must remain applied after a refused land"
     );
+}
+
+/// A branch name can hold shell syntax, and pasting the hinted command must land that branch.
+#[test]
+fn merge_without_yes_hint_quotes_the_branch_name() {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("config target main").assert().success();
+    env.but("switch --workspace").assert().success();
+    env.but("branch new 'feature/$USER'").assert().success();
+    env.file("file1.txt", "content1");
+    env.but("commit -b 'feature/$USER' -m 'first'")
+        .assert()
+        .success();
+
+    env.but("merge 'feature/$USER'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Refusing to directly update gb-local/main without confirmation.
+
+Hint: `but merge 'feature/$USER' --yes` skips the confirmation and publishes to gb-local/main. Run it only if a person approved landing without a pull request.
+
+"#]]);
+}
+
+#[test]
+fn merge_unknown_branch_points_at_status() {
+    let (env, _remote) = sandbox_with_bare_origin();
+
+    env.but("merge nosuch")
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Error: Could not find branch: 'nosuch'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
 }
 
 /// Landing a previously pushed branch deletes its copy on the remote and the local tracking ref —
@@ -1229,7 +1239,7 @@ fn merge_refuses_differently_named_target_before_confirmation() {
         &env,
         &remote,
         str![[r#"
-Failed to merge branch. `but merge` requires matching local and upstream branch names (local `integration`, upstream `main`). Merge via a pull request instead.
+Error: `but merge` requires matching local and upstream branch names (local `integration`, upstream `main`). Merge via a pull request instead.
 
 "#]],
     );
@@ -1247,7 +1257,7 @@ fn merge_refuses_triangular_remotes_before_confirmation() {
         &env,
         &remote,
         str![[r#"
-Failed to merge branch. `but merge` does not yet support triangular remotes (fetch `origin`, push `fork`). Merge via a pull request instead, or configure a single remote for the target branch.
+Error: `but merge` does not yet support triangular remotes (fetch `origin`, push `fork`). Merge via a pull request instead, or configure a single remote for the target branch.
 
 "#]],
     );

@@ -1,10 +1,10 @@
 //! Confirmation prompt and end-of-command reporting, kept honest about what actually happened.
 
-use anyhow::bail;
 use but_api::land::{BranchLandKind, BranchLandResult};
 use but_ctx::Context;
 
 use crate::{
+    CliResult, bad_input,
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
@@ -188,7 +188,8 @@ pub(super) fn confirm_direct_target_update(
     attached_prs: &[(String, usize)],
     target_display: &str,
     yes: bool,
-) -> anyhow::Result<()> {
+    yes_command: &str,
+) -> CliResult<()> {
     let mut extras = Vec::new();
     if !lower.segments.is_empty() {
         extras.push(format!(
@@ -235,9 +236,14 @@ pub(super) fn confirm_direct_target_update(
     }
 
     let Some(mut inout) = out.prepare_for_terminal_input() else {
-        bail!(
-            "Refusing to directly update {target_display} without confirmation. Re-run with --yes to confirm."
-        );
+        return Err(bad_input(format!(
+            "Refusing to directly update {target_display} without confirmation."
+        ))
+        .hint(format!(
+            "`{yes_command}` skips the confirmation and publishes to {target_display}. \
+             Run it only if a person approved landing without a pull request."
+        ))
+        .into());
     };
 
     let question = if extras.is_empty() {
@@ -246,7 +252,7 @@ pub(super) fn confirm_direct_target_update(
         format!("Land {branch_name} and everything below it directly onto {target_display}?")
     };
     if inout.confirm(question, ConfirmDefault::Yes)? == Confirm::No {
-        bail!("Land cancelled");
+        return Err(bad_input("Land cancelled").into());
     }
 
     Ok(())

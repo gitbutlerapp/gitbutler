@@ -384,7 +384,7 @@ pub enum Subcommands {
     #[clap(alias = "land")]
     Merge {
         /// Branch ID or name to merge onto the target branch.
-        branch: String,
+        branch: CliIdArg,
         /// Skip the confirmation prompt.
         #[clap(long)]
         yes: bool,
