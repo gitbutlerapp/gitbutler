@@ -109,6 +109,9 @@ pub struct Workspace {
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
     pub refs: u64,
+    /// A fingerprint of the pull requests the forge cache knew as this was read. A forge refresh
+    /// compares it with what the cache knows now, as `but` writes the cache too.
+    pub reviews: u64,
     /// The newest entries of the project's operation log, newest first, each with whether a
     /// person recorded it rather than an agent.
     pub oplog: Vec<(SnapshotId, bool)>,

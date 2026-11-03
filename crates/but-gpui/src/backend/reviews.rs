@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::Result;
 use but_api::legacy::forge;
 use but_ctx::Context;
+use but_error::AnyhowContextExt as _;
 use but_forge::ForgeName;
 
 use super::intent::Run;
@@ -221,42 +222,41 @@ fn check_state(check: &but_forge::CiCheck) -> CheckState {
 
 /// What [`refresh_reviews`] found.
 pub struct RefreshedReviews {
-    /// Whether the cache changed.
-    pub changed: bool,
+    /// A fingerprint of the pull requests the cache now knows, as
+    /// [`Workspace::reviews`](super::Workspace::reviews).
+    pub reviews: u64,
     /// When the last pull request the cache has merged, in seconds since the epoch.
     pub last_merged: Option<i64>,
 }
 
 /// Ask the forge about the project's pull requests, refreshing the cache that
-/// [`load_workspace`](super::load_workspace) reads, and say whether that changed it and when
-/// the last of them merged. Fails when the project has no forge or no account for it.
+/// [`load_workspace`](super::load_workspace) reads, and say what it now knows and when the
+/// last of them merged. Fails when the project has no forge or no account for it.
 pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
     let started = std::time::Instant::now();
     tracing::debug!(path = %path.display(), "refreshing reviews");
     let ctx = open(path)?;
-    // Without when each was last synced, which every refresh changes.
-    let cached = || {
-        let mut reviews: Vec<_> = (cached_reviews(&ctx).into_values())
-            .map(|review| but_forge::ForgeReview {
-                last_sync_at: Default::default(),
-                ..review
-            })
-            .collect();
-        reviews.sort_by_key(|review| review.number);
-        reviews
-    };
-    let json =
-        |reviews: &[but_forge::ForgeReview]| serde_json::to_string(reviews).unwrap_or_default();
-    let before = json(&cached());
     forge::list_reviews(&ctx, Some(but_forge::CacheConfig::NoCache))?;
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "refreshed reviews");
-    let after = cached();
+    let cached = cached_reviews(&ctx);
     Ok(RefreshedReviews {
-        changed: json(&after) != before,
-        last_merged: (after.iter())
+        reviews: super::reviews_fingerprint(&cached),
+        last_merged: (cached.values())
             .filter_map(|review| timestamp(review.merged_at.as_deref()))
             .max(),
     })
+}
+
+/// Whether a failure to ask the forge may pass by itself, so that asking again is worth it: the
+/// forge couldn't be reached, or GitHub failed on its side, as with a 502. Others stay until the
+/// user acts, as a missing account or a keychain prompt they turned down, or asking again
+/// deepens them, as a rate limit does.
+pub fn may_pass(err: &anyhow::Error) -> bool {
+    let unreachable =
+        (err.custom_context()).is_some_and(|context| context.code == but_error::Code::NetworkError);
+    let failed_on_its_side = (err.downcast_ref::<but_github::HttpStatusError>())
+        .is_some_and(|err| err.status.is_server_error());
+    unreachable || failed_on_its_side
 }
 
 /// Ask the forge about the CI of each branch with a pull request, a request per branch, and
@@ -749,8 +749,108 @@ mod tests {
         ForgeReviewThreadComment, ForgeReviewThreadSide, ForgeReviewUser,
     };
 
-    use super::{Remark, Verdict, excerpt, grouped, remarks};
-    use crate::backend::{LineKind, Note};
+    use super::{Remark, Verdict, excerpt, grouped, may_pass, remarks};
+    use crate::backend::ops::tests::repo_with;
+    use crate::backend::{LineKind, Note, load_workspace, open};
+
+    #[test]
+    fn the_minute_poll_asks_again_only_after_a_failure_that_may_pass() {
+        use but_error::{Code, Context};
+        let coded =
+            |code, message| anyhow::anyhow!("what").context(Context::new_static(code, message));
+        let server_error = but_github::HttpStatusError {
+            status: reqwest::StatusCode::BAD_GATEWAY,
+        };
+        for (err, passes, what) in [
+            (
+                coded(Code::NetworkError, "Unable to connect to GitHub."),
+                true,
+                "the forge couldn't be reached, as just after the Mac wakes",
+            ),
+            (server_error.into(), true, "GitHub failed on its side"),
+            (
+                coded(Code::ForgeNotAuthenticated, "Not authenticated."),
+                false,
+                "there's no account to ask with",
+            ),
+            (
+                coded(Code::Unknown, "System keychain access failed"),
+                false,
+                "the user turned down the keychain's prompt, which asking again would repeat",
+            ),
+            (
+                coded(Code::GitHubRateLimited, "Rate limit exceeded."),
+                false,
+                "asking before the limit resets deepens it",
+            ),
+            (
+                anyhow::anyhow!("failed to determine remote for branch refs/heads/main"),
+                false,
+                "a project with no remote fails the same way every time",
+            ),
+        ] {
+            let err = err.context("Failed to list open pull requests");
+            assert_eq!(may_pass(&err), passes, "{what}");
+        }
+    }
+
+    #[test]
+    fn a_workspace_read_tells_an_edit_from_a_sync_that_changed_nothing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let read = || load_workspace(path, Default::default()).unwrap().reviews;
+            // A context of its own, as another process has.
+            let write = |review: &but_forge::ForgeReview| {
+                let ctx = open(path).unwrap();
+                but_forge::cache_review(&mut ctx.db.get_cache_mut().unwrap(), review).unwrap();
+            };
+            let mut review = but_forge::ForgeReview {
+                html_url: String::new(),
+                number: 1,
+                title: "Title".into(),
+                body: Some("Body".into()),
+                author: None,
+                labels: Vec::new(),
+                draft: false,
+                source_branch: "feature".into(),
+                target_branch: "main".into(),
+                sha: String::new(),
+                integration_commit_shas: Vec::new(),
+                created_at: None,
+                modified_at: Some("2026-11-03T10:00:00Z".into()),
+                merged_at: None,
+                closed_at: None,
+                repository_ssh_url: None,
+                repository_https_url: None,
+                repo_owner: None,
+                head_repo_is_fork: false,
+                reviewers: Vec::new(),
+                auto_merge_enabled: false,
+                unit_symbol: "#".into(),
+                last_sync_at: Default::default(),
+            };
+            write(&review);
+            let synced = read();
+
+            review.last_sync_at = chrono::Local::now().naive_local();
+            write(&review);
+            assert_eq!(
+                read(),
+                synced,
+                "every refresh stamps each row, which mustn't reload the project every minute"
+            );
+
+            review.body = Some("Edited".into());
+            review.modified_at = Some("2026-11-03T10:01:00Z".into());
+            write(&review);
+            assert_ne!(
+                read(),
+                synced,
+                "an edit shows, whoever wrote it to the cache"
+            );
+        })
+    }
 
     fn user(login: &str, is_bot: bool) -> Option<ForgeReviewUser> {
         Some(ForgeReviewUser {
