@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { DiffStats } from "./DiffStats.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/DiffStats",
 	id: "components-diffstats",
 	component: DiffStats,

@@ -1,11 +1,11 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { FieldTextareaStyles } from "./Field.tsx";
 import { MarkdownToolbar } from "./MarkdownToolbar.tsx";
 import { Tooltip } from "@base-ui/react";
 import { useRef, useState } from "react";
 import type { FC } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/MarkdownToolbar",
 	id: "components-markdowntoolbar",
 	component: MarkdownToolbar,

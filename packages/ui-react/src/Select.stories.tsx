@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ProgramIcon } from "./ProgramIcon.tsx";
 import { Select } from "./Select.tsx";
 
@@ -9,7 +9,7 @@ const terminals = [
 	{ value: "iterm2", label: "iTerm2" },
 ];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/Select",
 	id: "components-select",
 	component: Select,

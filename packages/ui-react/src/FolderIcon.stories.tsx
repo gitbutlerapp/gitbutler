@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { FolderIcon } from "./FolderIcon.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Icons/FolderIcon",
 	id: "components-foldericon",
 	component: FolderIcon,

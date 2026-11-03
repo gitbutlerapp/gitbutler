@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState, type FC } from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
@@ -14,7 +14,7 @@ import {
 import { MetaCount } from "./MetaCount.tsx";
 import { BranchItem } from "./SidebarRow.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Menu",
 	id: "components-menu",
 	component: Menu,
@@ -28,10 +28,6 @@ const meta = preview.meta({
 		side: "bottom",
 		align: "end",
 		sideOffset: 4,
-	},
-	argTypes: {
-		side: { control: "inline-radio", options: ["top", "bottom", "left", "right"] },
-		align: { control: "inline-radio", options: ["start", "center", "end"] },
 	},
 	decorators: [
 		(Story) => (

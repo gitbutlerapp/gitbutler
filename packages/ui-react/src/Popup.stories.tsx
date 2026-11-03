@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
 import { FileList, FileListItem } from "./FileList.tsx";
@@ -9,7 +9,7 @@ import { ProgramIcon } from "./ProgramIcon.tsx";
 import { Combobox } from "@base-ui/react";
 import { useDeferredValue, useState } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Popup",
 	id: "components-popup",
 	component: Popup,

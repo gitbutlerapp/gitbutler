@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState, type FC } from "react";
 import { Breadcrumbs, CrumbMenuButton, type Crumb } from "./Breadcrumbs.tsx";
 import { Button } from "./Button.tsx";
@@ -8,7 +8,7 @@ import { MenuRadioGroup, MenuRadioItem } from "./Menu.tsx";
 import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Preview/LocationBar",
 	id: "components-locationbar",
 	component: LocationBar,

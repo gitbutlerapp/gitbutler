@@ -1,11 +1,11 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=${node}`;
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/StatusLed",
 	id: "components-statusled",
 	component: StatusLed,

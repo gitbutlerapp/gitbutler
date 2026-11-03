@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { FieldControlStyles, FieldRootStyles } from "./Field.tsx";
 import { FileIcon } from "./FileIcon.tsx";
@@ -14,7 +14,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Modal",
 	id: "components-modal",
 	component: Modal,
@@ -24,11 +24,6 @@ const meta = preview.meta({
 		align: "center",
 		alert: false,
 		trigger: <Button>Open modal</Button>,
-	},
-	argTypes: {
-		size: { control: "inline-radio", options: ["xsmall", "small", "medium", "large"] },
-		align: { control: "inline-radio", options: ["center", "top"] },
-		alert: { control: "boolean" },
 	},
 	decorators: [
 		(Story) => (
@@ -40,7 +35,7 @@ const meta = preview.meta({
 });
 
 /**
- * The modal and its props, to try with the controls. The stories after it are modals as the app
+ * The modal and its props. The stories after it are modals as the app
  * writes them — a confirmation, a form, a destructive question — opened and whole, to copy from.
  */
 export const Default = meta.story({

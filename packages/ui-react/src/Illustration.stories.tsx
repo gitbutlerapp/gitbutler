@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Illustration } from "./Illustration.tsx";
 import { illustrations, type IllustrationName } from "./illustrations.ts";
 
@@ -6,7 +6,7 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 	a.localeCompare(b),
 );
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Illustration",
 	id: "components-illustration",
 });

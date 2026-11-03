@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Kbd } from "./Kbd.tsx";
@@ -16,7 +16,7 @@ import { ToggleGroup, Toggle } from "@base-ui/react";
 import type { ButtonVariant } from "./Button.tsx";
 import type { FC } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Toolbox",
 	id: "components-toolbox",
 	component: Toolbox,

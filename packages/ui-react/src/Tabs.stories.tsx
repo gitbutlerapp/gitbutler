@@ -1,10 +1,10 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { Icon } from "./Icon.tsx";
 import { CiStatus } from "./MetaCount.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/Tabs",
 	id: "components-tabs",
 	component: Tabs,

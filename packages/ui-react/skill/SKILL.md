@@ -27,11 +27,8 @@ The source is the reference, because it is the version you build with:
 - In the gitbutler repository: `packages/ui-react/src/`
 - In but.dev: `web/node_modules/@gitbutler/ui-react/src/`
 
-Each component's JSDoc says what its props do. The Storybook MCP server
-(`docs-show`) and
-<https://master--6ab536f5f40e41db628ccf1b.chromatic.com/manifests/components.json>
-have the same docs with examples; use them when they answer, and go back to the
-source when they don't. Don't wait on them.
+Each component's JSDoc says what its props do, and its `*.stories.tsx` beside
+it shows it at work.
 
 Each component's stories open with `Default`, its simplest use and its props;
 the ones after it are examples, the component put to work the way an app
@@ -47,7 +44,6 @@ description: what was needed, which components you tried.
 The shared design language is the library's `DESIGN.md`, beside `src/` in the
 same two places: an index of one page per topic, in `design/`, each saying
 when to read it. Read the pages for what you are building, not all of them.
-In Storybook they are the Design section, and `docs-list` lists them.
 
 Each app keeps its own choices in its own `DESIGN.md`; but.dev's is at its
 repository root.
@@ -61,5 +57,5 @@ on screen, once, without parentheses.
 ## Check it
 
 Look at the result in light and dark, and keep one screenshot. In the
-gitbutler repository a component's story runs with `pnpm -F @gitbutler/ui-react
+gitbutler repository the docs site runs with `pnpm -F @gitbutler/ui-react
 demos`; `packages/ui-react/AGENTS.md` has how to reach a single story.

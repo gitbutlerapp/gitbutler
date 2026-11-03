@@ -4,19 +4,17 @@
  * Checks that every component in src/ has a story, and that every stories
  * file opens with Default.
  *
- * A component without a story has no visual check (Chromatic only sees
- * stories) and is missing from Storybook's component manifest, which is how
- * an agent finds what the library offers. An agent that can't find a
- * component builds a one-off in feature CSS instead.
+ * A component without a story is missing from the docs site and from the
+ * story tests, and an agent that can't find a component builds a one-off in
+ * feature CSS instead.
  *
  * A component is a PascalCase `.tsx` file directly in src/. It counts as
  * having a story when some `*.stories.tsx` in src/ imports it, so a component
  * shown inside another's story (FileIcon in List's) passes too.
  *
  * Every stories file also opens with `Default`: the simplest use of the
- * component, with its controls. The stories after it are examples, so a reader (or an agent
- * reading the manifest) knows the first one is the API and the rest are ways
- * to use it.
+ * component. The stories after it are examples, so a reader knows the first
+ * one is the API and the rest are ways to use it.
  *
  * Usage: node scripts/check-stories.mjs   (exit 1 on any problem)
  */
@@ -55,9 +53,7 @@ const problems = [
 			const first = FIRST_STORY.exec(readFileSync(join(src, file), "utf8"))?.[1] ?? "no story";
 			return first === "Default"
 				? []
-				: [
-						`src/${file} opens with ${first}. Its first story is Default: the component alone, with its controls.`,
-					];
+				: [`src/${file} opens with ${first}. Its first story is Default: the component alone.`];
 		}),
 ];
 

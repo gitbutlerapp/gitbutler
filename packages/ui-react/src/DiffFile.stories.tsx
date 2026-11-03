@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { DiffFile } from "./DiffFile.tsx";
 import { DiffFileHeader, type DiffFileReviewState } from "./DiffFileHeader.tsx";
@@ -43,7 +43,7 @@ const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 	</pre>
 );
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/DiffFile",
 	id: "components-difffile",
 	component: DiffFile,

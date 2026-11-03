@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { NumberField } from "./NumberField.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/NumberField",
 	id: "components-numberfield",
 	component: NumberField,

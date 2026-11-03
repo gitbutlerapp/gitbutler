@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ConflictIcon } from "./ConflictIcon.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/ConflictIcon",
 	id: "components-conflicticon",
 	component: ConflictIcon,
@@ -9,15 +9,6 @@ const meta = preview.meta({
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2134-5924",
-		},
-	},
-	argTypes: {
-		variant: {
-			control: "select",
-			options: ["conflict", "plus", "minus"],
-		},
-		size: {
-			control: { type: "range", min: 8, max: 128, step: 4 },
 		},
 	},
 	args: {

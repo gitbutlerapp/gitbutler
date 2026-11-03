@@ -6,11 +6,7 @@
 	"type": "module",
 	"license": "FSL-1.1-MIT",
 	"exports": {
-		"./storybook/*": "./.storybook/*",
 		"./*": "./src/*"
-	},
-	"imports": {
-		"#storybook/*": "./.storybook/*.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories && pnpm check:tokens",
@@ -19,11 +15,10 @@
 		"lint:css": "stylelint \"src/**/*.css\"",
 		"optimize-icons": "node scripts/optimize-icons.mjs",
 		"test": "vitest run && pnpm test:stories",
-		"test:stories": "vitest run --config vitest.storybook.config.ts",
+		"test:stories": "vitest run --config vitest.stories.config.ts",
 		"playwright:install:unit": "playwright install chromium",
-		"demos": "storybook dev --no-open -p 6007",
-		"build-storybook": "storybook build",
-		"chromatic": "chromatic --build-script-name build-storybook --only-changed --exit-zero-on-changes --auto-accept-changes master --exit-once-uploaded"
+		"demos": "vite",
+		"build:demos": "vite build"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -40,22 +35,18 @@
 	"devDependencies": {
 		"@gitbutler/design-core": "11.0.0",
 		"@playwright/test": "catalog:",
-		"@storybook/addon-a11y": "^10.6.0",
-		"@storybook/addon-designs": "^11.1.4",
-		"@storybook/addon-docs": "^10.6.0",
-		"@storybook/addon-mcp": "^10.6.0",
-		"@storybook/addon-vitest": "^10.6.0",
-		"@storybook/react-vite": "^10.6.0",
+		"@testing-library/dom": "^10.4.1",
+		"@testing-library/user-event": "^14.6.1",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"@vitejs/plugin-react": "^5.2.0",
 		"@vitest/browser": "catalog:",
-		"chromatic": "18.9.4",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"jsdom": "28.1.0",
+		"markdown-to-jsx": "^7.7.17",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"storybook": "^10.6.0",
 		"stylelint": "^17.15.0",
 		"vite": "catalog:",
 		"vitest": "catalog:"

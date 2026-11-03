@@ -1,10 +1,10 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Tooltip as BaseTooltip } from "@base-ui/react";
 import { Tooltip } from "./Tooltip.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Tooltip",
 	id: "components-tooltip",
 	component: Tooltip,

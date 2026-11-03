@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
-import { Badge, type BadgeSize, type BadgeVariant } from "./Badge.tsx";
+import { stories } from "../docs/stories.ts";
+import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Badge",
 	id: "components-badge",
 	component: Badge,
@@ -11,24 +11,6 @@ const meta = preview.meta({
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=706-453",
-		},
-	},
-	argTypes: {
-		variant: {
-			control: "select",
-			options: [
-				"fillGray",
-				"lightGray",
-				"safe",
-				"warn",
-				"danger",
-				"purple",
-				"blue",
-			] satisfies Array<BadgeVariant>,
-		},
-		size: {
-			control: "inline-radio",
-			options: ["regular", "large"] satisfies Array<BadgeSize>,
 		},
 	},
 	args: {

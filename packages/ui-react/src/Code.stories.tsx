@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Code } from "./Code.tsx";
 import { EmptyState } from "./EmptyState.tsx";
 
@@ -9,7 +9,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/Code",
 	id: "components-code",
 	component: Code,

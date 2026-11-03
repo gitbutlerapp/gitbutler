@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { FileStatusBadge, type FileStatusType } from "./FileStatusBadge.tsx";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/FileStatusBadge",
 	id: "components-filestatusbadge",
 	component: FileStatusBadge,
@@ -11,12 +11,6 @@ const meta = preview.meta({
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2134-5945",
-		},
-	},
-	argTypes: {
-		status: {
-			control: "select",
-			options: statuses,
 		},
 	},
 	args: {

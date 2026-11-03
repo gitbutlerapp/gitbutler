@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ChangeScale } from "./ChangeScale.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/ChangeScale",
 	id: "components-changescale",
 	component: ChangeScale,

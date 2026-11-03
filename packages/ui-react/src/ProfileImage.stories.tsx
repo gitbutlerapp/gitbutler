@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ProfileImage } from "./ProfileImage.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/ProfileImage",
 	id: "components-profileimage",
 	component: ProfileImage,

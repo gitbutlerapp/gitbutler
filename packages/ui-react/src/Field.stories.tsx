@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import {
 	FieldControlStyles,
 	FieldControlWithIcon,
@@ -9,7 +9,7 @@ import {
 import { Icon } from "./Icon.tsx";
 import { Field } from "@base-ui/react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/Field",
 	id: "components-field",
 	// The library's part is the styles; the story composes them on Base UI's Field.

@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { Dropdown, PopupItem, PopupSection } from "./Popup.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Overlays/Dropdown",
 	id: "components-dropdown",
 	component: Dropdown,
@@ -17,10 +17,6 @@ const meta = preview.meta({
 		side: "bottom",
 		align: "start",
 		sideOffset: 4,
-	},
-	argTypes: {
-		side: { control: "inline-radio", options: ["top", "bottom", "left", "right"] },
-		align: { control: "inline-radio", options: ["start", "center", "end"] },
 	},
 	decorators: [
 		(Story) => (

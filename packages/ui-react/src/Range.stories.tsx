@@ -1,7 +1,7 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Range } from "./Range.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/Range",
 	id: "components-range",
 	component: Range,

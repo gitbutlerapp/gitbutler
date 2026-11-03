@@ -1,9 +1,9 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { FileIcon } from "./FileIcon.tsx";
 import { Icon } from "./Icon.tsx";
 import { List, ListItem } from "./List.tsx";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/List",
 	id: "components-list",
 	component: List,

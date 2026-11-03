@@ -1,8 +1,8 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Switch, type SwitchSize } from "./Switch.tsx";
 import { useState } from "react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/Switch",
 	id: "components-switch",
 	component: Switch,

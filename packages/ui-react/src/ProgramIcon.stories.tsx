@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { ProgramIcon } from "./ProgramIcon.tsx";
 
 // Read off the directory rather than exported from `programIcons.ts`, which keeps the
@@ -7,14 +7,9 @@ const programs = Object.keys(import.meta.glob("./program-icons/*.png"))
 	.map((path) => path.replace(/^.*\/(.+)@2x\.png$/, "$1"))
 	.sort((a, b) => a.localeCompare(b));
 
-const meta = preview.type<{ args: { size: number } }>().meta({
+const meta = stories<{ size: number }>({
 	title: "Icons/ProgramIcon",
 	id: "components-programicon",
-	argTypes: {
-		size: {
-			control: { type: "range", min: 8, max: 64, step: 2 },
-		},
-	},
 	parameters: {
 		design: {
 			type: "figma",
@@ -23,7 +18,7 @@ const meta = preview.type<{ args: { size: number } }>().meta({
 	},
 });
 
-/** One mark, at the size the controls set. */
+/** One mark, at the 14px a select's slot renders it. */
 export const Default = meta.story({
 	args: { size: 14 },
 	render: (args) => <ProgramIcon program="vscode" size={args.size} />,

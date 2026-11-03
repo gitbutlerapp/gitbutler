@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { RelativeTime } from "./RelativeTime.tsx";
 
 /** Pinned so the wording doesn't drift with the clock between visual checks. */
@@ -17,7 +17,7 @@ const ages = [
 	["Years", 800 * day],
 ] as const;
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Content & status/RelativeTime",
 	id: "components-relativetime",
 	component: RelativeTime,

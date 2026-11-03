@@ -1,8 +1,8 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { Radio } from "./Radio.tsx";
 import { RadioGroup } from "@base-ui/react";
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Inputs/Radio",
 	id: "components-radio",
 	component: Radio,

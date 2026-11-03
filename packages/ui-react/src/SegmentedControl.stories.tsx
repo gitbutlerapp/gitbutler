@@ -1,4 +1,4 @@
-import preview from "#storybook/preview";
+import { stories } from "../docs/stories.ts";
 import { useState } from "react";
 import { Icon } from "./Icon.tsx";
 import { Segment, SegmentedControl } from "./SegmentedControl.tsx";
@@ -10,7 +10,7 @@ const figma = (nodeId: string) => ({
 	},
 });
 
-const meta = preview.meta({
+const meta = stories({
 	title: "Actions/SegmentedControl",
 	id: "components-segmentedcontrol",
 	component: SegmentedControl,
