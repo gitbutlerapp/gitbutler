@@ -194,6 +194,14 @@ where
                     .hint("Run `but commit` or `but discard` in that worktree, then retry"),
             );
         }
+        #[cfg(feature = "legacy")]
+        if let Some(refusal) = error.downcast_ref::<gitbutler_oplog::BranchInOtherWorktree>() {
+            return CliError::BadInput(bad_input(refusal.to_string()).hint(
+                "Reverse the operation with its inverse instead, such as \
+                `but move <commit> --branch <branch>`, `but reword <commit>` or \
+                `but uncommit <commit>`",
+            ));
+        }
         if let Some(unresolved) =
             error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
         {

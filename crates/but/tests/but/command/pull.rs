@@ -315,7 +315,9 @@ fn undo_leaves_a_local_target_checked_out_in_a_linked_worktree_unchanged() {
     env.invoke_git(&format!("worktree add -q \"{}\" main", worktree.display()));
 
     env.but("undo").assert().failure().stderr_eq(str![[r#"
-Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]. Reverse the operation instead, for example by moving a moved commit back
+Error: Cannot restore branch 'main' because it is checked out in worktrees: [..]
+
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
 
 "#]]);
 
@@ -1892,6 +1894,29 @@ fn worktrees_behind_target_scenario() -> Sandbox {
 
     add_upstream_commit(&env);
     env
+}
+
+/// A pull takes no commit off the branches of linked worktrees, so undoing it restores the
+/// workspace and leaves them rebased, rather than refusing because they moved.
+#[test]
+fn undo_after_pull_leaves_worktree_branches_rebased() {
+    let env = worktrees_behind_target_scenario();
+    let tips_before = env.invoke_git("rev-parse A B");
+    env.but("pull").assert().success();
+    let worktree_tips = env.invoke_git("rev-parse wt-inside wt-outside");
+
+    env.but("undo").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse A B"),
+        tips_before,
+        "undo must restore the workspace's branches"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse wt-inside wt-outside"),
+        worktree_tips,
+        "undo must leave the worktrees' branches where the pull put them"
+    );
 }
 
 /// Put a commit adding `upstream.txt` on `origin/main`, for the next fetch to find.

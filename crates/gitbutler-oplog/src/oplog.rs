@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeSet, HashMap, hash_map::Entry},
     fs,
+    path::PathBuf,
     str::{FromStr, from_utf8},
 };
 
@@ -144,7 +145,7 @@ impl SnapshotProjectMeta {
 /// ├── checkout/ (ad-hoc checkouts only)
 /// │   ├── commit
 /// │   └── ref
-/// ├── additional-refs/ (ad-hoc graph refs and explicitly preserved refs)
+/// ├── additional-refs/ (ad-hoc graph refs, explicitly preserved refs and the branches of linked worktrees that the operation moved)
 /// │   └── [index]/
 /// │       ├── name
 /// │       ├── target (absent if the ref did not exist)
@@ -185,6 +186,10 @@ pub trait OplogExt {
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
     /// Use `details` to provide metadata about the snapshot.
+    ///
+    /// Outside ad-hoc checkouts, branches that other worktrees have checked out and that still
+    /// point where the snapshot recorded them are left out, as are those a pull rebased: restoring
+    /// it leaves them alone. A snapshot committed right after it was prepared records none of them.
     ///
     /// Committing it makes the snapshot discoverable in [`snapshots_iter`](Self::snapshots_iter) as well as
     /// restorable with [`restore_snapshot`](Self::restore_snapshot).
@@ -616,6 +621,42 @@ struct SnapshotReference {
     checked_out_elsewhere: bool,
 }
 
+/// Restoring a snapshot would have to move a branch that other worktrees have checked out. Their
+/// files stay as they are, because another agent may be working on them.
+#[derive(Debug)]
+pub struct BranchInOtherWorktree {
+    branch: gix::refs::FullName,
+    dirs: Vec<PathBuf>,
+}
+
+impl std::fmt::Display for BranchInOtherWorktree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Cannot restore branch '{}' because it is checked out in worktrees: {:?}",
+            self.branch.shorten(),
+            self.dirs
+        )
+    }
+}
+
+impl std::error::Error for BranchInOtherWorktree {}
+
+/// The worktrees other than `repo`'s own that have `reference` checked out.
+fn other_worktree_dirs(
+    worktrees: &but_core::branch::SafeDelete,
+    reference: &gix::Reference<'_>,
+    repo: &gix::Repository,
+) -> Vec<PathBuf> {
+    worktrees
+        .worktree_dirs_with_ref(reference)
+        .into_iter()
+        .flatten()
+        .filter(|dir| Some(dir.as_path()) != repo.workdir())
+        .cloned()
+        .collect()
+}
+
 fn snapshot_references(
     snapshot_tree: &gix::Tree<'_>,
     repo: &gix::Repository,
@@ -995,6 +1036,15 @@ fn prepare_snapshot_with_target_and_refs(
                     }
                 }
             }
+        } else {
+            // Applied stacks don't cover the branches of linked worktrees. Committing the snapshot
+            // drops those the operation didn't move, so restoring refuses because of the others.
+            additional_refs.extend(
+                ws.worktrees
+                    .iter()
+                    .filter_map(|worktree| worktree.ref_name.clone())
+                    .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch)),
+            );
         }
         // Open this read-only so there is no write-back, there should be no side-effects when
         // preparing a snapshot.
@@ -1073,11 +1123,12 @@ fn prepare_snapshot_with_target_and_refs(
             // Only the caller knows that its operation leaves the other worktree's files
             // alone, so refs picked up from the graph aren't marked.
             if movable_elsewhere.contains(&ref_name.as_ref())
-                && but_core::branch::SafeDelete::new(&repo)?
-                    .worktree_dirs_with_ref(&reference)
-                    .is_some_and(|dirs| {
-                        dirs.iter().any(|dir| Some(dir.as_path()) != repo.workdir())
-                    })
+                && !other_worktree_dirs(
+                    &but_core::branch::SafeDelete::new(&repo)?,
+                    &reference,
+                    &repo,
+                )
+                .is_empty()
             {
                 reference_tree.upsert(
                     "checked-out-elsewhere",
@@ -1157,7 +1208,8 @@ fn commit_snapshot(
     _exclusive_access: &mut RepoExclusive,
     target: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    repo.find_tree(snapshot_tree_id)?;
+    let snapshot_tree_id =
+        without_worktree_branches_to_leave_alone(repo, snapshot_tree_id, details.operation)?;
 
     let project_data_dir = ctx.project_data_dir();
     let oplog_state = OplogHandle::new(&project_data_dir);
@@ -1190,6 +1242,43 @@ fn commit_snapshot(
     set_reference_to_oplog(repo.git_dir(), ReflogCommits::new(ctx, target)?)?;
 
     Ok(snapshot_commit_id)
+}
+
+/// Drop the branches that other worktrees have checked out from `snapshot_tree_id` if its
+/// `operation` didn't move them, so restoring it leaves alone what was committed there since.
+/// A pull rebases them but takes no commit off them, so undoing it leaves them rebased.
+/// An ad-hoc checkout keeps them all, so restoring it refuses whichever operation moved them.
+fn without_worktree_branches_to_leave_alone(
+    repo: &gix::Repository,
+    snapshot_tree_id: gix::ObjectId,
+    operation: OperationKind,
+) -> Result<gix::ObjectId> {
+    let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
+    let Some(references) = snapshot_tree.lookup_entry_by_path("additional-refs")? else {
+        return Ok(snapshot_tree_id);
+    };
+    if snapshot_tree
+        .lookup_entry_by_path("checkout/ref")?
+        .is_some()
+    {
+        return Ok(snapshot_tree_id);
+    }
+    let worktrees = but_core::branch::SafeDelete::new(repo)?;
+    let mut editor = snapshot_tree.edit()?;
+    for entry in repo.find_tree(references.id())?.iter() {
+        let entry = entry?;
+        let reference = snapshot_reference(&repo.find_tree(entry.id())?, repo)?;
+        let rebased_by_pull =
+            operation == OperationKind::MergeUpstream && !reference.checked_out_elsewhere;
+        if let Some(current) = repo.try_find_reference(reference.ref_name.as_ref())?
+            && (rebased_by_pull
+                || current.target().try_id().map(ToOwned::to_owned) == reference.target)
+            && !other_worktree_dirs(&worktrees, &current, repo).is_empty()
+        {
+            editor.remove(format!("additional-refs/{}", entry.filename()))?;
+        }
+    }
+    Ok(editor.write()?.detach())
 }
 
 /// The kind of restore to perform.
@@ -1311,20 +1400,18 @@ fn restore_snapshot_tree(
         if !reference.checked_out_elsewhere
             && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
             && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
-            && let Some(dirs) =
-                but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
         {
             // This worktree is restored below; other worktrees must not be disturbed.
-            let dirs: Vec<_> = dirs
-                .iter()
-                .filter(|dir| Some(dir.as_path()) != repo.workdir())
-                .collect();
+            let dirs = other_worktree_dirs(
+                &but_core::branch::SafeDelete::new(&repo)?,
+                &current_reference,
+                &repo,
+            );
             if !dirs.is_empty() {
-                bail!(
-                    "Cannot restore branch '{}' because it is checked out in worktrees: {dirs:?}. \
-                     Reverse the operation instead, for example by moving a moved commit back",
-                    reference.ref_name.shorten()
-                );
+                bail!(BranchInOtherWorktree {
+                    branch: reference.ref_name.clone(),
+                    dirs,
+                });
             }
         }
     }

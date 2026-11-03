@@ -4080,6 +4080,8 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot restore branch 'fresh' because it is checked out in worktrees: [..]
 
+Hint: Reverse the operation with its inverse instead, such as `but move <commit> --branch <branch>`, `but reword <commit>` or `but uncommit <commit>`
+
 "#]]);
 }
 
