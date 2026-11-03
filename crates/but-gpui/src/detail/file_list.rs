@@ -1430,6 +1430,7 @@ impl Detail {
         if let (Some(blamed), At::File(path, _)) = (blamed, &at) {
             items.extend(self.last_commit_item(path, blamed, cx));
         }
+        items.extend(self.path_history_item(&project, &at, cx));
         let mut paths = self
             .path_items(&project, worktree, at, in_list, cx)
             .into_iter();

@@ -1074,6 +1074,7 @@ impl Detail {
             Some(key) => current != Some(key) || key.source.live(),
         };
         if !stale && !selection_changed {
+            self.open_pending_file(cx);
             return;
         }
         let Some(key) = key else {
@@ -1449,6 +1450,11 @@ impl Detail {
         // Another diff's matches count from its first.
         self.run_find(!same, cx);
         self.diff_error = None;
+        self.open_pending_file(cx);
+    }
+
+    /// Open the diff shown at the file asked for, if it has it, and stop asking.
+    fn open_pending_file(&mut self, cx: &mut Context<Self>) {
         if let Some(path) = self.pending_file.take()
             && let Some(at) = (self.diff.iter())
                 .flat_map(|diff| diff.files.iter())
