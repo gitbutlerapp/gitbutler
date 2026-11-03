@@ -55,7 +55,7 @@ fn four_commits() -> Result<()> {
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {}
 
@@ -125,7 +125,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {}
 
@@ -191,7 +191,7 @@ fn merge_in_the_middle() -> Result<()> {
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {}
 
@@ -265,7 +265,7 @@ fn three_branches_merged() -> Result<()> {
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {}
 

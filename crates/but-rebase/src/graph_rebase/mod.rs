@@ -69,7 +69,7 @@ pub struct Pick {
     /// or [`SignCommit::IfSignCommitsEnabled`] with config enabled).
     pub sign_commit: SignCommit,
     /// Exclude the commit from being included in the
-    /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
+    /// [`RevisionHistory::continuations()`]. This is helpful if we are
     /// creating a new commit since the the mappings will be non-sensical to the
     /// frontend consumers.
     pub exclude_from_tracking: bool,
@@ -105,7 +105,7 @@ impl Pick {
     }
 
     /// Creates a pick with the expected defaults, but is excluded from being
-    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
+    /// included from the [`RevisionHistory::continuations()`] output. This is
     /// often preferable if you are doing something like an
     /// `insert_blank_commit` operation.
     pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
@@ -156,7 +156,7 @@ impl Step {
     }
 
     /// Creates a pick with the expected defaults, but is excluded from being
-    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
+    /// included from the [`RevisionHistory::continuations()`] output. This is
     /// often preferable if you are doing something like an
     /// `insert_blank_commit` operation.
     pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
@@ -818,8 +818,8 @@ impl RevisionHistory {
         self.lineages.retain(|commit, _| commits.contains(commit));
     }
 
-    /// Provides a mapping between commits that were rewritten as part of the transformation.
-    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+    /// The commit that each rewritten commit carries on as, which callers can keep pointing at.
+    pub fn continuations(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
         self.lineages
             .iter()
             .filter_map(|(commit, lineage)| {

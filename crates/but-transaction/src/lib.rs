@@ -876,7 +876,7 @@ where
             .into_editor();
         let (outcome, new_rebase) = f(editor, &self.inner.commit_mappings)?;
 
-        self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
+        self.inner.commit_mappings = CommitMappings(new_rebase.history.continuations());
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
     }
@@ -1073,7 +1073,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         let target = rebase
             .reference_target(branch.as_ref())
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch.as_ref()))?;
-        let replaced_commits = rebase.history.commit_mappings();
+        let replaced_commits = rebase.history.continuations();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let workspace = rebase
             .overlayed_graph_with_workspace_overrides(Some((target, branch)), None)?

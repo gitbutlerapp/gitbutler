@@ -203,7 +203,7 @@ fn folding_a_split_back_into_its_source_keeps_both_hyperedges() -> Result<()> {
     let (editor, new_commit) = split_two_above_itself(editor, &repo)?;
     let rebase = editor.rebase()?;
     let source = repo.rev_parse_single("two")?.detach();
-    let source = rebase.history.commit_mappings()[&source];
+    let source = rebase.history.continuations()[&source];
     let outcome = squash_commits(
         rebase.into_editor(),
         vec![new_commit],
@@ -373,7 +373,7 @@ aac5238
 
     let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        materialized.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(198bf421399ca45dfc033777ed30ea2241c55ff4),
@@ -461,7 +461,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
     let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        materialized.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
@@ -547,7 +547,7 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
     let materialized = outcome.rebase.materialize(Default::default())?;
     snapbox::assert_data_eq!(
-        materialized.history.commit_mappings().to_debug(),
+        materialized.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(d5ac8ac48b1eb997e273a131a88d57e4b8ae970d),

@@ -96,7 +96,7 @@ fn insert_below_merge_commit() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(231acb683a6ecfb1ff546952057c4b3d3764b28c): Sha1(8ca0053aa15fe12ab6b467a82bedf86401628c17),
@@ -203,7 +203,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(16b7c68c1dae39aa8b5e4c56e3bc4b1d508cfb25),
@@ -305,7 +305,7 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(5219d30048fd87943c2c87401527b75f26a1f8be),

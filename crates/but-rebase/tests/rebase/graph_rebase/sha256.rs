@@ -98,7 +98,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d1655921309ddaa17f3ba486f91d53527165826034828f7d69a6a73f07c089ec),
@@ -196,7 +196,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d0502143e9c3dd325182004472511cde469772f5dc91d1c50792ab681607c125),
@@ -305,7 +305,7 @@ Sha256
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(636f2bd7679b194672f68390fed8f677231454871ea9d56e315062c62c07698c),
