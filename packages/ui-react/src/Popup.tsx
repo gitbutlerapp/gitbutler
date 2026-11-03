@@ -198,7 +198,7 @@ export const ModalHeader: FC<
 	} & ComponentProps<"div">
 > = ({ title, description, onBack, className, ...props }) => {
 	const titleElement = (
-		<Dialog.Title className={classes("text-14", "text-semibold", styles.modalTitle)}>
+		<Dialog.Title className={classes("text-15", "text-semibold", styles.modalTitle)}>
 			{title}
 		</Dialog.Title>
 	);
@@ -211,10 +211,10 @@ export const ModalHeader: FC<
 				<div className={styles.modalTitleRow}>
 					<Button
 						variant="ghost"
-						size="small"
 						iconOnly
 						aria-label="Back"
 						onClick={onBack}
+						className={styles.modalBack}
 						// oxlint-disable-next-line jsx_a11y/no-autofocus -- The pick that opened this step unmounted with focus on it.
 						autoFocus
 					>
