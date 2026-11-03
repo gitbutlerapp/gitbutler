@@ -93,3 +93,26 @@ git init merged-root
   git checkout -q --detach m2
   empty b
 )
+
+git init newer-ancestor
+(cd newer-ancestor
+  GIT_COMMITTER_DATE="1900000000 +0000" git commit -q --allow-empty -m base && git tag base
+  empty B
+)
+
+git init shallow-source
+(cd shallow-source
+  empty R
+  GIT_COMMITTER_DATE="1900000000 +0000" git commit -q --allow-empty -m S
+  git branch b
+  git checkout -q -b a
+  empty a
+  git checkout -q b
+  empty b
+)
+git clone -q --shallow-exclude R --no-single-branch --no-tags "file://$PWD/shallow-source" shallow
+(cd shallow
+  git tag a origin/a
+  git tag b origin/b
+  git tag S origin/a~1
+)

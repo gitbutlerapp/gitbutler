@@ -10,6 +10,8 @@ pub(crate) struct SharedHistory {
 struct HistoryCommit {
     id: gix::ObjectId,
     parents: Vec<usize>,
+    expanded: bool,
+    reached_by: Bits,
 }
 
 impl SharedHistory {
@@ -17,16 +19,23 @@ impl SharedHistory {
         let cache = repo.commit_graph_if_enabled()?;
         let mut walk = Walk {
             graph: repo.revision_graph(cache.as_ref()),
+            shallow: repo.shallow_commits()?,
             index_of: gix::hashtable::HashMap::default(),
             queue: PriorityQueue::new(),
             commits: Vec::new(),
         };
+        let mut every_tip = Bits::default();
         let tips = tips
             .iter()
-            .map(|tip| walk.visit(*tip))
+            .enumerate()
+            .map(|(tip, id)| {
+                every_tip.insert(tip);
+                let index = walk.visit(*id)?;
+                walk.commits[index].reached_by.insert(tip);
+                Ok(index)
+            })
             .collect::<Result<Vec<_>>>()?;
-        while walk.queue.len() > 1 {
-            let index = walk.queue.pop_value().expect("more than one queued");
+        while let Some(index) = walk.next_to_expand(&every_tip) {
             walk.expand(index)?;
         }
         Ok(SharedHistory {
@@ -78,6 +87,31 @@ impl SharedHistory {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+struct Bits(Vec<u64>);
+
+impl Bits {
+    fn insert(&mut self, index: usize) {
+        let word = index / 64;
+        if self.0.len() <= word {
+            self.0.resize(word + 1, 0);
+        }
+        self.0[word] |= 1 << (index % 64);
+    }
+
+    fn union(&mut self, other: &Bits) -> bool {
+        if self.0.len() < other.0.len() {
+            self.0.resize(other.0.len(), 0);
+        }
+        let mut grew = false;
+        for (word, other_word) in self.0.iter_mut().zip(&other.0) {
+            grew |= *other_word & !*word != 0;
+            *word |= other_word;
+        }
+        grew
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Rank {
     reaches_floor: bool,
@@ -86,6 +120,7 @@ pub(crate) struct Rank {
 
 struct Walk<'repo, 'cache> {
     graph: gix::revwalk::Graph<'repo, 'cache, graph::Commit<()>>,
+    shallow: Option<gix::shallow::Commits>,
     index_of: gix::hashtable::HashMap<gix::ObjectId, usize>,
     queue: PriorityQueue<(graph::Generation, gix::date::SecondsSinceUnixEpoch), usize>,
     commits: Vec<HistoryCommit>,
@@ -107,19 +142,61 @@ impl Walk<'_, '_> {
         self.commits.push(HistoryCommit {
             id,
             parents: Vec::new(),
+            expanded: false,
+            reached_by: Bits::default(),
         });
         self.index_of.insert(id, index);
         self.queue.insert(key, index);
         Ok(index)
     }
 
+    fn next_to_expand(&mut self, every_tip: &Bits) -> Option<usize> {
+        let floor = match self.queue.peek() {
+            Some((_, last)) if self.queue.len() == 1 => *last,
+            _ => return self.queue.pop_value(),
+        };
+        if self.commits[floor].reached_by == *every_tip {
+            None
+        } else {
+            self.queue.pop_value()
+        }
+    }
+
     fn expand(&mut self, index: usize) -> Result<()> {
-        let parents = self.lookup(self.commits[index].id)?.parents.clone();
+        self.commits[index].expanded = true;
+        let id = self.commits[index].id;
+        if self.is_shallow_boundary(id) {
+            return Ok(());
+        }
+        let parents = self.lookup(id)?.parents.clone();
         for parent in parents {
             let parent = self.visit(parent)?;
             self.commits[index].parents.push(parent);
+            self.spread(index, parent);
         }
         Ok(())
+    }
+
+    fn spread(&mut self, child: usize, parent: usize) {
+        let mut edges = vec![(child, parent)];
+        while let Some((child, parent)) = edges.pop() {
+            let reached_by = self.commits[child].reached_by.clone();
+            let parent_commit = &mut self.commits[parent];
+            if parent_commit.reached_by.union(&reached_by) && parent_commit.expanded {
+                edges.extend(
+                    parent_commit
+                        .parents
+                        .iter()
+                        .map(|grandparent| (parent, *grandparent)),
+                );
+            }
+        }
+    }
+
+    fn is_shallow_boundary(&self, id: gix::ObjectId) -> bool {
+        self.shallow
+            .as_ref()
+            .is_some_and(|boundary| boundary.binary_search(&id).is_ok())
     }
 
     fn lookup(&mut self, id: gix::ObjectId) -> Result<&graph::Commit<()>> {
@@ -424,14 +501,27 @@ floor: Z
         );
 
         let unrelated = Scenario::open("unrelated")?;
-        // Unrelated histories never meet, so the floor is just the last root left, which r2 doesn't reach.
+        // Unrelated histories never meet, so they're walked to their roots without a floor.
         snapbox::assert_data_eq!(
             unrelated.shared_history(&["r1", "r2"])?,
             snapbox::str![[r#"
 r1 -> 
 r2 -> 
 tips: r1 r2
-floor: r1
+floor: none
+
+"#]]
+        );
+
+        let newer_ancestor = Scenario::open("newer-ancestor")?;
+        // base is walked first for its newer date, but B is left alone only once it reaches base.
+        snapbox::assert_data_eq!(
+            newer_ancestor.shared_history(&["B", "base"])?,
+            snapbox::str![[r#"
+B -> base
+base -> 
+tips: B base
+floor: none
 
 "#]]
         );
@@ -448,6 +538,20 @@ s1 ->
 s2 -> s1
 tips: a b
 floor: m2
+
+"#]]
+        );
+
+        let shallow = Scenario::open("shallow")?;
+        // S is walked first for its newer date, but its missing parents are never asked for.
+        snapbox::assert_data_eq!(
+            shallow.shared_history(&["a", "b"])?,
+            snapbox::str![[r#"
+S -> 
+a -> S
+b -> S
+tips: a b
+floor: none
 
 "#]]
         );
@@ -525,10 +629,20 @@ s1       1
             Scenario::open("unrelated")?.merge_tree(&["r1", "r2"])?,
             snapbox::str!["fork none [r1, r2]"]
         );
+        // A tip inside another's history meets it even when walked first.
+        snapbox::assert_data_eq!(
+            Scenario::open("newer-ancestor")?.merge_tree(&["B", "base"])?,
+            snapbox::str!["fork base [B, base]"]
+        );
         // The merged-in root line doesn't hide m2.
         snapbox::assert_data_eq!(
             Scenario::open("merged-root")?.merge_tree(&["a", "b"])?,
             snapbox::str!["fork m2 [a, b]"]
+        );
+        // A shallow boundary walked first ends the walk there.
+        snapbox::assert_data_eq!(
+            Scenario::open("shallow")?.merge_tree(&["a", "b"])?,
+            snapbox::str!["fork S [a, b]"]
         );
         Ok(())
     }
