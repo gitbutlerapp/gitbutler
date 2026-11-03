@@ -6,8 +6,8 @@
 //! only push helper available today is the legacy `gitbutler_git` one; this is the one piece of land
 //! that keeps a `Context` dependency until a graph-shaped push primitive exists.
 
-use anyhow::bail;
 use but_ctx::Context;
+use but_error::bail_precondition;
 use gitbutler_git::GitContextExt as _;
 use gix::refs::transaction::{PreviousValue, RefEdit};
 
@@ -36,7 +36,7 @@ pub(super) fn update_local_target_refs(
         && let Some(dirs) =
             but_core::branch::SafeDelete::new(repo)?.worktree_dirs_with_ref(&reference)
     {
-        bail!(
+        bail_precondition!(
             "Cannot land onto `{target_branch_name}`: it is checked out in {}. Check out another \
              branch there first.",
             dirs[0].display()
@@ -53,7 +53,7 @@ pub(super) fn update_local_target_refs(
         )
         && head != tracking
     {
-        bail!(
+        bail_precondition!(
             "Local `{target_branch_name}` ({head}) is out of sync with \
              `{push_remote_name}/{target_branch_name}` ({tracking}). Run `but pull` to resync first."
         );

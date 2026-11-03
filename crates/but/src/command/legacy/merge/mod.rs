@@ -13,25 +13,26 @@ mod messaging;
 
 use std::fmt::Write;
 
-use anyhow::{Context as _, bail};
+use anyhow::Context as _;
 use but_core::ChangeId;
 use but_ctx::Context;
 
 use crate::{
-    CliId, IdMap,
+    CliResult, IdMap,
+    args::atoms::CliIdArg,
     theme::{self, Paint},
-    utils::OutputChannel,
+    utils::{OutputChannel, rejection::shell_quote},
 };
 
 pub fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    branch_id: &str,
+    branch_id: &CliIdArg,
     yes: bool,
     no_ff: bool,
     ff_only: bool,
     whole_stack: bool,
-) -> anyhow::Result<Vec<(gix::ObjectId, ChangeId)>> {
+) -> CliResult<Vec<(gix::ObjectId, ChangeId)>> {
     // Resolve the branch identifier and read the target configuration. The checkout guard runs here
     // so the user is never asked to confirm a land that can't happen; the API enforces it again,
     // along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
@@ -57,18 +58,9 @@ pub fn handle(
         };
 
         let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
-        let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
-        if resolved_ids.is_empty() {
-            bail!("Could not find branch: {branch_id}");
-        }
-        if resolved_ids.len() > 1 {
-            bail!("Ambiguous branch '{branch_id}', matches multiple items");
-        }
-
-        let branch_name = match &resolved_ids[0] {
-            CliId::Branch(branch) => branch.name.clone(),
-            other => bail!("Expected a branch ID, got {}", other.kind_for_humans()),
-        };
+        let branch_name = branch_id
+            .resolve_branch_in_workspace(&*ctx.repo.get()?, &id_map)?
+            .0;
         // The tip the user is asked about: the land refuses if the branch moves before it's
         // decided, as when an agent commits during the prompt or the fetch.
         let tip = (ctx.repo.get()?)
@@ -129,6 +121,17 @@ pub fn handle(
             but_api::land::LowerStack::default()
         };
 
+        // The command the refusal hints at quotes the name and repeats the flags, so it lands what
+        // was asked for.
+        let flags = [
+            (no_ff, " --no-ff"),
+            (ff_only, " --ff-only"),
+            (whole_stack, " --whole-stack"),
+        ]
+        .into_iter()
+        .filter_map(|(set, flag)| set.then_some(flag))
+        .collect::<String>();
+
         let attached_prs = messaging::attached_pr_numbers(ctx, &branch_name, &lower.segments)?;
         messaging::confirm_direct_target_update(
             out,
@@ -137,6 +140,7 @@ pub fn handle(
             &attached_prs,
             &target_display,
             yes,
+            &format!("but merge {}{flags} --yes", shell_quote(&branch_name)),
         )?;
     }
 
