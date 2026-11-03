@@ -162,7 +162,7 @@ impl WorkspaceState {
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
     ) -> anyhow::Result<WorkspaceState> {
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
-        let replaced_commits = rebase.history.commit_mappings();
+        let replaced_commits = rebase.history.continuations();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         Self::from_workspace_with_prs(
@@ -204,7 +204,7 @@ impl WorkspaceState {
             materialized.workspace,
             materialized.meta,
             repo,
-            materialized.history.commit_mappings(),
+            materialized.history.continuations(),
             materialized.history.conflicted_commits,
             &prs_by_head,
             materialized.db,

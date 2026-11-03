@@ -98,7 +98,7 @@ fn reword_a_commit() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(53af95adeaf78258ee71c74fe4daa6628d750ff1),
@@ -219,7 +219,7 @@ f766d1f
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
     snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
+        outcome.history.continuations().to_debug(),
         snapbox::str![[r#"
 {
     Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(810119232dd43ad1edc6b3d1a9cc2cd507d92a4e),
