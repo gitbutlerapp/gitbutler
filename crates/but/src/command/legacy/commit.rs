@@ -302,7 +302,7 @@ fn resolve(
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
-    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from
+    if let Some(worktree) = &invoked_from.linked_worktree
         && let CommitOperation::CommitToNewBranch(op) = &commit_op
     {
         let repo = ctx.repo.get()?;
@@ -384,7 +384,8 @@ fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &I
         ))
         .into()
     } else {
-        err.hint(CliIdArg::CHANGE_MISSING_HINT).into()
+        err.hint(change.missing_hint(CliIdArg::CHANGE_MISSING_HINT, repo, id_map))
+            .into()
     }
 }
 

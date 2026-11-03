@@ -114,7 +114,7 @@ Rebasing applied branches onto the latest target IS `but pull` — never `move`,
 ### Commit selected files or hunks
 
 1. `but diff` — shows file and hunk IDs for uncommitted changes. Do not run plain `but status` first.
-2. Use file IDs when whole files belong in the commit; use hunk IDs (`<file-id>:<hunk-id>`) when only part of a file belongs. Omit IDs you don't want committed. For whole files, repo-root paths or a `dir/` prefix work too (`but commit -b feat -m "msg" src/ui/ README.md`; no `./` or globs), so don't build ID lists by piping `but diff` through grep.
+2. Use file IDs when whole files belong in the commit; use hunk IDs (`<file-id>:<hunk-id>`) when only part of a file belongs. Omit IDs you don't want committed. For whole files or directories, paths work too, from the repo root or the current directory (`but commit -b feat -m "msg" src/ui README.md`; no globs), so don't build ID lists by piping `but diff` through grep.
 3. `but commit -b <branch> -m "<msg>" <id1> <id2>` — the branch is created if it does not exist, so no prior `but branch new` is needed.
 4. When the task requires knowing which changes remain, add `--status-after`; otherwise the created-commit result is sufficient.
 

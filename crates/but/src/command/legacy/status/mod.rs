@@ -477,11 +477,14 @@ fn build_status_context(
     };
     let head_ref = {
         let repo = ctx.repo.get()?;
-        match &invoked_from {
-            Some(InvokedFrom::LinkedWorktree(name)) => {
+        match invoked_from
+            .as_ref()
+            .and_then(|from| from.linked_worktree.as_ref())
+        {
+            Some(name) => {
                 but_workspace::worktrees::open_worktree_repo(&repo, name.as_ref())?.head_name()?
             }
-            Some(InvokedFrom::MainWorktree) | None => repo.head_name()?,
+            None => repo.head_name()?,
         }
     };
     let (

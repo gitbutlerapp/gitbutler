@@ -20,7 +20,10 @@ use crate::{
     bad_input,
     id::{CliId, CommitId, CommitIdRef},
     theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{
+        Confirm, ConfirmDefault, OutputChannel, change_source::conflicted_worktree_paths,
+        shorten_object_id,
+    },
 };
 
 pub(crate) fn handle(
@@ -34,7 +37,7 @@ pub(crate) fn handle(
     let conflicted_paths = if targets.is_empty() {
         BTreeSet::new()
     } else {
-        conflicted_worktree_paths(ctx)?
+        conflicted_worktree_paths(&*ctx.repo.get()?)?
     };
     // Spell conflicted paths as the index does, so `./c.txt` matches `c.txt`. An exact
     // match wins, so a conflicted ` c.txt` isn't taken for `c.txt`.
@@ -124,17 +127,6 @@ pub(crate) fn handle(
 }
 
 /// The worktree-relative paths of uncommitted files with an unresolved index conflict.
-fn conflicted_worktree_paths(ctx: &Context) -> Result<BTreeSet<String>> {
-    let repo = ctx.repo.get()?;
-    let index = repo.index_or_empty()?;
-    Ok(index
-        .entries()
-        .iter()
-        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
-        .map(|entry| entry.path(&index).to_string())
-        .collect())
-}
-
 /// The paths of submodules (gitlinks) whose index entries are still conflicted, and of
 /// those resolved to a single entry. Unlike files, a submodule has no conflict markers,
 /// so only the index tells whether its conflict was resolved, which Git requires to commit.
@@ -984,7 +976,7 @@ fn apply_resolutions(
     }
     // Rewriting a commit checks out its new tree, which Git refuses while the index holds
     // conflicts, and `apply` can't resolve those because no commit holds them.
-    let uncommitted = conflicted_worktree_paths(ctx)?;
+    let uncommitted = conflicted_worktree_paths(&*ctx.repo.get()?)?;
     if !uncommitted.is_empty() {
         let paths = uncommitted.into_iter().collect::<Vec<_>>().join(" ");
         return Err(bad_input(format!(

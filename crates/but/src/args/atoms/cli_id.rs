@@ -11,7 +11,7 @@ use crate::{
         LaneId, UncommittedHunkOrFile,
     },
     theme,
-    utils::change_source::ChangeSourceId,
+    utils::change_source::{ChangeSourceId, conflicted_worktree_paths},
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -40,6 +40,26 @@ impl CliIdArg {
     pub const CHANGE_MISSING_HINT: &str =
         "Run `but diff` for the current change IDs; a hunk ID is `<file>:<hunk>`.";
 
+    /// Hint for an argument that resolved to several things.
+    const AMBIGUOUS_HINT: &str = "Use a longer ID to disambiguate. A path starting with `./` or `../` is read only from the current directory.";
+
+    /// The hint for an argument that resolved to nothing: `fallback`, unless it names a file with
+    /// unresolved conflicts, which has no ID. `repo` is the main worktree's, which is also where
+    /// `but resolve` acts.
+    pub fn missing_hint(&self, fallback: &str, repo: &gix::Repository, id_map: &IdMap) -> String {
+        let conflicted = conflicted_worktree_paths(repo).unwrap_or_default();
+        match id_map
+            .main_worktree_paths(&self.0)
+            .into_iter()
+            .find(|path| conflicted.contains(path))
+        {
+            Some(path) => format!(
+                "'{path}' has unresolved conflicts: edit it to the wanted contents (or delete it), then run `but resolve {path}` to mark it resolved."
+            ),
+            None => fallback.to_owned(),
+        }
+    }
+
     /// Parse this argument into all matching CLI IDs in the workspace.
     pub fn parse(&self, repo: &gix::Repository, id_map: &IdMap) -> CliResult<Vec<CliId>> {
         Ok(id_map.parse_using_repo(&self.0, repo)?)
@@ -60,7 +80,7 @@ impl CliIdArg {
             Ok(id)
         } else {
             Err(bad_input(format!("Could not find {purpose}: '{self}'"))
-                .hint(Self::TARGET_MISSING_HINT)
+                .hint(self.missing_hint(Self::TARGET_MISSING_HINT, repo, id_map))
                 .into())
         }
     }
@@ -311,7 +331,9 @@ impl CliIdArg {
                 .filter(|id| {
                     matches!(
                         id,
-                        CliId::UncommittedHunkOrFile(_) | CliId::UncommittedArea { .. }
+                        CliId::UncommittedHunkOrFile(_)
+                            | CliId::PathPrefix { .. }
+                            | CliId::UncommittedArea { .. }
                     )
                 })
                 .collect::<Vec<_>>();
@@ -322,7 +344,7 @@ impl CliIdArg {
                     return Err(bad_input(format!(
                         "Ambiguous uncommitted change '{self}', matches multiple items"
                     ))
-                    .hint("Use a longer ID to disambiguate")
+                    .hint(Self::AMBIGUOUS_HINT)
                     .into());
                 }
             }
@@ -341,7 +363,7 @@ impl CliIdArg {
         } else {
             Err(
                 bad_input(format!("Could not find uncommitted change: '{self}'"))
-                    .hint(Self::CHANGE_MISSING_HINT)
+                    .hint(self.missing_hint(Self::CHANGE_MISSING_HINT, repo, id_map))
                     .into(),
             )
         }
@@ -388,7 +410,13 @@ fn try_resolve_cli_id(
     purpose: Purpose,
     priority: Option<Priority>,
 ) -> CliResult<Option<CliId>> {
-    let mut target_ids = arg.parse(repo, id_map)?.into_iter().peekable();
+    // A priority means the caller wants a branch or commit. It may fall back on the word being
+    // something else entirely, like a Git revision, so a directory of the same name can't stop it.
+    let mut target_ids = arg
+        .parse(repo, id_map)?
+        .into_iter()
+        .filter(|id| priority.is_none() || !matches!(id, CliId::PathPrefix { .. }))
+        .peekable();
     let Some(target) = target_ids.next() else {
         return Ok(None);
     };
@@ -446,7 +474,7 @@ fn try_resolve_cli_id(
     Err(bad_input(format!(
         "Ambiguous {purpose} '{arg}', matches multiple items"
     ))
-    .hint("Use a longer ID to disambiguate")
+    .hint(CliIdArg::AMBIGUOUS_HINT)
     .into())
 }
 

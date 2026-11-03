@@ -450,7 +450,7 @@ fn resolve(
         let repo = ctx.repo.get()?;
         target
             .try_resolve(&repo, id_map, Purpose::Target, None)?
-            .ok_or_else(|| unresolved_target_error(&target, &repo))?
+            .ok_or_else(|| unresolved_target_error(&target, &repo, id_map))?
     } else {
         ResolvedCliIdArg::Uncommitted(invoked_from.managed_source(id_map)?)
     };
@@ -494,7 +494,7 @@ fn resolve(
 /// Agents often pass Git revisions like `HEAD~1` or `main...HEAD`, which are not CLI IDs.
 /// When a target fails to resolve but Git can parse it, point at `git diff` in addition
 /// to the generic missing-target hint.
-fn unresolved_target_error(target: &CliIdArg, repo: &gix::Repository) -> CliError {
+fn unresolved_target_error(target: &CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliError {
     let err = bad_input(format!("Could not find target: '{target}'"));
     if repo.rev_parse(target.0.as_str()).is_ok() {
         err.hint(format!(
@@ -503,7 +503,8 @@ fn unresolved_target_error(target: &CliIdArg, repo: &gix::Repository) -> CliErro
         ))
         .into()
     } else {
-        err.hint(CliIdArg::TARGET_MISSING_HINT).into()
+        err.hint(target.missing_hint(CliIdArg::TARGET_MISSING_HINT, repo, id_map))
+            .into()
     }
 }
 

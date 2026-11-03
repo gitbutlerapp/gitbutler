@@ -105,7 +105,7 @@ pub struct Platform {
     #[clap(short, long, group = "changes_to_commit", help_heading = "Interactive")]
     pub interactive: bool,
 
-    /// The files or hunks to commit, by CLI ID from `but diff`.
+    /// The files or hunks to commit, by CLI ID from `but diff` or by path.
     ///
     /// If omitted, everything uncommitted in the checkout `but` runs in is committed.
     #[clap(group = "changes_to_commit")]
