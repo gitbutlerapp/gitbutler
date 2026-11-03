@@ -55,8 +55,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Cut, FileSort, FileView, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent,
-    snack,
+    Cut, FileSort, FileView, Pane, Part, Picks, Prefs, ProjectId, Section, Selection, Store,
+    StoreEvent, snack,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -122,6 +122,9 @@ struct Cursor {
 /// What of its file the cursor is on.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum Stop {
+    /// The messages, a commit's or a branch's commits', above every file, where Lite lists
+    /// them: in no file, so the cursor's `file` says nothing.
+    Message,
     /// The file's header.
     #[default]
     File,
@@ -148,6 +151,39 @@ impl Cursor {
             at: Stop::Hunk(hunk),
         }
     }
+
+    /// On the commit's message.
+    fn on_message() -> Self {
+        Cursor {
+            file: 0,
+            at: Stop::Message,
+        }
+    }
+
+    /// The entry the cursor is in: the message, or its file.
+    fn entry(self) -> Entry {
+        match self.at {
+            Stop::Message => Entry::Message,
+            Stop::File | Stop::Gap(_) | Stop::Hunk(_) => Entry::File(self.file),
+        }
+    }
+
+    /// The file the cursor is in, none on the message.
+    fn in_file(self) -> Option<usize> {
+        match self.entry() {
+            Entry::File(file) => Some(file),
+            Entry::Message => None,
+        }
+    }
+}
+
+/// One of what the diff lists: the messages, a commit's or a branch's commits', first where
+/// Lite lists them in place of the page's header, then each file. In that order, as the file
+/// list has them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Entry {
+    Message,
+    File(usize),
 }
 
 /// What of the detail y copied, which blinks.
@@ -165,7 +201,7 @@ impl Stop {
     fn hunk(self) -> Option<usize> {
         match self {
             Stop::Hunk(hunk) => Some(hunk),
-            Stop::File | Stop::Gap(_) => None,
+            Stop::Message | Stop::File | Stop::Gap(_) => None,
         }
     }
 
@@ -173,7 +209,7 @@ impl Stop {
     fn near(self) -> Option<usize> {
         match self {
             Stop::Gap(hunk) | Stop::Hunk(hunk) => Some(hunk),
-            Stop::File => None,
+            Stop::Message | Stop::File => None,
         }
     }
 }
@@ -285,8 +321,8 @@ struct LoadedDiff {
     rows: Vec<DiffRow>,
     /// The files the rows show with every file shown, as [`Detail::shown_files`] lists them.
     shown: Vec<usize>,
-    /// The one file the rows show, with the single file diff on.
-    alone: Option<usize>,
+    /// The one entry the rows show, with the single file diff on: a file, or the message.
+    alone: Option<Entry>,
     /// Its changed lines beside the scrollbar, while it shows one file.
     marks: Option<Rc<ChangeMarks>>,
     /// What was selected when it loaded.
@@ -324,9 +360,9 @@ pub struct Detail {
     people_scroll: ScrollHandle,
     /// Where the diff is gliding to, a step each frame, after the keys moved its cursor.
     glide: Option<Glide>,
-    /// The file the diff was scrolled to past the cursor, which the file list marks as the
-    /// current one: see [`Detail::current_file`].
-    reading: Option<usize>,
+    /// The entry the diff was scrolled to past the cursor, which the file list marks as the
+    /// current one: see [`Detail::current_entry`].
+    reading: Option<Entry>,
     diff: Option<LoadedDiff>,
     diff_error: Option<SharedString>,
     loading: Option<DiffKey>,
@@ -653,8 +689,10 @@ impl Detail {
                         let shown = this.shown_files();
                         let first =
                             (this.listed_files(cx).first().copied()).or(shown.first().copied());
+                        // Off the message too, as what's filtered is the files.
                         if let Some(file) = first
-                            && !shown.contains(&this.cursor.file)
+                            && (this.cursor.at == Stop::Message
+                                || !shown.contains(&this.cursor.file))
                         {
                             this.cursor = Cursor::on_file(file);
                             if let Some(row) = this.row_of(|row| *row == DiffRow::File(file)) {
@@ -1339,12 +1377,17 @@ impl Detail {
         };
         // Before the rows, which can show the cursor's file alone. The file scrolled to is
         // found again in the new files once they're drawn.
+        // Another commit opens on its message where it's listed, as its header came first.
         if same {
             self.cursor = self.cursor_in(&files);
+        } else if self.lists_message(&key, cx) {
+            self.cursor = Cursor::on_message();
         }
         self.reading = None;
         let (rows, shown, alone) = self.build_rows(&key, &files, false, cx);
-        let marks = alone.and_then(|_| self.change_marks(&rows, &files, cx));
+        let marks = matches!(alone, Some(Entry::File(_)))
+            .then(|| self.change_marks(&rows, &files, cx))
+            .flatten();
         let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
         // rest of its files come in highlighted or an agent writes, it glides on to where that
@@ -1499,6 +1542,9 @@ impl Detail {
     /// when folded.
     fn cursor_row(&self) -> Option<usize> {
         let Cursor { file, at } = self.cursor;
+        if at == Stop::Message {
+            return self.row_of(|row| *row == DiffRow::Message);
+        }
         let changes = at
             .hunk()
             .and_then(|hunk| self.row_of(|row| self.changes_at(*row) == Some((file, hunk))));
@@ -1509,11 +1555,19 @@ impl Detail {
         (changes.or_else(gap)).or_else(|| self.row_of(|row| *row == DiffRow::File(file)))
     }
 
-    /// The file the file list marks, and what acts on a whole file acts on: the cursor's, or
-    /// once the diff is scrolled past it, the file at the diff's top, the one its sticky header
-    /// names, as in but.dev. What acts on a hunk still acts on the cursor's.
-    fn current_file(&self) -> usize {
-        self.reading.unwrap_or(self.cursor.file)
+    /// The entry the file list marks: the cursor's, or once the diff is scrolled past it, the
+    /// one at the diff's top, the file its sticky header names, as in but.dev.
+    fn current_entry(&self) -> Entry {
+        self.reading.unwrap_or(self.cursor.entry())
+    }
+
+    /// What acts on a whole file acts on: the current entry's file, none on the message. What
+    /// acts on a hunk still acts on the cursor's.
+    fn current_file(&self) -> Option<usize> {
+        match self.current_entry() {
+            Entry::File(file) => Some(file),
+            Entry::Message => None,
+        }
     }
 
     /// Mark the file the diff is scrolled to as the current one while the cursor is out of
@@ -1521,7 +1575,9 @@ impl Detail {
     /// diff comes back to it. Not while the diff glides to the cursor, past other files.
     pub(super) fn follow_scroll(&mut self, cx: &mut Context<Self>) {
         let reading = match self.glide.is_none() && !self.cursor_in_sight(cx) {
-            true => self.top_file().filter(|file| *file != self.cursor.file),
+            true => self
+                .top_entry()
+                .filter(|entry| *entry != self.cursor.entry()),
             false => None,
         };
         if self.reading != reading {
@@ -1530,11 +1586,14 @@ impl Detail {
         }
     }
 
-    /// The file of the row at the diff's top.
-    fn top_file(&self) -> Option<usize> {
+    /// The entry of the row at the diff's top.
+    fn top_entry(&self) -> Option<Entry> {
         let top = self.list.logical_scroll_top().item_ix;
         let rows = self.diff.as_ref()?.rows.get(top..)?;
-        rows.iter().find_map(|row| row.file())
+        match rows.first()? {
+            DiffRow::Message => Some(Entry::Message),
+            _ => rows.iter().find_map(|row| row.file()).map(Entry::File),
+        }
     }
 
     /// Whether any of what the cursor's on shows in the diff: the rows [`Detail::extent`]
@@ -1594,15 +1653,15 @@ impl Detail {
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
     /// files and hunks, or files of the commit shown, that a pending operation takes away are
     /// left out until it's done. `unfolded`, as they would with every file open and one line a
-    /// row, as Find searches them. With them, the files shown and, with the single file diff on,
-    /// the one file the rows are of.
+    /// row, as Find searches them. The commit's message heads them where Lite lists it. With
+    /// them, the files shown and, with the single file diff on, the one entry the rows are of.
     fn build_rows(
         &self,
         key: &DiffKey,
         files: &[FileDiff],
         unfolded: bool,
         cx: &App,
-    ) -> (Vec<DiffRow>, Vec<usize>, Option<usize>) {
+    ) -> (Vec<DiffRow>, Vec<usize>, Option<Entry>) {
         let store = self.store.read(cx);
         let terms = self.filter_terms(cx);
         let leaving = key.leaving(store);
@@ -1630,13 +1689,21 @@ impl Detail {
             .filter(|(_, file)| !hidden(file))
             .map(|(ix, _)| ix)
             .collect();
-        let alone = self.alone(&shown, cx);
-        let alone_path = alone.and_then(|ix| Some(&files.get(ix)?.file.path));
+        let message = self.lists_message(key, cx);
+        let alone = self.alone(message, &shown, cx);
+        let alone_path = match alone {
+            Some(Entry::File(ix)) => files.get(ix).map(|file| &file.file.path),
+            Some(Entry::Message) | None => None,
+        };
         let rows = diff::rows(
             files,
             folded,
             |file| self.drawing_of(file).is_some(),
-            |file| hidden(file) || alone_path.is_some_and(|path| *path != file.file.path),
+            |file| {
+                hidden(file)
+                    || alone == Some(Entry::Message)
+                    || alone_path.is_some_and(|path| *path != file.file.path)
+            },
             |file, hunk| parts_of(file).is_some_and(|keys| keys.contains(&hunk.key)),
             |file, hunk, line| {
                 parts_of(file).is_some_and(|keys| keys.iter().any(|key| key.takes(hunk, line)))
@@ -1656,22 +1723,67 @@ impl Detail {
                 diff::moving_rows(rows, moving)
             }
         };
+        // Apart from the first file as the files are from each other.
+        let rows = match (message, alone) {
+            (true, None) if !rows.is_empty() => [DiffRow::Message, DiffRow::Gap]
+                .into_iter()
+                .chain(rows)
+                .collect(),
+            (true, None | Some(Entry::Message)) => vec![DiffRow::Message],
+            _ => rows,
+        };
         (rows, shown, alone)
     }
 
-    /// The one file of `shown` the single file diff shows: the
-    /// cursor's, or when that's hidden, the next shown after it, else the last, as
-    /// `skip_taken` moves the cursor. None on a list page with no files beside its list, as
-    /// Operations history: nothing there would list the other files.
-    fn alone(&self, shown: &[usize], cx: &App) -> Option<usize> {
+    /// Whether the diff of `key` lists the messages first, as Lite does in place of the page's
+    /// header: one commit's, not several picked together, or a branch's commits'.
+    fn lists_message(&self, key: &DiffKey, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        match (&store.selection, &key.source) {
+            (Some(Selection::Commit(project, id)), DiffSource::Commit(_)) => {
+                !store.prefs.shows(Part::CommitHeader) && !store.among_picks(project, *id)
+            }
+            (Some(Selection::Branch(..)), DiffSource::Range { .. }) => {
+                !store.prefs.shows(Part::BranchHeader)
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the loaded diff lists the messages first.
+    pub(super) fn message_listed(&self, cx: &App) -> bool {
+        (self.diff.as_ref()).is_some_and(|diff| self.lists_message(&diff.key, cx))
+    }
+
+    /// Put the cursor on the commit's message and scroll to it, gliding there with `glide`.
+    pub(super) fn scroll_to_message(&mut self, glide: bool, cx: &mut Context<Self>) {
+        self.cursor = Cursor::on_message();
+        self.follow_alone(cx);
+        if let Some(row) = self.row_of(|row| *row == DiffRow::Message) {
+            self.scroll_to_row(row, glide);
+        }
+        cx.notify();
+    }
+
+    /// The one entry the single file diff shows: the commit's `message` while it's listed
+    /// and the cursor's on it, else the file of `shown` the cursor's in, or when that's
+    /// hidden, the next shown after it, else the last, as `skip_taken` moves the cursor, else
+    /// the message. None on a list page with no files beside its list, as Operations history:
+    /// nothing there would list the other files.
+    fn alone(&self, message: bool, shown: &[usize], cx: &App) -> Option<Entry> {
         if !self.store.read(cx).single_file_diff
             || (self.list_page(cx) && !self.has_files_beside(cx))
         {
             return None;
         }
-        (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
-            .or(shown.last())
-            .copied()
+        let file = match self.cursor.entry() {
+            Entry::Message if message => None,
+            _ => (shown.get(shown.partition_point(|&file| file < self.cursor.file)))
+                .or(shown.last())
+                .copied(),
+        };
+        file.map(Entry::File)
+            .or_else(|| message.then_some(Entry::Message))
     }
 
     /// The changed lines of `rows` of `files`, sized as the diff draws its rows, for the
@@ -1699,7 +1811,7 @@ impl Detail {
         for row in rows {
             let (height, changes) = match *row {
                 // Its header stays above the marks, which run beside its lines.
-                DiffRow::File(_) => (0., [None, None]),
+                DiffRow::Message | DiffRow::File(_) => (0., [None, None]),
                 // As `row_height` guesses them.
                 DiffRow::Hunk { file, hunk } => {
                     match (files.get(file)).is_some_and(|file| self.boxless(file, hunk)) {
@@ -1729,12 +1841,22 @@ impl Detail {
         (!marks.is_empty()).then(|| Rc::new(marks))
     }
 
-    /// Show the cursor's file alone once the cursor goes to another, or every file once
-    /// Settings turns the single file diff off.
+    /// Show the cursor's entry alone once the cursor goes to another, or every file once
+    /// Settings turns the single file diff off, and list the commit's message or stop as Lite
+    /// turns on or off.
     pub(super) fn follow_alone(&mut self, cx: &mut Context<Self>) {
-        if let Some(diff) = &self.diff
-            && diff.alone != self.alone(&diff.shown, cx)
-        {
+        let message = self.message_listed(cx);
+        if !message && self.cursor.at == Stop::Message {
+            self.cursor = Cursor::default();
+            self.reading = None;
+        }
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        // With every file shown, the message heads them or not; alone, it is what's shown.
+        let heads = diff.rows.first() == Some(&DiffRow::Message);
+        let stale = diff.alone.is_none() && heads != message;
+        if stale || diff.alone != self.alone(message, &diff.shown, cx) {
             self.rebuild_rows(cx);
         }
     }
@@ -1928,7 +2050,9 @@ impl Detail {
             return;
         };
         let (rows, shown, alone) = self.build_rows(&diff.key, &diff.files, false, cx);
-        let marks = alone.and_then(|_| self.change_marks(&rows, &diff.files, cx));
+        let marks = matches!(alone, Some(Entry::File(_)))
+            .then(|| self.change_marks(&rows, &diff.files, cx))
+            .flatten();
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files, alone.is_some());
@@ -2034,23 +2158,32 @@ impl Detail {
         self.diff.as_ref()?.rows.iter().position(wanted)
     }
 
-    /// Step `delta` files through the ones shown, letting picks go.
+    /// Step `delta` entries through the ones shown, the commit's message and the files,
+    /// letting picks go.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        if let Some(file) = self.file_step(delta, cx) {
-            self.file_picks.clear();
-            self.scroll_to_file(file, true, cx);
+        let Some(entry) = self.file_step(delta, cx) else {
+            return;
+        };
+        self.file_picks.clear();
+        match entry {
+            Entry::File(file) => self.scroll_to_file(file, true, cx),
+            Entry::Message => self.scroll_to_message(true, cx),
         }
     }
 
-    /// The file `delta` files from the current one, through the ones shown.
-    fn file_step(&self, delta: isize, cx: &App) -> Option<usize> {
-        let shown = self.listed_files(cx);
+    /// The entry `delta` entries from the current one, through the ones the file list shows:
+    /// the commit's message where it's listed, then the files.
+    fn file_step(&self, delta: isize, cx: &App) -> Option<Entry> {
+        let message = self.message_listed(cx).then_some(Entry::Message);
+        let shown: Vec<Entry> = (message.into_iter())
+            .chain(self.listed_files(cx).into_iter().map(Entry::File))
+            .collect();
         if shown.is_empty() {
             return None;
         }
         // Found by place, as the filter's ranking can list the files out of the diff's order.
         // From a file that isn't shown, the next shown one counts as a step.
-        let current = self.current_file();
+        let current = self.current_entry();
         let at = match shown.iter().position(|file| *file == current) {
             Some(at) => at as isize,
             None => {
@@ -2136,7 +2269,9 @@ impl Detail {
         };
         let from = self.cursor;
         let next_of_kind = |cursor: &Cursor| match from.at {
-            Stop::File => cursor.at == Stop::File && cursor.file != from.file,
+            Stop::Message | Stop::File => {
+                cursor.at == Stop::File && cursor.in_file() != from.in_file()
+            }
             Stop::Hunk(_) | Stop::Gap(_) => {
                 matches!(cursor.at, Stop::Hunk(_))
                     && (cursor.file, cursor.at.near()) != (from.file, from.at.near())
@@ -2160,6 +2295,9 @@ impl Detail {
     /// Where the cursor's file and hunk sit in freshly loaded `files`, so a reload never
     /// leaves it pointing at a different file or a hunk that's gone.
     fn cursor_in(&self, files: &[FileDiff]) -> Cursor {
+        if self.cursor.at == Stop::Message {
+            return self.cursor;
+        }
         let Some(old) = self
             .diff
             .as_ref()
@@ -2190,7 +2328,10 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return;
         };
-        let Some(path) = diff.files.get(self.cursor.file).map(|f| &f.file.path) else {
+        let Some(path) = (self.cursor.in_file())
+            .and_then(|file| diff.files.get(file))
+            .map(|f| &f.file.path)
+        else {
             return;
         };
         // The box above a hunk goes with it.
@@ -2242,7 +2383,7 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return;
         };
-        let Some(file) = diff.files.get(self.cursor.file) else {
+        let Some(file) = self.cursor.in_file().and_then(|file| diff.files.get(file)) else {
             return;
         };
         let line = (self.cursor.at.near())
@@ -2367,7 +2508,7 @@ impl Detail {
     /// while it's in it. The sticky header names the file.
     pub fn cursor_place(&self, cx: &App) -> Option<String> {
         let diff = self.shown_diff()?;
-        let file = diff.files.get(self.current_file())?;
+        let file = diff.files.get(self.current_file()?)?;
         // The list's order is worked out only while the filter ranks the files, as this is drawn
         // with every frame: otherwise the list has them as the diff does, which loads them in
         // its order. Folders folded shut count too, as the diff shows their files.
@@ -2375,7 +2516,10 @@ impl Detail {
             true => self.shown_files(),
             false => self.files_in_list_order(&HashSet::new(), cx),
         };
-        let at = shown.iter().position(|file| *file == self.current_file())? + 1;
+        let at = shown
+            .iter()
+            .position(|file| Some(*file) == self.current_file())?
+            + 1;
         let mut place = format!("File {at} of {}", shown.len());
         let hunks = file.hunks().len();
         let hunk = (self.cursor.at.hunk()).filter(|hunk| *hunk < hunks && self.reading.is_none());
@@ -2387,7 +2531,7 @@ impl Detail {
 
     /// The path of the current file, in any diff: see [`Detail::current_file`].
     pub fn cursor_path(&self) -> Option<String> {
-        self.diff_path(self.current_file())
+        self.diff_path(self.current_file()?)
     }
 
     /// The path of the current file, unless the diff it's in is hidden under a pull
@@ -2439,7 +2583,7 @@ impl Detail {
     /// [`Self::cursor_place`] says.
     fn cursor_hunk(&self, in_list: bool, cx: &App) -> Option<(&FileDiff, Option<HunkKey>)> {
         self.shown_cursor_path(cx)?;
-        let file = self.diff.as_ref()?.files.get(self.current_file())?;
+        let file = self.diff.as_ref()?.files.get(self.current_file()?)?;
         let hunk = (self.cursor.at.near()).filter(|_| !in_list && self.reading.is_none());
         let key = hunk.and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         file.has_patch().then_some((file, key))
@@ -2550,7 +2694,9 @@ impl Detail {
     /// ⇧← folds the current file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
     /// isn't drawn.
     fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
-        let file = self.current_file();
+        let Some(file) = self.current_file() else {
+            return;
+        };
         let folded = self.diff_path(file).map(|path| self.folded.contains(&path));
         if folded == Some(!fold) && !self.diff_hidden(cx) {
             self.toggle_fold(file, cx);
@@ -2697,7 +2843,7 @@ impl Detail {
         let bottom = self.distance(at, (last + 1) as f32, cx);
         // Under a file's header, its sticky header hides the diff's top.
         let clear = match self.cursor.at {
-            Stop::File => Pixels::ZERO,
+            Stop::Message | Stop::File => Pixels::ZERO,
             Stop::Gap(_) | Stop::Hunk(_) => self.file_header_height(cx),
         };
         // A little of what follows shows below it, rather than it ending against the edge.
@@ -2774,6 +2920,8 @@ impl Detail {
             return code_line(cx);
         };
         match loaded.rows.get(ix) {
+            // About a title, a few lines and its byline, until it's drawn.
+            Some(DiffRow::Message) => theme.scaled(160.),
             Some(DiffRow::File(_)) => self.file_header_height(cx),
             // A box 28 tall with 6 above and below it, or nothing where the lines run on.
             Some(&DiffRow::Hunk { file, hunk }) => {
@@ -2804,6 +2952,9 @@ impl Detail {
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
             Some(Selection::Branch(..) | Selection::Stack(..)) if !self.branch_header_shown(cx) => {
+                0.
+            }
+            Some(Selection::Commit(project, id)) if !self.commit_header_shown(&project, id, cx) => {
                 0.
             }
             Some(
@@ -3008,19 +3159,19 @@ impl Render for Detail {
                         self.render_uncommitted_side(project, checkout, &theme, window, cx)
                     }
                     Selection::Commit(project, id) => {
-                        self.render_commit_side(project, *id, &theme, cx)
+                        self.render_commit_side(project, *id, &theme, window, cx)
                     }
                     Selection::Branch(project, ref_name) => {
-                        self.render_branch_side(project, ref_name.as_ref(), &theme, cx)
+                        self.render_branch_side(project, ref_name.as_ref(), &theme, window, cx)
                     }
                     Selection::History(project) => {
                         self.render_history_side(project, &theme, window, cx)
                     }
                     Selection::Stack(project, bottom) => {
-                        self.render_stack_side(project, bottom.as_ref(), &theme, cx)
+                        self.render_stack_side(project, bottom.as_ref(), &theme, window, cx)
                     }
                     Selection::Upstream(..) | Selection::Section(_, Section::Upstream(_)) => {
-                        self.render_diff_file_list(&theme, cx)
+                        self.render_diff_file_list(&theme, window, cx)
                     }
                     // No column: the overview takes the page.
                     Selection::Graph(_)
@@ -3028,7 +3179,7 @@ impl Render for Detail {
                     | Selection::Section(_, Section::Inactive | Section::Mesh)
                     | Selection::Terminal(..) => div().into_any_element(),
                     Selection::Mesh(project, id, pick) => {
-                        self.render_mesh_side(project, id, pick, &theme, cx)
+                        self.render_mesh_side(project, id, pick, &theme, window, cx)
                     }
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
@@ -3056,6 +3207,11 @@ impl Render for Detail {
                         if self.store.read(cx).among_picks(project, *id) =>
                     {
                         Some(self.render_picks_header(project, *id, &theme, cx))
+                    }
+                    Selection::Commit(project, id)
+                        if !self.commit_header_shown(project, *id, cx) =>
+                    {
+                        None
                     }
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, cx))
@@ -3290,8 +3446,8 @@ impl Render for Detail {
                     this.discard_picked_lines(window, cx)
                 } else if !this.file_picks.is_empty() {
                     this.discard_picked(window, cx)
-                } else {
-                    this.discard(this.current_file(), None, window, cx)
+                } else if let Some(file) = this.current_file() {
+                    this.discard(file, None, window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
@@ -3303,7 +3459,7 @@ impl Render for Detail {
                 if in_hunk && !this.files_focused(window) {
                     return;
                 }
-                let file = this.diff_path(this.current_file());
+                let file = this.cursor_path();
                 let folded = file.is_some_and(|path| this.folded.contains(&path));
                 this.fold_cursor_file(!folded, cx)
             }))
@@ -3594,9 +3750,12 @@ fn next_stop(
 ) -> Option<(Cursor, usize)> {
     let at = |row: usize| {
         let entry = *rows.get(row)?;
-        let cursor = Cursor {
-            file: entry.file()?,
-            at: stop(row, entry)?,
+        let cursor = match stop(row, entry)? {
+            Stop::Message => Cursor::on_message(),
+            at => Cursor {
+                file: entry.file()?,
+                at,
+            },
         };
         Some((cursor, row))
     };
@@ -3928,6 +4087,31 @@ mod tests {
             next_stop(&rows, 9, true, stop),
             None,
             "nothing below the last hunk"
+        );
+    }
+
+    #[test]
+    fn the_hunk_keys_stop_on_the_commit_message_above_the_files() {
+        let rows = [
+            DiffRow::Message,
+            DiffRow::Gap,
+            DiffRow::File(0),
+            DiffRow::Hunk { file: 0, hunk: 0 },
+        ];
+        let stop = |_, entry| match entry {
+            DiffRow::Message => Some(Stop::Message),
+            DiffRow::File(_) => Some(Stop::File),
+            _ => None,
+        };
+        assert_eq!(
+            next_stop(&rows, 2, false, stop),
+            Some((Cursor::on_message(), 0)),
+            "up from the first file's header to the message, which is in no file"
+        );
+        assert_eq!(
+            next_stop(&rows, 0, true, stop),
+            Some((Cursor::on_file(0), 2)),
+            "down from the message to the first file's header, past the gap"
         );
     }
 

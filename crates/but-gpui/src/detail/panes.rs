@@ -7,7 +7,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
     ListAlignment, ListOffset, ListState, MouseDownEvent, Pixels, Point, Role, SharedString,
-    Stateful, Window, div, list, prelude::*,
+    Stateful, WeakEntity, Window, div, list, prelude::*,
 };
 
 use super::upstream::noon;
@@ -17,7 +17,7 @@ use crate::app::{
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{
-    self, Branch, Checkout, CommitId, CommitState, FullName, PushState, short_ref,
+    self, Branch, Checkout, CommitId, CommitState, FileDiff, FullName, PushState, short_ref,
 };
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
@@ -25,6 +25,8 @@ use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, Section, Selection};
 use crate::theme::Theme;
+use crate::ui::diff;
+use crate::ui::file_icons::file_icon;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
 use crate::ui::message_editor::MessageEditor;
@@ -37,6 +39,10 @@ use crate::ui::{
     h_flex, icon, icon_button, list_row, plural, quiet, section_label, shortcut, side_row,
     small_icon, v_flex,
 };
+
+/// How wide a commit's message reads at most where it fills the pane: some 90 columns of its
+/// mono text, past the 72 most messages wrap at.
+const MESSAGE_WIDTH: f32 = 720.;
 
 impl Detail {
     /// Whether the location bar draws: always, unless Lite leaves it out while the navigator
@@ -59,6 +65,14 @@ impl Detail {
     /// Whether a branch's or a stack's page has its header: always, unless Lite leaves it out.
     pub(super) fn branch_header_shown(&self, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::BranchHeader)
+    }
+
+    /// Whether commit `id`'s page has its header: always, unless Lite lists its message
+    /// first among its files instead. Commits picked together keep theirs, which has no
+    /// message.
+    pub(super) fn commit_header_shown(&self, project: &ProjectId, id: CommitId, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        store.prefs.shows(Part::CommitHeader) || store.among_picks(project, id)
     }
 
     pub(super) fn render_header(
@@ -519,13 +533,14 @@ impl Detail {
         project: &ProjectId,
         id: backend::CommitId,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some((_, commit)) = store.find_commit(project, id) else {
             return not_found("Commit not found", theme, cx);
         };
-        let files = self.render_diff_file_list(theme, cx);
+        let files = self.render_diff_file_list(theme, window, cx);
         let banner = commit
             .conflicted
             .then(|| self.conflict_banner(cx.entity().downgrade(), cx))
@@ -553,47 +568,9 @@ impl Detail {
         };
         let (title, message) = store.message_of(project, commit);
         let body = backend::subject_and_body(message).1;
-        let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
-            .map_or("the target", |t| t.name.as_str());
-        let (state, color) = match commit.state {
-            CommitState::Local => ("not pushed".to_owned(), theme.blue),
-            CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
-            CommitState::Integrated => (format!("in {target}"), theme.text_2),
-        };
-        // A long title wraps rather than hiding its end, as it's shown nowhere else, and
-        // scrolls past a dozen lines.
-        let name = editable_title(
-            "commit-title",
-            commit_title(title),
-            "Edit message",
-            shortcut(&Reword, cx),
-            theme,
-        )
-        .on_click(cx.listener(|this, _, window, cx| this.start_reword(window, cx)));
+        let name = self.commit_title(title, cx.entity().downgrade(), theme, cx);
         let title = page_title(Icon::Commit, theme).child(self.message_title(name, &body, cx));
-        let meta = meta_row(theme)
-            .child(byline(
-                &commit.author,
-                &commit.email,
-                commit.agent.as_ref(),
-                commit.time,
-                theme,
-            ))
-            .child(self.sha_chip(id, theme, cx))
-            .child(div().text_color(color).child(state))
-            .when(commit.conflicted, |el| {
-                el.child(div().text_color(theme.warn).child("conflicted"))
-            })
-            // Last, as it's read after the rest, so nothing moves when it shows.
-            .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
-                el.child(
-                    meta_item(Icon::Lock, theme)
-                        .id("commit-signed")
-                        .text_color(theme.text_3)
-                        .child("Signed")
-                        .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
-                )
-            });
+        let meta = self.commit_meta(project, commit, theme, cx);
         let rewording = (self.rewording.as_ref())
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let title = match rewording {
@@ -610,7 +587,314 @@ impl Detail {
         };
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade());
-        self.page_header(title, meta, target, apply, None, theme, cx)
+        self.page_header(title, meta, target, apply, None, theme)
+    }
+
+    /// A commit's `title`, which a click starts editing. A long one wraps rather than hiding
+    /// its end, as it's shown nowhere else.
+    fn commit_title(
+        &self,
+        title: &str,
+        entity: WeakEntity<Detail>,
+        theme: &Theme,
+        cx: &App,
+    ) -> Stateful<Div> {
+        editable_title(
+            "commit-title",
+            commit_title(title),
+            "Edit message",
+            shortcut(&Reword, cx),
+            theme,
+        )
+        .on_click(move |_, window, cx| {
+            (entity.update(cx, |this, cx| this.start_reword(window, cx))).ok();
+        })
+    }
+
+    /// What a commit's page says under its title: who made it and when, its ID, whether it's
+    /// pushed, conflicted or signed.
+    fn commit_meta(
+        &self,
+        project: &ProjectId,
+        commit: &backend::Commit,
+        theme: &Theme,
+        cx: &App,
+    ) -> Div {
+        let store = self.store.read(cx);
+        let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
+            .map_or("the target", |t| t.name.as_str());
+        let (state, color) = match commit.state {
+            CommitState::Local => ("not pushed".to_owned(), theme.blue),
+            CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
+            CommitState::Integrated => (format!("in {target}"), theme.text_2),
+        };
+        meta_row(theme)
+            .child(byline(
+                &commit.author,
+                &commit.email,
+                commit.agent.as_ref(),
+                commit.time,
+                theme,
+            ))
+            .child(self.sha_chip(commit.id, theme))
+            .child(div().text_color(color).child(state))
+            .when(commit.conflicted, |el| {
+                el.child(div().text_color(theme.warn).child("conflicted"))
+            })
+            // Last, as it's read after the rest, so nothing moves when it shows.
+            .when_some(
+                self.signers.get(&commit.id).copied().flatten(),
+                |el, signer| {
+                    el.child(
+                        meta_item(Icon::Lock, theme)
+                            .id("commit-signed")
+                            .text_color(theme.text_3)
+                            .child("Signed")
+                            .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
+                    )
+                },
+            )
+    }
+
+    /// The messages Lite lists first among the files in place of the page's header: the
+    /// selected commit's, or every commit's of the selected branch, newest first. `flat` fills
+    /// the pane, as the one entry the diff shows, with the files under it; else it's a card
+    /// above the files' cards.
+    pub(super) fn render_message(
+        &self,
+        flat: bool,
+        entity: WeakEntity<Detail>,
+        theme: &Theme,
+        cx: &App,
+    ) -> AnyElement {
+        let messages = match &self.store.read(cx).selection {
+            Some(Selection::Commit(project, id)) => {
+                self.commit_message(project, *id, flat, entity.clone(), theme, cx)
+            }
+            Some(Selection::Branch(project, ref_name)) => {
+                self.branch_messages(project, ref_name.as_ref(), flat, theme, cx)
+            }
+            _ => None,
+        };
+        let Some((top, rest)) = messages else {
+            return div().into_any_element();
+        };
+        match flat {
+            true => v_flex()
+                .id("messages")
+                .px(dp(16.))
+                .pt(dp(2.))
+                .pb(dp(32.))
+                .child(top)
+                .children(rest.map(|rest| rest.mt(dp(24.))))
+                .children(self.message_files(entity, theme, cx))
+                .into_any_element(),
+            false => v_flex()
+                .id("messages")
+                .gap(dp(16.))
+                .p(dp(16.))
+                .rounded(dp(8.))
+                .border_1()
+                .border_color(theme.border_2)
+                .child(top)
+                .children(rest)
+                .into_any_element(),
+        }
+    }
+
+    /// The selected commit's message: what its header says, with the whole message always
+    /// open, as this is where it's read. Edited here too. Its title, byline and menu, and its
+    /// body under them.
+    fn commit_message(
+        &self,
+        project: &ProjectId,
+        id: CommitId,
+        flat: bool,
+        entity: WeakEntity<Detail>,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
+        let store = self.store.read(cx);
+        let (_, commit) = store.find_commit(project, id)?;
+        let (title, message) = store.message_of(project, commit);
+        let body = backend::subject_and_body(message).1;
+        let rewording = (self.rewording.as_ref())
+            .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
+        // Filling the pane, the page's title is larger, and lines up with the file list's
+        // heading beside it.
+        let title = match rewording {
+            Some((_, input, _)) => reword_editor(input, false, theme),
+            None => self
+                .commit_title(title, entity.clone(), theme, cx)
+                .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)))
+                .into_any_element(),
+        };
+        let body = (rewording.is_none() && !body.is_empty()).then(|| message_body(body, theme));
+        let target = Selection::Commit(project.clone(), id);
+        let menu = (h_flex().h(dp(22.)).gap(dp(8.)))
+            .children(super::resolve::apply_button(self, entity))
+            .child(self.page_menu(target));
+        let top = h_flex()
+            .items_start()
+            .gap(dp(16.))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(dp(8.))
+                    .child(title)
+                    .child(self.commit_meta(project, commit, theme, cx)),
+            )
+            .child(menu);
+        Some((top, body))
+    }
+
+    /// The selected branch's messages: its name, how many commits it has and where they
+    /// stand, then each commit, newest first, as its header would say it, with its whole
+    /// message. A click on a commit's title opens it.
+    fn branch_messages(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        flat: bool,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
+        let store = self.store.read(cx);
+        let ws = store.workspace(project)?;
+        let branch = ws.find_branch(ref_name)?;
+        let name = title_text(store.name_of(project, branch).to_owned())
+            .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let target = Selection::Branch(project.clone(), ref_name.cloned());
+        let top = h_flex()
+            .items_start()
+            .gap(dp(16.))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(dp(8.))
+                    .child(name)
+                    .child(branch_meta(ws, branch, theme)),
+            )
+            .child(h_flex().h(dp(22.)).child(self.page_menu(target)));
+        let commits = (branch.commits.iter().enumerate()).map(|(ix, commit)| {
+            let (title, message) = store.message_of(project, commit);
+            let body = backend::subject_and_body(message).1;
+            let at = Selection::Commit(project.clone(), commit.id);
+            let app = self.app.clone();
+            let hover = theme.hover();
+            let title = div()
+                .id("commit-title")
+                .role(Role::Link)
+                .aria_label(title.to_owned())
+                .mx(dp(-4.))
+                .px(dp(4.))
+                .rounded(dp(4.))
+                .text_size(dp(15.))
+                .line_height(dp(22.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .hover(move |el| el.bg(hover))
+                .tooltip(Tooltip::text("Open commit"))
+                .child(commit_title(title))
+                .on_click(move |_, window, cx| {
+                    let at = at.clone();
+                    app.update_later(window, cx, move |app, window, cx| {
+                        app.select(at, window, cx)
+                    });
+                });
+            // Each its own, as every commit's parts are named alike.
+            v_flex()
+                .id(("branch-commit", ix))
+                .gap(dp(6.))
+                .pt(dp(16.))
+                .border_t_1()
+                .border_color(theme.border_3)
+                .child(h_flex().child(title))
+                .child(self.commit_meta(project, commit, theme, cx))
+                .when(!body.is_empty(), |el| {
+                    el.child(message_body(body, theme).mt(dp(6.)))
+                })
+        });
+        let commits = v_flex()
+            .max_w(dp(MESSAGE_WIDTH))
+            .gap(dp(20.))
+            .children(commits);
+        Some((top, Some(commits)))
+    }
+
+    /// Under the commit's message filling the pane, the files it changes, as the file list
+    /// orders them, with how many lines each adds and removes: a click opens one.
+    fn message_files(&self, entity: WeakEntity<Detail>, theme: &Theme, cx: &App) -> Option<Div> {
+        let diff = self.diff.as_ref()?;
+        let listed: Vec<(usize, &FileDiff)> = (self.listed_files(cx).into_iter())
+            .filter_map(|ix| Some((ix, diff.files.get(ix)?)))
+            .collect();
+        if listed.is_empty() {
+            return None;
+        }
+        let (added, removed) = diff::total_stats(listed.iter().map(|(_, file)| *file));
+        let columns = diff::stats_columns(listed.iter().map(|(_, file)| file.stats()));
+        let heading = h_flex()
+            .gap(dp(8.))
+            .pb(dp(8.))
+            .mb(dp(4.))
+            .border_b_1()
+            .border_color(theme.border_3)
+            .child(
+                div()
+                    .text_size(dp(13.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(format!("{} changed", plural(listed.len(), "file"))),
+            )
+            .child(diff::stats(added, removed, false, theme));
+        let rows = listed.into_iter().map(|(ix, file)| {
+            let path = &file.file.path;
+            let (name, dir) = diff::split_path(path);
+            let (added, removed) = file.stats();
+            let entity = entity.clone();
+            list_row(("message-file", ix), false, theme)
+                .mx(dp(-8.))
+                .px(dp(8.))
+                .gap(dp(8.))
+                .text_size(dp(13.))
+                .aria_label(path.clone())
+                .child(file_icon(path, cx))
+                .child(
+                    h_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .gap(dp(8.))
+                        .child(div().flex_shrink_0().child(name.to_owned()))
+                        .child(
+                            div()
+                                .min_w_0()
+                                .truncate()
+                                .text_color(theme.text_2)
+                                .child(dir.to_owned()),
+                        ),
+                )
+                .child(diff::column_stats(added, removed, columns, false, theme))
+                .child(
+                    div()
+                        .w(dp(14.))
+                        .flex_none()
+                        .text_size(dp(11.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(diff::change_color(file.file.kind, theme))
+                        .child(file.file.kind.letter()),
+                )
+                .on_click(move |_, _, cx| {
+                    (entity.update(cx, |this, cx| this.scroll_to_file(ix, true, cx))).ok();
+                })
+        });
+        Some(
+            v_flex()
+                .mt(dp(32.))
+                .max_w(dp(MESSAGE_WIDTH))
+                .child(heading)
+                .children(rows),
+        )
     }
 
     /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
@@ -707,17 +991,12 @@ impl Detail {
         let title =
             page_title(Icon::Commit, theme).child(title_text(plural(picked.len(), "commit")));
         let target = Selection::Commit(project.clone(), id);
-        self.page_header(title, meta, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme)
     }
 
     /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the
     /// whole one on a click.
-    pub(super) fn sha_chip(
-        &self,
-        id: backend::CommitId,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Stateful<Div> {
+    pub(super) fn sha_chip(&self, id: backend::CommitId, theme: &Theme) -> Stateful<Div> {
         let sha = id.0.to_string();
         let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
         h_flex()
@@ -733,10 +1012,13 @@ impl Detail {
             )
             .child(id.short())
             .tooltip(Tooltip::text("Copy commit ID"))
-            .on_click(cx.listener(move |this, _, window, cx| {
-                let sha = sha.clone();
-                (this.app).update_later(window, cx, move |app, _, cx| app.copy_text(sha, cx));
-            }))
+            .on_click({
+                let app = self.app.clone();
+                move |_, window, cx| {
+                    let sha = sha.clone();
+                    app.update_later(window, cx, move |app, _, cx| app.copy_text(sha, cx));
+                }
+            })
     }
 
     /// The header of a commit only a remote has, branch `ref_name`'s or with `None` the
@@ -789,7 +1071,7 @@ impl Detail {
         let title = page_title(Icon::ArrowDown, theme).child(self.message_title(name, body, cx));
         let meta = meta_row(theme)
             .child(byline(author, email, agent, time, theme))
-            .child(self.sha_chip(id, theme, cx))
+            .child(self.sha_chip(id, theme))
             .child(div().text_color(theme.warn).child(match remote {
                 Some(remote) => format!("only on {remote}"),
                 None => "only on the remote".to_owned(),
@@ -798,14 +1080,13 @@ impl Detail {
         let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
         let tabs =
             (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, window, cx));
-        self.page_header(message, meta, target, None, tabs, theme, cx)
+        self.page_header(message, meta, target, None, tabs, theme)
     }
 
     /// The header across a page, over its files and its diff: `title` beside `extra`, if
     /// any, and a ⋯ with what right-clicking `target`'s row offers, for when the navigator is
     /// out of reach, over `body` across the page; as but.dev lays them out, so stepping between
     /// pages moves nothing below. `tabs`, if any, run along its bottom edge.
-    #[expect(clippy::too_many_arguments)]
     pub(super) fn page_header(
         &self,
         title: impl IntoElement,
@@ -814,19 +1095,22 @@ impl Detail {
         extra: Option<AnyElement>,
         tabs: Option<AnyElement>,
         theme: &Theme,
-        cx: &Context<Self>,
     ) -> AnyElement {
-        let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
-            move |this, event: &ClickEvent, window, cx| {
-                // What right-clicking its row in the navigator offers.
-                let (target, at) = (target.clone(), event.position());
-                this.app.update_later(window, cx, move |app, _, cx| {
-                    let items = app.navigator.read(cx).menu_items(&target, cx);
-                    app.open_menu(at, items, cx)
-                });
-            },
-        ));
+        let menu = self.page_menu(target);
         self.header_frame(title, body, menu, extra, tabs, theme)
+    }
+
+    /// A page's ⋯, with what right-clicking `target`'s row in the navigator offers, for when
+    /// the navigator is out of reach.
+    fn page_menu(&self, target: Selection) -> Button {
+        let app = self.app.clone();
+        icon_button("page-menu", Icon::Kebab).on_click(move |event: &ClickEvent, window, cx| {
+            let (target, at) = (target.clone(), event.position());
+            app.update_later(window, cx, move |app, _, cx| {
+                let items = app.navigator.read(cx).menu_items(&target, cx);
+                app.open_menu(at, items, cx)
+            });
+        })
     }
 
     /// [`Self::page_header`]'s frame, with `menu` for its ⋯: also the header beside a list,
@@ -884,27 +1168,8 @@ impl Detail {
         else {
             return div().into_any_element();
         };
-        let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
-        let (state, color) = match branch.push {
-            PushState::Integrated => (format!("in {target}"), theme.text_2),
-            // The remote has commits it doesn't: pulling comes first.
-            _ if !branch.incoming.is_empty() => (branch.remote_state(), theme.warn),
-            PushState::NothingToPush => (branch.remote_state(), theme.safe),
-            _ => (branch.remote_state(), theme.blue),
-        };
         let name = store.name_of(project, branch);
-        let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let meta = meta_row(theme).map(|el| match branch.commits.len() {
-            0 => el.child(
-                meta_item(Icon::Commit, theme)
-                    .text_color(theme.text_3)
-                    .child("No commits"),
-            ),
-            n => el
-                .child(meta_item(Icon::Commit, theme).child(plural(n, "commit")))
-                .child(div().text_color(color).child(state))
-                .children(conflicted_note(conflicted, theme)),
-        });
+        let meta = branch_meta(ws, branch, theme);
         let target = Selection::Branch(project.clone(), ref_name.cloned());
         let create = crate::pr::create_offer(store, &target).map(|offer| {
             button("header-create-pr", "Create pull request")
@@ -922,7 +1187,7 @@ impl Detail {
         let title = page_title(Icon::Branch, theme).child(name);
         let tabs =
             (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, window, cx));
-        self.page_header(title, meta, target, None, tabs, theme, cx)
+        self.page_header(title, meta, target, None, tabs, theme)
     }
 
     /// A branch's `name` in its header, which a click starts editing, unless it's an unnamed
@@ -984,7 +1249,7 @@ impl Detail {
         let title = format!("Stack of {}", names.len());
         let title = page_title(Icon::Stack, theme).child(title_text(title));
         let target = Selection::Stack(project.clone(), bottom.cloned());
-        self.page_header(title, meta, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme)
     }
 
     pub(super) fn render_branch_side(
@@ -992,6 +1257,7 @@ impl Detail {
         project: &ProjectId,
         ref_name: Option<&FullName>,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -1000,7 +1266,7 @@ impl Detail {
         else {
             return not_found("Branch not found", theme, cx);
         };
-        let files = self.render_diff_file_list(theme, cx);
+        let files = self.render_diff_file_list(theme, window, cx);
         // Resolving the oldest conflict first, even in a branch below or one the lane rests on,
         // rebases the rest onto its result.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
@@ -1045,6 +1311,7 @@ impl Detail {
         project: &ProjectId,
         bottom: Option<&FullName>,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -1055,7 +1322,7 @@ impl Detail {
         {
             return not_found("Stack not found", theme, cx);
         }
-        self.render_diff_file_list(theme, cx)
+        self.render_diff_file_list(theme, window, cx)
     }
 }
 
@@ -1966,6 +2233,43 @@ pub(super) fn and_more(rest: usize, theme: &Theme) -> Option<Div> {
 }
 
 /// How many commits are conflicted, when any are.
+/// A commit message's body, set as written: wrapped where its author wrapped it, and at most a
+/// reading line wide.
+fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
+    div()
+        .max_w(dp(MESSAGE_WIDTH))
+        .font_family(theme.mono_font.clone())
+        .text_size(dp(13.))
+        .line_height(dp(21.))
+        .text_color(theme.text_1)
+        .child(body)
+}
+
+/// What a branch's page says under its name: how many commits it has, where they stand
+/// against its remote, and any conflicted.
+fn branch_meta(ws: &backend::Workspace, branch: &Branch, theme: &Theme) -> Div {
+    let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
+    let (state, color) = match branch.push {
+        PushState::Integrated => (format!("in {target}"), theme.text_2),
+        // The remote has commits it doesn't: pulling comes first.
+        _ if !branch.incoming.is_empty() => (branch.remote_state(), theme.warn),
+        PushState::NothingToPush => (branch.remote_state(), theme.safe),
+        _ => (branch.remote_state(), theme.blue),
+    };
+    let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
+    meta_row(theme).map(|el| match branch.commits.len() {
+        0 => el.child(
+            meta_item(Icon::Commit, theme)
+                .text_color(theme.text_3)
+                .child("No commits"),
+        ),
+        n => el
+            .child(meta_item(Icon::Commit, theme).child(plural(n, "commit")))
+            .child(div().text_color(color).child(state))
+            .children(conflicted_note(conflicted, theme)),
+    })
+}
+
 fn conflicted_note(n: usize, theme: &Theme) -> Option<Div> {
     (n > 0).then(|| {
         div()

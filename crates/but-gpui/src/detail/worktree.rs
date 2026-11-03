@@ -319,7 +319,7 @@ impl Detail {
             let meta = meta_row(theme).child(meta_item(folder_icon, theme).child(name));
             let title = page_title(Icon::FileDiff, theme).child(title_text("Uncommitted changes"));
             let target = Selection::Uncommitted(project.clone(), checkout.clone());
-            return self.page_header(title, meta, target, None, None, theme, cx);
+            return self.page_header(title, meta, target, None, None, theme);
         }
         let rests_on = ws.zip(checkout.linked()).and_then(|(ws, name)| {
             let (branch, from) = ws.beneath(ws.worktree_lane(name)?).next()?.top()?;
@@ -341,7 +341,7 @@ impl Detail {
             }));
         let title = page_title(folder_icon, theme).child(title_text(name));
         let target = Selection::Checkout(project.clone(), checkout.clone());
-        self.page_header(title, meta, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme)
     }
 
     /// The overview of `project`'s `checkout`, laid out as the project's and Branches' are: where

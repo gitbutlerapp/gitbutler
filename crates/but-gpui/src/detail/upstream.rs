@@ -7,8 +7,8 @@ use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, div,
-    prelude::*,
+    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window,
+    div, prelude::*,
 };
 
 mod shipped;
@@ -560,7 +560,7 @@ impl Detail {
     ) -> AnyElement {
         let below = match self.showing_review(cx) {
             true => self.render_review_tab(project, theme, cx),
-            false => self.render_files_beside(theme, cx),
+            false => self.render_files_beside(theme, window, cx),
         };
         let tabs = self.selected_review(cx).map(|review| {
             h_flex()
@@ -591,7 +591,12 @@ impl Detail {
     /// Under a list page's tabs: the files unless they're hidden, beside the diff, which the
     /// window draws over the rest. Sliding, they stay as they are, the diff sliding over them,
     /// and shutting, they're drawn till it's over them.
-    fn render_files_beside(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn render_files_beside(
+        &self,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let shown = self.beside_files_shown(cx);
         let drawn =
             shown || (self.has_files_beside(cx) && self.beside_slide.closing(Instant::now()));
@@ -613,7 +618,7 @@ impl Detail {
                         // through the files, as in a checkout's file list.
                         .track_focus(&self.files_focus)
                         .key_context("Files")
-                        .child(self.render_diff_file_list(theme, cx))
+                        .child(self.render_diff_file_list(theme, window, cx))
                         .child(resize_handle(Pane::BesideFiles, self.store.clone(), theme)),
                     !shown,
                 ))
@@ -707,7 +712,7 @@ impl Detail {
                         commit.time,
                         theme,
                     ))
-                    .child(self.sha_chip(commit.id, theme, cx))
+                    .child(self.sha_chip(commit.id, theme))
                     .children(toggle),
             )
             .when(open && !shown.is_empty(), |el| {
@@ -1675,7 +1680,7 @@ impl Detail {
             .child(trigger)
             .child(title_text(entry.project.name.clone()));
         let target = Selection::Project(project.clone());
-        self.page_header(title, meta, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme)
     }
 
     pub(super) fn render_upstream_side(

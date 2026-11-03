@@ -51,8 +51,8 @@ use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, ROW_HEIGHT, blink_once, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex,
-    icon_button, matched, muted, popover, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint,
+    fixed, h_flex, icon_button, matched, muted, popover, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -258,7 +258,12 @@ impl Detail {
 
     /// The files of the loaded diff, each a jump target, and draggable when the diff has an
     /// owner ([`Self::diff_owner`]).
-    pub(super) fn render_diff_file_list(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn render_diff_file_list(
+        &self,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let Some(diff) = self.shown_diff() else {
             let note = if self.loading.is_some() {
                 "Loading…"
@@ -282,8 +287,65 @@ impl Detail {
             .flex_1()
             .min_h_0()
             .child(header)
+            .children(self.render_message_entry(theme, window, cx))
             .child(rows)
             .into_any_element()
+    }
+
+    /// The messages as the list's first entry, where Lite lists them in place of the page's
+    /// header: a commit's title, or a branch's name, which shows them in the diff. It stays put
+    /// above the files as they scroll.
+    fn render_message_entry(
+        &self,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        if !self.message_listed(cx) {
+            return None;
+        }
+        let store = self.store.read(cx);
+        // A commit by its title, a branch by its name and how many commits it has.
+        let (glyph, title, count) = match &store.selection {
+            Some(Selection::Commit(project, id)) => {
+                let (_, commit) = store.find_commit(project, *id)?;
+                let title = commit_title(store.message_of(project, commit).0);
+                (Icon::Commit, title, None)
+            }
+            Some(Selection::Branch(project, ref_name)) => {
+                let branch = store.workspace(project)?.find_branch(ref_name.as_ref())?;
+                let name = SharedString::from(store.name_of(project, branch).to_owned());
+                (Icon::Branch, name, Some(branch.commits.len()))
+            }
+            _ => return None,
+        };
+        let current = self.current_entry() == super::Entry::Message;
+        let solid = current && has_keys(&self.files_focus, window, cx);
+        let muted = match solid {
+            true => theme.muted_on_solid(),
+            false => theme.text_2,
+        };
+        let label = match count {
+            None => "Commit message",
+            Some(_) => "Commit messages",
+        };
+        let row = file_row("message-entry", current, solid, theme)
+            .flex_none()
+            .gap(dp(8.))
+            .aria_label(label)
+            .child(small_icon(glyph).text_color(muted))
+            .child(div().flex_1().min_w_0().truncate().child(title))
+            .children(count.map(|n| {
+                (div().flex_none().text_size(dp(12.)).text_color(muted)).child(n.to_string())
+            }))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _: &MouseDownEvent, _, cx| {
+                    this.clear_file_picks(cx);
+                    this.scroll_to_message(true, cx)
+                }),
+            );
+        Some(row.into_any_element())
     }
 
     /// The files beside the diff, in the popover the files button opens on hover while
@@ -622,12 +684,13 @@ impl Detail {
         if !self.file_picks.is_empty() {
             return self.owned_cut(self.picked_changes(), cx);
         }
-        if !self.shown_files().contains(&self.cursor.file) {
+        let at = self.cursor.in_file()?;
+        if !self.shown_files().contains(&at) {
             return None;
         }
-        let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
+        let file = self.diff.as_ref()?.files.get(at)?;
         let hunk = (self.cursor.at.hunk()).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
-        self.diff_cut(self.cursor.file, hunk.map(|key| vec![key]), cx)
+        self.diff_cut(at, hunk.map(|key| vec![key]), cx)
     }
 
     /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
@@ -679,9 +742,10 @@ impl Detail {
 
     /// Step `delta` files from the cursor, picking the run as ⇧-click does.
     pub(super) fn pick_step(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let next = self
-            .file_step(delta, cx)
-            .and_then(|file| self.diff_path(file));
+        let next = match self.file_step(delta, cx) {
+            Some(super::Entry::File(file)) => self.diff_path(file),
+            Some(super::Entry::Message) | None => None,
+        };
         let (Some(cursor), Some(next)) = (self.cursor_path(), next) else {
             return;
         };
@@ -1080,7 +1144,7 @@ impl Detail {
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
-        let current = diff_ix == Some(self.current_file());
+        let current = diff_ix.is_some_and(|ix| Some(ix) == self.current_file());
         let picked = extras.picked;
         let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
@@ -1304,7 +1368,7 @@ impl Detail {
         // A picked file's menu is all the picks', as on its row.
         let payload = match self.file_picks.contains(&path) {
             true => self.owned_cut(self.picked_changes(), cx),
-            false => self.diff_cut(self.current_file(), None, cx),
+            false => self.diff_cut(self.current_file()?, None, cx),
         };
         let at = At::File(path, None);
         let in_list = self.files_focus.is_focused(window);

@@ -961,8 +961,9 @@ impl SettingsView {
             "Lite interface",
             "Leaves out parts of the window that repeat what's elsewhere or switch what keys \
              do: the status bar, the location bar while the navigator shows, a branch's \
-             header, the diff's toolbar and the counts and buttons on each file. What's left \
-             out may change from one release to the next.",
+             header, a commit's header, whose message lists first among its files instead, \
+             the diff's toolbar and the counts and buttons on each file. What's left out may \
+             change from one release to the next.",
             self.pref_switch(
                 "lite-interface",
                 lite,

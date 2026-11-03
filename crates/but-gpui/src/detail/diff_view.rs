@@ -19,8 +19,8 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Copied, Cursor, Detail, FILES_POPOVER_DELAY, FileLines, FoldRows, Glide, LoadedDiff, Stop,
-    TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
+    Copied, Cursor, Detail, Entry, FILES_POPOVER_DELAY, FileLines, FoldRows, Glide, LoadedDiff,
+    Stop, TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
@@ -216,6 +216,7 @@ impl Detail {
     /// hunk where it has one, and the first row of a hunk's changes.
     pub(super) fn stop_at(&self, row: usize, entry: DiffRow) -> Option<Stop> {
         match entry {
+            DiffRow::Message => Some(Stop::Message),
             DiffRow::File(_) => Some(Stop::File),
             DiffRow::Hunk { file, hunk } => {
                 let file_diff = self.diff.as_ref()?.files.get(file)?;
@@ -250,6 +251,10 @@ impl Detail {
             }
         };
         match cursor.at {
+            Stop::Message => {
+                let row = rows.iter().position(|row| *row == DiffRow::Message)?;
+                Some((row, row))
+            }
             Stop::File => {
                 let first = rows.iter().position(|row| *row == DiffRow::File(file))?;
                 let card = (rows.iter().skip(first)).take_while(|row| **row != DiffRow::Gap);
@@ -738,7 +743,8 @@ impl Detail {
             };
             return ground().child(message).into_any_element();
         };
-        if diff.files.is_empty() {
+        let message = diff.rows.first() == Some(&DiffRow::Message);
+        if diff.files.is_empty() && !message {
             // A clean worktree is good news, as but.dev greets it; a commit with nothing in
             // it is a list with nothing in it.
             let (drawing, title, detail): (_, _, SharedString) = match diff.key.source {
@@ -756,7 +762,8 @@ impl Detail {
                 .child(empty_state(drawing, title, detail, theme, cx))
                 .into_any_element();
         }
-        if diff.rows.is_empty() && self.filtering {
+        let no_files = !diff.rows.iter().any(|row| matches!(row, DiffRow::File(_)));
+        if no_files && !diff.files.is_empty() && self.filtering {
             let filter = self.file_filter.read(cx).text();
             let title = format!("No files match \"{}\"", filter.trim());
             return ground()
@@ -833,8 +840,8 @@ impl Detail {
         // One file's header holds the top, there or stuck, so the marks and the scrollbar run
         // beside its lines, below it.
         let rail_top = match diff.alone {
-            Some(_) => header_height,
-            None => Pixels::ZERO,
+            Some(Entry::File(_)) => header_height,
+            Some(Entry::Message) | None => Pixels::ZERO,
         };
         // A drag that selects past the edge, out of the window too, draws the pane again,
         // which scrolls toward the pointer.
@@ -1048,7 +1055,9 @@ impl Detail {
 
     /// Whether the one file shown alone has its header as the pane's title, as Lite has it.
     pub(super) fn titled_header(&self, cx: &App) -> bool {
-        self.single_file_shown() && !(self.store.read(cx).prefs).shows(Part::FileHeaderControls)
+        let alone = self.diff.as_ref().and_then(|diff| diff.alone);
+        matches!(alone, Some(Entry::File(_)))
+            && !(self.store.read(cx).prefs).shows(Part::FileHeaderControls)
     }
 
     /// How tall a file's header draws, as [`diff::file_header_height`] says for this diff.
@@ -1258,7 +1267,7 @@ impl Detail {
         // to side, its lines clear of the marks and the scrollbar, which start below its header.
         let padded = match (flat, row) {
             (false, _) => div().w_full().px(dp(12.)),
-            (true, DiffRow::File(_)) => div().w_full(),
+            (true, DiffRow::Message | DiffRow::File(_)) => div().w_full(),
             (true, _) => div().w_full().pr(fixed(RAIL)),
         };
         match (row, file_diff) {
@@ -1564,6 +1573,13 @@ impl Detail {
                     }
                     None => diff::note(file_diff, flat, theme),
                 })
+                .into_any_element(),
+            (DiffRow::Message, _) => padded
+                .on_mouse_down(
+                    MouseButton::Left,
+                    press_off(entity.clone(), Some(Cursor::on_message())),
+                )
+                .child(self.render_message(flat, entity, theme, cx))
                 .into_any_element(),
             (DiffRow::Gap, _) => padded.h(dp(10.)).into_any_element(),
             // A row whose file is gone draws nothing.

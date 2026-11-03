@@ -398,10 +398,10 @@ impl Detail {
         let in_list = self.files_focus.is_focused(window);
         let hunk = (self.cursor.at.near()).filter(|_| !in_list);
         let at = match hunk {
-            Some(_) => self.cursor.file,
+            Some(_) => self.cursor.in_file(),
             None => self.current_file(),
         };
-        let Some(file) = self.checks_diff().and_then(|diff| diff.files.get(at)) else {
+        let Some(file) = (self.checks_diff()).and_then(|diff| diff.files.get(at?)) else {
             return;
         };
         let path = file.file.path.clone();
@@ -927,6 +927,10 @@ impl Detail {
         );
         window.focus(&input.focus_handle(cx), cx);
         self.rewording = Some((key, input, subscription));
+        // Where Lite lists the message, it's edited there, so that's what the diff shows.
+        if self.message_listed(cx) {
+            self.scroll_to_message(false, cx);
+        }
         cx.notify();
     }
 
