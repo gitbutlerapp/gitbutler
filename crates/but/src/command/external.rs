@@ -11,9 +11,6 @@ use std::{
 };
 
 #[cfg(unix)]
-use anyhow::Context;
-
-#[cfg(unix)]
 use crate::bad_input;
 
 use crate::{CliError, CliResult};
@@ -63,9 +60,9 @@ pub(crate) fn dispatch(current_dir: &Path, extra: &[OsString]) -> CliResult<()> 
                 ));
             }
             Err(e) => {
-                return Err(e)
-                    .with_context(|| format!("could not invoke `{prefixed:?}` from PATH"))
-                    .map_err(CliError::from);
+                return Err(anyhow::Error::new(e)
+                    .context(format!("could not invoke `{prefixed:?}` from PATH"))
+                    .into());
             }
         };
 

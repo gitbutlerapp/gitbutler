@@ -86,7 +86,7 @@ impl ResultErrorExt for CliResult<()> {
                     drop(out);
                     print_and_exit_non_zero(err)
                 }
-                CliError::Initialization(error) | CliError::Internal(error) => {
+                CliError::Initialization(error, _) | CliError::Internal(error, _) => {
                     Err(error).show_root_cause_error_then_exit_without_destructors(out)
                 }
             },

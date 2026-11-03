@@ -72,18 +72,6 @@ impl BadInput {
         self.code
     }
 
-    /// The `file:line` that raised this, with `/` separators on every platform.
-    ///
-    /// Lines move between builds, so sites only compare within one version. A failure that
-    /// must be found across versions needs a [code](Self::code).
-    pub(crate) fn site(&self) -> String {
-        format!(
-            "{}:{}",
-            self.location.file().replace('\\', "/"),
-            self.location.line()
-        )
-    }
-
     pub(crate) fn has_hint(&self) -> bool {
         self.hint.is_some()
     }
@@ -156,10 +144,10 @@ pub enum CliError {
     ExternalCommandNotFound(OsString),
     /// An external subcommand failed with this exit code.
     ExternalCommandFailed(i32),
-    /// Something went wrong internally.
-    Internal(anyhow::Error),
-    /// The command failed before its handler started.
-    Initialization(anyhow::Error),
+    /// Something went wrong internally, at the location that made it a `CliError`.
+    Internal(anyhow::Error, &'static Location<'static>),
+    /// The command failed before its handler started, at the location that made it a `CliError`.
+    Initialization(anyhow::Error, &'static Location<'static>),
     /// The CLI output was a "rejection". See [`CliOutputHuman::is_rejection`] for more details.
     CommandRejection,
 }
@@ -174,6 +162,9 @@ impl<E> From<E> for CliError
 where
     E: Into<anyhow::Error>,
 {
+    /// Errors record the location of this call, so convert with `?`, `.into()` or a direct
+    /// call. Passing `CliError::from` or `Into::into` to `map_err` records a line in `core`.
+    #[track_caller]
     fn from(value: E) -> Self {
         let error = value.into();
         if error.downcast_ref::<but_error::Code>()
@@ -235,11 +226,30 @@ where
         {
             return CliError::BadInput(bad_input(refusal.to_string()).code("PreconditionFailed"));
         }
-        CliError::Internal(error)
+        CliError::Internal(error, Location::caller())
     }
 }
 
 impl CliError {
+    /// The `file:line` that raised this, with `/` separators on every platform, if it's known.
+    ///
+    /// Lines move between builds, so sites only compare within one version. A failure that
+    /// must be found across versions needs a [code](BadInput::code).
+    pub(crate) fn site(&self) -> Option<String> {
+        let location = match self {
+            Self::BadInput(value) => value.location,
+            Self::Internal(_, location) | Self::Initialization(_, location) => location,
+            Self::ExternalCommandNotFound(_)
+            | Self::ExternalCommandFailed(_)
+            | Self::CommandRejection => return None,
+        };
+        Some(format!(
+            "{}:{}",
+            location.file().replace('\\', "/"),
+            location.line()
+        ))
+    }
+
     /// Add context to internal errors while preserving user-facing bad input messages.
     pub fn context<C>(self, context: C) -> Self
     where
@@ -252,8 +262,10 @@ impl CliError {
             }
             Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
             Self::CommandRejection => Self::CommandRejection,
-            Self::Internal(value) => Self::Internal(value.context(context)),
-            Self::Initialization(value) => Self::Initialization(value.context(context)),
+            Self::Internal(value, location) => Self::Internal(value.context(context), location),
+            Self::Initialization(value, location) => {
+                Self::Initialization(value.context(context), location)
+            }
         }
     }
 
@@ -265,8 +277,8 @@ impl CliError {
                 Self::ExternalCommandNotFound(command_name)
             }
             Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
-            Self::Internal(value) => Self::Internal(value),
-            Self::Initialization(value) => Self::Initialization(value),
+            Self::Internal(value, location) => Self::Internal(value, location),
+            Self::Initialization(value, location) => Self::Initialization(value, location),
             Self::CommandRejection => Self::CommandRejection,
         }
     }
@@ -279,8 +291,8 @@ impl CliError {
                 Self::ExternalCommandNotFound(command_name)
             }
             Self::ExternalCommandFailed(code) => Self::ExternalCommandFailed(code),
-            Self::Internal(value) => Self::Internal(value),
-            Self::Initialization(value) => Self::Initialization(value),
+            Self::Internal(value, location) => Self::Internal(value, location),
+            Self::Initialization(value, location) => Self::Initialization(value, location),
             Self::CommandRejection => Self::CommandRejection,
         }
     }
@@ -299,7 +311,7 @@ impl CliError {
             | Self::CommandRejection => {
                 anyhow::anyhow!("{self}")
             }
-            Self::Internal(error) | Self::Initialization(error) => error,
+            Self::Internal(error, _) | Self::Initialization(error, _) => error,
         }
     }
 }
@@ -318,7 +330,7 @@ impl Display for CliError {
             Self::ExternalCommandFailed(code) => {
                 write!(f, "External command exited with status {code}")
             }
-            Self::Internal(value) | Self::Initialization(value) => value.fmt(f),
+            Self::Internal(value, _) | Self::Initialization(value, _) => value.fmt(f),
             Self::CommandRejection => {
                 // The output is printed elsewhere such as by [`OutputChannel::print_cli_output`].
                 f.write_str("Command rejected")
