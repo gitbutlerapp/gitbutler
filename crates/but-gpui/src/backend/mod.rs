@@ -356,6 +356,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let (uncommitted, refs) = side;
     let cached = reviews::cached_reviews(&ctx);
     let reviews = reviews_fingerprint(&cached);
+    let checks = reviews::checks_fingerprint(&ctx);
     let info = match view {
         Ok(info) => info,
         Err(editing) => {
@@ -365,6 +366,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 git_operation,
                 refs,
                 reviews,
+                checks,
                 editing: Some(editing),
                 ..Default::default()
             });
@@ -428,6 +430,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             sum ^ hasher.finish()
         }),
         reviews,
+        checks,
         worktrees,
         archived_worktrees,
         oplog: history::newest_entries(&ctx),
