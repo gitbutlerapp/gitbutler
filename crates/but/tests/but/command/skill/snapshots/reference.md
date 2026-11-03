@@ -16,14 +16,16 @@ Show an overview of the workspace state
 - `-v, --verbose` Show verbose output with commit author and timestamp
 - `-u, --upstream` Show detailed list of upstream commits that haven't been integrated yet
 
-### but diff [TARGET]
+### but diff [TARGETS]...
 Show the diff of changes in the repo
-- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path of an uncommitted file or directory, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `[TARGETS]...` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path of an uncommitted file or directory, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `--stat` Show the changed files and their line counts instead of the patches
 
 ### but show <COMMIT_OR_BRANCH>
 Show details of a commit or branch
 - `<COMMIT_OR_BRANCH>` The commit ID (short or full SHA), branch name, or CLI ID to show details for
 - `-v, --verbose` Show full commit messages and files changed for each commit
+- `--stat` Show how many lines each changed file added and removed. For a branch, this is the same as --verbose
 
 ## Branching and Committing
 

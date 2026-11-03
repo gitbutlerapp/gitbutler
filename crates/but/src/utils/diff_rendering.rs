@@ -109,7 +109,6 @@ pub trait DiffLineWriter {
         })
     }
 
-    #[cfg_attr(feature = "legacy", expect(dead_code))]
     fn write_non_selectable_text(&mut self, line: Line<'static>) -> anyhow::Result<()> {
         self.write(DetailsLine::Text {
             id: None,
@@ -1478,7 +1477,7 @@ impl PositionExt for Position {
     }
 }
 
-fn render_line_stats(line_stats: LineStats) -> Line<'static> {
+pub fn render_line_stats(line_stats: LineStats) -> Line<'static> {
     let LineStats {
         lines_added,
         lines_removed,
@@ -1498,6 +1497,22 @@ fn render_line_stats(line_stats: LineStats) -> Line<'static> {
             ))
         },
         Span::raw(", "),
+        Span::raw(format!("+{}", format_with_dot_thousands(lines_added))).green(),
+        Span::raw(" "),
+        Span::raw(format!("-{}", format_with_dot_thousands(lines_removed))).red(),
+    ])
+}
+
+/// One file's line counts, in the style of [`render_line_stats()`], with `name` padded to
+/// `name_width` so that a list of files lines up.
+pub fn render_file_line_stats(
+    name: &str,
+    name_width: usize,
+    lines_added: u64,
+    lines_removed: u64,
+) -> Line<'static> {
+    Line::from_iter([
+        Span::raw(format!("{name:<name_width$} ")),
         Span::raw(format!("+{}", format_with_dot_thousands(lines_added))).green(),
         Span::raw(" "),
         Span::raw(format!("-{}", format_with_dot_thousands(lines_removed))).red(),

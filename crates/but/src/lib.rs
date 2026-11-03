@@ -87,7 +87,7 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
     let command = Args::command();
     let matches = match command.try_get_matches_from(&args) {
         Ok(matches) => matches,
-        Err(err) => {
+        Err(mut err) => {
             // Fall back to translating retired syntax (the pre-revamp
             // `but commit <branch> -c --changes <id>,<id>` form) before giving
             // up. Help and version requests also arrive as `Err`; translation
@@ -112,6 +112,12 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                         print_err_infallible(hint);
                     }
                     utils::metrics::emit_parse_error(&args, &err, retired_hint.is_some());
+                    // The examples say what to run instead of a Git flag. Clap's tips don't: they
+                    // read `--staged` as a typo of `--stat`, or pass `--name-only` after `--`.
+                    if args::find_subcommand(&args).is_some_and(|(_, name)| name == "diff") {
+                        err.remove(clap::error::ContextKind::SuggestedArg);
+                        err.remove(clap::error::ContextKind::Suggested);
+                    }
                     let _ = err.print();
                     // For the commands with the trickiest grammar, follow the
                     // error with example invocations — unless the hint above
@@ -1297,9 +1303,13 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Show { commit, verbose } => {
+        Subcommands::Show {
+            commit,
+            verbose,
+            stat,
+        } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
+                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat)
                     .map_err(Into::into),
             ));
         }
