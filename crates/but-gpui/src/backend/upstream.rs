@@ -1196,8 +1196,8 @@ pub struct MergedIntoTarget {
 #[cfg(test)]
 mod tests {
     use super::{
-        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, overview, push_refusal,
-        pushed_with,
+        ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, day_start, overview,
+        push_refusal, pushed_with,
     };
     use crate::backend::model::build::full;
     use crate::backend::ops::tests::git;
@@ -1596,7 +1596,9 @@ refs/heads/wt
                     .unwrap();
                 assert!(out.status.success(), "git {args:?}: {out:?}");
             };
-            let now = 2_000_000_000;
+            // Three in the morning here, so the merges of the hours before fall on the day
+            // before, wherever the clock is set.
+            let now = day_start(day_of(2_000_000_000)) + 3 * 60 * 60;
             git(&["init", "-q", "-b", "main"], now);
             let commit = |who: &str, at: i64| {
                 let author = format!("{who} <{}@example.com>", who.to_lowercase());
