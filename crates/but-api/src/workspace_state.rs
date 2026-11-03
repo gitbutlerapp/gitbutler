@@ -54,30 +54,6 @@ impl WorkspaceState {
             .collect()
     }
 
-    /// Whether any commit in the projected workspace is in a conflicted state.
-    #[cfg(not(feature = "graph-workspace"))]
-    pub fn is_conflicted(&self) -> bool {
-        self.head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .flat_map(|segment| &segment.commits)
-            .any(|commit| commit.has_conflicts)
-    }
-
-    /// Whether any commit in the projected workspace is in a conflicted state.
-    #[cfg(feature = "graph-workspace")]
-    pub fn is_conflicted(&self) -> bool {
-        use but_workspace::ui::workspace::DetailedGraphRowData;
-        self.graph_workspace
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.rows)
-            .any(|row| {
-                matches!(&row.data, DetailedGraphRowData::Commit(commit) if commit.has_conflicts)
-            })
-    }
-
     /// Build a [`WorkspaceState`] from an already-prepared overlayed graph.
     ///
     /// Use this when the caller already has a graph describing the workspace after the

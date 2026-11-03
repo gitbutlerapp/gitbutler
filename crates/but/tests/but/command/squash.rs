@@ -1594,6 +1594,8 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot uncommit commits that would result in merge conflicts
 
+Hint: Later commits depend on these changes. Run `but uncommit qon xnw` first, then retry
+
 "#]]);
 
     env.but("squash lrm:q -t @")
@@ -1601,6 +1603,8 @@ Error: Cannot uncommit commits that would result in merge conflicts
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot uncommit hunks that would result in merge conflicts
+
+Hint: Later commits depend on these changes. Run `but uncommit qon xnw` first, then retry
 
 "#]]);
 }

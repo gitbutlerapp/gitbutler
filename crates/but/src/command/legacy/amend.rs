@@ -39,12 +39,7 @@ pub fn amend(
     drop(repo);
     drop(ws);
 
-    Ok(squash::run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        operation,
-    )?)
+    squash::run(ctx, &mut meta, guard.write_permission(), operation)
 }
 
 fn resolve(
