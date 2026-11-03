@@ -1013,3 +1013,63 @@ If this isn't right, run `but undo` to revert it.
         "the bottom commit took the piped content"
     );
 }
+
+#[test]
+fn resolve_conflicts_prints_an_apply_that_targets_the_listed_commit() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    env.but("pull").assert().success();
+
+    // `--commit A` would select A's oldest conflicted commit, not the newer one listed here.
+    env.but("resolve conflicts run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Conflicts in commit [..] on branch A
+
+shared.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+older
+>>> theirs (this commit)
+newer
+
+1 other conflicted commit exists — scope with `but resolve conflicts <branch>`.
+Resolve with `but resolve apply <path>[:<N>] --commit run --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit run`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+
+    // The branch name does select the oldest one, so its hint keeps the name.
+    env.but("resolve conflicts A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+Resolve with `but resolve apply <path>[:<N>] --commit A --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit A`. `but resolve --ai` resolves everything at once.
+
+"#]]);
+
+    // The printed command resolves the listed commit and leaves the older one conflicted.
+    env.but("resolve apply shared.txt:1 --commit run --ours")
+        .assert()
+        .success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊◐   run newer change (no changes)
+┊◐   tnr older change (no changes) {conflicted}
+├╯
+┊
+┴ 7f73771 (common base, main, origin/main) 2000-01-02 upstream change
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
