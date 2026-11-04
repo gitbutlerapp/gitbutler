@@ -70,6 +70,12 @@ impl Detail {
         self.store.read(cx).prefs.shows(Part::BranchHeader)
     }
 
+    /// Whether a worktree's uncommitted changes have their header: always, unless Lite leaves
+    /// it out.
+    pub(super) fn changes_header_shown(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.shows(Part::ChangesHeader)
+    }
+
     /// Whether commit `id`'s page has its header: always, unless Lite lists its message
     /// first among its files instead. Commits picked together keep theirs, which has no
     /// message.

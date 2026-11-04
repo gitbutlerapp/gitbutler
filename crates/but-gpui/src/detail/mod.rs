@@ -3091,6 +3091,7 @@ impl Detail {
                 self.header_height.get()
             }
             Some(Selection::Checkout(..)) => self.header_height.get(),
+            Some(Selection::Uncommitted(..)) if !self.changes_header_shown(cx) => 0.,
             Some(Selection::Uncommitted(project, _)) if self.editing(&project, cx).is_none() => {
                 self.header_height.get()
             }
@@ -3354,6 +3355,7 @@ impl Render for Detail {
                     Selection::Checkout(project, checkout) => {
                         Some(self.render_checkout_header(project, checkout, false, &theme, cx))
                     }
+                    Selection::Uncommitted(..) if !self.changes_header_shown(cx) => None,
                     Selection::Uncommitted(project, checkout)
                         if self.editing(project, cx).is_none() =>
                     {

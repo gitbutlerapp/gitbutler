@@ -521,6 +521,9 @@ pub enum Part {
     /// The header across a commit's page, with its message, author, ID and push state, which
     /// Lite lists first among its files instead, as the commit's message.
     CommitHeader,
+    /// The header across a worktree's uncommitted changes, with their title and the worktree,
+    /// which the navigator's row has too.
+    ChangesHeader,
     /// The diff's wrap, backgrounds and split controls, which keys switch too.
     DiffTools,
     /// A file header's changed line counts and its buttons, which its right-click menu and
@@ -539,6 +542,7 @@ impl Prefs {
                 | Part::LocationBar
                 | Part::BranchHeader
                 | Part::CommitHeader
+                | Part::ChangesHeader
                 | Part::DiffTools
                 | Part::FileHeaderControls,
             ) => false,
