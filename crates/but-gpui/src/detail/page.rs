@@ -15,9 +15,9 @@ use super::lines::LinePicks;
 use super::review_edit::EditLeft;
 use super::slots::SlotPick;
 use super::upstream::Upstream;
-use super::{Cursor, LoadedDiff, Stop, follow_hunk, hunk_keys};
+use super::{Cursor, KeyPane, LoadedDiff, Stop, follow_hunk, hunk_keys};
 use crate::backend::{FileDiff, FullName, HunkKey};
-use crate::state::{Picks, ProjectId, RowKey, Section, Selection, Store, Tile};
+use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
 
 /// How a page's files are being looked at.
@@ -47,6 +47,8 @@ pub(super) struct FilesState {
     pub(super) message_open: bool,
     /// What was written of the commit's message being edited as the page's detail went.
     pub(super) reworded: Option<String>,
+    /// The pane the keys last left, which they go back to where several are on that side.
+    pub(super) last_pane: Option<KeyPane>,
 }
 
 impl Default for FilesState {
@@ -64,6 +66,7 @@ impl Default for FilesState {
             find: None,
             message_open: false,
             reworded: None,
+            last_pane: None,
         }
     }
 }
@@ -348,7 +351,7 @@ pub(super) enum PageState {
 
 impl PageState {
     /// The state of the page `selection` shows, as it opens.
-    pub(super) fn of(selection: Option<&Selection>) -> PageState {
+    pub(super) fn of(selection: Option<&Selection>, tab: ProjectTab) -> PageState {
         let Some(selection) = selection else {
             return PageState::Blank;
         };
@@ -367,29 +370,45 @@ impl PageState {
                 files: FilesState::default(),
                 review: None,
             },
-            Selection::Branches(_) => PageState::Branches {
-                files: FilesState::default(),
-                review: ReviewState::default(),
-                side: SideState::default(),
-                list: None,
+            Selection::Project(_) => match tab {
+                ProjectTab::Overview => PageState::Project {
+                    files: FilesState::default(),
+                    review: ReviewState::default(),
+                    side: SideState::default(),
+                    list: None,
+                },
+                ProjectTab::Branches => PageState::Branches {
+                    files: FilesState::default(),
+                    review: ReviewState::default(),
+                    side: SideState::default(),
+                    list: None,
+                },
+                ProjectTab::History => PageState::History {
+                    files: FilesState::default(),
+                    side: SideState::default(),
+                    hidden: HashSet::new(),
+                    list: None,
+                },
+                ProjectTab::Graph => PageState::Graph(GraphState::default()),
             },
-            Selection::History(_) => PageState::History {
-                files: FilesState::default(),
-                side: SideState::default(),
-                hidden: HashSet::new(),
-                list: None,
-            },
-            Selection::Project(_) => PageState::Project {
-                files: FilesState::default(),
-                review: ReviewState::default(),
-                side: SideState::default(),
-                list: None,
-            },
-            Selection::Graph(_) => PageState::Graph(GraphState::default()),
             Selection::Checkout(..) | Selection::Section(_, Section::Inactive | Section::Mesh) => {
                 PageState::Overview(CheckoutState::default())
             }
             Selection::Terminal(..) => PageState::Blank,
+        }
+    }
+
+    /// The tab it is of a project's page, on one.
+    pub(super) fn project_tab(&self) -> Option<ProjectTab> {
+        match self {
+            PageState::Project { .. } => Some(ProjectTab::Overview),
+            PageState::Branches { .. } => Some(ProjectTab::Branches),
+            PageState::History { .. } => Some(ProjectTab::History),
+            PageState::Graph(_) => Some(ProjectTab::Graph),
+            PageState::Changes { .. }
+            | PageState::Diff { .. }
+            | PageState::Overview(_)
+            | PageState::Blank => None,
         }
     }
 
@@ -550,22 +569,42 @@ impl PageState {
     }
 }
 
-/// Whose a page is: the row whose tiling it's in and its tile there, so the same thing shown in
-/// two places is looked at apart. The home tile's row is what the navigator selects.
-pub type PageKey = (RowKey, Tile);
+/// Whose a page is: the row whose tiling it's in, its tile there and, of a project's page, the
+/// tab, so the same thing shown in two places is looked at apart. The home tile's row is what
+/// the navigator selects.
+pub type PageKey = (RowKey, Tile, ProjectTab);
 
-/// The key of the page a detail shows: `pinned`'s tile, by the row of its tiling and the row
-/// it's pinned to, or else the selection's home tile. Nothing shown has none.
+/// The key of the page a detail shows on `tab`: `pinned`'s tile, by the row of its tiling and
+/// the row it's pinned to, or else the selection's home tile. Nothing shown has none.
 pub(super) fn page_key(
     store: &Store,
     pinned: Option<&(RowKey, RowKey)>,
     shows: Option<&Selection>,
+    tab: ProjectTab,
 ) -> Option<PageKey> {
     let shows = shows?;
     Some(match pinned {
-        Some((tiling, row)) => (tiling.clone(), Tile::Pinned(row.clone())),
-        None => (store.row_key(shows), Tile::Home),
+        Some((tiling, row)) => (tiling.clone(), Tile::Pinned(row.clone()), tab),
+        None => (store.row_key(shows), Tile::Home, tab),
     })
+}
+
+/// The tab a detail shows of the page it's coming to: as it was left, or for a tile pinned on
+/// one, that one.
+pub(super) fn tab_to_show(
+    kept: &Entity<KeptPages>,
+    store: &Store,
+    pinned: Option<&(RowKey, RowKey)>,
+    shows: Option<&Selection>,
+    cx: &App,
+) -> ProjectTab {
+    let key = page_key(store, pinned, shows, ProjectTab::default());
+    let left = key.and_then(|(row, tile, _)| kept.read(cx).tabs.get(&(row, tile)).copied());
+    let pinned_on = pinned.and_then(|(_, row)| match row {
+        RowKey::Tab(_, tab) => Some(*tab),
+        RowKey::Commit(..) | RowKey::Row(_) => None,
+    });
+    left.or(pinned_on).unwrap_or_default()
 }
 
 /// The page of `key` showing `shows`: as it was left, or as it opens.
@@ -575,8 +614,9 @@ pub(super) fn open_page(
     shows: Option<&Selection>,
     cx: &mut App,
 ) -> PageState {
+    let tab = key.map_or(ProjectTab::default(), |key| key.2);
     (key.and_then(|key| kept.update(cx, |kept, _| kept.take(key))))
-        .unwrap_or_else(|| PageState::of(shows))
+        .unwrap_or_else(|| PageState::of(shows, tab))
 }
 
 /// The pages nothing draws now, as they were left, for when they're shown again. A page being
@@ -584,6 +624,8 @@ pub(super) fn open_page(
 #[derive(Default)]
 pub struct KeptPages {
     pages: HashMap<PageKey, PageState>,
+    /// The tab each project's page was left on, by its row and tile.
+    tabs: HashMap<(RowKey, Tile), ProjectTab>,
 }
 
 impl KeptPages {
@@ -592,6 +634,9 @@ impl KeptPages {
     }
 
     pub(super) fn keep(&mut self, key: PageKey, page: PageState) {
+        if let Some(tab) = page.project_tab() {
+            self.tabs.insert((key.0.clone(), key.1.clone()), tab);
+        }
         self.pages.insert(key, page);
     }
 
@@ -607,9 +652,10 @@ impl KeptPages {
             [Selection::Branch, Selection::Stack];
         for row in rows {
             let was = RowKey::Row(row(project.clone(), from.cloned()));
-            if let Some(page) = self.pages.remove(&(was, Tile::Home)) {
+            if let Some(page) = self.pages.remove(&(was, Tile::Home, ProjectTab::default())) {
                 let now = RowKey::Row(row(project.clone(), Some(to.clone())));
-                self.pages.insert((now, Tile::Home), page);
+                self.pages
+                    .insert((now, Tile::Home, ProjectTab::default()), page);
             }
         }
     }
@@ -617,12 +663,15 @@ impl KeptPages {
     /// The pinned pages of `from`'s tiling are of `to`'s now, as the tiling went there.
     pub fn move_tiling(&mut self, from: &RowKey, to: &RowKey) {
         let moved: Vec<PageKey> = (self.pages.keys())
-            .filter(|(row, tile)| row == from && *tile != Tile::Home)
+            .filter(|(row, tile, _)| row == from && *tile != Tile::Home)
             .cloned()
             .collect();
         for key in moved {
             if let Some(page) = self.pages.remove(&key) {
-                self.pages.insert((to.clone(), key.1), page);
+                self.pages.insert((to.clone(), key.1.clone(), key.2), page);
+            }
+            if let Some(tab) = self.tabs.remove(&(key.0, key.1.clone())) {
+                self.tabs.insert((to.clone(), key.1), tab);
             }
         }
     }
@@ -630,6 +679,8 @@ impl KeptPages {
     /// Forget the pages `keep` doesn't want, which went from the navigator or their tiling.
     pub fn retain(&mut self, keep: impl Fn(&PageKey) -> bool) {
         self.pages.retain(|key, _| keep(key));
+        self.tabs
+            .retain(|(row, tile), tab| keep(&(row.clone(), tile.clone(), *tab)));
     }
 }
 
@@ -642,7 +693,7 @@ mod tests {
     };
     use crate::backend::{Checkout, DiffBody, FileChange, FileDiff, FullName, Hunk, HunkKey};
     use crate::detail::{Cursor, Stop};
-    use crate::state::{RowKey, Section, Selection, Tile};
+    use crate::state::{ProjectTab, RowKey, Section, Selection, Tile};
     use crate::ui::diff::DiffRow;
 
     /// A file changing one line at each of `lines`, on the old side.
@@ -878,10 +929,13 @@ mod tests {
     }
 
     fn hidden_diff() -> PageState {
-        let mut page = PageState::of(Some(&Selection::Section(
-            "project".into(),
-            Section::Upstream(None),
-        )));
+        let mut page = PageState::of(
+            Some(&Selection::Section(
+                "project".into(),
+                Section::Upstream(None),
+            )),
+            ProjectTab::default(),
+        );
         if let Some(files) = page.files_mut() {
             files.files_hidden = true;
         }
@@ -894,7 +948,10 @@ mod tests {
 
     #[test]
     fn the_files_beside_a_list_start_hidden_and_those_beside_a_diff_shown() {
-        let page = PageState::of(Some(&Selection::History("project".into())));
+        let page = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::History,
+        );
         let files = page.files();
         assert!(
             files.is_some_and(|files| files.beside_files_hidden),
@@ -909,7 +966,7 @@ mod tests {
     #[test]
     fn uncommitted_changes_have_files() {
         let selection = Selection::Uncommitted("project".into(), Checkout::Main);
-        let page = PageState::of(Some(&selection));
+        let page = PageState::of(Some(&selection), ProjectTab::default());
         assert!(matches!(page, PageState::Changes { .. }), "its own kind");
         assert!(page.files().is_some(), "their diff is the page");
     }
@@ -919,7 +976,10 @@ mod tests {
         let section = Section::Upstream(None);
         let selection = Selection::Section("project".into(), section);
         assert!(
-            matches!(PageState::of(Some(&selection)), PageState::Diff { .. }),
+            matches!(
+                PageState::of(Some(&selection), ProjectTab::default()),
+                PageState::Diff { .. }
+            ),
             "unlike the other sections, it shows files"
         );
     }
@@ -928,7 +988,9 @@ mod tests {
     fn a_branch_can_show_a_pull_request() {
         let selection = Selection::Branch("project".into(), None);
         assert!(
-            PageState::of(Some(&selection)).review().is_some(),
+            PageState::of(Some(&selection), ProjectTab::default())
+                .review()
+                .is_some(),
             "a branch has a tab for one"
         );
     }
@@ -937,24 +999,34 @@ mod tests {
     fn a_commit_has_no_pull_request_of_its_own() {
         let selection = Selection::Stack("project".into(), None);
         assert!(
-            PageState::of(Some(&selection)).review().is_none(),
+            PageState::of(Some(&selection), ProjectTab::default())
+                .review()
+                .is_none(),
             "its branches have them"
         );
     }
 
     #[test]
     fn a_page_of_a_pull_request_opens_on_its_changes() {
-        let page = PageState::of(Some(&Selection::Branches("project".into())));
+        let page = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::Branches,
+        );
         assert!(!page.review_tab(), "the tab is asked for");
     }
 
     #[test]
     fn a_list_page_has_a_list_and_a_diff_page_has_none() {
-        let page = PageState::of(Some(&Selection::History("project".into())));
+        let page = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::History,
+        );
         assert!(page.side().is_some(), "the operations are listed");
         let selection = Selection::Branch("project".into(), None);
         assert!(
-            PageState::of(Some(&selection)).side().is_none(),
+            PageState::of(Some(&selection), ProjectTab::default())
+                .side()
+                .is_none(),
             "the navigator lists it"
         );
     }
@@ -962,19 +1034,28 @@ mod tests {
     #[test]
     fn only_the_history_leaves_operations_out() {
         let group = Group::Commits;
-        let mut history = PageState::of(Some(&Selection::History("project".into())));
+        let mut history = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::History,
+        );
         history.toggle_operations(group);
         assert!(history.hides_operations(&group), "it's left out now");
         history.toggle_operations(group);
         assert_eq!(history.operations_hidden(), 0, "and put back");
-        let mut graph = PageState::of(Some(&Selection::Graph("project".into())));
+        let mut graph = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::Graph,
+        );
         graph.toggle_operations(group);
         assert_eq!(graph.operations_hidden(), 0, "it lists no operations");
     }
 
     #[test]
     fn the_graph_has_no_files() {
-        let page = PageState::of(Some(&Selection::Graph("project".into())));
+        let page = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::Graph,
+        );
         assert!(matches!(page, PageState::Graph(_)), "its own kind");
         assert!(page.files().is_none(), "it has no diff");
     }
@@ -982,7 +1063,7 @@ mod tests {
     #[test]
     fn a_checkouts_overview_has_no_files() {
         let selection = Selection::Checkout("project".into(), Checkout::Main);
-        let page = PageState::of(Some(&selection));
+        let page = PageState::of(Some(&selection), ProjectTab::default());
         assert!(
             matches!(page, PageState::Overview(_)),
             "it sums up a checkout"
@@ -994,7 +1075,10 @@ mod tests {
     fn a_section_of_worktrees_is_an_overview() {
         let selection = Selection::Section("project".into(), Section::Inactive);
         assert!(
-            matches!(PageState::of(Some(&selection)), PageState::Overview(_)),
+            matches!(
+                PageState::of(Some(&selection), ProjectTab::default()),
+                PageState::Overview(_)
+            ),
             "the navigator lists what it sums up"
         );
     }
@@ -1002,15 +1086,100 @@ mod tests {
     #[test]
     fn nothing_selected_is_blank() {
         assert!(
-            matches!(PageState::of(None), PageState::Blank),
+            matches!(PageState::of(None, ProjectTab::default()), PageState::Blank),
             "there's no page"
+        );
+    }
+
+    fn project_page(tab: ProjectTab) -> PageState {
+        PageState::of(Some(&Selection::Project("project".into())), tab)
+    }
+
+    fn project_row() -> RowKey {
+        RowKey::Row(Selection::Project("project".into()))
+    }
+
+    #[test]
+    fn a_projects_page_opens_on_the_tab_asked_for() {
+        assert_eq!(
+            project_page(ProjectTab::Branches).project_tab(),
+            Some(ProjectTab::Branches),
+            "which tab shows is the page's own"
+        );
+        assert_eq!(
+            project_page(ProjectTab::Graph).project_tab(),
+            Some(ProjectTab::Graph),
+            "the Graph is a tab like the others"
+        );
+    }
+
+    #[test]
+    fn only_a_projects_page_has_tabs() {
+        let branch = Selection::Branch("project".into(), None);
+        assert_eq!(
+            PageState::of(Some(&branch), ProjectTab::Graph).project_tab(),
+            None,
+            "a branch's page has tabs of its own, kept in its review"
+        );
+    }
+
+    #[test]
+    fn each_tab_of_a_project_is_kept_apart() {
+        let mut kept = KeptPages::default();
+        let (row, home) = (project_row(), Tile::Home);
+        let branches = (row.clone(), home.clone(), ProjectTab::Branches);
+        kept.keep(branches.clone(), project_page(ProjectTab::Branches));
+        assert!(
+            kept.take(&(row, home, ProjectTab::History)).is_none(),
+            "another tab has a page of its own"
+        );
+        assert!(
+            kept.take(&branches).is_some(),
+            "the tab left keeps its page"
+        );
+    }
+
+    #[test]
+    fn a_projects_page_keeps_the_tab_it_was_left_on() {
+        let mut kept = KeptPages::default();
+        let key = (project_row(), Tile::Home, ProjectTab::History);
+        kept.keep(key, project_page(ProjectTab::History));
+        assert_eq!(
+            kept.tabs.get(&(project_row(), Tile::Home)),
+            Some(&ProjectTab::History),
+            "coming back shows it, as a branch's page shows the tab it was left on"
+        );
+    }
+
+    #[test]
+    fn a_page_without_tabs_keeps_no_tab() {
+        let mut kept = KeptPages::default();
+        kept.keep(
+            (commit("a"), Tile::Home, ProjectTab::default()),
+            hidden_diff(),
+        );
+        assert!(kept.tabs.is_empty(), "only a project's page has them");
+    }
+
+    #[test]
+    fn a_pinned_tab_goes_with_its_tiling() {
+        let mut kept = KeptPages::default();
+        let (from, to) = (commit("a"), commit("b"));
+        let pinned = Tile::Pinned(RowKey::Tab("project".into(), ProjectTab::Branches));
+        let key = (from.clone(), pinned.clone(), ProjectTab::Graph);
+        kept.keep(key, project_page(ProjectTab::Graph));
+        kept.move_tiling(&from, &to);
+        assert_eq!(
+            kept.tabs.get(&(to, pinned)),
+            Some(&ProjectTab::Graph),
+            "it stays on the tab it was switched to"
         );
     }
 
     #[test]
     fn a_page_comes_back_as_it_was_left() {
         let mut kept = KeptPages::default();
-        let key: PageKey = (commit("a"), Tile::Home);
+        let key: PageKey = (commit("a"), Tile::Home, ProjectTab::default());
         kept.keep(key.clone(), hidden_diff());
         assert!(is_hidden(kept.take(&key)), "as it was left");
         assert!(kept.take(&key).is_none(), "its detail has it now");
@@ -1019,9 +1188,17 @@ mod tests {
     #[test]
     fn one_row_is_kept_apart_in_each_tile_showing_it() {
         let mut kept = KeptPages::default();
-        let beside_a: PageKey = (commit("a"), Tile::Pinned(commit("x")));
-        let beside_b: PageKey = (commit("b"), Tile::Pinned(commit("x")));
-        let at_home: PageKey = (commit("x"), Tile::Home);
+        let beside_a: PageKey = (
+            commit("a"),
+            Tile::Pinned(commit("x")),
+            ProjectTab::default(),
+        );
+        let beside_b: PageKey = (
+            commit("b"),
+            Tile::Pinned(commit("x")),
+            ProjectTab::default(),
+        );
+        let at_home: PageKey = (commit("x"), Tile::Home, ProjectTab::default());
         kept.keep(beside_a.clone(), hidden_diff());
         assert!(kept.take(&beside_b).is_none(), "another tiling's tile");
         assert!(kept.take(&at_home).is_none(), "its own home tile");
@@ -1033,23 +1210,33 @@ mod tests {
         let mut kept = KeptPages::default();
         let (from, to) = (commit("a"), commit("b"));
         let pinned = Tile::Pinned(commit("x"));
-        kept.keep((from.clone(), pinned.clone()), hidden_diff());
+        kept.keep(
+            (from.clone(), pinned.clone(), ProjectTab::default()),
+            hidden_diff(),
+        );
         kept.move_tiling(&from, &to);
         assert!(
-            kept.take(&(from, pinned.clone())).is_none(),
+            kept.take(&(from, pinned.clone(), ProjectTab::default()))
+                .is_none(),
             "its row has no tiling now"
         );
-        assert!(is_hidden(kept.take(&(to, pinned))), "as it was left");
+        assert!(
+            is_hidden(kept.take(&(to, pinned, ProjectTab::default()))),
+            "as it was left"
+        );
     }
 
     #[test]
     fn a_rows_own_page_stays_as_its_tiling_goes() {
         let mut kept = KeptPages::default();
         let (from, to) = (commit("a"), commit("b"));
-        kept.keep((from.clone(), Tile::Home), hidden_diff());
+        kept.keep(
+            (from.clone(), Tile::Home, ProjectTab::default()),
+            hidden_diff(),
+        );
         kept.move_tiling(&from, &to);
         assert!(
-            is_hidden(kept.take(&(from, Tile::Home))),
+            is_hidden(kept.take(&(from, Tile::Home, ProjectTab::default()))),
             "it's still that row's"
         );
     }
@@ -1069,14 +1256,18 @@ mod tests {
     #[test]
     fn a_branchs_page_follows_its_rename() {
         let mut kept = KeptPages::default();
-        kept.keep((branch_row("old"), Tile::Home), hidden_diff());
+        kept.keep(
+            (branch_row("old"), Tile::Home, ProjectTab::default()),
+            hidden_diff(),
+        );
         kept.follow_rename(&"project".into(), Some(&branch("old")), &branch("new"));
         assert!(
-            is_hidden(kept.take(&(branch_row("new"), Tile::Home))),
+            is_hidden(kept.take(&(branch_row("new"), Tile::Home, ProjectTab::default()))),
             "it's the same row by another name"
         );
         assert!(
-            kept.take(&(branch_row("old"), Tile::Home)).is_none(),
+            kept.take(&(branch_row("old"), Tile::Home, ProjectTab::default()))
+                .is_none(),
             "nothing's left under the old name"
         );
     }
@@ -1084,10 +1275,13 @@ mod tests {
     #[test]
     fn a_stacks_page_follows_its_bottom_branchs_rename() {
         let mut kept = KeptPages::default();
-        kept.keep((stack_row("old"), Tile::Home), hidden_diff());
+        kept.keep(
+            (stack_row("old"), Tile::Home, ProjectTab::default()),
+            hidden_diff(),
+        );
         kept.follow_rename(&"project".into(), Some(&branch("old")), &branch("new"));
         assert!(
-            is_hidden(kept.take(&(stack_row("new"), Tile::Home))),
+            is_hidden(kept.take(&(stack_row("new"), Tile::Home, ProjectTab::default()))),
             "a stack goes by its bottom branch"
         );
     }
@@ -1095,17 +1289,23 @@ mod tests {
     #[test]
     fn another_projects_branch_of_that_name_stays() {
         let mut kept = KeptPages::default();
-        kept.keep((branch_row("old"), Tile::Home), hidden_diff());
+        kept.keep(
+            (branch_row("old"), Tile::Home, ProjectTab::default()),
+            hidden_diff(),
+        );
         kept.follow_rename(&"other".into(), Some(&branch("old")), &branch("new"));
         assert!(
-            is_hidden(kept.take(&(branch_row("old"), Tile::Home))),
+            is_hidden(kept.take(&(branch_row("old"), Tile::Home, ProjectTab::default()))),
             "it wasn't renamed"
         );
     }
 
     #[test]
     fn a_new_list_starts_at_its_top() {
-        let page = PageState::of(Some(&Selection::History("project".into())));
+        let page = PageState::of(
+            Some(&Selection::Project("project".into())),
+            ProjectTab::History,
+        );
         let top = page.side().and_then(|side| side.top.take());
         assert!(
             top.is_some_and(|top| top.item_ix == 0),
@@ -1116,8 +1316,10 @@ mod tests {
     #[test]
     fn pages_gone_are_forgotten() {
         let mut kept = KeptPages::default();
-        let (gone, stays): (PageKey, PageKey) =
-            ((commit("a"), Tile::Home), (commit("b"), Tile::Home));
+        let (gone, stays): (PageKey, PageKey) = (
+            (commit("a"), Tile::Home, ProjectTab::default()),
+            (commit("b"), Tile::Home, ProjectTab::default()),
+        );
         kept.keep(gone.clone(), hidden_diff());
         kept.keep(stays.clone(), hidden_diff());
         kept.retain(|key| *key != gone);

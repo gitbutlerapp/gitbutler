@@ -31,7 +31,7 @@ use crate::backend::{
     self, Agent, Branch, CommitId, CommitState, FullName, PushState, ReviewState, Workspace,
     short_ref,
 };
-use crate::state::{ProjectId, Selection, Store, StoreEvent};
+use crate::state::{ProjectId, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
@@ -240,7 +240,7 @@ struct Drag {
 pub struct GraphView {
     store: Entity<Store>,
     /// The project of the pinned tile it's drawn in, which it shows whatever's selected.
-    pinned_project: Option<ProjectId>,
+    shown: Option<ProjectId>,
     project: Option<ProjectId>,
     scene: Option<Arc<Scene>>,
     failed: Option<SharedString>,
@@ -320,19 +320,11 @@ impl GraphView {
     }
 
     /// The graph of the project selected, or with `pinned`, of that one, for a pinned tile.
-    pub fn new(store: Entity<Store>, pinned: Option<ProjectId>, cx: &mut Context<Self>) -> Self {
+    pub fn new(store: Entity<Store>, cx: &mut Context<Self>) -> Self {
         let subscriptions = Vec::from([cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),
-            // Asked for again, it goes back to how it opens.
-            StoreEvent::Reopened if this.pinned_project.is_none() => {
-                if this.selected(cx).is_some()
-                    && let Some(scene) = this.scene.clone()
-                {
-                    let to = this.opening(&scene);
-                    this.glide_to(to, cx);
-                }
-            }
             StoreEvent::Reopened
+            | StoreEvent::TabAsked(_)
             | StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)
@@ -346,9 +338,9 @@ impl GraphView {
             | StoreEvent::CommitBlocked
             | StoreEvent::RowDragEnded => {}
         })]);
-        let mut graph = GraphView {
+        GraphView {
             store,
-            pinned_project: pinned,
+            shown: None,
             project: None,
             scene: None,
             failed: None,
@@ -382,28 +374,26 @@ impl GraphView {
             scale: 1.,
             _load: Task::ready(()),
             _subscriptions: subscriptions,
-        };
-        // A pinned tile's shows at once, as nothing will be selected for it.
-        if graph.pinned_project.is_some() {
-            graph.follow(cx);
         }
-        graph
     }
 
-    /// The project whose graph is selected.
-    fn selected(&self, cx: &App) -> Option<ProjectId> {
-        if self.pinned_project.is_some() {
-            return self.pinned_project.clone();
-        }
-        let Some(Selection::Graph(project)) = &self.store.read(cx).selection else {
-            return None;
-        };
-        Some(project.clone())
+    /// Show `project`'s graph, as the detail it's in comes to its tab, or none as it leaves it.
+    pub fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
+        self.shown = project;
+        self.follow(cx);
     }
 
-    /// Show the graph selected, reading it again when the workspace has something new.
+    /// Go back to how the graph opens, as when it's asked for again.
+    pub fn go_to_opening(&mut self, cx: &mut Context<Self>) {
+        if let Some(scene) = self.scene.clone() {
+            let to = self.opening(&scene);
+            self.glide_to(to, cx);
+        }
+    }
+
+    /// Show the graph shown, reading it again when the workspace has something new.
     fn follow(&mut self, cx: &mut Context<Self>) {
-        let Some(project) = self.selected(cx) else {
+        let Some(project) = self.shown.clone() else {
             return;
         };
         if self.project.as_ref() != Some(&project) {

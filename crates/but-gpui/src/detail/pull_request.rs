@@ -15,11 +15,12 @@ use gpui::{
 use super::diff_view::pressed;
 use super::panes::{editable_title, measured, reword_editor};
 use super::{Detail, PageFold};
+use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, CheckState, Forge, FullName, Remark, Review, ReviewState};
 use crate::overlays::{MenuItem, has_keys};
 use crate::pr::{MarkReadyForReview, Mergeability, Offer};
-use crate::state::{ProjectId, Selection, snack};
+use crate::state::{ProjectId, ProjectTab, Selection, Side, snack};
 use crate::theme::Theme;
 use crate::ui::fold;
 use crate::ui::markdown;
@@ -51,10 +52,13 @@ impl Detail {
                 .find_branch(ref_name.as_ref())?
                 .review
                 .as_ref(),
-            Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
-            Selection::Project(project) if self.showing_target_commit(project, cx) => {
-                self.selected_target_commit(project)?.review.as_ref()
-            }
+            Selection::Project(project) => match self.project_tab() {
+                ProjectTab::Branches => self.selected_other_branch(project)?.review.as_ref(),
+                ProjectTab::Overview if self.showing_target_commit(project, cx) => {
+                    self.selected_target_commit(project)?.review.as_ref()
+                }
+                ProjectTab::Overview | ProjectTab::History | ProjectTab::Graph => None,
+            },
             Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
                 .upstream(ref_name.as_ref())
                 .iter()
@@ -103,27 +107,6 @@ impl Detail {
         self.tabs_focused(window) || self.project_tabs_focused(window)
     }
 
-    /// Give the keys to the tabs. Whether the page keeps them for coming back from the left
-    /// is up to how the keys next leave.
-    pub(crate) fn focus_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.tabs_kept = false;
-        window.focus(&self.tabs_focus, cx);
-        cx.notify();
-    }
-
-    /// Whether coming from the left lands on the tabs: they show the pull request, which has
-    /// nothing under it to take the keys, nor have the changes when there are none, or the keys
-    /// last went left out of them on this page.
-    pub(crate) fn tabs_reachable(&self, cx: &App) -> bool {
-        self.tabs_shown(cx)
-            && (self.page.review_tab() || self.tabs_kept || self.without_changes(cx))
-    }
-
-    /// Keep the tabs for coming back from the left, or forget them.
-    pub(crate) fn keep_tabs(&mut self, kept: bool) {
-        self.tabs_kept = kept;
-    }
-
     /// ← or → on the tabs: the tab on that side, if there is one. Says whether there was.
     pub(crate) fn step_tab(
         &mut self,
@@ -150,72 +133,19 @@ impl Detail {
             }
     }
 
-    /// ↑ on either tabs: from the Changes and pull request tabs beside a list page's list, up
-    /// to the project's tabs over them, and otherwise it stays there, nothing being over them.
-    /// Says whether the tabs had the keys.
-    pub(super) fn up_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.tabs_focused(window) && self.list_page() {
-            self.up_to_project_tabs(window, cx);
-        }
-        self.on_tabs(window)
-    }
-
-    /// ↑ on the tabs goes on from them, and from the top of the files under them, the commit's
-    /// message where it's listed, goes up to them, as it does from the top of the diff. Says
-    /// whether it did either.
-    pub(super) fn up_to_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.up_from_tabs(window, cx) {
-            return true;
-        }
-        self.files_focus.is_focused(window)
-            && self.on_first_entry(cx)
-            && self.up_past_top(window, cx)
-    }
-
-    /// ↑ out of the top of the files or the diff: to the Changes and pull request tabs over
-    /// them, or on a list page without those, to the project's. Says whether tabs are over them.
-    pub(super) fn up_past_top(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.tabs_shown(cx) {
-            self.focus_tabs(window, cx);
-            return true;
-        }
-        if self.list_page() {
-            self.up_to_project_tabs(window, cx);
-        }
-        self.list_page()
-    }
-
-    /// ↓ from the tabs: down to the files under Changes, the file list or the files beside a
-    /// list page's list, or the diff while they're hidden. The pull request's tab has nothing
-    /// under it to take the keys, nor has a page without changes. From a project's tabs, back
-    /// to what ↑ came from, else down to the page's list, which the Graph hasn't. Says whether
-    /// the tabs had them.
-    pub(super) fn down_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.project_tabs_focused(window) {
-            let from = self.project_tabs_from.take();
-            match from.filter(|from| self.takes_keys_back(from, cx)) {
-                Some(from) => {
-                    window.focus(&from, cx);
-                    cx.notify();
-                }
-                None if self.list_page() => self.focus_files(window, cx),
-                None => {}
-            }
-            return true;
-        }
-        if !self.tabs_focus.is_focused(window) {
-            return false;
-        }
-        match (
-            self.page.review_tab() || self.without_changes(cx),
-            self.list_page(),
-        ) {
-            (true, _) => {}
-            (false, true) if self.beside_files_shown(cx) => self.focus_beside_files(window, cx),
-            (false, true) => self.focus(window, cx),
-            (false, false) => self.focus_files(window, cx),
-        }
-        true
+    /// The keys either row of tabs takes: ↑ and ↓ go on from them.
+    pub(super) fn tab_keys(&self, el: Div, cx: &Context<Self>) -> Div {
+        el.key_context("Tabs")
+            .on_action(
+                cx.listener(|this, _: &SelectNext, window, cx| {
+                    this.leave(Side::Bottom, window, cx)
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &SelectPrevious, window, cx| {
+                    this.leave(Side::Top, window, cx)
+                }),
+            )
     }
 
     /// The selected branch and its pull request, while the tab shows it open or a draft: what
@@ -479,7 +409,7 @@ impl Detail {
         let solid = has_keys(&self.tabs_focus, window, cx);
         h_flex()
             .track_focus(&self.tabs_focus)
-            .key_context("Tabs")
+            .map(|el| self.tab_keys(el, cx))
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
             .child(

@@ -1484,9 +1484,6 @@ fn commits_selected(store: &Store) -> Option<(ProjectId, Moving)> {
         | Selection::Stack(..)
         | Selection::Upstream(..)
         | Selection::Section(..)
-        | Selection::Branches(_)
-        | Selection::History(_)
-        | Selection::Graph(_)
         | Selection::Terminal(..)
         | Selection::Mesh(..) => None,
     }

@@ -16,7 +16,7 @@ use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewSta
 use crate::detail::{DiscardHunk, NextFile, NextHunk};
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Cut, Part, ProjectId, SLOW, Section, Selection};
+use crate::state::{Cut, Part, ProjectId, ProjectTab, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Op, Transfer};
 use crate::ui::{
@@ -474,6 +474,7 @@ impl AppView {
                             text,
                             tip,
                             to,
+                            tab: None,
                         }
                     }),
             );
@@ -496,6 +497,7 @@ impl AppView {
                     text,
                     tip: "Show the worktree",
                     to: Selection::Checkout(project.clone(), first.clone()),
+                    tab: None,
                 });
             }
             let unread: Vec<CommitId> = (workspace.lanes.iter())
@@ -514,6 +516,7 @@ impl AppView {
                     text: format!("{} unread", unread.len()),
                     tip: "Read the first one",
                     to: Selection::Commit(project.clone(), *first),
+                    tab: None,
                 });
             }
         }
@@ -521,7 +524,8 @@ impl AppView {
         // history lists it first.
         if let Some((done_in, said, at)) = store.last_done()
             && store.project(done_in).is_some()
-            && shown != Some(&Selection::History(done_in.clone()))
+            && (shown != Some(&Selection::Project(done_in.clone()))
+                || self.detail.read(cx).project_tab() != ProjectTab::History)
         {
             notes.push(Note {
                 id: "last-done",
@@ -531,7 +535,8 @@ impl AppView {
                 color: None,
                 text: format!("{said}{} · {}", store.in_project(done_in), ago(at / 1000)),
                 tip: "Show the operations history",
-                to: Selection::History(done_in.clone()),
+                to: Selection::Project(done_in.clone()),
+                tab: Some(ProjectTab::History),
             });
         }
         // Each a whole line's height, so what wraps to a second line is out of sight. Pulled
@@ -543,15 +548,16 @@ impl AppView {
             .flex_wrap()
             .overflow_hidden()
             .children(notes.into_iter().map(|note| {
-                let to = note.to;
+                let (to, tab) = (note.to, note.tab);
                 clickable(note.id, &note.text, theme)
                     .when_some(note.color, |el, color| el.text_color(color))
                     .child(note.mark)
                     .child(note.text)
                     .tooltip(Tooltip::text(note.tip))
-                    .on_click(
-                        cx.listener(move |this, _, window, cx| this.select(to.clone(), window, cx)),
-                    )
+                    .on_click(cx.listener(move |this, _, window, cx| match tab {
+                        Some(tab) => this.open_project_tab(to.project().clone(), tab, window, cx),
+                        None => this.select(to.clone(), window, cx),
+                    }))
             }))
             .into_any_element()
     }
@@ -566,6 +572,8 @@ struct Note {
     text: String,
     tip: &'static str,
     to: Selection,
+    /// Which tab of the project `to` is, on one.
+    tab: Option<ProjectTab>,
 }
 
 /// What kind of thing needs the user, which says how the bar marks it.

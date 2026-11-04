@@ -302,6 +302,16 @@
       "enter": "diff::WriteMessage"
     }
   },
+  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
+  {
+    "context": "Tabs && !TextInput",
+    "bindings": {
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious"
+    }
+  },
   // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
   // keymap folds them, the arrows last so menus show them. Return folds or unfolds as in the
   // navigator, the People card under a list too; on Operations history, where nothing folds,

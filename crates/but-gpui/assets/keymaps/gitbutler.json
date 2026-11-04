@@ -400,6 +400,16 @@
       "s": "diff::ToggleSplit"
     }
   },
+  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
+  {
+    "context": "Tabs && !TextInput",
+    "bindings": {
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious"
+    }
+  },
   // The History and Branches lists step, jump and fold as the navigator does, the arrows last
   // so menus show them.
   {

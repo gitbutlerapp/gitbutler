@@ -23,7 +23,7 @@ use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Part, ProjectId, Section, Selection};
+use crate::state::{Part, ProjectId, ProjectTab, Section, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -126,7 +126,23 @@ impl Detail {
                 }
             };
             match selection {
-                Selection::Project(project) => self.upstream_crumbs(project, &mut crumbs, cx),
+                Selection::Project(project) => match self.project_tab() {
+                    ProjectTab::Overview => self.upstream_crumbs(project, &mut crumbs, cx),
+                    ProjectTab::Branches => {
+                        crumbs.push(("Branches".into(), Some(CrumbTo::OpeningOfTab)));
+                        self.branches_crumbs(project, &mut crumbs);
+                    }
+                    ProjectTab::Graph => crumbs.push(("Graph".into(), None)),
+                    // Then the operation picked, as the Branches page names its branch.
+                    ProjectTab::History => {
+                        let operation = self.selected_operation(project);
+                        let back = operation.map(|_| CrumbTo::OpeningOfTab);
+                        crumbs.push(("Operations history".into(), back));
+                        if let Some(operation) = operation {
+                            crumbs.push((operation.title.clone().into(), None));
+                        }
+                    }
+                },
                 Selection::Terminal(project, id) => {
                     if let Some(checkout) = store.terminals.checkout_of(selection) {
                         let name = checkout
@@ -165,10 +181,6 @@ impl Detail {
                     crumbs.push(heading(selection));
                     crumbs.push((name.into_owned().into(), None));
                 }
-                Selection::Branches(project) => {
-                    crumbs.push(("Branches".into(), Some(selection.clone().into())));
-                    self.branches_crumbs(project, &mut crumbs);
-                }
                 Selection::Mesh(project, id, pick) => {
                     machine::mesh_crumbs(store, project, id, pick, &mut crumbs)
                 }
@@ -178,16 +190,6 @@ impl Detail {
                         .map_or(0, |lane| lane.branches.len());
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
-                }
-                Selection::Graph(_) => crumbs.push(("Graph".into(), None)),
-                // Then the operation picked, as the Branches page names its branch.
-                Selection::History(project) => {
-                    let operation = self.selected_operation(project);
-                    let back = operation.map(|_| selection.clone().into());
-                    crumbs.push(("Operations history".into(), back));
-                    if let Some(operation) = operation {
-                        crumbs.push((operation.title.clone().into(), None));
-                    }
                 }
                 Selection::Section(project, section) => {
                     let label = match section {
@@ -231,9 +233,9 @@ impl Detail {
                         }
                         None => {
                             let name = workspace.and_then(|ws| ws.target_name());
-                            let page = Selection::Project(project.clone());
+                            let page = CrumbTo::Tab(project.clone(), ProjectTab::Overview);
                             let name = name.unwrap_or("Target".into()).into_owned();
-                            crumbs.push((name.into(), Some(page.into())));
+                            crumbs.push((name.into(), Some(page)));
                         }
                     }
                     // A commit a merge brought in, after the merge, as the project's page has it.
@@ -332,6 +334,19 @@ impl Detail {
                                                         },
                                                     )
                                                 }
+                                                CrumbTo::Tab(project, tab) => {
+                                                    let (project, tab) = (project.clone(), *tab);
+                                                    this.app.update_later(
+                                                        window,
+                                                        cx,
+                                                        move |app, window, cx| {
+                                                            app.open_project_tab(
+                                                                project, tab, window, cx,
+                                                            )
+                                                        },
+                                                    )
+                                                }
+                                                CrumbTo::OpeningOfTab => this.reopen_tab(cx),
                                                 CrumbTo::OtherBranch(ref_name) => this
                                                     .select_other_branch(
                                                         Some(ref_name.clone()),
@@ -943,15 +958,16 @@ impl Detail {
         let behind = ws.target.as_ref().filter(|_| ref_name.is_none());
         let more = behind.map_or(0, |target| target.behind.saturating_sub(listed.len()));
         let more = (more > 0).then(|| {
-            let page = Selection::Project(project.clone());
-            self.open_link(
-                "upstream-more",
-                format!("{more} more on its page"),
-                page,
-                theme,
-            )
-            .text_size(dp(13.))
-            .text_color(theme.text_2)
+            let (app, project) = (self.app.clone(), project.clone());
+            self.link("upstream-more", format!("{more} more on its page"), theme)
+                .on_click(move |_, window, cx| {
+                    let project = project.clone();
+                    app.update_later(window, cx, move |app, window, cx| {
+                        app.open_project_tab(project, ProjectTab::Overview, window, cx)
+                    });
+                })
+                .text_size(dp(13.))
+                .text_color(theme.text_2)
         });
         let commits = v_flex()
             .max_w(dp(MESSAGE_WIDTH))
@@ -1001,6 +1017,21 @@ impl Detail {
         theme: &Theme,
     ) -> Stateful<Div> {
         let app = self.app.clone();
+        self.link(id, label, theme).on_click(move |_, window, cx| {
+            let at = at.clone();
+            app.update_later(window, cx, move |app, window, cx| {
+                app.select(at, window, cx)
+            });
+        })
+    }
+
+    /// Text that looks like a link, for a caller to say where it goes.
+    fn link(
+        &self,
+        id: &'static str,
+        label: impl Into<SharedString>,
+        theme: &Theme,
+    ) -> Stateful<Div> {
         let hover = theme.hover();
         div()
             .id(id)
@@ -1010,12 +1041,6 @@ impl Detail {
             .rounded(dp(4.))
             .hover(move |el| el.bg(hover))
             .child(label.into())
-            .on_click(move |_, window, cx| {
-                let at = at.clone();
-                app.update_later(window, cx, move |app, window, cx| {
-                    app.select(at, window, cx)
-                });
-            })
     }
 
     /// Under the commit's message filling the pane, the files it changes, as the file list
@@ -1537,6 +1562,10 @@ pub(super) type Crumb = (SharedString, Option<CrumbTo>);
 /// Where clicking a crumb goes: what it names, selected, or picked on the page shown.
 pub(super) enum CrumbTo {
     Select(Selection),
+    /// A project's page, on that tab.
+    Tab(ProjectId, ProjectTab),
+    /// Back to how the tab shown opens.
+    OpeningOfTab,
     /// On the Branches page, the branch over the commit of it picked.
     OtherBranch(FullName),
     /// On a project's page, the merge over the commit of it shown.
@@ -2009,8 +2038,8 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, ↑ from its
-    /// top going up to the project's tabs, gg and G to either end, ⇧→ and ⇧← `fold` what's
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, going on
+    /// from its ends to what's over and under it, gg and G to either end, ⇧→ and ⇧← `fold` what's
     /// selected, on a page whose rows fold, and Return does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
     /// The TUI's keymap has Return `toggle` what's selected where rows fold, and `confirm`
     /// it only where they don't.
@@ -2026,12 +2055,14 @@ impl Detail {
             .size_full()
             .track_focus(&self.side_focus)
             .key_context("List")
-            .on_action(cx.listener(move |this, _: &SelectNext, _, cx| {
-                step(this, 1, cx);
+            .on_action(cx.listener(move |this, _: &SelectNext, window, cx| {
+                if !step(this, 1, cx) {
+                    this.leave(Side::Bottom, window, cx)
+                }
             }))
             .on_action(cx.listener(move |this, _: &SelectPrevious, window, cx| {
                 if !step(this, -1, cx) {
-                    this.up_to_project_tabs(window, cx)
+                    this.leave(Side::Top, window, cx)
                 }
             }))
             .on_action(cx.listener(move |this, _: &SelectFirst, _, cx| {

@@ -497,11 +497,7 @@ impl Navigator {
             }
             Selection::Mesh(..) => self.mesh_menu(target, cx),
             // The rows list a stack's branches, not the stack.
-            Selection::Stack(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
-            | Selection::Section(..) => Vec::new(),
+            Selection::Stack(..) | Selection::Section(..) => Vec::new(),
         }
     }
 }

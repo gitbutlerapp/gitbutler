@@ -20,8 +20,8 @@ use crate::commands::{COMMANDS, Command};
 use crate::navigator::{lists_changes, mesh_choices, mesh_heading_choice, worktrees_listed};
 use crate::overlays::backdrop;
 use crate::state::{
-    Axis, Notice, ProjectEntry, ProjectId, Section, SectionKind, Selection, SelectionKind, Store,
-    Tile, snack,
+    Axis, Notice, ProjectEntry, ProjectId, ProjectTab, RowKey, Section, SectionKind, Selection,
+    SelectionKind, Store, Tile, snack,
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -66,6 +66,7 @@ pub struct Choice {
     /// at once rather than once the keys are drawn back where they were, so its `run` must
     /// dispatch no action, which would miss the handlers registered only there.
     goes_to: Option<Selection>,
+    pins: Option<RowKey>,
     run: Run,
 }
 
@@ -77,6 +78,7 @@ impl Choice {
         Self {
             icon: None,
             label: label.into(),
+            pins: None,
             aliases: &[],
             phrase: None,
             key: None,
@@ -132,6 +134,12 @@ impl Choice {
             self.ids.push(commit.key.clone().into());
         }
         self.commit_id(commit.id)
+    }
+
+    /// What it pins beside the selected row, rather than the row it goes to.
+    pub(crate) fn pins(mut self, row: RowKey) -> Choice {
+        self.pins = Some(row);
+        self
     }
 
     pub(crate) fn goes_to(mut self, selection: Selection) -> Choice {
@@ -406,9 +414,6 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::Uncommitted(..)
         | Selection::Upstream(..)
         | Selection::Mesh(..)
-        | Selection::Branches(_)
-        | Selection::History(_)
-        | Selection::Graph(_)
         | Selection::Stack(..)
         | Selection::Section(..)
         | Selection::Terminal(..) => {}
@@ -436,6 +441,31 @@ fn project_choice(entry: &ProjectEntry) -> Choice {
     choice
         .icon(Icon::Repo)
         .goes_to(Selection::Project(entry.id.clone()))
+        .pins(RowKey::Tab(entry.id.clone(), ProjectTab::Overview))
+}
+
+/// Go to a tab of a project's page, which beside the project's own row pins on that tab.
+fn tab_choice(
+    entry: &ProjectEntry,
+    tab: ProjectTab,
+    label: &'static str,
+    icon: Icon,
+    several: bool,
+) -> Choice {
+    let gone = format!("{} was removed meanwhile", entry.project.name);
+    let id = entry.id.clone();
+    let choice = Choice::new(label, move |this, window, cx| {
+        if this.store.read(cx).project(&id).is_none() {
+            return snack(&this.store, gone, cx);
+        }
+        this.open_project_tab(id, tab, window, cx)
+    });
+    let project = several.then_some(entry.project.name.as_str());
+    choice
+        .icon(icon)
+        .details(project)
+        .goes_to(Selection::Project(entry.id.clone()))
+        .pins(RowKey::Tab(entry.id.clone(), tab))
 }
 
 /// Go to anything's rows of `kind`, as the navigator lists them in the projects `open`. There's
@@ -448,16 +478,20 @@ fn kind_choices(
     let several = open.len() > 1;
     // Not while a commit is checked out, which the navigator hides most rows for.
     let unedited = || (open.iter()).filter(|(_, workspace)| workspace.editing.is_none());
-    let page = |page: fn(ProjectId) -> Selection, label, icon| {
-        unedited()
-            .map(|(entry, _)| page_choice(entry, page(entry.id.clone()), label, icon, several))
-            .collect()
-    };
     match kind {
-        SelectionKind::Project => store.projects.iter().map(project_choice).collect(),
-        SelectionKind::Branches => page(Selection::Branches, "Branches", Icon::Branch),
-        SelectionKind::History => page(Selection::History, "Operations history", Icon::Clock),
-        SelectionKind::Graph => page(Selection::Graph, "Graph", Icon::Fork),
+        SelectionKind::Project => {
+            let tabs = [
+                (ProjectTab::Branches, "Branches", Icon::Branch),
+                (ProjectTab::History, "Operations history", Icon::Clock),
+                (ProjectTab::Graph, "Graph", Icon::Fork),
+            ];
+            let tabs = tabs.into_iter().flat_map(|(tab, label, icon)| {
+                unedited().map(move |(entry, _)| tab_choice(entry, tab, label, icon, several))
+            });
+            (store.projects.iter().map(project_choice))
+                .chain(tabs)
+                .collect()
+        }
         SelectionKind::Section => (SectionKind::iter())
             .flat_map(|section| {
                 (open.iter()).flat_map(move |(entry, workspace)| {
@@ -1110,7 +1144,8 @@ impl AppView {
         })
         .icon(Icon::TextCode);
         let rest = go_to_choices(store).into_iter().filter_map(|choice| {
-            let pinned = store.row_key(choice.goes_to.as_ref()?);
+            let pinned =
+                (choice.pins.clone()).or_else(|| Some(store.row_key(choice.goes_to.as_ref()?)))?;
             if pinned == row || shown.contains(&pinned) {
                 return None;
             }

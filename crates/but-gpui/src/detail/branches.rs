@@ -38,7 +38,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
 use crate::edits::{CherryPick, DeleteBranch};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, Selection, Store};
+use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, ProjectTab, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::Moving;
 use crate::ui::illustration::Illustration;
@@ -291,8 +291,7 @@ impl Detail {
             let result = backend::run(move || branches::all_branches(&path)).await;
             this.update(cx, |this, cx| {
                 // When read for the project page's count, that page stays as it is.
-                let shown =
-                    matches!(this.selection(), Some(Selection::Branches(p)) if p == project);
+                let shown = this.on_tab(ProjectTab::Branches).as_ref() == Some(&project);
                 let mut all = match result {
                     Ok(all) => all,
                     // Said in place of the list, which comes back as it was once a read on a
@@ -351,15 +350,15 @@ impl Detail {
 
     /// The branches of the Branches page selected.
     fn page_branches(&self) -> Option<&Branches> {
-        match self.selection() {
-            Some(Selection::Branches(project)) => self.branches_for(&project),
+        match self.on_tab(ProjectTab::Branches) {
+            Some(project) => self.branches_for(&project),
             _ => None,
         }
     }
 
     fn page_branches_mut(&mut self) -> Option<&mut Branches> {
-        match self.selection() {
-            Some(Selection::Branches(project)) => self
+        match self.on_tab(ProjectTab::Branches) {
+            Some(project) => self
                 .branches
                 .get_mut(&project)
                 .filter(|b| b.failed.is_none()),
@@ -385,8 +384,8 @@ impl Detail {
 
     /// Whether the Branches page shows its overview beside the list, with no branch opened.
     pub(crate) fn showing_branches_overview(&self) -> bool {
-        match self.selection() {
-            Some(Selection::Branches(project)) => self
+        match self.on_tab(ProjectTab::Branches) {
+            Some(project) => self
                 .branches_for(&project)
                 .is_none_or(|b| b.selected.is_none()),
             _ => false,
@@ -396,8 +395,8 @@ impl Detail {
     /// Esc on the Branches page with a branch opened: back to the overview, whether it did. The
     /// app, which Esc is handled in, redraws for the diff that goes.
     pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
-        let opened = matches!(&self.selection(),
-            Some(Selection::Branches(project)) if self.selected_other_branch(project).is_some());
+        let opened = (self.on_tab(ProjectTab::Branches))
+            .is_some_and(|project| self.selected_other_branch(&project).is_some());
         if opened {
             self.select_other_branch(None, cx);
         }
@@ -1063,7 +1062,7 @@ impl Detail {
 
     /// Return on the list: apply the selected branch, as its menu's Apply does.
     fn apply_selected_branch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Branches(project)) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::Branches) else {
             return;
         };
         if let Some(ref_name) = (self.selected_other_branch(&project)).map(|b| b.ref_name.clone()) {
@@ -1093,7 +1092,7 @@ impl Detail {
         let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
         let (title, at) = (
             format!("Apply {name}?"),
-            Selection::Branches(project.clone()),
+            Selection::Project(project.clone()),
         );
         let (project, selected) = (project.clone(), project.clone());
         let (freeing, ask) = (
@@ -1157,7 +1156,7 @@ impl Detail {
         let detail = cx.entity().downgrade();
         self.app.update_later(window, cx, move |app, window, cx| {
             app.confirm_then(
-                Some(Selection::Branches(project.clone())),
+                Some(Selection::Project(project.clone())),
                 format!("Delete branch {name}?"),
                 "Its commits go too, unless a remote has them. Undo can't bring back a branch \
                  outside the workspace.",
@@ -1579,7 +1578,7 @@ impl Detail {
         el: Stateful<Div>,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let Some(Selection::Branches(project)) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::Branches) else {
             return el;
         };
         let opened = self.selected_other_branch(&project);

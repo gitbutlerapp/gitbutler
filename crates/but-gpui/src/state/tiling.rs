@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use but_tty::Status;
 use gpui::{Context, Entity};
 
-use super::{ProjectId, Selection, Store, StoreEvent};
+use super::{ProjectId, ProjectTab, Selection, Store, StoreEvent};
 use crate::backend::Checkout;
 use crate::terminal::{Terminal, TerminalId};
 
@@ -16,6 +16,9 @@ use crate::terminal::{Terminal, TerminalId};
 pub enum RowKey {
     Commit(ProjectId, String),
     Row(Selection),
+    /// A project's page pinned on a tab, so it can sit beside its own row. It's what the tile
+    /// opened on: its tabs go on working there.
+    Tab(ProjectId, ProjectTab),
 }
 
 /// Which way a division lays out its parts.
@@ -55,6 +58,70 @@ pub struct Area {
     pub top: f32,
     pub width: f32,
     pub height: f32,
+}
+
+/// How far apart, in shares of the room, two edges can be and still count as the same edge, as
+/// shares added up differently rarely land on quite the same place.
+const SAME_EDGE: f32 = 1e-4;
+
+/// Those of `places` nearest `from` on `side`, each with how much of `from` it's level with, in
+/// their order. None past the edge of the room, nor beside something with nothing level with it
+/// there. Tiles and a page's panes both go by this.
+pub fn nearest_beside<'a, T: PartialEq>(
+    places: &'a [(T, Area)],
+    from: &T,
+    side: Side,
+) -> Vec<(&'a T, f32)> {
+    let Some((_, at)) = places.iter().find(|(place, _)| place == from) else {
+        return Vec::new();
+    };
+    let beside: Vec<(&T, f32, f32)> = (places.iter())
+        .filter_map(|(place, area)| {
+            let gap = match side {
+                Side::Left => at.left - (area.left + area.width),
+                Side::Right => area.left - (at.left + at.width),
+                Side::Top => at.top - (area.top + area.height),
+                Side::Bottom => area.top - (at.top + at.height),
+            };
+            let level = match side.axis() {
+                Axis::Across => {
+                    (at.top + at.height).min(area.top + area.height) - at.top.max(area.top)
+                }
+                Axis::Down => {
+                    (at.left + at.width).min(area.left + area.width) - at.left.max(area.left)
+                }
+            };
+            (gap > -SAME_EDGE && level > SAME_EDGE).then_some((place, gap, level))
+        })
+        .collect();
+    let nearest = (beside.iter()).fold(f32::INFINITY, |nearest, (_, gap, _)| nearest.min(*gap));
+    (beside.into_iter())
+        .filter(|(_, gap, _)| *gap < nearest + SAME_EDGE)
+        .map(|(place, _, level)| (place, level))
+        .collect()
+}
+
+/// Those of `places` along their edge on `side`, in their order.
+pub fn along_edge<T>(places: &[(T, Area)], side: Side) -> Vec<&T> {
+    let inset = |area: &Area| match side {
+        Side::Left => area.left,
+        Side::Right => -(area.left + area.width),
+        Side::Top => area.top,
+        Side::Bottom => -(area.top + area.height),
+    };
+    let edge = (places.iter()).fold(f32::INFINITY, |edge, (_, area)| edge.min(inset(area)));
+    (places.iter())
+        .filter(|(_, area)| inset(area) < edge + SAME_EDGE)
+        .map(|(place, _)| place)
+        .collect()
+}
+
+/// The tile on `side` of `from`, of `tiles`, as [`Tiling::areas`] lists them: of those nearest,
+/// the one most level with it, the first listed if two are.
+pub fn tile_beside(tiles: &[(Tile, Area)], from: &Tile, side: Side) -> Option<Tile> {
+    (nearest_beside(tiles, from, side).into_iter())
+        .min_by(|(_, a), (_, b)| b.total_cmp(a))
+        .map(|(tile, _)| tile.clone())
 }
 
 /// A gap between cards being dragged: between two tiles, by their division's path and the
@@ -280,7 +347,7 @@ impl Side {
         matches!(self, Side::Right | Side::Bottom)
     }
 
-    fn opposite(self) -> Side {
+    pub fn opposite(self) -> Side {
         match self {
             Side::Left => Side::Right,
             Side::Right => Side::Left,
@@ -1395,6 +1462,7 @@ impl Store {
     pub fn selection_of(&self, row: &RowKey) -> Option<Selection> {
         match row {
             RowKey::Row(selection) => Some(selection.clone()),
+            RowKey::Tab(project, _) => Some(Selection::Project(project.clone())),
             RowKey::Commit(project, key) => {
                 let workspace = self.workspace(project)?;
                 let commit = (workspace.all_branches())
@@ -1641,9 +1709,8 @@ impl Store {
         if self.tilings.is_empty() {
             return own;
         }
-        let pages = pages_of_row(selection);
-        let tilings = (pages.iter()).filter_map(|page| self.tilings.get(&self.row_key(page)));
-        let pinned = tilings.flat_map(Tiling::pinned_terminals);
+        let tiling = self.tilings.get(&self.row_key(selection));
+        let pinned = tiling.into_iter().flat_map(Tiling::pinned_terminals);
         let statuses = pinned.filter_map(|id| self.terminals.status(id));
         Status::most_urgent(own.into_iter().chain(statuses))
     }
@@ -1790,31 +1857,6 @@ impl Store {
     }
 }
 
-/// The pages whose tilings `selection`'s row answers for: its own, and a project's tabs, which
-/// have no rows of their own.
-fn pages_of_row(selection: &Selection) -> Vec<Selection> {
-    match selection {
-        Selection::Project(project) => Vec::from([
-            selection.clone(),
-            Selection::Branches(project.clone()),
-            Selection::History(project.clone()),
-            Selection::Graph(project.clone()),
-        ]),
-        Selection::Branch(..)
-        | Selection::Branches(_)
-        | Selection::History(_)
-        | Selection::Graph(_)
-        | Selection::Section(..)
-        | Selection::Checkout(..)
-        | Selection::Uncommitted(..)
-        | Selection::Terminal(..)
-        | Selection::Stack(..)
-        | Selection::Commit(..)
-        | Selection::Upstream(..)
-        | Selection::Mesh(..) => Vec::from([selection.clone()]),
-    }
-}
-
 /// The tile of `row`'s tiling that shows `shown`: its home tile, showing the row itself.
 fn tile_showing(row: &RowKey, shown: &RowKey) -> Tile {
     match shown == row {
@@ -1838,6 +1880,186 @@ mod tests {
             width,
             height,
         }
+    }
+
+    #[test]
+    fn the_tile_beside_is_on_that_side() {
+        let (left, right) = (Tile::Home, Tile::Pinned(terminal(1)));
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (right.clone(), area(0.5, 0., 0.5, 1.)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right),
+            Some(right.clone()),
+            "the pinned tile is right of the home one"
+        );
+        assert_eq!(
+            tile_beside(&tiles, &right, Side::Left),
+            Some(left),
+            "the home tile is left of the pinned one"
+        );
+    }
+
+    #[test]
+    fn no_tile_is_past_the_edge_of_the_room() {
+        let (left, right) = (Tile::Home, Tile::Pinned(terminal(1)));
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (right.clone(), area(0.5, 0., 0.5, 1.)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Left),
+            None,
+            "the navigator is left of the leftmost tile, not another tile"
+        );
+        assert_eq!(
+            tile_beside(&tiles, &right, Side::Right),
+            None,
+            "the keys stop at the window's edge"
+        );
+    }
+
+    #[test]
+    fn a_tile_stacked_over_another_has_none_beside_it() {
+        let (top, bottom) = (Tile::Home, Tile::Pinned(terminal(1)));
+        let tiles = [
+            (top.clone(), area(0., 0., 1., 0.5)),
+            (bottom, area(0., 0.5, 1., 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &top, Side::Right),
+            None,
+            "the tile under it isn't to its right"
+        );
+    }
+
+    #[test]
+    fn the_tile_beside_is_the_one_most_level_with_it() {
+        let (left, upper, lower) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0.25, 0.5, 0.75)),
+            (upper, area(0.5, 0., 0.5, 0.5)),
+            (lower.clone(), area(0.5, 0.5, 0.5, 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right),
+            Some(lower),
+            "it shares more of its height with the lower tile on its right"
+        );
+    }
+
+    #[test]
+    fn the_first_of_two_as_level_is_beside() {
+        let (left, upper, lower) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (upper.clone(), area(0.5, 0., 0.5, 0.5)),
+            (lower, area(0.5, 0.5, 0.5, 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right),
+            Some(upper),
+            "both span half its height, so the one listed first goes"
+        );
+    }
+
+    #[test]
+    fn the_nearest_tile_is_beside_not_one_past_it() {
+        let (left, middle, right) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0., 0.25, 1.)),
+            (middle.clone(), area(0.25, 0., 0.25, 0.5)),
+            (right, area(0.5, 0., 0.5, 1.)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right),
+            Some(middle),
+            "the right tile is more level with it, but past the one next to it"
+        );
+    }
+
+    #[test]
+    fn edges_a_rounding_apart_count_as_the_same() {
+        let (left, right) = (Tile::Home, Tile::Pinned(terminal(1)));
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (right.clone(), area(0.499_999, 0., 0.5, 1.)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right),
+            Some(right),
+            "shares that add up differently don't leave the tiles overlapping"
+        );
+    }
+
+    #[test]
+    fn the_tile_under_another_is_beside_it_going_down() {
+        let (top, bottom) = (Tile::Home, Tile::Pinned(terminal(1)));
+        let tiles = [
+            (top.clone(), area(0., 0., 1., 0.5)),
+            (bottom.clone(), area(0., 0.5, 1., 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &top, Side::Bottom),
+            Some(bottom.clone()),
+            "the pinned tile is under the home one"
+        );
+        assert_eq!(
+            tile_beside(&tiles, &bottom, Side::Top),
+            Some(top),
+            "the home tile is over the pinned one"
+        );
+    }
+
+    #[test]
+    fn nothing_is_beside_what_the_places_dont_hold() {
+        let tiles = [(Tile::Home, area(0., 0., 1., 1.))];
+        assert!(
+            nearest_beside(&tiles, &Tile::Pinned(terminal(1)), Side::Right).is_empty(),
+            "a tile not listed has no place to be beside anything from"
+        );
+    }
+
+    #[test]
+    fn along_an_edge_are_all_that_reach_it() {
+        let (left, upper, lower) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (upper.clone(), area(0.5, 0., 0.5, 0.5)),
+            (lower.clone(), area(0.5, 0.5, 0.5, 0.5)),
+        ];
+        assert_eq!(
+            along_edge(&tiles, Side::Left),
+            [&left],
+            "only the left tile reaches the left edge"
+        );
+        assert_eq!(
+            along_edge(&tiles, Side::Right),
+            [&upper, &lower],
+            "both stacked tiles reach the right edge, in their order"
+        );
+        assert_eq!(
+            along_edge(&tiles, Side::Bottom),
+            [&left, &lower],
+            "the left tile is as tall as the room"
+        );
     }
 
     #[test]
@@ -3254,31 +3476,6 @@ mod tests {
             tiling.pinned_terminals().collect::<Vec<_>>(),
             Vec::from([TerminalId(1)]),
             "a branch's page has no status to show"
-        );
-    }
-
-    #[test]
-    fn a_projects_row_answers_for_its_tabs() {
-        let project = Selection::Project("project".into());
-        assert_eq!(
-            pages_of_row(&project),
-            Vec::from([
-                project.clone(),
-                Selection::Branches("project".into()),
-                Selection::History("project".into()),
-                Selection::Graph("project".into()),
-            ]),
-            "they're pages of its card, with no rows of their own"
-        );
-    }
-
-    #[test]
-    fn a_terminals_row_answers_for_its_own_page_alone() {
-        let row = Selection::Terminal("project".into(), TerminalId(1));
-        assert_eq!(
-            pages_of_row(&row),
-            Vec::from([row.clone()]),
-            "it has a row, so nothing else stands for it"
         );
     }
 }

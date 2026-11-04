@@ -18,7 +18,7 @@ actions!(history, [RestoreOperation]);
 use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Overlay, ProjectId, Selection};
+use crate::state::{Overlay, ProjectId, ProjectTab, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::text_input::TextInput;
@@ -391,8 +391,8 @@ impl Detail {
 
     /// The operations of the History page selected.
     fn page_history(&self) -> Option<&History> {
-        match self.selection() {
-            Some(Selection::History(project)) => self.history_for(&project),
+        match self.on_tab(ProjectTab::History) {
+            Some(project) => self.history_for(&project),
             _ => None,
         }
     }
@@ -410,7 +410,7 @@ impl Detail {
     }
 
     fn select_operation(&mut self, id: SnapshotId, cx: &mut Context<Self>) {
-        let Some(Selection::History(project)) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::History) else {
             return;
         };
         let Some(history) = self.history.get_mut(&project) else {
@@ -484,8 +484,8 @@ impl Detail {
             && history.operations.len() < READ_FOR_FILTER
             && self.page.operations_hidden() < Group::ALL.len()
             && self.shown_operations(history, cx).is_empty();
-        match (reads, self.selection()) {
-            (true, Some(Selection::History(project))) => {
+        match (reads, self.on_tab(ProjectTab::History)) {
+            (true, Some(project)) => {
                 self.load_history(&project, true, cx);
                 true
             }
@@ -549,7 +549,7 @@ impl Detail {
     /// Return on the list: restore to before the selected operation, after asking, as its
     /// menu's Restore does.
     fn restore_selected_operation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::History(project)) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::History) else {
             return;
         };
         if let Some(id) = self.selected_operation(&project).map(|op| op.id) {
@@ -576,7 +576,7 @@ impl Detail {
         let project = project.clone();
         self.app.update_later(window, cx, move |app, window, cx| {
             app.confirm_then(
-                Some(Selection::History(project.clone())),
+                Some(Selection::Project(project.clone())),
                 format!("Restore to before \"{title}\"?"),
                 &crate::ui::keys_text(
                     "Branches, commits and uncommitted changes go back to how they were. \
@@ -606,8 +606,8 @@ impl Detail {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let selected = match self.selection() {
-            Some(Selection::History(project)) => self.selected_operation(&project).map(|op| op.id),
+        let selected = match self.on_tab(ProjectTab::History) {
+            Some(project) => self.selected_operation(&project).map(|op| op.id),
             _ => None,
         };
         el.when_some(selected, |el, id| {

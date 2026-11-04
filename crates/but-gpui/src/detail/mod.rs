@@ -11,6 +11,7 @@ mod file_list;
 mod file_tree;
 mod find;
 mod graph;
+mod key_panes;
 pub use branches::{ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowOnlyLocalBranches};
 pub use file_list::{DiscardFromCommit, MarkResolved, SplitIntoNewCommit, UncommitChanges};
 pub use find::FindInDiff;
@@ -29,6 +30,7 @@ mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
+pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
@@ -57,8 +59,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, RowKey, Section, Selection, Store,
-    StoreEvent, Tile, snack,
+    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Section,
+    Selection, Side, Store, StoreEvent, Tile, snack,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -367,16 +369,9 @@ pub struct Detail {
     /// The Changes and pull request tabs', which ↑ from the top of the files under them
     /// reaches, and where ← and → switch tabs.
     tabs_focus: FocusHandle,
-    /// The keys went left out of the tabs, so coming back from the left lands on them again
-    /// rather than on the files under them. Another page forgets it.
-    tabs_kept: bool,
     /// The tabs to a project's pages, which ↑ from the top of a list page's list reaches, and
     /// where ← and → go to the page on that side.
     project_tabs_focus: FocusHandle,
-    /// The keys went left out of those tabs, as `tabs_kept` says of the others.
-    project_tabs_kept: bool,
-    /// What ↑ came to those tabs from beside a list page's list, which ↓ goes back to.
-    project_tabs_from: Option<FocusHandle>,
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
@@ -482,7 +477,7 @@ pub struct Detail {
     pending_file: Option<String>,
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
     /// whose merge or branch it opens once it has read its list.
-    opening: Option<(Selection, crate::state::SeenCommit)>,
+    opening: Option<(ProjectTab, crate::state::SeenCommit)>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
@@ -613,26 +608,28 @@ impl Detail {
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
         let find_input = cx.new(|cx| TextInput::new("Find in the diff", false, cx));
-        let page_key = page::page_key(store.read(cx), pinned.as_ref(), shows.as_ref());
+        let tab = page::tab_to_show(&kept, store.read(cx), pinned.as_ref(), shows.as_ref(), cx);
+        let page_key = page::page_key(store.read(cx), pinned.as_ref(), shows.as_ref(), tab);
         let page = page::open_page(&kept, page_key.as_ref(), shows.as_ref(), cx);
-        let graph_pinned = match (&pinned, &shows) {
-            (Some(_), Some(Selection::Graph(project))) => Some(project.clone()),
-            _ => None,
-        };
-        let graph = cx.new(|cx| graph::GraphView::new(store.clone(), graph_pinned, cx));
+        let graph = cx.new(|cx| graph::GraphView::new(store.clone(), cx));
         let subscriptions = vec![
             cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 // A pinned page shows what it was pinned to, whatever's selected.
-                StoreEvent::SelectionChanged | StoreEvent::Reopened if this.pinned.is_some() => {}
+                StoreEvent::SelectionChanged | StoreEvent::Reopened | StoreEvent::TabAsked(_)
+                    if this.pinned.is_some() => {}
                 StoreEvent::SelectionChanged => this.follow_selection(window, cx),
-                // Picked again, as by the crumb naming it, a page goes back to how it opens.
-                StoreEvent::Reopened => match this.selection() {
-                    Some(Selection::Project(project)) => this.pick_opening(&project, cx),
-                    Some(Selection::History(_)) => this.pick_newest_operation(cx),
-                    _ => {
-                        this.close_opened_branch(cx);
+                // Picked again, as by its card or the crumb naming it, a project's page goes back
+                // to how it opens.
+                StoreEvent::Reopened => match (this.selection(), this.project_tab()) {
+                    (Some(Selection::Project(project)), ProjectTab::Overview) => {
+                        this.pick_opening(&project, cx)
                     }
+                    (Some(Selection::Project(_)), _) => {
+                        this.show_tab(ProjectTab::Overview, window, cx)
+                    }
+                    _ => {}
                 },
+                StoreEvent::TabAsked(tab) => this.tab_asked(*tab, window, cx),
                 StoreEvent::Loaded(project) => {
                     if this.find_pinned(cx) {
                         this.shown_changed(window, cx);
@@ -802,10 +799,7 @@ impl Detail {
             files_focus: cx.focus_handle(),
             side_focus: cx.focus_handle(),
             tabs_focus: cx.focus_handle(),
-            tabs_kept: false,
             project_tabs_focus: cx.focus_handle(),
-            project_tabs_kept: false,
-            project_tabs_from: None,
             people_focus: cx.focus_handle(),
             people_scroll: ScrollHandle::new(),
             glide: None,
@@ -931,6 +925,101 @@ impl Detail {
         self.shows.clone()
     }
 
+    /// The tab of the project's page shown: the first, on any other page.
+    pub(crate) fn project_tab(&self) -> ProjectTab {
+        self.page.project_tab().unwrap_or_default()
+    }
+
+    /// The project whose page shows `tab`, while one does.
+    fn on_tab(&self, tab: ProjectTab) -> Option<ProjectId> {
+        match self.selection() {
+            Some(Selection::Project(project)) if self.project_tab() == tab => Some(project),
+            _ => None,
+        }
+    }
+
+    /// Show `tab` of the project's page shown, as it was left or as it opens. Keys on the tabs,
+    /// or outside this page, stay where they are. Elsewhere on it what had them may be gone with
+    /// the tab it was on, so they go to what the tab shows, without opening anything there.
+    pub(crate) fn show_tab(
+        &mut self,
+        tab: ProjectTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if tab == self.project_tab() || !matches!(self.selection(), Some(Selection::Project(_))) {
+            return;
+        }
+        let left_at = self.place_left();
+        self.note_places(cx);
+        self.reset_view();
+        self.show_page_on(tab, left_at, window, cx);
+        self.page_shown(cx);
+        self.count_tab(cx);
+        let on_page = window
+            .focused(cx)
+            .is_some_and(|focused| self.owns_focus(&focused));
+        if on_page && !self.project_tabs_focused(window) {
+            let pane = self.key_pane_entered(KeyMove::Beside(Side::Right), cx);
+            window.focus(self.pane_focus(pane.unwrap_or(KeyPane::Diff)), cx);
+        }
+        cx.notify();
+    }
+
+    /// Show `tab`, asked for of the project being selected: coming to its page it opens there,
+    /// and on it already, the tab goes back to how it opens.
+    fn tab_asked(&mut self, tab: ProjectTab, window: &mut Window, cx: &mut Context<Self>) {
+        if self.shows != self.store.read(cx).selection {
+            self.shown_changed_on(Some(tab), window, cx);
+            self.count_tab(cx);
+        } else if tab == self.project_tab() {
+            self.reopen_tab(cx);
+        } else {
+            self.show_tab(tab, window, cx);
+        }
+    }
+
+    /// For the metrics: the home tile's page came to a tab.
+    fn count_tab(&self, cx: &App) {
+        if self.pinned.is_none()
+            && let Some(project) = self.selected_project()
+        {
+            self.store.read(cx).count_tab(&project, self.project_tab());
+        }
+    }
+
+    /// ← or → on the project's tabs: the tab on that side, if there is one. Says whether there
+    /// was.
+    pub(crate) fn step_project_tab(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let beside = self.project_tab().beside(forward);
+        if let Some(tab) = beside {
+            self.show_tab(tab, window, cx);
+        }
+        beside.is_some()
+    }
+
+    /// Back to how the tab shown opens, as when it's asked for again or the crumb naming it is
+    /// clicked.
+    fn reopen_tab(&mut self, cx: &mut Context<Self>) {
+        match self.project_tab() {
+            ProjectTab::Overview => {
+                if let Some(project) = self.on_tab(ProjectTab::Overview) {
+                    self.pick_opening(&project, cx)
+                }
+            }
+            ProjectTab::Branches => {
+                self.close_opened_branch(cx);
+            }
+            ProjectTab::History => self.pick_newest_operation(cx),
+            ProjectTab::Graph => self.graph.update(cx, |graph, cx| graph.go_to_opening(cx)),
+        }
+    }
+
     /// Whether commit `id`'s page shows it together with the others picked: not a pinned page,
     /// which is that commit's alone.
     fn shows_picks(&self, project: &ProjectId, id: CommitId, cx: &App) -> bool {
@@ -964,6 +1053,16 @@ impl Detail {
 
     /// Show what's selected now, or for a pinned page what it was pinned to, once it's found.
     fn shown_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.shown_changed_on(None, window, cx)
+    }
+
+    /// [`Detail::shown_changed`], on `tab` of a project's page, or else the one it was left on.
+    fn shown_changed_on(
+        &mut self,
+        tab: Option<ProjectTab>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let left_at = self.place_left();
         self.note_places(cx);
         if self.pinned.is_none() {
@@ -974,7 +1073,7 @@ impl Detail {
         if !followed {
             self.reset_view();
         }
-        self.show_page(left_at, window, cx);
+        self.show_page(left_at, tab, window, cx);
         let project = self.selected_project();
         let checkout = self.selected_checkout().map(|(_, worktree)| worktree);
         if self.checks_project != project {
@@ -992,7 +1091,12 @@ impl Detail {
             // Checks are of one checkout's files, which another's share paths with.
             self.switch_checkout(project, worktree, cx);
         }
-        if let Some(Selection::Project(project)) = self.selection() {
+        self.page_shown(cx);
+    }
+
+    /// Load what the page just shown needs.
+    fn page_shown(&mut self, cx: &mut Context<Self>) {
+        if let Some(project) = self.on_tab(ProjectTab::Overview) {
             self.resume_project_page(&project);
         }
         self.reload_page(true, cx);
@@ -1073,6 +1177,27 @@ impl Detail {
     fn show_page(
         &mut self,
         left_at: Option<page::Place>,
+        tab: Option<ProjectTab>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let tab = tab.unwrap_or_else(|| {
+            page::tab_to_show(
+                &self.kept,
+                self.store.read(cx),
+                self.pinned.as_ref(),
+                self.shows.as_ref(),
+                cx,
+            )
+        });
+        self.show_page_on(tab, left_at, window, cx);
+    }
+
+    /// Take the state of the page shown now on `tab`, keeping the one left at `left_at`.
+    fn show_page_on(
+        &mut self,
+        tab: ProjectTab,
+        left_at: Option<page::Place>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1080,6 +1205,7 @@ impl Detail {
             self.store.read(cx),
             self.pinned.as_ref(),
             self.shows.as_ref(),
+            tab,
         );
         if key == self.page_key {
             return;
@@ -1150,6 +1276,9 @@ impl Detail {
                 input.update(cx, |input, cx| input.restore(filter, cx));
             }
         }
+        let graph_of = self.on_tab(ProjectTab::Graph);
+        self.graph
+            .update(cx, |graph, cx| graph.show_project(graph_of, cx));
         if let page::PageState::Graph(left) = &self.page {
             let left = left.clone();
             self.graph.update(cx, |graph, _| graph.restore(left));
@@ -1298,13 +1427,10 @@ impl Detail {
     /// The pull request of what a page has picked: the branch opened on the Branches page, or
     /// the target's merge.
     pub(crate) fn page_pull_request(&self) -> Option<String> {
+        if let Some(project) = self.on_tab(ProjectTab::Branches) {
+            return (self.selected_other_branch(&project)?.review.as_ref()?.url).clone();
+        }
         match self.selection()? {
-            Selection::Branches(project) => self
-                .selected_other_branch(&project)?
-                .review
-                .as_ref()?
-                .url
-                .clone(),
             Selection::Section(project, Section::Upstream(_)) => self.target_pull_request(&project),
             _ => None,
         }
@@ -1337,11 +1463,14 @@ impl Detail {
         let selection = self.selection()?;
         let store = self.store.read(cx);
         let source = match &selection {
-            Selection::Project(project) if self.editing(project, cx).is_some() => return None,
-            Selection::Project(project) => self.upstream_source(project, cx)?,
-            Selection::History(project) => self.history_source(project)?,
-            Selection::Branches(project) => self.branches_source(project)?,
-            Selection::Graph(_) | Selection::Checkout(..) => return None,
+            Selection::Project(project) => match self.project_tab() {
+                ProjectTab::Overview if self.editing(project, cx).is_some() => return None,
+                ProjectTab::Overview => self.upstream_source(project, cx)?,
+                ProjectTab::History => self.history_source(project)?,
+                ProjectTab::Branches => self.branches_source(project)?,
+                ProjectTab::Graph => return None,
+            },
+            Selection::Checkout(..) => return None,
             Selection::Uncommitted(_, Checkout::Main) => DiffSource::Worktree,
             Selection::Uncommitted(_, Checkout::Linked(name)) => DiffSource::Linked(name.clone()),
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
@@ -1408,9 +1537,12 @@ impl Detail {
     /// when its project reloads, if what it lists may have changed.
     fn reload_page(&mut self, force: bool, cx: &mut Context<Self>) {
         match self.selection() {
-            Some(Selection::History(project)) => self.load_history(&project, false, cx),
-            Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
-            Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
+            Some(Selection::Project(project)) => match self.project_tab() {
+                ProjectTab::History => self.load_history(&project, false, cx),
+                ProjectTab::Branches => self.load_branches(&project, force, cx),
+                ProjectTab::Overview => self.load_upstream(&project, false, force, cx),
+                ProjectTab::Graph => {}
+            },
             Some(Selection::Mesh(project, ..)) => self.load_machines(&project, force, cx),
             Some(Selection::Checkout(..) | Selection::Uncommitted(..)) => self.load_now(force, cx),
             _ => {}
@@ -1422,8 +1554,6 @@ impl Detail {
     /// same page.
     fn reset_view(&mut self) {
         self.reopening = None;
-        self.tabs_kept = false;
-        self.project_tabs_kept = false;
         self.text_selection = None;
         self.note_selection = None;
         self.cursor = Cursor::default();
@@ -1442,6 +1572,7 @@ impl Detail {
             files.place = None;
             files.file_picks.clear();
             files.line_picks = None;
+            files.last_pane = None;
         }
         // Another pick's pull request starts at its top, and its row is where the list is.
         if let Some(review) = self.page.review() {
@@ -1919,12 +2050,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// Focus the files between a list page's list and the diff.
-    pub fn focus_beside_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        window.focus(&self.files_focus, cx);
-        cx.notify();
-    }
-
     /// Whether `handle` is one of the detail's own, the diff's or a list's, rather than a
     /// text field's.
     pub fn owns_focus(&self, handle: &FocusHandle) -> bool {
@@ -2055,8 +2180,11 @@ impl Detail {
             return Some((items, row));
         }
         match self.selection()? {
-            Selection::Branches(project) => self.branches_page_menu(&project, cx),
-            Selection::History(project) => self.operation_page_menu(&project, cx),
+            Selection::Project(project) => match self.project_tab() {
+                ProjectTab::Branches => self.branches_page_menu(&project, cx),
+                ProjectTab::History => self.operation_page_menu(&project, cx),
+                ProjectTab::Overview | ProjectTab::Graph => None,
+            },
             Selection::Section(project, Section::Upstream(_)) => {
                 self.target_page_menu(&project, cx)
             }
@@ -2176,13 +2304,15 @@ impl Detail {
             {
                 Some(Messages::Branch(project.clone(), ref_name.clone()))
             }
-            (Selection::Project(project) | Selection::Branches(project), DiffSource::Commit(_))
-                if !self.list_header_shown(project, cx) =>
+            (Selection::Project(project), DiffSource::Commit(_))
+                if self.project_tab() != ProjectTab::History
+                    && !self.list_header_shown(project, cx) =>
             {
                 Some(Messages::TargetCommit(project.clone()))
             }
-            (Selection::Branches(project), DiffSource::Branch { .. })
-                if !self.list_header_shown(project, cx) =>
+            (Selection::Project(project), DiffSource::Branch { .. })
+                if self.project_tab() == ProjectTab::Branches
+                    && !self.list_header_shown(project, cx) =>
             {
                 Some(Messages::OtherBranch(project.clone()))
             }
@@ -2332,11 +2462,11 @@ impl Detail {
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // The project, Branches and History pages filter their lists, as the navigator does,
         // unless the files beside the list have the keys.
-        let page = match self.selection() {
+        let page = match (self.selection(), self.project_tab()) {
             _ if self.files_focused(window) => None,
-            Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
-            Some(Selection::History(_)) => Some(self.history_filter.clone()),
-            Some(Selection::Project(_)) => Some(self.target_filter.clone()),
+            (Some(Selection::Project(_)), ProjectTab::Branches) => Some(self.branch_filter.clone()),
+            (Some(Selection::Project(_)), ProjectTab::History) => Some(self.history_filter.clone()),
+            (Some(Selection::Project(_)), ProjectTab::Overview) => Some(self.target_filter.clone()),
             _ => None,
         };
         if let Some(input) = page {
@@ -2607,8 +2737,13 @@ impl Detail {
     }
 
     /// Whether the current entry is the first the file list shows, with none over it to step to.
-    pub(super) fn on_first_entry(&self, cx: &App) -> bool {
+    fn on_first_entry(&self, cx: &App) -> bool {
         (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry())
+    }
+
+    /// Whether the current entry is the last the file list shows, with none under it to step to.
+    fn on_last_entry(&self, cx: &App) -> bool {
+        (self.file_step(1, cx)).is_none_or(|entry| entry == self.current_entry())
     }
 
     /// The files the file list shows, in its order: not those a filter or a pending
@@ -2643,6 +2778,7 @@ impl Detail {
     }
 
     pub(crate) fn move_hunk(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let past_end = if forward { Side::Bottom } else { Side::Top };
         // The keys go on to hunks that show, not a cursor out of sight. From a branch's pull
         // request, its changes. Nothing else that hides the diff shows its hunks.
         if self.showing_review(cx) {
@@ -2652,6 +2788,9 @@ impl Detail {
             cx.notify();
         }
         if self.diff_hidden(cx) {
+            if self.focus.is_focused(window) {
+                self.leave(past_end, window, cx);
+            }
             return;
         }
         let Some(diff) = &self.diff else {
@@ -2667,13 +2806,9 @@ impl Detail {
             self.reveal_cursor(cx);
             cx.notify();
         }
-        // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
-        if stop.is_none()
-            && !forward
-            && self.focus.is_focused(window)
-            && self.up_past_top(window, cx)
-        {
-            return;
+        // Past its ends, the diff's keys go on to what's over or under it, as the file list's do.
+        if stop.is_none() && self.focus.is_focused(window) {
+            return self.leave(past_end, window, cx);
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
@@ -3413,31 +3548,27 @@ impl Detail {
                 | Selection::Stack(..),
             ) => self.header_height.get(),
             Some(Selection::Project(project)) => {
-                let message = match self.showing_target_commit(&project, cx)
-                    && self.list_header_shown(&project, cx)
-                {
+                // A list page's commit or branch's header, or a picked commit's message; the
+                // selected operation's header under the project's.
+                let shows = match self.project_tab() {
+                    ProjectTab::Overview => self.showing_target_commit(&project, cx),
+                    ProjectTab::Branches => self.selected_other_branch(&project).is_some(),
+                    ProjectTab::History | ProjectTab::Graph => false,
+                };
+                let message = match shows && self.list_header_shown(&project, cx) {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
-                self.project_header_height.get() + message + self.list_tabs_height(cx)
-            }
-            Some(Selection::Branches(project)) => {
-                // The opened branch's header, or its picked commit's message.
-                let message = match self.selected_other_branch(&project).is_some()
-                    && self.list_header_shown(&project, cx)
-                {
-                    true => self.target_message_height.get(),
-                    false => 0.,
-                };
-                self.project_header_height.get() + message + self.list_tabs_height(cx)
-            }
-            // The selected operation's header under the project's.
-            Some(Selection::History(project)) => {
-                let operation = match self.selected_operation(&project) {
-                    Some(_) => self.header_height.get(),
-                    None => 0.,
-                };
-                self.project_header_height.get() + operation
+                let height = self.project_header_height.get();
+                match self.project_tab() {
+                    ProjectTab::Overview | ProjectTab::Branches => {
+                        height + message + self.list_tabs_height(cx)
+                    }
+                    ProjectTab::History if self.selected_operation(&project).is_some() => {
+                        height + self.header_height.get()
+                    }
+                    ProjectTab::History | ProjectTab::Graph => height,
+                }
             }
             Some(Selection::Checkout(..)) => self.header_height.get(),
             Some(Selection::Uncommitted(..)) if !self.changes_header_shown(cx) => 0.,
@@ -3527,15 +3658,15 @@ impl Detail {
     /// Whether the page is an overview with no column beside it: a worktree's, Inactive and
     /// Network worktrees', as the navigator lists what they sum up, and the Graph's.
     pub fn overview_only(&self) -> bool {
-        matches!(
-            self.selection(),
-            Some(
-                Selection::Graph(_)
-                    | Selection::Checkout(..)
-                    | Selection::Section(_, Section::Inactive | Section::Mesh)
-                    | Selection::Terminal(..)
+        self.on_tab(ProjectTab::Graph).is_some()
+            || matches!(
+                self.selection(),
+                Some(
+                    Selection::Checkout(..)
+                        | Selection::Section(_, Section::Inactive | Section::Mesh)
+                        | Selection::Terminal(..)
+                )
             )
-        )
     }
 
     /// Whether the files `f` shows or hides show: those beside the diff or a checkout's
@@ -3594,11 +3725,64 @@ impl Detail {
         cx.notify();
     }
 
+    /// What a project's page draws beside its list, or in place of it, on the tab shown.
+    fn project_beside(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        match self.project_tab() {
+            ProjectTab::Overview if self.showing_target_commit(project, cx) => {
+                let message = (self.shown_target_commit(project, cx))
+                    .filter(|_| self.list_header_shown(project, cx))
+                    .map(|commit| self.render_target_message(commit, theme, cx));
+                Some(self.list_beside(project, message, theme, window, cx))
+            }
+            // A target several local branches track is picked where what shipped shows.
+            ProjectTab::Overview
+                if let Some(choice) = (self.store.read(cx).project(project))
+                    .and_then(|entry| entry.target_choice.clone()) =>
+            {
+                Some(self.target_chooser(project, &choice, theme, cx))
+            }
+            ProjectTab::Overview if self.showing_shipped(cx) => {
+                Some(self.render_shipped(project, window, cx))
+            }
+            ProjectTab::Overview => None,
+            // An opened branch: its header, its files and its pull request, as a merge on the
+            // project's page has them, and a commit of it picked shows its message, as a merge's
+            // does.
+            ProjectTab::Branches if self.showing_branches_overview() => {
+                Some(self.render_branches_overview(project, theme, cx))
+            }
+            ProjectTab::Branches => {
+                let header = match self.picked_branch_commit(project) {
+                    _ if !self.list_header_shown(project, cx) => None,
+                    Some(commit) => Some(self.render_target_message(commit, theme, cx)),
+                    None => self.render_other_branch_header(project, theme, cx),
+                };
+                Some(self.list_beside(project, header, theme, window, cx))
+            }
+            // What the selected operation did, over the files it changed.
+            ProjectTab::History => self.render_operation_header(project, theme, cx),
+            ProjectTab::Graph => Some(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
+                    .child(
+                        (self.graph.clone()).cached(gpui::StyleRefinement::default().size_full()),
+                    )
+                    .into_any_element(),
+            ),
+        }
+    }
+
     pub(crate) fn list_page(&self) -> bool {
-        matches!(
-            self.selection(),
-            Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
-        )
+        matches!(self.selection(), Some(Selection::Project(_)))
+            && self.project_tab() != ProjectTab::Graph
     }
 }
 
@@ -3636,9 +3820,6 @@ impl Render for Detail {
                     Selection::Branch(project, ref_name) => {
                         self.render_branch_side(project, ref_name.as_ref(), &theme, window, cx)
                     }
-                    Selection::History(project) => {
-                        self.render_history_side(project, &theme, window, cx)
-                    }
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom.as_ref(), &theme, window, cx)
                     }
@@ -3646,29 +3827,35 @@ impl Render for Detail {
                         self.render_diff_file_list(&theme, window, cx)
                     }
                     // No column: the overview takes the page.
-                    Selection::Graph(_)
-                    | Selection::Checkout(..)
+                    Selection::Checkout(..)
                     | Selection::Section(_, Section::Inactive | Section::Mesh)
                     | Selection::Terminal(..) => div().into_any_element(),
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, window, cx)
                     }
-                    Selection::Branches(project) => {
-                        self.render_branches_side(project, &theme, window, cx)
-                    }
-                    Selection::Project(project) => match self.editing(project, cx) {
-                        Some(editing) => empty_state(
-                            None,
-                            commit_title(&editing.title),
-                            format!(
-                                "Commit {} is checked out for editing. Its files are under \
-                                 Editing a commit, with Finish and Cancel.",
-                                editing.reference
+                    Selection::Project(project) => match self.project_tab() {
+                        ProjectTab::Branches => {
+                            self.render_branches_side(project, &theme, window, cx)
+                        }
+                        ProjectTab::History => {
+                            self.render_history_side(project, &theme, window, cx)
+                        }
+                        // No column: the overview takes the page.
+                        ProjectTab::Graph => div().into_any_element(),
+                        ProjectTab::Overview => match self.editing(project, cx) {
+                            Some(editing) => empty_state(
+                                None,
+                                commit_title(&editing.title),
+                                format!(
+                                    "Commit {} is checked out for editing. Its files are under \
+                                     Editing a commit, with Finish and Cancel.",
+                                    editing.reference
+                                ),
+                                &theme,
+                                cx,
                             ),
-                            &theme,
-                            cx,
-                        ),
-                        None => self.render_upstream_side(project, &theme, window, cx),
+                            None => self.render_upstream_side(project, &theme, window, cx),
+                        },
                     },
                 };
                 let width = self.files_width(window, cx);
@@ -3712,10 +3899,7 @@ impl Render for Detail {
                             cx,
                         ))
                     }
-                    Selection::Project(_)
-                    | Selection::Branches(_)
-                    | Selection::History(_)
-                    | Selection::Graph(_) => {
+                    Selection::Project(_) => {
                         Some(self.render_project_header(selection, &theme, window, cx))
                     }
                     Selection::Checkout(project, checkout) => {
@@ -3732,56 +3916,12 @@ impl Render for Detail {
                 // Beside a list, the selected branch or commit's tabs when it has a pull
                 // request, over the pull request or the diff.
                 let beside = match selection {
-                    Selection::Project(project) if self.showing_target_commit(project, cx) => {
-                        let message = (self.shown_target_commit(project, cx))
-                            .filter(|_| self.list_header_shown(project, cx))
-                            .map(|commit| self.render_target_message(commit, &theme, cx));
-                        Some(self.list_beside(project, message, &theme, window, cx))
-                    }
-                    // An opened branch: its header, its files and its pull request, as a merge
-                    // on the project's page has them, and a commit of it picked shows its
-                    // message, as a merge's does.
-                    Selection::Branches(project) if self.showing_branches_overview() => {
-                        Some(self.render_branches_overview(project, &theme, cx))
-                    }
-                    Selection::Branches(project) => {
-                        let header = match self.picked_branch_commit(project) {
-                            _ if !self.list_header_shown(project, cx) => None,
-                            Some(commit) => Some(self.render_target_message(commit, &theme, cx)),
-                            None => self.render_other_branch_header(project, &theme, cx),
-                        };
-                        Some(self.list_beside(project, header, &theme, window, cx))
-                    }
-                    // A target several local branches track is picked where what shipped shows.
-                    Selection::Project(project)
-                        if let Some(choice) = (self.store.read(cx).project(project))
-                            .and_then(|entry| entry.target_choice.clone()) =>
-                    {
-                        Some(self.target_chooser(project, &choice, &theme, cx))
-                    }
-                    Selection::Project(project) if self.showing_shipped(cx) => {
-                        Some(self.render_shipped(project, window, cx))
-                    }
+                    Selection::Project(project) => self.project_beside(project, &theme, window, cx),
                     Selection::Section(project, Section::Inactive) => {
                         Some(self.render_inactive_overview(project, &theme, cx))
                     }
                     Selection::Section(project, Section::Mesh) => {
                         Some(self.render_machines_overview(project, &theme, cx))
-                    }
-                    Selection::Graph(_) => Some(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .child(
-                                (self.graph.clone())
-                                    .cached(gpui::StyleRefinement::default().size_full()),
-                            )
-                            .into_any_element(),
-                    ),
-                    // What the selected operation did, over the files it changed.
-                    Selection::History(project) => {
-                        self.render_operation_header(project, &theme, cx)
                     }
                     Selection::Checkout(project, checkout) => {
                         Some(self.render_now(project, checkout, cx))
@@ -3882,19 +4022,22 @@ impl Render for Detail {
             )
             .when(self.shows_conflicts(), |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
-            .on_action(cx.listener(|this, _: &NextFile, window, cx| {
-                if !this.down_from_tabs(window, cx) {
-                    this.move_file(1, cx)
-                }
-            }))
-            // With none over it, the diff's keys go on as ↑ does, up its hunks and out of its top.
+            .on_action(cx.listener(
+                |this, _: &NextFile, window, cx| match this.on_last_entry(cx) {
+                    true => this.leave(Side::Bottom, window, cx),
+                    false => this.move_file(1, cx),
+                },
+            ))
+            // With none over it, the file list's keys go on from it, and the diff's as ↑ does, up
+            // its hunks and out of its top.
             .on_action(cx.listener(|this, _: &PreviousFile, window, cx| {
-                if this.up_to_tabs(window, cx) {
-                    return;
-                }
-                match this.focus.is_focused(window) && this.on_first_entry(cx) {
-                    true => this.move_hunk(false, window, cx),
-                    false => this.move_file(-1, cx),
+                let first = this.on_first_entry(cx);
+                if first && this.files_focus.is_focused(window) {
+                    this.leave(Side::Top, window, cx)
+                } else if first && this.focus.is_focused(window) {
+                    this.move_hunk(false, window, cx)
+                } else {
+                    this.move_file(-1, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
@@ -3902,16 +4045,12 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
-            .on_action(cx.listener(|this, _: &NextHunk, window, cx| {
-                if !this.down_from_tabs(window, cx) {
-                    this.move_hunk(true, window, cx)
-                }
-            }))
-            .on_action(cx.listener(|this, _: &PreviousHunk, window, cx| {
-                if !this.up_from_tabs(window, cx) {
-                    this.move_hunk(false, window, cx)
-                }
-            }))
+            .on_action(
+                cx.listener(|this, _: &NextHunk, window, cx| this.move_hunk(true, window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
+            )
             // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
             // shown, not under a checkout's overview, where no row says which it is. Only with
             // the diff's keys: elsewhere its hunk shows faint, and a discard mustn't land on it.
