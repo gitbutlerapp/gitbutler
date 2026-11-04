@@ -3,11 +3,11 @@
 //! older build hands them over by exec, which keeps the process, so the shells stay its children.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
+use std::io::{self, Read as _, Seek as _, SeekFrom, Write as _};
 use std::os::fd::{AsRawFd as _, FromRawFd as _, IntoRawFd as _, OwnedFd, RawFd};
 use std::os::unix::fs::OpenOptionsExt as _;
 use std::process::{self, Command};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -63,12 +63,19 @@ impl Handing {
             events: libc::POLLIN,
             revents: 0,
         };
-        let within = within.as_millis().try_into().unwrap_or(libc::c_int::MAX);
-        // SAFETY: `ready` is a live local naming a descriptor open while `taken` is.
-        if unsafe { libc::poll(&mut ready, 1, within) } != 1 {
-            return false;
+        let deadline = Instant::now() + within;
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            let left = left.as_millis().try_into().unwrap_or(libc::c_int::MAX);
+            // SAFETY: `ready` is a live local naming a descriptor open while `taken` is.
+            match unsafe { libc::poll(&mut ready, 1, left) } {
+                1 => return matches!(taken.read(&mut [0]), Ok(1)),
+                // Any child exiting does this once Tokio has started one, as a fetch ending
+                // while the build starts. Giving up then would exit before it took them.
+                -1 if io::Error::last_os_error().kind() == io::ErrorKind::Interrupted => {}
+                _ => return false,
+            }
         }
-        matches!(taken.read(&mut [0]), Ok(1))
     }
 }
 
@@ -157,10 +164,15 @@ fn listing(handed: &str, own: u32, parent: u32) -> Option<Listing> {
 pub fn handed<T: DeserializeOwned>() -> Vec<(T, Detached)> {
     // SAFETY: `getppid` only reads this process's parent.
     let parent = u32::try_from(unsafe { libc::getppid() }).unwrap_or(0);
-    let listed = std::env::var(HANDED)
-        .ok()
-        .and_then(|handed| listing(&handed, process::id(), parent));
-    let Some(listed) = listed else {
+    let Ok(handed) = std::env::var(HANDED) else {
+        return Vec::new();
+    };
+    let Some(listed) = listing(&handed, process::id(), parent) else {
+        // Shells don't inherit it, so this is the process handing them over exiting too soon.
+        tracing::error!(
+            "couldn't take the terminals over: {handed} names neither this process nor its \
+             parent, {parent}"
+        );
         return Vec::new();
     };
     let terminals = adopt(&listed);
@@ -216,13 +228,21 @@ fn adopt<T: DeserializeOwned>(listed: &Listing) -> Vec<(T, Detached)> {
 mod tests {
     use std::os::fd::RawFd;
     use std::process::{Command, Stdio};
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
     use std::time::{Duration, Instant};
+
+    use nix::sys::pthread::{pthread_kill, pthread_self};
+    use nix::sys::signal::Signal;
 
     use super::{Listing, listing};
     use crate::{Detached, Pty, Size, Status};
 
     /// Set for the test binary started to take a terminal over.
     const TAKER: &str = "BUT_TTY_TEST_TAKER";
+
+    /// Set for the test binary started to take the terminals over only after a while.
+    const LATE_TAKER: &str = "BUT_TTY_TEST_LATE_TAKER";
 
     const SIZE: Size = Size {
         cols: 80,
@@ -268,6 +288,45 @@ mod tests {
             String::from_utf8_lossy(&out.stdout).contains("answered main"),
             "the shell answers the build that took it over: {}",
             String::from_utf8_lossy(&out.stdout)
+        );
+    }
+
+    #[test]
+    fn a_signal_while_a_build_starts_doesnt_end_the_wait_for_it() {
+        if std::env::var_os(LATE_TAKER).is_some() {
+            std::thread::sleep(Duration::from_millis(500));
+            super::handed::<String>();
+            return;
+        }
+        // As Tokio installs for its child processes, so that any child exiting interrupts.
+        signal_hook::flag::register(libc::SIGCHLD, Arc::new(AtomicBool::new(false))).unwrap();
+        let mut taker = Command::new(std::env::current_exe().unwrap());
+        taker
+            .args([
+                "--exact",
+                "handoff::tests::a_signal_while_a_build_starts_doesnt_end_the_wait_for_it",
+            ])
+            .env(LATE_TAKER, "1")
+            .stdout(Stdio::null());
+        let handing = super::hand_over(Vec::<(String, Detached)>::new(), &mut taker).unwrap();
+        for fd in &handing.keep {
+            inherited(*fd);
+        }
+        let mut taker = taker.spawn().unwrap();
+        // At this thread, as a test isn't on the main one, which the kernel would pick.
+        let waiting = pthread_self();
+        let signalled = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            pthread_kill(waiting, Signal::SIGCHLD).unwrap();
+        });
+
+        let taken = handing.wait_taken(Duration::from_secs(20));
+
+        signalled.join().unwrap();
+        taker.wait().unwrap();
+        assert!(
+            taken,
+            "the wait goes on past the signal until the build says"
         );
     }
 

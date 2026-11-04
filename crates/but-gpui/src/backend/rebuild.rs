@@ -352,6 +352,7 @@ impl Built {
         {
             tracing::error!("the new build didn't take the terminals over");
         }
+        super::logs::flush();
         std::process::exit(0)
     }
 

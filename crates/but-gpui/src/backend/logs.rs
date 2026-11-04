@@ -2,6 +2,7 @@
 //! `GitButler.<date>.log` files, so switching between the two leaves one log to read.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context as _, Result};
 use parking_lot::Mutex;
@@ -12,6 +13,9 @@ use tracing_subscriber::fmt::writer::Tee;
 
 /// Keeps the thread that writes the log running. Dropping it writes out what's queued.
 static WRITER: Mutex<Option<WorkerGuard>> = Mutex::new(None);
+
+/// Quitting leaves the log writing, as [`keep_past_quit`] asks.
+static KEPT_PAST_QUIT: AtomicBool = AtomicBool::new(false);
 
 /// The folder the log files go in, for the build's channel.
 pub fn dir() -> Result<PathBuf> {
@@ -64,6 +68,19 @@ pub fn init() {
 /// Write out what's queued and stop writing the log, for when the app is about to end.
 pub fn flush() {
     drop(WRITER.lock().take());
+}
+
+/// Leave the log writing past the quit handlers, for a restart: what it logs handing over comes
+/// after them. It calls [`flush`] itself once it's done.
+pub fn keep_past_quit() {
+    KEPT_PAST_QUIT.store(true, Ordering::Relaxed);
+}
+
+/// [`flush`], for the quit handlers, unless [`keep_past_quit`] asked them not to.
+pub fn flush_at_quit() {
+    if !KEPT_PAST_QUIT.load(Ordering::Relaxed) {
+        flush();
+    }
 }
 
 fn files() -> Result<RollingFileAppender> {

@@ -333,9 +333,10 @@ impl BuildOutput {
                     .timer(Duration::from_millis(100))
                     .await;
             }
-            // The quit handlers save what the app remembers and write out the log, as
-            // quitting would, before the new binary takes over.
+            // The quit handlers save what the app remembers, as quitting would, before the new
+            // binary takes over. The log stays open for what handing over has to say.
             cx.update(|cx| {
+                backend::logs::keep_past_quit();
                 cx.shutdown();
                 // The Dock shows a tile for each binary running, by its path: built in another
                 // worktree, the new binary's would show beside this one's while this one waits
@@ -351,6 +352,7 @@ impl BuildOutput {
                 #[cfg(not(unix))]
                 let err = built.restart();
                 tracing::error!("couldn't restart on the new build: {err:#}");
+                backend::logs::flush();
                 cx.quit();
             });
         });
