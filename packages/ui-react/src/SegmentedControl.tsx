@@ -59,6 +59,8 @@ const placeGround = (track: HTMLElement | null) => {
  *   the picked segment again keeps it picked.
  * - The arrow keys move between the segments.
  * - `size="small"` is 24px tall, for a header or a popup; it leaves a `count` room around it.
+ * - `fill` stretches it across its container, the segments sharing the width evenly: for a control
+ *   that is a pane's own setting, as a theme switch at the foot of a sidebar.
  * - Name it with `aria-label`, or `aria-labelledby` when a visible label already says what it picks.
  * - Other props go to the group, as they would on Base UI's `ToggleGroup`.
  *
@@ -70,6 +72,7 @@ export const SegmentedControl = <Value extends string>({
 	defaultValue,
 	onValueChange,
 	size = "regular",
+	fill = false,
 	className,
 	ref,
 	children,
@@ -82,6 +85,7 @@ export const SegmentedControl = <Value extends string>({
 	defaultValue?: Value;
 	onValueChange?: (value: Value) => void;
 	size?: SegmentedControlSize;
+	fill?: boolean;
 	className?: string;
 	ref?: Ref<HTMLDivElement>;
 	children: ReactNode;
@@ -111,7 +115,12 @@ export const SegmentedControl = <Value extends string>({
 					setUncontrolledValue(next);
 					onValueChange?.(next);
 				}}
-				className={classes(className, styles.control, size === "small" && styles.small)}
+				className={classes(
+					className,
+					styles.control,
+					size === "small" && styles.small,
+					fill && styles.fill,
+				)}
 			>
 				{children}
 			</ToggleGroup>
