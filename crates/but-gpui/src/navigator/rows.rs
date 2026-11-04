@@ -763,8 +763,8 @@ impl Navigator {
         let fold = Fold::Under(item);
         let shown = self.folds.shows(&fold, open);
         rows.fold(fold, open, &self.folds, inside);
-        // Folded while a move is at its top, as a click on its chevron does, its commits stay
-        // out of sight, but not those landing there.
+        // Folded with a move at its top, stepped to or folded while there, as a click on its
+        // chevron does, its commits stay out of sight, but not those landing there.
         if !shown && let Some(moving) = landing_at(store, id, at_top) {
             rows.open();
             rows.push_ghosts(moving, false);
