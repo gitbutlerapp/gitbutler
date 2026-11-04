@@ -188,6 +188,14 @@ enum Entry {
     File(usize),
 }
 
+/// Whose messages the diff lists first, ahead of its files.
+enum Messages {
+    Commit(ProjectId, CommitId),
+    Branch(ProjectId, Option<FullName>),
+    /// The commits only `ref_name`'s remote has, or with `None` the target's new ones.
+    Upstream(ProjectId, Option<FullName>),
+}
+
 /// What of the detail y copied, which blinks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Copied {
@@ -1805,24 +1813,45 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// Whether the diff of `key` lists the messages first, as Lite does in place of the page's
-    /// header: one commit's, not several picked together, or a branch's commits'.
-    fn lists_message(&self, key: &DiffKey, cx: &App) -> bool {
+    /// Whose messages the diff of `key` lists first: one commit's, not several picked
+    /// together, or a branch's commits', as Lite does in place of the page's header; and the
+    /// commits only a remote has, whose page has no header to say them.
+    fn listed_messages(&self, key: &DiffKey, cx: &App) -> Option<Messages> {
         let store = self.store.read(cx);
-        match (&store.selection, &key.source) {
-            (Some(Selection::Commit(project, id)), DiffSource::Commit(_)) => {
-                !store.prefs.shows(Part::CommitHeader) && !store.among_picks(project, *id)
+        match (store.selection.as_ref()?, &key.source) {
+            (Selection::Commit(project, id), DiffSource::Commit(_))
+                if !store.prefs.shows(Part::CommitHeader) && !store.among_picks(project, *id) =>
+            {
+                Some(Messages::Commit(project.clone(), *id))
             }
-            (Some(Selection::Branch(..)), DiffSource::Range { .. }) => {
-                !store.prefs.shows(Part::BranchHeader)
+            (Selection::Branch(project, ref_name), DiffSource::Range { .. })
+                if !store.prefs.shows(Part::BranchHeader) =>
+            {
+                Some(Messages::Branch(project.clone(), ref_name.clone()))
             }
-            _ => false,
+            (
+                Selection::Section(project, Section::Upstream(ref_name)),
+                DiffSource::Incoming { .. } | DiffSource::Commits(_),
+            ) if !store.prefs.shows(Part::BranchHeader) => {
+                Some(Messages::Upstream(project.clone(), ref_name.clone()))
+            }
+            _ => None,
         }
+    }
+
+    /// Whether the diff of `key` lists the messages first.
+    fn lists_message(&self, key: &DiffKey, cx: &App) -> bool {
+        self.listed_messages(key, cx).is_some()
+    }
+
+    /// Whose messages the loaded diff lists first.
+    fn loaded_messages(&self, cx: &App) -> Option<Messages> {
+        self.listed_messages(&self.diff.as_ref()?.key, cx)
     }
 
     /// Whether the loaded diff lists the messages first.
     pub(super) fn message_listed(&self, cx: &App) -> bool {
-        (self.diff.as_ref()).is_some_and(|diff| self.lists_message(&diff.key, cx))
+        self.loaded_messages(cx).is_some()
     }
 
     /// Put the cursor on the commit's message and scroll to it, gliding there with `glide`.

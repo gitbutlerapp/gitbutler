@@ -23,7 +23,7 @@ use crate::app::{
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
-    ReviewState, Target,
+    ReviewState, Target, Workspace,
 };
 use crate::clock;
 use crate::detail::{ChecksChanged, Detail, oldest_conflict};
@@ -3897,26 +3897,7 @@ impl Navigator {
         let workspace = store.workspace(project);
         let open = self.upstream_open(store, project, ref_name);
         let target = workspace.and_then(|ws| ws.target.as_ref());
-        let (label, count, tip) = match ref_name {
-            Some(ref_name) => {
-                let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
-                let count = branch.map_or(0, |b| b.incoming.len());
-                let label = match branch.and_then(|b| b.remote.as_ref()) {
-                    Some(remote) => format!("On {remote}"),
-                    None => "On the remote".to_owned(),
-                };
-                (label, count, plural(count, "commit"))
-            }
-            None => {
-                let count = target.map_or(0, |t| t.behind);
-                let label = match target {
-                    Some(target) => format!("New on {}", target.name),
-                    None => "New on the target".to_owned(),
-                };
-                let tip = plural(count, "commit") + &target.map(with_merged).unwrap_or_default();
-                (label, count, tip)
-            }
-        };
+        let (label, count, tip) = upstream_label(workspace, ref_name);
         let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update());
         let can_pull = (ref_name.zip(workspace)).is_some_and(|(r, ws)| ws.can_pull(r));
         let section = Section::Upstream(ref_name.cloned());
@@ -4286,6 +4267,35 @@ fn worktree_icon(linked: bool, changed: bool, style: RowStyle) -> Div {
             let color = style.meta(style.theme.warn);
             el.child(dot(color).absolute().top_0().right_0().size(dp(5.)))
         })
+}
+
+/// What the heading over the commits only `ref_name`'s remote has, or with `None` the
+/// target's new ones, says: where they are, how many, and that count in words.
+pub(crate) fn upstream_label(
+    workspace: Option<&Workspace>,
+    ref_name: Option<&FullName>,
+) -> (String, usize, String) {
+    match ref_name {
+        Some(ref_name) => {
+            let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
+            let count = branch.map_or(0, |b| b.incoming.len());
+            let label = match branch.and_then(|b| b.remote.as_ref()) {
+                Some(remote) => format!("On {remote}"),
+                None => "On the remote".to_owned(),
+            };
+            (label, count, plural(count, "commit"))
+        }
+        None => {
+            let target = workspace.and_then(|ws| ws.target.as_ref());
+            let count = target.map_or(0, |t| t.behind);
+            let label = match target {
+                Some(target) => format!("New on {}", target.name),
+                None => "New on the target".to_owned(),
+            };
+            let tip = plural(count, "commit") + &target.map(with_merged).unwrap_or_default();
+            (label, count, tip)
+        }
+    }
 }
 
 /// How many commits the target's merges brought in besides, as " (N counting merged
