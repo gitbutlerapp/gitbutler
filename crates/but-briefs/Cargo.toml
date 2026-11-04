@@ -1,0 +1,25 @@
+[package]
+name = "but-briefs"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "The GitButler Briefs integration"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+
+anyhow.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

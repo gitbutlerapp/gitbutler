@@ -59,6 +59,7 @@ members = [
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-llm", # 📄TBD
     # 👉lacks top-level docs and docs.
+    "crates/but-briefs", # 📄A thin client of the Briefs API, to find and read the briefs about what a git client shows.
     "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
@@ -161,6 +162,7 @@ but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-gerrit = { path = "crates/but-gerrit" }
+but-briefs = { path = "crates/but-briefs" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-bitbucket = { path = "crates/but-bitbucket" }

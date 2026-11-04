@@ -1439,6 +1439,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-briefs"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-secret",
+ "reqwest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "but-clap"
 version = "0.1.0"
 dependencies = [
