@@ -2856,12 +2856,11 @@ impl Detail {
 
     /// How far the tiles' room sits in from the detail's left: as from its other edges, but
     /// beside the navigator, whose column holds the whole gap to them, so their cards start
-    /// right at the detail's edge.
+    /// right at the detail's edge. It goes from one to the other as the navigator slides, so
+    /// the cards never touch the window's edge or jump, and the card the detail draws stays
+    /// with the tiles drawn over it in a frame that doesn't draw the detail again.
     pub fn room_left(&self) -> f32 {
-        match self.navigator_shown.get() > 0. {
-            true => -crate::ui::TILE_MARGIN,
-            false => crate::ui::TILE_MARGIN,
-        }
+        crate::ui::TILE_MARGIN * (1. - 2. * self.navigator_shown.get())
     }
 
     /// How far the tiles' room sits from the bottom of the strip along the detail's top: up

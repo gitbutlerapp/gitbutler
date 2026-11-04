@@ -2280,9 +2280,6 @@ impl AppView {
                     .children(self.render_drop_zones(theme, cx))
                     .children(self.render_row_zones(theme, cx)),
             )
-            .when(navigator_sliding, |el| {
-                el.child(edge(theme.border_3).left(fixed(-1.)))
-            })
     }
 
     /// A tile pinned beside the home tile, over `area` of the room below the header, edged
@@ -3579,7 +3576,6 @@ impl AppView {
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
         let sliding = self.detail_slide.openness(now).is_some();
         if let Some(narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) {
-            let theme = Theme::get(cx);
             let beside = narrowing.navigator * navigator_share;
             let navigator = div().w(dp(narrowing.navigator)).h_full().child(
                 self.navigator
@@ -3599,8 +3595,7 @@ impl AppView {
                             .w(dp(narrowing.wide - beside)),
                     )
                 })
-                // Over the detail, as much of it as shows while it slides open or shut, edged
-                // as it is.
+                // Over the detail, as much of it as shows while it slides open or shut.
                 .when(beside > 0., |el| {
                     el.child(
                         div()
@@ -3611,10 +3606,7 @@ impl AppView {
                             .w(dp(beside))
                             .overflow_hidden()
                             .occlude()
-                            .child(inert(navigator, !self.navigator_open))
-                            .when(navigator_sliding, |el| {
-                                el.child(edge(theme.border_3).right_0())
-                            }),
+                            .child(inert(navigator, !self.navigator_open)),
                     )
                 });
         }
@@ -4159,9 +4151,15 @@ impl Render for AppView {
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
         // Pinned pages fit their file lists to the same room.
         for detail in std::iter::once(&self.detail).chain(self.pages.values().map(|p| &p.detail)) {
-            let detail = detail.read(cx);
-            detail.navigator_shown.set(navigator_share);
-            (detail.window_width).set(self.narrowing.map(|narrowing| narrowing.wide));
+            let view = detail.read(cx);
+            let was = view.navigator_shown.replace(navigator_share);
+            (view.window_width).set(self.narrowing.map(|narrowing| narrowing.wide));
+            // A slide's last frames can leave a cached detail's bounds as they were, so it's
+            // drawn once more where the slide ends.
+            if was != navigator_share && !navigator_sliding {
+                let detail = detail.clone();
+                cx.defer(move |cx| detail.update(cx, |_, cx| cx.notify()));
+            }
         }
         // Tiles sliding open or shut, or dragged, move on before the next frame.
         let tile_sliding = self.tiles_moving;
