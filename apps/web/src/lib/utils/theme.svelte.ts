@@ -1,11 +1,14 @@
 import { browser } from "$app/environment";
 import { persisted } from "@gitbutler/shared/persisted";
-import { derived, writable, type Readable } from "svelte/store";
+import { derived, writable, type Readable, type Writable } from "svelte/store";
 
 export type Theme = "light" | "dark" | "system";
 
-// Create a persisted store for the theme preference
-export const themeStore = persisted<Theme>("system", "web-theme-preference");
+// The theme preference, kept in localStorage. Server-rendered pages have no
+// localStorage, so there it is a plain store on "system" until the browser takes over.
+export const themeStore: Writable<Theme> = browser
+	? persisted<Theme>("system", "web-theme-preference")
+	: writable<Theme>("system");
 
 // Create a writable store for system theme that can be updated
 const systemThemeStore = writable<"light" | "dark">("light");
