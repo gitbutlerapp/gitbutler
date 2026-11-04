@@ -2385,7 +2385,6 @@ impl Navigator {
         let map = h_flex()
             .id(SharedString::from(format!("tiles-{item:?}")))
             .flex_none()
-            .h(dp(ROW_HEIGHT))
             .mr(dp(3.))
             .px(dp(7.))
             .gap(dp(6.))
@@ -2410,8 +2409,10 @@ impl Navigator {
             })
             .map(|el| self.selectable(el, item, cx))
             .map(|el| self.page_drag(el, item, cx));
+        // As tall as the row, which a watched project's heading is more than the others.
         h_flex()
             .w_full()
+            .items_stretch()
             .child(div().flex_grow(1.).min_w(dp(120.)).child(el))
             .child(map)
             .into_any_element()
