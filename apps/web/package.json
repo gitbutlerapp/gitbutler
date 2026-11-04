@@ -53,6 +53,7 @@
 		"@types/tryghost__content-api": "^1.3.17",
 		"dayjs": "^1.11.20",
 		"highlight.js": "^11.10.0",
+		"jsdom": "^26.1.0",
 		"marked": "catalog:",
 		"posthog-js": "1.417.1",
 		"svelte-exmarkdown": "^5.0.2"
