@@ -126,6 +126,7 @@ actions!(
         PreviousTile,
         CopyTileDiagram,
         ArrangeTiles,
+        SwapTiles,
         MoveTileLeft,
         MoveTileRight,
         MoveTileUp,
@@ -2370,19 +2371,28 @@ impl AppView {
                     .children(junctions)
                     .children(self.render_drop_zones(theme, cx))
                     .children(self.render_row_zones(theme, cx))
-                    .children(self.render_arranging_keys(cx)),
+                    .children(self.render_arranging_keys(cx))
+                    .children(self.render_swap_letters(theme, cx)),
             )
     }
 
     /// What has the keys while a tile's moved with them: nothing to see. A text field to the
     /// keys, as a terminal is, so that letters bound across the window do nothing here.
     fn render_arranging_keys(&self, cx: &Context<Self>) -> Option<Div> {
-        self.arranging.as_ref()?;
+        let swapping = self.arranging.as_ref()?.swapping;
         Some(
             div()
                 .absolute()
-                .key_context("ArrangingTiles TextInput")
+                .key_context(match swapping {
+                    true => "SwappingTiles TextInput",
+                    false => "ArrangingTiles TextInput",
+                })
                 .track_focus(&self.arranging_focus)
+                .when(swapping, |el| {
+                    el.on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        this.swap_by_letter(event, window, cx)
+                    }))
+                })
                 .on_action(
                     cx.listener(|this, _: &MoveTileLeft, _, cx| this.step_tile(Side::Left, cx)),
                 )
@@ -2400,6 +2410,37 @@ impl AppView {
                     this.cancel_arranging(window, cx)
                 })),
         )
+    }
+
+    /// The letter that swaps each tile with the tile being swapped, over the middle of that tile.
+    fn render_swap_letters(&self, theme: &Theme, cx: &App) -> Option<OnTop> {
+        let letters = self.swap_letters();
+        let tiling = self
+            .store
+            .read(cx)
+            .tiling()
+            .filter(|_| !letters.is_empty())?;
+        let letters = (letters.into_iter()).filter_map(|(letter, tile)| {
+            let label = div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(dp(72.))
+                .rounded(dp(8.))
+                .bg(theme.pop)
+                .text_size(dp(36.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.bg_1)
+                .child(SharedString::from(letter.to_ascii_uppercase().to_string()));
+            Some(
+                placed(tiling.area_of(&tile)?)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .child(label),
+            )
+        });
+        Some(on_top(div().absolute().inset_0().children(letters)).priority(1))
     }
 
     /// The line over the edge of `tile`'s card, if it has one: the tile being moved with the
@@ -3062,8 +3103,9 @@ impl AppView {
     }
 
     /// Start moving the tile of the selected row's tiling with the keys, or that had them last,
-    /// with the keys: see [`Tiling::stepped`].
-    fn arrange_tiles(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// with the keys: a step at a time, as [`Tiling::stepped`] takes it, or `swapping` it with
+    /// the tile whose letter is pressed.
+    fn arrange_tiles(&mut self, swapping: bool, window: &mut Window, cx: &mut Context<Self>) {
         if self.arranging.is_some()
             || self.covered()
             || self.tile_dragged()
@@ -3082,6 +3124,7 @@ impl AppView {
             tile: tile.unwrap_or(Tile::Home),
             before: tiling.clone(),
             landed: tiling,
+            swapping,
         });
         window.focus(&self.arranging_focus, cx);
         cx.notify();
@@ -3090,6 +3133,57 @@ impl AppView {
     /// Whether a tile's being moved with the keys.
     pub(crate) fn arranging(&self) -> bool {
         self.arranging.is_some()
+    }
+
+    /// Whether a tile's waiting for the letter of the tile to swap it with.
+    pub(crate) fn swapping(&self) -> bool {
+        (self.arranging.as_ref()).is_some_and(|arranging| arranging.swapping)
+    }
+
+    /// The tiles the tile being swapped can swap with, by the letter of each, in the order
+    /// they're laid out.
+    fn swap_letters(&self) -> Vec<(char, Tile)> {
+        let Some(arranging) = self.arranging.as_ref().filter(|it| it.swapping) else {
+            return Vec::new();
+        };
+        let tiles = (arranging.landed.areas().into_iter())
+            .map(|(tile, _)| tile)
+            .filter(|tile| *tile != arranging.tile);
+        SWAP_LETTERS.chars().zip(tiles).collect()
+    }
+
+    /// Swap the tile being swapped with the tile whose letter `event` pressed, keeping the keys
+    /// in it. Any other key goes on waiting for one.
+    fn swap_by_letter(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let modifiers = event.keystroke.modifiers;
+        if modifiers.platform || modifiers.control || modifiers.alt {
+            return;
+        }
+        let other = (self.swap_letters().into_iter())
+            .find(|(letter, _)| {
+                event
+                    .keystroke
+                    .key
+                    .eq_ignore_ascii_case(&letter.to_string())
+            })
+            .map(|(_, tile)| tile);
+        let Some(other) = other else {
+            return;
+        };
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        let swapped = arranging.landed.swapped(&arranging.tile, &other);
+        self.shift_tiles(arranging.tile, swapped, cx);
+        cx.notify();
     }
 
     /// Move the tile being moved with the keys a step toward `side`.
@@ -4141,7 +4235,12 @@ struct Arranging {
     before: Tiling,
     /// The tiling as the keys last left it.
     landed: Tiling,
+    /// Whether it's waiting for the letter of the tile to swap it with, rather than stepping.
+    swapping: bool,
 }
+
+/// The letters that pick a tile to swap with, the home row's first.
+const SWAP_LETTERS: &str = "asdfghjklqwertyuiopzxcvbnm";
 
 /// A tile shutting: the tiling as it was with it there, and what it showed, kept to draw it
 /// going: the terminal that closed with it, or its page.
@@ -4614,11 +4713,12 @@ impl Render for AppView {
                     cx.listener(|this, _: &ZoomTile, window, cx| this.zoom_with_keys(window, cx)),
                 )
                 .on_action(cx.listener(|this, _: &EqualizeTiles, _, cx| this.equalize_tiles(cx)))
-                .on_action(
-                    cx.listener(|this, _: &ArrangeTiles, window, cx| {
-                        this.arrange_tiles(window, cx)
-                    }),
-                )
+                .on_action(cx.listener(|this, _: &ArrangeTiles, window, cx| {
+                    this.arrange_tiles(false, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &SwapTiles, window, cx| {
+                    this.arrange_tiles(true, window, cx)
+                }))
                 .on_action(cx.listener(|this, _: &NextTile, window, cx| {
                     this.focus_next_tile(false, window, cx)
                 }))

@@ -73,7 +73,13 @@ impl AppView {
         });
         // What the bar's left says, and the keys that go with it, which go on its right with the
         // others.
-        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if self.arranging() {
+        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if self.swapping() {
+            let state = h_flex()
+                .gap(dp(6.))
+                .child(div().text_color(theme.pop).child("Swapping tiles"))
+                .child("press a tile's letter");
+            (state.into_any_element(), vec![("esc".into(), "cancel")])
+        } else if self.arranging() {
             let state = div().text_color(theme.pop).child("Arranging tiles");
             let keys = [("hjkl".into(), "move tile")]
                 .into_iter()

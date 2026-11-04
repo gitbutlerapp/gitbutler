@@ -847,6 +847,21 @@ impl Tiling {
         flat.step(tile, side, least).unwrap_or_else(|| self.clone())
     }
 
+    /// As it is with `tile` and `other` in each other's places, so every place keeps its room.
+    pub fn swapped(&self, tile: &Tile, other: &Tile) -> Tiling {
+        match self {
+            Tiling::Tile(here) if here == tile => Tiling::Tile(other.clone()),
+            Tiling::Tile(here) if here == other => Tiling::Tile(tile.clone()),
+            Tiling::Tile(_) => self.clone(),
+            Tiling::Divided { axis, parts } => Tiling::Divided {
+                axis: *axis,
+                parts: (parts.iter())
+                    .map(|(share, part)| (*share, part.swapped(tile, other)))
+                    .collect(),
+            },
+        }
+    }
+
     /// See [`Tiling::stepped`], which has no division inside one laid out the same way, so a
     /// step out of a division is always along the way the division around it goes.
     fn step(&mut self, tile: &Tile, side: Side, least: (f32, f32)) -> Option<Tiling> {
@@ -3124,5 +3139,37 @@ mod tests {
             ),
             "what's left folds to a row, which the tile's own row takes in"
         );
+    }
+
+    #[test]
+    fn swapped_tiles_take_each_others_places_and_nothing_else_moves() {
+        let column = divided(Axis::Down, Vec::from([(0.3, pinned(1)), (0.7, pinned(2))]));
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.2, Tiling::Tile(Tile::Home)),
+                (0.5, column),
+                (0.3, pinned(3)),
+            ]),
+        );
+        assert_eq!(
+            rounded(&tiling.swapped(&Tile::Home, &Tile::Pinned(terminal(2)))),
+            Vec::from([
+                (Tile::Pinned(terminal(2)), [0, 0, 20, 100]),
+                (Tile::Pinned(terminal(1)), [20, 0, 50, 30]),
+                (Tile::Home, [20, 30, 50, 70]),
+                (Tile::Pinned(terminal(3)), [70, 0, 30, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn swapping_twice_puts_the_tiles_back() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([(0.7, Tiling::Tile(Tile::Home)), (0.3, pinned(1))]),
+        );
+        let (tile, other) = (Tile::Home, Tile::Pinned(terminal(1)));
+        assert_eq!(tiling.swapped(&tile, &other).swapped(&tile, &other), tiling);
     }
 }

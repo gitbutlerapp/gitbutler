@@ -590,6 +590,12 @@
       "escape": "tiling::CancelArranging"
     }
   },
+  // Swapping a tile, from Swap tiles: the letters over the others are read as they're pressed,
+  // and Escape leaves the tiles as they are.
+  {
+    "context": "SwappingTiles",
+    "bindings": { "escape": "tiling::CancelArranging" }
+  },
   // A description's image previewed: the one before or after it, and Space closes it, as in
   // Quick Look.
   {
