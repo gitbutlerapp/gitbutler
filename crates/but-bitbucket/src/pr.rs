@@ -175,16 +175,12 @@ mod tests {
 
     #[test]
     fn connection_failures_carry_the_network_error_code() {
-        // Binding an ephemeral port and dropping the listener leaves a port
-        // that was just proven closed; connecting to it produces the same
-        // `reqwest::Error` shape as an unreachable Bitbucket host.
-        let port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
+        // Nothing listens on loopback port 1, and binding port 0 never returns
+        // it, so a server in another test process can't take it. The refused
+        // connection has the same `reqwest::Error` shape as an unreachable
+        // Bitbucket host.
         let reqwest_err = reqwest::blocking::Client::new()
-            .get(format!("http://127.0.0.1:{port}"))
+            .get("http://127.0.0.1:1")
             .send()
             .unwrap_err();
         let err = classify_forge_error(anyhow::Error::from(reqwest_err));
