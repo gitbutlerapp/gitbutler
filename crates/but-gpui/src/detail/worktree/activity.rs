@@ -117,7 +117,11 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let span = &self.now.span;
+        let none = SlotPick::default();
+        let span = self
+            .page
+            .overview()
+            .map_or(&none, |overview| &overview.span);
         let bars = activity.map_or_else(|| vec![0; QUARTERS], |a| a.bars(now, QUARTERS));
         let first = window_start(now) / QUARTER;
         let mut committed = vec![0usize; QUARTERS];
@@ -180,7 +184,9 @@ impl Detail {
         let range = quarters_said(&span.slots, now).unwrap_or("last 12 hours".to_owned());
         let clear = picked.then(|| {
             clear_button("now-quarters-clear").on_click(cx.listener(|this, _, _, cx| {
-                this.now.span = SlotPick::default();
+                if let Some(overview) = this.page.overview_mut() {
+                    overview.span = SlotPick::default();
+                }
                 cx.notify()
             }))
         });
@@ -295,7 +301,9 @@ impl Detail {
     }
 
     fn quarter_gesture(&mut self, gesture: SlotGesture, cx: &mut Context<Self>) {
-        if self.now.span.apply(gesture) {
+        if let Some(overview) = self.page.overview_mut()
+            && overview.span.apply(gesture)
+        {
             cx.notify();
         }
     }

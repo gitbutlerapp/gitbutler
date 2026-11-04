@@ -85,7 +85,7 @@ impl Detail {
                 if !(detail.store).update(cx, |store, cx| store.select_by_hand(selection, cx)) {
                     return;
                 }
-                // Once the page has opened, on what merged lately.
+                // Once the page has opened.
                 cx.spawn_in(window, async move |this, cx| {
                     this.update_in(cx, |this, window, cx| {
                         this.filter_path(&project, Some(query), cx);

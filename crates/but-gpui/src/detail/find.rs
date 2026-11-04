@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, Context, Entity, Focusable as _, Pixels, ScrollHandle, Window, actions, point,
+    AnyElement, App, Context, Focusable as _, Pixels, ScrollHandle, Window, actions, point,
     prelude::*,
 };
 
@@ -13,7 +13,6 @@ use super::Detail;
 use crate::backend::{self, DiffLine, LineKind};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
-use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{Icon, dp, field, h_flex, icon_button, muted, popover};
 
 actions!(find, [FindInDiff, FindNext, FindPrevious]);
@@ -47,12 +46,22 @@ impl Spot {
 }
 
 pub(super) struct Find {
-    input: Entity<TextInput>,
     /// Every match, in the diff's order.
     matches: Vec<(Spot, Range<usize>)>,
     /// Each line's matches, by their place in `matches`.
     on: HashMap<Spot, Vec<usize>>,
     current: usize,
+}
+
+impl Find {
+    /// A find on match `current`, with its matches still to find.
+    fn new(current: usize) -> Find {
+        Find {
+            matches: Vec::new(),
+            on: HashMap::new(),
+            current,
+        }
+    }
 }
 
 /// Where `query` appears in the lines `rows` show, ignoring case for ASCII.
@@ -79,35 +88,39 @@ fn search<'a>(
 
 impl Detail {
     pub fn open_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(find) = &self.find {
-            let input = find.input.clone();
+        let input = self.find_input.clone();
+        if self.find.is_some() {
             input.update(cx, |input, cx| input.select_all_text(cx));
             window.focus(&input.focus_handle(cx), cx);
             return;
         }
-        let input = cx.new(|cx| TextInput::new("Find in the diff", false, cx));
-        cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
-            InputEvent::Changed => this.run_find(true, cx),
-            InputEvent::Submit => this.step_find(1, cx),
-            InputEvent::Cancel => this.close_find(window, cx),
-        })
-        .detach();
+        input.update(cx, |input, cx| input.restore("", cx));
         window.focus(&input.focus_handle(cx), cx);
-        self.find = Some(Find {
-            input,
-            matches: Vec::new(),
-            on: HashMap::new(),
-            current: 0,
-        });
+        self.find = Some(Find::new(0));
         cx.notify();
+    }
+
+    /// The find bar as the page shown now left it, `left` being what it was finding and which
+    /// match it was on, or closed. The diff finds the matches as it lands.
+    pub(super) fn restore_find(&mut self, left: Option<(String, usize)>, cx: &mut Context<Self>) {
+        let Some((query, current)) = left else {
+            self.find = None;
+            return;
+        };
+        (self.find_input).update(cx, |input, cx| input.restore(query, cx));
+        self.find = Some(Find::new(current));
+    }
+
+    /// What the find bar is finding and which match it's on, while it's open.
+    pub(super) fn find_left(&self, cx: &App) -> Option<(String, usize)> {
+        let find = self.find.as_ref()?;
+        Some((self.find_input.read(cx).text().to_owned(), find.current))
     }
 
     /// Find `text` in the diff, as typing it in the find bar does.
     pub(super) fn find_text(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.open_find(window, cx);
-        if let Some(find) = &self.find {
-            (find.input).update(cx, |input, cx| input.set_text(text, cx));
-        }
+        (self.find_input).update(cx, |input, cx| input.set_text(text, cx));
     }
 
     pub(super) fn close_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -119,10 +132,10 @@ impl Detail {
     /// Search the diff again, as when the query or the diff changed; with `reveal`, go to
     /// the first match.
     pub(super) fn run_find(&mut self, reveal: bool, cx: &mut Context<Self>) {
-        let (Some(find), Some(diff)) = (&self.find, &self.diff) else {
+        let (Some(_), Some(diff)) = (&self.find, &self.diff) else {
             return;
         };
-        let query = find.input.read(cx).text().to_owned();
+        let query = self.find_input.read(cx).text().to_owned();
         // What the diff shows, unchanged lines and all, with folded files open: not what a
         // filter or an operation under way hides.
         let (rows, ..) = self.build_rows(&diff.key, &diff.files, true, cx);
@@ -232,8 +245,8 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let find = self.find.as_ref()?;
-        let focused = find.input.focus_handle(cx).is_focused(window);
-        let empty = find.input.read(cx).text().is_empty();
+        let focused = self.find_input.focus_handle(cx).is_focused(window);
+        let empty = self.find_input.read(cx).text().is_empty();
         let count = match (empty, find.matches.len()) {
             (true, _) => String::new(),
             (false, 0) => "No matches".into(),
@@ -256,7 +269,7 @@ impl Detail {
                 .items_center()
                 .gap(dp(4.))
                 .p(dp(6.))
-                .child(field(&find.input, focused, theme).w(dp(220.)))
+                .child(field(&self.find_input, focused, theme).w(dp(220.)))
                 .child(muted(count, theme).min_w(dp(64.)))
                 .child(
                     h_flex()

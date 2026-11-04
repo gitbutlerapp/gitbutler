@@ -66,7 +66,7 @@ impl Detail {
         let Some(path) = store.path(project) else {
             return;
         };
-        let picked = match &self.selection(cx) {
+        let picked = match &self.selection() {
             Some(Selection::Mesh(p, id, pick)) if p == project => {
                 pick.branch().map(|name| (id.clone(), name.to_owned()))
             }
@@ -114,7 +114,7 @@ impl Detail {
             return;
         }
         // The project shown first, as it may have changed since these were queued.
-        let shown = match self.selection(cx) {
+        let shown = match self.selection() {
             Some(Selection::Mesh(project, ..)) => Some(project),
             None | Some(_) => None,
         };
@@ -133,7 +133,7 @@ impl Detail {
                         Err(err) => Fetch::Failed(format!("{err:#}").into()),
                     };
                 }
-                if matches!(this.selection(cx), Some(Selection::Mesh(p, ..)) if p == key.0) {
+                if matches!(this.selection(), Some(Selection::Mesh(p, ..)) if p == key.0) {
                     this.refresh_diff(false, cx);
                 }
                 this.fetch_next(cx);

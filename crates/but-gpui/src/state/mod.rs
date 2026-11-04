@@ -262,7 +262,8 @@ pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
-    /// The selected page was clicked in the navigator again, to go back to how it opens.
+    /// The selected page was asked for again, as by the crumb naming it, to go back to how it
+    /// opens.
     Reopened,
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
@@ -288,6 +289,11 @@ pub enum StoreEvent {
     },
     /// A tile was pinned to a row or taken away.
     TilingChanged,
+    /// The selected row's tiling is the row `to`'s now, as a terminal took the home tile's place.
+    TilingMoved {
+        from: RowKey,
+        to: RowKey,
+    },
     /// The drag of a navigator row, which can land as a tile, ended.
     RowDragEnded,
     /// This was asked to be selected by hand while a move was under way, which keeps the

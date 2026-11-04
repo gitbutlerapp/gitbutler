@@ -45,7 +45,7 @@ impl Detail {
     /// navigator, merged.
     pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
-        match &self.selection(cx)? {
+        match &self.selection()? {
             Selection::Branch(project, ref_name) => store
                 .workspace(project)?
                 .find_branch(ref_name.as_ref())?
@@ -65,11 +65,10 @@ impl Detail {
         }
     }
 
-    /// Whether the branch page shows its pull request in place of its changes. The tab
-    /// picked stays picked from branch to branch, as but.dev's does; a branch without a
-    /// pull request shows its changes.
+    /// Whether the page shows its pull request in place of its changes, as its tab was left: a
+    /// branch without a pull request shows its changes.
     pub fn showing_review(&self, cx: &App) -> bool {
-        self.review_tab && self.selected_review(cx).is_some()
+        self.page.review_tab() && self.selected_review(cx).is_some()
     }
 
     /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
@@ -77,14 +76,16 @@ impl Detail {
     /// ⌃Tab: the other of a branch's Changes and Pull request tabs, when it has both.
     pub(crate) fn switch_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.selected_review(cx).is_some() {
-            self.set_review_tab(!self.review_tab, window, cx)
+            self.set_review_tab(!self.page.review_tab(), window, cx)
         }
     }
 
     /// Show the pull request's tab, or the changes'. The tabs keep the keys when they have
     /// them; from anywhere else the keys go to what the tab shows.
     pub(crate) fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        self.review_tab = on;
+        if let Some(review) = self.page.review_mut() {
+            review.tab = on;
+        }
         match self.tabs_focus.is_focused(window) {
             true => cx.notify(),
             false => self.focus_files(window, cx),
@@ -110,7 +111,7 @@ impl Detail {
     /// last went left out of them on this page.
     pub(crate) fn tabs_reachable(&self, cx: &App) -> bool {
         self.selected_review(cx).is_some()
-            && (self.review_tab || self.tabs_kept || self.without_changes(cx))
+            && (self.page.review_tab() || self.tabs_kept || self.without_changes(cx))
     }
 
     /// Keep the tabs for coming back from the left, or forget them.
@@ -126,7 +127,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) -> bool {
         // The pull request's tab is the right one.
-        if self.review_tab == forward {
+        if self.page.review_tab() == forward {
             return false;
         }
         self.set_review_tab(forward, window, cx);
@@ -157,8 +158,8 @@ impl Detail {
             return false;
         }
         match (
-            self.review_tab || self.without_changes(cx),
-            self.list_page(cx),
+            self.page.review_tab() || self.without_changes(cx),
+            self.list_page(),
         ) {
             (true, _) => {}
             (false, true) if self.beside_files_shown(cx) => self.focus_beside_files(window, cx),
@@ -172,12 +173,12 @@ impl Detail {
     /// box is for, as the pull request actions are.
     fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(ProjectId, FullName, &'a Review)> {
         let store = self.store.read(cx);
-        let selection = self.selection(cx)?;
+        let selection = self.selection()?;
         let Selection::Branch(project, Some(ref_name)) = &selection else {
             return None;
         };
         let review = self.selected_review(cx)?;
-        let applies = self.review_tab
+        let applies = self.page.review_tab()
             && crate::pr::on_forge(store, &selection)
             && store.review_state(project, review) == ReviewState::Open;
         applies.then(|| (project.clone(), ref_name.clone(), review))
@@ -193,12 +194,12 @@ impl Detail {
     /// Have the store ask GitHub what's been said on the pull request the tab shows. Other
     /// forges' conversations aren't read.
     fn read_conversation(&self, cx: &mut Context<Self>) {
-        if !self.review_tab {
+        if !self.page.review_tab() {
             return;
         }
         let review = self.selected_review(cx);
         let (Some(project), Some((number, updated_at))) = (
-            self.selected_project(cx),
+            self.selected_project(),
             review.map(|review| (review.number, review.updated_at)),
         ) else {
             return;
@@ -278,7 +279,7 @@ impl Detail {
         let text = match id == description_id(review) {
             true => markdown::selected_text(&markdown::parse(&review.body), range),
             false => {
-                let project = self.selected_project(cx)?;
+                let project = self.selected_project()?;
                 let store = self.store.read(cx);
                 let Some(Ok(said)) = store.conversation(&project, review.number) else {
                     return None;
@@ -408,7 +409,7 @@ impl Detail {
                     "tab-changes",
                     Icon::Diff,
                     "Changes",
-                    !self.review_tab,
+                    !self.page.review_tab(),
                     solid,
                     theme,
                 )
@@ -426,7 +427,7 @@ impl Detail {
                         ReviewState::Draft => format!("Draft #{}", review.number),
                         _ => format!("PR #{}", review.number),
                     },
-                    self.review_tab,
+                    self.page.review_tab(),
                     solid,
                     theme,
                 )
@@ -444,9 +445,9 @@ impl Detail {
     /// from one to the other lays the tab out for its width from the first frame. Not the
     /// list page's own `beside_width`, which starts at nothing: the first tab drawn there would
     /// take a frame to find room for its panel.
-    fn review_width(&self, cx: &App) -> &Rc<Cell<f32>> {
+    fn review_width(&self) -> &Rc<Cell<f32>> {
         let [branch_page, list_page] = &self.review_width;
-        match self.list_page(cx) {
+        match self.list_page() {
             true => list_page,
             false => branch_page,
         }
@@ -455,7 +456,7 @@ impl Detail {
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
-        match self.list_page(cx) && self.selected_review(cx).is_some() {
+        match self.list_page() && self.selected_review(cx).is_some() {
             true => TABS_HEIGHT,
             false => 0.,
         }
@@ -474,7 +475,7 @@ impl Detail {
         let Some(review) = self.selected_review(cx) else {
             return div().into_any_element();
         };
-        let two_columns = self.review_width(cx).get() >= TWO_COLUMNS;
+        let two_columns = self.review_width().get() >= TWO_COLUMNS;
         let (rows, drawn) = (
             LEAD + self.remarks_shown(project, review.number, cx),
             self.review_list.item_count(),
@@ -482,7 +483,12 @@ impl Detail {
         // New remarks arrive at the top of the conversation, newest first. A splice there moves
         // the list's scroll position past them, so the reader stays on the remark they're on.
         match drawn {
-            0 => self.review_list.reset(rows),
+            0 => {
+                self.review_list.reset(rows);
+                if let Some(top) = self.page.review().and_then(|review| review.top.take()) {
+                    self.review_list.scroll_to(top);
+                }
+            }
             _ if rows > drawn => self.review_list.splice(LEAD..LEAD, rows - drawn),
             _ if rows < drawn => self.review_list.splice(LEAD..LEAD + drawn - rows, 0),
             _ => {}
@@ -527,7 +533,7 @@ impl Detail {
             ),
             false => column,
         };
-        let width = measured(self.review_width(cx), &self.app, |bounds| {
+        let width = measured(self.review_width(), &self.app, |bounds| {
             bounds.size.width.into()
         });
         // A press on a note's text selects there before this sees it, and one anywhere else on
@@ -557,12 +563,12 @@ impl Detail {
     /// Row `ix` of the pull request tab's column: its title, the panel when it isn't beside
     /// the column, its description, the conversation's heading, then each of what's been said.
     fn review_row(&self, ix: usize, cx: &Context<Self>) -> AnyElement {
-        let (Some(project), Some(review)) = (self.selected_project(cx), self.selected_review(cx))
+        let (Some(project), Some(review)) = (self.selected_project(), self.selected_review(cx))
         else {
             return div().into_any_element();
         };
         let theme = Theme::get(cx);
-        let two_columns = self.review_width(cx).get() >= TWO_COLUMNS;
+        let two_columns = self.review_width().get() >= TWO_COLUMNS;
         // Each row's content and the room above it. The list ignores a row's own margins, so
         // the room and the column's sides go on a row of its own around the content.
         let (above, content) = match ix {
@@ -823,12 +829,17 @@ impl Detail {
         // Opening by itself counts as the reader's choice, so a rerun that takes the failure
         // back to queued doesn't fold the list away while they watch it.
         let open = {
-            let mut opened = self.checks_open.borrow_mut();
-            match opened.get(&key) {
-                Some(&open) => open,
-                None if failed > 0 => {
-                    opened.insert(key.clone(), true);
-                    true
+            match self.page.review() {
+                Some(review) => {
+                    let mut opened = review.checks_open.borrow_mut();
+                    match opened.get(&key) {
+                        Some(&open) => open,
+                        None if failed > 0 => {
+                            opened.insert(key.clone(), true);
+                            true
+                        }
+                        None => false,
+                    }
                 }
                 None => false,
             }
@@ -853,7 +864,9 @@ impl Detail {
             .child(counts)
             .tooltip(Tooltip::text(tip))
             .on_click(cx.listener(move |this, _, _, cx| {
-                this.checks_open.borrow_mut().insert(key.clone(), !open);
+                if let Some(review) = this.page.review() {
+                    review.checks_open.borrow_mut().insert(key.clone(), !open);
+                }
                 this.page_folds.start(PageFold::Checks, !open, cx);
                 cx.notify();
             }));

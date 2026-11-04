@@ -389,7 +389,7 @@ impl Detail {
                 this.load_selected_merge(&project, cx);
                 // Left since, the page keeps the pick for later rather than taking over what's
                 // shown now, as a composer opened meanwhile.
-                let shown = matches!(&this.selection(cx),
+                let shown = matches!(&this.selection(),
                     Some(Selection::Project(p)) if *p == project);
                 match found {
                     Some(id) if shown => {
@@ -509,15 +509,15 @@ impl Detail {
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
         self.showing_review(cx)
             || self.showing_shipped(cx)
-            || self.showing_branches_overview(cx)
+            || self.showing_branches_overview()
             || self.choosing_target(cx)
-            || self.overview_only(cx)
+            || self.overview_only()
     }
 
     /// Whether the project's page asks which of the local branches tracking its target is it.
     pub fn choosing_target(&self, cx: &gpui::App) -> bool {
         let store = self.store.read(cx);
-        match self.selection(cx) {
+        match self.selection() {
             Some(Selection::Project(project)) => {
                 (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
             }
@@ -527,7 +527,7 @@ impl Detail {
 
     /// Whether a list page shows a commit's or a branch's files between its list and the diff.
     pub(super) fn has_files_beside(&self, cx: &gpui::App) -> bool {
-        let shows = match &self.selection(cx) {
+        let shows = match &self.selection() {
             Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
             Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
             _ => false,
@@ -695,7 +695,7 @@ impl Detail {
             .join("\n");
         let shown = shown.trim().to_owned();
         let title = label(commit).to_string();
-        let open = self.message_open;
+        let open = self.page.message_open();
         let toggle = (!shown.is_empty()).then(|| {
             let label = match open {
                 true => "Hide message",
@@ -704,10 +704,7 @@ impl Detail {
             button("target-message-more", label)
                 .small()
                 .style(ButtonStyle::Ghost)
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.message_open = !this.message_open;
-                    cx.notify();
-                }))
+                .on_click(cx.listener(|this, _, _, cx| this.toggle_message(cx)))
         });
         // And the rule along its bottom.
         let height = measured(&self.target_message_height, &self.app, |bounds| {
@@ -765,7 +762,7 @@ impl Detail {
 
     /// Whether the project's page shows what merged lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        match &self.selection(cx) {
+        match &self.selection() {
             Some(Selection::Project(project)) => {
                 self.editing(project, cx).is_none()
                     && (self.upstream_for(project))
@@ -778,7 +775,7 @@ impl Detail {
     /// Esc on the project's page with a commit shown: back to what merged
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(Selection::Project(project)) = self.selection(cx) else {
+        let Some(Selection::Project(project)) = self.selection() else {
             return false;
         };
         let opened = self.editing(&project, cx).is_none()
@@ -1099,6 +1096,7 @@ impl Detail {
 
     /// Back to the top of the history, its newest commit kept, as a filter changes.
     pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
+        self.forget_side_top();
         self.upstream_scroll.scroll_to(Default::default());
     }
 
@@ -1193,19 +1191,14 @@ impl Detail {
         }
     }
 
-    /// Opening the project's page, wherever from: it shows what merged lately, rather than
-    /// what was picked on it last, as the Branches page shows its overview.
-    pub(super) fn open_on_shipped(&mut self, project: &ProjectId) {
+    /// Coming back to the project's page, which shows what was picked on it last: a read cut
+    /// short as it was left isn't still going.
+    pub(super) fn resume_project_page(&mut self, project: &ProjectId) {
         let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
-        // A read cut short when the page was left isn't still going.
         upstream.paging.set(Paging::Idle);
         upstream.pending = None;
-        if upstream.summary.is_some() {
-            upstream.selected = Some(Picked::Shipped);
-            upstream.merged_pick = None;
-        }
     }
 
     /// Back to what the page opens on, as when it's picked again.
@@ -1221,7 +1214,7 @@ impl Detail {
     /// Pick commit `id` on the project page shown, as the crumb of a merge does over a commit
     /// of it.
     pub(super) fn pick_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
-        if let Some(project) = self.selected_project(cx) {
+        if let Some(project) = self.selected_project() {
             self.pick_on_page(&project, Picked::Commit(id), None, cx)
         }
     }
@@ -1281,6 +1274,7 @@ impl Detail {
 
     /// Bring the commit picked into view in the history, as it was picked from elsewhere.
     fn scroll_to_picked(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.forget_side_top();
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
@@ -1317,7 +1311,7 @@ impl Detail {
             upstream.pending = None;
         }
         self.open_at_path_filtered(project);
-        self.message_open = false;
+        self.close_message();
         self.load_selected_merge(project, cx);
         self.show_picked(cx);
     }
@@ -1364,7 +1358,7 @@ impl Detail {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let Some(Selection::Section(project, Section::Upstream(_))) = self.selection(cx) else {
+        let Some(Selection::Section(project, Section::Upstream(_))) = self.selection() else {
             return el;
         };
         let Some((commit, id)) = self.picked_target_commit(&project) else {
@@ -1388,7 +1382,7 @@ impl Detail {
     pub(super) fn target_page_menu(
         &self,
         project: &ProjectId,
-        cx: &gpui::App,
+        cx: &Context<Self>,
     ) -> Option<(Vec<MenuItem>, Option<Bounds<Pixels>>)> {
         let upstream = self.upstream_for(project)?;
         let merge = self.selected_target_commit(project)?.id;
@@ -1416,7 +1410,7 @@ impl Detail {
         project: &ProjectId,
         merge: CommitId,
         merged: Option<CommitId>,
-        cx: &gpui::App,
+        cx: &Context<Self>,
     ) -> Vec<MenuItem> {
         let Some(upstream) = self.upstream_for(project) else {
             return Vec::new();
@@ -1432,8 +1426,10 @@ impl Detail {
                     true => "Hide commits",
                     false => "Show commits",
                 };
-                items.push(MenuItem::new(label, move |app, _, cx| {
-                    (app.detail).update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
+                // This page's, which needn't be the home tile's.
+                let this = cx.entity();
+                items.push(MenuItem::new(label, move |_, _, cx| {
+                    this.update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
                 }));
             }
         }
@@ -1448,7 +1444,7 @@ impl Detail {
     /// ⇧→ in the list: open the picked merge, or step into its commits when it's open, as
     /// on the Branches page. ⇧← folds it, or steps from one of its commits back up to it.
     fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
+        let Some(project) = self.selected_project() else {
             return;
         };
         let Some(upstream) = self.upstream_for(&project) else {
@@ -1474,7 +1470,7 @@ impl Detail {
     /// Return in the TUI's keymap: fold or unfold the picked merge's commits. One of them
     /// stays as it is.
     fn toggle_upstream_fold(&mut self, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
+        let Some(project) = self.selected_project() else {
             return;
         };
         let Some(upstream) = self.upstream_for(&project) else {
@@ -1491,7 +1487,7 @@ impl Detail {
 
     /// Select the target commit `delta` rows from the selected one, keeping it in view.
     pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(project) = self.selected_project(cx) else {
+        let Some(project) = self.selected_project() else {
             return;
         };
         let Some(upstream) = self.upstream_for(&project) else {
@@ -1729,12 +1725,15 @@ impl Detail {
                                  with commits of their own, and no merged or closed pull request",
                             ))
                     })
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        let to = to.clone();
-                        (this.app).update_later(window, cx, move |app, window, cx| {
-                            app.select(to, window, cx)
-                        })
-                    }))
+                    // Clicking what's open changes nothing.
+                    .when(!selected, |el| {
+                        el.on_click(cx.listener(move |this, _, window, cx| {
+                            let to = to.clone();
+                            (this.app).update_later(window, cx, move |app, window, cx| {
+                                app.select(to, window, cx)
+                            })
+                        }))
+                    })
             }))
             .into_any_element()
     }
@@ -1927,6 +1926,7 @@ impl Detail {
                     |merge| rows_under(&self.upstream_scroll, merge, theme),
                 );
                 let shown = project.clone();
+                self.restore_side_top(&self.upstream_scroll, rows.len(), cx);
                 let list = side_list(
                     rows.len(),
                     &self.upstream_scroll,

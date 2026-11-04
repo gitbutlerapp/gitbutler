@@ -8,7 +8,7 @@ use gpui::{
     div, prelude::*,
 };
 
-use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
+use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget, page};
 use crate::backend::{
     self, Branch, Checkout, CommitId, CommitTo, DiffBody, DiffSource, FileChange, FileDiff,
     FullName, Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
@@ -296,13 +296,24 @@ impl Detail {
             .unwrap_or_default();
         self.message.update(cx, |input, cx| input.load(draft, cx));
         self.composing = false;
-        // A filter typed for the files left would hide the next checkout's, out of sight
-        // while the list is hidden.
-        self.filtering = false;
-        self.file_filter
-            .update(cx, |input, cx| input.set_text("", cx));
         cx.emit(ChecksChanged);
         cx.notify();
+    }
+
+    /// Take up the message a pinned tile's detail was editing, once this detail shows it.
+    pub(super) fn restore_reword(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let reworded = (self.page.files_mut()).and_then(|files| files.reworded.take());
+        if reworded.is_some() {
+            self.open_reword(reworded, window, cx);
+        }
+    }
+
+    /// Hand `page` the message a pinned tile's detail is editing, as it goes, for
+    /// [`Detail::restore_reword`].
+    pub(super) fn reword_left(&mut self, page: &mut page::PageState, cx: &App) {
+        if let (Some(files), Some((_, input, _))) = (page.files_mut(), self.rewording.take()) {
+            files.reworded = Some(input.read(cx).text(cx));
+        }
     }
 
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
@@ -322,7 +333,7 @@ impl Detail {
     /// The checked uncommitted changes: checked files, narrowed to their checked hunks and
     /// lines. All of them while the composer is closed.
     pub fn selected_changes(&self, cx: &App) -> Vec<Selected> {
-        let Some((project, worktree)) = self.selected_checkout(cx) else {
+        let Some((project, worktree)) = self.selected_checkout() else {
             return Vec::new();
         };
         let store = self.store.read(cx);
@@ -428,9 +439,10 @@ impl Detail {
         match hunk {
             Some(key) => self.toggle_hunk(&path, key, cx),
             // The files selected with it go as it goes.
-            None if self.file_picks.contains(&path) => {
+            None if (self.page.files()).is_some_and(|files| files.file_picks.contains(&path)) => {
                 let check = self.checks.file_check(&path) == Toggled::False;
-                return self.set_checked(self.file_picks.to_vec(), check, cx);
+                let picks = (self.page.files()).map_or_else(Vec::new, |f| f.file_picks.to_vec());
+                return self.set_checked(picks, check, cx);
             }
             None => self.toggle_checked(&path, cx),
         }
@@ -746,7 +758,7 @@ impl Detail {
     fn compose(&mut self, picks: bool, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
         // A commit being edited isn't committed but finished, and a linked worktree with no
         // branch has nowhere to commit. With no changes, the commit is an empty one.
-        if let Some((project, worktree)) = self.selected_checkout(cx)
+        if let Some((project, worktree)) = self.selected_checkout()
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
             let refused = if !worktree.is_linked() && workspace.editing.is_some() {
@@ -766,9 +778,9 @@ impl Detail {
             // checkout's diff are what it commits, as dropped on a branch they would be.
             let picks = if !picks {
                 None
-            } else if self.line_picks.is_some() {
+            } else if self.page.line_picks().is_some() {
                 self.line_picks_cut(cx)
-            } else if !self.file_picks.is_empty() {
+            } else if self.page.has_file_picks() {
                 self.owned_cut(self.picked_changes(), cx)
             } else if !self.filter_terms(cx).is_empty() {
                 // A filter narrowing the list commits what it shows, as picking those would.
@@ -786,7 +798,9 @@ impl Detail {
                     == (self.checks_project.as_ref(), &self.checks_worktree)
             {
                 self.check_only(Some(project), worktree, &files, cx);
-                self.file_picks.clear();
+                if let Some(files) = self.page.files_mut() {
+                    files.file_picks.clear();
+                }
             }
             // A file a merge left conflicted can't be committed until it's marked resolved,
             // and a repository cloned inside this one isn't a submodule yet, so they start out
@@ -808,7 +822,9 @@ impl Detail {
             self.composer_back = window.focused(cx).filter(|focused| *focused != message);
         }
         self.composing = true;
-        self.line_picks = None;
+        if let Some(files) = self.page.files_mut() {
+            files.line_picks = None;
+        }
         // The composer sits under the file list, so a hidden list comes back with it.
         self.hide_files(false, false, cx);
         if focus {
@@ -837,16 +853,13 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.commit_target = Some(branch);
-        // The checks are the main checkout's from here: switched now, as the selection
-        // event that would do it comes after.
-        let project = self.selected_project(cx);
-        if (&self.checks_project, &self.checks_worktree) != (&project, &Checkout::Main) {
-            self.switch_checkout(project.clone(), Checkout::Main, cx);
-        }
+        let project = self.selected_project();
         self.check_only(project, Checkout::Main, files, cx);
         // What was dropped is what goes in, not what's picked.
-        self.file_picks.clear();
-        self.line_picks = None;
+        if let Some(state) = self.page.files_mut() {
+            state.file_picks.clear();
+            state.line_picks = None;
+        }
         self.compose(false, true, window, cx);
     }
 
@@ -927,7 +940,18 @@ impl Detail {
     }
 
     pub fn start_reword(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Commit(project, id)) = self.selection(cx) else {
+        self.open_reword(None, window, cx);
+    }
+
+    /// Edit the selected commit's message. With `written`, what was written of it before its
+    /// detail went, which takes it up again where it was, leaving the keys where they are.
+    fn open_reword(
+        &mut self,
+        written: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(Selection::Commit(project, id)) = self.selection() else {
             return;
         };
         let store = self.store.read(cx);
@@ -961,7 +985,7 @@ impl Detail {
         let opened = message.clone();
         let input = cx.new(|cx| {
             let mut input = MessageEditor::new(MessageSize::Large, COMMIT_PLACEHOLDERS, cx);
-            input.set_text(message, cx);
+            input.set_text(written.as_deref().unwrap_or(&message), cx);
             input
         });
         // Back where editing started, like the navigator, when it's done.
@@ -980,7 +1004,7 @@ impl Detail {
                     }
                     let message = input.read(cx).text(cx).trim().to_owned();
                     // The commit as it is now, should an agent have rewritten it meanwhile.
-                    let id = match this.selection(cx) {
+                    let id = match this.selection() {
                         Some(Selection::Commit(_, now)) => now,
                         _ => id,
                     };
@@ -1017,7 +1041,9 @@ impl Detail {
                 InputEvent::Changed => {}
             },
         );
-        window.focus(&input.focus_handle(cx), cx);
+        if written.is_none() {
+            window.focus(&input.focus_handle(cx), cx);
+        }
         self.rewording = Some((key, input, subscription));
         // Where Lite lists the message, it's edited there, so that's what the diff shows.
         if self.message_listed(cx) {
@@ -1048,7 +1074,7 @@ impl Detail {
 
     /// The editor of the selected commit's message, while it's being edited.
     pub fn rewording_selected(&self, cx: &App) -> Option<Entity<MessageEditor>> {
-        let Some(Selection::Commit(project, id)) = self.selection(cx) else {
+        let Some(Selection::Commit(project, id)) = self.selection() else {
             return None;
         };
         let store = self.store.read(cx);
@@ -1097,7 +1123,7 @@ impl Detail {
     }
 
     pub(super) fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((project, worktree)) = self.selected_checkout(cx) else {
+        let Some((project, worktree)) = self.selected_checkout() else {
             return;
         };
         if self.writing.is_some() {
@@ -1305,7 +1331,7 @@ impl Detail {
         let Some(moving) = self.amending(cx) else {
             return;
         };
-        let Some((project, worktree)) = self.selected_checkout(cx) else {
+        let Some((project, worktree)) = self.selected_checkout() else {
             return;
         };
         if self.writing.is_some() {
@@ -1697,7 +1723,7 @@ impl Detail {
 
     /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
     pub(crate) fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::Uncommitted(project, Checkout::Main)) = self.selection(cx) else {
+        let Some(Selection::Uncommitted(project, Checkout::Main)) = self.selection() else {
             return;
         };
         // The navigator picks what's amended.

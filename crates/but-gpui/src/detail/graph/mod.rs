@@ -208,7 +208,7 @@ struct Empty {
 /// Where the graph is looked at from: a commit at `at` shows at `at * zoom * scale + offset`
 /// pixels from the canvas's corner.
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct Camera {
+pub(super) struct Camera {
     offset: Point<f32>,
     zoom: f32,
 }
@@ -261,6 +261,10 @@ pub struct GraphView {
     /// Whether the camera has been put where the graph opens, which waits for the canvas's
     /// size.
     placed: bool,
+    /// How the page was left, for the camera to go back to rather than where it opens.
+    left: GraphState,
+    /// The camera has been placed, so where it is means something.
+    seen: bool,
     /// The camera on its way from one place to another, since when.
     glide: Option<(Instant, Camera, Camera)>,
     /// Where each commit was drawn when the last load landed, and when it did.
@@ -294,12 +298,32 @@ pub struct GraphView {
     _subscriptions: Vec<Subscription>,
 }
 
+/// How a Graph page was left: where the camera was, and the commit whose lineage it had pinned.
+#[derive(Default, Clone)]
+pub(super) struct GraphState {
+    camera: Option<Camera>,
+    pinned: Option<SharedString>,
+}
+
 impl GraphView {
+    /// How it's being looked at, once the camera's been placed.
+    pub(super) fn state(&self) -> GraphState {
+        GraphState {
+            camera: self.seen.then_some(self.camera),
+            pinned: self.pinned.clone(),
+        }
+    }
+
+    /// Go back to how the page was left the next time the camera's placed.
+    pub(super) fn restore(&mut self, left: GraphState) {
+        self.left = left;
+    }
+
     /// The graph of the project selected, or with `pinned`, of that one, for a pinned tile.
     pub fn new(store: Entity<Store>, pinned: Option<ProjectId>, cx: &mut Context<Self>) -> Self {
         let subscriptions = Vec::from([cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),
-            // Picked again in the navigator, it goes back to how it opens.
+            // Asked for again, it goes back to how it opens.
             StoreEvent::Reopened if this.pinned_project.is_none() => {
                 if this.selected(cx).is_some()
                     && let Some(scene) = this.scene.clone()
@@ -317,6 +341,7 @@ impl GraphView {
             | StoreEvent::TilePinned(_)
             | StoreEvent::TileClosed { .. }
             | StoreEvent::TilingChanged
+            | StoreEvent::TilingMoved { .. }
             | StoreEvent::MoveToward(_)
             | StoreEvent::CommitBlocked
             | StoreEvent::RowDragEnded => {}
@@ -338,6 +363,8 @@ impl GraphView {
                 zoom: 1.,
             },
             placed: false,
+            left: GraphState::default(),
+            seen: false,
             glide: None,
             moved: None,
             ripples: (Vec::new(), Instant::now()),
@@ -2430,8 +2457,11 @@ impl Render for GraphView {
         // The canvas's size is known once it's drawn, so the first frame only measures it.
         let measured = self.bounds.get().size.width > fixed(0.);
         if !self.placed && measured {
-            self.camera = self.opening(&scene);
+            let left = std::mem::take(&mut self.left);
+            self.camera = left.camera.unwrap_or_else(|| self.opening(&scene));
+            self.pinned = left.pinned;
             self.placed = true;
+            self.seen = true;
         }
         // The oldest commits read in view, it reads further back.
         let oldest = scene.extent.origin.y + scene.extent.size.height;

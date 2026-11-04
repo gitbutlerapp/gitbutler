@@ -17,7 +17,7 @@ use gpui::{
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
-use crate::detail::{Detail, DiffPane};
+use crate::detail::{Detail, DiffPane, KeptPages};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
@@ -157,6 +157,8 @@ pub struct AppView {
     /// The pages of the tiles pinned to the selected row, each a detail of its own with its
     /// diff. A pinned terminal is drawn as it is, with none.
     pages: HashMap<RowKey, Page>,
+    /// The state of the pages not drawn now.
+    kept_pages: Entity<KeptPages>,
     /// The tile sliding open out of its split, or shut into it, while one is.
     tile_slide: Option<TileSlide>,
     /// The lines of the selected row's tiling sliding to where they're even, while they are.
@@ -317,27 +319,82 @@ impl AppView {
     /// Where the diff starts beside `detail`'s file list at `now`, when its page has a diff.
     fn diff_left(detail: &Entity<Detail>, now: Instant, window: &Window, cx: &App) -> Option<f32> {
         let detail = detail.read(cx);
-        let has_diff = detail.shows_page(cx) && !detail.diff_hidden(cx);
+        let has_diff = detail.shows_page() && !detail.diff_hidden(cx);
         has_diff.then(|| detail.diff_left(now, window, cx))
     }
 
     /// Make the details of the pages pinned to the selected row, and drop those of pages no
-    /// longer pinned there, which only the tiles on screen keep.
+    /// longer pinned there, which only the tiles on screen keep, keeping how they were left.
     fn sync_pages(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let pinned = self.store.read(cx).pinned();
-        let pages =
-            (pinned.into_iter()).filter(|row| !matches!(row, RowKey::Row(Selection::Terminal(..))));
-        let mut kept = std::mem::take(&mut self.pages);
+        let store = self.store.read(cx);
+        let tiling = (store.selection.as_ref()).map(|selection| store.row_key(selection));
+        let pinned = store.pinned();
+        let pages: Vec<RowKey> = (pinned.into_iter())
+            .filter(|row| !matches!(row, RowKey::Row(Selection::Terminal(..))))
+            .collect();
+        // A row pinned in two tilings is a tile in each, looked at apart.
+        let (mut staying, going): (HashMap<RowKey, Page>, HashMap<RowKey, Page>) =
+            std::mem::take(&mut self.pages)
+                .into_iter()
+                .partition(|(row, page)| {
+                    Some(&page.tiling) == tiling.as_ref() && pages.contains(row)
+                });
+        for page in going.into_values() {
+            page.detail.update(cx, |detail, cx| detail.keep_page(cx));
+        }
+        let Some(tiling) = tiling else {
+            return;
+        };
         for row in pages {
-            let page = kept.remove(&row).unwrap_or_else(|| {
+            let page = staying.remove(&row).unwrap_or_else(|| {
                 let (store, app) = (self.store.clone(), AppHandle::of(cx));
-                let pinned = Some(row.clone());
-                let detail = cx.new(|cx| Detail::new(store, app, pinned, window, cx));
+                let (kept, pinned) = (self.kept_pages.clone(), (tiling.clone(), row.clone()));
+                let detail = cx.new(|cx| Detail::new(store, app, kept, Some(pinned), window, cx));
                 let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
-                Page { detail, diff }
+                let tiling = tiling.clone();
+                Page {
+                    tiling,
+                    detail,
+                    diff,
+                }
             });
             self.pages.insert(row, page);
         }
+    }
+
+    /// Keep the pages of the selected row's tiling, which went from `from` to `to`, for `to`.
+    fn move_pages(&mut self, from: &RowKey, to: &RowKey, cx: &mut Context<Self>) {
+        for page in std::mem::take(&mut self.pages).into_values() {
+            page.detail.update(cx, |detail, cx| detail.keep_page(cx));
+        }
+        self.kept_pages
+            .update(cx, |kept, _| kept.move_tiling(from, to));
+    }
+
+    /// Forget the pages of tiles no longer in their tiling.
+    fn forget_closed_tiles(&mut self, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        self.kept_pages.update(cx, |kept, cx| {
+            let store = store.read(cx);
+            kept.retain(|(row, tile)| *tile == Tile::Home || store.has_tile(row, tile));
+        });
+    }
+
+    /// Forget the pages of what's gone from the navigator: `project`'s commits, now it's read
+    /// again, and any project removed.
+    fn forget_gone_rows(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let store = self.store.clone();
+        self.kept_pages.update(cx, |kept, cx| {
+            let store = store.read(cx);
+            let keys = store.commit_keys(project);
+            kept.retain(|(row, _)| match row {
+                RowKey::Commit(of, key) if of == project => {
+                    keys.as_ref().is_none_or(|keys| keys.contains(key.as_str()))
+                }
+                RowKey::Commit(of, _) => store.project(of).is_some(),
+                RowKey::Row(selection) => store.project(selection.project()).is_some(),
+            });
+        });
     }
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -349,7 +406,11 @@ impl AppView {
             keep_drags_through_other_buttons();
         }
         let app = AppHandle::of(cx);
-        let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), None, window, cx));
+        let kept_pages = cx.new(|_| KeptPages::default());
+        let detail = cx.new(|cx| {
+            let (kept, app) = (kept_pages.clone(), app.clone());
+            Detail::new(store.clone(), app, kept, None, window, cx)
+        });
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
         window.focus(&navigator.focus_handle(cx), cx);
@@ -387,8 +448,11 @@ impl AppView {
                     this.drop_stale_row_tile(cx);
                     this.drop_stale_zoom(cx);
                     this.move_tiles(cx);
-                    this.sync_pages(window, cx)
+                    this.sync_pages(window, cx);
+                    this.forget_closed_tiles(cx)
                 }
+                StoreEvent::TilingMoved { from, to } => this.move_pages(from, to, cx),
+                StoreEvent::Loaded(project) => this.forget_gone_rows(project, cx),
                 StoreEvent::TilePinned(pinned) => {
                     // A row dragged in slides on from where it's been held.
                     if this.row_tile.is_none() {
@@ -502,6 +566,7 @@ impl AppView {
             detail,
             diff,
             pages: HashMap::new(),
+            kept_pages,
             tile_slide: None,
             tile_glide: None,
             tile_zoom: None,
@@ -634,7 +699,7 @@ impl AppView {
     }
 
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
-    /// page goes back to how it opens, as the navigator's row does.
+    /// page goes back to how it opens.
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
         self.store
             .update(cx, |store, cx| store.reopen(selection, cx));
@@ -991,7 +1056,7 @@ impl AppView {
             }
             Some(Selection::Uncommitted(..)) => {
                 let detail = self.detail.read(cx);
-                (detail.selected_checkout(cx)).and_then(|(project, worktree)| {
+                (detail.selected_checkout()).and_then(|(project, worktree)| {
                     let files = detail.files_to_move(&project, worktree.clone(), cx);
                     (!files.is_empty()).then(|| Cut::Files {
                         project,
@@ -1087,8 +1152,10 @@ impl AppView {
                     cx,
                 )
             });
-            self.detail
-                .update(cx, |detail, cx| detail.stage(branch, &files, window, cx));
+            self.detail.update(cx, |detail, cx| {
+                detail.follow_selection(window, cx);
+                detail.stage(branch, &files, window, cx)
+            });
         }
     }
 
@@ -1315,7 +1382,7 @@ impl AppView {
             0
         } else if detail.side_list_focused(window) {
             1
-        } else if detail.files_focused(window) && detail.list_page(cx) {
+        } else if detail.files_focused(window) && detail.list_page() {
             2
         } else if detail.tabs_focused(window) {
             3
@@ -1357,7 +1424,7 @@ impl AppView {
         let detail = self.detail.read(cx);
         // A page that's an overview alone has no pane past the navigator to take the keys, nor
         // has the file list or the diff without changes to show.
-        let list_page = detail.list_page(cx);
+        let list_page = detail.list_page();
         let changes = !detail.without_changes(cx);
         let review = detail.showing_review(cx);
         let shown = [
@@ -1366,7 +1433,7 @@ impl AppView {
             changes && list_page && detail.beside_files_shown(cx),
             detail.tabs_reachable(cx),
             changes && !list_page && !review && detail.files_shown(cx),
-            changes && !review && !detail.overview_only(cx),
+            changes && !review && !detail.overview_only(),
         ];
         let next = |n: usize| (at + if forward { n } else { shown.len() - n }) % shown.len();
         match (1..shown.len())
@@ -1561,23 +1628,22 @@ impl AppView {
             self.store
                 .update(cx, |store, cx| store.select(Some(checkout), cx));
         }
-        // Once the detail has taken the new selection's checks, which it does as this update
-        // ends: opened before, the composer would be of the checkout left, and close.
-        let (detail, navigator) = (self.detail.clone(), self.navigator.clone());
-        window.defer(cx, move |window, cx| {
-            let opens = !detail.read(cx).composing();
-            // Not where the composer won't open, as while a commit is being edited.
-            if !detail.update(cx, |detail, cx| detail.open_composer(window, cx)) {
-                return;
-            }
-            let placing = navigator.update(cx, |navigator, cx| {
-                navigator.start_placing(amend, project, worktree, start, window, cx)
-            });
-            // A commit can still go on the branch the composer shows; an amend has no commit.
-            if amend && !placing && opens {
-                detail.update(cx, |detail, cx| detail.leave_composer(window, cx));
-            }
+        // Not where the composer won't open, as while a commit is being edited.
+        let (opens, opened) = self.detail.update(cx, |detail, cx| {
+            detail.follow_selection(window, cx);
+            (!detail.composing(), detail.open_composer(window, cx))
         });
+        if !opened {
+            return;
+        }
+        let placing = self.navigator.update(cx, |navigator, cx| {
+            navigator.start_placing(amend, project, worktree, start, window, cx)
+        });
+        // A commit can still go on the branch the composer shows; an amend has no commit.
+        if amend && !placing && opens {
+            self.detail
+                .update(cx, |detail, cx| detail.leave_composer(window, cx));
+        }
     }
 
     /// Open the pull request of the selected branch, or of the branch the selected commit
@@ -1588,7 +1654,7 @@ impl AppView {
         let store = self.store.read(cx);
         match store.branch_for(store.selection.as_ref()?) {
             Some(branch) => branch.review.as_ref()?.url.clone(),
-            None => self.detail.read(cx).page_pull_request(cx),
+            None => self.detail.read(cx).page_pull_request(),
         }
     }
 
@@ -3727,8 +3793,10 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
     }
 }
 
-/// A pinned tile's page: a detail of its own, and the diff drawn over it.
+/// A pinned tile's page: a detail of its own, and the diff drawn over it, for that tile of the
+/// row `tiling`.
 struct Page {
+    tiling: RowKey,
     detail: Entity<Detail>,
     diff: Entity<DiffPane>,
 }

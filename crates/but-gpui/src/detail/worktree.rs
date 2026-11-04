@@ -15,7 +15,6 @@ use super::panes::{
     and_more, clear_button, meta_item, meta_row, overview_column, overview_heading, page_title,
     share_row, title_text,
 };
-use super::slots::SlotPick;
 use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, ReviewState,
     Workspace,
@@ -54,19 +53,11 @@ pub(super) struct Now {
     /// The commits of the checkout's branches when it was opened or last loaded, to tell one
     /// an agent just made from those already there.
     known: Option<HashSet<CommitId>>,
-    /// The hot file picked, whose commits are all Commits lists.
-    file: Option<Arc<str>>,
     /// The files each commit changes, read for those the overview can list as the checkout
     /// loads, and the commits being read. Commits don't change, so what's read stays, with
     /// another checkout picked too.
     paths: HashMap<CommitId, Vec<String>>,
     reading: HashSet<CommitId>,
-    /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
-    /// which the rest of the overview is narrowed to; none for all it shows.
-    span: SlotPick,
-    /// Hot files' and the commits', each scrolling on its own.
-    hot_scroll: ScrollHandle,
-    commits_scroll: ScrollHandle,
 }
 
 fn checkout_commits<'a>(ws: &'a Workspace, checkout: &Checkout) -> Vec<&'a Commit> {
@@ -145,9 +136,9 @@ impl Detail {
     /// is read for: on its changes too, to tell the commits made since. Not while editing a
     /// commit.
     fn now_checkout(&self, cx: &App) -> Option<(ProjectId, Checkout)> {
-        let (project, checkout) = match self.selection(cx)? {
+        let (project, checkout) = match self.selection()? {
             Selection::Checkout(project, checkout) => (project, checkout),
-            _ => self.selected_checkout(cx)?,
+            _ => self.selected_checkout()?,
         };
         self.editing(&project, cx)
             .is_none()
@@ -225,7 +216,7 @@ impl Detail {
     /// that's the one commit made, as of several it can't tell which took the file; not a
     /// commit of the app's own, which is seen, nor while committing.
     pub(super) fn follow_into_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        let Some((_, worktree)) = self.selected_checkout(cx).filter(|(p, _)| p == project) else {
+        let Some((_, worktree)) = self.selected_checkout().filter(|(p, _)| p == project) else {
             return;
         };
         let store = self.store.read(cx);
@@ -369,9 +360,12 @@ impl Detail {
         let now = crate::ui::now();
         // Everything under the activity is of the 12 hours it covers, or the quarters picked,
         // the commits of branches that left since too.
-        let span = &self.now.span;
+        let overview = self.page.overview();
         let start = window_start(now);
-        let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
+        let inside = |at: i64| {
+            at >= start
+                && overview.is_none_or(|overview| overview.span.keeps(at.div_euclid(QUARTER)))
+        };
         let activity = store.activity.get(&(project.clone(), checkout.clone()));
         let all = made(ws, checkout, activity);
         let scoped: Vec<Made> = (all.iter().copied())
@@ -494,6 +488,7 @@ impl Detail {
     /// The files most of `commits` changed, once read. Clicking one lists only the commits
     /// that changed it under Commits, as an area filters what shipped; Clear lets go of it.
     fn now_hot_files(&self, commits: &[Made], theme: &Theme, cx: &Context<Self>) -> Option<Div> {
+        let hot_scroll = self.page.overview()?.hot_scroll.clone();
         let mut counts: HashMap<&str, usize> = HashMap::new();
         for paths in commits.iter().filter_map(|c| self.now.paths.get(&c.id())) {
             for path in paths {
@@ -504,7 +499,10 @@ impl Detail {
             .map(|(path, n)| (path.into(), n))
             .collect();
         hot.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        let picked = self.now.file.as_ref();
+        let picked = self
+            .page
+            .overview()
+            .and_then(|overview| overview.file.as_ref());
         // A sweeping commit's thousand files would be a thousand rows drawn every frame.
         let rest = hot.len().saturating_sub(HOT_SHOWN);
         hot.truncate(HOT_SHOWN);
@@ -537,7 +535,7 @@ impl Detail {
                 .child(overview_heading("Hot files", div().children(clear), theme))
                 .child(scrolling(
                     ("now-hot-rows", "now-hot-scrollbar"),
-                    &self.now.hot_scroll,
+                    &hot_scroll,
                     rows.chain(more),
                     theme,
                 )),
@@ -553,7 +551,7 @@ impl Detail {
         let Some((page, seen)) = self.opening.take() else {
             return;
         };
-        if self.selection(cx).as_ref() != Some(&page) {
+        if self.selection().as_ref() != Some(&page) {
             return;
         }
         let done = match &page {
@@ -581,8 +579,10 @@ impl Detail {
 
     /// List only the commits that changed `file` under Commits, or all with `None`.
     fn pick_hot_file(&mut self, file: Option<Arc<str>>, cx: &mut Context<Self>) {
-        self.now.file = file.filter(|file| self.now.file.as_ref() != Some(file));
-        self.now.commits_scroll.set_offset(Default::default());
+        if let Some(overview) = self.page.overview_mut() {
+            overview.file = file.filter(|file| overview.file.as_ref() != Some(file));
+            overview.commits_scroll.set_offset(Default::default());
+        }
         cx.notify();
     }
 
@@ -650,7 +650,8 @@ impl Detail {
         }
         // With a hot file picked, the commits that changed it, once that's read; nothing
         // else that moved `HEAD` changed a file.
-        let file = self.now.file.as_ref();
+        let overview = self.page.overview()?;
+        let (file, commits_scroll) = (overview.file.as_ref(), overview.commits_scroll.clone());
         let changed = |commit: &&Made| {
             file.is_none_or(|file| {
                 (self.now.paths.get(&commit.id()))
@@ -796,7 +797,7 @@ impl Detail {
                 .children(said.map(|said| faint(said, theme).px(dp(14.)).py(dp(4.))))
                 .child(scrolling(
                     ("now-commits-rows", "now-commits-scrollbar"),
-                    &self.now.commits_scroll,
+                    &commits_scroll,
                     rows,
                     theme,
                 )),

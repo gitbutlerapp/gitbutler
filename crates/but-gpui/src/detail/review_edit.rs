@@ -6,7 +6,7 @@ use gpui::{App, Context, Entity, FocusHandle, Focusable as _, Subscription, Wind
 use super::Detail;
 use crate::backend::{Review, reviews};
 use crate::state::{Overlay, ProjectId, snack};
-use crate::ui::message_editor::{MessageEditor, MessageSize, split};
+use crate::ui::message_editor::{MessageEditor, MessageSize, joined, split};
 use crate::ui::text_input::InputEvent;
 
 /// The pull request whose title and description are being edited, in the editor, with what the
@@ -22,12 +22,61 @@ pub(super) struct ReviewEdit {
     _subscription: Subscription,
 }
 
+/// An edit its page was left with, to take up again as the page shows again: the editor goes with
+/// the detail, and what's written mustn't.
+pub(super) struct EditLeft {
+    project: ProjectId,
+    number: u64,
+    opened: String,
+    written: String,
+}
+
 impl Detail {
-    /// Edit the title and description of the pull request the tab shows. Looking at another
-    /// keeps what's written, to pick up again on coming back, and refuses to start on another
-    /// while it holds changes.
+    /// The edit that's open, as the page goes, unless what's in it is saved.
+    pub(super) fn review_edit_left(&mut self, cx: &App) -> Option<EditLeft> {
+        let edit = self.review_edit.take().filter(|edit| !edit.saved)?;
+        let written = edit.input.read(cx).text(cx);
+        Some(EditLeft {
+            project: edit.project,
+            number: edit.number,
+            opened: edit.opened,
+            written,
+        })
+    }
+
+    /// Take up the edit the page shown now was left with, unless what it holds is on the forge
+    /// by now, as a save that was under way as the page went.
+    pub(super) fn restore_review_edit(
+        &mut self,
+        left: Option<EditLeft>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.review_edit = None;
+        let Some(left) = left else {
+            return;
+        };
+        if let Some(review) = self.selected_review(cx)
+            && review.number == left.number
+            && joined(&review.title, &review.body.replace("\r\n", "\n")) == left.written
+        {
+            return;
+        }
+        let back = self.focus.clone();
+        let input = self.review_editor(left.written, cx);
+        let of = (left.project, left.number);
+        self.show_review_edit(of, left.opened, input.clone(), back, window, cx);
+        // The keys were in the editor this one replaces, as when an agent renames the branch.
+        if window.focused(cx).is_none() {
+            window.focus(&input.focus_handle(cx), cx);
+        }
+    }
+
+    /// Edit the title and description of the pull request the tab shows. Its page keeps what's
+    /// written, to pick up again on coming back. On a list page, another of its pull requests
+    /// can't be edited while this one holds changes.
     pub(super) fn start_review_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(project), Some(review)) = (self.selected_project(cx), self.selected_review(cx))
+        let (Some(project), Some(review)) = (self.selected_project(), self.selected_review(cx))
         else {
             return;
         };
@@ -42,14 +91,33 @@ impl Detail {
             }
         }
         let message = format!("{}\n\n{}", review.title, review.body);
-        let input = cx.new(|cx| {
+        let back = window.focused(cx).unwrap_or(self.focus.clone());
+        let input = self.review_editor(message, cx);
+        // As the editor holds them, so only what's changed goes to the forge.
+        let opened = input.read(cx).text(cx);
+        self.show_review_edit((project, number), opened, input, back, window, cx);
+        if let Some(edit) = &self.review_edit {
+            window.focus(&edit.input.focus_handle(cx), cx);
+        }
+    }
+
+    fn review_editor(&self, message: String, cx: &mut Context<Self>) -> Entity<MessageEditor> {
+        cx.new(|cx| {
             let mut input = MessageEditor::new(MessageSize::Large, ["Title", "Description"], cx);
             input.load(message, cx);
             input
-        });
-        // As the editor holds them, so only what's changed goes to the forge.
-        let opened = input.read(cx).text(cx);
-        let back = window.focused(cx).unwrap_or(self.focus.clone());
+        })
+    }
+
+    fn show_review_edit(
+        &mut self,
+        (project, number): (ProjectId, u64),
+        opened: String,
+        input: Entity<MessageEditor>,
+        back: FocusHandle,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.save_review_edit(window, cx),
@@ -57,7 +125,6 @@ impl Detail {
                 // Written on after a save, it stays open to save again.
                 InputEvent::Changed => (this.review_edit.iter_mut()).for_each(|e| e.saved = false),
             });
-        window.focus(&input.focus_handle(cx), cx);
         self.review_edit = Some(ReviewEdit {
             project,
             number,

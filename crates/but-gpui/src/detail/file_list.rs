@@ -359,10 +359,9 @@ impl Detail {
     /// they aren't beside it: the uncommitted ones of a checkout's page, else the diff's.
     /// A file picked in it scrolls the diff to it and leaves it open, to pick the next.
     pub(super) fn render_files_popover(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let source = (self.selected_checkout(cx))
-            .map_or(FileSource::Diff, |(project, worktree)| {
-                FileSource::Uncommitted(project, worktree)
-            });
+        let source = (self.selected_checkout()).map_or(FileSource::Diff, |(project, worktree)| {
+            FileSource::Uncommitted(project, worktree)
+        });
         let (rows, count) = self.file_list(source, cx);
         popover(theme)
             .w(dp(340.))
@@ -418,14 +417,16 @@ impl Detail {
         let rows: Vec<TreeRow> = if tree {
             // A folder closing stays open till it's shut.
             let closing = |dir: &String| self.page_folds.closing(&PageFold::Dir(dir.clone()));
+            let none = HashSet::new();
+            let collapsed = (self.page.files()).map_or(&none, |files| &files.collapsed_dirs);
             let shut: Cow<HashSet<String>> = match self.page_folds.any() {
                 true => Cow::Owned(
-                    (self.collapsed_dirs.iter())
+                    (collapsed.iter())
                         .filter(|dir| !closing(dir))
                         .cloned()
                         .collect(),
                 ),
-                false => Cow::Borrowed(&self.collapsed_dirs),
+                false => Cow::Borrowed(collapsed),
             };
             file_tree::tree_rows(&paths, &shut)
         } else {
@@ -488,7 +489,7 @@ impl Detail {
             *self.listed_cursor.borrow_mut() = cursor;
         }
         // Which rows are picked, while some are, so picked files next to each other join up.
-        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        let picks = self.picked_paths();
         // A picked file's menu is all the picks'.
         let picked = (!picks.is_empty())
             .then(|| self.owned_cut(self.picked_changes(), cx))
@@ -681,14 +682,14 @@ impl Detail {
     pub fn cursor_cut(&self, cx: &App) -> Option<Cut> {
         // Right after selecting something else, the diff can still be the last one, another
         // project's.
-        let project = self.selected_project(cx);
+        let project = self.selected_project();
         if self.diff.as_ref().map(|d| &d.key.project) != project.as_ref() {
             return None;
         }
-        if self.line_picks.is_some() {
+        if self.page.line_picks().is_some() {
             return self.line_picks_cut(cx);
         }
-        if !self.file_picks.is_empty() {
+        if self.page.has_file_picks() {
             return self.owned_cut(self.picked_changes(), cx);
         }
         let at = self.cursor.in_file()?;
@@ -713,9 +714,17 @@ impl Detail {
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
     pub(super) fn picked_changes(&self) -> Vec<Selected> {
-        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        let picks = self.picked_paths();
         (self.shown_changes().into_iter())
             .filter(|s| picks.contains(s.file.path.as_str()))
+            .collect()
+    }
+
+    /// The paths of the files picked.
+    fn picked_paths(&self) -> HashSet<&str> {
+        (self.page.files().into_iter())
+            .flat_map(|files| files.file_picks.iter())
+            .map(String::as_str)
             .collect()
     }
 
@@ -740,9 +749,12 @@ impl Detail {
         let cursor = (self.cursor_path())
             .filter(|cursor| order.contains(cursor))
             .unwrap_or_else(|| path.clone());
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
         let next = match run {
-            true => self.file_picks.run(&order, &cursor, &path),
-            false => Some(self.file_picks.toggle(&cursor, &path)),
+            true => files.file_picks.run(&order, &cursor, &path),
+            false => Some(files.file_picks.toggle(&cursor, &path)),
         };
         self.picked_file(next, cx);
     }
@@ -756,19 +768,26 @@ impl Detail {
         let (Some(cursor), Some(next)) = (self.cursor_path(), next) else {
             return;
         };
-        let next = self.file_picks.run(&self.listed_paths(cx), &cursor, &next);
+        let order = self.listed_paths(cx);
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        let next = files.file_picks.run(&order, &cursor, &next);
         self.picked_file(next, cx);
     }
 
     pub(super) fn pick_all_files(&mut self, cx: &mut Context<Self>) {
-        self.file_picks.all(&self.listed_paths(cx));
+        let order = self.listed_paths(cx);
+        if let Some(files) = self.page.files_mut() {
+            files.file_picks.all(&order);
+        }
         self.picked_file(None, cx);
     }
 
     /// After a pick, bring the cursor to `next`. Picks are of one list at a time, so commits
     /// picked in the navigator go.
     fn picked_file(&mut self, next: Option<String>, cx: &mut Context<Self>) {
-        if !self.file_picks.is_empty() && !self.store.read(cx).picked.is_empty() {
+        if self.page.has_file_picks() && !self.store.read(cx).picked.is_empty() {
             self.store.update(cx, |store, cx| {
                 store.picked.clear();
                 cx.notify()
@@ -788,12 +807,13 @@ impl Detail {
 
     /// Let the picked files go. Whether any were.
     pub fn clear_file_picks(&mut self, cx: &mut Context<Self>) -> bool {
-        let had = !self.file_picks.is_empty();
-        if had {
-            self.file_picks.clear();
-            cx.notify();
-        }
-        had
+        let Some(files) = (self.page.files_mut()).filter(|files| !files.file_picks.is_empty())
+        else {
+            return false;
+        };
+        files.file_picks.clear();
+        cx.notify();
+        true
     }
 
     /// Put the cursor on `cursor`, changes a right-click is on that aren't picked, and let
@@ -814,15 +834,18 @@ impl Detail {
             return;
         };
         let paths: Vec<String> = files.iter().map(|f| f.file.path.clone()).collect();
-        if !paths.iter().all(|path| self.file_picks.contains(path)) {
-            self.file_picks.all(&paths);
+        let Some(state) = self.page.files_mut() else {
+            return;
+        };
+        if !paths.iter().all(|path| state.file_picks.contains(path)) {
+            state.file_picks.all(&paths);
             self.picked_file(paths.first().cloned(), cx);
         }
     }
 
     /// How many files are picked.
     pub fn picked_files(&self) -> usize {
-        self.file_picks.len()
+        (self.page.files()).map_or(0, |files| files.file_picks.len())
     }
 
     pub(super) fn diff_path(&self, file: usize) -> Option<String> {
@@ -1036,9 +1059,12 @@ impl Detail {
             }),
         )
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let open = this.collapsed_dirs.remove(&path);
+            let Some(files) = this.page.files_mut() else {
+                return;
+            };
+            let open = files.collapsed_dirs.remove(&path);
             if !open {
-                this.collapsed_dirs.insert(path.clone());
+                files.collapsed_dirs.insert(path.clone());
             }
             this.page_folds.start(fold.clone(), open, cx);
             cx.notify();
@@ -1400,7 +1426,8 @@ impl Detail {
         }
         let path = self.shown_cursor_path(cx)?;
         // A picked file's menu is all the picks', as on its row.
-        let payload = match self.file_picks.contains(&path) {
+        let picked = (self.page.files()).is_some_and(|files| files.file_picks.contains(&path));
+        let payload = match picked {
             true => self.owned_cut(self.picked_changes(), cx),
             false => self.diff_cut(self.current_file()?, None, cx),
         };

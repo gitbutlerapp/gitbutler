@@ -79,7 +79,7 @@ impl Detail {
         let store = self.store.read(cx);
         let why = branch_went(store, project, ref_name.as_ref());
         let shown = Selection::Branch(project.clone(), ref_name.clone());
-        if self.selection(cx).as_ref() == Some(&shown) && why.is_none() {
+        if self.selection().as_ref() == Some(&shown) && why.is_none() {
             return;
         }
         self.renaming = None;

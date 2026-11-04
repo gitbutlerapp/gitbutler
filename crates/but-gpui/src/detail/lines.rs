@@ -59,7 +59,7 @@ fn changed(file: &FileDiff) -> impl Iterator<Item = (HunkKey, usize)> + '_ {
 impl Detail {
     /// Whether line `line` of the hunk with `key` in the file at `path` is picked.
     pub(super) fn line_picked(&self, path: &str, key: HunkKey, line: usize) -> bool {
-        (self.line_picks.as_ref())
+        (self.page.line_picks())
             .is_some_and(|picks| picks.path == path && picks.lines.contains(&(key, line)))
     }
 
@@ -87,10 +87,13 @@ impl Detail {
         }
         let item = (hunk.key, line);
         let path = &file.file.path;
-        let before = self.line_picks.as_ref().map(|picks| picks.lines.clone());
-        let picks = (self.line_picks.take())
+        let Some(state) = self.page.files_mut() else {
+            return;
+        };
+        let before = state.line_picks.as_ref().map(|picks| picks.lines.clone());
+        let picks = (state.line_picks.take())
             .filter(|picks| picks.path == *path && picks.fingerprint == file.fingerprint);
-        self.line_picks =
+        state.line_picks =
             match (how, picks) {
                 (Pick::Run, Some(mut picks)) => {
                     let order: Vec<_> = changed(file).collect();
@@ -120,7 +123,7 @@ impl Detail {
                     }),
             };
         // Dragging on over the same line picks nothing new.
-        if self.line_picks.as_ref().map(|picks| &picks.lines) != before.as_ref() {
+        if self.page.line_picks().map(|picks| &picks.lines) != before.as_ref() {
             self.cursor = cursor;
             self.refresh_grip();
             cx.notify();
@@ -134,9 +137,7 @@ impl Detail {
 
     /// How many lines are picked.
     pub fn picked_line_count(&self) -> usize {
-        self.line_picks
-            .as_ref()
-            .map_or(0, |picks| picks.lines.len())
+        (self.page.line_picks()).map_or(0, |picks| picks.lines.len())
     }
 
     /// A plain press in the diff off the line numbers: it lets the picked lines go, as a
@@ -209,7 +210,9 @@ impl Detail {
 
     /// Let the picked lines go. Whether any were.
     pub fn clear_line_picks(&mut self, cx: &mut Context<Self>) -> bool {
-        let had = self.line_picks.take().is_some();
+        let had = (self.page.files_mut())
+            .and_then(|files| files.line_picks.take())
+            .is_some();
         if had {
             self.refresh_grip();
             cx.notify();
@@ -221,7 +224,10 @@ impl Detail {
     /// them go: a line's place in a changed file may be another line by now.
     pub(super) fn settle_line_picks(&mut self) {
         let diff = self.diff.as_ref();
-        self.line_picks.take_if(|picks| {
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        files.line_picks.take_if(|picks| {
             let file = diff.and_then(|diff| diff.files.iter().find(|f| f.file.path == picks.path));
             file.is_none_or(|file| file.fingerprint != picks.fingerprint)
         });
@@ -255,7 +261,7 @@ impl Detail {
     /// The picked lines of the loaded diff's file at `file`, by hunk and line index, in order.
     pub(super) fn picked_lines(&self, file: usize) -> Vec<(usize, usize)> {
         let (Some(picks), Some(file)) = (
-            self.line_picks.as_ref(),
+            self.page.line_picks(),
             self.diff.as_ref().and_then(|diff| diff.files.get(file)),
         ) else {
             return Vec::new();
@@ -275,7 +281,7 @@ impl Detail {
 
     /// The loaded diff's file the lines are picked in.
     fn line_picks_file(&self) -> Option<usize> {
-        let picks = self.line_picks.as_ref()?;
+        let picks = self.page.line_picks()?;
         (self.diff.as_ref()?.files.iter()).position(|file| file.file.path == picks.path)
     }
 

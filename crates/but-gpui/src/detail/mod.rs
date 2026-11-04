@@ -18,6 +18,7 @@ pub use history::RestoreOperation;
 mod history;
 mod lines;
 mod machine;
+mod page;
 mod panes;
 mod pull_request;
 mod rename;
@@ -28,6 +29,7 @@ mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
+pub use page::KeptPages;
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
@@ -55,8 +57,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Area, Cut, FileSort, FileView, Pane, Part, Picks, Prefs, ProjectId, RowKey, Section, Selection,
-    Store, StoreEvent, Tile, snack,
+    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, RowKey, Section, Selection, Store,
+    StoreEvent, Tile, snack,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -364,8 +366,6 @@ pub struct Detail {
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
-    /// The People card lists everyone, scrolling within it, rather than the busiest few.
-    people_open: bool,
     people_scroll: ScrollHandle,
     /// Where the diff is gliding to, a step each frame, after the keys moved its cursor.
     glide: Option<Glide>,
@@ -415,14 +415,11 @@ pub struct Detail {
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
     file_filter: Entity<TextInput>,
     filtering: bool,
+    /// Where the diff goes once the files shown whole as it was left are read, as their unchanged
+    /// lines, which it may have been on, are only rows then.
+    reopening: Option<page::Place>,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
-    /// SVG files shown as text rather than drawn, by path.
-    svg_text: HashSet<String>,
-    /// Files picked in the file list, by path, to act on together.
-    file_picks: Picks<String>,
-    /// Lines picked by their numbers, in one file, to act on together.
-    line_picks: Option<lines::LinePicks>,
     /// The grip under the pointer, by its file, hunk and line, and what it takes, by hunk
     /// and line index in order, outlined meanwhile.
     grip_over: Option<(find::LineId, Vec<(usize, usize)>)>,
@@ -448,8 +445,8 @@ pub struct Detail {
     rewording: Option<(composer::Reworded, Entity<MessageEditor>, Subscription)>,
     /// The branch whose name is being edited in its header.
     renaming: Option<rename::Renaming>,
-    /// The pull request whose title and description are being edited on its tab. Looking at
-    /// another keeps it, as `rewording` is kept.
+    /// The pull request whose title and description are being edited on its tab, in the page
+    /// shown. Its page keeps what's written as it goes.
     review_edit: Option<review_edit::ReviewEdit>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
@@ -464,10 +461,6 @@ pub struct Detail {
     cursor: Cursor,
     /// How many times what y copied here has blinked, and what it last was and when.
     blinked: (usize, Option<(Copied, Instant)>),
-    /// Whether the selected commit's message shows its body, not just its title.
-    message_open: bool,
-    /// Whether a branch with a pull request shows it in place of its changes.
-    review_tab: bool,
     /// What that overview reads beyond the workspace.
     now: worktree::Now,
     /// The file to put the cursor on once the diff loading now lands, as when following the
@@ -476,12 +469,6 @@ pub struct Detail {
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
     /// whose merge or branch it opens once it has read its list.
     opening: Option<(Selection, crate::state::SeenCommit)>,
-    /// Whether each pull request's checks are listed, by project and number, as the reader left
-    /// them or as they opened by themselves on a failure. Others are folded. Rendering records
-    /// the opening, so it's a cell.
-    checks_open: std::cell::RefCell<HashMap<(ProjectId, u64), bool>>,
-    /// The pull request threads shown open while resolved, or folded while not, by id.
-    threads_flipped: HashSet<String>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
@@ -500,8 +487,6 @@ pub struct Detail {
     header_height: Rc<Cell<f32>>,
     /// How tall the header across a project's pages was drawn, with their tabs.
     project_header_height: Rc<Cell<f32>>,
-    /// Directories folded shut in tree-shaped file lists, by path.
-    collapsed_dirs: HashSet<String>,
     /// What's opening or closing on the pages beside the diff.
     page_folds: Folds<PageFold>,
     /// Text selected in the diff, from where the drag started to where it is now.
@@ -514,8 +499,6 @@ pub struct Detail {
     /// Text selected in the pull request's description or one of its comments: which, by the
     /// id it's drawn with, and from where the drag started to where it is now.
     note_selection: Option<(String, (TextPoint, TextPoint))>,
-    /// Files folded by hand.
-    folded: HashSet<String>,
     /// Files folding or unfolding now, and the rows each moves, by path.
     file_folds: Folds<String>,
     fold_rows: HashMap<String, FoldRows>,
@@ -525,8 +508,9 @@ pub struct Detail {
     /// What the message box holds in place of the next commit's message while a commit's being
     /// amended.
     amend_message: Option<composer::AmendMessage>,
-    /// The find bar over the diff, while it's open.
+    /// The find bar over the diff, while it's open, and its field.
     find: Option<find::Find>,
+    find_input: Entity<TextInput>,
     /// What's picked for the shown commit's conflicts, until it's applied.
     resolving: resolve::Resolving,
     /// Each project page's target history, by project, kept so going back to one shows it
@@ -544,19 +528,22 @@ pub struct Detail {
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
     _branch_commits_load: Task<()>,
-    /// Each History page's operations, the same way, its filter, and the kinds of operation
-    /// it leaves out.
+    /// Each History page's operations, the same way, and its filter.
     history: HashMap<ProjectId, history::History>,
     history_filter: Entity<TextInput>,
-    history_hidden: HashSet<history::Group>,
     history_scroll: ListState,
     _history_load: Task<()>,
-    /// The file list beside the diff is hidden, for more room, and its slide there.
-    files_hidden: bool,
+    /// What this shows, which everything else here is of. A selection reaches it as the update
+    /// making it ends, or sooner with [`Detail::follow_selection`]: until then this all still
+    /// agrees on the page before.
+    shows: Option<Selection>,
+    /// The state of the page shown, and whose it is, for keeping it as the page goes.
+    page: page::PageState,
+    page_key: Option<page::PageKey>,
+    /// Where pages go while nothing draws them.
+    kept: Entity<KeptPages>,
+    /// How the file list beside the diff slides, and the files beside a list page's list.
     files_slide: Slide,
-    /// The files between a list page's list and the diff are hidden, as they are at first: the
-    /// page's own list already takes the room the file list has elsewhere. And their slide.
-    beside_files_hidden: bool,
     beside_slide: Slide,
     /// Draws the files once they've slid where they're going, as the diff slides over them
     /// without drawing the detail again.
@@ -577,9 +564,8 @@ pub struct Detail {
     pub window_width: Cell<Option<f32>>,
     /// The Graph page, which draws itself as it pans and zooms.
     graph: Entity<graph::GraphView>,
-    /// The row a pinned tile's page shows, and the page that is now, which an agent's rewrite
-    /// of a commit moves: see [`Detail::selection`].
-    pinned: Option<(RowKey, Option<Selection>)>,
+    /// For a pinned tile's page, the row of the tiling it's in and the row it shows.
+    pinned: Option<(RowKey, RowKey)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -592,37 +578,41 @@ impl Detail {
         self.loading.is_none() && !self.reload_queued
     }
 
-    /// The detail of what the navigator selects, or with `pinned`, of that row, for a tile
-    /// pinned beside the selected page.
+    /// The detail of what the navigator selects, or with `pinned`, of that row, for its tile
+    /// in the tiling of the other, pinned beside the selected page.
     pub fn new(
         store: Entity<Store>,
         app: AppHandle,
-        pinned: Option<RowKey>,
+        kept: Entity<KeptPages>,
+        pinned: Option<(RowKey, RowKey)>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let pinned = pinned.map(|row| {
-            let shows = store.read(cx).selection_of(&row);
-            (row, shows)
-        });
+        let shows = match &pinned {
+            Some((_, row)) => store.read(cx).selection_of(row),
+            None => store.read(cx).selection.clone(),
+        };
         let message =
             cx.new(|cx| MessageEditor::new(MessageSize::Compact, COMMIT_PLACEHOLDERS, cx));
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
-        let graph_pinned = match pinned.as_ref().and_then(|(_, shows)| shows.as_ref()) {
-            Some(Selection::Graph(project)) => Some(project.clone()),
+        let find_input = cx.new(|cx| TextInput::new("Find in the diff", false, cx));
+        let page_key = page::page_key(store.read(cx), pinned.as_ref(), shows.as_ref());
+        let page = page::open_page(&kept, page_key.as_ref(), shows.as_ref(), cx);
+        let graph_pinned = match (&pinned, &shows) {
+            (Some(_), Some(Selection::Graph(project))) => Some(project.clone()),
             _ => None,
         };
         let graph = cx.new(|cx| graph::GraphView::new(store.clone(), graph_pinned, cx));
         let subscriptions = vec![
-            cx.subscribe(&store, |this, _, event, cx| match event {
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 // A pinned page shows what it was pinned to, whatever's selected.
                 StoreEvent::SelectionChanged | StoreEvent::Reopened if this.pinned.is_some() => {}
-                StoreEvent::SelectionChanged => this.shown_changed(cx),
+                StoreEvent::SelectionChanged => this.follow_selection(window, cx),
                 // Picked again, as by the crumb naming it, a page goes back to how it opens.
-                StoreEvent::Reopened => match this.selection(cx) {
+                StoreEvent::Reopened => match this.selection() {
                     Some(Selection::Project(project)) => this.pick_opening(&project, cx),
                     Some(Selection::History(_)) => this.pick_newest_operation(cx),
                     _ => {
@@ -631,9 +621,9 @@ impl Detail {
                 },
                 StoreEvent::Loaded(project) => {
                     if this.find_pinned(cx) {
-                        this.shown_changed(cx);
+                        this.shown_changed(window, cx);
                     }
-                    if this.selected_project(cx).as_ref() == Some(project) {
+                    if this.selected_project().as_ref() == Some(project) {
                         this.follow_into_commit(project, cx);
                         this.reload_page(false, cx);
                         // A reload that didn't touch the files shown, like the forge poll's,
@@ -651,10 +641,11 @@ impl Detail {
                 }
                 // What's picked to commit to follows a branch an agent renames.
                 StoreEvent::Renamed(project, from, to) => {
-                    this.branch_renamed(project, from.as_ref(), to, cx)
+                    this.branch_renamed(project, from.as_ref(), to, cx);
+                    this.page_renamed(project, from.as_ref(), to, window, cx)
                 }
                 StoreEvent::MeshRead(project) => {
-                    if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
+                    if let Some(Selection::Mesh(p, ..)) = this.selection()
                         && p == *project
                     {
                         this.load_machines(&p, false, cx);
@@ -663,7 +654,7 @@ impl Detail {
                     }
                 }
                 StoreEvent::Pending(project) => {
-                    if this.selected_project(cx).as_ref() == Some(project) {
+                    if this.selected_project().as_ref() == Some(project) {
                         this.rebuild_rows(cx);
                         this.skip_taken(cx);
                     }
@@ -675,6 +666,7 @@ impl Detail {
                 | StoreEvent::TerminalOpened
                 | StoreEvent::TilePinned(_)
                 | StoreEvent::TileClosed { .. }
+                | StoreEvent::TilingMoved { .. }
                 | StoreEvent::MoveToward(_)
                 | StoreEvent::CommitBlocked
                 | StoreEvent::RowDragEnded => {}
@@ -705,6 +697,15 @@ impl Detail {
                     // goes on to its list. The field heads the list, so the list is drawn.
                     InputEvent::Submit => window.focus(&this.files_focus, cx),
                     InputEvent::Cancel => this.close_filter(window, cx),
+                },
+            ),
+            cx.subscribe_in(
+                &find_input,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Changed => this.run_find(true, cx),
+                    InputEvent::Submit => this.step_find(1, cx),
+                    InputEvent::Cancel => this.close_find(window, cx),
                 },
             ),
             cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
@@ -764,7 +765,7 @@ impl Detail {
                 }
                 // Picking commits, or letting them go, changes what the diff is of while the
                 // selection stays where it was.
-                if matches!(this.selection(cx), Some(Selection::Commit(..)))
+                if matches!(this.selection(), Some(Selection::Commit(..)))
                     && let (Some(diff), Some(key)) = (&this.diff, this.key_for_selection(cx))
                     && diff.key != key
                     && this.loading.as_ref() != Some(&key)
@@ -789,7 +790,6 @@ impl Detail {
             tabs_focus: cx.focus_handle(),
             tabs_kept: false,
             people_focus: cx.focus_handle(),
-            people_open: false,
             people_scroll: ScrollHandle::new(),
             glide: None,
             reading: None,
@@ -819,12 +819,10 @@ impl Detail {
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
             whole_anchor: None,
-            file_picks: Picks::default(),
-            line_picks: None,
+            reopening: None,
             grip_over: None,
             grip_held: false,
             picking_lines: false,
-            svg_text: HashSet::new(),
             signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
@@ -837,13 +835,9 @@ impl Detail {
             composer_back: None,
             cursor: Cursor::default(),
             blinked: (0, None),
-            message_open: false,
-            review_tab: false,
             now: worktree::Now::default(),
             pending_file: None,
             opening: None,
-            checks_open: Default::default(),
-            threads_flipped: HashSet::new(),
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
@@ -852,18 +846,17 @@ impl Detail {
             shipped_focus: cx.focus_handle(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             project_header_height: Rc::new(Cell::new(0.)),
-            collapsed_dirs: HashSet::new(),
             page_folds: Folds::default(),
             text_selection: None,
             selecting: false,
             follow: None,
             note_selection: None,
-            folded: HashSet::new(),
             file_folds: Folds::default(),
             fold_rows: HashMap::new(),
             writing: None,
             amend_message: None,
             find: None,
+            find_input,
             resolving: Default::default(),
             upstream: HashMap::new(),
             upstream_scroll: panes::side_list_state(),
@@ -877,12 +870,13 @@ impl Detail {
             _branch_commits_load: Task::ready(()),
             history: HashMap::new(),
             history_filter,
-            history_hidden: HashSet::new(),
             history_scroll: panes::side_list_state(),
             _history_load: Task::ready(()),
-            files_hidden: false,
+            shows,
+            page,
+            page_key,
+            kept,
             files_slide: Slide::default(),
-            beside_files_hidden: true,
             beside_slide: Slide::default(),
             _slid: Task::ready(()),
             files_hover: (None, false),
@@ -897,21 +891,27 @@ impl Detail {
         // A wheel scroll is the user's, so the diff stops gliding where the keys sent it.
         let this = cx.weak_entity();
         detail.list.set_scroll_handler(move |_, _, cx| {
-            (this.update(cx, |detail, _| detail.glide = None)).ok();
+            (this.update(cx, |detail, _| {
+                detail.glide = None;
+                detail.reopening = None;
+            }))
+            .ok();
         });
+        detail.enter_page(window, cx);
         match detail.pinned {
-            Some(_) => detail.shown_changed(cx),
+            Some(_) => {
+                detail.shown_changed(window, cx);
+                detail.restore_reword(window, cx);
+            }
             None => detail.refresh_diff(true, cx),
         }
         detail
     }
 
-    /// The page shown: what's selected, or for a pinned page what it was pinned to.
-    fn selection(&self, cx: &App) -> Option<Selection> {
-        match &self.pinned {
-            Some((_, shows)) => shows.clone(),
-            None => self.store.read(cx).selection.clone(),
-        }
+    /// The page shown: what was selected as it last took a selection, or for a pinned page
+    /// what it was pinned to.
+    fn selection(&self) -> Option<Selection> {
+        self.shows.clone()
     }
 
     /// Whether commit `id`'s page shows it together with the others picked: not a pinned page,
@@ -921,37 +921,45 @@ impl Detail {
     }
 
     /// Whether it has a page to show: something's selected, or what it's pinned to is there.
-    pub fn shows_page(&self, cx: &App) -> bool {
-        self.selection(cx).is_some()
+    pub fn shows_page(&self) -> bool {
+        self.selection().is_some()
     }
 
     /// The row a pinned page shows, found again, as a commit is once an agent rewrote it.
     /// Whether it changed.
     fn find_pinned(&mut self, cx: &App) -> bool {
-        let Some((row, shows)) = &self.pinned else {
+        let Some((_, row)) = &self.pinned else {
             return false;
         };
-        let now = self
-            .store
-            .read(cx)
-            .selection_of(row)
-            .or_else(|| shows.clone());
-        let changed = now != *shows;
-        if let Some((_, shows)) = &mut self.pinned {
-            *shows = now;
-        }
+        let now = self.store.read(cx).selection_of(row).or(self.shows.clone());
+        let changed = now != self.shows;
+        self.shows = now;
         changed
     }
+
+    /// Take what's selected, if this hasn't yet. The event saying so comes as the update making
+    /// the selection ends, so what acts on the page it just selected asks for it here first.
+    pub(crate) fn follow_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.pinned.is_none() && self.shows != self.store.read(cx).selection {
+            self.shown_changed(window, cx);
+        }
+    }
+
     /// Show what's selected now, or for a pinned page what it was pinned to, once it's found.
-    fn shown_changed(&mut self, cx: &mut Context<Self>) {
+    fn shown_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let left_at = self.place_left();
+        self.note_places(cx);
+        if self.pinned.is_none() {
+            self.shows = self.store.read(cx).selection.clone();
+        }
         // A commit an operation rewrote is still the one being looked at.
         let followed = (self.key_for_selection(cx)).is_some_and(|key| self.follows(&key, cx));
         if !followed {
-            self.message_open = false;
             self.reset_view();
         }
-        let project = self.selected_project(cx);
-        let checkout = self.selected_checkout(cx).map(|(_, worktree)| worktree);
+        self.show_page(left_at, window, cx);
+        let project = self.selected_project();
+        let checkout = self.selected_checkout().map(|(_, worktree)| worktree);
         if self.checks_project != project {
             // The branch picked to commit to waits for coming back, as checks do.
             let left = self.checks_project.clone();
@@ -967,20 +975,294 @@ impl Detail {
             // Checks are of one checkout's files, which another's share paths with.
             self.switch_checkout(project, worktree, cx);
         }
-        // A page read before opens on its overview too.
-        match self.selection(cx) {
-            Some(Selection::Branches(_)) => self.select_other_branch(None, cx),
-            Some(Selection::Project(project)) => self.open_on_shipped(&project),
-            Some(Selection::History(project)) => self.open_on_newest_operation(&project),
-            _ => {}
+        if let Some(Selection::Project(project)) = self.selection() {
+            self.resume_project_page(&project);
         }
         self.reload_page(true, cx);
         self.refresh_diff(true, cx);
         self.open_waiting(false, cx);
     }
 
-    fn selected_project(&self, cx: &App) -> Option<ProjectId> {
-        self.selection(cx).map(|s| s.project().clone())
+    /// Where the diff of the page shown is, unless what's loaded is still an earlier page's.
+    fn place_left(&self) -> Option<page::Place> {
+        let diff = (self.diff.as_ref()).filter(|diff| diff.selection == self.shows)?;
+        let sideways = (self.sideways.iter())
+            .map(|(path, [old, new])| (path.clone(), [old.offset(), new.offset()]))
+            .filter(|(_, offsets)| offsets.iter().any(|offset| *offset != Point::default()))
+            .collect();
+        Some(page::Place::of(
+            diff,
+            self.cursor,
+            self.list.logical_scroll_top(),
+            self.whole.keys().cloned().collect(),
+            sideways,
+        ))
+    }
+
+    /// Show the files whole and scrolled sideways as the diff just loaded was left.
+    fn restore_files(&mut self, left_at: &page::Place, cx: &mut Context<Self>) {
+        for (path, offsets) in &left_at.sideways {
+            if let Some(handles) = self.sideways.get(path) {
+                for (handle, offset) in handles.iter().zip(offsets) {
+                    handle.set_offset(*offset);
+                }
+            }
+        }
+        let files = self.diff.as_ref().map(|diff| diff.files.clone());
+        for (ix, file) in files.iter().flat_map(|files| files.iter().enumerate()) {
+            if left_at.whole.contains(&file.file.path) {
+                self.whole.insert(file.file.path.clone(), None);
+                self.load_whole(ix, cx);
+            }
+        }
+    }
+
+    /// Go back to where the diff was left, once the last of its files shown whole is read.
+    fn finish_reopening(&mut self) {
+        if !self.whole_reading.is_empty() {
+            return;
+        }
+        let (Some(left_at), Some(diff)) = (self.reopening.take(), &self.diff) else {
+            return;
+        };
+        let top = left_at.offset_in(&diff.rows, &diff.files, diff.alone.is_some());
+        self.list.scroll_to(top);
+    }
+
+    /// Go on with the page of a branch renamed. The selection followed it first, which put the
+    /// page away under the old name, so one's waiting under this page's name now.
+    fn page_renamed(
+        &mut self,
+        project: &ProjectId,
+        from: Option<&FullName>,
+        to: &FullName,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.kept
+            .update(cx, |kept, _| kept.follow_rename(project, from, to));
+        let Some(key) = self.page_key.clone() else {
+            return;
+        };
+        if let Some(page) = self.kept.update(cx, |kept, _| kept.take(&key)) {
+            self.page = page;
+            self.enter_page(window, cx);
+            self.refresh_diff(true, cx);
+        }
+    }
+
+    /// Take the state of the page shown now, as it was left or as it opens, keeping the one
+    /// left at `left_at`. A commit rewritten is the same page.
+    fn show_page(
+        &mut self,
+        left_at: Option<page::Place>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let key = page::page_key(
+            self.store.read(cx),
+            self.pinned.as_ref(),
+            self.shows.as_ref(),
+        );
+        if key == self.page_key {
+            return;
+        }
+        self.put_page_away(left_at, cx);
+        self.page = page::open_page(&self.kept, key.as_ref(), self.shows.as_ref(), cx);
+        self.page_key = key;
+        self.enter_page(window, cx);
+        // Commits picked together are one diff, which what was picked of one alone isn't of.
+        if self.pinned.is_none()
+            && !self.store.read(cx).picked.is_empty()
+            && let Some(files) = self.page.files_mut()
+        {
+            files.file_picks.clear();
+            files.line_picks = None;
+        }
+        // Another page's files are as they are, with nothing to slide from.
+        self.files_slide = Slide::default();
+        self.beside_slide = Slide::default();
+    }
+
+    /// Show what the page's state says of what lives in this view rather than in the state: the
+    /// fields and editors it was left with, and how far its pull request was scrolled.
+    fn enter_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // A pinned tile's detail hands back what it read for the list it left.
+        if let Some(project) = self.shows.as_ref().map(|shows| shows.project().clone()) {
+            match &mut self.page {
+                page::PageState::Branches { list, .. } => {
+                    if let Some(list) = list.take() {
+                        self.branches.insert(project, list);
+                    }
+                }
+                page::PageState::History { list, .. } => {
+                    if let Some(list) = list.take() {
+                        self.history.insert(project, list.resumed());
+                    }
+                }
+                page::PageState::Project { list, .. } => {
+                    if let Some(list) = list.take() {
+                        self.upstream.insert(project, list);
+                    }
+                }
+                page::PageState::Changes { .. }
+                | page::PageState::Diff { .. }
+                | page::PageState::Graph(_)
+                | page::PageState::Overview(_)
+                | page::PageState::Blank => {}
+            }
+        }
+        let (filter, find) = (self.page.files_mut()).map_or((None, None), |files| {
+            (files.filter.take(), files.find.take())
+        });
+        self.filtering = filter.is_some();
+        let filter = filter.unwrap_or_default();
+        if self.file_filter.read(cx).text() != filter {
+            (self.file_filter).update(cx, |input, cx| input.restore(filter, cx));
+        }
+        self.restore_find(find, cx);
+        let (edit, side) = (self.page.review_mut()).map_or((None, Point::default()), |review| {
+            (review.edit.take(), review.side)
+        });
+        self.review_side_scroll.set_offset(side);
+        self.restore_review_edit(edit, window, cx);
+        if let Some((input, _)) = self.side_widgets() {
+            let input = input.clone();
+            let filter = (self.page.side()).map_or(String::new(), |side| side.filter.clone());
+            if input.read(cx).text() != filter {
+                input.update(cx, |input, cx| input.restore(filter, cx));
+            }
+        }
+        if let page::PageState::Graph(left) = &self.page {
+            let left = left.clone();
+            self.graph.update(cx, |graph, _| graph.restore(left));
+        }
+    }
+
+    /// The field filtering the list of the list page shown, and the list.
+    fn side_widgets(&self) -> Option<(&Entity<TextInput>, &ListState)> {
+        match &self.page {
+            page::PageState::Branches { .. } => Some((&self.branch_filter, &self.branches_scroll)),
+            page::PageState::History { .. } => Some((&self.history_filter, &self.history_scroll)),
+            page::PageState::Project { .. } => Some((&self.target_filter, &self.upstream_scroll)),
+            page::PageState::Changes { .. }
+            | page::PageState::Diff { .. }
+            | page::PageState::Graph(_)
+            | page::PageState::Overview(_)
+            | page::PageState::Blank => None,
+        }
+    }
+
+    /// Put list `scroll` of `count` rows where the page left it, as it's first drawn again.
+    fn restore_side_top(&self, scroll: &ListState, count: usize, cx: &Context<Self>) {
+        if let Some(top) = self.page.side().and_then(|side| side.top.take()) {
+            panes::resize_side_list(scroll, count, Theme::get(cx));
+            scroll.scroll_to(top);
+        }
+    }
+
+    /// The list has been sent somewhere, so it stays there rather than going where it was left.
+    fn forget_side_top(&self) {
+        if let Some(side) = self.page.side() {
+            side.top.set(None);
+        }
+    }
+
+    fn people_open(&self) -> bool {
+        self.page.side().is_some_and(|side| side.people_open)
+    }
+
+    fn set_people_open(&mut self, open: bool) {
+        if let Some(side) = self.page.side_mut() {
+            side.people_open = open;
+        }
+    }
+
+    /// Note how far what's in this view rather than the page's state was scrolled, and what its
+    /// list's filter says.
+    fn note_places(&mut self, cx: &App) {
+        let widgets = self.side_widgets();
+        let list = widgets.map(|(_, list)| list.logical_scroll_top());
+        let filter = widgets.map(|(input, _)| input.read(cx).text().to_owned());
+        if let Some(side) = self.page.side_mut() {
+            // Not drawn since the page came back, its list is still to go where it was left.
+            let waiting = side.top.take();
+            side.top.set(waiting.or(list));
+            side.filter = filter.unwrap_or_default();
+        }
+        let (top, side) = (
+            self.review_list.logical_scroll_top(),
+            self.review_side_scroll.offset(),
+        );
+        if self.review_list.item_count() > 0
+            && let Some(review) = self.page.review_mut()
+        {
+            review.top.set(Some(top));
+            review.side = side;
+        }
+    }
+
+    /// Show or hide what's past the title of the message.
+    fn toggle_message(&mut self, cx: &mut Context<Self>) {
+        if let Some(files) = self.page.files_mut() {
+            files.message_open = !files.message_open;
+        }
+        cx.notify();
+    }
+
+    fn close_message(&mut self) {
+        if let Some(files) = self.page.files_mut() {
+            files.message_open = false;
+        }
+    }
+
+    /// Keep the page's state for when it's shown again, as this stops showing it.
+    pub(crate) fn keep_page(&mut self, cx: &mut Context<Self>) {
+        let left_at = self.place_left();
+        self.note_places(cx);
+        self.put_page_away(left_at, cx);
+    }
+
+    /// Keep the page, left at `left_at`, or where it was before if its diff never came back.
+    fn put_page_away(&mut self, left_at: Option<page::Place>, cx: &mut Context<Self>) {
+        let mut page = std::mem::replace(&mut self.page, page::PageState::Blank);
+        if let Some(files) = page.files_mut() {
+            files.place = left_at.or(files.place.take());
+            let filter = self.file_filter.read(cx).text().to_owned();
+            files.filter = self.filtering.then_some(filter);
+            files.find = self.find_left(cx);
+        }
+        let edit = self.review_edit_left(cx);
+        if let Some(review) = page.review_mut() {
+            review.edit = edit;
+        }
+        if let page::PageState::Graph(left) = &mut page {
+            *left = self.graph.read(cx).state();
+        }
+        if self.pinned.is_some() {
+            self.reword_left(&mut page, cx);
+            // What's read goes with this detail, so it's kept with the page.
+            let project = self.shows.as_ref().map(|shows| shows.project().clone());
+            match (&mut page, project) {
+                (page::PageState::Branches { list, .. }, Some(project)) => {
+                    *list = self.branches.remove(&project);
+                }
+                (page::PageState::History { list, .. }, Some(project)) => {
+                    *list = self.history.remove(&project);
+                }
+                (page::PageState::Project { list, .. }, Some(project)) => {
+                    *list = self.upstream.remove(&project);
+                }
+                _ => {}
+            }
+        }
+        if let Some(key) = self.page_key.take() {
+            self.kept.update(cx, |kept, _| kept.keep(key, page));
+        }
+    }
+
+    fn selected_project(&self) -> Option<ProjectId> {
+        self.selection().map(|s| s.project().clone())
     }
 
     /// Register `A` on `el` as copying `text`, as the app copies it.
@@ -998,8 +1280,8 @@ impl Detail {
 
     /// The pull request of what a page has picked: the branch opened on the Branches page, or
     /// the target's merge.
-    pub(crate) fn page_pull_request(&self, cx: &App) -> Option<String> {
-        match self.selection(cx)? {
+    pub(crate) fn page_pull_request(&self) -> Option<String> {
+        match self.selection()? {
             Selection::Branches(project) => self
                 .selected_other_branch(&project)?
                 .review
@@ -1022,8 +1304,8 @@ impl Detail {
     }
 
     /// The checkout whose uncommitted changes are shown, which the composer commits.
-    pub fn selected_checkout(&self, cx: &App) -> Option<(ProjectId, Checkout)> {
-        match self.selection(cx)? {
+    pub fn selected_checkout(&self) -> Option<(ProjectId, Checkout)> {
+        match self.selection()? {
             Selection::Uncommitted(project, checkout) => Some((project, checkout)),
             _ => None,
         }
@@ -1035,7 +1317,7 @@ impl Detail {
     }
 
     fn key_for_selection(&self, cx: &App) -> Option<DiffKey> {
-        let selection = self.selection(cx)?;
+        let selection = self.selection()?;
         let store = self.store.read(cx);
         let source = match &selection {
             Selection::Project(project) if self.editing(project, cx).is_some() => return None,
@@ -1108,7 +1390,7 @@ impl Detail {
     /// Load what the selected page lists beside the diff: on selecting it (`force`), and
     /// when its project reloads, if what it lists may have changed.
     fn reload_page(&mut self, force: bool, cx: &mut Context<Self>) {
-        match self.selection(cx) {
+        match self.selection() {
             Some(Selection::History(project)) => self.load_history(&project, false, cx),
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
@@ -1118,18 +1400,16 @@ impl Detail {
         }
     }
 
-    /// Forget how the last diff was looked at: its text selection, cursor and folds, and how
-    /// far the pull request was scrolled. For a new selection, or another
-    /// item picked on the same page.
+    /// Forget how the last diff was looked at: its text selection, cursor and folds moving, and
+    /// how far the pull request was scrolled. For a new selection, or another item picked on the
+    /// same page.
     fn reset_view(&mut self) {
+        self.reopening = None;
         self.tabs_kept = false;
         self.text_selection = None;
         self.note_selection = None;
-        self.file_picks.clear();
-        self.line_picks = None;
         self.cursor = Cursor::default();
         self.reading = None;
-        self.folded.clear();
         self.file_folds.stop_all();
         self.fold_rows.clear();
         self.review_list.reset(0);
@@ -1139,6 +1419,17 @@ impl Detail {
     /// Show the diff of what was just picked on the selected page, from its top.
     fn show_picked(&mut self, cx: &mut Context<Self>) {
         self.reset_view();
+        if let Some(files) = self.page.files_mut() {
+            files.folded.clear();
+            files.place = None;
+            files.file_picks.clear();
+            files.line_picks = None;
+        }
+        // Another pick's pull request starts at its top, and its row is where the list is.
+        if let Some(review) = self.page.review() {
+            review.top.set(None);
+        }
+        self.forget_side_top();
         self.refresh_diff(true, cx);
         // A pick on the page changes no selection, which the store's observer would ask on.
         self.ask_forge(cx);
@@ -1390,7 +1681,7 @@ impl Detail {
     fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
         // A branch's or stack's diff is of its commits' range, which an agent rewriting or
         // adding one changes: still selected, it's the same diff to look at.
-        let selection = self.selection(cx);
+        let selection = self.selection();
         let reloaded = (self.diff.as_ref()).is_some_and(|diff| {
             matches!(
                 (&diff.key.source, &key.source),
@@ -1459,9 +1750,13 @@ impl Detail {
             }
         };
         // Before the rows, which can show the cursor's file alone. The file scrolled to is
-        // found again in the new files once they're drawn.
+        // found again in the new files once they're drawn. A page shown again goes back to
+        // where it was left.
         // Another commit opens on its message where it's listed, as its header came first.
-        if same {
+        let left_at = (self.page.files_mut()).and_then(|files| files.place.take());
+        if let Some(left_at) = &left_at {
+            self.cursor = left_at.cursor.find(&files);
+        } else if same {
             self.cursor = self.cursor_in(&files);
         } else if self.lists_message(&key, cx) {
             self.cursor = Cursor::on_message();
@@ -1471,7 +1766,10 @@ impl Detail {
         let marks = matches!(alone, Some(Entry::File(_)))
             .then(|| self.change_marks(&rows, &files, cx))
             .flatten();
-        let top = same.then(|| self.keep_place(&rows, &files, alone.is_some()));
+        let top = match &left_at {
+            Some(left_at) => Some(left_at.offset_in(&rows, &files, alone.is_some())),
+            None => same.then(|| self.keep_place(&rows, &files, alone.is_some())),
+        };
         // The rows go, and with them the one the diff was gliding to: on a reload, as when the
         // rest of its files come in highlighted or an agent writes, it glides on to where that
         // row is now, a match Find went to as much as the cursor's hunk.
@@ -1499,12 +1797,15 @@ impl Detail {
             })
             .map(|(ix, _)| ix)
             .collect();
-        if !self.file_picks.is_empty() {
-            let paths: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
-            (self.file_picks).follow(|path| paths.contains(path.as_str()).then(|| path.clone()));
-        }
-        if !same {
-            self.line_picks = None;
+        if let Some(state) = self.page.files_mut() {
+            if !state.file_picks.is_empty() {
+                let paths: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+                (state.file_picks)
+                    .follow(|path| paths.contains(path.as_str()).then(|| path.clone()));
+            }
+            if !same && left_at.is_none() {
+                state.line_picks = None;
+            }
         }
         self.diff = Some(LoadedDiff {
             key,
@@ -1530,7 +1831,12 @@ impl Detail {
             self.load_whole(file, cx);
         }
         // Another diff's matches count from its first.
-        self.run_find(!same, cx);
+        let from_first = !same && left_at.is_none();
+        if let Some(left_at) = left_at {
+            self.restore_files(&left_at, cx);
+            self.reopening = (!left_at.whole.is_empty()).then_some(left_at);
+        }
+        self.run_find(from_first, cx);
         self.diff_error = None;
         self.open_pending_file(cx);
     }
@@ -1556,7 +1862,7 @@ impl Detail {
         worktree: Checkout,
         cx: &App,
     ) -> Vec<Selected> {
-        let files = match self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
+        let files = match self.selected_checkout() == Some((project.clone(), worktree.clone())) {
             true => self.selected_changes(cx),
             false => (self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(&worktree))
@@ -1576,14 +1882,14 @@ impl Detail {
     /// Focus the file list, or the diff while the list is hidden. On the Branches, Operations
     /// history and project pages, focus their list instead, as it takes the arrow keys itself.
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let side_list = self.list_page(cx);
+        let side_list = self.list_page();
         // Not the file list under a pull request's tab, which draws none.
         let files = !side_list && self.files_shown(cx) && !self.showing_review(cx);
         // So has what the project's page opens on, what merged lately, and the Branches page's
         // overview: their lists take them on their first row, as the first step down would.
         if self.showing_shipped(cx) {
             self.step_upstream(1, cx);
-        } else if self.showing_branches_overview(cx) {
+        } else if self.showing_branches_overview() {
             self.step_branches(1, cx);
         }
         let handle = match (side_list, files) {
@@ -1728,7 +2034,7 @@ impl Detail {
             };
             return Some((items, row));
         }
-        match self.selection(cx)? {
+        match self.selection()? {
             Selection::Branches(project) => self.branches_page_menu(&project, cx),
             Selection::History(project) => self.operation_page_menu(&project, cx),
             Selection::Section(project, Section::Upstream(_)) => {
@@ -1769,7 +2075,8 @@ impl Detail {
         // A file folding stays open till it's shut.
         let folded = |file: &FileDiff| {
             let path = &file.file.path;
-            !unfolded && self.folded.contains(path) && !self.file_folds.closing(path)
+            let by_hand = (self.page.files()).is_some_and(|files| files.folded.contains(path));
+            !unfolded && by_hand && !self.file_folds.closing(path)
         };
         let hidden =
             |file: &FileDiff| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path);
@@ -1828,7 +2135,7 @@ impl Detail {
     /// commits only a remote has, whose page has no header to say them.
     fn listed_messages(&self, key: &DiffKey, cx: &App) -> Option<Messages> {
         let store = self.store.read(cx);
-        match (store.selection.as_ref()?, &key.source) {
+        match (self.shows.as_ref()?, &key.source) {
             (Selection::Commit(project, id), DiffSource::Commit(_))
                 if !store.prefs.shows(Part::CommitHeader) && !store.among_picks(project, *id) =>
             {
@@ -1880,8 +2187,7 @@ impl Detail {
     /// the message. None on a list page with no files beside its list, as Operations history:
     /// nothing there would list the other files.
     fn alone(&self, message: bool, shown: &[usize], cx: &App) -> Option<Entry> {
-        if !self.store.read(cx).single_file_diff
-            || (self.list_page(cx) && !self.has_files_beside(cx))
+        if !self.store.read(cx).single_file_diff || (self.list_page() && !self.has_files_beside(cx))
         {
             return None;
         }
@@ -1986,7 +2292,7 @@ impl Detail {
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // The project, Branches and History pages filter their lists, as the navigator does,
         // unless the files beside the list have the keys.
-        let page = match self.selection(cx) {
+        let page = match self.selection() {
             _ if self.files_focused(window) => None,
             Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
             Some(Selection::History(_)) => Some(self.history_filter.clone()),
@@ -2004,7 +2310,7 @@ impl Detail {
     fn open_file_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = true;
         // Its field heads the file list, so a hidden list comes back with it.
-        self.hide_files(self.list_page(cx), false, cx);
+        self.hide_files(self.list_page(), false, cx);
         self.file_filter
             .update(cx, |input, cx| input.select_all_text(cx));
         window.focus(&self.file_filter.focus_handle(cx), cx);
@@ -2094,62 +2400,17 @@ impl Detail {
     /// that's not the one at the top start at their own top.
     fn keep_place(&self, rows: &[DiffRow], files: &[FileDiff], alone: bool) -> ListOffset {
         let top = self.list.logical_scroll_top();
-        // At the very top, what's added above shows: a file a merge left conflicted lists
-        // first.
-        let at_top = top.item_ix == 0 && top.offset_in_item == Pixels::ZERO;
-        if at_top || self.diff.is_none() {
+        let Some(diff) = &self.diff else {
             return top;
-        }
-        match self.row_in(top.item_ix, rows, files) {
-            Some((item_ix, true)) => ListOffset { item_ix, ..top },
-            Some((item_ix, false)) => ListOffset {
-                item_ix,
-                offset_in_item: Pixels::ZERO,
-            },
-            None if alone => ListOffset::default(),
-            None => ListOffset {
-                item_ix: top.item_ix,
-                offset_in_item: Pixels::ZERO,
-            },
-        }
+        };
+        let row = page::RowPlace::of(diff, top.item_ix);
+        page::offset_in(top, row.as_ref(), rows, files, alone)
     }
 
     /// Where row `at` of the rows shown is in `rows` of `files`: the same row, and true, or its
     /// file's header when that row went away, and false.
     fn row_in(&self, at: usize, rows: &[DiffRow], files: &[FileDiff]) -> Option<(usize, bool)> {
-        let diff = self.diff.as_ref()?;
-        // Gaps all look alike, so a gap is found by the row after it.
-        let gaps = (diff.rows.iter().skip(at))
-            .take_while(|row| **row == DiffRow::Gap)
-            .count();
-        // Its file found by path, as a reload can add or drop files before it.
-        let anchor = diff.rows.get(at + gaps).and_then(|row| match row.file() {
-            Some(file) => {
-                let old = diff.files.get(file)?;
-                let (now, new) =
-                    (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)?;
-                let mut row = row.in_file(now);
-                // Its hunk as the cursor follows one, which hunks an agent adds or drops
-                // elsewhere in the file don't move.
-                if let Some(hunk) = row.hunk_mut()
-                    && let Some(ix) = follow_hunk(&hunk_keys(old), *hunk, &hunk_keys(new))
-                {
-                    *hunk = ix;
-                }
-                Some(row)
-            }
-            None => Some(*row),
-        });
-        let found = anchor
-            .and_then(|row| rows.iter().position(|r| r.same_place(row)))
-            .and_then(|ix| ix.checked_sub(gaps));
-        match found {
-            Some(ix) => Some((ix, true)),
-            None => anchor
-                .and_then(DiffRow::file)
-                .and_then(|file| rows.iter().position(|r| *r == DiffRow::File(file)))
-                .map(|ix| (ix, false)),
-        }
+        page::RowPlace::of(self.diff.as_ref()?, at)?.find(rows, files)
     }
 
     /// Rebuild the rows when folding changed, keeping the scroll position.
@@ -2273,7 +2534,9 @@ impl Detail {
         let Some(entry) = self.file_step(delta, cx) else {
             return;
         };
-        self.file_picks.clear();
+        if let Some(files) = self.page.files_mut() {
+            files.file_picks.clear();
+        }
         match entry {
             Entry::File(file) => self.scroll_to_file(file, true, cx),
             Entry::Message => self.scroll_to_message(true, cx),
@@ -2307,7 +2570,9 @@ impl Detail {
     /// operation hides, nor, in the tree, those of a directory folded shut. While the filter
     /// is open, the best matches first, as it ranks them.
     fn listed_files(&self, cx: &App) -> Vec<usize> {
-        self.files_in_list_order(&self.collapsed_dirs, cx)
+        let none = HashSet::new();
+        let collapsed = (self.page.files()).map_or(&none, |files| &files.collapsed_dirs);
+        self.files_in_list_order(collapsed, cx)
     }
 
     /// The files the diff shows, in the file list's order, with the directories in
@@ -2336,7 +2601,9 @@ impl Detail {
         // The keys go on to hunks that show, not a cursor out of sight. From a branch's pull
         // request, its changes. Nothing else that hides the diff shows its hunks.
         if self.showing_review(cx) {
-            self.review_tab = false;
+            if let Some(review) = self.page.review_mut() {
+                review.tab = false;
+            }
             cx.notify();
         }
         if self.diff_hidden(cx) {
@@ -2404,31 +2671,8 @@ impl Detail {
     /// Where the cursor's file and hunk sit in freshly loaded `files`, so a reload never
     /// leaves it pointing at a different file or a hunk that's gone.
     fn cursor_in(&self, files: &[FileDiff]) -> Cursor {
-        if self.cursor.at == Stop::Message {
-            return self.cursor;
-        }
-        let Some(old) = self
-            .diff
-            .as_ref()
-            .and_then(|diff| diff.files.get(self.cursor.file))
-        else {
-            return Cursor::default();
-        };
-        // The file went, say discarded: stay where it was, on what moved up into its
-        // place, rather than jumping to the first file the next key would act on.
-        let Some((file, new)) =
-            (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)
-        else {
-            return Cursor::on_file(self.cursor.file.min(files.len().saturating_sub(1)));
-        };
-        let near = (self.cursor.at.near())
-            .and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
-        let at = match (self.cursor.at, near) {
-            (Stop::Gap(_), Some(hunk)) => Stop::Gap(hunk),
-            (_, Some(hunk)) => Stop::Hunk(hunk),
-            (_, None) => Stop::File,
-        };
-        Cursor { file, at }
+        let shown = self.diff.as_ref().map_or(&[][..], |diff| &diff.files[..]);
+        page::CursorPlace::of(self.cursor, shown).find(files)
     }
 
     /// Move the cursor off a file or hunk a pending operation just took away, onto the next
@@ -2531,13 +2775,11 @@ impl Detail {
         let store = self.store.read(cx);
         // Drawn with nothing uncommitted too, as Commit… and the composer still are.
         !self.hides_files(cx)
-            && self
-                .selected_checkout(cx)
-                .is_some_and(|(project, worktree)| {
-                    (store.workspace(&project))
-                        .and_then(|ws| ws.uncommitted_in(&worktree))
-                        .is_some()
-                })
+            && self.selected_checkout().is_some_and(|(project, worktree)| {
+                (store.workspace(&project))
+                    .and_then(|ws| ws.uncommitted_in(&worktree))
+                    .is_some()
+            })
     }
 
     /// The commit composer is open.
@@ -2638,7 +2880,7 @@ impl Detail {
     pub fn tile_area(&self, cx: &App) -> Area {
         let store = self.store.read(cx);
         let area = match &self.pinned {
-            Some((row, _)) => store.page_area(&Tile::Pinned(row.clone())),
+            Some((_, row)) => store.page_area(&Tile::Pinned(row.clone())),
             None => store.drawn_home(),
         };
         area.unwrap_or(Area::WHOLE)
@@ -2789,9 +3031,12 @@ impl Detail {
         let Some(path) = self.diff_path(file_ix) else {
             return;
         };
-        let open = self.folded.remove(&path);
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        let open = files.folded.remove(&path);
         if !open {
-            self.folded.insert(path.clone());
+            files.folded.insert(path.clone());
         }
         let view = self.list.viewport_bounds();
         let header = self.row_of(|row| *row == DiffRow::File(file_ix));
@@ -2855,7 +3100,8 @@ impl Detail {
         let Some(file) = self.current_file() else {
             return;
         };
-        let folded = self.diff_path(file).map(|path| self.folded.contains(&path));
+        let folded = (self.diff_path(file).zip(self.page.files()))
+            .map(|(path, files)| files.folded.contains(&path));
         if folded == Some(!fold) && !self.diff_hidden(cx) {
             self.toggle_fold(file, cx);
         }
@@ -3108,7 +3354,7 @@ impl Detail {
     /// How far below the breadcrumbs the diff starts: under the page's header, for the pages
     /// the render's `header` gives one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
-        match self.selection(cx) {
+        match self.selection() {
             Some(Selection::Branch(..) | Selection::Stack(..)) if !self.branch_header_shown(cx) => {
                 0.
             }
@@ -3159,7 +3405,7 @@ impl Detail {
     /// narrow the window. A checkout's overview shows beside them, or alone with them hidden,
     /// as its diff does.
     pub fn files_shown(&self, cx: &App) -> bool {
-        !self.overview_only(cx) && (self.list_page(cx) || !self.hides_files(cx))
+        !self.overview_only() && (self.list_page() || !self.hides_files(cx))
     }
 
     /// Whether the single file diff is on. The files then stay beside the diff with no toggle,
@@ -3170,19 +3416,20 @@ impl Detail {
 
     /// Whether `f` hid the file list beside the diff, and it isn't pinned there.
     pub(super) fn hides_files(&self, cx: &App) -> bool {
-        self.files_hidden && !self.single_file_diff(cx)
+        (self.page.files()).is_some_and(|files| files.files_hidden) && !self.single_file_diff(cx)
     }
 
     /// Whether the files beside a list page's list are hidden, as they are at first, and
     /// aren't pinned there.
     pub(super) fn hides_beside_files(&self, cx: &App) -> bool {
-        self.beside_files_hidden && !self.single_file_diff(cx)
+        (self.page.files()).is_some_and(|files| files.beside_files_hidden)
+            && !self.single_file_diff(cx)
     }
 
     /// How much of the column beside the diff shows at `now`, from 0 to 1, as `f` slides the
     /// file list. A list page's list always shows.
     pub fn files_share(&self, now: Instant, cx: &App) -> f32 {
-        match (self.overview_only(cx), self.list_page(cx)) {
+        match (self.overview_only(), self.list_page()) {
             (true, _) => 0.,
             (false, true) => 1.,
             (false, false) => self.files_slide.share(!self.hides_files(cx), now),
@@ -3191,7 +3438,7 @@ impl Detail {
 
     /// Whether the column beside the diff is drawn at `now`: shown, or still sliding shut.
     fn files_drawn(&self, now: Instant, cx: &App) -> bool {
-        self.files_shown(cx) || (!self.overview_only(cx) && self.files_slide.closing(now))
+        self.files_shown(cx) || (!self.overview_only() && self.files_slide.closing(now))
     }
 
     /// How far right of the detail's left edge the diff starts at `now`: past the column beside
@@ -3230,9 +3477,9 @@ impl Detail {
 
     /// Whether the page is an overview with no column beside it: a worktree's, Inactive and
     /// Network worktrees', as the navigator lists what they sum up, and the Graph's.
-    pub fn overview_only(&self, cx: &App) -> bool {
+    pub fn overview_only(&self) -> bool {
         matches!(
-            self.selection(cx),
+            self.selection(),
             Some(
                 Selection::Graph(_)
                     | Selection::Checkout(..)
@@ -3245,16 +3492,19 @@ impl Detail {
     /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
     /// files beside its list, as `f` does.
     pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let list_page = self.list_page(cx);
-        if self.overview_only(cx)
+        let list_page = self.list_page();
+        if self.overview_only()
             || self.single_file_diff(cx)
             || (list_page && !self.has_files_beside(cx))
         {
             return;
         }
+        let Some(files) = self.page.files() else {
+            return;
+        };
         let hidden = match list_page {
-            true => !self.beside_files_hidden,
-            false => !self.files_hidden,
+            true => !files.beside_files_hidden,
+            false => !files.files_hidden,
         };
         self.hide_files(list_page, hidden, cx);
         // Keys go on to the diff once the list they went to is gone, and its filter goes with
@@ -3270,9 +3520,12 @@ impl Detail {
     /// Hide or show the file list beside the diff, or with `beside` the files beside a list
     /// page's list, sliding them there.
     pub(super) fn hide_files(&mut self, beside: bool, hidden: bool, cx: &mut Context<Self>) {
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
         let (flag, slide) = match beside {
-            true => (&mut self.beside_files_hidden, &mut self.beside_slide),
-            false => (&mut self.files_hidden, &mut self.files_slide),
+            true => (&mut files.beside_files_hidden, &mut self.beside_slide),
+            false => (&mut files.files_hidden, &mut self.files_slide),
         };
         if *flag == hidden {
             return;
@@ -3286,9 +3539,9 @@ impl Detail {
         cx.notify();
     }
 
-    pub(crate) fn list_page(&self, cx: &App) -> bool {
+    pub(crate) fn list_page(&self) -> bool {
         matches!(
-            self.selection(cx),
+            self.selection(),
             Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
         )
     }
@@ -3307,7 +3560,7 @@ impl Render for Detail {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
-        let selection = self.selection(cx);
+        let selection = self.selection();
         let body: AnyElement = match &selection {
             None if self.store.read(cx).projects.is_empty() => welcome(&self.store, &theme, cx),
             None => empty_state(
@@ -3431,7 +3684,7 @@ impl Render for Detail {
                     // An opened branch: its header, its files and its pull request, as a merge
                     // on the project's page has them, and a commit of it picked shows its
                     // message, as a merge's does.
-                    Selection::Branches(project) if self.showing_branches_overview(cx) => {
+                    Selection::Branches(project) if self.showing_branches_overview() => {
                         Some(self.render_branches_overview(project, &theme, cx))
                     }
                     Selection::Branches(project) => {
@@ -3477,9 +3730,12 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
-                let (files_shown, list_page) = (self.files_shown(cx), self.list_page(cx));
+                let (files_shown, list_page) = (self.files_shown(cx), self.list_page());
                 // A list that went while it had the keys hands them to the diff, as `f` does.
-                if !files_shown && self.files_focus.is_focused(window) {
+                let gone = (!self.filtering
+                    && self.file_filter.focus_handle(cx).is_focused(window))
+                    || (self.find.is_none() && self.find_input.focus_handle(cx).is_focused(window));
+                if gone || (!files_shown && self.files_focus.is_focused(window)) {
                     let focus = self.focus.clone();
                     window.defer(cx, move |window, cx| window.focus(&focus, cx));
                 }
@@ -3601,16 +3857,16 @@ impl Render for Detail {
                 if !this.focus.is_focused(window) {
                     return;
                 }
-                if this.line_picks.is_some() {
+                if this.page.line_picks().is_some() {
                     this.discard_picked_lines(window, cx)
                 } else if let Some(hunk) = this.cursor.at.hunk() {
                     this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
-                if this.line_picks.is_some() {
+                if this.page.line_picks().is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if !this.file_picks.is_empty() {
+                } else if this.page.has_file_picks() {
                     this.discard_picked(window, cx)
                 } else if let Some(file) = this.current_file() {
                     this.discard(file, None, window, cx)
@@ -3626,7 +3882,8 @@ impl Render for Detail {
                     return;
                 }
                 let file = this.cursor_path();
-                let folded = file.is_some_and(|path| this.folded.contains(&path));
+                let folded = (file.zip(this.page.files()))
+                    .is_some_and(|(path, files)| files.folded.contains(&path));
                 this.fold_cursor_file(!folded, cx)
             }))
             .on_action(cx.listener(|this, _: &PageDown, window, cx| this.page(PAGE, window, cx)))
