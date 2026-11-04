@@ -96,6 +96,7 @@ fn sections(version: &str, notes: &str) -> Vec<Section> {
     let blocks = markdown::parse(notes);
     let names_version = |block: &Block| {
         matches!(block.kind, Kind::Paragraph | Kind::Heading(_))
+            && block.cell.is_none()
             && numbers(block.text.trim()).is_some_and(|n| n.len() == 3)
     };
     let split = (blocks.iter()).any(|block| names_version(block) && block.text.trim() == version);
@@ -757,6 +758,14 @@ mod tests {
             )),
             [("Changes", 2)],
             "a heading that only names the version starts its notes"
+        );
+        assert_eq!(
+            titles(&sections(
+                "0.22.3",
+                "**0.22.3**\n\n| Fixed in |\n|---|\n| 0.22.2 |\n\n- fix a\n- fix b\n"
+            )),
+            [("Changes", 2)],
+            "a version in a table doesn't start another release's notes"
         );
     }
 

@@ -3,11 +3,11 @@
 //! Only what can't reach outside the app is kept. Links open only to the web and to mail,
 //! with where they go shown on hover, as a link's words can say anything. Images are drawn
 //! only from GitHub, and any other shows its words, as fetching it would tell its host who
-//! read the description (see [`crate::backend::images`]). A table with images lays its
-//! cells side by side, as a before and after needs. HTML is read only as far as a
-//! description lays itself out with it: headings, paragraphs and centring, bold, emphasis
-//! and code, links, images and line breaks; other tags leave only their text. What's past
-//! [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
+//! read the description (see [`crate::backend::images`]). A table lays its cells out in
+//! columns. HTML is read only as far as a description lays itself out with it: headings,
+//! paragraphs and centring, bold, emphasis and code, links, images and line breaks; other tags
+//! leave only their text. What's past [`MAX_BYTES`] isn't parsed, and nesting past
+//! [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
 //! asking for one would draw whatever the machine has installed (see the crate's AGENTS.md).
@@ -34,6 +34,7 @@ use crate::theme::Theme;
 
 mod figure;
 mod preview;
+mod table;
 
 /// How much of a description is read; the rest is left out, and said to be.
 const MAX_BYTES: usize = 64 * 1024;
@@ -44,6 +45,10 @@ const MAX_DEPTH: usize = 6;
 /// The most images a description draws, more than any written by hand has; the rest show
 /// their words, so a description can't have the app fetch thousands at once.
 const MAX_IMAGES: usize = 24;
+
+/// The most cells a table lays out, far more than any written by hand has; a bigger one shows
+/// a row a line, so a description can't have the app draw every empty cell of thousands of rows.
+const MAX_CELLS: usize = 4096;
 
 /// The HTML tags that make a block of their own.
 const HTML_BLOCKS: &[&str] = &[
@@ -68,7 +73,7 @@ pub struct Block {
     pub links: Vec<(Range<usize>, String)>,
     /// Inside HTML that centres it.
     pub centered: bool,
-    /// Its place in a table with images, which lays its cells side by side.
+    /// Its place in a table, which lays out its cells in columns.
     pub cell: Option<TableCell>,
 }
 
@@ -108,13 +113,13 @@ impl Image {
     }
 }
 
-/// Where a cell is in a table with images: its row, counted from 1 through the description,
-/// its column, and how many columns the table has.
+/// Where a cell is: its table, counted from 1 through the description, its row, counted from
+/// the header as 1, and its column.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TableCell {
+    pub table: usize,
     pub row: usize,
     pub column: usize,
-    pub columns: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -165,9 +170,28 @@ fn nearest(texts: &[Laid], position: Point<Pixels>) -> Option<(TextPoint, &str)>
     Some(((*ix, text_index(layout, text, position)), text))
 }
 
-/// The text `range` selects in `blocks`: a list's items a line apart and other blocks a
-/// blank line apart, as Markdown sets them, without list markers. Images and rules have no
-/// text to select.
+/// What goes between `before` and `block` as text. An empty cell has no block, so a row's cells
+/// are set apart by the columns between them, which keeps a value under its heading.
+fn apart(before: &Block, block: &Block) -> String {
+    let cells = |count: usize| " · ".repeat(count);
+    match (before.cell, block.cell) {
+        (Some(a), Some(b)) if (a.table, a.row) == (b.table, b.row) => {
+            match b.column.saturating_sub(a.column) {
+                // Blocks of one cell, as words around an image.
+                0 => " ".to_owned(),
+                columns => cells(columns),
+            }
+        }
+        (Some(a), Some(b)) if a.table == b.table => format!("\n{}", cells(b.column)),
+        (_, Some(b)) => format!("\n\n{}", cells(b.column)),
+        _ if together(before, block) => "\n".to_owned(),
+        _ => "\n\n".to_owned(),
+    }
+}
+
+/// The text `range` selects in `blocks`: a list's items and a table's rows a line apart, a
+/// row's cells on its line, and other blocks a blank line apart, as Markdown sets them, without
+/// list markers. Images and rules have no text to select.
 pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String {
     let mut text = String::new();
     let mut before: Option<&Block> = None;
@@ -181,11 +205,7 @@ pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String 
             continue;
         };
         if let Some(before) = before {
-            text.push_str(if together(before, block) {
-                "\n"
-            } else {
-                "\n\n"
-            });
+            text.push_str(&apart(before, block));
         }
         text.push_str(part);
         before = Some(block);
@@ -338,20 +358,6 @@ fn pixels(value: &str) -> Option<f32> {
     (pixels.is_finite() && pixels > 0.).then_some(pixels)
 }
 
-/// Whether `markdown` draws an image, as a table of screenshots does.
-fn draws_images(markdown: &str, options: Options) -> bool {
-    let mut in_comment = false;
-    Parser::new_ext(markdown, options).any(|event| match event {
-        Event::Start(Tag::Image { dest_url, .. }) => images::on_github(&dest_url),
-        Event::Html(html) | Event::InlineHtml(html) => (html_pieces(&html, &mut in_comment).iter())
-            .any(|piece| {
-                matches!(piece, Html::Open(tag, attributes)
-                    if tag == "img" && attribute(attributes, "src").is_some_and(images::on_github))
-            }),
-        _ => false,
-    })
-}
-
 /// HTML runs its spaces and line breaks together.
 fn collapse_spaces(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -397,8 +403,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     let (mut in_head, mut cells) = (false, 0);
     // How many images are drawn so far.
     let mut drawn = 0;
-    // In a table with images, how many columns it has, and the rows read so far.
-    let (mut grid, mut rows): (Option<usize>, usize) = (None, 0);
+    // In a table that lays out its cells; the tables so far, and the rows read of this one.
+    let (mut grid, mut tables, mut rows) = (false, 0, 0);
     let in_cell: Cell<Option<TableCell>> = Cell::new(None);
     let depth = |lists: &Vec<Option<u64>>, quotes: usize| (lists.len() + quotes).min(MAX_DEPTH);
 
@@ -681,18 +687,21 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             }
             Event::Start(Tag::Table(alignments)) => {
                 close(&mut blocks, &mut current);
+                // Markdown also ends a line at a lone `\r`. Counting `\r\n` twice costs nothing,
+                // as no table written by hand comes near the limit.
                 let table = read.get(range).unwrap_or_default();
-                grid = draws_images(table, options).then_some(alignments.len());
+                let lines = table.split(['\r', '\n']).count();
+                grid = alignments.len() * lines <= MAX_CELLS;
+                (tables, rows) = (tables + 1, 0);
             }
-            Event::End(TagEnd::Table) => grid = None,
-            // Each table row is one line, its cells apart and the header bold, because
-            // columns can't line up in wrapped text. A table with images lays out its
-            // cells instead, each block of them in its place.
+            Event::End(TagEnd::Table) => grid = false,
+            // A table lays out its cells, each block of them in its place. A table too big for
+            // that shows a line a row, its cells apart and the header bold.
             Event::Start(row @ (Tag::TableHead | Tag::TableRow)) => {
                 close(&mut blocks, &mut current);
                 link = None;
                 rows += 1;
-                if grid.is_none() {
+                if !grid {
                     current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
                 }
                 (in_head, cells) = (matches!(row, Tag::TableHead), 0);
@@ -700,22 +709,20 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             }
             // Every cell after the first, empty ones too, so the columns still line up.
             Event::Start(Tag::TableCell) => {
-                match grid {
-                    Some(columns) => in_cell.set(Some(TableCell {
+                if grid {
+                    in_cell.set(Some(TableCell {
+                        table: tables,
                         row: rows,
                         column: cells,
-                        columns,
-                    })),
-                    None if cells > 0 => {
-                        if let Some(block) = &mut current {
-                            push(block, " · ", style);
-                        }
-                    }
-                    None => {}
+                    }));
+                } else if cells > 0
+                    && let Some(block) = &mut current
+                {
+                    push(block, " · ", style);
                 }
                 cells += 1;
             }
-            Event::End(TagEnd::TableCell) if grid.is_some() => {
+            Event::End(TagEnd::TableCell) if grid => {
                 close(&mut blocks, &mut current);
                 link = None;
                 in_cell.set(None);
@@ -949,26 +956,26 @@ pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme)
     let mut ix = 0;
     while let Some(block) = blocks.get(ix) {
         // A list's items sit together; other blocks, and other lists, stand apart, and
-        // images, which have an edge where text has its leading, a little further.
-        let image = |block: &Block| matches!(block.kind, Kind::Images(_)) && block.cell.is_none();
+        // images and tables, which have an edge where text has its leading, a little further.
+        let edged = |block: &Block| matches!(block.kind, Kind::Images(_)) || block.cell.is_some();
         let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
             None => 0.,
             Some(before) if together(before, block) => 2.,
-            Some(before) if image(before) || image(block) => 12.,
+            Some(before) if edged(before) || edged(block) => 12.,
             Some(_) => 8.,
         };
-        // A table row with images is its cells, which come one after another, side by side.
-        let row = |cell: TableCell| {
+        // A table is its cells, which come one after another.
+        let cells = |cell: TableCell| {
             let rest = blocks.get(ix..).unwrap_or_default();
-            let same = |other: &&Block| other.cell.is_some_and(|other| other.row == cell.row);
+            let same = |other: &&Block| other.cell.is_some_and(|other| other.table == cell.table);
             rest.get(..rest.iter().take_while(same).count())
                 .unwrap_or_default()
         };
         let (el, drawn) = match block.cell {
             Some(cell) => {
-                let row = row(cell);
-                let el = table_row(id, ix, row, &gallery, range, &mut texts, theme);
-                (el, row.len())
+                let cells = cells(cell);
+                let el = table::draw(id, ix, cells, &gallery, range, &mut texts, theme);
+                (el, cells.len())
             }
             None => (
                 element(id, ix, block, &gallery, range, &mut texts, theme),
@@ -1114,32 +1121,6 @@ fn placed(block: &Block, space: f32, el: AnyElement, theme: &Theme) -> AnyElemen
             .into_any_element(),
         false => indented.into_any_element(),
     }
-}
-
-/// A row of a table with images, `first` the index of its first block: its cells side by
-/// side, each a column's share of the width, so a before and after sit as GitHub shows them.
-fn table_row(
-    id: &str,
-    first: usize,
-    row: &[Block],
-    gallery: &Gallery,
-    range: Option<(TextPoint, TextPoint)>,
-    texts: &mut Vec<Laid>,
-    theme: &Theme,
-) -> AnyElement {
-    let cell = |column: usize| {
-        let blocks = (row.iter().enumerate())
-            .filter(move |(_, block)| block.cell.is_some_and(|cell| cell.column == column));
-        v_flex().flex_1().min_w_0().gap(dp(8.)).children(
-            blocks.map(|(n, block)| element(id, first + n, block, gallery, range, texts, theme)),
-        )
-    };
-    let columns = (row.first().and_then(|block| block.cell)).map_or(1, |cell| cell.columns);
-    h_flex()
-        .items_start()
-        .gap(dp(12.))
-        .children((0..columns.max(1)).map(cell))
-        .into_any_element()
 }
 
 /// `image`'s words, opening where a click on it would go, where it can't be drawn.
@@ -1568,21 +1549,15 @@ mod tests {
                 .map(|block| {
                     let cell = block.cell.expect("every block is in a cell");
                     let image = matches!(block.kind, Kind::Images(_));
-                    (
-                        cell.row,
-                        cell.column,
-                        cell.columns,
-                        image,
-                        block.text.as_str(),
-                    )
+                    (cell.row, cell.column, image, block.text.as_str())
                 })
                 .collect::<Vec<_>>(),
             [
-                (1, 1, 3, false, "Before"),
-                (1, 2, 3, false, "After"),
-                (2, 0, 3, false, "Hover"),
-                (2, 1, 3, true, "Image"),
-                (2, 2, 3, true, "Image: after"),
+                (1, 1, false, "Before"),
+                (1, 2, false, "After"),
+                (2, 0, false, "Hover"),
+                (2, 1, true, "Image"),
+                (2, 2, true, "Image: after"),
             ],
             "each cell in its column, an empty one leaving its place, so a before and after \
              sit side by side under their headings"
@@ -1673,35 +1648,60 @@ mod tests {
     }
 
     #[test]
-    fn a_table_shows_a_row_a_line() {
-        let blocks = parse("| Step | Result |\n|---|---|\n| build | ok |\n| test | **failed** |\n");
+    fn a_table_lays_out_its_cells() {
+        let blocks = parse(
+            "| Step | Result |\n|---|---|\n| build | ok |\n| test | **failed** |\n\n\
+             | Next |\n|---|\n| table |\n",
+        );
         assert_eq!(
-            texts(&blocks),
+            (blocks.iter())
+                .map(|block| {
+                    let cell = block.cell.expect("every block is in a cell");
+                    (cell.table, cell.row, cell.column, block.text.as_str())
+                })
+                .collect::<Vec<_>>(),
             [
-                (&Kind::Paragraph, "Step · Result"),
-                (&Kind::Paragraph, "build · ok"),
-                (&Kind::Paragraph, "test · failed"),
+                (1, 1, 0, "Step"),
+                (1, 1, 1, "Result"),
+                (1, 2, 0, "build"),
+                (1, 2, 1, "ok"),
+                (1, 3, 0, "test"),
+                (1, 3, 1, "failed"),
+                (2, 1, 0, "Next"),
+                (2, 2, 0, "table"),
             ],
-            "each row on its own line, its cells apart, without the pipes"
+            "each cell in its place, without the pipes, and two tables in a row stay two"
         );
         assert!(
             blocks[0].styles.iter().all(|(_, style)| style.bold),
             "the header row stands out"
         );
-        let blocks = parse("|  | **Before** | After |\n|---|---|---|\n| Speed | 1s | 2s |\n");
-        assert_eq!(
-            texts(&blocks),
-            [
-                (&Kind::Paragraph, " · Before · After"),
-                (&Kind::Paragraph, "Speed · 1s · 2s"),
-            ],
-            "an empty cell keeps its place, so the columns still line up"
-        );
-        let after = blocks[0].text.find("After").expect("in the header");
+        let bold_first = parse("| **Before** | After |\n|---|---|\n");
         assert!(
-            (blocks[0].styles.iter()).any(|(range, style)| range.contains(&after) && style.bold),
+            (bold_first[1].styles.iter()).any(|(_, style)| style.bold),
             "bold text in the header leaves the rest of it bold"
         );
+    }
+
+    #[test]
+    fn a_table_too_big_to_lay_out_shows_a_row_a_line() {
+        for end in ["\n", "\r"] {
+            let body = format!("| c | d |{end}").repeat(MAX_CELLS);
+            let blocks = parse(&format!("| a | b |{end}|---|---|{end}{body}"));
+            assert_eq!(
+                texts(&blocks[..2]),
+                [(&Kind::Paragraph, "a · b"), (&Kind::Paragraph, "c · d")],
+                "each row on its own line, its cells apart, without the pipes"
+            );
+            assert!(
+                blocks.iter().all(|block| block.cell.is_none()),
+                "thousands of rows don't each draw their cells, whichever way their lines end"
+            );
+            assert!(
+                blocks[0].styles.iter().all(|(_, style)| style.bold),
+                "the header row stands out"
+            );
+        }
     }
 
     #[test]
@@ -1743,6 +1743,19 @@ mod tests {
         ] {
             assert_eq!(selected_text(&blocks, range), copied, "{why}");
         }
+        let table = parse("Intro\n\n| | b | c |\n|---|---|---|\n| d | | f |\n| | h | |\n\nAfter\n");
+        assert_eq!(
+            selected_text(&table, ((0, 0), (table.len(), 0))),
+            "Intro\n\n · b · c\nd ·  · f\n · h\n\nAfter",
+            "a table's rows a line apart, and an empty cell keeps its place, so a value stays \
+             under its heading"
+        );
+        let around_image = parse("| a ![i](https://github.com/x.png) b | c |\n|---|---|\n");
+        assert_eq!(
+            selected_text(&around_image, ((0, 0), (around_image.len(), 0))),
+            "a b · c",
+            "only a new column sets a cell's text apart"
+        );
         assert_eq!(
             selected_text(&parse("é"), ((0, 0), (0, 1))),
             "",
