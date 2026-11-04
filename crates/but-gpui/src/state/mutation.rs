@@ -60,6 +60,8 @@ pub struct Overlay {
     pub merges: Option<u64>,
     /// The pull request, by number, whose auto-merge it turns on or off, and which.
     pub auto_merges: Option<(u64, bool)>,
+    /// The pull request, by number, it makes a draft, or ready for review with `false`.
+    pub sets_draft: Option<(u64, bool)>,
     /// The pull request, by number, whose title and description it edits.
     pub edits_review: Option<u64>,
     /// It opens a pull request for the branch it pushes.
@@ -120,6 +122,22 @@ pub enum NewAt {
 pub(super) type Checkouts = HashSet<Checkout>;
 
 impl Overlay {
+    /// `review`'s state once this is done, if it changes it. One that's closed or merged is
+    /// no draft to change.
+    fn review_state(&self, review: &Review) -> Option<ReviewState> {
+        if self.merges == Some(review.number) {
+            return Some(ReviewState::Merged);
+        }
+        let (_, draft) = self
+            .sets_draft
+            .filter(|(number, _)| *number == review.number)?;
+        match (review.state, draft) {
+            (ReviewState::Open | ReviewState::Draft, true) => Some(ReviewState::Draft),
+            (ReviewState::Open | ReviewState::Draft, false) => Some(ReviewState::Open),
+            (ReviewState::Closed | ReviewState::Merged, _) => None,
+        }
+    }
+
     /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
     /// goes in, those of the commits it changes, and the linked worktrees resting on them,
     /// which their rewrite moves. An agent's commits in another, made meanwhile, aren't its
@@ -1846,12 +1864,12 @@ impl Store {
         Cow::Owned(kept)
     }
 
-    /// `review`'s state, merged already while its merge is pending.
+    /// `review`'s state as pending mutations leave it: merged already while its merge is
+    /// pending, and a draft or not already while that's changing.
     pub fn review_state(&self, project: &ProjectId, review: &Review) -> ReviewState {
-        match (self.overlays(project)).any(|o| o.merges == Some(review.number)) {
-            true => ReviewState::Merged,
-            false => review.state,
-        }
+        (self.overlays(project))
+            .find_map(|o| o.review_state(review))
+            .unwrap_or(review.state)
     }
 
     /// Whether `review` merges by itself once it can, as pending mutations leave it.
@@ -2206,6 +2224,73 @@ fn branch_name(ref_name: Option<&FullName>) -> Cow<'_, str> {
 mod tests {
     use super::*;
     use crate::backend::model::build::{branch, full, workspace, worktree};
+
+    fn review(state: ReviewState) -> Review {
+        Review {
+            number: 7,
+            state,
+            ..Review::default()
+        }
+    }
+
+    fn setting_draft(number: u64, draft: bool) -> Overlay {
+        Overlay {
+            sets_draft: Some((number, draft)),
+            ..Overlay::default()
+        }
+    }
+
+    #[test]
+    fn converting_an_open_review_shows_it_a_draft_at_once() {
+        assert_eq!(
+            setting_draft(7, true).review_state(&review(ReviewState::Open)),
+            Some(ReviewState::Draft)
+        );
+    }
+
+    #[test]
+    fn marking_a_draft_ready_shows_it_open_at_once() {
+        assert_eq!(
+            setting_draft(7, false).review_state(&review(ReviewState::Draft)),
+            Some(ReviewState::Open)
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_another_review_alone() {
+        assert_eq!(
+            setting_draft(8, true).review_state(&review(ReviewState::Open)),
+            None
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_a_merged_review_merged() {
+        assert_eq!(
+            setting_draft(7, true).review_state(&review(ReviewState::Merged)),
+            None
+        );
+    }
+
+    #[test]
+    fn setting_draft_leaves_a_closed_review_closed() {
+        assert_eq!(
+            setting_draft(7, false).review_state(&review(ReviewState::Closed)),
+            None
+        );
+    }
+
+    #[test]
+    fn a_pending_merge_shows_the_review_merged() {
+        let merging = Overlay {
+            merges: Some(7),
+            ..Overlay::default()
+        };
+        assert_eq!(
+            merging.review_state(&review(ReviewState::Open)),
+            Some(ReviewState::Merged)
+        );
+    }
 
     #[test]
     fn an_operation_counts_the_worktrees_its_rewrite_moves_as_its_own() {

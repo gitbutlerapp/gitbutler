@@ -1374,7 +1374,9 @@ impl Detail {
         let name = store.name_of(project, branch);
         let meta = branch_meta(ws, branch, theme);
         let target = Selection::Branch(project.clone(), ref_name.cloned());
-        let create = crate::pr::create_offer(store, &target).map(|offer| {
+        // Not on a pinned page, as creating one goes to the selected branch.
+        let offer = crate::pr::create_offer(store, &target).filter(|_| self.pinned.is_none());
+        let create = offer.map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
                 .style(ButtonStyle::Pop)

@@ -18,7 +18,7 @@ use super::{Detail, PageFold};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, CheckState, Forge, FullName, Remark, Review, ReviewState};
 use crate::overlays::{MenuItem, has_keys};
-use crate::pr::{Mergeability, Offer};
+use crate::pr::{MarkReadyForReview, Mergeability, Offer};
 use crate::state::{ProjectId, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::fold;
@@ -218,8 +218,9 @@ impl Detail {
         true
     }
 
-    /// The selected branch and its pull request, while the tab shows it open: what the merge
-    /// box is for, as the pull request actions are.
+    /// The selected branch and its pull request, while the tab shows it open or a draft: what
+    /// the merge box is for, as the pull request actions are. Not on a pinned page, whose
+    /// pull request isn't the selected one the actions go to.
     fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(ProjectId, FullName, &'a Review)> {
         let store = self.store.read(cx);
         let selection = self.selection()?;
@@ -227,9 +228,13 @@ impl Detail {
             return None;
         };
         let review = self.selected_review(cx)?;
-        let applies = self.page.review_tab()
+        let applies = self.pinned.is_none()
+            && self.page.review_tab()
             && crate::pr::on_forge(store, &selection)
-            && store.review_state(project, review) == ReviewState::Open;
+            && matches!(
+                store.review_state(project, review),
+                ReviewState::Open | ReviewState::Draft
+            );
         applies.then(|| (project.clone(), ref_name.clone(), review))
     }
 
@@ -262,11 +267,18 @@ impl Detail {
     }
 
     /// Have the store ask the forge whether the pull request the tab shows can merge, for its
-    /// merge box, when it hasn't lately.
+    /// merge box, when it hasn't lately. Not of a draft, nor while one is becoming ready, when
+    /// the forge could still answer that a draft can't merge.
     fn read_merge_status(&self, cx: &mut Context<Self>) {
         let Some((project, _, review)) = self.merge_box_review(cx) else {
             return;
         };
+        let store = self.store.read(cx);
+        if (review.state, store.review_state(&project, review))
+            != (ReviewState::Open, ReviewState::Open)
+        {
+            return;
+        }
         let review = review.clone();
         (self.store).update(cx, |store, cx| {
             store.read_merge_status(&project, &review, cx)
@@ -349,16 +361,30 @@ impl Detail {
 
     /// Merging, as Lite's Merge section: auto-merge as a switch and Merge with its method, each
     /// saying in its tooltip why it can't be pressed when GitHub's merge box wouldn't offer it.
+    /// A draft has to be ready for review first, so that's what its section offers.
     fn merge_section(&self, theme: &Theme, cx: &Context<Self>) -> Option<Div> {
         let (project, branch, review) = self.merge_box_review(cx)?;
         let (project, branch) = (&project, &branch);
         let store = self.store.read(cx);
+        let state = store.review_state(project, review);
+        // Turning auto-merge on or off, or a draft ready or back, shows at once, until the
+        // forge has it.
+        let waiting = (store.auto_merge_on(project, review) != review.auto_merge
+            || state != review.state)
+            .then_some("Waiting for the forge");
+        if state == ReviewState::Draft {
+            let ready = button("ready-for-review", "Ready for review")
+                .small()
+                .style(ButtonStyle::Pop)
+                .disabled_because(waiting)
+                .dispatch(&MarkReadyForReview)
+                .tooltip("Take it out of draft on the forge");
+            return crate::pr::has_drafts(store, project)
+                .then(|| side_section("Merge", Some(ready.into_any_element()), theme));
+        }
         let merge = crate::pr::mergeability(store, project, review);
         let title = headline(&merge);
         let offer = merge.offer();
-        // Turning auto-merge on or off shows at once, until the forge has it.
-        let waiting = (store.auto_merge_on(project, review) != review.auto_merge)
-            .then_some("Waiting for the forge");
         let push_first = crate::pr::push_first(store, project, branch);
         let auto_why: Option<SharedString> = match offer {
             _ if waiting.is_some() => waiting.map(Into::into),
@@ -447,6 +473,9 @@ impl Detail {
     ) -> AnyElement {
         let files = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
         let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
+        let state = (self.selected_project()).map_or(review.state, |project| {
+            self.store.read(cx).review_state(&project, review)
+        });
         let solid = has_keys(&self.tabs_focus, window, cx);
         h_flex()
             .track_focus(&self.tabs_focus)
@@ -472,7 +501,7 @@ impl Detail {
                     "tab-review",
                     Icon::Pr,
                     // Its number, as Lite's tab names it.
-                    match review.state {
+                    match state {
                         ReviewState::Draft => format!("Draft #{}", review.number),
                         _ => format!("PR #{}", review.number),
                     },

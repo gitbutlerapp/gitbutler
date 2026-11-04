@@ -395,6 +395,8 @@ impl Navigator {
                     command(&crate::pr::MergePullRequest),
                     command(&crate::pr::EnableAutoMerge),
                     command(&crate::pr::DisableAutoMerge),
+                    command(&crate::pr::ConvertToDraft),
+                    command(&crate::pr::MarkReadyForReview),
                 ]);
                 if ref_name.is_none() {
                     items.push(command(&NameBranch).separated());

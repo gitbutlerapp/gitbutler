@@ -268,6 +268,8 @@ commands! {
     },
     crate::pr::EnableAutoMerge => "Enable auto-merge",
     crate::pr::DisableAutoMerge => "Disable auto-merge",
+    crate::pr::ConvertToDraft => "Convert to draft",
+    crate::pr::MarkReadyForReview => "Ready for review",
     crate::detail::ResolveConflicts => "Resolve conflicts" {
         // A linked worktree's conflicts are resolved there.
         listed: |app, cx| {
