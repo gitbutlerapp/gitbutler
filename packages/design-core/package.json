@@ -1,0 +1,26 @@
+{
+	"name": "@gitbutler/design-core",
+	"description": "Design tokens, fonts and base styles for GitButler applications",
+	"private": true,
+	"version": "11.3.0",
+	"type": "module",
+	"main": "./tokens/tokens.css",
+	"exports": {
+		"./tokens": "./tokens/tokens.css",
+		"./fonts": "./fonts/fonts.css",
+		"./fonts/*": "./fonts/*",
+		"./core": "./core.css",
+		"./styles/reset": "./styles/reset.css",
+		"./styles/text": "./styles/text.css"
+	},
+	"scripts": {
+		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs",
+		"check": "pnpm build && git diff --exit-code -- tokens/tokens.css",
+		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
+	},
+	"devDependencies": {
+		"@terrazzo/cli": "0.10.3",
+		"@terrazzo/parser": "0.10.4",
+		"@terrazzo/plugin-css": "0.10.4"
+	}
+}

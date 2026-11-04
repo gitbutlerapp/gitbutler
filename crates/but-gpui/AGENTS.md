@@ -221,9 +221,9 @@ and tests it.
 - In a prompt or a modal Tab goes round that dialog's tab stops, and `open_modal` gives a new
   modal this. Tab scrolls the control it reaches into view only inside
   `ui::scrollbar::scrolled`, so a dialog's scrolling list goes in one.
-- A colour comes from `Theme`, and a new one is a step on design-core's scales (`tokens.css` in
-  `@gitbutler/design-core`). Text needs 4.5:1 and a control's marks 3:1, on `bg_1` and `bg_2`
-  in both themes.
+- A colour comes from `Theme`, and a new one is a step on design-core's scales
+  (`packages/design-core/tokens/tokens.css`). Text needs 4.5:1 and a control's marks 3:1,
+  on `bg_1` and `bg_2` in both themes.
 
 ## Conventions
 

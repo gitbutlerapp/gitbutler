@@ -1,0 +1,85 @@
+/* BOILERPLATE CSS */
+@layer reset {
+	/* Box sizing rules */
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	/* Prevent font size inflation */
+	html {
+		-moz-text-size-adjust: none;
+		-webkit-text-size-adjust: none;
+		text-size-adjust: none;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		font-variant-ligatures: none;
+		text-rendering: optimizeLegibility;
+	}
+
+	body {
+		margin: 0;
+		padding: 0;
+		overflow-x: hidden;
+		color: var(--text-1);
+		font-weight: var(--font-weight-regular);
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	input,
+	textarea,
+	select {
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		line-height: inherit;
+	}
+
+	button {
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		line-height: inherit;
+		text-align: left;
+	}
+
+	a {
+		cursor: pointer;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		margin-block: 0;
+	}
+
+	code,
+	pre {
+		font-family: var(--fontfamily-mono);
+	}
+
+	ul,
+	pre,
+	p {
+		margin-block: 0;
+	}
+
+	ul,
+	ol {
+		padding-left: 0;
+		list-style: none;
+	}
+}

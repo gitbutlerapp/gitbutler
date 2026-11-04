@@ -1,0 +1,21 @@
+/**
+ * GitButler Design Core - Single Import
+ * 
+ * This file provides a convenient single import for both fonts and design tokens.
+ * 
+ * USAGE:
+ * Import this file: @import '@gitbutler/design-core/core';
+ * Or in JS: import '@gitbutler/design-core/core';
+ * 
+ * INCLUDES:
+ * - All font definitions (fonts/fonts.css)
+ * - All design tokens (tokens/tokens.css)
+ */
+
+/* Import font definitions */
+@import "./fonts/fonts.css";
+/* base */
+@import "./styles/reset.css";
+@import "./styles/text.css";
+/* Import design tokens */
+@import "./tokens/tokens.css";
