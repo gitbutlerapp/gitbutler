@@ -31,7 +31,10 @@
 		"gpui": false,
 		/// In the native client (GPUI), the single file diff: show only the selected file of a
 		/// diff, filling the pane, rather than every file one after another.
-		"gpuiSingleFileDiff": false
+		"gpuiSingleFileDiff": false,
+		/// In the native client (GPUI), show the brief about a branch on a tab of its page. Asking
+		/// tells GitButler's server a repository's address, the branch's name and its commits' ids.
+		"gpuiBriefs": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

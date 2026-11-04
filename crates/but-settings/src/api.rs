@@ -24,6 +24,7 @@ but_schemars::register_sdk_type!(TelemetryUpdate);
 pub struct FeatureFlagsUpdate {
     pub gpui: Option<bool>,
     pub gpui_single_file_diff: Option<bool>,
+    pub gpui_briefs: Option<bool>,
 }
 but_schemars::register_sdk_type!(FeatureFlagsUpdate);
 
@@ -92,6 +93,7 @@ impl AppSettingsWithDiskSync {
         FeatureFlagsUpdate {
             gpui,
             gpui_single_file_diff,
+            gpui_briefs,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
@@ -100,6 +102,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(on) = gpui_single_file_diff {
             settings.feature_flags.gpui_single_file_diff = on;
+        }
+        if let Some(on) = gpui_briefs {
+            settings.feature_flags.gpui_briefs = on;
         }
         settings.save()
     }

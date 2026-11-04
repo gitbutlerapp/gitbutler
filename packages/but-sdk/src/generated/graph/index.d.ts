@@ -967,12 +967,18 @@ export type FeatureFlags = {
    * diff, filling the pane, rather than every file one after another.
    */
   gpuiSingleFileDiff: boolean;
+  /**
+   * In the native client (GPUI), show the brief about a branch on a tab of its page. Asking
+   * tells GitButler's server a repository's address, the branch's name and its commits' ids.
+   */
+  gpuiBriefs: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   gpui?: boolean | null;
   gpuiSingleFileDiff?: boolean | null;
+  gpuiBriefs?: boolean | null;
 };
 
 export type Fetch = {
