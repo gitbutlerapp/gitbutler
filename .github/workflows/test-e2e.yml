@@ -10,10 +10,23 @@ on:
         type: string
         required: false
         description: Target SHA
+  # publish.yaml runs every suite before a nightly or release build.
+  workflow_call:
+    inputs:
+      before_publish:
+        type: boolean
+        default: false
+    secrets:
+      TEST_RESULTS_TOKEN_BLACKBOX:
+        required: false
+      TEST_RESULTS_TOKEN_PLAYWRIGHT:
+        required: false
 
 jobs:
   changes:
     uses: ./.github/workflows/check-e2e-changes.yml
+    with:
+      force: ${{ inputs.before_publish == true }}
     permissions:
       contents: read
       pull-requests: read
@@ -74,11 +87,11 @@ jobs:
       # Run it through `xvfb-run` to have a fake display server which allows our
       # application to run headless without any changes to the code
       - name: WebdriverIO
-        if: ${{ github.ref != 'refs/heads/master' }}
+        if: ${{ github.ref != 'refs/heads/master' || inputs.before_publish == true }}
         run: xvfb-run pnpm test:e2e:blackbox
 
       - name: Upload results to tests.but.dev
-        if: ${{ github.ref != 'refs/heads/master' && always() && !cancelled() }}
+        if: ${{ (github.ref != 'refs/heads/master' || inputs.before_publish == true) && always() && !cancelled() }}
         continue-on-error: true
         env:
           BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
@@ -171,7 +184,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/e2e --fail-if-no-match exec node -p 'require("@playwright/test/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |
