@@ -342,7 +342,12 @@ impl BuildOutput {
                 // for it to take the terminals over. Out of the Dock first.
                 cx.set_activation_policy(gpui::ActivationPolicy::Accessory);
                 #[cfg(unix)]
-                let err = built.restart(store.update(cx, |store, cx| store.hand_off_terminals(cx)));
+                let err = {
+                    let (terminals, tilings) = store.update(cx, |store, cx| {
+                        (store.hand_off_terminals(cx), store.hand_off_tilings())
+                    });
+                    built.restart(terminals, &tilings)
+                };
                 #[cfg(not(unix))]
                 let err = built.restart();
                 tracing::error!("couldn't restart on the new build: {err:#}");

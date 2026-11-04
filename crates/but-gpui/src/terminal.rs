@@ -30,7 +30,7 @@ use crate::ui::{dp, fixed};
 actions!(terminal, [NewTerminal]);
 
 /// A terminal, numbered in the order the session opened them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct TerminalId(pub(crate) u64);
 
 pub enum TerminalEvent {

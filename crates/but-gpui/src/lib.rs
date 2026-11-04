@@ -198,6 +198,9 @@ pub fn run(embedded: Option<Embedded>) {
         "starting the GPUI client"
     );
 
+    // Before the terminals, as taking those lets the build handing them over exit.
+    #[cfg(unix)]
+    let tilings = backend::rebuild::handed_tilings();
     // Before anything starts a process that would inherit their masters.
     #[cfg(unix)]
     let handed = but_tty::handed();
@@ -300,7 +303,10 @@ pub fn run(embedded: Option<Embedded>) {
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
             #[cfg(unix)]
-            store.update(cx, |store, cx| store.adopt_terminals(handed, cx));
+            store.update(cx, |store, cx| {
+                store.adopt_terminals(handed, cx);
+                store.adopt_tilings(tilings);
+            });
             keymap::bind(&store, set_menus, cx);
             let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {

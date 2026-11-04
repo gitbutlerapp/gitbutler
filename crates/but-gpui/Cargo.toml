@@ -46,7 +46,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = ["s
 [dependencies]
 anyhow.workspace = true
 futures.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["rc"] }
 serde_json.workspace = true
 toml.workspace = true
 tracing.workspace = true
@@ -57,7 +57,7 @@ unicode-segmentation.workspace = true
 bstr = { workspace = true, features = ["serde"] }
 # The forge cache's timestamps.
 chrono = { workspace = true, features = ["clock"] }
-gix = { workspace = true, features = ["sha1", "blame", "mailmap"] }
+gix = { workspace = true, features = ["sha1", "blame", "mailmap", "serde"] }
 reqwest.workspace = true
 md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

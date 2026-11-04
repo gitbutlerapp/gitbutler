@@ -56,7 +56,16 @@ pub type ProjectId = SharedString;
 /// What's selected: a row of the navigator's, or a page reached from one. Its kinds are listed
 /// broadest first, the order Go to anything offers them in, and each needs a decision there
 /// ([`SelectionKind`]).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumDiscriminants)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::EnumDiscriminants,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[strum_discriminants(name(SelectionKind), derive(strum::EnumIter))]
 pub enum Selection {
     Project(ProjectId),
@@ -91,7 +100,16 @@ pub enum Selection {
 
 /// A section of a project's card that folds away under its heading. Each kind needs a
 /// decision in Go to anything too ([`SectionKind`]).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumDiscriminants)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    strum::EnumDiscriminants,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[strum_discriminants(name(SectionKind), derive(strum::EnumIter))]
 pub enum Section {
     /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
@@ -665,6 +683,7 @@ impl Store {
             restored: Restored {
                 expanded: saved.expanded,
                 selection: saved.selection,
+                handed: None,
                 fresh,
             },
             project_edits: 0,
