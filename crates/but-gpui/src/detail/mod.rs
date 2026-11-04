@@ -195,6 +195,8 @@ enum Messages {
     Branch(ProjectId, Option<FullName>),
     /// The commits only `ref_name`'s remote has, or with `None` the target's new ones.
     Upstream(ProjectId, Option<FullName>),
+    /// One commit only `ref_name`'s remote has, or with `None` the target.
+    UpstreamCommit(ProjectId, Option<FullName>, CommitId),
 }
 
 /// What of the detail y copied, which blinks.
@@ -2130,9 +2132,9 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// Whose messages the diff of `key` lists first: one commit's, not several picked
-    /// together, or a branch's commits', as Lite does in place of the page's header; and the
-    /// commits only a remote has, whose page has no header to say them.
+    /// Whose messages the diff of `key` lists first, as Lite does in place of the page's
+    /// header: one commit's, not several picked together, also one only a remote has, or a
+    /// branch's commits', or those only a remote has, as a branch's.
     fn listed_messages(&self, key: &DiffKey, cx: &App) -> Option<Messages> {
         let store = self.store.read(cx);
         match (self.shows.as_ref()?, &key.source) {
@@ -2140,6 +2142,15 @@ impl Detail {
                 if !store.prefs.shows(Part::CommitHeader) && !store.among_picks(project, *id) =>
             {
                 Some(Messages::Commit(project.clone(), *id))
+            }
+            (Selection::Upstream(project, ref_name, id), DiffSource::Commit(_))
+                if !store.prefs.shows(Part::CommitHeader) =>
+            {
+                Some(Messages::UpstreamCommit(
+                    project.clone(),
+                    ref_name.clone(),
+                    *id,
+                ))
             }
             (Selection::Branch(project, ref_name), DiffSource::Range { .. })
                 if !store.prefs.shows(Part::BranchHeader) =>
@@ -3361,6 +3372,7 @@ impl Detail {
             Some(Selection::Commit(project, id)) if !self.commit_header_shown(&project, id, cx) => {
                 0.
             }
+            Some(Selection::Upstream(..)) if !self.upstream_header_shown(cx) => 0.,
             Some(
                 Selection::Commit(..)
                 | Selection::Upstream(..)
@@ -3646,6 +3658,7 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         Some(self.render_stack_header(project, bottom.as_ref(), &theme, cx))
                     }
+                    Selection::Upstream(..) if !self.upstream_header_shown(cx) => None,
                     Selection::Upstream(project, ref_name, id) => {
                         Some(self.render_upstream_header(
                             project,

@@ -83,6 +83,12 @@ impl Detail {
         self.store.read(cx).prefs.shows(Part::CommitHeader) || self.shows_picks(project, id, cx)
     }
 
+    /// Whether the page of a commit only a remote has has its header: always, unless Lite
+    /// lists its message first among its files instead, as a commit's.
+    pub(super) fn upstream_header_shown(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.shows(Part::CommitHeader)
+    }
+
     pub(super) fn render_header(
         &self,
         selection: Option<&Selection>,
@@ -676,6 +682,9 @@ impl Detail {
             Some(Messages::Upstream(project, ref_name)) => {
                 self.upstream_messages(&project, ref_name.as_ref(), flat, theme, cx)
             }
+            Some(Messages::UpstreamCommit(project, ref_name, id)) => {
+                self.upstream_commit_message(&project, ref_name.as_ref(), id, flat, theme, cx)
+            }
             None => None,
         };
         let Some((top, rest)) = messages else {
@@ -749,6 +758,93 @@ impl Detail {
             )
             .child(menu);
         Some((top, body))
+    }
+
+    /// The selected commit only a remote has: what its header says, with the whole message
+    /// always open, as a commit's. Its title, byline and menu, and its body under them.
+    fn upstream_commit_message(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        id: CommitId,
+        flat: bool,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
+        let commit = self.remote_message(project, ref_name, id, cx)?;
+        let title = title_text(commit_title(commit.title))
+            .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let body = (!commit.body.is_empty()).then(|| message_body(commit.body.to_owned(), theme));
+        let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
+        let top = h_flex()
+            .items_start()
+            .gap(dp(16.))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(dp(8.))
+                    .child(title)
+                    .child(self.remote_meta(id, &commit, theme)),
+            )
+            .child(h_flex().h(dp(22.)).child(self.page_menu(target)));
+        Some((top, body))
+    }
+
+    /// Commit `id` only `ref_name`'s remote has, or with `None` the target's: listed, or
+    /// brought in by a merge that is.
+    fn remote_message<'a>(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        id: CommitId,
+        cx: &'a App,
+    ) -> Option<RemoteMessage<'a>> {
+        let store = self.store.read(cx);
+        let ws = store.workspace(project)?;
+        let remote = match ref_name {
+            Some(ref_name) => (ws.find_branch(Some(ref_name))).and_then(|b| b.remote.as_deref()),
+            None => ws.target.as_ref().map(|target| target.name.as_str()),
+        };
+        if let Some(c) = ws.upstream(ref_name).iter().find(|c| c.id == id) {
+            return Some(RemoteMessage {
+                title: &c.title,
+                body: &c.body,
+                author: &c.author,
+                email: &c.email,
+                agent: c.agent.as_ref(),
+                time: c.time,
+                remote,
+            });
+        }
+        let (_, c) = store.merged_upstream(project, ref_name, id)?;
+        Some(RemoteMessage {
+            title: &c.title,
+            body: &c.body,
+            author: &c.author,
+            email: &c.email,
+            agent: c.agent.as_ref(),
+            time: c.time,
+            remote,
+        })
+    }
+
+    /// What the page of commit `id` only a remote has says under its title: who wrote it and
+    /// when, its ID, and which remote has it.
+    fn remote_meta(&self, id: CommitId, commit: &RemoteMessage, theme: &Theme) -> Div {
+        meta_row(theme)
+            .child(byline(
+                commit.author,
+                commit.email,
+                commit.agent,
+                commit.time,
+                theme,
+            ))
+            .child(self.sha_chip(id, theme))
+            .child(div().text_color(theme.warn).child(match commit.remote {
+                Some(remote) => format!("only on {remote}"),
+                None => "only on the remote".to_owned(),
+            }))
     }
 
     /// The selected branch's messages: its name, how many commits it has and where they
@@ -1141,51 +1237,14 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        let Some(ws) = store.workspace(project) else {
+        let Some(commit) = self.remote_message(project, ref_name, id, cx) else {
             return div().into_any_element();
         };
-        // Listed, or brought in by a merge that is.
-        let listed = ws.upstream(ref_name).iter().find(|c| c.id == id);
-        let (title, body, author, email, agent, time) = match listed {
-            Some(c) => (
-                &c.title,
-                &c.body,
-                &c.author,
-                &c.email,
-                c.agent.as_ref(),
-                c.time,
-            ),
-            None => {
-                let Some((_, c)) = store.merged_upstream(project, ref_name, id) else {
-                    return div().into_any_element();
-                };
-                (
-                    &c.title,
-                    &c.body,
-                    &c.author,
-                    &c.email,
-                    c.agent.as_ref(),
-                    c.time,
-                )
-            }
-        };
-        let remote = match ref_name {
-            Some(ref_name) => ws
-                .find_branch(Some(ref_name))
-                .and_then(|b| b.remote.clone()),
-            None => ws.target.as_ref().map(|target| target.name.clone()),
-        };
-        let name = title_text(commit_title(title));
-        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(name, body, cx));
-        let meta = meta_row(theme)
-            .child(byline(author, email, agent, time, theme))
-            .child(self.sha_chip(id, theme))
-            .child(div().text_color(theme.warn).child(match remote {
-                Some(remote) => format!("only on {remote}"),
-                None => "only on the remote".to_owned(),
-            }));
-        let message = self.message(title, body.clone(), theme);
+        let name = title_text(commit_title(commit.title));
+        let title =
+            page_title(Icon::ArrowDown, theme).child(self.message_title(name, commit.body, cx));
+        let meta = self.remote_meta(id, &commit, theme);
+        let message = self.message(title, commit.body.to_owned(), theme);
         let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
         let tabs =
             (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, window, cx));
@@ -1487,6 +1546,18 @@ pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 
 /// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
 /// rather than hiding its end.
+/// What a commit only a remote has shows of itself, whether listed or brought in by a merge,
+/// and the remote that has it, if it has a name.
+struct RemoteMessage<'a> {
+    title: &'a str,
+    body: &'a str,
+    author: &'a str,
+    email: &'a str,
+    agent: Option<&'a backend::Agent>,
+    time: i64,
+    remote: Option<&'a str>,
+}
+
 pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
     h_flex().min_w_0().items_start().gap(dp(8.)).child(
         div()
