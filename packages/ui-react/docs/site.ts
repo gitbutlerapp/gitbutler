@@ -39,7 +39,7 @@ export const pageLink = (id: string) => ({
 		event.preventDefault();
 		void loadPage(page).then(() => {
 			window.history.pushState(null, "", pageHref(id));
-			window.scrollTo(0, 0);
+			document.querySelector(".docs-site-main")?.scrollTo(0, 0);
 			showPage();
 		});
 	},

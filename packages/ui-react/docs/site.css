@@ -22,31 +22,21 @@ body[data-layout="centered"] {
 	min-height: 100vh;
 }
 
-/* The page beside the sidebar, which is fixed to the left. */
+/* The sidebar and the page, side by side across the window's height (set inline, as the group
+   sets its own height there); each scrolls on its own. */
 .docs-site {
-	min-height: 100vh;
-	padding-left: 240px;
 	background-color: var(--bg-2);
 }
 
 .docs-site-sidebar {
 	display: flex;
-	z-index: 1;
-	position: fixed;
-	top: 0;
-	bottom: 0;
-	left: 0;
 	flex-direction: column;
-	width: 240px;
-	padding: 16px 12px;
-	gap: 16px;
+	height: 100%;
+	padding: 12px;
+	gap: 12px;
 	background-color: var(--bg-2);
 	color: var(--text-1);
 	font-family: var(--fontfamily-base);
-}
-
-.docs-site-title {
-	padding: 0 4px;
 }
 
 /* The pages in a card, as sidebar rows always are, never loose on the panel's ground: the search
@@ -79,10 +69,8 @@ body[data-layout="centered"] {
 }
 
 .docs-site-main {
-	min-height: calc(100vh - 16px);
-	margin: 8px 8px 8px 0;
-	border: 1px solid var(--border-3);
-	border-radius: var(--radius-card);
+	height: 100%;
+	overflow: auto;
 	background-color: var(--bg-1);
 }
 
