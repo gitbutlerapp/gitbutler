@@ -132,6 +132,15 @@ impl Selection {
         ]
     }
 
+    /// The project page on that side of this one, as its page's tabs list them: none past
+    /// either end, or from anything but a project page.
+    pub fn project_page_beside(&self, forward: bool) -> Option<Selection> {
+        let pages = Selection::project_pages(self.project());
+        let at = pages.iter().position(|page| page == self)?;
+        let beside = at.checked_add_signed(if forward { 1 } else { -1 })?;
+        pages.into_iter().nth(beside)
+    }
+
     /// Whether it's `branch`, or under it.
     pub fn on(&self, branch: &Branch) -> bool {
         matches!(self, Selection::Branch(_, ref_name) if branch.ref_name == *ref_name)
@@ -1405,6 +1414,52 @@ mod tests {
     use super::*;
     use crate::backend::model::build::full;
     use crate::backend::{Lane, PushState, Worktree};
+
+    #[test]
+    fn a_project_page_has_the_tab_on_either_side() {
+        let project = ProjectId::from("p");
+        let branches = Selection::Branches(project.clone());
+        assert_eq!(
+            branches.project_page_beside(true),
+            Some(Selection::History(project.clone())),
+            "Operations history is right of Branches"
+        );
+        assert_eq!(
+            branches.project_page_beside(false),
+            Some(Selection::Project(project)),
+            "Overview is left of Branches"
+        );
+    }
+
+    #[test]
+    fn nothing_is_left_of_the_first_project_page() {
+        let overview = Selection::Project(ProjectId::from("p"));
+        assert_eq!(
+            overview.project_page_beside(false),
+            None,
+            "the keys leave the tabs here rather than going round"
+        );
+    }
+
+    #[test]
+    fn nothing_is_right_of_the_last_project_page() {
+        let graph = Selection::Graph(ProjectId::from("p"));
+        assert_eq!(
+            graph.project_page_beside(true),
+            None,
+            "the keys stay on the tabs here rather than going round"
+        );
+    }
+
+    #[test]
+    fn only_a_project_page_has_a_tab_beside_it() {
+        let branch = Selection::Branch(ProjectId::from("p"), None);
+        assert_eq!(
+            branch.project_page_beside(true),
+            None,
+            "a branch's page isn't one of the project's tabs"
+        );
+    }
 
     #[test]
     fn a_row_dropped_on_a_terminal_pastes_its_name_or_folder() {

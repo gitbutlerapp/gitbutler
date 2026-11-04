@@ -840,10 +840,10 @@ impl Detail {
     }
 
     /// ↓ or ↑ (`delta`) in the list: the next or previous stack, branch or commit shown, kept
-    /// in view.
-    pub(super) fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) {
+    /// in view. Says whether there was one.
+    pub(super) fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) -> bool {
         let Some(branches) = self.page_branches() else {
-            return;
+            return false;
         };
         let rows = self.branch_rows(branches, cx);
         // Over the headings, which aren't selected.
@@ -858,11 +858,13 @@ impl Detail {
         let at = selectable.iter().position(|&(_, row)| {
             is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
         });
-        if let Some(&(next, row)) = step_from(&selectable, at, delta) {
-            let count = rows.len();
-            self.select_branch_row(row, cx);
-            reveal_side_row(&self.branches_scroll, count, next, false, Theme::get(cx));
-        }
+        let Some(&(next, row)) = step_from(&selectable, at, delta) else {
+            return false;
+        };
+        let count = rows.len();
+        self.select_branch_row(row, cx);
+        reveal_side_row(&self.branches_scroll, count, next, false, Theme::get(cx));
+        true
     }
 
     /// ⇧→ in the list: open the selected stack or branch, or step into it when it's open.
@@ -879,7 +881,9 @@ impl Detail {
             let folded = branches.folded.contains(&ref_name);
             return match (open, folded) {
                 (true, true) | (false, false) => self.toggle_stack(&ref_name, cx),
-                (true, false) => self.step_branches(1, cx),
+                (true, false) => {
+                    self.step_branches(1, cx);
+                }
                 (false, true) => {}
             };
         }
@@ -888,7 +892,9 @@ impl Detail {
             (true, false, false) if branch.own_commits != Some(0) => {
                 self.toggle_branch(&ref_name, cx)
             }
-            (true, false, true) => self.step_branches(1, cx),
+            (true, false, true) => {
+                self.step_branches(1, cx);
+            }
             (false, true, _) => self.select_other_branch(Some(ref_name), cx),
             (false, false, true) => self.toggle_branch(&ref_name, cx),
             // A branch in a stack shown with others goes up to its caption.

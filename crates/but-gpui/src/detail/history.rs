@@ -422,20 +422,21 @@ impl Detail {
         }
     }
 
-    /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view.
-    fn step_history(&mut self, delta: isize, cx: &mut Context<Self>) {
+    /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view. Says whether
+    /// there was one.
+    fn step_history(&mut self, delta: isize, cx: &mut Context<Self>) -> bool {
         let Some(history) = self.page_history() else {
-            return;
+            return false;
         };
         let shown = self.shown_operations(history, cx);
         let at = (shown.iter()).position(|&ix| {
             (history.operations.get(ix)).is_some_and(|op| Some(op.id) == history.selected)
         });
         let Some(&next) = step_from(&shown, at, delta) else {
-            return;
+            return false;
         };
         let Some(id) = history.operations.get(next).map(|op| op.id) else {
-            return;
+            return false;
         };
         // Kept in view by its row, below the day headings.
         let rows = rows(history, &shown);
@@ -447,6 +448,7 @@ impl Detail {
         if let Some(row) = row {
             reveal_side_row(&self.history_scroll, count, row, false, Theme::get(cx));
         }
+        true
     }
 
     /// The operations the list shows, by index: of kinds not left out, and matching the

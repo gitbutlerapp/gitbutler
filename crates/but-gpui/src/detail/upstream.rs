@@ -7,8 +7,8 @@ use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window,
-    div, prelude::*,
+    AnyElement, Bounds, Context, FocusHandle, MouseButton, MouseDownEvent, Pixels, Point,
+    SharedString, Window, div, prelude::*,
 };
 
 mod changed_path;
@@ -1520,7 +1520,9 @@ impl Detail {
             upstream.view.open_merges.contains(&id),
         ) {
             (true, false, false) if merge => self.toggle_merge(&project, id, cx),
-            (true, false, true) => self.step_upstream(1, cx),
+            (true, false, true) => {
+                self.step_upstream(1, cx);
+            }
             (false, true, _) => self.pick_on_page(&project, Picked::Commit(id), None, cx),
             (false, false, true) => self.toggle_merge(&project, id, cx),
             _ => {}
@@ -1545,13 +1547,14 @@ impl Detail {
         }
     }
 
-    /// Select the target commit `delta` rows from the selected one, keeping it in view.
-    pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
+    /// Select the target commit `delta` rows from the selected one, keeping it in view. Says
+    /// whether there was one.
+    pub(super) fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) -> bool {
         let Some(project) = self.selected_project() else {
-            return;
+            return false;
         };
         let Some(upstream) = self.upstream_for(&project) else {
-            return;
+            return false;
         };
         let merged = |ix: usize, m: usize| {
             let merge = upstream.commits.get(ix)?.id;
@@ -1571,16 +1574,17 @@ impl Detail {
             .collect();
         // From what merged lately, which sits over the list, only down.
         if upstream.selected == Some(Picked::Shipped) && delta < 0 {
-            return;
+            return false;
         }
         let current = (upstream.selected, upstream.merged_pick);
         let at = (picks.iter()).position(|(_, (picked, pick))| (Some(*picked), *pick) == current);
         let Some(&(row, (picked, pick))) = step_from(&picks, at, delta) else {
-            return;
+            return false;
         };
         let count = rows.len();
         self.pick_on_page(&project, picked, pick, cx);
         reveal_side_row(&self.upstream_scroll, count, row, false, Theme::get(cx));
+        true
     }
 
     /// How busy the target has been: a bar for each day, the last week's stronger, counting
@@ -1627,6 +1631,7 @@ impl Detail {
         &self,
         page: &Selection,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let project = page.project();
@@ -1757,16 +1762,84 @@ impl Detail {
             .gap(dp(8.))
             .child(trigger)
             .child(title_text(entry.project.name.clone()));
-        let tabs = self.project_tabs(page, theme, cx);
+        let tabs = self.project_tabs(page, theme, window, cx);
         self.project_page_header(title, meta, project, tabs, theme)
     }
 
+    /// Whether the tabs to the project's pages have the keys.
+    pub(crate) fn project_tabs_focused(&self, window: &Window) -> bool {
+        self.project_tabs_focus.is_focused(window)
+    }
+
+    /// Give the keys to the tabs to the project's pages. Whether the page keeps them for coming
+    /// back from the left is up to how the keys next leave.
+    pub(crate) fn focus_project_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.project_tabs_kept = false;
+        self.project_tabs_from = None;
+        window.focus(&self.project_tabs_focus, cx);
+        cx.notify();
+    }
+
+    /// Whether coming from the left lands on the tabs to the project's pages: on the Graph,
+    /// which has nothing under them to take the keys, or when the keys last went left out of
+    /// them on this page.
+    pub(crate) fn project_tabs_reachable(&self) -> bool {
+        match self.selection() {
+            Some(Selection::Graph(_)) => true,
+            Some(Selection::Project(_) | Selection::Branches(_) | Selection::History(_)) => {
+                self.project_tabs_kept
+            }
+            _ => false,
+        }
+    }
+
+    /// Keep the tabs to the project's pages for coming back from the left, or forget them.
+    pub(crate) fn keep_project_tabs(&mut self, kept: bool) {
+        self.project_tabs_kept = kept;
+    }
+
+    /// ↑ past the top of a list page's list or from the tabs beside it: up to the project's
+    /// tabs over them. Not in a pinned tile, where ← and → would go to the page on that side
+    /// in the home tile.
+    pub(super) fn up_to_project_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.pinned.is_none() {
+            let from = window.focused(cx).filter(|from| *from != self.side_focus);
+            self.focus_project_tabs(window, cx);
+            self.project_tabs_from = from;
+        }
+    }
+
+    /// Whether `from`, what ↑ left for the project's tabs, still shows to take the keys back:
+    /// a reload can take the pull request's tabs away, and `f` the files.
+    pub(super) fn takes_keys_back(&self, from: &FocusHandle, cx: &gpui::App) -> bool {
+        if *from == self.tabs_focus {
+            self.tabs_shown(cx)
+        } else if *from == self.files_focus {
+            self.beside_files_shown(cx)
+        } else {
+            *from == self.focus && !self.without_changes(cx)
+        }
+    }
+
     /// The tabs to a project's pages, `page` the one selected; Branches says how many are in
-    /// progress without being applied.
-    fn project_tabs(&self, page: &Selection, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    /// progress without being applied. They take the keys as the panes do.
+    fn project_tabs(
+        &self,
+        page: &Selection,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let project = page.project();
         let unapplied = self.unapplied(project).filter(|n| *n > 0);
+        let solid = has_keys(&self.project_tabs_focus, window, cx);
         h_flex()
+            // Not in a pinned tile, as `up_to_project_tabs` says, where a click would take the
+            // keys.
+            .when(self.pinned.is_none(), |el| {
+                el.track_focus(&self.project_tabs_focus)
+            })
+            .key_context("Tabs")
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
             .children(Selection::project_pages(project).map(|to| {
@@ -1777,7 +1850,7 @@ impl Detail {
                     _ => ("tab-overview", Icon::Repo, "Overview"),
                 };
                 let selected = *page == to;
-                tab(id, glyph, label, selected, true, theme)
+                tab(id, glyph, label, selected, solid, theme)
                     .when(id == "tab-branches", |el| {
                         el.children(unapplied.map(|n| count_badge(n, theme)))
                             .tooltip(Tooltip::text(
@@ -1790,7 +1863,7 @@ impl Detail {
                         el.on_click(cx.listener(move |this, _, window, cx| {
                             let to = to.clone();
                             (this.app).update_later(window, cx, move |app, window, cx| {
-                                app.select(to, window, cx)
+                                app.select_project_page(to, window, cx)
                             })
                         }))
                     })

@@ -2007,14 +2007,14 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, gg and G
-    /// to either end, ⇧→ and ⇧← `fold` what's selected, on a page whose rows fold, and Return
-    /// does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, ↑ from its
+    /// top going up to the project's tabs, gg and G to either end, ⇧→ and ⇧← `fold` what's
+    /// selected, on a page whose rows fold, and Return does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
     /// The TUI's keymap has Return `toggle` what's selected where rows fold, and `confirm`
     /// it only where they don't.
     pub(super) fn list_column(
         &self,
-        step: fn(&mut Self, isize, &mut Context<Self>),
+        step: fn(&mut Self, isize, &mut Context<Self>) -> bool,
         fold: Option<fn(&mut Self, bool, &mut Context<Self>)>,
         toggle: Option<fn(&mut Self, &mut Context<Self>)>,
         confirm: Option<fn(&mut Self, &mut Window, &mut Context<Self>)>,
@@ -2024,14 +2024,20 @@ impl Detail {
             .size_full()
             .track_focus(&self.side_focus)
             .key_context("List")
-            .on_action(cx.listener(move |this, _: &SelectNext, _, cx| step(this, 1, cx)))
-            .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
-            .on_action(
-                cx.listener(move |this, _: &SelectFirst, _, cx| step(this, isize::MIN / 2, cx)),
-            )
-            .on_action(
-                cx.listener(move |this, _: &SelectLast, _, cx| step(this, isize::MAX / 2, cx)),
-            )
+            .on_action(cx.listener(move |this, _: &SelectNext, _, cx| {
+                step(this, 1, cx);
+            }))
+            .on_action(cx.listener(move |this, _: &SelectPrevious, window, cx| {
+                if !step(this, -1, cx) {
+                    this.up_to_project_tabs(window, cx)
+                }
+            }))
+            .on_action(cx.listener(move |this, _: &SelectFirst, _, cx| {
+                step(this, isize::MIN / 2, cx);
+            }))
+            .on_action(cx.listener(move |this, _: &SelectLast, _, cx| {
+                step(this, isize::MAX / 2, cx);
+            }))
             .on_action(cx.listener(move |this, _: &Expand, _, cx| {
                 if let Some(fold) = fold {
                     fold(this, true, cx)
