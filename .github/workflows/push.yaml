@@ -31,6 +31,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
+      tauri_gui: ${{ steps.filter.outputs.tauri_gui }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -73,10 +74,21 @@ jobs:
               - 'crates/but-installer/**'
             install_script:
               - 'scripts/install.sh'
+            # The Tauri app and what only it uses. ci.but.dev (.config/taste.toml) checks the
+            # rest, so the checks below run only when one of these (or CI itself) changes.
+            # Keep in sync with check-e2e-changes.yml.
+            tauri_gui:
+              - *workflows
+              - 'apps/desktop/**'
+              - 'crates/gitbutler-tauri/**'
+              - 'packages/ui-svelte/**'
+              - 'packages/shared/**'
+              - 'packages/core/**'
+              - 'e2e/**'
 
   prettier:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -88,7 +100,7 @@ jobs:
 
   lint-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -100,7 +112,7 @@ jobs:
 
   check-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -112,7 +124,7 @@ jobs:
 
   unittest-node:
     needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.node == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -146,7 +158,7 @@ jobs:
 
   rust-lint:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -177,7 +189,7 @@ jobs:
 
   rust-test-variants:
     needs: changes
-    if: ${{ needs.changes.outputs.rust_core == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust_core == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -236,7 +248,7 @@ jobs:
 
   rust-test-tauri:
     needs: changes
-    if: ${{ needs.changes.outputs.rust_core == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust_core == 'true') }}
     runs-on: ubuntu-latest
     # A build with no cache must finish within this limit. A job that times out saves no cache,
     # so the next run also starts with no cache.
@@ -275,7 +287,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 25
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -301,7 +313,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 35
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -322,7 +334,7 @@ jobs:
     needs: changes
     runs-on: windows-latest
     timeout-minutes: 25
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.rust == 'true') }}
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -606,7 +618,7 @@ jobs:
           test -z "$(<query-output.txt)"  # Report failure if we found anything
   test-ui:
     needs: changes
-    if: ${{ needs.changes.outputs.ui == 'true' }}
+    if: ${{ needs.changes.outputs.tauri_gui == 'true' && (needs.changes.outputs.ui == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
