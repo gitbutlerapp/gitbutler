@@ -683,11 +683,8 @@ impl Detail {
             (false, Some(review)) if !review.body.trim().is_empty() => {
                 let end = review.body.floor_char_boundary(4096);
                 let body = review.body.get(..end).unwrap_or(&review.body);
-                described = (markdown::parse(body).iter())
-                    .map(|block| block.text.as_str())
-                    .filter(|text| !text.trim().is_empty())
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let blocks = markdown::parse(body);
+                described = markdown::selected_text(&blocks, ((0, 0), (blocks.len(), 0)));
                 &described
             }
             _ => &commit.body,
