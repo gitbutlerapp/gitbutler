@@ -45,6 +45,7 @@
 	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
+	.conflicted,
 	.title {
 		color-scheme: dark;
 
@@ -319,6 +320,11 @@
 
 .branchGlyph.merged {
 	color: var(--text-purple);
+}
+
+/* A conflicted commit's warning, in its glyph's place. */
+.conflicted {
+	color: var(--text-danger);
 }
 
 .badge {

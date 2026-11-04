@@ -7,6 +7,7 @@ import styles from "./MetaCount.module.css";
 /** What a {@link MetaCount} counts, which sets its glyph and its colour. */
 export type MetaCountType =
 	| "behind"
+	| "conflicts"
 	| "unpushed"
 	| "rebased"
 	| "commits"
@@ -26,6 +27,7 @@ export type MetaCountType =
 
 const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
+	conflicts: "warning",
 	unpushed: "arrow-up",
 	rebased: "arrow-up",
 	commits: "commit",
@@ -50,7 +52,8 @@ const glyph: Record<MetaCountType, IconName> = {
  * (`unpushed`), green is an agent at work (`agent-working`); the rest are neutral, `stack` among
  * them: where a branch sits in its stack, "1/3 in stack". `rebased` is the unpushed arrow in that
  * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
- * the target, so a push replaces them rather than sending new work. Quietest of all
+ * the target, so a push replaces them rather than sending new work. Red is what can't go on until
+ * you step in: `conflicts`, how many of a branch's commits are conflicted. Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
  * (`empty`, `detached`); a row shows either first, ahead of its counts. `cpu` is a process's CPU
  * use while it stays low, in green; `cpu-danger` is the same use once it runs high, in red with a

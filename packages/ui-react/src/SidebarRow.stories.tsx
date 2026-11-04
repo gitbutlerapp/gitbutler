@@ -1226,6 +1226,97 @@ export const Merged = meta.story({
 	),
 });
 
+/** A worktree whose branches stopped on conflicts, for {@link Conflicts}. */
+const ConflictsTree: FC<{ selected?: boolean }> = ({ selected = false }) => {
+	const resolve = (
+		<Button size="small" key="resolve">
+			Resolve
+		</Button>
+	);
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+			<WorktreeItem
+				main
+				name="Main worktree"
+				depth={1}
+				folded={false}
+				meta={<MetaCount type="age">3d</MetaCount>}
+				menu={menu("Worktree")}
+			/>
+			<UncommittedItem count={22} depth={2} menu={menu("Uncommitted changes")} />
+			<BranchItem
+				title="fix: unique cursor names"
+				pr={{ number: 454, state: "open" }}
+				depth={2}
+				folded
+				meta={
+					<>
+						<MetaCount type="conflicts">2</MetaCount>
+						<CiStatus status="working" />
+						<MetaCount type="unpushed">5</MetaCount>
+					</>
+				}
+				actions={resolve}
+				menu={menu("Branch")}
+			/>
+			<BranchItem
+				title="perf: cheaper status polling"
+				pr={{ number: 410, state: "open" }}
+				depth={2}
+				folded={false}
+				meta={
+					<>
+						<CiStatus status="working" />
+						<MetaCount type="unpushed">5</MetaCount>
+					</>
+				}
+				actions={resolve}
+				menu={menu("Branch")}
+			/>
+			<CommitItem
+				message="docs: handoff notes"
+				conflicted
+				depth={3}
+				selected={selected}
+				menu={menu("Commit")}
+			/>
+			<CommitItem
+				message="feat: 28px hunk separator"
+				pushed={false}
+				conflicted={selected}
+				depth={3}
+				menu={menu("Commit")}
+			/>
+			<CommitItem
+				message="chore: separator tokens"
+				pushed={false}
+				depth={3}
+				menu={menu("Commit")}
+			/>
+		</Repository>
+	);
+};
+
+/**
+ * A branch that stopped on conflicts. Folded, it counts its conflicted commits first in its meta
+ * and offers Resolve as its next step; open, each conflicted commit takes the warning in its
+ * glyph's place, and the branch drops the count. Selected, the warning keeps its red, inverted.
+ */
+export const Conflicts = meta.story({
+	parameters: { design: { type: "figma", url: core("4827-70089") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<ConflictsTree />
+			</Card>
+			<Card label="pavel--macbook-pro-2" header={machine} focused>
+				<ConflictsTree selected />
+			</Card>
+		</div>
+	),
+});
+
 /**
  * Any row at work, here a worktree updating from its target: `busy` turns a spinner in its glyph's
  * place, as on a merging branch, so what it holds and its menu stay where they were.
