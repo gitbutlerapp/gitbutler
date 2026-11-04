@@ -61,21 +61,11 @@ body[data-layout="centered"] {
 	display: flex;
 	flex-direction: column;
 	padding: 0 4px;
-	gap: 20px;
-}
-
-/* A card's row, tightened to a list of pages. */
-.docs-site-nav .docs-site-page {
-	padding: 6px 8px;
-	border-radius: var(--radius-control);
+	gap: 12px;
 }
 
 .docs-site-search {
 	min-width: 0;
-}
-
-.docs-site-page[aria-current="page"] {
-	background-color: var(--bg-3);
 }
 
 .docs-site-theme {

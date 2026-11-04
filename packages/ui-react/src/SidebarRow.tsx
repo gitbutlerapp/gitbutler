@@ -118,11 +118,11 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 /** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
  * end, where it stays; the menu follows it under the pointer, and the actions take its place.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
- * its own. */
+ * its own. A row without an `icon` starts with its name. */
 const Row: FC<
 	RowProps & {
 		name: string;
-		icon: ReactNode;
+		icon?: ReactNode;
 		spinner?: ReactNode;
 		label: ReactNode;
 		rowClassName?: string;
@@ -160,7 +160,7 @@ const Row: FC<
 							{spinner}
 						</output>
 					) : (
-						<span className={styles.icon}>{icon}</span>
+						icon !== undefined && <span className={styles.icon}>{icon}</span>
 					)}
 					<span className={styles.label}>{label}</span>
 					{
@@ -558,6 +558,71 @@ export const MoreItem: FC<
 			),
 		}),
 	});
+
+/**
+ * The label over a group of pages in a navigation panel, such as the docs site's "Getting
+ * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
+ * button that hides and shows them, its chevron saying which; without, it only names them. Its
+ * pages sit one level under it, as {@link NavItem}s at `depth={1}`.
+ *
+ * @import import { GroupLabel } from "@gitbutler/ui-react/SidebarRow.tsx";
+ */
+export const GroupLabel: FC<
+	{
+		name: string;
+		folded?: boolean;
+		onToggleFolded?: () => void;
+	} & useRender.ComponentProps<"button">
+> = ({ name, folded, onToggleFolded, render, ...props }) =>
+	useRender({
+		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
+		render: render ?? (folded === undefined ? <div /> : <button type="button" />),
+		props: mergeProps<"button">(props, {
+			"aria-expanded": folded === undefined ? undefined : !folded,
+			onClick: onToggleFolded,
+			className: classes(styles.row, styles.compact, styles.groupLabel),
+			children: (
+				<>
+					{folded !== undefined && (
+						<span className={styles.step}>
+							<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
+						</span>
+					)}
+					<span className={classes("text-12", "text-semibold", styles.label, styles.name)}>
+						{name}
+					</span>
+				</>
+			),
+		}),
+	});
+
+/**
+ * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
+ * page when there is one (`icon`). It sits one level under its {@link GroupLabel} (`depth={1}`), on
+ * the guide that ties it to the label's chevron, the way a sidebar row sits under the row that folds
+ * it. It opens a page rather than folding, so it has no chevron and no menu: render it as the link
+ * that opens the page (`render={<a href={…} />}`). `selected` is the page on screen, which the link
+ * also marks with `aria-current="page"`.
+ *
+ * @import import { NavItem } from "@gitbutler/ui-react/SidebarRow.tsx";
+ */
+export const NavItem: FC<
+	{ name: string; icon?: IconName } & Omit<
+		RowProps,
+		"folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy"
+	>
+> = ({ name, icon, tooltip, ...props }) => (
+	<Row
+		{...props}
+		name={name}
+		icon={icon === undefined ? undefined : <Icon name={icon} />}
+		label={
+			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
+				{name}
+			</Name>
+		}
+	/>
+);
 
 /**
  * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under

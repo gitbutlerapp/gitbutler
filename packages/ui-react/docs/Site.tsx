@@ -1,9 +1,8 @@
-import { Cell } from "../src/Cell.tsx";
 import { FieldControlWithIcon } from "../src/Field.tsx";
 import { Icon } from "../src/Icon.tsx";
 import { ScrollArea } from "../src/ScrollArea.tsx";
-import { Section } from "../src/Section.tsx";
 import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
+import { GroupLabel, NavItem } from "../src/SidebarRow.tsx";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
 import { groupPages, loadPage, pageName, pages, type Page } from "./pages.ts";
@@ -38,9 +37,16 @@ const PageView: FC<{ page: Page }> = ({ page }) => {
 
 const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 	const [query, setQuery] = useState("");
+	const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
 	const found = pages.filter((page) =>
 		page.title.toLowerCase().includes(query.trim().toLowerCase()),
 	);
+	const toggle = (heading: string) =>
+		setFolded((previous) => {
+			const next = new Set(previous);
+			if (!next.delete(heading)) next.add(heading);
+			return next;
+		});
 
 	return (
 		<>
@@ -59,18 +65,29 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 			<ScrollArea className="docs-site-scroll">
 				<nav className="docs-site-nav" aria-label="Pages">
 					{groupPages(found).map(([heading, group]) => (
-						<Section key={heading} title={heading}>
-							{group.map((page) => (
-								<Cell
-									key={page.id}
-									// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and Cell fills it with the title.
-									render={<a {...pageLink(page.id)} />}
-									aria-current={page === current ? "page" : undefined}
-									className="docs-site-page"
-									title={pageName(page)}
-								/>
-							))}
-						</Section>
+						<div key={heading}>
+							<GroupLabel
+								name={heading}
+								folded={folded.has(heading)}
+								onToggleFolded={() => toggle(heading)}
+							/>
+							{!folded.has(heading) &&
+								group.map((page) => (
+									<NavItem
+										key={page.id}
+										name={pageName(page)}
+										depth={1}
+										selected={page === current}
+										render={
+											// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
+											<a
+												{...pageLink(page.id)}
+												aria-current={page === current ? "page" : undefined}
+											/>
+										}
+									/>
+								))}
+						</div>
 					))}
 				</nav>
 			</ScrollArea>
