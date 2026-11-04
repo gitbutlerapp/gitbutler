@@ -11,6 +11,7 @@
 mod layout;
 
 use std::cell::{Cell, RefCell};
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -31,6 +32,7 @@ use crate::backend::{
     self, Agent, Branch, CommitId, CommitState, FullName, PushState, ReviewState, Workspace,
     short_ref,
 };
+use crate::clock;
 use crate::state::{ProjectId, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
@@ -70,7 +72,7 @@ const HISTORY: usize = 400;
 const ZOOM: (f32, f32) = (0.02, 3.);
 /// How long commits take to move where a reload puts them, the camera to move where a button
 /// sends it, and a new commit's ripple to fade.
-const MOVE: Duration = Duration::from_millis(520);
+const MOVE: Duration = Duration::from_millis(380);
 const GLIDE: Duration = Duration::from_millis(260);
 const RIPPLE: Duration = Duration::from_millis(1600);
 /// How long the spinner takes to go round while it reads further back.
@@ -163,6 +165,8 @@ struct Scene {
     keys: HashMap<SharedString, usize>,
     /// What each commit's edges reach down to, for lighting up what it came from.
     parents: Vec<Vec<usize>>,
+    /// Each edge's place in `edges`, to carry it across reloads.
+    edge_keys: HashMap<EdgeKey, usize>,
     /// The commits' centres' extent, in the units of `Node::at`.
     extent: Bounds<f32>,
     /// How many commits of history it read, and whether there's more below them.
@@ -229,6 +233,203 @@ impl Camera {
     }
 }
 
+/// What one load moved: how far each commit it moved sits from where it's laid out as the load
+/// lands, which eases away over [`MOVE`], and what grows in. A load landing while another
+/// settles adds its own on top rather than starting over, so what's moving goes on as it was.
+struct Move {
+    since: Instant,
+    by: HashMap<SharedString, Point<f32>>,
+    grows: HashSet<SharedString>,
+    /// The edges it took elsewhere, which go on from where they were drawn too.
+    edges: HashMap<EdgeKey, Bend>,
+}
+
+/// An edge, as a commit's key and which of its edges: it's the same edge across a rebase that
+/// gives it another parent.
+type EdgeKey = (SharedString, usize);
+
+/// How far an edge is drawn from how it's laid out.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Bend {
+    /// Its parent's end, in the layout's units.
+    start: Point<f32>,
+    /// How much higher its turns cross their gaps, out of the parent and into the child, as
+    /// parts of the gap.
+    lift: [f32; 2],
+}
+
+impl Default for Bend {
+    fn default() -> Self {
+        Bend {
+            start: point(0., 0.),
+            lift: [0., 0.],
+        }
+    }
+}
+
+impl Bend {
+    /// As much of it as there's `left`, added to this.
+    fn plus(self, other: Bend, left: f32) -> Bend {
+        Bend {
+            start: point(
+                self.start.x + other.start.x * left,
+                self.start.y + other.start.y * left,
+            ),
+            lift: [
+                self.lift[0] + other.lift[0] * left,
+                self.lift[1] + other.lift[1] * left,
+            ],
+        }
+    }
+
+    /// `ends` with its parent's end where it's drawn, a unit `k` pixels.
+    fn on(self, ends: Ends, k: f32) -> Ends {
+        Ends {
+            start: point(
+                ends.start.x + self.start.x * k,
+                ends.start.y + self.start.y * k,
+            ),
+            ..ends
+        }
+    }
+}
+
+/// How far each of `edges` is drawn from how it's laid out at `now`, by its place in them.
+fn bent(moves: &[Move], edges: &HashMap<EdgeKey, usize>, now: Instant) -> HashMap<usize, Bend> {
+    let mut bends: HashMap<usize, Bend> = HashMap::new();
+    for load in moves {
+        let left = 1. - load.gone(now);
+        for (key, bend) in &load.edges {
+            if let Some(ix) = edges.get(key) {
+                let was = bends.entry(*ix).or_default();
+                *was = was.plus(*bend, left);
+            }
+        }
+    }
+    bends
+}
+
+/// The tags drawn, which a load can put on another commit or beside another tag, where they go
+/// on from where they were drawn rather than show up there. By their text, in the layout's
+/// units.
+#[derive(Default)]
+struct TagSlides {
+    /// Where each was drawn in the frame before, and in this one so far.
+    was: HashMap<SharedString, Point<f32>>,
+    drawn: HashMap<SharedString, Point<f32>>,
+    /// How far each the last load moved sat from where it goes as it landed.
+    from: HashMap<SharedString, Point<f32>>,
+    since: Option<Instant>,
+    /// A load has landed since the last frame.
+    landed: bool,
+}
+
+impl TagSlides {
+    /// Start a frame drawn at `now`.
+    fn begin(&mut self, now: Instant) {
+        self.was = std::mem::take(&mut self.drawn);
+        if self.landed {
+            self.from.clear();
+            self.since = Some(now);
+        }
+    }
+
+    /// Where the tag `text` laid out `at` is drawn at `now`.
+    fn place(&mut self, text: &SharedString, at: Point<f32>, now: Instant) -> Point<f32> {
+        if self.landed
+            && let Some(was) = self.was.get(text)
+            && (was.x - at.x).hypot(was.y - at.y) > 0.5
+        {
+            self.from
+                .insert(text.clone(), point(was.x - at.x, was.y - at.y));
+        }
+        let left = 1. - self.gone(now);
+        let by = self.from.get(text).map_or(point(0., 0.), |by| *by);
+        let shown = point(at.x + by.x * left, at.y + by.y * left);
+        self.drawn.insert(text.clone(), shown);
+        shown
+    }
+
+    /// End a frame.
+    fn end(&mut self) {
+        self.landed = false;
+    }
+
+    fn gone(&self, now: Instant) -> f32 {
+        let age = (self.since).map_or(MOVE, |since| now.saturating_duration_since(since));
+        smooth(age.as_secs_f32(), 0., MOVE.as_secs_f32())
+    }
+
+    /// Whether any is still on its way at `now`, letting go of those that got there.
+    fn moving(&mut self, now: Instant) -> bool {
+        if self.gone(now) >= 1. {
+            self.from.clear();
+        }
+        self.landed || !self.from.is_empty()
+    }
+
+    /// The layout moved `by` under them.
+    fn shift(&mut self, by: Point<f32>) {
+        for at in self.drawn.values_mut() {
+            *at = point(at.x + by.x, at.y + by.y);
+        }
+    }
+}
+
+impl Move {
+    fn at(since: Instant) -> Self {
+        Move {
+            since,
+            by: HashMap::new(),
+            grows: HashSet::new(),
+            edges: HashMap::new(),
+        }
+    }
+
+    /// How much of the way it has gone at `now`, from 0 to 1: from rest and back to rest, as
+    /// loads add up without a kick.
+    fn gone(&self, now: Instant) -> f32 {
+        let age = now.saturating_duration_since(self.since).as_secs_f32();
+        smooth(age, 0., MOVE.as_secs_f32())
+    }
+}
+
+/// Where the commit `key`, laid out `at`, is drawn at `now`, and how much of it shows.
+fn placed(moves: &[Move], key: &SharedString, at: Point<f32>, now: Instant) -> (Point<f32>, f32) {
+    moves.iter().fold((at, 1.), |(at, grown), load| {
+        let gone = load.gone(now);
+        let by = load.by.get(key).map_or(point(0., 0.), |by| *by);
+        let at = point(at.x + by.x * (1. - gone), at.y + by.y * (1. - gone));
+        match load.grows.contains(key) {
+            true => (at, f32::min(grown, gone)),
+            false => (at, grown),
+        }
+    })
+}
+
+/// How far the view moves with `moves`, each with whether it's in view: each way as far as
+/// most of those in view do, or of all of them with none in view.
+fn held(moves: &[(bool, Point<f32>)]) -> Option<Point<f32>> {
+    let any_seen = moves.iter().any(|(seen, _)| *seen);
+    let counted = || (moves.iter()).filter(|(seen, _)| *seen || !any_seen);
+    Some(point(
+        commonest(counted().map(|(_, by)| by.x))?,
+        commonest(counted().map(|(_, by)| by.y))?,
+    ))
+}
+
+/// The value most of `values` have, to the pixel. Of those as common, the nearest 0, so what
+/// doesn't move wins a tie.
+fn commonest(values: impl IntoIterator<Item = f32>) -> Option<f32> {
+    let mut counts: HashMap<i32, usize> = HashMap::new();
+    for value in values {
+        *counts.entry(value.round() as i32).or_default() += 1;
+    }
+    (counts.into_iter())
+        .max_by_key(|(value, count)| (*count, Reverse(value.abs())))
+        .map(|(value, _)| value as f32)
+}
+
 struct Drag {
     from: Point<Pixels>,
     offset: Point<f32>,
@@ -267,14 +468,21 @@ pub struct GraphView {
     seen: bool,
     /// The camera on its way from one place to another, since when.
     glide: Option<(Instant, Camera, Camera)>,
-    /// Where each commit was drawn when the last load landed, and when it did.
-    moved: Option<(Instant, HashMap<SharedString, Point<f32>>)>,
-    /// The commits that load brought, new or rewritten, and when it landed.
+    /// What the loads still settling moved, oldest first.
+    moved: Vec<Move>,
+    /// How far the edges those loads moved are from how they're laid out, by their places.
+    bends: Rc<HashMap<usize, Bend>>,
+    /// The tags, drawn where they slide.
+    tag_slides: Rc<RefCell<TagSlides>>,
+    /// The commits the last load to bring any brought, new or rewritten, and when it landed.
     ripples: (Vec<usize>, Instant),
-    /// What that load brought in place of something of the same branch: a branch's first
+    /// What those loads brought in place of something of the same branch: a branch's first
     /// commit, growing where its tags were, and an emptied branch's tags, where its last commit
     /// was. Their tags stay, moving over or into its place.
     swaps: Rc<HashSet<usize>>,
+    /// How far the dots behind the graph sit from the layout's, in its units: a load that moves
+    /// the camera with what's in view leaves them where they are.
+    grid: Point<f32>,
     hovered: Option<usize>,
     hovered_at: Instant,
     /// The edge under the pointer, by its place in the scene's, when no commit is.
@@ -358,11 +566,14 @@ impl GraphView {
             left: GraphState::default(),
             seen: false,
             glide: None,
-            moved: None,
-            ripples: (Vec::new(), Instant::now()),
+            moved: Vec::new(),
+            bends: Rc::default(),
+            tag_slides: Rc::default(),
+            ripples: (Vec::new(), clock::now()),
             swaps: Rc::default(),
+            grid: point(0., 0.),
             hovered: None,
-            hovered_at: Instant::now(),
+            hovered_at: clock::now(),
             hovered_edge: None,
             pinned: None,
             lineage: Rc::default(),
@@ -406,7 +617,9 @@ impl GraphView {
             self.deepening = None;
             self.placed = false;
             self.glide = None;
-            self.moved = None;
+            self.moved.clear();
+            self.bends = Rc::default();
+            self.tag_slides = Rc::default();
             self.ripples.0.clear();
             self.unhover();
             self.pinned = None;
@@ -466,52 +679,64 @@ impl GraphView {
 
     /// Put `scene` on screen, each commit moving from where it was to where it goes now.
     fn show(&mut self, scene: Arc<Scene>) {
-        let now = Instant::now();
+        let now = clock::now();
         self.failed = None;
         if let Some(old) = self.scene.clone() {
             let positions = self.drawn.clone();
             let drawn = |ix: usize| {
                 (positions.get(ix).copied()).or_else(|| old.nodes.get(ix).map(|node| node.at))
             };
-            let mut from: HashMap<SharedString, Point<f32>> = (0..old.nodes.len())
-                .filter_map(|ix| Some((old.nodes.get(ix)?.key.clone(), drawn(ix)?)))
-                .collect();
-            // Reading further back lays out all above the history it adds higher up, so the
-            // view moves with what's in its middle, and all moves only as it does from there.
+            // Rows count up from the oldest commit read, so reading further back, or commits
+            // arriving as the oldest fall out of what's read, lays out all of it elsewhere.
+            // The view moves with the history, and all moves only as it does from there.
             let deeper = old.history != scene.history;
-            if let Some(by) = deeper.then(|| self.drift(&old, &scene)).flatten() {
-                for at in from.values_mut() {
-                    *at = point(at.x + by.x, at.y + by.y);
-                }
-                let k = self.k();
-                self.pan(point(-by.x * k, -by.y * k));
-            }
+            let shift = self.drift(&old, &scene).unwrap_or(point(0., 0.));
+            let k = self.k();
+            self.pan(point(-shift.x * k, -shift.y * k));
+            self.grid = point(self.grid.x + shift.x, self.grid.y + shift.y);
             if deeper {
                 self.deepened = Some(self.camera);
                 self.deepening = None;
             }
-            let mut swaps = HashSet::new();
+            let shifted = |at: Point<f32>| point(at.x + shift.x, at.y + shift.y);
+            let mut load = Move::at(now);
+            let kept = |ix: &usize| scene.keys.get(&old.nodes.get(*ix)?.key).copied();
+            let mut swaps: HashSet<usize> = self.swaps.iter().filter_map(kept).collect();
             for (ix, node) in scene.nodes.iter().enumerate() {
-                if old.keys.contains_key(&node.key) {
-                    continue;
-                }
-                let stood = match node.shape {
-                    Shape::Commit | Shape::Merge => (node.slot.as_ref())
-                        .and_then(|slot| old.keys.get(slot).copied())
-                        .filter(|was| {
-                            (old.nodes.get(*was)).is_some_and(|was| was.shape == Shape::Empty)
-                        }),
-                    Shape::Empty => {
-                        (old.nodes.iter()).position(|was| was.slot.as_ref() == Some(&node.key))
+                let from = match old.keys.get(&node.key).and_then(|was| old.nodes.get(*was)) {
+                    // Where it's still going from an earlier load stays that load's to ease.
+                    Some(was) => Some(shifted(was.at)),
+                    None => {
+                        load.grows.insert(node.key.clone());
+                        let stood = match node.shape {
+                            Shape::Commit | Shape::Merge => (node.slot.as_ref())
+                                .and_then(|slot| old.keys.get(slot).copied())
+                                .filter(|was| {
+                                    (old.nodes.get(*was))
+                                        .is_some_and(|was| was.shape == Shape::Empty)
+                                }),
+                            Shape::Empty => (old.nodes.iter())
+                                .position(|was| was.slot.as_ref() == Some(&node.key)),
+                        };
+                        if stood.is_some() {
+                            swaps.insert(ix);
+                        }
+                        // New, it starts in the place it takes, or out of its parent.
+                        (stood.or_else(|| {
+                            let parent = scene.nodes.get(node.parent?)?;
+                            old.keys.get(&parent.key).copied()
+                        }))
+                        .and_then(drawn)
+                        .map(shifted)
                     }
                 };
-                if let Some(at) = stood.and_then(drawn) {
-                    from.insert(node.key.clone(), at);
-                    swaps.insert(ix);
+                if let Some(from) = from.filter(|from| *from != node.at) {
+                    let by = point(from.x - node.at.x, from.y - node.at.y);
+                    load.by.insert(node.key.clone(), by);
                 }
             }
             // Older commits read aren't news.
-            let ripples = (scene.nodes.iter().enumerate())
+            let ripples: Vec<usize> = (scene.nodes.iter().enumerate())
                 .filter(|_| !deeper)
                 .filter(|(_, node)| {
                     (old.keys.get(&node.key).and_then(|was| old.nodes.get(*was)))
@@ -519,9 +744,51 @@ impl GraphView {
                 })
                 .map(|(ix, _)| ix)
                 .collect();
-            self.ripples = (ripples, now);
+            // A load that brings nothing leaves what the last one brought going.
+            self.ripples = match ripples.is_empty() {
+                true => (
+                    self.ripples.0.iter().filter_map(kept).collect(),
+                    self.ripples.1,
+                ),
+                false => (ripples, now),
+            };
             self.swaps = Rc::new(swaps);
-            self.moved = Some((now, from));
+            self.moved.push(load);
+            let bends: HashMap<EdgeKey, Bend> = (scene.edge_keys.iter())
+                .filter_map(|(key, ix)| {
+                    let (was, is) = (
+                        old.edges.get(*old.edge_keys.get(key)?)?,
+                        scene.edges.get(*ix)?,
+                    );
+                    let same = (old.nodes.get(was.parent)?.key == scene.nodes.get(is.parent)?.key)
+                        .then_some(point(0., 0.));
+                    let start = match same {
+                        Some(none) => none,
+                        None => {
+                            let from = shifted(drawn(was.parent)?);
+                            let parent = scene.nodes.get(is.parent)?;
+                            let to = placed(&self.moved, &parent.key, parent.at, now).0;
+                            point(from.x - to.x, from.y - to.y)
+                        }
+                    };
+                    let lift = [
+                        rise(was.tracks[0]) - rise(is.tracks[0]),
+                        rise(was.tracks[1]) - rise(is.tracks[1]),
+                    ];
+                    let bend = Bend { start, lift };
+                    (bend != Bend::default()).then(|| (key.clone(), bend))
+                })
+                .collect();
+            let mut slides = self.tag_slides.borrow_mut();
+            slides.landed = true;
+            slides.shift(shift);
+            drop(slides);
+            if let Some(load) = self.moved.last_mut() {
+                load.edges = bends;
+            }
+            self.moved.retain(|load| {
+                !load.by.is_empty() || !load.grows.is_empty() || !load.edges.is_empty()
+            });
         }
         // A pan goes on through a reload, but what it was pressed on may have gone.
         self.unhover();
@@ -561,17 +828,25 @@ impl GraphView {
         }
     }
 
-    /// How far the commit drawn nearest the middle of the view moves from `old` to `new`, in
-    /// the layout's units.
+    /// How far the history moves from `old` to `new`, in the layout's units, as [`held`] says.
+    /// Only the workspace's commits go anywhere on screen: the view never follows them.
     fn drift(&self, old: &Scene, new: &Scene) -> Option<Point<f32>> {
         let view = self.bounds.get().size;
-        let middle = point(f32::from(view.width) / 2., f32::from(view.height) / 2.);
-        let middle = self.camera.at(middle, self.scale);
-        let away = |at: &Point<f32>| (at.x - middle.x).powi(2) + (at.y - middle.y).powi(2);
-        let (was, now) = (self.drawn.iter().zip(&old.nodes))
-            .filter_map(|(at, node)| Some((at, new.nodes.get(*new.keys.get(&node.key)?)?.at)))
-            .min_by(|(a, _), (b, _)| away(a).total_cmp(&away(b)))?;
-        Some(point(now.x - was.x, now.y - was.y))
+        let far = point(f32::from(view.width), f32::from(view.height));
+        let (near, far) = (
+            self.camera.at(point(0., 0.), self.scale),
+            self.camera.at(far, self.scale),
+        );
+        let seen =
+            |at: &Point<f32>| (near.x..=far.x).contains(&at.x) && (near.y..=far.y).contains(&at.y);
+        let moves: Vec<(bool, Point<f32>)> = (self.drawn.iter().zip(&old.nodes))
+            .filter(|(_, node)| !matches!(node.kind, Kind::Lane(..)))
+            .filter_map(|(at, node)| {
+                let now = new.nodes.get(*new.keys.get(&node.key)?)?.at;
+                Some((seen(at), point(now.x - node.at.x, now.y - node.at.y)))
+            })
+            .collect();
+        held(&moves)
     }
 
     /// Nothing under the pointer, as when what was there moves away.
@@ -655,7 +930,7 @@ impl GraphView {
     }
 
     fn glide_to(&mut self, to: Camera, cx: &mut Context<Self>) {
-        self.glide = Some((Instant::now(), self.camera, to));
+        self.glide = Some((clock::now(), self.camera, to));
         // What's under the pointer moves away; the next move finds what's there then.
         self.unhover();
         cx.notify();
@@ -713,6 +988,7 @@ impl GraphView {
         let sizes = Sizes::at(k);
         let spacing = Spacing::at(k, sizes);
         let near = (scene.edges.iter().enumerate()).filter_map(|(ix, edge)| {
+            let bend = self.bends.get(&ix).copied().unwrap_or_default();
             let ends = edge_ends(
                 edge,
                 &scene.nodes,
@@ -721,6 +997,7 @@ impl GraphView {
                 k,
                 self.camera.offset,
             )?;
+            let ends = bend.on(ends, k);
             let Ends { start, end, .. } = ends;
             // An edge across rows goes up beside its child.
             let aside = edge.aside.abs() * k;
@@ -731,7 +1008,7 @@ impl GraphView {
             if outside {
                 return None;
             }
-            let away = distance(at, start, stretches(edge, ends, spacing));
+            let away = distance(at, start, stretches(edge, ends, spacing, bend.lift));
             (away <= reach).then_some((ix, away))
         });
         near.min_by(|a, b| a.1.total_cmp(&b.1)).map(|(ix, _)| ix)
@@ -795,7 +1072,7 @@ impl GraphView {
             .flatten();
         if hovered != self.hovered {
             self.hovered = hovered;
-            self.hovered_at = Instant::now();
+            self.hovered_at = clock::now();
             cx.notify();
         }
         if edge != self.hovered_edge {
@@ -858,36 +1135,16 @@ impl GraphView {
                 moving = true;
             }
         }
-        let t = (self.moved.as_ref())
-            .map(|(start, _)| ease(now.duration_since(*start).as_secs_f32() / MOVE.as_secs_f32()))
-            .unwrap_or(1.);
-        let from = self.moved.as_ref().map(|(_, from)| from);
-        let mut positions = Vec::with_capacity(scene.nodes.len());
-        let mut grown = Vec::with_capacity(scene.nodes.len());
-        let swaps = self.swaps.clone();
-        for (ix, node) in scene.nodes.iter().enumerate() {
-            let was = from.and_then(|from| from.get(&node.key));
-            let start = was.copied().or_else(|| {
-                let parent = scene.nodes.get(node.parent?)?;
-                from.and_then(|from| from.get(&parent.key)).copied()
-            });
-            let start = start.filter(|_| t < 1.).unwrap_or(node.at);
-            positions.push(point(
-                lerp(start.x, node.at.x, t),
-                lerp(start.y, node.at.y, t),
-            ));
-            // New, it grows in where it starts: out of its parent, or in another's place.
-            grown.push(match (from, was) {
-                (Some(_), None) => t,
-                (Some(_), Some(_)) if swaps.contains(&ix) => t,
-                (Some(_), Some(_)) | (None, _) => 1.,
-            });
+        self.moved.retain(|load| load.gone(now) < 1.);
+        if self.moved.is_empty() && !self.swaps.is_empty() {
+            self.swaps = Rc::default();
         }
-        if t >= 1. {
-            self.moved = None;
-        } else {
-            moving = true;
-        }
+        moving |= !self.moved.is_empty();
+        moving |= self.tag_slides.borrow_mut().moving(now);
+        self.bends = Rc::new(bent(&self.moved, &scene.edge_keys, now));
+        let (positions, grown) = (scene.nodes.iter())
+            .map(|node| placed(&self.moved, &node.key, node.at, now))
+            .unzip();
         let rippling = !self.ripples.0.is_empty() && self.ripple_age(now) < 1.;
         if !rippling {
             self.ripples.0.clear();
@@ -1336,6 +1593,7 @@ fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scen
         keys: (nodes.iter().enumerate())
             .map(|(ix, node)| (node.key.clone(), ix))
             .collect(),
+        edge_keys: edge_keys(&nodes, &laid.edges),
         // History it didn't read is below the commits that have parents it doesn't.
         more: nodes.iter().any(|node| node.cut),
         nodes,
@@ -1344,6 +1602,19 @@ fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scen
         extent,
         history,
     }
+}
+
+/// Each of `edges` by its child's key and which of that child's edges it is.
+fn edge_keys(nodes: &[Node], edges: &[layout::Edge]) -> HashMap<EdgeKey, usize> {
+    let mut seen: HashMap<usize, usize> = HashMap::new();
+    (edges.iter().enumerate())
+        .filter_map(|(ix, edge)| {
+            let nth = seen.entry(edge.child).or_default();
+            let key = (nodes.get(edge.child)?.key.clone(), *nth);
+            *nth += 1;
+            Some((key, ix))
+        })
+        .collect()
 }
 
 /// The smallest bounds holding all of `points`, if there are any.
@@ -1404,11 +1675,16 @@ struct Paint {
     lineage: Rc<HashSet<usize>>,
     ripples: Vec<usize>,
     swaps: Rc<HashSet<usize>>,
+    /// How far the dots sit from the layout's, as [`GraphView::grid`].
+    grid: Point<f32>,
     /// How far round the spinner under the oldest commits is, from 0 to 1, while it reads
     /// further back.
     spinner: Option<f32>,
     /// How far the ripples are through, from 0 to 1.
     ripple: f32,
+    bends: Rc<HashMap<usize, Bend>>,
+    tag_slides: Rc<RefCell<TagSlides>>,
+    now: Instant,
     titles: Rc<RefCell<HashMap<usize, SharedString>>>,
     tags: Rc<RefCell<HashMap<usize, Bounds<f32>>>>,
     theme: Theme,
@@ -1508,8 +1784,8 @@ impl Paint {
         let color = self.theme.border_3;
         let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let start = point(
-            self.camera.offset.x.rem_euclid(step),
-            self.camera.offset.y.rem_euclid(step),
+            (self.camera.offset.x + self.grid.x * self.k).rem_euclid(step),
+            (self.camera.offset.y + self.grid.y * self.k).rem_euclid(step),
         );
         let mut y = start.y;
         while y < height {
@@ -1548,6 +1824,8 @@ impl Paint {
             else {
                 continue;
             };
+            let bend = self.bends.get(&ix).copied().unwrap_or_default();
+            let ends = bend.on(ends, self.k);
             let Ends { start, end, .. } = ends;
             // An edge across goes up beside its child, at most a pill's width out.
             if start.x.max(end.x) < left - PILL.width * self.k
@@ -1596,7 +1874,7 @@ impl Paint {
                 Kind::Remote(_) => dashed,
                 Kind::Lane(..) | Kind::Incoming | Kind::History => line,
             };
-            trace(path, start, stretches(edge, ends, spacing));
+            trace(path, start, stretches(edge, ends, spacing, bend.lift));
         }
         // Where the graph stops, a stub fades down towards what it doesn't show.
         let mut stubs = PathBuilder::stroke(fixed(width))
@@ -1686,23 +1964,24 @@ impl Paint {
             let corners = Corners::all(fixed(radius));
             let presence = self.presence(ix) * grown;
             let accent = node.kind.accent(theme);
-            // A commit a reload just brought glows as it lands.
+            // A commit a reload just brought glows as it lands, coming up rather than popping.
+            let swell = smooth(self.ripple, 0., 0.06);
             if self.ripples.contains(&ix) && self.ripple < 1. {
-                let glow = 0.7 * (1. - self.ripple);
+                let glow = 0.35 * swell * (1. - self.ripple);
                 window.paint_drop_shadows(
                     rect,
                     corners,
                     &[BoxShadow {
                         color: accent.opacity(glow * presence),
                         offset: point(fixed(0.), fixed(0.)),
-                        blur_radius: fixed(18. * self.scale),
-                        spread_radius: fixed(1. * self.scale),
+                        blur_radius: fixed(14. * self.scale),
+                        spread_radius: fixed(0.),
                         inset: false,
                     }],
                 );
             }
             if self.ripples.contains(&ix) && self.ripple < 1. {
-                let grow = ease(self.ripple) * 26. * self.scale;
+                let grow = ease(self.ripple) * 16. * self.scale;
                 let ring = Bounds::new(
                     pixels(point(
                         centre.x - width / 2. - grow,
@@ -1710,13 +1989,13 @@ impl Paint {
                     )),
                     size(fixed(width + 2. * grow), fixed(height + 2. * grow)),
                 );
-                let fade = (1. - self.ripple).powi(2) * presence;
+                let fade = swell * (1. - self.ripple).powi(2) * presence;
                 window.paint_quad(quad(
                     ring,
                     Corners::all(fixed(radius + grow)),
                     gpui::transparent_black(),
-                    fixed(1.5 * self.scale),
-                    accent.opacity(0.8 * fade),
+                    fixed(1. * self.scale),
+                    accent.opacity(0.4 * fade),
                     gpui::BorderStyle::Solid,
                 ));
             }
@@ -1987,7 +2266,10 @@ impl Paint {
         let mut tags = self.tags.borrow_mut();
         tags.clear();
         let fade = smooth(self.k, 0.06, 0.12);
+        let mut slides = self.tag_slides.borrow_mut();
+        slides.begin(self.now);
         if fade <= 0. {
+            slides.end();
             return;
         }
         let lifted = self.lifted();
@@ -2075,7 +2357,7 @@ impl Paint {
                     grown,
                 ),
             );
-            let (mut x, y) = match node.shape {
+            let (mut tag_x, y) = match node.shape {
                 Shape::Commit | Shape::Merge => {
                     (lerp(beside.x, above.x, pill), lerp(beside.y, above.y, pill))
                 }
@@ -2091,6 +2373,7 @@ impl Paint {
                 }
             };
             if node.shape == Shape::Empty {
+                let x = tag_x;
                 tags.insert(ix, Bounds::new(point(x - left, y - top), size(row, height)));
                 // Hovered or pinned, it's ringed in a lit edge's colour and width, a little
                 // way out so the ring shows against a tag of its colour.
@@ -2112,6 +2395,12 @@ impl Paint {
                 }
             }
             for (label, shaped, width, ground, border, text, glyph) in shaped {
+                let next = tag_x + width + gap;
+                let offset = self.camera.offset;
+                let (from_x, from_y) = (left + offset.x, top + offset.y);
+                let laid = point((tag_x - from_x) / self.k, (y - from_y) / self.k);
+                let shown = slides.place(&label.text, laid, self.now);
+                let (x, y) = (from_x + shown.x * self.k, from_y + shown.y * self.k);
                 if x + width >= left && x <= right && y + height >= top && y <= bottom {
                     let rect = Bounds::new(pixels(point(x, y)), size(fixed(width), fixed(height)));
                     // On the page's ground first, so a tinted tag hides the edges behind it.
@@ -2160,9 +2449,10 @@ impl Paint {
                         );
                     }
                 }
-                x += width + gap;
+                tag_x = next;
             }
         }
+        slides.end();
     }
 }
 
@@ -2223,12 +2513,17 @@ impl Spacing {
         }
     }
 
-    /// How high a turn on `track` crosses the gap whose bottom is at `bottom`: the middle
-    /// without one.
-    fn crossing(self, bottom: f32, track: Option<Track>) -> f32 {
-        let (at, of) = track.map_or((0, 1), |track| (track.at, track.of));
-        bottom - self.gap * f32::from(at + 1) / f32::from(of + 1)
+    /// How high a turn on `track` crosses the gap whose bottom is at `bottom`, `lift` of the
+    /// gap higher.
+    fn crossing(self, bottom: f32, track: Option<Track>, lift: f32) -> f32 {
+        bottom - self.gap * (rise(track) + lift)
     }
+}
+
+/// How far up its gap a turn on `track` crosses, as a part of the gap: the middle without one.
+fn rise(track: Option<Track>) -> f32 {
+    let (at, of) = track.map_or((0, 1), |track| (track.at, track.of));
+    f32::from(at + 1) / f32::from(of + 1)
 }
 
 /// A stretch of an edge: straight, or a turn into another column across a gap at a height, as
@@ -2240,8 +2535,13 @@ enum Stretch {
 }
 
 /// What `edge` runs through from its parent's top to its child's bottom, each to where it
-/// ends.
-fn stretches(edge: &layout::Edge, ends: Ends, spacing: Spacing) -> [Option<Stretch>; 3] {
+/// ends, its turns `lift` higher than it's laid out.
+fn stretches(
+    edge: &layout::Edge,
+    ends: Ends,
+    spacing: Spacing,
+    lift: [f32; 2],
+) -> [Option<Stretch>; 3] {
     let Ends { start, end, halves } = ends;
     // The bottom of the gap above the parent's row, and of the one below the child's.
     let above_parent = start.y + halves.0 - spacing.half;
@@ -2253,18 +2553,18 @@ fn stretches(edge: &layout::Edge, ends: Ends, spacing: Spacing) -> [Option<Stret
             // Out of the parent and over into the child's column a row up.
             let turned = point(end.x, (above_parent - spacing.gap).max(end.y));
             let rest = (turned.y > end.y).then_some(Stretch::Line(end));
-            let across = spacing.crossing(above_parent, out);
+            let across = spacing.crossing(above_parent, out, lift[0]);
             [Some(Stretch::Turn(turned, across)), rest, None]
         }
         Route::Merge => {
             // Up the parent's column to a row below the child, then over into it.
             let turned = point(start.x, below_child.min(start.y));
             let up = (turned.y < start.y).then_some(Stretch::Line(turned));
-            let across = spacing.crossing(below_child, into);
+            let across = spacing.crossing(below_child, into, lift[1]);
             [up, Some(Stretch::Turn(end, across)), None]
         }
         Route::Across if into.is_none() => {
-            let across = spacing.crossing(above_parent, out);
+            let across = spacing.crossing(above_parent, out, lift[0]);
             [Some(Stretch::Turn(end, across)), None, None]
         }
         // Over into the gap beside the child towards the parent, up it and over into the child,
@@ -2273,9 +2573,15 @@ fn stretches(edge: &layout::Edge, ends: Ends, spacing: Spacing) -> [Option<Stret
             let between = end.x + edge.aside * spacing.k;
             let out_to = point(between, above_parent - spacing.gap);
             [
-                Some(Stretch::Turn(out_to, spacing.crossing(above_parent, out))),
+                Some(Stretch::Turn(
+                    out_to,
+                    spacing.crossing(above_parent, out, lift[0]),
+                )),
                 Some(Stretch::Line(point(between, below_child.min(out_to.y)))),
-                Some(Stretch::Turn(end, spacing.crossing(below_child, into))),
+                Some(Stretch::Turn(
+                    end,
+                    spacing.crossing(below_child, into, lift[1]),
+                )),
             ]
         }
     }
@@ -2443,7 +2749,7 @@ impl Render for GraphView {
                 ))
                 .into_any_element();
         }
-        let now = Instant::now();
+        let now = clock::now();
         // The canvas's size is known once it's drawn, so the first frame only measures it.
         let measured = self.bounds.get().size.width > fixed(0.);
         if !self.placed && measured {
@@ -2492,9 +2798,13 @@ impl Render for GraphView {
             lineage: self.lineage.clone(),
             ripples: self.ripples.0.clone(),
             swaps: self.swaps.clone(),
+            grid: self.grid,
             spinner: (self.deepening)
                 .map(|at| (now.duration_since(at).as_secs_f32() / SPIN.as_secs_f32()).fract()),
             ripple: self.ripple_age(now).min(1.),
+            bends: self.bends.clone(),
+            tag_slides: self.tag_slides.clone(),
+            now,
             titles: self.titles.clone(),
             tags: self.tags.clone(),
             theme: theme.clone(),
@@ -2870,9 +3180,187 @@ fn is_item(line: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use gpui::point;
+    use std::collections::{HashMap, HashSet};
+    use std::time::{Duration, Instant};
 
-    use super::{Camera, glided, names, reflowed};
+    use gpui::{SharedString, point};
+
+    use super::{
+        Bend, Camera, MOVE, Move, TagSlides, bent, commonest, glided, held, names, placed, reflowed,
+    };
+
+    fn sliding(since: Instant, key: &str, by: f32) -> Move {
+        Move {
+            by: HashMap::from([(SharedString::from(key.to_owned()), point(0., by))]),
+            ..Move::at(since)
+        }
+    }
+
+    #[test]
+    fn a_commit_starts_from_rest_where_it_was_and_gets_there() {
+        let (key, at, start) = (SharedString::from("a"), point(0., 0.), Instant::now());
+        let moves = [sliding(start, "a", 100.)];
+        let y = |ms| {
+            placed(&moves, &key, at, start + Duration::from_millis(ms))
+                .0
+                .y
+        };
+        assert_eq!(y(0), 100., "it starts where it was");
+        assert!(100. - y(8) < 0.2, "and leaves slowly, not at a jump");
+        assert_eq!(
+            y(MOVE.as_millis() as u64),
+            0.,
+            "and ends where it's laid out"
+        );
+    }
+
+    #[test]
+    fn a_load_landing_partway_doesnt_kick_what_is_moving() {
+        let (key, at, start) = (SharedString::from("a"), point(0., 0.), Instant::now());
+        let landed = start + MOVE / 3;
+        let tick = Duration::from_millis(8);
+        let first = sliding(start, "a", 400.);
+        let before = placed(std::slice::from_ref(&first), &key, at, landed).0.y;
+        let step_before = placed(std::slice::from_ref(&first), &key, at, landed - tick)
+            .0
+            .y
+            - before;
+        // It's laid out 100 further on, so it's that much further from there.
+        let moves = [first, sliding(landed, "a", 100.)];
+        let after = placed(&moves, &key, at, landed).0.y;
+        assert_eq!(
+            after,
+            before + 100.,
+            "only the layout moved, not what's drawn"
+        );
+        let step_after = after - placed(&moves, &key, at, landed + tick).0.y;
+        assert!(
+            (step_after - step_before).abs() < step_before * 0.25,
+            "it goes on at the speed it was going: {step_before} then {step_after}"
+        );
+    }
+
+    #[test]
+    fn what_grows_in_goes_on_growing_through_a_later_load() {
+        let (key, at, start) = (SharedString::from("a"), point(0., 0.), Instant::now());
+        let growing = Move {
+            grows: HashSet::from([key.clone()]),
+            ..Move::at(start)
+        };
+        let moves = [growing, sliding(start + MOVE / 4, "b", 100.)];
+        let grown = placed(&moves, &key, at, start + MOVE / 2).1;
+        assert!(grown > 0. && grown < 1., "still growing, at {grown}");
+    }
+
+    #[test]
+    fn the_view_goes_with_most_of_what_is_in_it() {
+        let (few, most) = (point(0., 72.), point(0., 2304.));
+        let moves = [
+            (true, most),
+            (true, most),
+            (true, few),
+            (false, few),
+            (false, few),
+        ];
+        assert_eq!(held(&moves), Some(most), "whatever's out of view does");
+    }
+
+    #[test]
+    fn with_nothing_in_view_the_view_goes_with_the_most_of_all() {
+        let (few, most) = (point(0., 72.), point(0., 2304.));
+        let moves = [(false, few), (false, most), (false, most)];
+        assert_eq!(held(&moves), Some(most));
+        assert_eq!(held(&[]), None);
+    }
+
+    #[test]
+    fn an_edge_given_another_parent_goes_on_from_where_it_was() {
+        let key = (SharedString::from("a"), 0);
+        let start = Instant::now();
+        let bend = Bend {
+            start: point(0., 144.),
+            lift: [0.25, 0.],
+        };
+        let load = Move {
+            edges: HashMap::from([(key.clone(), bend)]),
+            ..Move::at(start)
+        };
+        let edges = HashMap::from([(key, 7)]);
+        let moves = [load];
+        assert_eq!(
+            bent(&moves, &edges, start).get(&7),
+            Some(&bend),
+            "it's drawn as it was as the load lands"
+        );
+        let halfway = bent(&moves, &edges, start + MOVE / 2);
+        let halfway = halfway.get(&7).map(|bend| bend.start.y);
+        assert!(halfway.is_some_and(|y| y > 0. && y < 144.), "{halfway:?}");
+        let there = bent(&moves, &edges, start + MOVE);
+        assert_eq!(
+            there.get(&7),
+            Some(&Bend::default()),
+            "and as it's laid out at the end"
+        );
+    }
+
+    #[test]
+    fn a_tag_put_elsewhere_slides_there_and_others_stay() {
+        let (moved, still) = (SharedString::from("main"), SharedString::from("beta"));
+        let start = Instant::now();
+        let mut slides = TagSlides::default();
+        slides.begin(start);
+        slides.place(&moved, point(0., 0.), start);
+        slides.place(&still, point(50., 0.), start);
+        slides.end();
+
+        slides.landed = true;
+        slides.begin(start);
+        assert_eq!(
+            slides.place(&moved, point(0., -144.), start),
+            point(0., 0.),
+            "it stays where it was as the load lands"
+        );
+        assert_eq!(slides.place(&still, point(50., 0.), start), point(50., 0.));
+        slides.end();
+        assert!(slides.moving(start));
+
+        let halfway = start + MOVE / 2;
+        slides.begin(halfway);
+        let y = slides.place(&moved, point(0., -144.), halfway).y;
+        assert!(y < 0. && y > -144., "{y}");
+        slides.end();
+
+        let there = start + MOVE;
+        assert!(!slides.moving(there), "and it rests once it gets there");
+        slides.begin(there);
+        assert_eq!(
+            slides.place(&moved, point(0., -144.), there),
+            point(0., -144.)
+        );
+    }
+
+    #[test]
+    fn a_tag_zoomed_away_from_doesnt_slide_without_a_load() {
+        let tag = SharedString::from("main");
+        let start = Instant::now();
+        let mut slides = TagSlides::default();
+        slides.begin(start);
+        slides.place(&tag, point(0., 0.), start);
+        slides.end();
+        slides.begin(start);
+        assert_eq!(slides.place(&tag, point(0., -30.), start), point(0., -30.));
+    }
+
+    #[test]
+    fn the_most_common_shift_is_what_holds_still() {
+        assert_eq!(commonest([2304., 2304., 2304., 372.]), Some(2304.));
+        assert_eq!(
+            commonest([372., 372., 0., 0.]),
+            Some(0.),
+            "a tie moves least"
+        );
+        assert_eq!(commonest([]), None);
+    }
 
     #[test]
     fn a_glide_looks_along_a_straight_line() {
