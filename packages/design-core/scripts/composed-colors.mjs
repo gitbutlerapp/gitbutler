@@ -5,17 +5,17 @@
 // and written back as color-mix(), which keeps both links: --bg-hover follows
 // --fill-gray-bg and --opacity-bg-hover rather than freezing their values.
 
+import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
 
-const isComposed = (value) =>
-	value !== null &&
-	typeof value === "object" &&
-	typeof value.components === "string";
+function isComposed(value) {
+	return value !== null && typeof value === "object" && typeof value.components === "string";
+}
 
-const reference = (alias) =>
-	`var(${stripCollectionPrefix(alias.slice(1, -1))})`;
+function reference(alias) {
+	return `var(${stripCollectionPrefix(alias.slice(1, -1))})`;
+}
 
 function toColorMix({ components, alpha }) {
 	const amount =
@@ -37,36 +37,25 @@ export function liftComposedColors(paths, outDir) {
 
 	for (const path of paths) {
 		const json = JSON.parse(readFileSync(path, "utf8"));
-		const walk = (node, keys) => {
+		function walk(node, keys) {
 			for (const [key, child] of Object.entries(node)) {
-				if (
-					key.startsWith("$") ||
-					child === null ||
-					typeof child !== "object"
-				)
-					continue;
+				if (key.startsWith("$") || child === null || typeof child !== "object") continue;
 				if (child.$type === "color" && isComposed(child.$value)) {
 					const modes = child.$extensions?.mode ?? {};
 					const light = toColorMix(modes.light ?? child.$value);
 					const dark = toColorMix(modes.dark ?? child.$value);
 					declarations.push({
 						name: stripCollectionPrefix([...keys, key].join(".")),
-						value:
-							light === dark
-								? light
-								: `light-dark(${light}, ${dark})`,
+						value: light === dark ? light : `light-dark(${light}, ${dark})`,
 					});
 					delete node[key];
 				} else {
 					walk(child, [...keys, key]);
 				}
 			}
-		};
+		}
 		walk(json, []);
-		writeFileSync(
-			join(outDir, basename(path)),
-			JSON.stringify(json, null, "\t"),
-		);
+		writeFileSync(join(outDir, basename(path)), JSON.stringify(json, null, "\t"));
 	}
 
 	return declarations;

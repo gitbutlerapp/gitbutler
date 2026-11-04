@@ -1,9 +1,9 @@
-import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { liftComposedColors } from "./composed-colors.mjs";
 import { generateShadowVars } from "./generate-shadow-vars.mjs";
 import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
+import { spawn } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const TOKENS_CSS_PATH = resolve("tokens/tokens.css");
 const TOKEN_JSON_PATHS = [
@@ -13,17 +13,14 @@ const TOKEN_JSON_PATHS = [
 
 const isWatchMode = process.argv.includes("--watch");
 
-const composedColors = liftComposedColors(
-	TOKEN_JSON_PATHS,
-	resolve(".terrazzo"),
-);
+const composedColors = liftComposedColors(TOKEN_JSON_PATHS, resolve(".terrazzo"));
 
 // Figma variable descriptions, keyed by CSS custom property name. They are
 // written above each declaration so tokens.css says when to use a token, for
 // people and for agents reading it from node_modules.
 function readDescriptions() {
 	const descriptions = new Map();
-	const walk = (node, path) => {
+	function walk(node, path) {
 		if (!node || typeof node !== "object") return;
 		if ("$type" in node) {
 			const name = stripCollectionPrefix(path.join("."));
@@ -34,7 +31,7 @@ function readDescriptions() {
 		for (const [key, child] of Object.entries(node)) {
 			if (!key.startsWith("$")) walk(child, [...path, key]);
 		}
-	};
+	}
 	for (const file of TOKEN_JSON_PATHS) {
 		walk(JSON.parse(readFileSync(file, "utf8")), []);
 	}
@@ -43,9 +40,7 @@ function readDescriptions() {
 
 function getBlock(css, selector) {
 	const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const match = css.match(
-		new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`, "m"),
-	);
+	const match = css.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`, "m"));
 	return match?.[1] ?? "";
 }
 
@@ -54,9 +49,7 @@ function parseDeclarations(block) {
 	const index = new Map();
 
 	for (const line of block.split("\n")) {
-		const match = line.match(
-			/^\s*(--[^:]+):\s*(.+?);\s*(?:\/\*.*\*\/)?\s*$/,
-		);
+		const match = line.match(/^\s*(--[^:]+):\s*(.+?);\s*(?:\/\*.*\*\/)?\s*$/);
 		if (!match) continue;
 
 		const [, name, value] = match;
@@ -75,9 +68,7 @@ function stringifyDeclarations(declarations, descriptions) {
 		.map(({ name, value }) => {
 			const description = descriptions.get(name);
 			const line = `  ${name}: ${value};`;
-			return description
-				? `  /* ${description.replaceAll("*/", "* /")} */\n${line}`
-				: line;
+			return description ? `  /* ${description.replaceAll("*/", "* /")} */\n${line}` : line;
 		})
 		.join("\n");
 }
@@ -91,9 +82,7 @@ function buildLightDarkCss(sourceCss) {
 			return sourceCss;
 		}
 
-		throw new Error(
-			"Expected both :root and :root.dark token blocks in tokens/tokens.css.",
-		);
+		throw new Error("Expected both :root and :root.dark token blocks in tokens/tokens.css.");
 	}
 
 	const light = parseDeclarations(lightBlock);
@@ -147,10 +136,7 @@ const child = spawn("pnpm", tzArgs, {
 child.stdout.setEncoding("utf8");
 child.stdout.on("data", (chunk) => {
 	process.stdout.write(chunk);
-	if (
-		chunk.includes("tokens built") ||
-		(!isWatchMode && chunk.includes("Build complete"))
-	) {
+	if (chunk.includes("tokens built") || (!isWatchMode && chunk.includes("Build complete"))) {
 		postprocessTokens();
 	}
 });

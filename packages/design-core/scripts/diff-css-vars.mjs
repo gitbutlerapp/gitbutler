@@ -39,10 +39,11 @@ const bump = removed.length ? "major" : added.length ? "minor" : changed.length 
 const result = { bump, added, removed, changed };
 
 if (process.argv.includes("--json")) {
-	console.log(JSON.stringify(result));
+	process.stdout.write(`${JSON.stringify(result)}\n`);
 } else {
 	const lines = [];
-	if (removed.length) lines.push(`### Removed (breaking) — ${removed.length}`, ...removed.map((n) => `- \`${n}\``));
+	if (removed.length)
+		lines.push(`### Removed (breaking) — ${removed.length}`, ...removed.map((n) => `- \`${n}\``));
 	if (added.length) lines.push(`### Added — ${added.length}`, ...added.map((n) => `- \`${n}\``));
 	if (changed.length)
 		lines.push(
@@ -52,5 +53,7 @@ if (process.argv.includes("--json")) {
 			"| --- | --- | --- |",
 			...changed.map((c) => `| \`${c.name}\` | \`${c.from}\` | \`${c.to}\` |`),
 		);
-	console.log(lines.length ? lines.join("\n") : "_No CSS custom properties changed._");
+	process.stdout.write(
+		`${lines.length ? lines.join("\n") : "_No CSS custom properties changed._"}\n`,
+	);
 }

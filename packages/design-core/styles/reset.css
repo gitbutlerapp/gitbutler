@@ -14,18 +14,18 @@
 		text-size-adjust: none;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
-		text-rendering: optimizeLegibility;
 		font-variant-ligatures: none;
+		text-rendering: optimizeLegibility;
 	}
 
 	body {
-		padding: 0;
 		margin: 0;
+		padding: 0;
 		overflow-x: hidden;
 		color: var(--text-1);
-		font-family: var(--fontfamily-base);
 		font-weight: var(--font-weight-regular);
 		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
 	}
 
 	input,

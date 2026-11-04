@@ -2,11 +2,24 @@
 
 Design tokens and fonts for GitButler applications. This package provides CSS custom properties, design tokens in JSON format, and web fonts used across GitButler products.
 
+It lived in [gitbutlerapp/design-core](https://github.com/gitbutlerapp/design-core) until 11.3.0, whose history stays there. It is no longer published to npm.
+
 ## Installation
 
-```bash
-npm install @gitbutler/design-core
+Inside this monorepo, depend on the workspace copy:
+
+```json
+"@gitbutler/design-core": "workspace:*"
 ```
+
+Outside it, pin a commit of this repo, the same commit as `@gitbutler/ui-react` when you use both, so the components and the tokens they read always match:
+
+```json
+"@gitbutler/design-core": "github:gitbutlerapp/gitbutler#<sha>&path:packages/design-core",
+"@gitbutler/ui-react": "github:gitbutlerapp/gitbutler#<sha>&path:packages/ui-react"
+```
+
+`tokens/tokens.css` and the fonts are committed, so nothing builds on install. Versions up to 11.3.0 are still on npm for projects that have not moved.
 
 ## Usage
 
@@ -141,7 +154,7 @@ All fonts are variable fonts unless noted.
 
 ## Development
 
-Design tokens live in Figma and flow into this repo through a fixed pipeline:
+Design tokens live in Figma and flow into this package through a fixed pipeline:
 
 ```
 Figma variables  ──tokens-bruecke──▶  tokens/json/*.tokens.json  ──terrazzo──▶  tokens/tokens.css
@@ -152,18 +165,17 @@ export, and `tokens/tokens.css` is generated from it by the build.
 
 ### Building
 
-The repo pins pnpm (`packageManager`) and Node (`devEngines.runtime`) in `package.json`.
-`pnpm install` downloads that Node, so no separate Node version manager is needed.
+Run these from `packages/design-core`, after a `pnpm install` at the repo root:
 
 ```bash
-# Install dependencies and the pinned Node
-pnpm install
-
 # Build tokens.css from tokens/json
-pnpm run build
+pnpm build
 
 # Rebuild on every token change
-pnpm run dev:tokens
+pnpm dev:tokens
+
+# Build, and fail if the committed tokens.css is stale (CI runs this through `pnpm check`)
+pnpm check
 ```
 
 `pnpm run build` runs [`scripts/postprocess-light-dark.mjs`](./scripts/postprocess-light-dark.mjs), which:
@@ -189,7 +201,7 @@ Exports use the [tokens-bruecke](https://github.com/tokens-bruecke/figma-plugin)
 same tool as the Figma plugin, in [DTCG 2025.10](https://www.designtokens.org/tr/2025.10/format/) format.
 It has to be 3.12 or later: older versions skip colors that alias another with their own opacity.
 
-Credentials go in a gitignored `.env` at the repo root:
+Credentials go in a gitignored `.env` in `packages/design-core`:
 
 ```bash
 FIGMA_API_KEY=figd_…      # personal access token, must include the file_variables:read scope
@@ -201,7 +213,7 @@ set -a && . ./.env && set +a
 npx tokens-bruecke \
   -a "$FIGMA_API_KEY" \
   -f "$FIGMA_FILE_KEY" \
-  -c .claude/skills/release-tokens/figma-export.config.json \
+  -c figma-export.config.json \
   -o tokens/json \
   --split-by-collection
 ```
@@ -218,55 +230,38 @@ Two gotchas:
 - Every export rewrites a `createdAt` stamp in each file, so a diff alone does not mean
   the tokens changed. Check with:
 
-    ```bash
-    git diff -U0 tokens/json | grep '^[+-]' | grep -v '^[+-][+-]' | grep -v createdAt
-    ```
+  ```bash
+  git diff -U0 tokens/json | grep '^[+-]' | grep -v '^[+-][+-]' | grep -v createdAt
+  ```
 
-    No output means only timestamps moved — revert and skip the release.
+  No output means only timestamps moved: revert, there is nothing to change.
 
-### Releasing
+The plugin can also push the export from Figma as a pull request, with its **GitHub PR**
+server. Point it at `gitbutlerapp/gitbutler`, base branch `master`, a branch of its own such
+as `tokens-bruecke/update-tokens`, and file name `packages/design-core/tokens/json` with
+_Split collections into separate files_ on, plus the settings in
+[`figma-export.config.json`](./figma-export.config.json). The PR carries only the JSON, so
+check out its branch, run `pnpm build` and commit `tokens/tokens.css` before it can pass.
 
-Version bumps follow the impact on the generated CSS custom properties, since those are
-the public API:
+### Changing tokens
 
-| Change                                           | Bump  |
-| ------------------------------------------------ | ----- |
-| Token values tweaked                             | patch |
-| Tokens or collections added                      | minor |
-| Tokens removed or renamed (CSS var names change) | major |
+A token change is one pull request in this repo, made the usual way: export, `pnpm build`,
+commit `tokens/json` and `tokens/tokens.css` together. In the same PR:
 
-House style: the version bump lives in the **same commit** as the token changes, tagged
-with a bare `X.Y.Z` annotated tag (no `v` prefix).
+- CI's `pnpm check` rebuilds `tokens.css` and fails if the committed one is stale.
+- `@gitbutler/ui-react`'s `check:tokens` fails on any `var(--…)` a component still reads but
+  no stylesheet declares any more, so fix those components in that PR.
 
-```bash
-npm version <patch|minor|major> --no-git-tag-version
-# commit package.json + tokens/ together
-git tag -a "$(node -p "require('./package.json').version")" -m "…"
+Removing or renaming a variable breaks whatever reads it, here and in every project that
+pins this package. Projects outside the monorepo pick a change up when they move their pin.
 
-npm publish --dry-run
-npm publish                  # prompts for a 2FA one-time code
-git push origin main && git push --tags
-```
-
-`prepublishOnly` rebuilds the CSS, so a published package always matches its committed
-JSON. Pushing `tokens/tokens.css` also redeploys the hue-dini site via
-[`.github/workflows/deploy-hue-dini.yml`](./.github/workflows/deploy-hue-dini.yml).
-
-The whole sequence — export, no-op check, build, bump, commit, tag — is automated as a
-Claude Code skill in [`.claude/skills/release-tokens/`](./.claude/skills/release-tokens/).
-Run it with `/release-tokens`; it stops before `npm publish`, which stays manual because
-npm 2FA requires a one-time code.
+There is no version to bump: `version` stays at 11.3.0, the last npm release, so peer
+ranges like `^11.3.0` keep resolving.
 
 ## Color Tool
 
-[hue-dini](./tools/hue-dini) is the tool used to preview and export the GitButler color palette. It applies a single shared luminance scale across all hues — gray, accent, and semantic — so shades at the same step feel visually equivalent regardless of hue.
+[hue-dini](https://github.com/gitbutlerapp/design-core/tree/main/tools/hue-dini) is the tool used to preview and export the GitButler color palette. It applies a single shared luminance scale across all hues — gray, accent, and semantic — so shades at the same step feel visually equivalent regardless of hue.
 
 **Live:** https://gitbutlerapp.github.io/design-core/
 
-```bash
-cd tools/hue-dini
-pnpm install
-pnpm dev
-```
-
-See [tools/hue-dini/README.md](./tools/hue-dini/README.md) for more details.
+It stayed in the design-core repo and did not move here.

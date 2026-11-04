@@ -25,9 +25,7 @@ function formatDimension(dim) {
 function buildShadowValue(layers) {
 	return layers
 		.map(({ inset, color, offsetX, offsetY, blur, spread }) => {
-			const colorValue = color.startsWith("{")
-				? resolveTokenRef(color)
-				: color;
+			const colorValue = color.startsWith("{") ? resolveTokenRef(color) : color;
 			const parts = [offsetX, offsetY, blur, spread].map(formatDimension);
 			parts.push(colorValue);
 			if (inset) parts.unshift("inset");
@@ -63,7 +61,9 @@ export function generateShadowVars(css) {
 	const fxTokens = JSON.parse(readFileSync(FX_TOKENS_PATH, "utf8"));
 	const shadows = collectShadowTokens(fxTokens?.fx ?? {});
 	const varNames = shadows.map(({ path }) => shadowVarName(path));
-	const vars = shadows.map(({ token }, i) => `  ${varNames[i]}: ${buildShadowValue(token.$value)};`);
+	const vars = shadows.map(
+		({ token }, i) => `  ${varNames[i]}: ${buildShadowValue(token.$value)};`,
+	);
 
 	if (vars.length === 0) return css;
 

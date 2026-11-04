@@ -12,9 +12,7 @@ const STYLESHEETS = ["styles/reset.css", "styles/text.css", "core.css"];
 
 const declared = new Set();
 for (const file of ["tokens/tokens.css", ...STYLESHEETS]) {
-	for (const [, name] of readFileSync(file, "utf8").matchAll(
-		/(--[\w-]+)\s*:/g,
-	)) {
+	for (const [, name] of readFileSync(file, "utf8").matchAll(/(--[\w-]+)\s*:/g)) {
 		declared.add(name);
 	}
 }
@@ -35,6 +33,4 @@ if (missing.length) {
 	);
 	process.exit(1);
 }
-console.log(
-	`check-style-vars: every var(--…) in ${STYLESHEETS.join(", ")} resolves.`,
-);
+process.stdout.write(`check-style-vars: every var(--…) in ${STYLESHEETS.join(", ")} resolves.\n`);
