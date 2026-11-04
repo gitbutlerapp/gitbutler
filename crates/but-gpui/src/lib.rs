@@ -218,7 +218,7 @@ pub fn run(embedded: Option<Embedded>) {
             .detach();
             // GPUI awaits what quit handlers return only once they've all run, the store's
             // save included, so this writes out what they logged.
-            cx.on_app_quit(|_| async { backend::logs::flush() })
+            cx.on_app_quit(|_| async { backend::logs::flush_at_quit() })
                 .detach();
             // Without them, text falls back to the system's fonts.
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
