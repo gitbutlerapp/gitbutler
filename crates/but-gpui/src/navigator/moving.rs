@@ -673,6 +673,12 @@ impl Navigator {
         self.folds_seen.get(&fold).copied().unwrap_or(true)
     }
 
+    /// Whether `target` is the heading of a worktree folded away: nothing lands in what's out
+    /// of sight, as a move has no stops there, so neither a paste nor a drop does on its heading.
+    pub(crate) fn folded_heading(&self, target: &Selection) -> bool {
+        matches!(target, Selection::Checkout(..)) && !self.open_as_built(target)
+    }
+
     /// The terminals of `project`'s worktrees for a move of one among them to start from: as
     /// the move of one under way started, which the rows show elsewhere, else as they're
     /// listed now (see [`terminal_lists`]).

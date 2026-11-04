@@ -1000,6 +1000,9 @@ impl AppView {
         else {
             return;
         };
+        if self.navigator.read(cx).folded_heading(&target) {
+            return snack(&self.store, "Open the worktree first", cx);
+        }
         let place = Place::from_keys(window.modifiers(), &cut, &target);
         // Pasting lets go of the cut, before it lands: letting go clears snackbars, and landing
         // can show one. A drop leaves the cut alone.

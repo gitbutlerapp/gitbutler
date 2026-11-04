@@ -402,7 +402,7 @@ impl Navigator {
     /// was.
     pub(super) fn takes_drop(&self, item: &Selection, store: &Store) -> bool {
         let Some((project, name)) = &self.dragged_worktree else {
-            return self.drops(store);
+            return self.drops(store) && !self.folded_heading(item);
         };
         let own = match item {
             Selection::Checkout(_, Checkout::Linked(heading)) => heading == name,

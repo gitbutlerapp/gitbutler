@@ -38,7 +38,10 @@ impl Navigator {
             true => (store.dragging.as_ref()).filter(|_| self.drops(store)),
             false => store.cut.as_ref(),
         };
-        let takes = !dragging || self.takes_drop(&target, store);
+        let takes = match dragging {
+            true => self.takes_drop(&target, store),
+            false => !self.folded_heading(&target),
+        };
         let lands = |place: Place| {
             takes
                 && pending.is_some_and(|payload| {
