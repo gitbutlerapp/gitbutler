@@ -406,11 +406,16 @@ impl Tiling {
     }
 
     /// With `pinned` along `side` of all the room, as tall or wide as it is, in half the room of
-    /// what's there: the part at that end of a division along `side`, else everything.
-    fn pinned_along(&self, side: Side, pinned: RowKey) -> Tiling {
+    /// what's there: the part at that end of a division along `side`, else everything. Not
+    /// where it has a tile already, which stays where it is.
+    fn pinned_along(&self, side: Side, pinned: RowKey) -> Option<Tiling> {
+        let tile = Tile::Pinned(pinned);
+        if self.has(&tile) {
+            return None;
+        }
         let mut tiling = self.clone();
-        tiling.put_along(side, Tiling::Tile(Tile::Pinned(pinned)), 0.5);
-        tiling
+        tiling.put_along(side, Tiling::Tile(tile), 0.5);
+        Some(tiling)
     }
 
     /// Where each tile is drawn with `tile` growing over the others to take all the room, `at`
@@ -1389,26 +1394,22 @@ impl Store {
         self.change_tiling(cx, |tiling| tiling.move_divider(path, after, at, min));
     }
 
-    /// `tiling`, the selected row's, with `pinned` along `side`, as a row dragged there lands: a
-    /// new tile, or where it's there already, that tile moved there. Not where that changes
-    /// nothing, as the selected row's own page is its home tile.
+    /// `tiling`, the selected row's, with a new tile for `pinned` along `side`, as a row dragged
+    /// there lands. Not where it's on show already: as the selected row's own page, its home
+    /// tile, or in a tile of its own, which moves only by its bar.
     pub fn tiling_with(
         &self,
         tiling: Option<&Tiling>,
         pinned: &RowKey,
         side: Side,
-        least: (f32, f32),
     ) -> Option<Tiling> {
         if *pinned == self.row_key(self.selection.as_ref()?) {
             return None;
         }
-        let tiling = tiling.cloned().unwrap_or_default();
-        let tile = Tile::Pinned(pinned.clone());
-        let landed = match tiling.has(&tile) {
-            true => tiling.landed(&tile, &Landing::Edge(side), least),
-            false => tiling.pinned_along(side, pinned.clone()),
-        };
-        (landed != tiling).then_some(landed)
+        tiling
+            .cloned()
+            .unwrap_or_default()
+            .pinned_along(side, pinned.clone())
     }
 
     /// Lay `row`'s tiles out as `tiling`, or with `None` leave it alone again, as a tile tried
@@ -1914,7 +1915,8 @@ mod tests {
         let mut tiling = Tiling::default();
         tiling.pin(&Tile::Home, Axis::Across, terminal(1));
         tiling.pin(&tile(1), Axis::Across, terminal(2));
-        let landed = tiling.pinned_along(Side::Right, terminal(3));
+        let landed =
+            (tiling.pinned_along(Side::Right, terminal(3))).expect("terminal 3 has no tile yet");
         let width = |tiling: &Tiling, tile: &Tile| tiling.area_of(tile).map(|area| area.width);
         assert_eq!(
             (width(&landed, &Tile::Home), width(&landed, &tile(1))),
@@ -1932,6 +1934,19 @@ mod tests {
             now,
             "the new tile has what it gave up"
         );
+    }
+
+    #[test]
+    fn a_row_with_a_tile_already_has_nowhere_to_be_dragged_in() {
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal(1));
+        for side in [Side::Left, Side::Right] {
+            assert_eq!(
+                tiling.pinned_along(side, terminal(1)),
+                None,
+                "its tile stays where it is, and moves only by its bar"
+            );
+        }
     }
 
     #[test]
@@ -2003,7 +2018,8 @@ mod tests {
     fn a_row_dragged_beside_stacked_tiles_is_as_tall_as_all_of_them() {
         let mut tiling = Tiling::default();
         tiling.pin(&Tile::Home, Axis::Down, terminal(1));
-        let landed = tiling.pinned_along(Side::Left, terminal(2));
+        let landed =
+            (tiling.pinned_along(Side::Left, terminal(2))).expect("terminal 2 has no tile yet");
         assert_eq!(
             landed.area_of(&Tile::Pinned(terminal(2))),
             Some(area(0., 0., 0.5, 1.)),
