@@ -98,6 +98,11 @@ impl Detail {
         self.tabs_focus.is_focused(window)
     }
 
+    /// Whether either row of tabs has the keys.
+    pub(crate) fn on_tabs(&self, window: &Window) -> bool {
+        self.tabs_focused(window) || self.project_tabs_focused(window)
+    }
+
     /// Give the keys to the tabs. Whether the page keeps them for coming back from the left
     /// is up to how the keys next leave.
     pub(crate) fn focus_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -145,26 +150,59 @@ impl Detail {
             }
     }
 
-    /// ↑ on the tabs stays there, and from the top of the files under them, the commit's
+    /// ↑ on either tabs: from the Changes and pull request tabs beside a list page's list, up
+    /// to the project's tabs over them, and otherwise it stays there, nothing being over them.
+    /// Says whether the tabs had the keys.
+    pub(super) fn up_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.tabs_focused(window) && self.list_page() {
+            self.up_to_project_tabs(window, cx);
+        }
+        self.on_tabs(window)
+    }
+
+    /// ↑ on the tabs goes on from them, and from the top of the files under them, the commit's
     /// message where it's listed, goes up to them, as it does from the top of the diff. Says
     /// whether it did either.
     pub(super) fn up_to_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.tabs_focus.is_focused(window) {
+        if self.up_from_tabs(window, cx) {
             return true;
         }
-        let top = (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry());
-        let up = self.files_focus.is_focused(window) && top && self.tabs_shown(cx);
-        if up {
+        self.files_focus.is_focused(window)
+            && self.on_first_entry(cx)
+            && self.up_past_top(window, cx)
+    }
+
+    /// ↑ out of the top of the files or the diff: to the Changes and pull request tabs over
+    /// them, or on a list page without those, to the project's. Says whether tabs are over them.
+    pub(super) fn up_past_top(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.tabs_shown(cx) {
             self.focus_tabs(window, cx);
+            return true;
         }
-        up
+        if self.list_page() {
+            self.up_to_project_tabs(window, cx);
+        }
+        self.list_page()
     }
 
     /// ↓ from the tabs: down to the files under Changes, the file list or the files beside a
     /// list page's list, or the diff while they're hidden. The pull request's tab has nothing
-    /// under it to take the keys, nor has a page without changes. Says whether the tabs had
-    /// them.
+    /// under it to take the keys, nor has a page without changes. From a project's tabs, back
+    /// to what ↑ came from, else down to the page's list, which the Graph hasn't. Says whether
+    /// the tabs had them.
     pub(super) fn down_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.project_tabs_focused(window) {
+            let from = self.project_tabs_from.take();
+            match from.filter(|from| self.takes_keys_back(from, cx)) {
+                Some(from) => {
+                    window.focus(&from, cx);
+                    cx.notify();
+                }
+                None if self.list_page() => self.focus_files(window, cx),
+                None => {}
+            }
+            return true;
+        }
         if !self.tabs_focus.is_focused(window) {
             return false;
         }

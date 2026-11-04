@@ -280,6 +280,7 @@ impl AppView {
         } else if typing
             || (detail_focused && (!detail.has_files() || detail.diff_hidden(cx)))
             || detail.side_list_focused(window)
+            || detail.on_tabs(window)
             || store.selection.is_none()
         {
             Vec::new()

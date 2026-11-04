@@ -370,6 +370,13 @@ pub struct Detail {
     /// The keys went left out of the tabs, so coming back from the left lands on them again
     /// rather than on the files under them. Another page forgets it.
     tabs_kept: bool,
+    /// The tabs to a project's pages, which ↑ from the top of a list page's list reaches, and
+    /// where ← and → go to the page on that side.
+    project_tabs_focus: FocusHandle,
+    /// The keys went left out of those tabs, as `tabs_kept` says of the others.
+    project_tabs_kept: bool,
+    /// What ↑ came to those tabs from beside a list page's list, which ↓ goes back to.
+    project_tabs_from: Option<FocusHandle>,
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
@@ -796,6 +803,9 @@ impl Detail {
             side_focus: cx.focus_handle(),
             tabs_focus: cx.focus_handle(),
             tabs_kept: false,
+            project_tabs_focus: cx.focus_handle(),
+            project_tabs_kept: false,
+            project_tabs_from: None,
             people_focus: cx.focus_handle(),
             people_scroll: ScrollHandle::new(),
             glide: None,
@@ -1413,6 +1423,7 @@ impl Detail {
     fn reset_view(&mut self) {
         self.reopening = None;
         self.tabs_kept = false;
+        self.project_tabs_kept = false;
         self.text_selection = None;
         self.note_selection = None;
         self.cursor = Cursor::default();
@@ -1921,6 +1932,8 @@ impl Detail {
             &self.focus,
             &self.files_focus,
             &self.side_focus,
+            &self.tabs_focus,
+            &self.project_tabs_focus,
             &self.people_focus,
             &self.shipped_focus,
         ]
@@ -2593,6 +2606,11 @@ impl Detail {
         (shown.get((at + delta).clamp(0, shown.len() as isize - 1) as usize)).copied()
     }
 
+    /// Whether the current entry is the first the file list shows, with none over it to step to.
+    pub(super) fn on_first_entry(&self, cx: &App) -> bool {
+        (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry())
+    }
+
     /// The files the file list shows, in its order: not those a filter or a pending
     /// operation hides, nor, in the tree, those of a directory folded shut. While the filter
     /// is open, the best matches first, as it ranks them.
@@ -2650,8 +2668,12 @@ impl Detail {
             cx.notify();
         }
         // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
-        if stop.is_none() && !forward && self.focus.is_focused(window) && self.tabs_shown(cx) {
-            return self.focus_tabs(window, cx);
+        if stop.is_none()
+            && !forward
+            && self.focus.is_focused(window)
+            && self.up_past_top(window, cx)
+        {
+            return;
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
@@ -3688,7 +3710,7 @@ impl Render for Detail {
                     | Selection::Branches(_)
                     | Selection::History(_)
                     | Selection::Graph(_) => {
-                        Some(self.render_project_header(selection, &theme, cx))
+                        Some(self.render_project_header(selection, &theme, window, cx))
                     }
                     Selection::Checkout(project, checkout) => {
                         Some(self.render_checkout_header(project, checkout, false, &theme, cx))
@@ -3859,9 +3881,14 @@ impl Render for Detail {
                     this.move_file(1, cx)
                 }
             }))
+            // With none over it, the diff's keys go on as ↑ does, up its hunks and out of its top.
             .on_action(cx.listener(|this, _: &PreviousFile, window, cx| {
-                if !this.up_to_tabs(window, cx) {
-                    this.move_file(-1, cx)
+                if this.up_to_tabs(window, cx) {
+                    return;
+                }
+                match this.focus.is_focused(window) && this.on_first_entry(cx) {
+                    true => this.move_hunk(false, window, cx),
+                    false => this.move_file(-1, cx),
                 }
             }))
             .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
@@ -3874,9 +3901,8 @@ impl Render for Detail {
                     this.move_hunk(true, window, cx)
                 }
             }))
-            // Nothing is over the tabs.
             .on_action(cx.listener(|this, _: &PreviousHunk, window, cx| {
-                if !this.tabs_focus.is_focused(window) {
+                if !this.up_from_tabs(window, cx) {
                     this.move_hunk(false, window, cx)
                 }
             }))
