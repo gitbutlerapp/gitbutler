@@ -2852,7 +2852,7 @@ impl AppView {
             Some(tile) => tile.before.as_ref(),
             None => store.tiling(),
         };
-        store.tiling_with(tiling, &pinned, side, self.least_tile(cx))
+        store.tiling_with(tiling, &pinned, side)
     }
 
     /// The side of the tiles a row dragged from the navigator lands as a tile with the pointer
@@ -2950,17 +2950,14 @@ impl AppView {
         let before = store.tiling().cloned();
         let tile = Tile::Pinned(pinned);
         let mut from = before.clone().unwrap_or_default().areas();
-        let new = from.iter().all(|(other, _)| *other != tile);
-        if new {
-            // Nothing yet, at the side it comes in from.
-            let area = Area {
-                left: if side == Side::Right { 1. } else { 0. },
-                top: 0.,
-                width: 0.,
-                height: 1.,
-            };
-            from.push((tile.clone(), area));
-        }
+        // Nothing yet, at the side it comes in from.
+        let area = Area {
+            left: if side == Side::Right { 1. } else { 0. },
+            top: 0.,
+            width: 0.,
+            height: 1.,
+        };
+        from.push((tile.clone(), area));
         let feel = store.tile_drag_feel;
         let room = f32::from(self.tile_room.get().size.width).max(1.);
         let peek = f32::from(Theme::get(cx).scaled(feel.row_peek)) / room;
@@ -2971,7 +2968,6 @@ impl AppView {
         self.tile_glide = None;
         self.row_tile = Some(RowTile {
             tile,
-            new,
             side,
             row: row.clone(),
             before: before.filter(|tiling| !tiling.is_home_only()),
@@ -3738,9 +3734,8 @@ struct RowDrag {
 /// The tile of a row dragged from the navigator, held in a zone or let go there: from the
 /// start it's in its row's tiling as it would land, and drawn in part of the way there.
 struct RowTile {
+    /// Drawn at its final size and cut off, as it comes in.
     tile: Tile,
-    /// Whether it's a new tile, drawn at its final size and cut off, rather than one moving.
-    new: bool,
     side: Side,
     /// The row whose tiling it's in, and that tiling without it, with `None` the row alone.
     row: RowKey,
@@ -3773,11 +3768,11 @@ impl RowTile {
             .collect()
     }
 
-    /// The row whose new tile is coming in, drawn at its final size.
+    /// The row whose tile is coming in, drawn at its final size.
     fn opening(&self) -> Option<RowKey> {
         match &self.tile {
-            Tile::Pinned(row) if self.new => Some(row.clone()),
-            Tile::Pinned(_) | Tile::Home => None,
+            Tile::Pinned(row) => Some(row.clone()),
+            Tile::Home => None,
         }
     }
 }
