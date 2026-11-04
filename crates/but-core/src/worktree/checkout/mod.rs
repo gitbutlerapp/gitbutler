@@ -48,6 +48,19 @@ impl std::fmt::Display for UncommittedChangesInTheWay {
     }
 }
 
-mod consumed;
+impl UncommittedChangesInTheWay {
+    /// The refusal to overwrite the uncommitted changes at `paths`, quoted and sorted.
+    pub(in crate::worktree::checkout) fn refusal(paths: &[String]) -> anyhow::Error {
+        anyhow::anyhow!(UncommittedChangesInTheWay).context(
+            but_error::Context::new(format!(
+                "Uncommitted files would be overwritten by checkout: {}",
+                paths.join(", ")
+            ))
+            .with_code(but_error::Code::PreconditionFailed),
+        )
+    }
+}
+
 pub(crate) mod function;
 mod utils;
+mod write;
