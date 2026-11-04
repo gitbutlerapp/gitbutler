@@ -2261,7 +2261,7 @@ impl Navigator {
             _ => false,
         };
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
-        let solid = selected && self.selection_has_keys(window, cx);
+        let solid = selected && !self.on_drawer_bar && self.rows_have_keys(window, cx);
         let style = RowStyle {
             theme,
             selected,
@@ -2479,13 +2479,7 @@ impl Navigator {
             Selection::Commit(project, id) if self.store.read(cx).among_picks(project, *id) => {
                 window.focus(&self.focus, cx)
             }
-            _ => {
-                self.select(item.clone(), window, cx);
-                // A row with tiles gives the keys back to the one that had them last.
-                self.app.update_later(window, cx, |app, window, cx| {
-                    app.focus_last_tile(window, cx);
-                });
-            }
+            _ => self.select(item.clone(), window, cx),
         }
     }
 
@@ -2608,17 +2602,10 @@ impl Navigator {
         })
     }
 
-    /// Whether the selected row is drawn as having the keys: while the rows have them, or a
-    /// tile of its tiling does, as what's in its tiles is the row's.
-    fn selection_has_keys(&self, window: &Window, cx: &App) -> bool {
-        (!self.on_drawer_bar && self.rows_have_keys(window, cx))
-            || self.app.tiles_have_keys(window, cx)
-    }
-
-    /// Note the card the selection's in while it's drawn as having the keys, for its rows to
-    /// edge it as the tile with the keys is.
+    /// Note the card the selection's in while the navigator has the keys, but in its filter,
+    /// for its rows to edge it as the tile with the keys is.
     fn find_focused_card(&self, window: &Window, cx: &App) {
-        let keys = self.selection_has_keys(window, cx);
+        let keys = !self.on_drawer_bar && self.rows_have_keys(window, cx);
         let selection = self.store.read(cx).selection.as_ref();
         let at = selection.filter(|_| keys).and_then(|selection| {
             (self.rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
