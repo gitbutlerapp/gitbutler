@@ -29,7 +29,7 @@ use crate::state::{
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
-use crate::transfer::{Moving, Op, Place, ProjectDrag, Transfer};
+use crate::transfer::{Move, Moving, Op, Place, ProjectDrag, Transfer};
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
     Button, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
@@ -63,6 +63,7 @@ actions!(
         FocusPaneLeft,
         FocusPaneRight,
         StartCommit,
+        StartAmend,
         ToggleNavigator,
         ToggleDetail,
         CommandPalette,
@@ -955,13 +956,17 @@ impl AppView {
         else {
             return;
         };
+        // The composer's checks say what goes in, as it amends with them.
+        if from.is_none() && self.detail.read(cx).composing() {
+            return window.dispatch_action(Box::new(StartAmend), cx);
+        }
         let what = Moving::Files {
             from,
             worktree,
             files,
         };
         (self.navigator).update(cx, |navigator, cx| {
-            navigator.squash(project, what, window, cx)
+            navigator.squash(project, what, None, window, cx);
         });
     }
 
@@ -1105,15 +1110,16 @@ impl AppView {
         }
         // A move under way, before what's in the pane with the keys, as it's what they do. A
         // commit being placed goes with the composer it's made from.
-        match self.store.read(cx).moving.as_ref().map(|moving| moving.op) {
-            Some(Op::Commit) => {
+        let moving = self.store.read(cx).moving.as_ref();
+        match moving.map(|moving| (moving.op, moving.amending())) {
+            Some((Op::Commit, _) | (Op::Squash(_), true)) => {
                 (self.detail).update(cx, |detail, cx| detail.cancel_commit(window, cx));
                 if self.peek.committing {
                     self.send_peek_back(window, cx);
                 }
                 return;
             }
-            Some(Op::Move | Op::Squash(_) | Op::CherryPick) => {
+            Some((Op::Move | Op::Squash(_) | Op::CherryPick, _)) => {
                 return self
                     .store
                     .update(cx, |store, cx| store.set_moving(None, cx));
@@ -1472,14 +1478,38 @@ impl AppView {
             }
             return;
         }
+        self.place_changes(false, window, cx)
+    }
+
+    /// Amend a commit with the uncommitted changes of the selection's checkout, from the
+    /// selection: the navigator steps through what they can go into, and the composer shows
+    /// what goes in and the commit's message. While one's being placed, as Return does there:
+    /// the keys go to the message, to keep or rewrite, and from there amend. With the navigator
+    /// out of sight, the composer stays closed: Return, or this again, amends it with all of
+    /// them, keeping its message.
+    fn start_amend(&mut self, _: &StartAmend, window: &mut Window, cx: &mut Context<Self>) {
+        // Not from what's open over it.
+        if self.covered() {
+            return;
+        }
+        if !(self.store.read(cx).moving.as_ref()).is_some_and(Move::amending) {
+            return self.place_changes(true, window, cx);
+        }
+        if self.detail.read(cx).composing() {
+            return (self.detail).update(cx, |detail, cx| detail.amend_here(window, cx));
+        }
+        (self.navigator).update(cx, |navigator, cx| navigator.land_move(window, cx));
+        if self.peek.committing && self.store.read(cx).moving.is_none() {
+            self.send_peek_back(window, cx);
+        }
+    }
+
+    /// Start placing the uncommitted changes of the selection's checkout, as a new commit or
+    /// with `amend`, into one.
+    fn place_changes(&mut self, amend: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(selection) = self.selection(cx) else {
             return;
         };
-        let shown = self.navigator_shown();
-        if shown {
-            // The message is written in the detail.
-            self.set_detail(true, window, cx);
-        }
         // Only what's on screen gets committed: from another page, ⌘↩ shows the changes
         // first, a linked worktree's from its branches and commits.
         let project = selection.project().clone();
@@ -1493,18 +1523,39 @@ impl AppView {
         let Some(worktree) = self.store.read(cx).checkout_of(&checkout) else {
             return;
         };
+        // Refused here, what's shown stays as it is.
+        let refused = (self.navigator.read(cx)).amend_refused(&project, &worktree, cx);
+        if let Some(why) = refused.filter(|_| amend) {
+            return snack(&self.store, why, cx);
+        }
+        let shown = self.navigator_shown();
+        if shown {
+            // The message is written in the detail.
+            self.set_detail(true, window, cx);
+        }
         // From where it's started, before the selection is the changes'.
-        let start = (self.navigator).update(cx, |navigator, cx| {
-            navigator.commit_start(&project, &selection, cx)
+        let start = (self.navigator).update(cx, |navigator, cx| match amend {
+            true => navigator.amend_start(&project, &selection, cx),
+            false => navigator.commit_start(&project, &selection, cx),
         });
         // The hidden navigator comes out over the detail to place it in, as ⌘1 brings it,
-        // what's shown staying as it is, without the composer.
+        // what's shown staying as it is, without the composer. An amend starts from the
+        // changes' row, as what's squashed is selected.
         if !shown {
             self.focus_navigator(&FocusNavigator, window, cx);
             self.peek.committing = self.peek.keyed;
-            return self.navigator.update(cx, |navigator, cx| {
-                navigator.start_committing(project, worktree, start, window, cx)
+            if amend {
+                self.store
+                    .update(cx, |store, cx| store.select(Some(checkout), cx));
+            }
+            let placing = self.navigator.update(cx, |navigator, cx| {
+                navigator.start_placing(amend, project, worktree, start, window, cx)
             });
+            // With nowhere to place them, it has nothing to come out for.
+            if !placing {
+                self.send_peek_back(window, cx);
+            }
+            return;
         }
         if selection != checkout {
             self.store
@@ -1514,11 +1565,17 @@ impl AppView {
         // ends: opened before, the composer would be of the checkout left, and close.
         let (detail, navigator) = (self.detail.clone(), self.navigator.clone());
         window.defer(cx, move |window, cx| {
+            let opens = !detail.read(cx).composing();
             // Not where the composer won't open, as while a commit is being edited.
-            if detail.update(cx, |detail, cx| detail.open_composer(window, cx)) {
-                navigator.update(cx, |navigator, cx| {
-                    navigator.start_committing(project, worktree, start, window, cx)
-                });
+            if !detail.update(cx, |detail, cx| detail.open_composer(window, cx)) {
+                return;
+            }
+            let placing = navigator.update(cx, |navigator, cx| {
+                navigator.start_placing(amend, project, worktree, start, window, cx)
+            });
+            // A commit can still go on the branch the composer shows; an amend has no commit.
+            if amend && !placing && opens {
+                detail.update(cx, |detail, cx| detail.leave_composer(window, cx));
             }
         });
     }
@@ -4238,6 +4295,7 @@ impl Render for AppView {
             }))
             .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::start_commit))
+            .on_action(cx.listener(Self::start_amend))
             .on_action(cx.listener(|this, _: &UpdateFromTarget, _, cx| {
                 this.update_selected_project(UpdateScope::All, cx)
             }))
@@ -4251,11 +4309,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
             // The composer's keys, pressed with the focus elsewhere, like the navigator.
-            .on_action(
-                cx.listener(|this, _: &crate::detail::AmendTop, window, cx| {
-                    this.in_composer(window, cx, Detail::amend_top)
-                }),
-            )
             .on_action(
                 cx.listener(|this, _: &crate::detail::PickCommitTarget, window, cx| {
                     this.in_composer(window, cx, Detail::pick_commit_target)

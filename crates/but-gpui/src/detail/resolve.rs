@@ -116,15 +116,18 @@ impl Detail {
     }
 
     /// The key context of the detail: with conflicts to pick, and with picks to apply, while
-    /// the composer's open, or while a commit's placed without it, as with the navigator hidden.
+    /// the composer's open, or while a commit or an amend is placed without it, as with the
+    /// navigator hidden.
     pub(super) fn key_context(&self, cx: &App) -> &'static str {
         let placing = matches!(
             self.store.read(cx).moving,
             Some(Move { op: Op::Commit, .. })
         );
+        let amending = (self.store.read(cx).moving.as_ref()).is_some_and(Move::amending);
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
             (None, _) if self.composing => "Diff Composer",
             (None, _) if placing => "Diff Committing",
+            (None, _) if amending => "Diff Amending",
             (None, _) => "Diff",
             (Some(_), true) => "Diff Conflicts",
             (Some(_), false) => "Diff Conflicts Picked",

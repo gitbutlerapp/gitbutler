@@ -14,7 +14,7 @@ use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome, UpdateScope};
 use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, Destination, FileChange, FullName, HunkKey, OpKind,
-    Review, ReviewState, Selected, SnapshotId, Workspace, short_ref,
+    Review, ReviewState, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -1219,33 +1219,28 @@ impl Store {
         );
     }
 
-    /// Amend commit `into` with uncommitted `files` of `worktree`, then call `then` once that
-    /// worked.
+    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
     pub fn amend(
         &mut self,
         project: &ProjectId,
-        into: CommitId,
-        files: Arc<[Selected]>,
-        worktree: Checkout,
-        then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
+        amend: backend::Amend,
+        then: impl FnOnce(&mut Store, CommitId, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let undoable = self.undoable(project, [worktree.clone()]);
+        let into = amend.into;
+        let undoable = self.undoable(project, [amend.checkout.clone()]);
+        let reworded = (amend.message.clone())
+            .and_then(|message| Some((self.key_of(project, into)?, message)));
         let overlay = Overlay {
-            files_in: worktree.clone(),
-            ..Overlay::files(files.iter())
+            files_in: amend.checkout.clone(),
+            reworded,
+            ..Overlay::files(amend.changes.iter())
         };
         // Which commit, as it's often not on screen.
         let said = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
         });
         let named = self.short_reference(project, into);
-        let amend = backend::Amend {
-            into,
-            changes: files,
-            checkout: worktree,
-            run_hooks: self.runs_hooks(project),
-        };
         self.apply(
             project,
             Label::new("Amend", format!("Amend {named}")),
@@ -1260,7 +1255,8 @@ impl Store {
                 if let Some(output) = amended.hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
-                then(store, cx)
+                let made = amended.rewritten.get(&into).copied().unwrap_or(into);
+                then(store, made, cx)
             },
             cx,
         );

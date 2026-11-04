@@ -281,7 +281,7 @@ impl Pane {
     pub(crate) fn limits(self) -> (f32, f32) {
         match self {
             Pane::Navigator => (220., 640.),
-            // Wide enough for the composer's Cancel, Amend and Commit.
+            // Wide enough for the composer's Cancel and Commit.
             Pane::Files => (240., 560.),
             Pane::BesideFiles => (200., 560.),
         }

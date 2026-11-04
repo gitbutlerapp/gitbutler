@@ -6,8 +6,8 @@ use gpui::{Action, App};
 use crate::app::{
     ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, Fetch,
     FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere,
-    Pull, Push, Quit, Redo, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo,
-    UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    Pull, Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator,
+    Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{
@@ -132,6 +132,7 @@ commands! {
         },
     },
     StartCommit => "Commit",
+    StartAmend => "Amend",
     Undo => "Undo",
     Redo => "Redo",
     Push => "Push" risky { phrase: push_phrase, listed: pushable },
@@ -216,7 +217,11 @@ commands! {
     crate::app::MoveSelection => "Move" {
         phrase: |app, cx| picks(app, cx).map(|n| format!("Move {n} commits")),
     },
-    crate::app::SquashSelection => "Squash" { phrase: squash_phrase },
+    crate::app::SquashSelection => "Squash" {
+        phrase: squash_phrase,
+        // What's uncommitted is amended instead.
+        listed: |app, cx| !matches!(app.store.read(cx).selection, Some(Selection::Uncommitted(..))),
+    },
     crate::app::SquashIntoSelection => "Squash uncommitted changes into this",
     ToggleNavigator => "Toggle navigator",
     ToggleDetail => "Toggle details",
@@ -428,15 +433,13 @@ fn pull_phrase(app: &AppView, cx: &App) -> Option<String> {
     Some(format!("Pull {commits} from the remote"))
 }
 
-/// What squashing with the keys starts with: the commits picked, a branch, or a worktree's
-/// changes.
+/// What squashing with the keys starts with: the commits picked or a branch.
 fn squash_phrase(app: &AppView, cx: &App) -> Option<String> {
     if let Some(n) = picks(app, cx) {
         return Some(format!("Squash {n} commits"));
     }
     match &app.store.read(cx).selection {
         Some(Selection::Branch(..)) => Some("Squash branch".to_owned()),
-        Some(Selection::Uncommitted(..)) => Some("Squash changes".to_owned()),
         _ => None,
     }
 }

@@ -1438,6 +1438,8 @@ pub struct Amend {
     pub into: CommitId,
     pub changes: Arc<[Selected]>,
     pub checkout: Checkout,
+    /// The message it gets instead of its own, if any.
+    pub message: Option<String>,
     pub run_hooks: bool,
 }
 
@@ -1459,6 +1461,7 @@ impl Intent for Amend {
             into,
             changes,
             checkout,
+            message,
             run_hooks,
         } = self;
         let worktree = checkout.linked();
@@ -1496,14 +1499,22 @@ impl Intent for Amend {
                 DryRun::No,
                 |mut tx| {
                     let made = tx.amend_commit(into.0, specs, source)?;
-                    Ok(match made.new_commit {
-                        Some(_) => DynamicOutcome::Commit(made.rejected_specs),
-                        None => DynamicOutcome::Rollback(made.rejected_specs),
-                    })
+                    let Some(amended) = made.new_commit else {
+                        return Ok(DynamicOutcome::Rollback(made.rejected_specs));
+                    };
+                    // In the same transaction, so undo takes both back at once.
+                    let amended = match &message {
+                        Some(message) => tx.reword_commit(into.0, message.as_str().into())?,
+                        None => amended,
+                    };
+                    Ok(DynamicOutcome::Commit((
+                        CommitId(amended.id),
+                        made.rejected_specs,
+                    )))
                 },
             )
         })?;
-        let (rejected, workspace) = match outcome {
+        let ((amended, rejected), workspace) = match outcome {
             DynamicOutcome::Commit(amended) => amended,
             DynamicOutcome::Rollback(rejected) => {
                 bail!(
@@ -1513,8 +1524,10 @@ impl Intent for Amend {
             }
         };
         let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
+        let mut rewritten = rewritten(&workspace);
+        rewritten.insert(into, amended);
         Ok(Amended {
-            rewritten: rewritten(&workspace),
+            rewritten,
             left_out: left_out(&rejected),
             hook_failed,
         })
@@ -2288,6 +2301,7 @@ pub(super) mod tests {
             into,
             changes: changes.into(),
             checkout: Checkout::Main,
+            message: None,
             run_hooks: false,
         }
     }
@@ -2845,6 +2859,105 @@ pub(super) mod tests {
                 std::fs::read_to_string(path.join("file")).unwrap(),
                 lines.concat(),
                 "the worktree keeps the last edit, now uncommitted"
+            );
+        })
+    }
+
+    #[test]
+    fn an_amend_with_a_message_rewrites_both_in_one_undo_step() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Work"]);
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let into = head(path);
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let amend = Amend {
+                message: Some("Better\n\nWith a body".into()),
+                ..amend_main(into, vec![Selected::whole(&uncommitted(path)[0])])
+            };
+            let (amended, ran) = crate::backend::apply(path, amend).unwrap();
+
+            let made = head(path);
+            assert_eq!(
+                amended.rewritten.get(&into),
+                Some(&made),
+                "what it became is the commit at the head, after the message too"
+            );
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]).trim(),
+                "Better\n\nWith a body",
+                "the commit has the new message"
+            );
+            assert_eq!(
+                git(path, &["show", "HEAD:file"]),
+                "two\n",
+                "and the changes"
+            );
+            assert_eq!(
+                entries_since(path, before).trim().lines().count(),
+                1,
+                "both are one entry, for one undo step"
+            );
+
+            undo(path, ran.recorded.unwrap(), None).unwrap();
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]).trim(),
+                "Work",
+                "undo brings the message back"
+            );
+            assert_eq!(
+                uncommitted(path).len(),
+                1,
+                "and leaves the changes uncommitted"
+            );
+        })
+    }
+
+    #[test]
+    fn an_amend_can_empty_the_message() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let amend = Amend {
+                message: Some(String::new()),
+                ..amend_main(head(path), vec![Selected::whole(&uncommitted(path)[0])])
+            };
+
+            crate::backend::apply(path, amend).unwrap();
+
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]).trim(),
+                "",
+                "the box said nothing, as rewording to nothing does"
+            );
+            assert_eq!(
+                git(path, &["show", "HEAD:file"]),
+                "two\n",
+                "and the changes went in"
+            );
+        })
+    }
+
+    #[test]
+    fn an_amend_without_a_message_keeps_the_commits_own() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let message = git(path, &["log", "-1", "--format=%B"]);
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let changes = vec![Selected::whole(&uncommitted(path)[0])];
+
+            crate::backend::apply(path, amend_main(head(path), changes)).unwrap();
+
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]),
+                message,
+                "the message isn't touched"
             );
         })
     }

@@ -94,7 +94,6 @@ actions!(
         ScrollDown,
         ScrollUp,
         SwitchTab,
-        AmendTop,
         PickCommitTarget,
         ToggleWrap,
         TogglePlainLines,
@@ -523,6 +522,9 @@ pub struct Detail {
     /// The commit message being written with AI, streaming into the box, and what the box
     /// held before, which a write cut short puts back.
     writing: Option<(Task<()>, String)>,
+    /// What the message box holds in place of the next commit's message while a commit's being
+    /// amended.
+    amend_message: Option<composer::AmendMessage>,
     /// The find bar over the diff, while it's open.
     find: Option<find::Find>,
     /// What's picked for the shown commit's conflicts, until it's applied.
@@ -706,9 +708,12 @@ impl Detail {
                 },
             ),
             cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
+                InputEvent::Submit if this.amending(cx).is_some() => this.amend(window, cx),
                 InputEvent::Submit => this.commit(window, cx),
-                // While the navigator places the commit, back to that.
-                InputEvent::Cancel if this.committing(cx).is_some() => {
+                // While the navigator places the commit, or what's amended, back to that.
+                InputEvent::Cancel
+                    if this.committing(cx).is_some() || this.amending(cx).is_some() =>
+                {
                     this.back_to_placing(window, cx)
                 }
                 InputEvent::Cancel => this.leave_composer(window, cx),
@@ -716,7 +721,10 @@ impl Detail {
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {
                     let message = this.message.read(cx).text(cx);
-                    if let Some(project) = &this.checks_project {
+                    // What's being amended has a message of its own, not the next commit's.
+                    if let Some(project) =
+                        (this.checks_project.as_ref()).filter(|_| this.amend_message.is_none())
+                    {
                         let key = (project.clone(), this.checks_worktree.clone());
                         (this.store).update(cx, |store, _| match message.trim().is_empty() {
                             true => store.drafts.remove(&key),
@@ -731,6 +739,7 @@ impl Detail {
             // What the side panel shows comes from the store, and the diff's files go in the
             // file list's order, as the keys step through them.
             cx.observe(&store, |this, store, cx| {
+                this.show_amended_message(cx);
                 // Diffs of a project no longer watched go with it, unless on screen.
                 let shown = this.diff.as_ref().map(|diff| diff.key.clone());
                 let gone: Vec<_> = this
@@ -853,6 +862,7 @@ impl Detail {
             file_folds: Folds::default(),
             fold_rows: HashMap::new(),
             writing: None,
+            amend_message: None,
             find: None,
             resolving: Default::default(),
             upstream: HashMap::new(),
@@ -2533,6 +2543,11 @@ impl Detail {
     /// The commit composer is open.
     pub fn composing(&self) -> bool {
         self.composing
+    }
+
+    /// Whether the keys are in the composer's message.
+    pub fn message_focused(&self, window: &Window, cx: &App) -> bool {
+        self.message.read(cx).contains_focus(window, cx)
     }
 
     /// Whether the composer is open on `project`'s `checkout`, whose changes then go by

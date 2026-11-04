@@ -129,8 +129,8 @@ pub enum Op {
 }
 
 impl Op {
-    /// What the status bar says is going on.
-    pub fn doing(self) -> &'static str {
+    /// What it's doing, as the status bar says it of a [`Move`].
+    fn doing(self) -> &'static str {
         match self {
             Op::Move => "Moving",
             Op::Squash(_) => "Squashing",
@@ -177,8 +177,9 @@ pub enum Moving {
         lists: Arc<[(Checkout, Vec<TerminalId>)]>,
     },
     /// Files, or some of their hunks, of commit `from`, or with `None` uncommitted in
-    /// `worktree`, as they were when the squash started. They're only squashed: into a commit,
-    /// or out of theirs into uncommitted changes.
+    /// `worktree`, as they were when the squash started, none of them while the composer's
+    /// checks say what goes in as it lands. They're only squashed: into a commit, or out of
+    /// theirs into uncommitted changes.
     Files {
         from: Option<CommitId>,
         worktree: Checkout,
@@ -598,6 +599,22 @@ impl Move {
                 }
                 (Cut::Commit(project.clone(), ids), emptied)
             }
+            // With none held, the composer's checks say what goes in as it lands: any of the
+            // changes tells where they can go.
+            Moving::Files {
+                from: None,
+                worktree,
+                files,
+            } if files.is_empty() => {
+                let any = workspace.uncommitted_in(worktree)?.first()?;
+                let cut = Cut::Files {
+                    project: project.clone(),
+                    from: None,
+                    worktree: worktree.clone(),
+                    files: Arc::from([Selected::whole(any)]),
+                };
+                (cut, None)
+            }
             Moving::Files { .. } => (self.cut()?, None),
             Moving::Project(_)
             | Moving::Worktree { .. }
@@ -707,6 +724,31 @@ impl Move {
     pub fn squashes_into(&self, item: &Selection) -> bool {
         matches!(&self.at, Stop::Into(target)
             if *item.project() == self.project && Target::of(item).as_ref() == Some(target))
+    }
+
+    /// Whether it's a checkout's uncommitted changes being squashed, which amends the commit
+    /// they go into.
+    pub fn amending(&self) -> bool {
+        matches!(
+            (self.op, &self.what),
+            (Op::Squash(_), Moving::Files { from: None, .. })
+        )
+    }
+
+    /// The commit amending lands in where it's at, if it's at one.
+    pub fn amended(&self, store: &Store) -> Option<CommitId> {
+        match self.squashed(store) {
+            Some(Transfer::Amend { into, .. }) => Some(into),
+            Some(_) | None => None,
+        }
+    }
+
+    /// What the status bar says is going on.
+    pub fn doing(&self) -> &'static str {
+        match self.amending() {
+            true => "Amending",
+            false => self.op.doing(),
+        }
     }
 
     /// What Return does where it's at, as the TUI says it while squashing.
@@ -1218,7 +1260,16 @@ impl Transfer {
                 into,
                 files,
                 worktree,
-            } => store.amend(project, into, files, worktree, |_, _| {}, cx),
+            } => {
+                let amend = backend::Amend {
+                    into,
+                    changes: files,
+                    checkout: worktree,
+                    message: None,
+                    run_hooks: store.runs_hooks(project),
+                };
+                store.amend(project, amend, |_, _, _| {}, cx)
+            }
             Transfer::MoveFiles { from, to, files } => {
                 let moved = project.clone();
                 store.apply(
@@ -1819,6 +1870,45 @@ mod tests {
             !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(&ws),
             "nothing is cherry-picked into a commit"
         );
+    }
+
+    /// A squash of the main checkout's changes, or with `from`, of a commit's, to `at`.
+    fn squashing_files(from: Option<CommitId>, at: Stop) -> Move {
+        Move {
+            project: ProjectId::from("p"),
+            what: Moving::Files {
+                from,
+                worktree: Checkout::Main,
+                files: Arc::from([]),
+            },
+            at,
+            op: Op::Squash(Messages::Both),
+        }
+    }
+
+    #[test]
+    fn uncommitted_changes_squashed_say_they_amend() {
+        let moving = squashing_files(None, Stop::Into(Target::Uncommitted(Checkout::Main)));
+        assert!(moving.amending(), "they go into a commit as an amend");
+        assert_eq!(moving.doing(), "Amending", "and the status bar says so");
+    }
+
+    #[test]
+    fn a_commits_files_squashed_say_they_squash() {
+        let id = CommitId(gix::ObjectId::from([1; 20]));
+        let moving = squashing_files(Some(id), Stop::Into(Target::Uncommitted(Checkout::Main)));
+        assert!(!moving.amending(), "they're committed already");
+        assert_eq!(moving.doing(), "Squashing", "as commits squashed are");
+    }
+
+    #[test]
+    fn a_commit_being_placed_isnt_amending() {
+        let moving = Move {
+            op: Op::Commit,
+            ..squashing_files(None, Stop::NewStack { first: false })
+        };
+        assert!(!moving.amending(), "it's a new commit");
+        assert_eq!(moving.doing(), "Committing", "and says so");
     }
 
     #[test]

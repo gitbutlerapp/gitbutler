@@ -89,9 +89,9 @@
     }
   },
   // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
-  // next tile and the one before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, as Ghostty's
-  // does, and ⇧⌘W closes it, ⌘W being the window's. On macOS, where ⌘ leaves a terminal's Ctrl
-  // keys alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
+  // next tile and the one before, as iTerm's and Ghostty's panes do. ⌥⌘↩ zooms it, ⇧⌘↩ being
+  // amend's, and ⇧⌘W closes it, ⌘W being the window's. On macOS, where ⌘ leaves a terminal's
+  // Ctrl keys alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
   {
     "os": ["macos"],
     "bindings": {
@@ -100,7 +100,7 @@
       "cmd-]": "tiling::NextTile",
       "cmd-[": "tiling::PreviousTile",
       "cmd-shift-w": "tiling::CloseTile",
-      "cmd-shift-enter": "tiling::ZoomTile"
+      "cmd-alt-enter": "tiling::ZoomTile"
     }
   },
   // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and
@@ -262,6 +262,11 @@
     "context": "Diff && Committing && !TextInput",
     "bindings": { "enter": "app::StartCommit" }
   },
+  // And an amend placed that way, keeping the commit's message.
+  {
+    "context": "Diff && Amending && !TextInput",
+    "bindings": { "enter": "app::StartAmend" }
+  },
   // c commits the uncommitted changes, as the TUI's c does: the keys above step through where
   // the commit goes, and Return writes its message, or commits once it's written. ⌘↩ does too,
   // as in GitButler's keymap, from the file filter and a terminal as well. After Return's,
@@ -280,6 +285,11 @@
       "secondary-enter": "app::StartCommit",
       "c": "app::StartCommit"
     }
+  },
+  // Amends, as in GitButler's keymap, typing the message too.
+  {
+    "context": "Workspace",
+    "bindings": { "secondary-shift-enter": "app::StartAmend" }
   },
   {
     "context": "Files && Composer && !TextInput",
