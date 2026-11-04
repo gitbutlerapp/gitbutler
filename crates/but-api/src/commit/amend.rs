@@ -72,8 +72,7 @@ pub(crate) fn commit_amend_only_impl(
         .transpose()?;
     let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
-    // `commit_amend_only_impl()` is called in a loop in at least one caller, so we have to put ws
-    // back.
+    // Put `ws` back so later operations on `ctx` see the rewritten workspace.
     drop(repo);
     drop(db);
     ctx.update_workspace_cache(ws);
