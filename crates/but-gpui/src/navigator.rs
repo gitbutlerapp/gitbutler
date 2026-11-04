@@ -1343,22 +1343,15 @@ impl Navigator {
         }
     }
 
+    /// Return in GitButler's keymap: as in the TUI's, except that uncommitted changes start a
+    /// commit, placed as c places it.
     fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
-        if self.on_drawer_bar {
-            return self.toggle_drawer(cx);
-        }
-        match self.store.read(cx).selection.clone() {
-            Some(Selection::Project(id)) => self.toggle_project(&id, cx),
-            Some(Selection::Section(project, section)) => {
-                let open = self.heading_open(&project, &section, cx);
-                self.toggle_heading(project, section, open, window, cx)
-            }
-            // A commit, placed as c places it.
-            Some(Selection::Uncommitted(..)) => {
+        let selection = self.store.read(cx).selection.clone();
+        match selection {
+            Some(Selection::Uncommitted(..)) if !self.on_drawer_bar => {
                 window.dispatch_action(Box::new(crate::app::StartCommit), cx)
             }
-            Some(Selection::Terminal(..)) => self.enter_terminal(window, cx),
-            _ => {}
+            _ => self.toggle_fold(&ToggleFold, window, cx),
         }
     }
 
