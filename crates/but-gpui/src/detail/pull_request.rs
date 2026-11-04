@@ -29,8 +29,8 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
-    duration, h_flex, icon, icon_button, keep_focus_on_press, local_time, now, relative_time,
-    shortcut, small_icon, switch_grounds, switch_spring, tab_stop, v_flex,
+    duration, h_flex, icon, icon_button, local_time, now, relative_time, shortcut, small_icon,
+    switch_grounds, switch_spring, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -1388,7 +1388,6 @@ pub(super) fn tab(
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
-        .on_mouse_down(MouseButton::Left, keep_focus_on_press)
         .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
         .child(
             div()

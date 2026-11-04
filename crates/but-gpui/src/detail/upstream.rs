@@ -1796,7 +1796,7 @@ impl Detail {
                                  with commits of their own, and no merged or closed pull request",
                             ))
                     })
-                    // Clicking what's open changes nothing.
+                    // Clicking what's open only gives the tabs the keys, as any press on them.
                     .when(!selected, |el| {
                         el.on_click(
                             cx.listener(move |this, _, window, cx| this.show_tab(to, window, cx)),
@@ -2049,6 +2049,7 @@ impl Detail {
                                         ("target-commit-fold", ix),
                                         Some(open),
                                         ink,
+                                        &this.side_focus,
                                         cx,
                                         move |this, _, cx| this.toggle_merge(&project, id, cx),
                                     )

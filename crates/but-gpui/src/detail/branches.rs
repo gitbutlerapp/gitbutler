@@ -1348,6 +1348,7 @@ impl Detail {
                                 ("stack-fold", ix),
                                 Some(!*folded),
                                 ink(theme.text_3),
+                                &this.side_focus,
                                 cx,
                                 move |this, _, cx| this.toggle_stack(&fold, cx),
                             );
@@ -1461,6 +1462,7 @@ impl Detail {
                                 ("other-branch-fold", ix),
                                 open,
                                 ink(theme.text_3),
+                                &this.side_focus,
                                 cx,
                                 move |this, _, cx| this.toggle_branch(&fold, cx),
                             );

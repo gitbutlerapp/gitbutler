@@ -1875,9 +1875,10 @@ impl Detail {
             // dragging over the numbers to pick more.
             .on_mouse_down(MouseButton::Left, {
                 let pressed = entity.clone();
-                move |_, _, cx| {
+                move |_, window, cx| {
                     cx.stop_propagation();
-                    (pressed.update(cx, |detail, _| {
+                    (pressed.update(cx, |detail, cx| {
+                        window.focus(&detail.focus, cx);
                         detail.picking_lines = false;
                         detail.grip_held = true;
                     }))

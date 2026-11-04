@@ -67,8 +67,9 @@ unseen is what a laptop's battery pays for.
   reach nothing. A modal keeps what had the keys and gives them back.
 - A drag's payload stays as the drag began. Drop targets read `Store::dragging`, which follows
   reloads.
-- A cached view redraws only on its own notify. `window.focus` doesn't notify it, and a drag let
-  go over a target that refuses it ends without any redraw.
+- A cached view redraws only on its own notify or a window refresh. `window.focus` refreshes,
+  unless it's called during a draw, but a drag let go over a target that refuses it ends without
+  any redraw.
 - GPUI calls an element unhovered once the pointer moves with the button down on it, and starts
   a drag only past 2px, so a drag handler attached only while hovered is gone by then unless the
   press keeps it (`grip_held`).

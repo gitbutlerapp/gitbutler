@@ -25,9 +25,9 @@ use std::ops::Range;
 
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, DispatchPhase, Div,
-    DragMoveEvent, ElementId, EmptyView, Entity, HighlightStyle, Hsla, MouseButton, MouseDownEvent,
-    Pixels, Point, Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout, Toggled,
-    UnderlineStyle, Window, div, prelude::*, relative, rems, svg,
+    DragMoveEvent, ElementId, EmptyView, Entity, FocusHandle, HighlightStyle, Hsla, MouseButton,
+    MouseDownEvent, Pixels, Point, Rems, Role, SharedString, Stateful, StyledText, Svg, TextLayout,
+    Toggled, UnderlineStyle, Window, div, prelude::*, relative, rems, svg,
 };
 
 use crate::state::{Area, Pane, Store};
@@ -668,12 +668,25 @@ pub fn keep_focus_on_press(_: &MouseDownEvent, window: &mut Window, _: &mut App)
     window.prevent_default()
 }
 
+/// For a press on part of a row that acts on its own, without selecting or dragging the row:
+/// stopped there, it never reaches `pane`, the focusable parent that would take the keys.
+pub fn press_in_pane(
+    pane: &FocusHandle,
+) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
+    let pane = pane.clone();
+    move |_, window, cx| {
+        window.focus(&pane, cx);
+        cx.stop_propagation();
+    }
+}
+
 /// A row's fold: [`fold_glyph`] that runs `toggle` on a click without selecting the row,
-/// or just the dot when there's nothing to fold (`None`).
+/// or just the dot when there's nothing to fold (`None`). A press gives `pane` the keys.
 pub fn fold_button<V: 'static>(
     id: impl Into<ElementId>,
     open: Option<bool>,
     color: Hsla,
+    pane: &FocusHandle,
     cx: &Context<V>,
     toggle: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
 ) -> Stateful<Div> {
@@ -684,7 +697,7 @@ pub fn fold_button<V: 'static>(
         Some(_) => el
             .rounded(dp(3.))
             .hover(|el| el.bg(Theme::get(cx).hover()))
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(MouseButton::Left, press_in_pane(pane))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 cx.stop_propagation();
                 toggle(this, window, cx)
