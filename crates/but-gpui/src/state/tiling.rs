@@ -287,6 +287,14 @@ impl Side {
             Side::Bottom => Side::Top,
         }
     }
+
+    /// The side a tile going this way takes of what it goes into, laid out the other way.
+    fn entered(self) -> Side {
+        match self.axis() {
+            Axis::Across => Side::Top,
+            Axis::Down => Side::Left,
+        }
+    }
 }
 
 impl Area {
@@ -824,6 +832,127 @@ impl Tiling {
             None => landed.put_along(side, new, share),
         }
         landed
+    }
+
+    /// As it is once `tile` takes a step toward `side`, each tile taking at least `least` of the
+    /// room's width and height where it can, as winshift.nvim moves a window. Beside the only
+    /// other tile of its division, it changes places with it. Beside anything else, it goes
+    /// into that, so it passes a tile in two steps. At the end of its division, or in one laid
+    /// out the other way, it comes out along the side of the division around it. What it joins
+    /// shares its room evenly, as a tile that took only what it landed beside would leave some
+    /// tiles half the size of others. As it is, at the room's edge.
+    pub fn stepped(&self, tile: &Tile, side: Side, least: (f32, f32)) -> Tiling {
+        let mut flat = self.clone();
+        flat.flatten();
+        flat.step(tile, side, least).unwrap_or_else(|| self.clone())
+    }
+
+    /// As it is with `tile` and `other` in each other's places, so every place keeps its room.
+    pub fn swapped(&self, tile: &Tile, other: &Tile) -> Tiling {
+        match self {
+            Tiling::Tile(here) if here == tile => Tiling::Tile(other.clone()),
+            Tiling::Tile(here) if here == other => Tiling::Tile(tile.clone()),
+            Tiling::Tile(_) => self.clone(),
+            Tiling::Divided { axis, parts } => Tiling::Divided {
+                axis: *axis,
+                parts: (parts.iter())
+                    .map(|(share, part)| (*share, part.swapped(tile, other)))
+                    .collect(),
+            },
+        }
+    }
+
+    /// See [`Tiling::stepped`], which has no division inside one laid out the same way, so a
+    /// step out of a division is always along the way the division around it goes.
+    fn step(&mut self, tile: &Tile, side: Side, least: (f32, f32)) -> Option<Tiling> {
+        let path = self.path_holding(tile)?;
+        let (axis, parts) = self.holding(tile)?;
+        if axis != side.axis() {
+            return self.stepped_out(tile, side, &path);
+        }
+        let ix = (parts.iter())
+            .position(|(_, part)| matches!(part, Tiling::Tile(other) if other == tile))?;
+        let next = match side.after() {
+            true => Some(ix + 1),
+            false => ix.checked_sub(1),
+        };
+        let Some((_, part)) = next.and_then(|next| parts.get(next)) else {
+            let (_, around) = path.split_last()?;
+            return self.stepped_out(tile, side, around);
+        };
+        if let (Tiling::Tile(other), 2) = (part, parts.len()) {
+            let landing = Landing::Beside(other.clone(), side);
+            return Some(self.landed(tile, &landing, least));
+        }
+        let met = part.met_from(side.opposite())?.clone();
+        let landing = Landing::Beside(met, side.entered());
+        Some(self.landed(tile, &landing, least).shared_with(tile))
+    }
+
+    /// As it is once `tile` leaves the division at `around`, which holds it, for that division's
+    /// `side`.
+    fn stepped_out(&self, tile: &Tile, side: Side, around: &[usize]) -> Option<Tiling> {
+        let mut landed = self.clone();
+        landed.retain_tiles(&|other| other != tile);
+        let new = Tiling::Tile(tile.clone());
+        match around.split_last() {
+            Some((ix, outer)) => {
+                let Some(Tiling::Divided { parts, .. }) = landed.division(outer) else {
+                    return None;
+                };
+                parts.insert(ix + usize::from(side.after()), (0., new));
+            }
+            None => landed.wrap(side, new, 0.5),
+        }
+        Some(landed.shared_with(tile))
+    }
+
+    /// As it is with the division `tile` is a part of sharing its room evenly.
+    fn shared_with(mut self, tile: &Tile) -> Tiling {
+        self.flatten();
+        if let Some(path) = self.path_holding(tile) {
+            self.even_out(&path);
+        }
+        self
+    }
+
+    /// The tile of this part met first coming from its `side`: the first of a division laid out
+    /// the other way.
+    fn met_from(&self, side: Side) -> Option<&Tile> {
+        match self {
+            Tiling::Tile(tile) => Some(tile),
+            Tiling::Divided { axis, parts } => {
+                let part = match *axis == side.axis() && side.after() {
+                    true => parts.last(),
+                    false => parts.first(),
+                };
+                part?.1.met_from(side)
+            }
+        }
+    }
+
+    /// Lay the parts of each division inside one going the same way out in that one, as a
+    /// division of two folding when one goes leaves. Every tile stays where it is.
+    fn flatten(&mut self) {
+        let Tiling::Divided { axis, parts } = self else {
+            return;
+        };
+        let mut flat = Vec::with_capacity(parts.len());
+        for (share, mut part) in parts.drain(..) {
+            part.flatten();
+            match part {
+                Tiling::Divided {
+                    axis: inside,
+                    parts: inner,
+                } if inside == *axis => {
+                    for (inner_share, inner_part) in inner {
+                        flat.push((share * inner_share, inner_part));
+                    }
+                }
+                part => flat.push((share, part)),
+            }
+        }
+        *parts = flat;
     }
 
     /// As it's drawn while `tile` is dragged to land at `landing`: as it lands, unless that
@@ -2737,5 +2866,310 @@ mod tests {
             ],
             "the column of terminals goes to the left, as wide as the home tile was"
         );
+    }
+
+    /// `parts` side by side or stacked, each with its share.
+    fn divided(axis: Axis, parts: Vec<(f32, Tiling)>) -> Tiling {
+        Tiling::Divided { axis, parts }
+    }
+
+    fn pinned(n: u64) -> Tiling {
+        Tiling::Tile(Tile::Pinned(terminal(n)))
+    }
+
+    #[test]
+    fn a_step_toward_the_only_other_tile_changes_places_with_it() {
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal(1));
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Pinned(terminal(1)), Side::Left, LEAST)),
+            Vec::from([
+                (Tile::Pinned(terminal(1)), [0, 0, 50, 100]),
+                (Tile::Home, [50, 0, 50, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn changing_places_keeps_each_tiles_size() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([(0.7, Tiling::Tile(Tile::Home)), (0.3, pinned(1))]),
+        );
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Home, Side::Right, LEAST)),
+            Vec::from([
+                (Tile::Pinned(terminal(1)), [0, 0, 30, 100]),
+                (Tile::Home, [30, 0, 70, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_step_across_the_way_a_tile_is_laid_out_takes_it_out_of_its_division() {
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal(1));
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Pinned(terminal(1)), Side::Bottom, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 100, 50]),
+                (Tile::Pinned(terminal(1)), [0, 50, 100, 50]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_tile_passes_another_in_two_steps() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.25, Tiling::Tile(Tile::Home)),
+                (0.25, pinned(1)),
+                (0.5, pinned(2)),
+            ]),
+        );
+        let moved = Tile::Pinned(terminal(2));
+        let stacked = tiling.stepped(&moved, Side::Left, LEAST);
+        assert_eq!(
+            rounded(&stacked),
+            Vec::from([
+                (Tile::Home, [0, 0, 25, 100]),
+                (moved.clone(), [25, 0, 75, 50]),
+                (Tile::Pinned(terminal(1)), [25, 50, 75, 50]),
+            ]),
+            "the first step stacks it on the tile it goes into, which gets its room"
+        );
+        let tiles: Vec<Tile> = (stacked
+            .stepped(&moved, Side::Left, LEAST)
+            .areas()
+            .into_iter())
+        .map(|(tile, _)| tile)
+        .collect();
+        assert_eq!(
+            tiles,
+            Vec::from([Tile::Home, moved, Tile::Pinned(terminal(1))]),
+            "the second comes out on the tile's far side"
+        );
+    }
+
+    #[test]
+    fn a_step_into_a_column_goes_to_its_top() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.5, Tiling::Tile(Tile::Home)),
+                (
+                    0.5,
+                    divided(Axis::Down, Vec::from([(0.5, pinned(1)), (0.5, pinned(2))])),
+                ),
+            ]),
+        );
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Home, Side::Right, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 100, 33]),
+                (Tile::Pinned(terminal(1)), [0, 33, 100, 33]),
+                (Tile::Pinned(terminal(2)), [0, 67, 100, 33]),
+            ]),
+            "all three share the column, rather than the top two sharing half of it"
+        );
+    }
+
+    #[test]
+    fn a_tile_joining_a_division_evens_it_out_whatever_its_parts_had() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.5, Tiling::Tile(Tile::Home)),
+                (
+                    0.5,
+                    divided(Axis::Down, Vec::from([(0.9, pinned(1)), (0.1, pinned(2))])),
+                ),
+            ]),
+        );
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Home, Side::Right, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 100, 33]),
+                (Tile::Pinned(terminal(1)), [0, 33, 100, 33]),
+                (Tile::Pinned(terminal(2)), [0, 67, 100, 33]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_tile_passing_another_leaves_an_even_row_even() {
+        let third = 1. / 3.;
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (third, Tiling::Tile(Tile::Home)),
+                (third, pinned(1)),
+                (third, pinned(2)),
+            ]),
+        );
+        let moved = Tile::Pinned(terminal(2));
+        let stacked = tiling.stepped(&moved, Side::Left, LEAST);
+        assert_eq!(
+            rounded(&stacked.stepped(&moved, Side::Left, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 33, 100]),
+                (moved, [33, 0, 33, 100]),
+                (Tile::Pinned(terminal(1)), [67, 0, 33, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_step_into_a_division_goes_to_the_tile_it_meets_first() {
+        let row = divided(
+            Axis::Across,
+            Vec::from([(0.5, pinned(1)), (0.5, pinned(2))]),
+        );
+        let column = divided(Axis::Down, Vec::from([(0.5, row), (0.5, pinned(3))]));
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([(0.5, column), (0.5, Tiling::Tile(Tile::Home))]),
+        );
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Home, Side::Left, LEAST)),
+            Vec::from([
+                (Tile::Pinned(terminal(1)), [0, 0, 50, 50]),
+                (Tile::Home, [50, 0, 50, 25]),
+                (Tile::Pinned(terminal(2)), [50, 25, 50, 25]),
+                (Tile::Pinned(terminal(3)), [0, 50, 100, 50]),
+            ]),
+            "going left, that's the right of the row, not its left"
+        );
+    }
+
+    #[test]
+    fn a_step_out_of_a_column_lands_beside_it_in_the_row_around_it() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.5, Tiling::Tile(Tile::Home)),
+                (
+                    0.5,
+                    divided(Axis::Down, Vec::from([(0.5, pinned(1)), (0.5, pinned(2))])),
+                ),
+            ]),
+        );
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Pinned(terminal(2)), Side::Left, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 33, 100]),
+                (Tile::Pinned(terminal(2)), [33, 0, 33, 100]),
+                (Tile::Pinned(terminal(1)), [67, 0, 33, 100]),
+            ]),
+            "all three share the row"
+        );
+    }
+
+    #[test]
+    fn a_step_past_the_end_of_a_row_comes_out_of_the_column_around_it() {
+        let row = divided(
+            Axis::Across,
+            Vec::from([(0.5, Tiling::Tile(Tile::Home)), (0.5, pinned(1))]),
+        );
+        let tiling = divided(Axis::Down, Vec::from([(0.5, row), (0.5, pinned(2))]));
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Pinned(terminal(1)), Side::Right, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 50, 50]),
+                (Tile::Pinned(terminal(2)), [0, 50, 50, 50]),
+                (Tile::Pinned(terminal(1)), [50, 0, 50, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_step_past_the_rooms_edge_changes_nothing() {
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal(1));
+        assert_eq!(
+            tiling.stepped(&Tile::Pinned(terminal(1)), Side::Right, LEAST),
+            tiling,
+        );
+    }
+
+    #[test]
+    fn a_tile_on_its_own_has_nowhere_to_step() {
+        let tiling = Tiling::default();
+        assert_eq!(tiling.stepped(&Tile::Home, Side::Left, LEAST), tiling);
+    }
+
+    #[test]
+    fn a_row_inside_a_row_steps_as_one_row() {
+        let row = divided(
+            Axis::Across,
+            Vec::from([(0.5, Tiling::Tile(Tile::Home)), (0.5, pinned(1))]),
+        );
+        let tiling = divided(Axis::Across, Vec::from([(0.5, row), (0.5, pinned(2))]));
+        assert_eq!(
+            rounded(&tiling.stepped(&Tile::Pinned(terminal(2)), Side::Left, LEAST)),
+            Vec::from([
+                (Tile::Home, [0, 0, 25, 100]),
+                (Tile::Pinned(terminal(2)), [25, 0, 75, 50]),
+                (Tile::Pinned(terminal(1)), [25, 50, 75, 50]),
+            ]),
+            "of three tiles in a row, it stacks on the one beside it rather than swapping"
+        );
+    }
+
+    #[test]
+    fn a_step_leaves_no_division_inside_one_going_the_same_way() {
+        let row = divided(
+            Axis::Across,
+            Vec::from([(0.5, pinned(1)), (0.5, pinned(2))]),
+        );
+        let tiling = divided(
+            Axis::Down,
+            Vec::from([(0.5, Tiling::Tile(Tile::Home)), (0.5, row)]),
+        );
+        assert_eq!(
+            tiling.stepped(&Tile::Home, Side::Left, LEAST),
+            divided(
+                Axis::Across,
+                Vec::from([
+                    (1. / 3., Tiling::Tile(Tile::Home)),
+                    (1. / 3., pinned(1)),
+                    (1. / 3., pinned(2))
+                ]),
+            ),
+            "what's left folds to a row, which the tile's own row takes in"
+        );
+    }
+
+    #[test]
+    fn swapped_tiles_take_each_others_places_and_nothing_else_moves() {
+        let column = divided(Axis::Down, Vec::from([(0.3, pinned(1)), (0.7, pinned(2))]));
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([
+                (0.2, Tiling::Tile(Tile::Home)),
+                (0.5, column),
+                (0.3, pinned(3)),
+            ]),
+        );
+        assert_eq!(
+            rounded(&tiling.swapped(&Tile::Home, &Tile::Pinned(terminal(2)))),
+            Vec::from([
+                (Tile::Pinned(terminal(2)), [0, 0, 20, 100]),
+                (Tile::Pinned(terminal(1)), [20, 0, 50, 30]),
+                (Tile::Home, [20, 30, 50, 70]),
+                (Tile::Pinned(terminal(3)), [70, 0, 30, 100]),
+            ]),
+        );
+    }
+
+    #[test]
+    fn swapping_twice_puts_the_tiles_back() {
+        let tiling = divided(
+            Axis::Across,
+            Vec::from([(0.7, Tiling::Tile(Tile::Home)), (0.3, pinned(1))]),
+        );
+        let (tile, other) = (Tile::Home, Tile::Pinned(terminal(1)));
+        assert_eq!(tiling.swapped(&tile, &other).swapped(&tile, &other), tiling);
     }
 }

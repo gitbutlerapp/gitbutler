@@ -29,8 +29,8 @@ pub enum Keymap {
     /// and unfold, f to
     /// show and hide the files, ⌘B and ⌥⌘B the navigator and the details, / to filter or find,
     /// ⌘K for the command palette, ⌘P to go to anything and ⌘J to a terminal, ⌘T to open a
-    /// terminal, ⌘R and ⇧⌘R to fetch and pull, and ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and go between
-    /// tiles, or Ghostty's keys for them on Linux.
+    /// terminal, ⌘R and ⇧⌘R to fetch and pull, ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and go between
+    /// tiles, or Ghostty's keys for them on Linux, and ⇧⌘M and ⌥⌘M to move and swap a tile.
     Tui,
 }
 

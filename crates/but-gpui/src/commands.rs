@@ -305,6 +305,12 @@ commands! {
     crate::app::ZoomTile => "Zoom tile" {
         aliases: &["Zoom split", "Maximize tile", "Maximize split"],
     },
+    crate::app::ArrangeTiles => "Arrange tiles" {
+        aliases: &["Move tile", "Move split", "Rearrange tiles", "Rearrange splits"],
+    },
+    crate::app::SwapTiles => "Swap tiles" {
+        aliases: &["Swap splits", "Exchange tiles", "Exchange splits"],
+    },
     crate::app::NextTile => "Next tile" { aliases: &["Next split"] },
     crate::app::PreviousTile => "Previous tile" { aliases: &["Previous split"] },
     crate::app::CopyTileDiagram => "Copy tile layout as a diagram" {
