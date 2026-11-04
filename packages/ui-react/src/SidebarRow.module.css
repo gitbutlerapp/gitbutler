@@ -322,8 +322,10 @@
 	color: var(--text-purple);
 }
 
-/* A conflicted commit's warning, in its glyph's place. */
+/* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
+   no line box of its own, which would sit the icon on a text baseline above the row's centre. */
 .conflicted {
+	display: flex;
 	color: var(--text-danger);
 }
 
