@@ -122,6 +122,16 @@ impl Selection {
         }
     }
 
+    /// `project`'s pages, in the order its page's tabs list them.
+    pub fn project_pages(project: &ProjectId) -> [Selection; 4] {
+        [
+            Selection::Project(project.clone()),
+            Selection::Branches(project.clone()),
+            Selection::History(project.clone()),
+            Selection::Graph(project.clone()),
+        ]
+    }
+
     /// Whether it's `branch`, or under it.
     pub fn on(&self, branch: &Branch) -> bool {
         matches!(self, Selection::Branch(_, ref_name) if branch.ref_name == *ref_name)

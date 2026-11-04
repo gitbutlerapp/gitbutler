@@ -1344,7 +1344,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
 /// A tab of a page's header, as ui-react's and but.dev's: its glyph, its label faded unless
 /// it's selected or under the pointer, and under the selected one a bar along the header's edge,
 /// solid while the tabs have the keys, as a list's selected row is.
-fn tab(
+pub(super) fn tab(
     id: &'static str,
     glyph: Icon,
     label: impl Into<SharedString>,

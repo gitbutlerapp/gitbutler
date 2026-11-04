@@ -19,7 +19,7 @@ use super::panes::{
     not_found, reveal_side_row, rows_under, side_header, side_list, step_from, title_text,
     unfinished_banner,
 };
-use super::pull_request::TABS_HEIGHT;
+use super::pull_request::{TABS_HEIGHT, tab};
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use super::{Detail, PageFold};
 use crate::app::{CopyCommitId, OpenPullRequest};
@@ -35,9 +35,9 @@ use crate::ui::fold::inert;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fixed, fold_button,
-    guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane, section_label,
-    shortcut, shown_row, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, count_badge, dp, error_summary, faint, fixed,
+    fold_button, guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane,
+    section_label, shortcut, shown_row, side_row, small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
@@ -1564,14 +1564,16 @@ impl Detail {
         ))
     }
 
-    /// A project's header: its icon, which opens the picker, and its name, over where it is
-    /// and when it last fetched.
+    /// The header across a project's pages, `page` the one shown: its icon, which opens the
+    /// picker, and its name, over where it is and when it last fetched, and under them the
+    /// tabs to its other pages.
     pub(super) fn render_project_header(
         &self,
-        project: &ProjectId,
+        page: &Selection,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let project = page.project();
         let store = self.store.read(cx);
         let Some(entry) = store.project(project) else {
             return div().into_any_element();
@@ -1663,7 +1665,6 @@ impl Detail {
         // way first.
         let workspace = entry.workspace.as_ref();
         let applied = workspace.map_or(0, |ws| ws.branches_in(&Checkout::Main).count());
-        let unapplied = self.unapplied(project);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
         let meta = meta
             .child(
@@ -1694,25 +1695,48 @@ impl Detail {
                             target.name
                         ))),
                 )
-            }))
-            // Last, as it's read after the rest, so nothing moves when it shows.
-            .children(unapplied.map(|n| {
-                meta_item(Icon::Branch, theme)
-                    .flex_none()
-                    .id("unapplied-count")
-                    .child(format!("{n} not applied"))
-                    .tooltip(Tooltip::text(
-                        "Branches in progress that aren't applied: with commits of their own, \
-                         and no merged or closed pull request",
-                    ))
             }));
         let title = h_flex()
             .items_start()
             .gap(dp(8.))
             .child(trigger)
             .child(title_text(entry.project.name.clone()));
-        let target = Selection::Project(project.clone());
-        self.page_header(title, meta, target, None, None, theme)
+        let tabs = self.project_tabs(page, theme, cx);
+        self.project_page_header(title, meta, project, tabs, theme)
+    }
+
+    /// The tabs to a project's pages, `page` the one selected; Branches says how many are in
+    /// progress without being applied.
+    fn project_tabs(&self, page: &Selection, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let project = page.project();
+        let unapplied = self.unapplied(project).filter(|n| *n > 0);
+        h_flex()
+            // The first tab's label, not its hover ground, lines up with the text above.
+            .ml(dp(-8.))
+            .children(Selection::project_pages(project).map(|to| {
+                let (id, glyph, label) = match to {
+                    Selection::Branches(_) => ("tab-branches", Icon::Branch, "Branches"),
+                    Selection::History(_) => ("tab-history", Icon::Clock, "Operations history"),
+                    Selection::Graph(_) => ("tab-graph", Icon::Fork, "Graph"),
+                    _ => ("tab-overview", Icon::Repo, "Overview"),
+                };
+                let selected = *page == to;
+                tab(id, glyph, label, selected, true, theme)
+                    .when(id == "tab-branches", |el| {
+                        el.children(unapplied.map(|n| count_badge(n, theme)))
+                            .tooltip(Tooltip::text(
+                                "Branches that aren't applied. The count is those in progress: \
+                                 with commits of their own, and no merged or closed pull request",
+                            ))
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        let to = to.clone();
+                        (this.app).update_later(window, cx, move |app, window, cx| {
+                            app.select(to, window, cx)
+                        })
+                    }))
+            }))
+            .into_any_element()
     }
 
     pub(super) fn render_upstream_side(

@@ -231,6 +231,10 @@ commands! {
     crate::settings::OpenSettings => "Settings",
     crate::settings::OpenKeyboardShortcuts => "Keyboard shortcuts",
     crate::app::OperationsHistory => "Operations history",
+    crate::app::NextProjectPage => "Next project tab" { aliases: &["Next project page"] },
+    crate::app::PreviousProjectPage => "Previous project tab" {
+        aliases: &["Previous project page"]
+    },
     crate::app::FocusNextPane => "Next pane",
     crate::app::FocusPreviousPane => "Previous pane",
     crate::app::FocusPaneRight => "Pane to the right",

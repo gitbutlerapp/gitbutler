@@ -71,6 +71,8 @@ actions!(
         BuildAndRestart,
         BuildAndRestartFromHere,
         OperationsHistory,
+        NextProjectPage,
+        PreviousProjectPage,
         CloseWindow,
     ]
 );
@@ -1395,6 +1397,26 @@ impl AppView {
     ) {
         if let Some(selection) = self.selection(cx) {
             self.select(Selection::History(selection.project().clone()), window, cx);
+        }
+    }
+
+    /// The selected project's next page, or going back the one before, as its page's tabs list
+    /// them, round again past either end. From off its pages, forward goes to the first and
+    /// back to the last, as a step onto the navigator's rows does.
+    fn step_project_page(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(selection) = self.selection(cx) else {
+            return;
+        };
+        let pages = Selection::project_pages(selection.project());
+        let n = pages.len();
+        let next = match (pages.iter().position(|page| *page == selection), forward) {
+            (Some(at), true) => (at + 1) % n,
+            (Some(at), false) => (at + n - 1) % n,
+            (None, true) => 0,
+            (None, false) => n - 1,
+        };
+        if let Some(page) = pages.into_iter().nth(next) {
+            self.select(page, window, cx);
         }
     }
 
@@ -4208,6 +4230,12 @@ impl Render for AppView {
                 this.focus_pane(true, false, window, cx)
             }))
             .on_action(cx.listener(Self::operations_history))
+            .on_action(cx.listener(|this, _: &NextProjectPage, window, cx| {
+                this.step_project_page(true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &PreviousProjectPage, window, cx| {
+                this.step_project_page(false, window, cx)
+            }))
             .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::start_commit))
             .on_action(cx.listener(|this, _: &UpdateFromTarget, _, cx| {

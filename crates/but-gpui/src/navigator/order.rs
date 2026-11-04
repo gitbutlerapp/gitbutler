@@ -795,7 +795,6 @@ mod tests {
             }
             rows.push(Row::WorktreeDivider);
         }
-        rows.push(Row::Item(Selection::Branches(p.clone())));
         (p, rows, tops)
     }
 
@@ -959,10 +958,7 @@ mod tests {
             p.clone(),
             Checkout::Linked("f".into()),
         )));
-        rows.extend([
-            Row::WorktreeDivider,
-            Row::Item(Selection::Branches(p.clone())),
-        ]);
+        rows.push(Row::WorktreeDivider);
         (p, rows)
     }
 
@@ -1036,7 +1032,7 @@ mod tests {
         let rows = [
             Row::Item(Selection::Project(a.clone())),
             Row::Item(Selection::Uncommitted(a.clone(), Checkout::Main)),
-            Row::Item(Selection::History(a.clone())),
+            Row::Item(Selection::Terminal(a.clone(), TerminalId(1))),
             Row::Gap,
             Row::Item(Selection::Project(b.clone())),
         ];
