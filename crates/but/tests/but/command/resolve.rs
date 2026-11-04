@@ -122,6 +122,101 @@ Resolve the next commit with but resolve [..].
 "#]]);
 }
 
+/// A worktree's conflict is seen from edit mode too, so it isn't new when finishing, and it is
+/// left to resolve with the command that can reach it.
+#[test]
+fn resolve_finish_lists_a_worktree_conflict_as_remaining_not_new() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b 0-worktree "{wt}" main~1
+        (cd "{wt}" && echo worktree >shared.txt && git commit -q -am "worktree change")
+        "#,
+        wt = env.app_data_dir().join("worktrees/0-worktree").display()
+    ));
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+To resolve conflicts:
+  `0-worktree` is in a worktree. Run `but resolve conflicts 0-worktree`, then `but resolve apply <path>:<N> --commit 0-worktree`
+  1. Start with: `but resolve tnr`. Worktree files show no conflict markers until this checks the commit out
+...
+"#]]);
+
+    env.but("resolve tnr").assert().success();
+    env.but("resolve conflicts 0-worktree")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch 0-worktree
+...
+"#]]);
+    env.file("shared.txt", "resolved\n");
+    env.invoke_git("add shared.txt");
+    env.but("resolve finish")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Conflict resolution finalized successfully!
+The commit has been updated with your resolved changes.
+No conflict markers remain in the resolved files.
+Workspace restored; no uncommitted changes.
+
+Remaining conflicted commits (oldest first):
+  Branch: 0-worktree
+    ● [..] worktree change
+  Branch: A
+    ● run [conflict] newer change
+Resolve the next commit with but resolve run.
+
+"#]]);
+
+    env.but("resolve run").assert().success();
+    env.file("shared.txt", "resolved\n");
+    env.invoke_git("add shared.txt");
+    env.but("resolve finish")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+...
+Remaining conflicted commits (oldest first):
+  Branch: 0-worktree
+    ● [..] worktree change
+Resolve the next commit with but resolve conflicts [..].
+
+"#]]);
+}
+
+/// A worktree can rest on a stack, whose conflicts then have to go first: resolving them can
+/// conflict the worktree's commit again.
+#[test]
+fn resolve_conflicts_starts_with_the_stack_a_worktree_rests_on() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "two-conflicted-commits-in-one-branch",
+    );
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b 0-worktree "{wt}" A
+        (cd "{wt}" && echo worktree >shared.txt && git commit -q -am "worktree change")
+        "#,
+        wt = env.app_data_dir().join("worktrees/0-worktree").display()
+    ));
+    env.but("pull").assert().success();
+
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch A
+...
+"#]]);
+}
+
 #[test]
 fn resolve_finish_json_deduplicates_shared_conflicts() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(

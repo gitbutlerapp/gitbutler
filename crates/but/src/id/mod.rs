@@ -1758,7 +1758,7 @@ impl IdMap {
     /// exactly, so an ID taken from the wrong map can silently identify a
     /// different commit.
     pub fn change_id_ref(&self, commit_id: gix::ObjectId) -> Option<&ChangeIdWithShortId> {
-        self.stacks()
+        self.lanes
             .iter()
             .flat_map(|stack| &stack.segments)
             .flat_map(|segment| &segment.workspace_commits)
