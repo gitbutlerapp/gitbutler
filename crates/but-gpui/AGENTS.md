@@ -253,10 +253,9 @@ and tests it.
 - Motion reads `clock::now()`, never `Instant::now()`, so a script can stop it and draw any
   moment of it. Don't stretch a motion's duration to see it.
 - Dropped on purpose, so ask before adding them back: writing in PR conversations (replying,
-  reacting, resolving) and managing PRs beyond create, merge and editing the title and
-  description, editing a commit in the app (the resolver and `but resolve` cover it), moving a
-  commit one step, updating one stack, Locate for a moved project, diff zoom and the palette's
-  theme toggle.
+  reacting, resolving), editing a commit in the app (the resolver and `but resolve` cover it),
+  moving a commit one step, updating one stack, Locate for a moved project, diff zoom and the
+  palette's theme toggle.
 - Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,
   rustfmt formats every module under it too, which matters when others edit the crate at once.
 

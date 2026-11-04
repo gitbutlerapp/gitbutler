@@ -1,5 +1,5 @@
-//! A branch's pull request: opening one (pushing the branch first when it needs it), and
-//! merging one that's open, at once or by auto-merge once it can.
+//! A branch's pull request: opening one (pushing the branch first when it needs it), merging
+//! one that's open, at once or by auto-merge once it can, and turning one into a draft and back.
 
 use gpui::{
     Action, App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable,
@@ -22,7 +22,9 @@ actions!(
         CreatePullRequest,
         MergePullRequest,
         EnableAutoMerge,
-        DisableAutoMerge
+        DisableAutoMerge,
+        ConvertToDraft,
+        MarkReadyForReview
     ]
 );
 
@@ -411,20 +413,30 @@ impl AppView {
             return el;
         };
         let project = selection.project();
+        let drafts = has_drafts(store, project);
         match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
-            Some((review, ReviewState::Open)) => match mergeability(store, project, review).offer()
-            {
-                Some(Offer::Merge) => el.on_action(cx.listener(Self::merge_pull_request)),
-                Some(Offer::EnableAutoMerge) => el.on_action(cx.listener(Self::enable_auto_merge)),
-                Some(Offer::DisableAutoMerge) => {
-                    el.on_action(cx.listener(Self::disable_auto_merge))
+            Some((review, ReviewState::Open)) => {
+                let el = el.when(drafts, |el| {
+                    el.on_action(cx.listener(Self::convert_to_draft))
+                });
+                match mergeability(store, project, review).offer() {
+                    Some(Offer::Merge) => el.on_action(cx.listener(Self::merge_pull_request)),
+                    Some(Offer::EnableAutoMerge) => {
+                        el.on_action(cx.listener(Self::enable_auto_merge))
+                    }
+                    Some(Offer::DisableAutoMerge) => {
+                        el.on_action(cx.listener(Self::disable_auto_merge))
+                    }
+                    None => el,
                 }
-                None => el,
-            },
-            Some((_, ReviewState::Draft | ReviewState::Closed | ReviewState::Merged)) => el,
+            }
+            Some((_, ReviewState::Draft)) => el.when(drafts, |el| {
+                el.on_action(cx.listener(Self::mark_ready_for_review))
+            }),
+            Some((_, ReviewState::Closed | ReviewState::Merged)) => el,
         }
     }
 
@@ -569,6 +581,50 @@ impl AppView {
             )
         });
     }
+
+    pub fn convert_to_draft(&mut self, _: &ConvertToDraft, _: &mut Window, cx: &mut Context<Self>) {
+        self.set_draft(true, cx);
+    }
+
+    pub fn mark_ready_for_review(
+        &mut self,
+        _: &MarkReadyForReview,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_draft(false, cx);
+    }
+
+    /// Make the pull request a draft, or ready for review. It's shown at once as it'll be.
+    fn set_draft(&mut self, draft: bool, cx: &mut Context<Self>) {
+        let Some((project, _, Some(Review { number, state, .. }))) = self.review_target(cx) else {
+            return;
+        };
+        let (from, label, done) = match draft {
+            true => (ReviewState::Open, "Convert to draft", "Converted to draft"),
+            false => (
+                ReviewState::Draft,
+                "Ready for review",
+                "Marked ready for review",
+            ),
+        };
+        if state != from {
+            return;
+        }
+        self.store.update(cx, |store, cx| {
+            store.apply(
+                &project,
+                label,
+                Overlay {
+                    sets_draft: Some((number, draft)),
+                    ..Overlay::default()
+                },
+                reviews::SetDraft { number, draft },
+                move |store, (), cx| store.snack(done, cx),
+                cx,
+            )
+        });
+    }
 }
 
 /// Why `branch` (a full ref) can't merge, nor auto-merge, yet: the forge merges what it has,
@@ -699,6 +755,14 @@ pub fn merge_method(store: &Store, project: &ProjectId) -> Option<MergeMethod> {
     (forge != Some(Forge::GitLab)).then(|| {
         (store.prefs.merge_methods.get(project.as_ref()).copied()).unwrap_or(MergeMethod::Merge)
     })
+}
+
+/// Whether pull requests in `project` can turn into drafts and back: Azure's can't here.
+pub fn has_drafts(store: &Store, project: &ProjectId) -> bool {
+    match store.workspace(project).and_then(|ws| ws.forge) {
+        Some(Forge::GitHub | Forge::GitLab | Forge::Bitbucket) => true,
+        Some(Forge::Azure) | None => false,
+    }
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.
