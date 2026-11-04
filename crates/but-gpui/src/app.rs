@@ -1819,8 +1819,10 @@ impl AppView {
     /// it, a commit's id, a branch's name or a project's or worktree's directory, as dropping its
     /// row on a terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
-        let file = (self.detail.read(cx).is_focused(window, cx))
-            .then(|| self.detail.update(cx, |detail, cx| detail.copy(window, cx)))
+        let tile = self.focused_tile(window, cx);
+        let detail = self.tile_detail(&tile, cx).unwrap_or(self.detail.clone());
+        let file = (detail.read(cx).is_focused(window, cx))
+            .then(|| detail.update(cx, |detail, cx| detail.copy(window, cx)))
             .flatten();
         let selected = file.is_none();
         let text = file.or_else(|| match self.selection(cx)? {
