@@ -465,6 +465,9 @@ impl AppView {
                 if !this.tile_lost_keys(window, cx) {
                     this.restore_focus(window, cx)
                 }
+                // GPUI says this during a draw, where moving focus asks for no frame, so what
+                // took the keys would go on being drawn without them.
+                window.on_next_frame(|window, _| window.refresh());
             }),
             // The navigator ⌘1 brought out goes back once the keys leave it, as ⌘2 and ⌘3 take
             // them. GPUI blurs it as another app comes in front too, which leaves it out.
