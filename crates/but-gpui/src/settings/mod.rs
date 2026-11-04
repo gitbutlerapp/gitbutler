@@ -963,8 +963,9 @@ impl SettingsView {
         });
         Row::new(
             "Briefs",
-            "Show the brief about a branch on a tab of its page. Those pages ask GitButler's \
-             server by the repository's address and the branch's name and commits.",
+            "Show the brief about a branch on a tab of its page. Every few minutes, open projects \
+             ask GitButler's server about their newest branches, by the repository's address and \
+             the branches' names and commits.",
             switch("briefs", on, Theme::get(cx)).on_click(flip),
         )
     }

@@ -14,11 +14,17 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
+mod cache;
+pub use cache::{Anchored, Cache};
+
 /// Where Briefs is, and the only place the token goes.
 const BASE: &str = "https://gitbutler.com/briefs";
 
-/// The most commits one [`Client::find`] may name.
+/// The most commits one `find` may name.
 pub const MOST_COMMITS: usize = 100;
+
+/// The most branches one [`Client::find`] may name.
+const MOST_BRANCHES: usize = 10;
 
 /// The page of `version` of brief `id`, for a browser.
 pub fn web_url(id: &str, version: u32) -> String {
@@ -57,29 +63,82 @@ impl Client {
         self.http.get(url).header("X-Auth-Token", &self.token.0)
     }
 
-    /// The briefs of the repository at `remote`, in any form git gives it, about `branch` and
-    /// `commits`, which take full ids. Each brief comes once, by its version that matches best,
-    /// the strongest matches first. A brief that can't be read is left out.
-    pub async fn find(&self, remote: &str, branch: &str, commits: &[String]) -> Result<Vec<Found>> {
+    /// The briefs of the repository at `remote`, in any form git gives it, about `branches` and
+    /// `commits`, which take full ids, as the server sent them. Each brief comes once, by its
+    /// version that matches best, the strongest matches first.
+    async fn find(
+        &self,
+        remote: &str,
+        branches: &[&str],
+        commits: &[&str],
+    ) -> Result<Vec<Value>> {
         #[derive(Deserialize)]
         struct Answer {
             briefs: Vec<Value>,
         }
-        let query = [("remote", remote), ("branch", branch)]
-            .into_iter()
-            .chain(commits.iter().map(|commit| ("commit", commit.as_str())))
+        let query = std::iter::once(("remote", remote))
+            .chain(branches.iter().map(|branch| ("branch", *branch)))
+            .chain(commits.iter().map(|commit| ("commit", *commit)))
             .collect::<Vec<_>>();
         let url = format!("{BASE}/api/briefs");
         let answer: Answer = read_json(self.get(&url).query(&query).send().await?).await?;
-        Ok((answer.briefs.into_iter())
-            .filter_map(|found| serde_json::from_value(found).ok())
-            .collect())
+        Ok(answer.briefs)
     }
 
-    /// `version` of brief `id`. A published version never changes.
-    pub async fn read(&self, id: &str, version: u32) -> Result<Brief> {
+    /// `version` of brief `id`, as the server sent it. A published version never changes.
+    pub async fn read(&self, id: &str, version: u32) -> Result<FetchedVersion> {
         let url = format!("{BASE}/api/briefs/{id}/v/{version}");
-        read_json(self.get(&url).send().await?).await
+        Ok(FetchedVersion {
+            id: id.to_owned(),
+            version,
+            body: read_json(self.get(&url).send().await?).await?,
+        })
+    }
+
+    /// Ask about `chunk` of the branches of the repository at `remote`, one of [`chunks`], and
+    /// read the versions that matched that `known_branch` doesn't know the branch of yet. A
+    /// brief that only names a commit isn't about the branch: that can be no more than where
+    /// another change starts from.
+    pub async fn ask(
+        &self,
+        remote: &str,
+        chunk: &[BranchAsk],
+        known_branch: impl Fn(&str, u32) -> Option<String>,
+    ) -> Result<Asked> {
+        let branches: Vec<&str> = chunk.iter().map(|ask| ask.branch.as_str()).collect();
+        let commits: Vec<&str> = (chunk.iter())
+            .flat_map(|ask| ask.commits.iter().map(String::as_str))
+            .collect();
+        let mut versions = Vec::new();
+        let mut matches = Vec::new();
+        for value in self.find(remote, &branches, &commits).await? {
+            let Ok(found) = serde_json::from_value::<Found>(value.clone()) else {
+                continue;
+            };
+            if found.matched.how == How::Commit {
+                continue;
+            }
+            let version = found.matched.version;
+            let written_on = match known_branch(&found.id, version) {
+                Some(branch) => Some(branch),
+                None => {
+                    let read = self.read(&found.id, version).await?;
+                    let branch = read.body.pointer("/review/repo/branch");
+                    let branch = branch.and_then(Value::as_str).map(str::to_owned);
+                    versions.push(read);
+                    branch
+                }
+            };
+            matches.push(Matched {
+                found: value,
+                head: found.matched.head,
+                written_on,
+            });
+        }
+        Ok(Asked {
+            anchors: anchors_of(chunk, &matches),
+            versions,
+        })
     }
 
     /// What `url`, from [`media_url`], serves. Briefs checks the token and redirects to where
@@ -102,6 +161,77 @@ impl Client {
     }
 }
 
+/// A branch to ask about.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchAsk {
+    pub branch: String,
+    /// Its commits, newest first, by their full ids.
+    pub commits: Vec<String>,
+}
+
+/// `asks` in the groups one request can name.
+pub fn chunks(asks: &[BranchAsk]) -> Vec<&[BranchAsk]> {
+    let mut chunks = Vec::new();
+    let mut rest = asks;
+    while !rest.is_empty() {
+        let mut commits = 0;
+        let fit = (rest.iter().take(MOST_BRANCHES))
+            .take_while(|ask| {
+                commits += ask.commits.len();
+                commits <= MOST_COMMITS
+            })
+            .count()
+            // One branch always goes, as many commits as it has: asking cuts them to the most.
+            .max(1);
+        let (chunk, after) = rest.split_at(fit);
+        chunks.push(chunk);
+        rest = after;
+    }
+    chunks
+}
+
+/// A version of a brief as the server sent it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FetchedVersion {
+    pub id: String,
+    pub version: u32,
+    pub body: Value,
+}
+
+/// What asking about some branches said, for [`Cache::took`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Asked {
+    /// Each branch asked about, with what's about it as the server sent it, the best first.
+    pub anchors: Vec<(String, Vec<Value>)>,
+    /// The versions that had to be read.
+    pub versions: Vec<FetchedVersion>,
+}
+
+/// A brief an answer holds, with what says which branches it's about.
+struct Matched {
+    found: Value,
+    head: Option<String>,
+    written_on: Option<String>,
+}
+
+/// Each branch of `chunk` with what's about it. The server doesn't say which of the branches
+/// asked about a brief matched, so that's where it was written: at one of a branch's commits, or
+/// on a branch of its name.
+fn anchors_of(chunk: &[BranchAsk], matches: &[Matched]) -> Vec<(String, Vec<Value>)> {
+    (chunk.iter())
+        .map(|ask| {
+            let found = (matches.iter())
+                .filter(|found| {
+                    found.head.as_ref().is_some_and(|head| ask.commits.contains(head))
+                        || found.written_on.as_ref() == Some(&ask.branch)
+                })
+                .map(|found| found.found.clone())
+                .collect();
+            (ask.branch.clone(), found)
+        })
+        .collect()
+}
+
 /// `response`, when it says it worked. The status alone, as a request's address names the
 /// repository and its branches, which logs shouldn't.
 fn succeeded(response: Response) -> Result<Response> {
@@ -120,6 +250,9 @@ async fn read_json<T: DeserializeOwned>(response: Response) -> Result<T> {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Found {
     pub id: String,
+    /// Its latest version's title.
+    #[serde(default)]
+    pub title: String,
     pub author: Author,
     /// Its latest published version, which may be newer than the one that matched.
     pub latest: u32,
@@ -309,6 +442,61 @@ mod tests {
         .unwrap();
         assert_eq!(found.matched.how, How::Other, "a new kind still reads");
         assert!(!found.matched.uncommitted, "a missing field is its default");
+    }
+
+    fn ask(branch: &str, commits: &[&str]) -> BranchAsk {
+        BranchAsk {
+            branch: branch.into(),
+            commits: commits.iter().map(|commit| (*commit).into()).collect(),
+        }
+    }
+
+    fn matched(id: &str, head: Option<&str>, written_on: Option<&str>) -> Matched {
+        Matched {
+            found: json!({ "id": id }),
+            head: head.map(str::to_owned),
+            written_on: written_on.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn each_branch_of_a_batch_gets_only_the_briefs_about_it() {
+        let chunk = [ask("a", &["a2", "a1"]), ask("b", &["b1"]), ask("c", &["c1"])];
+        let anchors = anchors_of(
+            &chunk,
+            &[
+                matched("at-a-commit", Some("a1"), Some("gitbutler/workspace")),
+                matched("by-its-name", Some("gone"), Some("b")),
+                matched("elsewhere", Some("gone"), Some("other")),
+            ],
+        );
+        assert_eq!(
+            anchors,
+            [
+                ("a".to_owned(), vec![json!({ "id": "at-a-commit" })]),
+                ("b".to_owned(), vec![json!({ "id": "by-its-name" })]),
+                ("c".to_owned(), Vec::new()),
+            ],
+            "written at a branch's commit or on its name, and the rest have none"
+        );
+    }
+
+    #[test]
+    fn a_batch_is_as_much_as_one_request_may_name() {
+        let many: Vec<_> = (0..23).map(|n| ask(&n.to_string(), &["tip"])).collect();
+        assert_eq!(
+            chunks(&many).iter().map(|chunk| chunk.len()).collect::<Vec<_>>(),
+            [10, 10, 3],
+            "at most 10 branches"
+        );
+        let commits = vec!["c"; 60];
+        let long = [ask("a", &commits), ask("b", &commits), ask("c", &["tip"])];
+        assert_eq!(
+            chunks(&long).iter().map(|chunk| chunk.len()).collect::<Vec<_>>(),
+            [1, 2],
+            "at most 100 commits"
+        );
+        assert!(chunks(&[]).is_empty(), "nothing to ask, nothing to send");
     }
 
     #[test]

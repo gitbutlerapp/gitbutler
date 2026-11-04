@@ -968,8 +968,9 @@ export type FeatureFlags = {
    */
   gpuiSingleFileDiff: boolean;
   /**
-   * In the native client (GPUI), show the brief about a branch on a tab of its page. Asking
-   * tells GitButler's server a repository's address, the branch's name and its commits' ids.
+   * In the native client (GPUI), show the brief about a branch on a tab of its page. Every few
+   * minutes, open projects tell GitButler's server their addresses and their newest branches'
+   * names and commits' ids.
    */
   gpuiBriefs: boolean;
 };

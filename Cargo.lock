@@ -1445,8 +1445,11 @@ dependencies = [
  "anyhow",
  "but-secret",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

@@ -19,6 +19,7 @@ use crate::backend::{
 mod account;
 mod activity;
 mod background;
+mod briefs;
 mod checkout;
 mod cli;
 mod load;
@@ -473,7 +474,7 @@ pub struct Store {
     /// Diffs show only the cursor's file rather than every file one after another, as
     /// GitButler's experimental `gpuiSingleFileDiff` says.
     pub single_file_diff: bool,
-    /// Whether a branch's page asks Briefs for its brief.
+    /// Whether Briefs is asked about the projects' branches.
     pub briefs: bool,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
@@ -570,6 +571,9 @@ pub struct Store {
     changes: mpsc::UnboundedSender<Change>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
+    _brief_poll: Task<()>,
+    /// What Briefs says about the projects' branches: see [`Store::brief_at`].
+    brief_answers: briefs::BriefAnswers,
     /// When each project was last fetched, in the background or when asked, by the wall
     /// clock, which counts the time the Mac slept.
     fetched: HashMap<ProjectId, SystemTime>,
@@ -734,6 +738,8 @@ impl Store {
                 })
                 .collect(),
             _forge_poll: Self::poll_forge(cx),
+            _brief_poll: Self::poll_briefs(cx),
+            brief_answers: briefs::BriefAnswers::default(),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
             last_merged: HashMap::new(),

@@ -1,18 +1,27 @@
-//! Briefs: the one that fits a branch best, ready to draw. This asks over the network, so it runs
-//! off the UI thread like the rest. Nothing is kept on disk.
+//! Briefs: what's kept of them, asking about a project's branches to keep it current, and reading
+//! one to draw. Asking goes over the network and reading the cache touches the disk, so all of
+//! it runs off the UI thread like the rest. `but-briefs` keeps the file, and this says who for.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Result, bail};
 use but_api::legacy::{forge, users};
-use but_briefs::{Block, BlockKind, Brief, Client, Found, How};
+use but_briefs::{Block, BlockKind, BranchAsk, Brief, Cache, Client, How};
 use but_core::unified_diff::DiffHunk;
+use parking_lot::Mutex;
 
 use super::diff::{highlight_lines, parse_hunk};
 use super::{CommitId, DiffLine, LineKind, open, runtime};
 use crate::ui::{markdown, plural};
 
-pub use but_briefs::Changed;
+pub use but_briefs::{Anchored, Changed, Found, web_url};
+
+/// How many of a project's other branches a poll asks about, the newest first. What it leaves
+/// out is asked about when its page opens.
+const NEWEST_BRANCHES: usize = 30;
+
+/// The one connection to the cache, so one that had to fall back to memory stays the same one.
+static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
 
 /// A branch of the project at `path`, as Briefs is asked about it: by its name and its commits,
 /// newest first.
@@ -33,6 +42,39 @@ impl BriefAnchor {
     }
 }
 
+fn ask_of(branch: String, commits: impl Iterator<Item = CommitId>) -> BranchAsk {
+    BranchAsk {
+        branch,
+        commits: (commits.take(but_briefs::MOST_COMMITS))
+            .map(|id| id.0.to_string())
+            .collect(),
+    }
+}
+
+fn cache_dir() -> Option<PathBuf> {
+    but_path::app_cache_dir().ok().map(|dir| dir.join("briefs"))
+}
+
+/// `act` on the cache of whoever's signed in. Nothing for no one. The lock is only for `act`, so
+/// asking over the network never holds up a read.
+fn cached<T>(act: impl FnOnce(&mut Cache) -> rusqlite::Result<T>) -> Result<Option<T>> {
+    let Some(account) = users::account_id()? else {
+        return Ok(None);
+    };
+    let account = account.to_string();
+    let mut cache = CACHE.lock();
+    if cache
+        .as_ref()
+        .is_none_or(|cache| cache.account() != account)
+    {
+        *cache = Some(Cache::open(cache_dir().as_deref(), &account)?);
+    }
+    let Some(cache) = cache.as_mut() else {
+        return Ok(None);
+    };
+    Ok(Some(act(cache)?))
+}
+
 /// A client signed in as whoever's signed in to GitButler, if anyone is. Only this reads the
 /// keychain, so nothing that isn't asking Briefs anything does. A profile can outlive its token,
 /// as in a debug build, which reads it through `git credential`. That looks the same as having
@@ -44,28 +86,78 @@ fn client() -> Result<Option<Client>> {
         .transpose()
 }
 
-/// The brief that fits `anchor` best, at the version that does. None without one, or for someone
-/// not signed in.
-pub fn best(anchor: &BriefAnchor) -> Result<Option<BriefPage>> {
-    let Some(client) = client()? else {
-        return Ok(None);
-    };
-    let ctx = open(&anchor.path)?;
-    let remote = forge::remote_url(&ctx.project_meta()?, &*ctx.repo.get()?)?;
-    let commits: Vec<String> = anchor.commits.iter().map(|id| id.0.to_string()).collect();
-    let runtime = runtime().handle();
-    let found = runtime.block_on(client.find(&remote, &anchor.branch, &commits))?;
-    let Some(found) = fitting(found) else {
-        return Ok(None);
-    };
-    let brief = runtime.block_on(client.read(&found.id, found.matched.version))?;
-    Ok(Some(page(found, brief, &anchor.commits)))
+fn remote_of(path: &Path) -> Result<String> {
+    let ctx = open(path)?;
+    forge::remote_url(&ctx.project_meta()?, &*ctx.repo.get()?)
 }
 
-/// The best of `found` that's about the branch. One that only names a commit of it isn't: that
-/// can be no more than where another change starts from.
-fn fitting(found: Vec<Found>) -> Option<Found> {
-    (found.into_iter()).find(|found| found.matched.how != How::Commit)
+/// Seconds since the epoch.
+pub fn now() -> i64 {
+    chrono::Utc::now().timestamp()
+}
+
+/// What's kept about the branches of the project at `path`.
+pub fn known(path: &Path) -> Result<Vec<Anchored>> {
+    let remote = remote_of(path)?;
+    Ok(cached(|cache| cache.anchors(&remote))?.unwrap_or_default())
+}
+
+/// Ask Briefs about `asks`, keep what it says, and give back all that's known. What was asked
+/// before a request failed is kept.
+fn ask_about(path: &Path, asks: &[BranchAsk]) -> Result<Vec<Anchored>> {
+    let remote = remote_of(path)?;
+    if let Some(client) = client()? {
+        let runtime = runtime().handle();
+        for chunk in but_briefs::chunks(asks) {
+            let asked = runtime.block_on(client.ask(&remote, chunk, |id, version| {
+                cached(|cache| cache.version_branch(id, version))
+                    .ok()
+                    .flatten()
+                    .flatten()
+            }))?;
+            cached(|cache| cache.took(&remote, &asked, now()))?;
+        }
+    }
+    known(path)
+}
+
+/// Ask about the project at `path`: its `applied` branches, by their commits, and the newest of
+/// the others, by their tips.
+pub fn refresh_project(
+    path: &Path,
+    applied: Vec<(String, Vec<CommitId>)>,
+) -> Result<Vec<Anchored>> {
+    let mut others = super::branches::all_branches(path)?;
+    others.retain(|branch| !applied.iter().any(|(name, _)| *name == branch.name));
+    others.sort_by_key(|branch| std::cmp::Reverse(branch.time));
+    let asks: Vec<BranchAsk> = (applied.into_iter())
+        .map(|(branch, commits)| ask_of(branch, commits.into_iter()))
+        .chain(
+            (others.into_iter().take(NEWEST_BRANCHES))
+                .map(|branch| ask_of(branch.name, std::iter::once(branch.tip))),
+        )
+        .collect();
+    ask_about(path, &asks)
+}
+
+/// Ask about the one branch `anchor`, as a page opens on one that's not known lately.
+pub fn refresh_branch(anchor: &BriefAnchor) -> Result<Vec<Anchored>> {
+    let ask = ask_of(anchor.branch.clone(), anchor.commits.iter().copied());
+    ask_about(&anchor.path, &[ask])
+}
+
+/// The version of `found` that matched, ready to draw: as it's kept, else as Briefs says.
+pub fn read(found: &Found) -> Result<BriefPage> {
+    let (id, version) = (&found.id, found.matched.version);
+    if let Some(brief) = cached(|cache| cache.version(id, version))?.flatten() {
+        return Ok(page(id, version, brief));
+    }
+    let Some(client) = client()? else {
+        bail!("Sign in to GitButler to read briefs");
+    };
+    let read = (runtime().handle()).block_on(client.read(id, version))?;
+    cached(|cache| cache.put_version(&read, now()))?;
+    Ok(page(id, version, serde_json::from_value(read.body)?))
 }
 
 /// What `url`, a brief's media file, serves.
@@ -76,19 +168,21 @@ pub fn media(url: &str) -> Result<Vec<u8>> {
     (runtime().handle()).block_on(client.media(url))
 }
 
+/// Leave nothing of what Briefs said on disk, as someone signs out.
+pub fn forget() -> Result<()> {
+    *CACHE.lock() = None;
+    if let Some(dir) = cache_dir().filter(|dir| dir.exists()) {
+        std::fs::remove_dir_all(dir)?;
+    }
+    Ok(())
+}
+
 /// A version of a brief, ready to draw.
 #[derive(Debug, Clone)]
 pub struct BriefPage {
     pub id: String,
-    pub title: String,
-    pub author: String,
     pub version: u32,
-    /// Its latest published version, which may be newer.
-    pub latest: u32,
-    /// Where to read it in a browser.
-    pub url: String,
-    /// How it stands against the branch, in a few words.
-    pub standing: String,
+    pub title: String,
     /// Seconds since the epoch.
     pub published: Option<i64>,
     pub changed: Option<Changed>,
@@ -122,36 +216,30 @@ pub enum BriefBody {
     OnTheWeb(String),
 }
 
-fn page(found: Found, brief: Brief, commits: &[CommitId]) -> BriefPage {
-    let standing = standing(&found, commits);
+fn page(id: &str, version: u32, brief: Brief) -> BriefPage {
     let published = (brief.created_at.as_deref())
         .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
         .map(|at| at.timestamp());
-    let version = found.matched.version;
-    let url = but_briefs::web_url(&found.id, version);
     let review = brief.review;
     let blocks = (review.blocks.into_iter())
         .map(|Block { detail, kind }| BriefBlock {
             detail,
-            body: body(&found.id, kind),
+            body: body(id, kind),
         })
         .collect();
     BriefPage {
-        id: found.id,
-        title: review.title,
-        author: found.author.name,
+        id: id.to_owned(),
         version,
-        latest: found.latest,
-        url,
-        standing,
+        title: review.title,
         published,
         changed: review.changed,
         blocks,
     }
 }
 
-/// Where `found` was written, against a branch's `commits`, newest first.
-fn standing(found: &Found, commits: &[CommitId]) -> String {
+/// Where `found` was written, against a branch's `commits`, newest first. Worked out as it's
+/// drawn, so it stays right as the branch moves without asking again.
+pub fn standing(found: &Found, commits: &[CommitId]) -> String {
     let below = (found.matched.head.as_deref())
         .and_then(|head| gix::ObjectId::from_hex(head.as_bytes()).ok())
         .and_then(|head| commits.iter().position(|commit| commit.0 == head));
@@ -252,6 +340,7 @@ mod tests {
     fn found(how: How, head: Option<CommitId>) -> Found {
         Found {
             id: "b1".into(),
+            title: "t".into(),
             author: Author { name: "Ada".into() },
             latest: 1,
             matched: Match {
@@ -285,23 +374,6 @@ mod tests {
                 found.matched.how
             );
         }
-    }
-
-    #[test]
-    fn a_brief_that_only_names_a_commit_is_not_about_the_branch() {
-        assert_eq!(
-            fitting(vec![found(How::Commit, Some(id(1)))]),
-            None,
-            "another change starting from this branch's tip names it too"
-        );
-        assert_eq!(
-            fitting(vec![
-                found(How::Commit, Some(id(1))),
-                found(How::Branch, Some(id(2)))
-            ]),
-            Some(found(How::Branch, Some(id(2)))),
-            "one that is about it still counts"
-        );
     }
 
     #[test]

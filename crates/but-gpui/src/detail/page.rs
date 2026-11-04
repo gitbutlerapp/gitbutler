@@ -16,7 +16,7 @@ use super::review_edit::EditLeft;
 use super::slots::SlotPick;
 use super::upstream::Upstream;
 use super::{Cursor, KeyPane, LoadedDiff, Stop, follow_hunk, hunk_keys};
-use crate::backend::briefs::BriefPage;
+use crate::backend::briefs::{BriefPage, Found};
 use crate::backend::{FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
@@ -285,8 +285,11 @@ pub(super) struct ReviewState {
 /// The brief of a page's branch and how it's being looked at.
 #[derive(Default)]
 pub(super) struct BriefState {
-    /// What Briefs last said, which stays until it says otherwise.
-    pub(super) shown: Option<BriefPage>,
+    /// The brief of the branch, as the store knows it.
+    pub(super) found: Option<Found>,
+    /// Its version, read as its tab first shows, or why it couldn't be. It stays while a newer
+    /// version is read.
+    pub(super) shown: Option<Result<BriefPage, String>>,
     /// The folds open, by their first block.
     pub(super) open: HashSet<usize>,
     /// How far the tab was scrolled as the page was left, for when its rows are next drawn.

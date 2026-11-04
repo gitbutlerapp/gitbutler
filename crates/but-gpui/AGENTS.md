@@ -176,6 +176,22 @@ anything else.
 - Background failures log at debug, keep the last good read and are tried again. Only what the
   user asked for, signing in or out and Apply here, shows an error.
 
+## Briefs
+
+Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,
+and the feature may go, so it stays separate.
+
+- Its code stays in `crates/but-briefs`, `backend/briefs.rs`, `state/briefs.rs` and
+  `detail/brief.rs`. Everything else reaches it through `Store::brief_at`, `Detail::has_brief`,
+  `BriefState` and `PageTab::Brief`, with at most a dispatch arm.
+- What Briefs sent is kept in a file of its own under the app's cache folder, never in `but-db`.
+  It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
+  is dropped and asked for again, and a bump of its `SCHEMA` empties it.
+- Pages read only what's kept, so the tab is there at once and nothing marks a row. The poll
+  beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
+  while the window is hidden and asks nothing while the flag is off or no one's signed in.
+- Background failures log at debug and keep what's known. Signing out deletes the file.
+
 ## Sizes
 
 - Give every size in `ui::dp(n)`: `n` pixels as designed, so ui-react's numbers go in as they

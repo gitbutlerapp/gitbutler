@@ -698,6 +698,7 @@ impl Store {
                     store.settled(&id, cx);
                 }
                 cx.emit(StoreEvent::Loaded(id.clone()));
+                store.briefs_project_loaded(&id, cx);
                 cx.notify();
                 if let Some(queued) = queued {
                     store.load(&id, queued, cx);

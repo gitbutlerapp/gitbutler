@@ -150,6 +150,11 @@ pub fn access_token() -> Result<Option<but_secret::Sensitive<String>>> {
         .transpose()
 }
 
+/// Who's signed in to GitButler, by their id, or `None`. It reads no secret.
+pub fn account_id() -> Result<Option<u64>> {
+    Ok(gitbutler_user::get_user()?.map(|user| user.id))
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_user(user: User) -> Result<()> {

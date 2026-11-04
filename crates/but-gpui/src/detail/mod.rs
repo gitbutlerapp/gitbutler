@@ -483,9 +483,11 @@ pub struct Detail {
     opening: Option<(ProjectTab, crate::state::SeenCommit)>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
-    /// The branch Briefs was last asked about, and the asking: see [`Self::ask_briefs`].
+    /// The branch the page last showed, and the asking about it: see [`Self::ask_briefs`].
     brief_asked: Option<backend::briefs::BriefAnchor>,
     _brief_ask: Task<()>,
+    /// The version of a brief being read for the tab, and the reading.
+    brief_reading: Option<((String, u32), Task<()>)>,
     brief_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
@@ -860,6 +862,7 @@ impl Detail {
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             brief_asked: None,
             _brief_ask: Task::ready(()),
+            brief_reading: None,
             brief_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
@@ -1580,6 +1583,7 @@ impl Detail {
         self.review_list.reset(0);
         self.review_side_scroll.set_offset(Default::default());
         self.brief_list.reset(0);
+        self.brief_reading = None;
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.

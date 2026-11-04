@@ -101,8 +101,8 @@ pub fn set_single_file_diff(on: bool) -> Result<()> {
     })
 }
 
-/// Whether pages ask Briefs what it has about what they show, as the experimental `gpuiBriefs`
-/// says. Off by default, as asking tells GitButler's server a repository's address, its
+/// Whether open projects ask Briefs about their branches, as the experimental `gpuiBriefs` says.
+/// Off by default, as asking tells GitButler's server a repository's address, its newest
 /// branches' names and its commits' ids.
 pub fn briefs() -> bool {
     feature_flags().is_some_and(|flags| flags.gpui_briefs)

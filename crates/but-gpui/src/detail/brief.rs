@@ -1,6 +1,6 @@
 //! A branch's Brief tab. A branch is what a brief is anchored to, as a commit's id goes with a
-//! rewrite and Briefs also counts a commit a brief merely starts from. Briefs is asked as the
-//! page shows and as the branch moves, and the page keeps what it last said.
+//! rewrite and Briefs also counts a commit a brief merely starts from. The tab shows from what
+//! the store knows, and its version is read as it opens.
 
 use std::collections::HashSet;
 use std::time::Duration;
@@ -13,8 +13,8 @@ use gpui::{
 use super::Detail;
 use super::page::PageTab;
 use super::pull_request::COLUMN_MAX_WIDTH;
-use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPage};
-use crate::backend::run;
+use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPage, Found};
+use crate::backend::{CommitId, run};
 use crate::state::{ProjectTab, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
@@ -25,6 +25,9 @@ use crate::ui::{
 
 /// How long a branch stays shown before Briefs is asked, as a held arrow key passes many.
 const SETTLE: Duration = Duration::from_millis(100);
+
+/// How long what's known of a branch counts, in seconds, before opening it asks again.
+const KNOWN_FOR: i64 = 5 * 60;
 
 /// How far ↓ and ↑ read on through a brief, in design pixels.
 const STEP: f32 = 80.;
@@ -87,36 +90,74 @@ impl Detail {
         }
     }
 
-    /// Ask Briefs about the branch the page shows, if that's changed, for the page to keep. A
-    /// failed ask logs and keeps what the page has.
+    /// Take what the store knows of the branch the page shows. Opening one it knows nothing of
+    /// lately, as the poll leaves out older branches, asks about it. As its tab shows, its
+    /// brief is read.
     pub(super) fn ask_briefs(&mut self, cx: &mut Context<Self>) {
         let anchor = self.brief_anchor(cx);
-        if anchor.is_none()
-            && let Some(brief) = self.page.brief_mut()
+        let project = self.selected_project();
+        let store = self.store.read(cx);
+        let known = (anchor.as_ref().zip(project.as_ref()))
+            .and_then(|(anchor, project)| store.brief_at(project, &anchor.branch));
+        let stale = known.is_none_or(|known| briefs::now() - known.asked_at >= KNOWN_FOR);
+        let found = known.and_then(|known| known.found.clone());
+        if let Some(brief) = self.page.brief_mut()
+            && brief.found != found
         {
-            brief.shown = None;
+            brief.found = found;
         }
-        if anchor == self.brief_asked {
+        if anchor != self.brief_asked {
+            self.brief_asked = anchor.clone();
+            self._brief_ask = match anchor.zip(project).filter(|_| stale) {
+                None => Task::ready(()),
+                Some((anchor, project)) => cx.spawn(async move |this, cx| {
+                    cx.background_executor().timer(SETTLE).await;
+                    let asked = run(move || briefs::refresh_branch(&anchor)).await;
+                    this.update(cx, |this, cx| {
+                        (this.store).update(cx, |store, cx| store.took_briefs(&project, asked, cx))
+                    })
+                    .ok();
+                }),
+            };
+        }
+        self.read_shown_brief(cx);
+    }
+
+    /// Read the brief the tab shows, unless that's what it has or is reading.
+    fn read_shown_brief(&mut self, cx: &mut Context<Self>) {
+        let Some(found) = (self.page.brief())
+            .filter(|_| self.page.brief_tab())
+            .and_then(|brief| brief.found.clone())
+        else {
+            return;
+        };
+        let key = (found.id.clone(), found.matched.version);
+        let has_it = (self.page.brief())
+            .and_then(|brief| brief.shown.as_ref())
+            .and_then(|shown| shown.as_ref().ok())
+            .is_some_and(|page| (&page.id, page.version) == (&key.0, key.1));
+        let reading = (self.brief_reading.as_ref()).is_some_and(|(reading, _)| *reading == key);
+        if has_it || reading {
             return;
         }
-        self.brief_asked = anchor.clone();
-        self._brief_ask = match anchor {
-            None => Task::ready(()),
-            Some(anchor) => cx.spawn(async move |this, cx| {
-                cx.background_executor().timer(SETTLE).await;
-                let shown = run(move || briefs::best(&anchor)).await;
-                this.update(cx, |this, cx| match shown {
-                    Ok(shown) => {
-                        if let Some(brief) = this.page.brief_mut() {
-                            brief.shown = shown;
-                            cx.notify();
-                        }
-                    }
-                    Err(err) => tracing::debug!("couldn't ask Briefs: {err:#}"),
-                })
-                .ok();
-            }),
-        };
+        let task = cx.spawn(async move |this, cx| {
+            let read = {
+                let found = found.clone();
+                run(move || briefs::read(&found)).await
+            };
+            this.update(cx, |this, cx| {
+                if let Some(brief) = (this.page.brief_mut()).filter(|brief| {
+                    brief.found.as_ref().is_some_and(|now| {
+                        (&now.id, now.matched.version) == (&found.id, found.matched.version)
+                    })
+                }) {
+                    brief.shown = Some(read.map_err(|err| format!("{err:#}")));
+                    cx.notify();
+                }
+            })
+            .ok();
+        });
+        self.brief_reading = Some((key, task));
     }
 
     /// ↓ or ↑ on the tab: on through the brief, or from its top up to the tabs.
@@ -149,7 +190,7 @@ impl Detail {
     /// The text selected in the brief.
     pub(super) fn selected_brief_text(&self) -> Option<String> {
         let (id, range) = self.note_range()?;
-        let page = self.page.brief()?.shown.as_ref()?;
+        let page = self.page.brief()?.shown.as_ref()?.as_ref().ok()?;
         let text = (page.blocks.iter().enumerate()).find_map(|(at, block)| match &block.body {
             BriefBody::Text(blocks) if block_id(&page.id, at) == id => {
                 Some(markdown::selected_text(blocks, range))
@@ -161,7 +202,7 @@ impl Detail {
 
     /// Whether the page has a brief to show.
     pub(super) fn has_brief(&self) -> bool {
-        self.page.brief().is_some_and(|brief| brief.shown.is_some())
+        self.page.brief().is_some_and(|brief| brief.found.is_some())
     }
 
     /// Whether the tab shows a brief, in place of the changes.
@@ -173,14 +214,17 @@ impl Detail {
         let Some(state) = self.page.brief() else {
             return div().into_any_element();
         };
-        let Some(page) = &state.shown else {
-            return div().into_any_element();
+        let rows = match &state.shown {
+            Some(Ok(page)) => rows(&page.blocks, &state.open),
+            _ => vec![Row::Head],
         };
-        let rows = rows(&page.blocks, &state.open);
         if self.brief_list.item_count() != rows.len() {
             self.brief_list.reset(rows.len());
         }
-        if let Some(top) = state.top.take() {
+        // Where it was left is among rows that are there once it's read.
+        if let Some(Ok(_)) = state.shown
+            && let Some(top) = state.top.take()
+        {
             self.brief_list.scroll_to(top);
         }
         let column = list(
@@ -204,13 +248,19 @@ impl Detail {
         let (Some(state), Some(&row)) = (self.page.brief(), rows.get(ix)) else {
             return div().into_any_element();
         };
-        let Some(page) = &state.shown else {
+        let Some(found) = &state.found else {
             return div().into_any_element();
         };
+        let page = state.shown.as_ref().and_then(|shown| shown.as_ref().ok());
+        let commits = (self.brief_asked.as_ref()).map_or(&[][..], |asked| &asked.commits);
         let (above, content) = match row {
-            Row::Head => (16., brief_head(page, theme).into_any_element()),
+            Row::Head => {
+                let head = brief_head(found, state.shown.as_ref(), commits, theme);
+                (16., head.into_any_element())
+            }
             Row::Fold { first, count } => {
-                let teaser = (page.blocks.get(first)).and_then(|block| block.detail.clone());
+                let block = page.and_then(|page| page.blocks.get(first));
+                let teaser = block.and_then(|block| block.detail.clone());
                 let glyph = match state.open.contains(&first) {
                     true => Icon::ChevronDown,
                     false => Icon::ChevronRight,
@@ -225,7 +275,8 @@ impl Detail {
                 (14., row.into_any_element())
             }
             Row::Block(at) => {
-                let Some(block) = page.blocks.get(at) else {
+                let Some((page, block)) = page.and_then(|page| Some((page, page.blocks.get(at)?)))
+                else {
                     return div().into_any_element();
                 };
                 let id = block_id(&page.id, at);
@@ -257,17 +308,24 @@ impl Detail {
 }
 
 /// What the brief is, who wrote it and how it stands, with the way to the web, which often shows
-/// more than this does.
-fn brief_head(page: &BriefPage, theme: &Theme) -> Div {
+/// more than this does. What `found` says shows at once, and the rest as the version's read.
+fn brief_head(
+    found: &Found,
+    shown: Option<&Result<BriefPage, String>>,
+    commits: &[CommitId],
+    theme: &Theme,
+) -> Div {
+    let page = shown.and_then(|shown| shown.as_ref().ok());
+    let version = found.matched.version;
     let mut meta: Vec<String> = Vec::new();
-    meta.extend(page.published.map(ago));
-    meta.push(match page.latest > page.version {
-        true => format!("Version {} of {}", page.version, page.latest),
-        false => format!("Version {}, the latest", page.version),
+    meta.extend(page.and_then(|page| page.published).map(ago));
+    meta.push(match found.latest > version {
+        true => format!("Version {version} of {}", found.latest),
+        false => format!("Version {version}, the latest"),
     });
-    meta.push(page.standing.clone());
+    meta.push(briefs::standing(found, commits));
     // A brief can explain code at one commit, which compares nothing.
-    if let Some(changed) = page.changed.filter(|changed| changed.files > 0) {
+    if let Some(changed) = (page.and_then(|page| page.changed)).filter(|c| c.files > 0) {
         meta.push(format!(
             "Covers {} +{} -{}",
             plural(changed.files as usize, "file"),
@@ -275,7 +333,13 @@ fn brief_head(page: &BriefPage, theme: &Theme) -> Div {
             changed.deletions
         ));
     }
-    let url = page.url.clone();
+    let title = page.map_or(found.title.as_str(), |page| page.title.as_str());
+    let url = briefs::web_url(&found.id, version);
+    let status = match shown {
+        None => Some("Loading…".to_owned()),
+        Some(Err(err)) => Some(format!("Couldn't read this brief: {err}")),
+        Some(Ok(_)) => None,
+    };
     v_flex()
         .gap(dp(10.))
         .child(
@@ -291,7 +355,7 @@ fn brief_head(page: &BriefPage, theme: &Theme) -> Div {
                         .text_size(dp(18.))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(theme.text_1)
-                        .child(page.title.clone()),
+                        .child(title.to_owned()),
                 )
                 .child(
                     button("brief-web", "Open on the web")
@@ -306,10 +370,11 @@ fn brief_head(page: &BriefPage, theme: &Theme) -> Div {
                 .gap(dp(8.))
                 .text_size(dp(12.))
                 .text_color(theme.text_2)
-                .child(person_avatar(&page.author, 18., theme))
-                .child(page.author.clone())
+                .child(person_avatar(&found.author.name, 18., theme))
+                .child(found.author.name.clone())
                 .children(meta.into_iter().map(|part| div().min_w_0().child(part))),
         )
+        .children(status.map(|status| small_line(&status, theme.text_3)))
 }
 
 /// What block `at` of brief `brief` draws its text as, which selecting it goes by.
