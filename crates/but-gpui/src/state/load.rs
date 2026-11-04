@@ -274,12 +274,15 @@ impl Store {
             }
         }
         if first_load {
+            let handed = (restored.handed).filter(|selection| {
+                (self.project(selection.project())).is_some_and(|entry| entry.expanded)
+            });
             let open = restored
                 .selection
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
                 .map(|entry| self.opening(&entry.id));
-            if let Some(selection) = open {
+            if let Some(selection) = handed.or(open) {
                 self.select(Some(selection), cx);
             }
         }
@@ -661,6 +664,7 @@ impl Store {
                 };
                 entry.loading = false;
                 let queued = entry.queued.take();
+                let first_read = entry.workspace.is_none();
                 match result {
                     Ok(workspace) => store.workspace_loaded(&id, workspace, fresh, cx),
                     Err(err) => entry.failed(&err, failure),
@@ -669,6 +673,15 @@ impl Store {
                 if fresh {
                     store.close_terminals_gone(cx);
                     store.validate_selection(&id, cx);
+                }
+                // A commit's row is only found once its project is read, so the tiling a
+                // restart handed over for it shows from here.
+                if first_read
+                    && (store.selection.as_ref()).is_some_and(|s| *s.project() == id)
+                    && store.tiling().is_some()
+                {
+                    store.show_terminals(cx);
+                    cx.emit(StoreEvent::TilingChanged);
                 }
                 // A project just added opens on its page while it has no target: that's
                 // where one is picked. One without commits stays on its files, as there's no

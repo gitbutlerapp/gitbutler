@@ -8,7 +8,7 @@ use gpui::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::{Seen, Store};
+use super::{Seen, Selection, Store};
 use crate::backend::saved::Database;
 use crate::theme::Appearance;
 
@@ -293,6 +293,8 @@ impl Pane {
 pub(super) struct Restored {
     pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
+    /// The row the build this one took over from had selected, which goes before `selection`.
+    pub(super) handed: Option<Selection>,
     /// Nothing was saved before, as on the first launch.
     pub(super) fresh: bool,
 }

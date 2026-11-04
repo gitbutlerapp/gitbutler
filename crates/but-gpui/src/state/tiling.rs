@@ -12,14 +12,14 @@ use crate::terminal::{Terminal, TerminalId};
 
 /// A navigator row, by what stays the same while agents rewrite it: a commit by its change ID,
 /// anything else by its selection.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum RowKey {
     Commit(ProjectId, String),
     Row(Selection),
 }
 
 /// Which way a division lays out its parts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Axis {
     /// Side by side, left to right.
     Across,
@@ -28,7 +28,7 @@ pub enum Axis {
 }
 
 /// What a tile shows.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Tile {
     /// The page of the row the tiling is for, which follows the navigator. It closes only as a
     /// terminal, whose place a terminal pinned beside it takes: see [`Tiling::promote`].
@@ -38,7 +38,7 @@ pub enum Tile {
 }
 
 /// The tiles a row lays out, in a tree of divisions.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Tiling {
     Tile(Tile),
     /// Two or more parts along `axis`, each with its share of the room, the shares adding to 1.

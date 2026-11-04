@@ -1,9 +1,11 @@
 //! The terminals open on each worktree, listed under its heading in the order they opened.
 //! Nothing saves them: they end with the app, but for Build and restart, which hands them to
-//! the new build.
+//! the new build, with the tilings they may be tiles of.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+#[cfg(unix)]
+use std::collections::HashSet;
 use std::time::Instant;
 
 use gpui::{Context, Entity, SharedString, Subscription};
@@ -31,6 +33,18 @@ pub struct Handed {
     /// Missing from what a build from before names handed over.
     #[serde(default)]
     named: Option<String>,
+    /// Missing from what a build from before tilings carried over hands over.
+    #[serde(default)]
+    tiled: bool,
+}
+
+/// How the rows laid their tiles out, and the row selected, for the next build to show the same.
+#[cfg(unix)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct HandedTilings {
+    /// A list, as JSON's keys can only be strings.
+    tilings: Vec<(RowKey, Tiling)>,
+    selection: Option<Selection>,
 }
 
 struct Open {
@@ -310,6 +324,7 @@ impl Store {
                     checkout: open.checkout.clone(),
                     id: open.id.0,
                     named: open.named.as_ref().map(ToString::to_string),
+                    tiled: open.tiled,
                 };
                 Some((handed, detached))
             })
@@ -325,17 +340,44 @@ impl Store {
                 checkout,
                 id,
                 named,
+                tiled,
             } = handed;
             let store = cx.weak_entity();
             match Terminal::adopt(detached, store, cx) {
                 Ok(terminal) => {
                     let (id, named) = (TerminalId(id), named.map(Into::into));
-                    self.insert_terminal(id, project.into(), checkout, terminal, named, cx)
+                    self.insert_terminal(id, project.into(), checkout, terminal, named, cx);
+                    self.set_tiled(id, tiled);
                 }
                 Err(err) => tracing::error!("couldn't adopt a terminal: {err:#}"),
             }
         }
         self.show_terminals(cx);
+    }
+
+    /// The tilings and the selection, for the build started next to adopt.
+    #[cfg(unix)]
+    pub fn hand_off_tilings(&self) -> HandedTilings {
+        HandedTilings {
+            tilings: self.tilings.clone().into_iter().collect(),
+            selection: self.selection.clone(),
+        }
+    }
+
+    /// Lays the rows out as the build this one took over from did, once its terminals are
+    /// adopted, and selects its row with the first listing of the projects. With nothing
+    /// handed, as when they couldn't be read, it still lists the terminals left without a tile.
+    #[cfg(unix)]
+    pub fn adopt_tilings(&mut self, handed: Option<HandedTilings>) {
+        let HandedTilings { tilings, selection } = handed.unwrap_or_default();
+        self.tilings = surviving(tilings, |id| self.terminals.get(id).is_some());
+        self.restored.handed = selection;
+        let pinned: HashSet<TerminalId> = (self.tilings.values())
+            .flat_map(Tiling::pinned_terminals)
+            .collect();
+        for open in &mut self.terminals.open {
+            open.tiled &= pinned.contains(&open.id);
+        }
     }
 
     fn set_tiled(&mut self, id: TerminalId, tiled: bool) {
@@ -491,10 +533,37 @@ impl Store {
     }
 }
 
+/// `tilings` as they stand with only the terminals `open` says are: a tiling goes with its
+/// row's terminal, and with the last tile beside its home one.
+#[cfg(unix)]
+fn surviving(
+    tilings: Vec<(RowKey, Tiling)>,
+    open: impl Fn(TerminalId) -> bool,
+) -> HashMap<RowKey, Tiling> {
+    (tilings.into_iter())
+        .filter(|(row, _)| row_open(row, &open))
+        .filter_map(|(row, mut tiling)| {
+            tiling.retain(&|pinned| row_open(pinned, &open));
+            (!tiling.is_home_only()).then_some((row, tiling))
+        })
+        .collect()
+}
+
+/// Whether `row` is there, which only a terminal may not be.
+#[cfg(unix)]
+fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
+    match row {
+        RowKey::Row(Selection::Terminal(_, id)) => open(*id),
+        RowKey::Row(_) | RowKey::Commit(..) => true,
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
-    use super::Handed;
+    use super::{Handed, HandedTilings, surviving};
     use crate::backend::Checkout;
+    use crate::state::{Axis, MeshPick, RowKey, Section, Selection, Tile, Tiling};
+    use crate::terminal::TerminalId;
 
     fn handed(named: Option<&str>) -> Handed {
         Handed {
@@ -502,7 +571,24 @@ mod tests {
             checkout: Checkout::Main,
             id: 1,
             named: named.map(Into::into),
+            tiled: false,
         }
+    }
+
+    fn terminal(id: u64) -> RowKey {
+        RowKey::Row(Selection::Terminal("project".into(), TerminalId(id)))
+    }
+
+    fn commit() -> RowKey {
+        RowKey::Commit("project".into(), "change".to_owned())
+    }
+
+    fn tiled(pinned: impl IntoIterator<Item = RowKey>) -> Tiling {
+        let mut tiling = Tiling::default();
+        for row in pinned {
+            tiling.pin(&Tile::Home, Axis::Across, row);
+        }
+        tiling
     }
 
     #[test]
@@ -522,5 +608,87 @@ mod tests {
         json.as_object_mut().unwrap().remove("named");
         let adopted: Handed = serde_json::from_value(json).unwrap();
         assert_eq!(adopted.named, None, "they show their shell's title");
+    }
+
+    #[test]
+    fn the_next_build_keeps_a_terminal_in_its_tile() {
+        let tiled = Handed {
+            tiled: true,
+            ..handed(None)
+        };
+        let json = serde_json::to_string(&tiled).unwrap();
+        let adopted: Handed = serde_json::from_str(&json).unwrap();
+        assert!(adopted.tiled, "it stays out of the navigator");
+    }
+
+    #[test]
+    fn a_build_from_before_tilings_carried_over_lists_its_terminals() {
+        let mut json = serde_json::to_value(handed(None)).unwrap();
+        json.as_object_mut().unwrap().remove("tiled");
+        let adopted: Handed = serde_json::from_value(json).unwrap();
+        assert!(
+            !adopted.tiled,
+            "with no tile to go to, the navigator has it"
+        );
+    }
+
+    #[test]
+    fn the_next_build_keeps_the_tilings_and_the_selection() {
+        let branch = Selection::Branch(
+            "project".into(),
+            Some("refs/heads/main".try_into().unwrap()),
+        );
+        let mesh = Selection::Mesh(
+            "project".into(),
+            "machine".into(),
+            MeshPick::Branch("main".to_owned()),
+        );
+        let section = Selection::Section(
+            "project".into(),
+            Section::Upstream(Some("refs/heads/main".try_into().unwrap())),
+        );
+        let tilings = Vec::from([
+            (
+                RowKey::Row(branch.clone()),
+                tiled([terminal(1), commit(), RowKey::Row(mesh)]),
+            ),
+            (commit(), tiled([RowKey::Row(section)])),
+        ]);
+        let json = serde_json::to_string(&HandedTilings {
+            tilings: tilings.clone(),
+            selection: Some(branch.clone()),
+        })
+        .unwrap();
+        let adopted: HandedTilings = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            adopted.tilings, tilings,
+            "each row lays its tiles out as it did"
+        );
+        assert_eq!(adopted.selection, Some(branch), "the same row is selected");
+    }
+
+    #[test]
+    fn a_terminal_that_did_not_come_over_leaves_its_tile() {
+        let tilings = Vec::from([(commit(), tiled([terminal(1), terminal(2)]))]);
+        let left = surviving(tilings, |id| id == TerminalId(2));
+        assert_eq!(
+            left.get(&commit()),
+            Some(&tiled([terminal(2)])),
+            "the tile beside it stays"
+        );
+    }
+
+    #[test]
+    fn a_tiling_goes_with_its_rows_terminal() {
+        let tilings = Vec::from([(terminal(1), tiled([terminal(2)]))]);
+        let left = surviving(tilings, |id| id == TerminalId(2));
+        assert!(left.is_empty(), "there's no row left to show it");
+    }
+
+    #[test]
+    fn a_tiling_goes_with_the_last_tile_beside_its_home_one() {
+        let tilings = Vec::from([(commit(), tiled([terminal(1)]))]);
+        let left = surviving(tilings, |_| false);
+        assert!(left.is_empty(), "a row alone needs no tiling");
     }
 }

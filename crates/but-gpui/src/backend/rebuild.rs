@@ -20,6 +20,13 @@ const ASKPASS_BIN: &str = "gitbutler-git-askpass";
 /// modal showing it.
 const PROGRESS_WIDTH: u16 = 100;
 
+/// `pid:json`: the process handing the tilings over, and them. Unlike the terminals' they're
+/// small and hold nothing to take along, so they need no file, and a mismatch between two
+/// worktrees' builds costs only them. Shells inherit it, so only the process it names as its
+/// parent reads it.
+#[cfg(unix)]
+const TILINGS: &str = "GITBUTLER_GPUI_TILINGS";
+
 /// How this binary was built, to build it again. A global once the app starts, when `cargo
 /// run` started it.
 #[derive(Clone)]
@@ -309,21 +316,29 @@ const TAKEN_WITHIN: std::time::Duration = std::time::Duration::from_secs(10);
 
 impl Built {
     /// Start the new binary in this process's place, with this one's arguments and environment,
-    /// handing it `terminals`, and exit once it has them. The manifest's folder is the one it was
+    /// handing it `terminals` and `tilings`, and exit once it has them. The manifest's folder is the one it was
     /// built from, as `cargo run` would have set it, so it offers Build and restart too. A process
     /// of its own, not this one by exec: macOS goes on drawing a window a process opens after
     /// exec and sending it clicks, but offers it no drags from other apps. `cargo run` ends with
     /// this process, so its terminal is back at its prompt while the new build writes on there.
     /// Returns only when starting it fails.
     #[cfg(unix)]
-    pub fn restart<T: serde::Serialize>(
+    pub fn restart<T: serde::Serialize, L: serde::Serialize>(
         &self,
         terminals: Vec<(T, but_tty::Detached)>,
+        tilings: &L,
     ) -> anyhow::Error {
         let mut new = Command::new(&self.exe);
         new.args(std::env::args_os().skip(1))
             .env("CARGO_MANIFEST_DIR", &self.crate_dir)
-            .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"));
+            .env("CARGO_MANIFEST_PATH", self.crate_dir.join("Cargo.toml"))
+            .env_remove(TILINGS);
+        match serde_json::to_string(tilings) {
+            Ok(json) => {
+                new.env(TILINGS, format!("{}:{json}", std::process::id()));
+            }
+            Err(err) => tracing::error!("couldn't hand the tilings over: {err:#}"),
+        }
         let handing = (but_tty::hand_over(terminals, &mut new))
             .inspect_err(|err| tracing::error!("couldn't hand the terminals over: {err:#}"))
             .ok();
@@ -344,6 +359,27 @@ impl Built {
     pub fn restart(&self) -> anyhow::Error {
         anyhow::anyhow!("restarting in place needs exec")
     }
+}
+
+/// The tilings the process this one takes over from handed over. Before [`but_tty::handed`],
+/// which lets that process exit, leaving this one with another parent.
+#[cfg(unix)]
+pub fn handed_tilings<L: serde::de::DeserializeOwned>() -> Option<L> {
+    let handed = std::env::var(TILINGS).ok()?;
+    tilings_from(&handed, std::os::unix::process::parent_id())
+}
+
+/// What `handed`, as [`TILINGS`] says it, lists for a process whose parent is `parent`: nothing
+/// when it's another's.
+#[cfg(unix)]
+fn tilings_from<L: serde::de::DeserializeOwned>(handed: &str, parent: u32) -> Option<L> {
+    let (pid, json) = handed.split_once(':')?;
+    if pid.parse() != Ok(parent) {
+        return None;
+    }
+    (serde_json::from_str(json))
+        .inspect_err(|err| tracing::error!("couldn't read the tilings handed over: {err:#}"))
+        .ok()
 }
 
 /// Mark the files this process has open, past stdin, stdout and stderr, to close in the new
@@ -417,6 +453,27 @@ mod tests {
             after & libc::FD_CLOEXEC == 0,
             "it stays open in the new binary, though Rust opened it to close"
         );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn tilings_are_read_from_the_process_that_handed_them_over() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:[1,2]", 42);
+        assert_eq!(tilings, Some(Vec::from([1, 2])));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_process_started_from_a_shell_leaves_the_tilings_it_inherited() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:[1,2]", 43);
+        assert_eq!(tilings, None, "they were for the build the app started");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn tilings_a_build_cant_read_cost_only_them() {
+        let tilings: Option<Vec<u32>> = super::tilings_from("42:{\"other\":1}", 42);
+        assert_eq!(tilings, None, "it starts without them");
     }
 
     /// Whether process `pid` is still running, as `kill -0` says.
