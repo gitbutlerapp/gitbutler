@@ -3,8 +3,8 @@ use gpui::{Context, Window, div, prelude::*};
 use super::{framed, page, section, variant};
 use crate::theme::Theme;
 use crate::ui::{
-    ButtonStyle, Icon, blink_once, button, dot, dp, glow_once, h_flex, icon, list_row, pulsing,
-    small_icon, spinning, v_flex,
+    ButtonStyle, blink_once, button, dot, dp, glow_once, h_flex, list_row, pulsing, spinning,
+    v_flex,
 };
 
 /// What moves while work is under way, and the washes that mark a row once.
@@ -51,16 +51,7 @@ impl Render for ActivityStory {
                 "Under way",
                 theme,
                 [
-                    variant(
-                        "Spinning",
-                        theme,
-                        spinning(icon(Icon::Spinner).text_color(theme.text_2)),
-                    ),
-                    variant(
-                        "Spinning, small",
-                        theme,
-                        spinning(small_icon(Icon::Spinner).text_color(theme.text_2)),
-                    ),
+                    variant("Spinning", theme, spinning(theme.text_2, true)),
                     variant("Pulsing", theme, pulsing(dot(theme.pop))),
                 ],
             ),

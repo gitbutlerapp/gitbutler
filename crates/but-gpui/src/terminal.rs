@@ -630,8 +630,8 @@ impl Render for Terminal {
                     cell_height: f32::from(cell_height).round() as u16,
                 };
                 let cell = gpui::size(cell_width, cell_height);
-                let centred = Grid::centred(bounds, cell, size, scale);
-                drawn.set(centred);
+                let placed = Grid::at(bounds, cell, scale);
+                drawn.set(placed);
                 if size != measured.get() {
                     measured.set(size);
                     window.defer(cx, move |_, cx| {
@@ -639,9 +639,9 @@ impl Render for Terminal {
                     });
                 }
                 let space = bounds.size.map(AvailableSpace::Definite);
-                cursor.prepaint_as_root(centred.origin, space, window, cx);
+                cursor.prepaint_as_root(placed.origin, space, window, cx);
                 let hitbox = window.insert_hitbox(bounds, HitboxBehavior::Normal);
-                (hitbox, centred, cursor)
+                (hitbox, placed, cursor)
             },
             move |_, (hitbox, grid, mut cursor), window, cx| {
                 let link = link.as_deref();
@@ -699,18 +699,14 @@ struct Grid {
 }
 
 impl Grid {
-    /// `size`'s cells in the middle of `bounds`, to the device pixel, so what they leave over
-    /// falls evenly on every side, as Ghostty's `window-padding-balance` does.
-    fn centred(bounds: Bounds<Pixels>, cell: gpui::Size<Pixels>, size: Size, scale: f32) -> Self {
-        let margin = |room: Pixels, cells: Pixels| {
-            ((room - cells).max(fixed(0.)) * scale / 2.).round() / scale
-        };
-        let offset = gpui::point(
-            margin(bounds.size.width, cell.width * f32::from(size.cols)),
-            margin(bounds.size.height, cell.height * f32::from(size.rows)),
-        );
+    /// Cells from the top left of `bounds`, to the device pixel, so what whole cells leave
+    /// over falls below and to the right, as Ghostty lays them out by default. Spread evenly
+    /// around them, as its `window-padding-balance` does, the text jumps by up to half a cell
+    /// with every pixel a tile's divider is dragged.
+    fn at(bounds: Bounds<Pixels>, cell: gpui::Size<Pixels>, scale: f32) -> Self {
+        let snap = |at: Pixels| (at * scale).round() / scale;
         Self {
-            origin: bounds.origin + offset,
+            origin: gpui::point(snap(bounds.origin.x), snap(bounds.origin.y)),
             cell,
         }
     }
@@ -1074,44 +1070,30 @@ mod tests {
         );
     }
 
-    fn centred_in(width: f32, height: f32, cols: u16, rows: u16, scale: f32) -> Point<Pixels> {
+    fn placed_in(x: f32, y: f32, height: f32, scale: f32) -> Point<Pixels> {
         let bounds = Bounds::new(
-            gpui::point(fixed(10.), fixed(20.)),
-            gpui::size(fixed(width), fixed(height)),
+            gpui::point(fixed(x), fixed(y)),
+            gpui::size(fixed(100.), fixed(height)),
         );
-        let size = Size {
-            cols,
-            rows,
-            ..Terminal::OPENING
-        };
         let cell = gpui::size(fixed(8.), fixed(16.));
-        Grid::centred(bounds, cell, size, scale).origin
+        Grid::at(bounds, cell, scale).origin
     }
 
     #[test]
-    fn what_whole_cells_leave_over_falls_evenly_on_both_sides() {
+    fn the_grid_stays_put_as_its_bounds_grow_by_less_than_a_row() {
         assert_eq!(
-            centred_in(102., 54., 12, 3, 1.),
-            gpui::point(fixed(13.), fixed(23.)),
-            "6px across and down leave 3px on either side"
+            placed_in(10., 20., 49., 1.),
+            placed_in(10., 20., 63., 1.),
+            "what whole rows leave over goes below them, so dragging a divider moves no text"
         );
     }
 
     #[test]
     fn a_grid_stays_on_the_device_pixels() {
         assert_eq!(
-            centred_in(100.8, 49., 12, 3, 2.),
-            gpui::point(fixed(12.5), fixed(20.5)),
-            "2.4px either side is nearest 2.5px at 2x, and flooring it would skew the grid left"
-        );
-    }
-
-    #[test]
-    fn a_grid_wider_than_its_bounds_starts_at_their_edge() {
-        assert_eq!(
-            centred_in(10., 10., 2, 1, 1.),
-            gpui::point(fixed(10.), fixed(20.)),
-            "the two columns a shell always gets overflow on the right, as the row does below"
+            placed_in(10.3, 20.2, 49., 2.),
+            gpui::point(fixed(10.5), fixed(20.)),
+            "bounds between device pixels start the grid on the nearest, so text stays crisp"
         );
     }
 

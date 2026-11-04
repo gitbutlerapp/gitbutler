@@ -3,7 +3,8 @@
 #
 # Disk, process and sleep calls block their thread, and on the UI thread a slow disk or a hung
 # network mount freezes the window. They go in `src/backend`, whose work `backend::run` runs off
-# the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI.
+# the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI. Tests, which
+# don't run on it, may call them anywhere (`lib.rs`).
 disallowed-methods = [
     { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
     { path = "std::fs::read", reason = "blocks: do it in src/backend" },

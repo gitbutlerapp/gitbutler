@@ -10,7 +10,7 @@ use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelu
 
 use super::order::moving_terminal;
 use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
-use super::{CARD_MARGIN, Navigator, RowStyle};
+use super::{Navigator, RowStyle};
 use crate::app::{MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, UseTargetMessage};
 use crate::backend::{
     Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
@@ -1646,7 +1646,12 @@ fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
 /// card's edges, which the row's slice draws a hairline in, on the card's ground with its
 /// guides, and over what the card's slices stretch over, so they don't cover it, while the rows
 /// after it, closing over it, go over it.
-pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div {
+pub(super) fn stand_in(
+    stand_in: &StandIn,
+    (left, right): (f32, f32),
+    store: &Store,
+    theme: &Theme,
+) -> Div {
     let StandIn {
         of,
         by,
@@ -1677,8 +1682,8 @@ pub(super) fn stand_in(stand_in: &StandIn, store: &Store, theme: &Theme) -> Div 
     div()
         .absolute()
         .top(dp(*by))
-        .left(dp(CARD_MARGIN))
-        .right(dp(CARD_MARGIN))
+        .left(dp(left))
+        .right(dp(right))
         .px(fixed(1.))
         .child(on_top(
             (div().relative().bg(theme.bg_1).opacity(*shown))
@@ -1853,10 +1858,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_commit_stops_between_every_branch_and_commit_but_in_what_is_folded() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
@@ -1890,10 +1891,6 @@ new branch below agent
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_folded_main_checkout_takes_nothing_and_without_a_target_no_new_stack_is_offered() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
@@ -2039,10 +2036,6 @@ new branch below agent
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_squash_stops_at_every_commit_folded_branch_and_heading_it_can_go_into() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
@@ -2067,10 +2060,6 @@ into uncommitted on wt
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_branch_squashes_into_one_commit_at_its_own_row_but_never_into_the_target() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
@@ -2096,10 +2085,6 @@ into 1
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_branch_stops_only_between_branches_and_where_it_is() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
@@ -2137,10 +2122,6 @@ new stack
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_branch_stacked_outside_the_workspace_moves_within_its_stack_and_apart() {
         let project = ProjectId::from("p");
         let p = || project.clone();
@@ -2184,10 +2165,6 @@ new stack
     }
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn a_terminal_stops_among_the_terminals_of_every_open_worktree() {
         let project = ProjectId::from("p");
         let p = || project.clone();

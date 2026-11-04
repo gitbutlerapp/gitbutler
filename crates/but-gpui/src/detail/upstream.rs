@@ -637,7 +637,7 @@ impl Detail {
             .flex_1()
             .min_h_0()
             .items_start()
-            .on_drag_move(resize_pane(Pane::BesideFiles, self.store.clone()))
+            .on_drag_move(resize_pane(Pane::BesideFiles, 0., self.store.clone()))
             .when(drawn, |el| {
                 el.child(inert(
                     v_flex()
@@ -1367,9 +1367,7 @@ impl Detail {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let Some(Selection::Section(project, Section::Upstream(_))) =
-            self.store.read(cx).selection.clone()
-        else {
+        let Some(Selection::Section(project, Section::Upstream(_))) = self.selection(cx) else {
             return el;
         };
         let Some((commit, id)) = self.picked_target_commit(&project) else {

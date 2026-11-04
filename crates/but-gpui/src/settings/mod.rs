@@ -22,7 +22,9 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{Interface, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns};
+use crate::state::{
+    Interface, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
+};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -993,6 +995,172 @@ impl SettingsView {
         .with_keywords("frames per second performance")
     }
 
+    /// How dragging a tile by its bar feels, each a few values to try, for this run of the
+    /// app.
+    fn tile_drag_rows(&self, cx: &Context<Self>) -> Vec<Row> {
+        vec![
+            self.tile_drag_row(
+                ("tile-lift", "Lift"),
+                "How far the pointer moves before the tile comes off.",
+                |f| &mut f.lift,
+                [
+                    (2., "2px"),
+                    (4., "4px"),
+                    (8., "8px"),
+                    (12., "12px"),
+                    (20., "20px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-wait", "Wait"),
+                "How long the pointer rests over a place before the other tiles make room.",
+                |f| &mut f.wait,
+                [
+                    (0., "0ms"),
+                    (50., "50ms"),
+                    (100., "100ms"),
+                    (200., "200ms"),
+                    (350., "350ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-bar", "Bar zone"),
+                "How far down a tile its bar's row reaches, where a tile dragged onto it lands \
+                 beside it or in its place, rather than above or below it.",
+                |f| &mut f.bar,
+                [
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-edge", "Edge zone"),
+                "How far in from the left and bottom of all the tiles the pointer lands one along \
+                 that side.",
+                |f| &mut f.edge,
+                [
+                    (16., "16px"),
+                    (24., "24px"),
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-right-edge", "Right edge zone"),
+                "How far in from the right of all the tiles the pointer lands one along it.",
+                |f| &mut f.right_edge,
+                [
+                    (32., "32px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                    (192., "192px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-reflow", "Reflow"),
+                "How long the other tiles take to move out of the way.",
+                |f| &mut f.reflow,
+                [
+                    (80., "80ms"),
+                    (110., "110ms"),
+                    (150., "150ms"),
+                    (220., "220ms"),
+                    (400., "400ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-resize", "Resize"),
+                "How long the dragged tile takes to grow or shrink to the room it'd land in.",
+                |f| &mut f.resize,
+                [
+                    (0., "0ms"),
+                    (80., "80ms"),
+                    (110., "110ms"),
+                    (150., "150ms"),
+                    (250., "250ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-zone", "Row zone"),
+                "How far in from the left and right of all the tiles a row dragged from the \
+                 navigator lands as a tile.",
+                |f| &mut f.row_zone,
+                [
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                    (192., "192px"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-wait", "Row wait"),
+                "How long a row rests in one of those zones before its tile starts to slide in.",
+                |f| &mut f.row_wait,
+                [
+                    (0., "0ms"),
+                    (80., "80ms"),
+                    (150., "150ms"),
+                    (250., "250ms"),
+                    (400., "400ms"),
+                ],
+                cx,
+            ),
+            self.tile_drag_row(
+                ("tile-row-peek", "Row peek"),
+                "How far a row's tile slides in while it's held there.",
+                |f| &mut f.row_peek,
+                [
+                    (32., "32px"),
+                    (48., "48px"),
+                    (64., "64px"),
+                    (96., "96px"),
+                    (128., "128px"),
+                ],
+                cx,
+            ),
+        ]
+    }
+
+    /// A row picking one of `choices` for the `field` of how dragging a tile feels.
+    fn tile_drag_row(
+        &self,
+        (id, title): (&str, &'static str),
+        about: &'static str,
+        field: fn(&mut TileDragFeel) -> &mut f32,
+        choices: [(f32, &'static str); 5],
+        cx: &Context<Self>,
+    ) -> Row {
+        let mut feel = self.store.read(cx).tile_drag_feel;
+        let current = *field(&mut feel);
+        let store = self.store.clone();
+        let pick = move |value, _: &mut Window, cx: &mut App| {
+            store.update(cx, |store, cx| {
+                *field(&mut store.tile_drag_feel) = value;
+                cx.notify();
+            })
+        };
+        Row::new(
+            title,
+            about,
+            segmented(id, choices, current, pick, Theme::get(cx)),
+        )
+        .with_keywords("tile drag split")
+    }
+
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
     fn back_to_search(&self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.search.focus_handle(cx), cx);
@@ -1031,7 +1199,10 @@ impl SettingsView {
                         .collect(),
                 )]
             }
-            Page::App(AppPage::Developer) => vec![Card::new(None, vec![self.fps_row(cx)])],
+            Page::App(AppPage::Developer) => vec![
+                Card::new(None, vec![self.fps_row(cx)]),
+                Card::new(Some("Tile dragging"), self.tile_drag_rows(cx)),
+            ],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.

@@ -55,8 +55,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Cut, FileSort, FileView, Pane, Part, Picks, Prefs, ProjectId, Section, Selection, Store,
-    StoreEvent, snack,
+    Area, Cut, FileSort, FileView, Pane, Part, Picks, Prefs, ProjectId, RowKey, Section, Selection,
+    Store, StoreEvent, Tile, snack,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -66,7 +66,7 @@ use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, TextPoint, button, commit_title, dp, empty_state, fixed, h_flex,
+    ButtonStyle, Icon, TextPoint, button, commit_title, dp, empty_state, fixed, h_flex, placed,
     resize_handle, resize_pane, v_flex,
 };
 
@@ -563,6 +563,9 @@ pub struct Detail {
     pub window_width: Cell<Option<f32>>,
     /// The Graph page, which draws itself as it pans and zooms.
     graph: Entity<graph::GraphView>,
+    /// The row a pinned tile's page shows, and the page that is now, which an agent's rewrite
+    /// of a commit moves: see [`Detail::selection`].
+    pinned: Option<(RowKey, Option<Selection>)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -575,59 +578,35 @@ impl Detail {
         self.loading.is_none() && !self.reload_queued
     }
 
+    /// The detail of what the navigator selects, or with `pinned`, of that row, for a tile
+    /// pinned beside the selected page.
     pub fn new(
         store: Entity<Store>,
         app: AppHandle,
+        pinned: Option<RowKey>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let pinned = pinned.map(|row| {
+            let shows = store.read(cx).selection_of(&row);
+            (row, shows)
+        });
         let message =
             cx.new(|cx| MessageEditor::new(MessageSize::Compact, COMMIT_PLACEHOLDERS, cx));
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
-        let graph = cx.new(|cx| graph::GraphView::new(store.clone(), cx));
+        let graph_pinned = match pinned.as_ref().and_then(|(_, shows)| shows.as_ref()) {
+            Some(Selection::Graph(project)) => Some(project.clone()),
+            _ => None,
+        };
+        let graph = cx.new(|cx| graph::GraphView::new(store.clone(), graph_pinned, cx));
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
-                StoreEvent::SelectionChanged => {
-                    // A commit an operation rewrote is still the one being looked at.
-                    let followed =
-                        (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
-                    if !followed {
-                        this.message_open = false;
-                        this.reset_view();
-                    }
-                    let project = this.selected_project(cx);
-                    let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
-                    if this.checks_project != project {
-                        // The branch picked to commit to waits for coming back, as checks do.
-                        let left = this.checks_project.clone();
-                        if let Some((left, target)) = left.zip(this.commit_target.take()) {
-                            this.other_targets.insert(left, target);
-                        }
-                        this.commit_target =
-                            (project.as_ref()).and_then(|next| this.other_targets.remove(next));
-                        this.switch_checkout(project, checkout.unwrap_or_default(), cx);
-                    } else if let Some(worktree) = checkout
-                        && worktree != this.checks_worktree
-                    {
-                        // Checks are of one checkout's files, which another's share paths with.
-                        this.switch_checkout(project, worktree, cx);
-                    }
-                    // A page read before opens on its overview too.
-                    match this.selection(cx) {
-                        Some(Selection::Branches(_)) => this.select_other_branch(None, cx),
-                        Some(Selection::Project(project)) => this.open_on_shipped(&project),
-                        Some(Selection::History(project)) => {
-                            this.open_on_newest_operation(&project)
-                        }
-                        _ => {}
-                    }
-                    this.reload_page(true, cx);
-                    this.refresh_diff(true, cx);
-                    this.open_waiting(false, cx);
-                }
+                // A pinned page shows what it was pinned to, whatever's selected.
+                StoreEvent::SelectionChanged | StoreEvent::Reopened if this.pinned.is_some() => {}
+                StoreEvent::SelectionChanged => this.shown_changed(cx),
                 // Picked again, as by the crumb naming it, a page goes back to how it opens.
                 StoreEvent::Reopened => match this.selection(cx) {
                     Some(Selection::Project(project)) => this.pick_opening(&project, cx),
@@ -637,6 +616,9 @@ impl Detail {
                     }
                 },
                 StoreEvent::Loaded(project) => {
+                    if this.find_pinned(cx) {
+                        this.shown_changed(cx);
+                    }
                     if this.selected_project(cx).as_ref() == Some(project) {
                         this.follow_into_commit(project, cx);
                         this.reload_page(false, cx);
@@ -672,11 +654,16 @@ impl Detail {
                         this.skip_taken(cx);
                     }
                 }
+                // The page draws in the home tile's room.
+                StoreEvent::TilingChanged => cx.notify(),
                 // The app view asks for it, and gives a terminal opened the keys.
                 StoreEvent::AuthorMissing(_)
                 | StoreEvent::TerminalOpened
+                | StoreEvent::TilePinned(_)
+                | StoreEvent::TileClosed { .. }
                 | StoreEvent::MoveToward(_)
-                | StoreEvent::CommitBlocked => {}
+                | StoreEvent::CommitBlocked
+                | StoreEvent::RowDragEnded => {}
             }),
             cx.subscribe_in(
                 &file_filter,
@@ -756,7 +743,7 @@ impl Detail {
                 }
                 // Picking commits, or letting them go, changes what the diff is of while the
                 // selection stays where it was.
-                if matches!(store.read(cx).selection, Some(Selection::Commit(..)))
+                if matches!(this.selection(cx), Some(Selection::Commit(..)))
                     && let (Some(diff), Some(key)) = (&this.diff, this.key_for_selection(cx))
                     && diff.key != key
                     && this.loading.as_ref() != Some(&key)
@@ -881,6 +868,7 @@ impl Detail {
             navigator_shown: Cell::new(1.),
             window_width: Cell::new(None),
             graph,
+            pinned,
             _subscriptions: subscriptions,
         };
         // A wheel scroll is the user's, so the diff stops gliding where the keys sent it.
@@ -888,13 +876,84 @@ impl Detail {
         detail.list.set_scroll_handler(move |_, _, cx| {
             (this.update(cx, |detail, _| detail.glide = None)).ok();
         });
-        detail.refresh_diff(true, cx);
+        match detail.pinned {
+            Some(_) => detail.shown_changed(cx),
+            None => detail.refresh_diff(true, cx),
+        }
         detail
     }
 
-    /// The page shown: what's selected.
+    /// The page shown: what's selected, or for a pinned page what it was pinned to.
     fn selection(&self, cx: &App) -> Option<Selection> {
-        self.store.read(cx).selection.clone()
+        match &self.pinned {
+            Some((_, shows)) => shows.clone(),
+            None => self.store.read(cx).selection.clone(),
+        }
+    }
+
+    /// Whether commit `id`'s page shows it together with the others picked: not a pinned page,
+    /// which is that commit's alone.
+    fn shows_picks(&self, project: &ProjectId, id: CommitId, cx: &App) -> bool {
+        self.pinned.is_none() && self.store.read(cx).among_picks(project, id)
+    }
+
+    /// Whether it has a page to show: something's selected, or what it's pinned to is there.
+    pub fn shows_page(&self, cx: &App) -> bool {
+        self.selection(cx).is_some()
+    }
+
+    /// The row a pinned page shows, found again, as a commit is once an agent rewrote it.
+    /// Whether it changed.
+    fn find_pinned(&mut self, cx: &App) -> bool {
+        let Some((row, shows)) = &self.pinned else {
+            return false;
+        };
+        let now = self
+            .store
+            .read(cx)
+            .selection_of(row)
+            .or_else(|| shows.clone());
+        let changed = now != *shows;
+        if let Some((_, shows)) = &mut self.pinned {
+            *shows = now;
+        }
+        changed
+    }
+    /// Show what's selected now, or for a pinned page what it was pinned to, once it's found.
+    fn shown_changed(&mut self, cx: &mut Context<Self>) {
+        // A commit an operation rewrote is still the one being looked at.
+        let followed = (self.key_for_selection(cx)).is_some_and(|key| self.follows(&key, cx));
+        if !followed {
+            self.message_open = false;
+            self.reset_view();
+        }
+        let project = self.selected_project(cx);
+        let checkout = self.selected_checkout(cx).map(|(_, worktree)| worktree);
+        if self.checks_project != project {
+            // The branch picked to commit to waits for coming back, as checks do.
+            let left = self.checks_project.clone();
+            if let Some((left, target)) = left.zip(self.commit_target.take()) {
+                self.other_targets.insert(left, target);
+            }
+            self.commit_target =
+                (project.as_ref()).and_then(|next| self.other_targets.remove(next));
+            self.switch_checkout(project, checkout.unwrap_or_default(), cx);
+        } else if let Some(worktree) = checkout
+            && worktree != self.checks_worktree
+        {
+            // Checks are of one checkout's files, which another's share paths with.
+            self.switch_checkout(project, worktree, cx);
+        }
+        // A page read before opens on its overview too.
+        match self.selection(cx) {
+            Some(Selection::Branches(_)) => self.select_other_branch(None, cx),
+            Some(Selection::Project(project)) => self.open_on_shipped(&project),
+            Some(Selection::History(project)) => self.open_on_newest_operation(&project),
+            _ => {}
+        }
+        self.reload_page(true, cx);
+        self.refresh_diff(true, cx);
+        self.open_waiting(false, cx);
     }
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
@@ -966,7 +1025,7 @@ impl Detail {
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
             // Commits picked with it in one run show their changes together, and with others
             // between them, each one's in turn.
-            Selection::Commit(project, id) if store.among_picks(project, *id) => {
+            Selection::Commit(project, id) if self.shows_picks(project, *id, cx) => {
                 match store.picked_run(project) {
                     Some((newest, oldest)) => DiffSource::Range { oldest, newest },
                     None => DiffSource::Commits(
@@ -1646,7 +1705,7 @@ impl Detail {
             };
             return Some((items, row));
         }
-        match self.store.read(cx).selection.clone()? {
+        match self.selection(cx)? {
             Selection::Branches(project) => self.branches_page_menu(&project, cx),
             Selection::History(project) => self.operation_page_menu(&project, cx),
             Selection::Section(project, Section::Upstream(_)) => {
@@ -2489,7 +2548,51 @@ impl Detail {
     pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
         let window = self.laid_out_width(window, cx);
         let navigator = self.navigator_shown.get();
-        (self.store.read(cx)).fitted_width(Pane::Files, window, navigator, 1.)
+        // Fitted beside the diff in the home tile, as if the tiles pinned beside it narrowed
+        // the window.
+        let store = self.store.read(cx);
+        let navigator_width = store.width(Pane::Navigator) * navigator;
+        let pinned = (window - navigator_width) * (1. - self.tile_area(cx).width);
+        store.fitted_width(Pane::Files, window - pinned, navigator, 1.)
+    }
+
+    /// How far down its tile the home tile's page starts: under the tile's bar, while its row
+    /// has others. A pinned page's bar is above its detail.
+    pub fn bar_inset(&self, cx: &App) -> f32 {
+        let tiled = self.pinned.is_none() && self.store.read(cx).drawn_home().is_some();
+        if tiled { crate::ui::TILE_BAR } else { 0. }
+    }
+
+    /// How far the tiles' room sits in from the detail's left: as from its other edges, but
+    /// beside the navigator, whose column holds the whole gap to them, so their cards start
+    /// right at the detail's edge.
+    pub fn room_left(&self) -> f32 {
+        match self.navigator_shown.get() > 0. {
+            true => -crate::ui::TILE_MARGIN,
+            false => crate::ui::TILE_MARGIN,
+        }
+    }
+
+    /// How far the tiles' room sits from the bottom of the strip along the detail's top: up
+    /// into it as far as the cards sit in, so they start where it ends, as the navigator's
+    /// under its own bar, its controls as far above them as tiles are apart. Down from the
+    /// window's top, with no strip, as from its other edges.
+    pub fn room_top(&self, window: &Window, cx: &App) -> f32 {
+        match self.top_strip_height(window, cx) > 0. {
+            true => -crate::ui::TILE_MARGIN,
+            false => crate::ui::TILE_MARGIN,
+        }
+    }
+
+    /// Where the page goes in the room below the header: its tile's area, as it's drawn in
+    /// this frame. A pinned page's as it is at rest, which it keeps as it slides open or shut.
+    pub fn tile_area(&self, cx: &App) -> Area {
+        let store = self.store.read(cx);
+        let area = match &self.pinned {
+            Some((row, _)) => store.page_area(&Tile::Pinned(row.clone())),
+            None => store.drawn_home(),
+        };
+        area.unwrap_or(Area::WHOLE)
     }
 
     /// How wide the navigator is drawn while it's open, beside the file list as much as that
@@ -3209,9 +3312,7 @@ impl Render for Detail {
                 // A page's header runs across it, over its files and its diff, as but.dev's
                 // does. `view_header_height` lists the same pages.
                 let header = match selection {
-                    Selection::Commit(project, id)
-                        if self.store.read(cx).among_picks(project, *id) =>
-                    {
+                    Selection::Commit(project, id) if self.shows_picks(project, *id, cx) => {
                         Some(self.render_picks_header(project, *id, &theme, cx))
                     }
                     Selection::Commit(project, id)
@@ -3342,7 +3443,7 @@ impl Render for Detail {
                         .flex_1()
                         .min_h_0()
                         .items_start()
-                        .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
+                        .on_drag_move(resize_pane(Pane::Files, 0., self.store.clone()))
                         .when(self.files_drawn(now, cx), |el| {
                             let column = v_flex()
                                 .w(dp(width))
@@ -3510,11 +3611,54 @@ impl Render for Detail {
                 )
             })
             .size_full()
-            .bg(theme.bg_1)
-            .when(self.location_bar_shown(window, cx), |el| {
-                el.child(self.render_header(selection.as_ref(), &theme, window, cx))
+            // The ground the home tile's card is on, as the navigator's cards are; a pinned
+            // page is inside its card.
+            .bg(match self.pinned {
+                Some(_) => theme.bg_1,
+                None => theme.bg_2,
             })
-            .child(div().flex_1().min_h_0().child(body))
+            // A pinned page goes in its tile, under the location bar across the home tile's, or
+            // the room for dragging the window it leaves while Lite leaves it out.
+            .when(self.pinned.is_none(), |el| {
+                match self.location_bar_shown(window, cx) {
+                    true => el.child(self.render_header(selection.as_ref(), &theme, window, cx)),
+                    false => el.when(self.top_strip_height(window, cx) > 0., |el| {
+                        el.child(
+                            (div().flex_none().h(dp(crate::ui::HEADER_HEIGHT)))
+                                .map(crate::ui::drags_window),
+                        )
+                    }),
+                }
+            })
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .relative()
+                    .child(match self.pinned {
+                        Some(_) => div().absolute().inset_0().child(body),
+                        // On its card, in from the window's edges as tiles are from each other.
+                        None => crate::ui::inset_by(div(), crate::ui::TILE_MARGIN)
+                            .left(dp(self.room_left()))
+                            .top(dp(self.room_top(window, cx)))
+                            .child({
+                                let tile = placed(self.tile_area(cx))
+                                    .child(crate::ui::tile_card(&theme))
+                                    .child(
+                                        crate::ui::tile_content().child(
+                                            (div().absolute().inset_0())
+                                                .top(dp(self.bar_inset(cx)))
+                                                .child(body),
+                                        ),
+                                    );
+                                // Dragged by its bar or zoomed, over the tiles beside it.
+                                match self.store.read(cx).lifted_tile() == Some(&Tile::Home) {
+                                    true => crate::ui::fold::on_top(tile).into_any_element(),
+                                    false => tile.into_any_element(),
+                                }
+                            }),
+                    }),
+            )
     }
 }
 

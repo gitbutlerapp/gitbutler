@@ -998,7 +998,8 @@ impl AppView {
     /// selected branch or commit's stack.
     fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
-        let selection = (store.selection.as_ref()).filter(|s| !store.in_linked(s))?;
+        let selection = self.selection(cx).filter(|s| !store.in_linked(s))?;
+        let selection = &selection;
         let workspace = store.workspace(selection.project())?;
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
@@ -1097,10 +1098,6 @@ mod tests {
     use crate::backend::model::build::{branch, commit_name, id, workspace, worktree};
 
     #[test]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "a test, and snapbox looks for the file its snapshot is in"
-    )]
     fn conflicts_resolve_oldest_first_down_the_lanes_a_lane_rests_on() {
         let ws = workspace(
             vec![vec![

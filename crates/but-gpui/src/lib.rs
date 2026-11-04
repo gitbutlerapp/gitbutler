@@ -18,6 +18,9 @@
 // Indexes and byte offsets go through `get`, `split_once` and the like: what's drawn skips what's
 // gone, as a row a reload just took away, and the rest returns early rather than make up a value.
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+// What blocks is kept off the UI thread, which tests don't run on: snapbox, for one, looks for
+// the file its snapshot is in.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 
 mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
