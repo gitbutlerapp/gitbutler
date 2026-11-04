@@ -491,6 +491,8 @@ pub struct Detail {
     shipped_focus: FocusHandle,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
     header_height: Rc<Cell<f32>>,
+    /// How tall the header across a project's pages was drawn, with their tabs.
+    project_header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
     collapsed_dirs: HashSet<String>,
     /// What's opening or closing on the pages beside the diff.
@@ -832,6 +834,7 @@ impl Detail {
             beside_width: Rc::new(Cell::new(0.)),
             shipped_focus: cx.focus_handle(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
+            project_header_height: Rc::new(Cell::new(0.)),
             collapsed_dirs: HashSet::new(),
             page_folds: Folds::default(),
             text_selection: None,
@@ -3079,7 +3082,7 @@ impl Detail {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
-                self.header_height.get() + message + self.list_tabs_height(cx)
+                self.project_header_height.get() + message + self.list_tabs_height(cx)
             }
             Some(Selection::Branches(project)) => {
                 // The opened branch's header, or its picked commit's message.
@@ -3087,10 +3090,15 @@ impl Detail {
                     Some(_) => self.target_message_height.get(),
                     None => 0.,
                 };
-                message + self.list_tabs_height(cx)
+                self.project_header_height.get() + message + self.list_tabs_height(cx)
             }
-            Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
-                self.header_height.get()
+            // The selected operation's header under the project's.
+            Some(Selection::History(project)) => {
+                let operation = match self.selected_operation(&project) {
+                    Some(_) => self.header_height.get(),
+                    None => 0.,
+                };
+                self.project_header_height.get() + operation
             }
             Some(Selection::Checkout(..)) => self.header_height.get(),
             Some(Selection::Uncommitted(..)) if !self.changes_header_shown(cx) => 0.,
@@ -3351,8 +3359,11 @@ impl Render for Detail {
                             cx,
                         ))
                     }
-                    Selection::Project(project) => {
-                        Some(self.render_project_header(project, &theme, cx))
+                    Selection::Project(_)
+                    | Selection::Branches(_)
+                    | Selection::History(_)
+                    | Selection::Graph(_) => {
+                        Some(self.render_project_header(selection, &theme, cx))
                     }
                     Selection::Checkout(project, checkout) => {
                         Some(self.render_checkout_header(project, checkout, false, &theme, cx))

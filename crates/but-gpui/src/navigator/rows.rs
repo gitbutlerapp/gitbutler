@@ -405,7 +405,7 @@ impl Navigator {
     }
 
     /// The rows of watched project `entry`'s card under its own: its worktrees with their
-    /// branches, its checkouts elsewhere, then its pages.
+    /// branches, then its checkouts elsewhere.
     fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
@@ -511,12 +511,6 @@ impl Navigator {
         if lands_apart(store.dragging.as_ref(), id, workspace) {
             rows.push(Row::NewBranch(id.clone()));
         }
-        // The pages are another kind of row than the worktrees', so a line rules them off,
-        // as the last worktree's does when there are linked ones.
-        rows.rule_off();
-        rows.push(Row::Item(Selection::Branches(id.clone())));
-        rows.push(Row::Item(Selection::History(id.clone())));
-        rows.push(Row::Item(Selection::Graph(id.clone())));
     }
 
     /// The rows while the filter has words in it: every project, worktree, branch and commit

@@ -1851,7 +1851,6 @@ mod tests {
             Row::Item(Selection::Branch(p(), named("agent"))),
             Row::Item(Selection::Commit(p(), id(5))),
             Row::WorktreeDivider,
-            Row::Item(Selection::Branches(p())),
         ];
         (ws, rows)
     }
@@ -2140,7 +2139,6 @@ new stack
             Row::Item(Selection::Commit(p(), id(2))),
             Row::Item(Selection::Branch(p(), named("low"))),
             Row::Item(Selection::Commit(p(), id(1))),
-            Row::Item(Selection::Branches(p())),
         ];
         let (all, _) = stops(&rows, &project, &[], &ws, open);
         // It's already right above low.
@@ -2380,9 +2378,9 @@ last on empty
             at: stops[start].clone(),
             op: Op::Squash(Messages::Both),
         };
-        let branches = Selection::Branches(project);
-        let clicked = clicked_stop(&stops, (start, start), &moving, &branches, false, None);
-        assert_eq!(clicked, None, "the Branches page is nothing to squash into");
+        let terminal = Selection::Terminal(project, TerminalId(1));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &terminal, false, None);
+        assert_eq!(clicked, None, "a terminal is nothing to squash into");
     }
 
     /// Card `b` among `a`, `b`, `c` being moved, at `at`, with the stops a move of it has.

@@ -990,8 +990,8 @@ impl Navigator {
         if items.is_empty() {
             return;
         }
-        let current = self.store.read(cx).selection.as_ref();
-        let at = current.and_then(|s| items.iter().position(|item| *item == s));
+        let current = self.store.read(cx).selection.as_ref().map(selected_row);
+        let at = (current.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
         let bar = self.drawer_toggles(cx).then(|| match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
             None => self.staying(&self.rows, &self.moving, &[]).len(),
@@ -1005,7 +1005,7 @@ impl Navigator {
             return;
         };
         // Back on the row it left, whose page stays as it was, not back to how it opens.
-        if self.on_drawer_bar && current == Some(&next) {
+        if self.on_drawer_bar && current.as_ref() == Some(&next) {
             return self.leave_drawer_bar(cx);
         }
         self.select(next, window, cx);
@@ -1104,8 +1104,8 @@ impl Navigator {
             return self.jump_move(forward, cx);
         }
         let items = self.items();
-        let current = self.store.read(cx).selection.as_ref();
-        let at = current.and_then(|s| items.iter().position(|item| *item == s));
+        let current = self.store.read(cx).selection.as_ref().map(selected_row);
+        let at = current.and_then(|s| items.iter().position(|item| **item == s));
         let heads =
             |item: &&&Selection| matches!(item, Selection::Project(_) | Selection::Branch(..));
         let next = match (at, forward) {
@@ -1634,9 +1634,9 @@ impl Navigator {
             _ => false,
         };
         if std::mem::take(&mut self.reveal_selection)
-            && let Some(selection) = &store.selection
+            && let Some(selection) = store.selection.as_ref().map(selected_row)
             && !self.scroll_to_row(ghost, row)
-            && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == selection), row)
+            && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if *it == selection), row)
         {
             // A project just added has its rows once it's loaded.
             self.reveal_selection =
@@ -1915,18 +1915,24 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as ui-react's WorktreeDivider.
-            Some(Row::WorktreeDivider) => h_flex()
-                .h(dp(12.))
-                .px(dp(12.))
-                .child(
-                    div()
-                        .flex_1()
-                        .border_t_1()
-                        .border_dashed()
-                        .border_color(theme.border_3),
-                )
-                .into_any_element(),
+            // A dashed line, as ui-react's WorktreeDivider. Last in its card, the card's edge
+            // rules it off, so it keeps only its room, which a worktree dragged counts.
+            Some(Row::WorktreeDivider) => {
+                let last = matches!(self.rows.get(ix + 1), None | Some(Row::Gap));
+                h_flex()
+                    .h(dp(12.))
+                    .px(dp(12.))
+                    .when(!last, |el| {
+                        el.child(
+                            div()
+                                .flex_1()
+                                .border_t_1()
+                                .border_dashed()
+                                .border_color(theme.border_3),
+                        )
+                    })
+                    .into_any_element()
+            }
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
@@ -2206,8 +2212,9 @@ impl Navigator {
             return div().into_any_element();
         };
         let store = self.store.read(cx);
+        let shown = store.selection.as_ref().map(selected_row);
         let lit = |item: &Selection| {
-            store.selection.as_ref() == Some(item)
+            shown.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
         };
         // What's being moved shows where the move is, rather than that it's selected. A linked
@@ -2298,21 +2305,13 @@ impl Navigator {
                 self.branch_row(item, id, ref_name.as_ref(), style, cx)
             }
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
-            Selection::Branches(_) => {
-                let tip = Some("Branches not applied");
-                Some(self.page_row(item, Icon::Branch, "Branches", tip, style, cx))
-            }
-            Selection::History(_) => {
-                let label = "Operations history";
-                Some(self.page_row(item, Icon::Clock, label, None, style, cx))
-            }
-            Selection::Graph(_) => {
-                let tip = Some("The commits as a graph");
-                Some(self.page_row(item, Icon::Fork, "Graph", tip, style, cx))
-            }
             Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
-            // The rows list a stack's branches, not the stack.
-            Selection::Stack(..) => None,
+            // The rows list a stack's branches, not the stack, and a project's pages are tabs
+            // of its own page, which its card opens.
+            Selection::Stack(..)
+            | Selection::Branches(_)
+            | Selection::History(_)
+            | Selection::Graph(_) => None,
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
                 self.upstream_row(item, id, ref_name.as_ref(), commit, style, cx)
@@ -3103,27 +3102,6 @@ impl Navigator {
                 })
                 .into_any_element(),
         )
-    }
-
-    /// A quiet row at the end of a project that opens one of its pages.
-    fn page_row(
-        &self,
-        item: &Selection,
-        glyph: Icon,
-        label: &'static str,
-        tip: Option<&'static str>,
-        style: RowStyle,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        style
-            .row(format!("{label}-{}", item.project()), 6.)
-            .text_color(style.muted())
-            .child(icon(glyph).text_color(style.muted()))
-            .child(div().flex_1().child(label))
-            .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip)))
-            .map(|el| self.selectable(el, item, cx))
-            .map(|el| self.page_drag(el, item, cx))
-            .into_any_element()
     }
 
     /// A terminal open on the worktree it's under, by the name the user gave it, else the title
@@ -4129,6 +4107,17 @@ fn items<'a>(rows: impl IntoIterator<Item = &'a Row>) -> Vec<&'a Selection> {
             _ => None,
         })
         .collect()
+}
+
+/// The row standing for `selection`: its own, or for a project's pages, which are tabs of its
+/// page, its card.
+fn selected_row(selection: &Selection) -> Selection {
+    match selection {
+        Selection::Branches(project) | Selection::History(project) | Selection::Graph(project) => {
+            Selection::Project(project.clone())
+        }
+        other => other.clone(),
+    }
 }
 
 /// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the

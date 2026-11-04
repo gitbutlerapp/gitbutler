@@ -1118,6 +1118,21 @@ impl Detail {
         self.header_frame(title, body, menu, extra, tabs, theme)
     }
 
+    /// The header across a project's pages, with `tabs` to go from one to another: measured
+    /// apart from [`Self::header_frame`]'s, as a page under it can have that header too.
+    pub(super) fn project_page_header(
+        &self,
+        title: impl IntoElement,
+        body: Div,
+        project: &ProjectId,
+        tabs: AnyElement,
+        theme: &Theme,
+    ) -> AnyElement {
+        let menu = self.page_menu(Selection::Project(project.clone()));
+        let cell = &self.project_header_height;
+        self.header_frame_in(cell, title, body, menu, None, Some(tabs), theme)
+    }
+
     /// A page's ⋯, with what right-clicking `target`'s row in the navigator offers, for when
     /// the navigator is out of reach.
     fn page_menu(&self, target: Selection) -> Button {
@@ -1142,12 +1157,26 @@ impl Detail {
         tabs: Option<AnyElement>,
         theme: &Theme,
     ) -> AnyElement {
+        let cell = &self.header_height;
+        self.header_frame_in(cell, title, body, menu, extra, tabs, theme)
+    }
+
+    /// [`Self::header_frame`], its height measured into `cell`.
+    #[expect(clippy::too_many_arguments)]
+    fn header_frame_in(
+        &self,
+        cell: &Rc<Cell<f32>>,
+        title: impl IntoElement,
+        body: Div,
+        menu: impl IntoElement,
+        extra: Option<AnyElement>,
+        tabs: Option<AnyElement>,
+        theme: &Theme,
+    ) -> AnyElement {
         let menu = h_flex().h(dp(22.)).gap(dp(8.)).children(extra).child(menu);
         // The diff beside the files starts below this, however tall it's drawn, and the rule
         // along its bottom, which this, inside the header, doesn't cover.
-        let measure = measured(&self.header_height, &self.app, |bounds| {
-            f32::from(bounds.size.height) + 1.
-        });
+        let measure = measured(cell, &self.app, |bounds| f32::from(bounds.size.height) + 1.);
         v_flex()
             .relative()
             .flex_none()
