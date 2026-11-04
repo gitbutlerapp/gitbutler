@@ -534,18 +534,22 @@ impl Detail {
     }
 
     /// The commit the navigator is placing, with the keys, for the checkout the composer's on,
-    /// while one is.
+    /// while one is. Files dragged are no business of the composer's till they land.
     pub(super) fn committing(&self, cx: &App) -> Option<Move> {
         let (project, worktree) = (self.checks_project.as_ref(), &self.checks_worktree);
-        (self.store.read(cx).moving.clone()).filter(|moving| places(moving, project, worktree))
+        let store = self.store.read(cx);
+        (store.moving.clone())
+            .filter(|moving| !moving.dragged(store) && places(moving, project, worktree))
     }
 
     /// The amend the navigator is placing, with the keys, for the checkout the composer's open
     /// on, while one is.
     pub(super) fn amending(&self, cx: &App) -> Option<Move> {
         let (project, worktree) = (self.checks_project.as_ref(), &self.checks_worktree);
-        (self.store.read(cx).moving.clone())
-            .filter(|moving| self.composing && amends(moving, project, worktree))
+        let store = self.store.read(cx);
+        (store.moving.clone()).filter(|moving| {
+            self.composing && !moving.dragged(store) && amends(moving, project, worktree)
+        })
     }
 
     /// Change the commit the navigator is placing for the checkout the composer's on, if it's

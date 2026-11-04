@@ -9,7 +9,9 @@ use std::time::Instant;
 use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
 use super::order::moving_terminal;
-use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
+use super::rows::{
+    COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, lists_changes, span_height,
+};
 use super::{Navigator, RowStyle};
 use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
@@ -17,7 +19,7 @@ use crate::app::{
 use crate::backend::{
     Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
 };
-use crate::state::{ProjectId, Section, Selection, Store, snack};
+use crate::state::{Overlay, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots};
@@ -42,13 +44,15 @@ fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
 }
 
 /// The move shown in `project`, when it lands what it moves somewhere at a stop `at` picks
-/// out: the rows show copies of it there.
+/// out: the rows show copies of it there. What's dragged shows no copies, as they'd push the rows
+/// the pointer is aiming at out of its way: a divider shows where it goes instead.
 pub(super) fn landing_at<'a>(
     store: &'a Store,
     project: &ProjectId,
     at: impl Fn(&Stop) -> bool,
 ) -> Option<&'a Move> {
-    shown(store, project).filter(|moving| at(&moving.at) && moving.shows_landing(store))
+    shown(store, project)
+        .filter(|moving| !moving.dragged(store) && at(&moving.at) && moving.shows_landing(store))
 }
 
 /// Whether what lands at `at` shows there as copies of itself, between rows, as commits and
@@ -59,6 +63,12 @@ fn copied_at(at: &Stop) -> bool {
         Stop::In(_) | Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
         Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => false,
     }
+}
+
+/// Whether what's moving has copies of itself where it's at, as [`copied_at`] says. Not what's
+/// dragged, which shows none ([`landing_at`]).
+fn shows_copy(moving: &Move, store: &Store) -> bool {
+    !moving.dragged(store) && copied_at(&moving.at)
 }
 
 /// How the move shown marks a row, in the colour of its op.
@@ -93,10 +103,15 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
     if !holds && !of_branch(moving, store, item) {
         return None;
     }
-    let home = copied_at(&moving.at) && !moving.lands(store);
+    let home = shows_copy(moving, store) && !moving.lands(store);
+    // A drag's op follows the pointer: what it holds stays as it is meanwhile.
+    let op = match moving.dragged(store) {
+        true => Op::Move,
+        false => moving.op,
+    };
     Some(match holds && home {
-        true => Mark::Copied(moving.op),
-        false => Mark::Cut(moving.op),
+        true => Mark::Copied(op),
+        false => Mark::Cut(op),
     })
 }
 
@@ -123,7 +138,7 @@ fn of_branch(moving: &Move, store: &Store, item: &Selection) -> bool {
 pub(super) fn left_behind(store: &Store, item: &Selection) -> bool {
     shown(store, item.project()).is_some_and(|moving| {
         matches!(moving.what, Moving::Commits(_) | Moving::Branch(_))
-            && copied_at(&moving.at)
+            && shows_copy(moving, store)
             && moving.holds(item)
     })
 }
@@ -191,8 +206,21 @@ impl SquashOutline {
 /// Whether `item`'s row is what a squash goes into, elsewhere than where it started, which
 /// [`squash_outline`] outlines.
 pub(super) fn squashed_into(store: &Store, item: &Selection) -> bool {
-    shown(store, item.project())
-        .is_some_and(|moving| moving.squashes_into(item) && moving.shows_landing(store))
+    shown(store, item.project()).is_some_and(|moving| {
+        (moving.squashes_into(item) || heading_takes(moving, store, item))
+            && moving.shows_landing(store)
+    })
+}
+
+/// Whether `item` is the heading of the checkout a squash uncommits into, with no changes listed
+/// under it to take the outline.
+fn heading_takes(moving: &Move, store: &Store, item: &Selection) -> bool {
+    let Selection::Checkout(project, checkout) = item else {
+        return false;
+    };
+    matches!(&moving.at, Stop::Into(Target::Uncommitted(at)) if at == checkout)
+        && *project == moving.project
+        && (store.workspace(project)).is_some_and(|ws| !lists_changes(store, ws, project, checkout))
 }
 
 /// A row a move took away as it stepped on, landed or ended, still drawn where it was while the
@@ -442,8 +470,9 @@ fn under_commit_at(at: &Stop, workspace: &Workspace) -> Option<CommitId> {
 /// into, as `lands` says, and which of them is `home`, the row it starts from, listed whether
 /// it lands there or not. A branch's commits take it, but a folded branch stands in for its
 /// newest commit, out of sight, and the branch being squashed squashes into one at its own row.
-/// A checkout's uncommitted changes take what's uncommitted into them. Not the default branch a linked
-/// worktree can have checked out, which work stays off.
+/// A checkout's uncommitted changes take what's uncommitted into them, or with none listed, its
+/// open heading does. Not the default branch a linked worktree can have checked out, which work
+/// stays off.
 pub(super) fn squash_stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
@@ -455,11 +484,17 @@ pub(super) fn squash_stops<'a>(
     let mut stops = Vec::new();
     // The commits listed now are in a branch they can go into.
     let mut in_branch = false;
-    for row in rows {
+    let mut rows = rows.into_iter().peekable();
+    while let Some(row) = rows.next() {
         let target = match row {
             Row::Item(Selection::Uncommitted(p, checkout)) if p == project => {
                 in_branch = false;
                 Some(Target::Uncommitted(checkout.clone()))
+            }
+            Row::Item(heading @ Selection::Checkout(p, checkout)) if p == project => {
+                in_branch = false;
+                let changes = matches!(rows.peek(), Some(Row::Item(Selection::Uncommitted(..))));
+                (open(heading) && !changes).then(|| Target::Uncommitted(checkout.clone()))
             }
             Row::Item(item @ Selection::Branch(p, Some(name)))
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
@@ -503,7 +538,10 @@ pub(super) fn squash_stops<'a>(
             stops.push(stop);
         }
     }
-    let start = (stops.iter()).position(|stop| matches!(stop, Stop::Into(at) if at == home))?;
+    // Past the last with `home` listed nowhere, as what's dragged from a page can be.
+    let start = (stops.iter())
+        .position(|stop| matches!(stop, Stop::Into(at) if at == home))
+        .unwrap_or(stops.len());
     Some((stops, start))
 }
 
@@ -590,9 +628,9 @@ impl Navigator {
     }
 
     /// Where `what` of `project` can land as `op` as the rows are now, and which of those places
-    /// is where it is: moved, as [`stops`] says, or squashed, as [`squash_stops`] says, from the
-    /// selection's row, which holds it.
-    fn stops_for(
+    /// is where it is: moved, as [`stops`] says, or squashed, as [`squash_stops`] says, from
+    /// where [`Moving::home`] says.
+    pub(super) fn stops_for(
         &self,
         project: &ProjectId,
         what: &Moving,
@@ -670,7 +708,7 @@ impl Navigator {
                 Some(stops(self.shown_rows(), project, commits, workspace, open))
             }
             Op::Squash(_) => {
-                let home = (store.selection.as_ref()).and_then(Target::of)?;
+                let home = what.home(project, store.selection.as_ref())?;
                 squash_stops(self.shown_rows(), project, workspace, &home, open, lands)
             }
             // Where commits moved can land. It starts where it's started from
@@ -1354,6 +1392,7 @@ impl Navigator {
         };
         let lands = moving.lands(store);
         let squashed = moving.squashed(store);
+        let dragged = moving.dragged(store);
         self.store
             .update(cx, |store, cx| store.set_moving(None, cx));
         // Where they already are, there's nothing to do.
@@ -1425,23 +1464,39 @@ impl Navigator {
                 Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => {}
             });
         }
-        // A branch's copy stays where it lands till it's there.
+        // A branch's copy stays where it lands till it's there. What's dragged has no copy out,
+        // and one coming now would leave its row to go only once it's there, so it lands as
+        // anything dropped does, leaving where it was as it shows where it goes.
+        let lands = (!dragged).then(|| moving.clone());
         if let Some((payload, target, place)) = moving.drop() {
             return self.app.update_later(window, cx, move |app, window, cx| {
-                app.land(&payload, &target, place, Some(moving), window, cx)
+                app.land(&payload, &target, place, lands, window, cx)
             });
         }
-        let lands = Some(moving.clone());
+        // With no row to show them in till it's made, commits dragged to a new branch stay where
+        // they are till the reload slides them there, selected for it to open with them in it.
+        let overlay = Overlay {
+            lands: Some(moving.clone()),
+            dropped: dragged,
+            ..Overlay::default()
+        };
         let Move {
             project, what, at, ..
         } = moving;
+        let select = |store: &mut Store, commits: &[CommitId], cx: &mut Context<Store>| {
+            if let Some(id) = commits.first().filter(|_| dragged) {
+                store.select(Some(Selection::Commit(project.clone(), *id)), cx);
+            }
+        };
         self.store.update(cx, |store, cx| match (what, at) {
             (Moving::Commits(commits), Stop::NewBranch { beside, below }) => {
+                select(store, &commits, cx);
                 let beside = Some((beside, below));
-                store.move_to_new_branch(&project, commits, beside, false, lands, cx)
+                store.move_to_new_branch(&project, commits, beside, false, overlay, cx)
             }
             (Moving::Commits(commits), Stop::NewStack { first }) => {
-                store.move_to_new_branch(&project, commits, None, first, lands, cx)
+                select(store, &commits, cx);
+                store.move_to_new_branch(&project, commits, None, first, overlay, cx)
             }
             (Moving::Branch(branch), Stop::NewStack { first }) => {
                 store.unstack(&project, branch, first, lands, cx)
@@ -1579,6 +1634,9 @@ fn clicked_stop(
                 return (moving.op != Op::Commit).then_some(start);
             }
             match (moving.op, item) {
+                (Op::Squash(_), Selection::Checkout(_, checkout)) => {
+                    find(Stop::Into(Target::Uncommitted(checkout.clone())))
+                }
                 (Op::Squash(_), _) => find(Stop::Into(Target::of(item)?)),
                 (Op::Move | Op::CherryPick | Op::Commit, Selection::Commit(_, id)) => {
                     find(Stop::In(Destination::BelowCommit(*id)))
@@ -2164,6 +2222,75 @@ into typo
 into uncommitted on wt
 
 "#]]
+        );
+    }
+
+    #[test]
+    fn a_clean_worktrees_open_heading_takes_what_a_squash_uncommits() {
+        let project = ProjectId::from("p");
+        let (ws, mut rows) = listed(&project);
+        rows.retain(|row| !matches!(row, Row::Item(Selection::Uncommitted(..))));
+        let home = Target::Commit(id(2));
+        let (stops, _) = squash_stops(&rows, &project, &ws, &home, open, |_| true).unwrap();
+        assert!(
+            stops.contains(&Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "with no changes row, the heading is where they uncommit into"
+        );
+        assert!(
+            stops.contains(&Stop::Into(Target::Uncommitted(Checkout::Linked(
+                "wt".into()
+            )))),
+            "a linked worktree's as the main one's"
+        );
+    }
+
+    #[test]
+    fn a_folded_heading_takes_nothing_a_squash_uncommits() {
+        let project = ProjectId::from("p");
+        let (ws, mut rows) = listed(&project);
+        rows.retain(|row| !matches!(row, Row::Item(Selection::Uncommitted(..))));
+        let home = Target::Commit(id(2));
+        let folded = |heading: &Selection| !matches!(heading, Selection::Checkout(..));
+        let (stops, _) = squash_stops(&rows, &project, &ws, &home, folded, |_| true).unwrap();
+        assert!(
+            !stops.contains(&Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "what it lands in would be out of sight"
+        );
+    }
+
+    #[test]
+    fn a_heading_over_listed_changes_is_no_stop_of_its_own() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let home = Target::Commit(id(2));
+        let (stops, _) = squash_stops(&rows, &project, &ws, &home, open, |_| true).unwrap();
+        let main = Stop::Into(Target::Uncommitted(Checkout::Main));
+        assert_eq!(
+            stops.iter().filter(|stop| **stop == main).count(),
+            1,
+            "the changes' row and the heading are one place to go"
+        );
+    }
+
+    #[test]
+    fn a_click_on_a_clean_worktrees_heading_uncommits_there() {
+        let project = ProjectId::from("p");
+        let (ws, mut rows) = listed(&project);
+        rows.retain(|row| !matches!(row, Row::Item(Selection::Uncommitted(..))));
+        let home = Target::Commit(id(2));
+        let (stops, start) = squash_stops(&rows, &project, &ws, &home, open, |_| true).unwrap();
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Commits(Arc::from([id(2)])),
+            at: stops[start].clone(),
+            op: Op::Squash(Messages::Both),
+        };
+        let heading = Selection::Checkout(project, Checkout::Main);
+        let clicked = clicked_stop(&stops, (start, start), &moving, &heading, false, None);
+        assert_eq!(
+            clicked.map(|ix| &stops[ix]),
+            Some(&Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "as the keys step there"
         );
     }
 

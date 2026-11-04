@@ -480,6 +480,10 @@ impl Navigator {
             }
         });
         rows.close();
+        // Under the workspace it adds to, not past the worktrees.
+        if lands_apart(store.dragging.as_ref(), id, workspace) {
+            rows.push(Row::NewBranch(id.clone()));
+        }
         if headed {
             rows.push(Row::WorktreeDivider);
             let on_branches = |wt: &Worktree| {
@@ -507,10 +511,6 @@ impl Navigator {
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
         self.mesh_rows(store, id, rows);
-        // After the worktrees, so a drag starting in one doesn't push its rows down.
-        if lands_apart(store.dragging.as_ref(), id, workspace) {
-            rows.push(Row::NewBranch(id.clone()));
-        }
     }
 
     /// The rows while the filter has words in it: every project, worktree, branch and commit

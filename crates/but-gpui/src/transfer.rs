@@ -17,7 +17,7 @@ use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::{file_icon, folder_icon};
-use crate::ui::{Icon, count_badge, dp, h_flex, popover, small_icon};
+use crate::ui::{Icon, commit_title, count_badge, dp, h_flex, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
@@ -189,6 +189,94 @@ pub enum Moving {
     /// cherry-pick started: a branch's remote's, the target's or another branch's. They're
     /// only cherry-picked, and show where they'd land as the copies they'd be.
     Copies(Arc<[(CommitId, SharedString)]>),
+}
+
+impl Moving {
+    /// What `cut` moves while it's dragged over the rows, in its project: commits, a branch and
+    /// files, which step through the stops under the pointer as the keys step through them.
+    pub fn dragged(cut: &Cut) -> Option<(ProjectId, Moving)> {
+        match cut {
+            Cut::Commit(project, ids) => Some((project.clone(), Moving::Commits(ids.clone()))),
+            Cut::Branch(project, branch) => Some((project.clone(), Moving::Branch(branch.clone()))),
+            Cut::Files {
+                project,
+                from,
+                worktree,
+                files,
+            } => Some((
+                project.clone(),
+                Moving::Files {
+                    from: *from,
+                    worktree: worktree.clone(),
+                    files: files.clone(),
+                },
+            )),
+            Cut::Worktree(..) => None,
+        }
+    }
+
+    /// Whether `item` is what's moving in `project`: one of the commits, the branch, the
+    /// project, the linked worktree or the terminal. Of copies from outside the workspace, only
+    /// the remote's commits a branch lists are rows.
+    pub fn holds(&self, project: &ProjectId, item: &Selection) -> bool {
+        match (self, item) {
+            (Moving::Commits(ids), Selection::Commit(on, id)) => on == project && ids.contains(id),
+            (Moving::Copies(copies), Selection::Upstream(on, _, id)) => {
+                on == project && copies.iter().any(|(copy, _)| copy == id)
+            }
+            (Moving::Branch(branch), Selection::Branch(on, Some(name))) => {
+                on == project && name == branch
+            }
+            (Moving::Project(_), Selection::Project(on)) => on == project,
+            (Moving::Worktree { name, .. }, Selection::Checkout(on, Checkout::Linked(other))) => {
+                on == project && other == name
+            }
+            (Moving::Terminal { id, .. }, Selection::Terminal(on, terminal)) => {
+                on == project && terminal == id
+            }
+            // The row the files are listed under: their commit's, or their worktree's.
+            (
+                Moving::Files {
+                    from: Some(from), ..
+                },
+                Selection::Commit(on, id),
+            ) => on == project && id == from,
+            (
+                Moving::Files {
+                    from: None,
+                    worktree,
+                    ..
+                },
+                Selection::Uncommitted(on, checkout),
+            ) => on == project && checkout == worktree,
+            _ => false,
+        }
+    }
+
+    /// Where squashing it in `project` starts: at the row `selected`, while that's of it, as it
+    /// always is with the keys, else at its own, as what's dragged needn't be selected.
+    pub fn home(&self, project: &ProjectId, selected: Option<&Selection>) -> Option<Target> {
+        let held = selected.filter(|item| self.holds(project, item));
+        if let Some(target) = held.and_then(Target::of) {
+            return Some(target);
+        }
+        match self {
+            Moving::Commits(ids) => ids.first().map(|id| Target::Commit(*id)),
+            Moving::Branch(branch) => Some(Target::Branch(branch.clone())),
+            Moving::Files {
+                from: Some(from), ..
+            } => Some(Target::Commit(*from)),
+            Moving::Files {
+                from: None,
+                worktree,
+                ..
+            } => Some(Target::Uncommitted(worktree.clone())),
+            Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Copies(_) => None,
+        }
+    }
 }
 
 /// What a squash goes into, by its row.
@@ -374,48 +462,15 @@ impl Move {
         }
     }
 
-    /// Whether `item` is what's moving: one of the commits, the branch, the project, the linked
-    /// worktree or the terminal. Of copies from outside the workspace, only the remote's
-    /// commits a branch lists are rows.
+    /// Whether a drag holds it, the pointer stepping it, rather than the keys, or held it till it
+    /// was let go of to land.
+    pub fn dragged(&self, store: &Store) -> bool {
+        store.move_dragged || (store.moving.is_none() && store.landing_dropped())
+    }
+
+    /// Whether `item` is what's moving, as [`Moving::holds`] says.
     pub fn holds(&self, item: &Selection) -> bool {
-        match (&self.what, item) {
-            (Moving::Commits(ids), Selection::Commit(project, id)) => {
-                *project == self.project && ids.contains(id)
-            }
-            (Moving::Copies(copies), Selection::Upstream(project, _, id)) => {
-                *project == self.project && copies.iter().any(|(copy, _)| copy == id)
-            }
-            (Moving::Branch(branch), Selection::Branch(project, Some(name))) => {
-                *project == self.project && name == branch
-            }
-            (Moving::Project(_), Selection::Project(project)) => *project == self.project,
-            (
-                Moving::Worktree { name, .. },
-                Selection::Checkout(project, Checkout::Linked(other)),
-            ) => *project == self.project && other == name,
-            (Moving::Terminal { id, .. }, Selection::Terminal(project, terminal)) => {
-                *project == self.project && terminal == id
-            }
-            // The row the files are listed under: their commit's, or their worktree's.
-            (
-                Moving::Files {
-                    from: Some(from), ..
-                },
-                Selection::Commit(project, id),
-            ) => *project == self.project && id == from,
-            (
-                Moving::Files {
-                    from: None,
-                    worktree,
-                    ..
-                },
-                Selection::Uncommitted(..),
-            ) => {
-                *item.project() == self.project
-                    && Target::of(item) == Some(Target::Uncommitted(worktree.clone()))
-            }
-            _ => false,
-        }
+        self.what.holds(&self.project, item)
     }
 
     /// The watched projects in the order a project's move shows them, its card where it's at.
@@ -529,7 +584,7 @@ impl Move {
     /// elsewhere. A squash at the row it started from shows nothing more, as one squashing a
     /// branch into one commit there does: that row is the selection's, which holds it.
     pub fn shows_landing(&self, store: &Store) -> bool {
-        let home = (store.selection.as_ref()).and_then(Target::of);
+        let home = self.what.home(&self.project, store.selection.as_ref());
         let at_home = matches!(&self.at, Stop::Into(target) if home.as_ref() == Some(target));
         self.lands(store) && !at_home
     }
@@ -1401,9 +1456,12 @@ pub fn drag_preview(
         let store = store.clone();
         cx.observe_release(&preview, move |_, cx| {
             store.update(cx, |store, cx| {
+                // A drop landed what it held already; anywhere else it goes back.
+                if std::mem::take(&mut store.move_dragged) {
+                    store.moving = None;
+                }
                 store.dragging = None;
                 store.dragged_patch = None;
-                store.drop_at = None;
                 cx.notify()
             });
         })
@@ -1426,11 +1484,6 @@ impl Render for DragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
-        // What's dragged as the store followed it, as an agent may have rewritten it.
-        let transfer = (store.drop_at.as_ref()).and_then(|(target, place)| {
-            let payload = store.dragging.as_ref()?;
-            Transfer::resolve(payload, target, *place, store)
-        });
         // A linked worktree dragged by its heading, with its files or without, moves where the
         // move of it shows it.
         let dragged = match &self.payload {
@@ -1449,9 +1502,18 @@ impl Render for DragPreview {
             }
             _ => None,
         });
+        let held = (store.moving.as_ref())
+            .filter(|moving| moving.dragged(store) && moving.lands(store))
+            .map(|moving| match (moving.op, moving.squashed(store)) {
+                (Op::Commit, _) => "Start a commit here",
+                // Shorter than its verb, which the metrics know it by.
+                (_, Some(Transfer::Squash { .. })) => "Squash",
+                (_, Some(transfer)) => transfer.verb(),
+                (Op::Move | Op::Squash(_) | Op::CherryPick, None) => "Move",
+            });
         let hint = match moved {
-            Some((_, lands)) => lands.then_some("Move here"),
-            None => transfer.as_ref().map(Transfer::verb),
+            Some((_, lands)) => lands.then_some("Move"),
+            None => held,
         };
         let hint = tile_hint(store).or(hint);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
@@ -1468,7 +1530,12 @@ impl Render for DragPreview {
                     folder_label(name.clone(), files, theme).into_any_element(),
                 )
             }
-            (_, Chip::Row(label), Cut::Commit(..)) => (glyph(Icon::Commit), named(label.clone())),
+            (_, Chip::Row(label), Cut::Commit(..)) => (
+                glyph(Icon::Commit),
+                pill_label(commit_title(label))
+                    .when(label.is_empty(), |el| el.text_color(theme.text_2))
+                    .into_any_element(),
+            ),
             (_, Chip::Row(label), Cut::Branch(..)) => (glyph(Icon::Branch), named(label.clone())),
             (_, Chip::Row(label), Cut::Files { files, .. }) => match &**files {
                 // All of a file goes by its name, as its folder says little while dragging.
@@ -1656,7 +1723,7 @@ impl Render for TerminalPreview {
         });
         let mark = small_icon(Icon::TextCode).text_color(theme.pop);
         let label = pill_label(SharedString::from(terminal_title(store, self.id)));
-        let hint = tile_hint(store).or(lands.then_some("Move here"));
+        let hint = tile_hint(store).or(lands.then_some("Move"));
         drag_pill(self.offset, mark, label, hint, 1, theme)
     }
 }
@@ -1866,6 +1933,87 @@ mod tests {
         assert!(
             !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(&ws),
             "nothing is cherry-picked into a commit"
+        );
+    }
+
+    #[test]
+    fn a_squash_starts_at_the_row_selected_among_commits_picked_together() {
+        use crate::backend::model::build::id;
+        let project = ProjectId::from("p");
+        let picked = Moving::Commits(Arc::from([id(3), id(2)]));
+        let selected = Selection::Commit(project.clone(), id(2));
+        assert_eq!(
+            picked.home(&project, Some(&selected)),
+            Some(Target::Commit(id(2))),
+            "the keys start from the one selected, not the first of them"
+        );
+    }
+
+    #[test]
+    fn what_is_dragged_unselected_starts_at_its_own_row() {
+        use crate::backend::model::build::id;
+        let project = ProjectId::from("p");
+        let dragged = Moving::Commits(Arc::from([id(3), id(2)]));
+        let elsewhere = Selection::Commit(project.clone(), id(9));
+        assert_eq!(
+            dragged.home(&project, Some(&elsewhere)),
+            Some(Target::Commit(id(3))),
+            "a commit selected elsewhere isn't where it starts"
+        );
+    }
+
+    #[test]
+    fn a_row_of_another_project_isnt_where_a_squash_starts() {
+        use crate::backend::model::build::id;
+        let (project, other) = (ProjectId::from("p"), ProjectId::from("q"));
+        let dragged = Moving::Commits(Arc::from([id(3), id(2)]));
+        let same_id = Selection::Commit(other, id(2));
+        assert_eq!(
+            dragged.home(&project, Some(&same_id)),
+            Some(Target::Commit(id(3))),
+            "the same commit in another project's rows is another row"
+        );
+    }
+
+    #[test]
+    fn a_branch_dragged_starts_at_its_heading() {
+        use crate::backend::model::build::full;
+        let branch = full("refs/heads/ui");
+        assert_eq!(
+            Moving::Branch(branch.clone()).home(&ProjectId::from("p"), None),
+            Some(Target::Branch(branch)),
+            "with nothing selected too"
+        );
+    }
+
+    #[test]
+    fn a_commits_files_start_at_its_row_and_uncommitted_ones_at_theirs() {
+        use crate::backend::model::build::id;
+        let project = ProjectId::from("p");
+        assert_eq!(
+            squashing_files(Some(id(1)), Stop::NewStack { first: false })
+                .what
+                .home(&project, None),
+            Some(Target::Commit(id(1))),
+            "a commit's files are listed under it"
+        );
+        assert_eq!(
+            squashing_files(None, Stop::NewStack { first: false })
+                .what
+                .home(&project, None),
+            Some(Target::Uncommitted(Checkout::Main)),
+            "uncommitted files under their worktree's changes"
+        );
+    }
+
+    #[test]
+    fn what_goes_itself_has_no_row_a_squash_starts_at() {
+        let project = ProjectId::from("p");
+        let card = Moving::Project(Arc::from([project.clone()]));
+        assert_eq!(
+            card.home(&project, Some(&Selection::Project(project.clone()))),
+            None,
+            "a card is never squashed"
         );
     }
 

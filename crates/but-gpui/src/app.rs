@@ -4715,9 +4715,9 @@ impl Render for AppView {
             .role(Role::Application)
             .aria_label("GitButler")
             .key_context("Workspace")
-            // Drop targets read ⌥ to tell moving from squashing.
+            // Where ⌘V puts what's cut goes by ⌥ and ⇧.
             .on_modifiers_changed(cx.listener(|this, event: &ModifiersChangedEvent, _, cx| {
-                if cx.has_active_drag() || this.store.read(cx).cut.is_some() {
+                if this.store.read(cx).cut.is_some() {
                     this.navigator.update(cx, |_, cx| cx.notify());
                 }
                 // In a build of its own, ⌥ shows where a tile dragged lands where, as the right

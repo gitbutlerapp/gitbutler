@@ -119,11 +119,10 @@ impl Detail {
     /// the composer's open, or while a commit or an amend is placed without it, as with the
     /// navigator hidden.
     pub(super) fn key_context(&self, cx: &App) -> &'static str {
-        let placing = matches!(
-            self.store.read(cx).moving,
-            Some(Move { op: Op::Commit, .. })
-        );
-        let amending = (self.store.read(cx).moving.as_ref()).is_some_and(Move::amending);
+        let store = self.store.read(cx);
+        let held = (store.moving.as_ref()).filter(|moving| !moving.dragged(store));
+        let placing = matches!(held, Some(Move { op: Op::Commit, .. }));
+        let amending = held.is_some_and(Move::amending);
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
             (None, _) if self.composing => "Diff Composer",
             (None, _) if placing => "Diff Committing",

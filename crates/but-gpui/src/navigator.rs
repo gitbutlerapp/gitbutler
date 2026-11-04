@@ -12,8 +12,8 @@ use but_tty::Status;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
     FocusHandle, Focusable, Hsla, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, PathBuilder, Pixels, Point, Role, ScrollWheelEvent, SharedString, Stateful,
-    Subscription, Task, Window, actions, canvas, div, fill, list, point, prelude::*, relative,
+    MouseDownEvent, PathBuilder, Pixels, Point, Role, SharedString, Stateful, Subscription, Task,
+    Window, actions, canvas, div, fill, list, point, prelude::*, relative,
 };
 
 use crate::app::{
@@ -1569,7 +1569,9 @@ impl Navigator {
         // from around what it's of where it started, its edges coming together as it leaves
         // that, and going apart as it grows back around it.
         let home = (store.moving.as_ref()).is_some_and(|moving| {
-            matches!(moving.at, Stop::Into(_)) && !moving.shows_landing(store)
+            !moving.dragged(store)
+                && matches!(moving.at, Stop::Into(_))
+                && !moving.shows_landing(store)
         });
         let outline = moving::SquashOutline::of(&rows, store, home);
         if let (Some(was), Some(is)) = (&self.squash_outline, &outline)
@@ -1951,7 +1953,7 @@ impl Navigator {
                     el.child(div().text_size(dp(11.)).text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
-            Some(Row::NewBranch(project)) => self.new_branch_zone(ix, project, theme, cx),
+            Some(Row::NewBranch(_)) => self.new_branch_zone(ix, theme, cx),
             Some(Row::Ghost(item)) => {
                 // Copies of commits moving together are outlined as one.
                 let ghost = |ix: usize| matches!(self.rows.get(ix), Some(Row::Ghost(_)));
@@ -2261,7 +2263,11 @@ impl Navigator {
             _ => false,
         };
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
-        let solid = selected && !self.on_drawer_bar && self.rows_have_keys(window, cx);
+        // Not while something's dragged, or the selection outshines what shows where it lands.
+        let solid = selected
+            && store.dragging.is_none()
+            && !self.on_drawer_bar
+            && self.rows_have_keys(window, cx);
         let style = RowStyle {
             theme,
             selected,
@@ -4484,6 +4490,7 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_project_drag))
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
+            .on_drag_move(cx.listener(Self::follow_dragged))
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, _, cx| {
                 this.drag_moved(event.bounds.contains(&event.event.position), cx)
             }))
@@ -4500,8 +4507,9 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(|this, event: &DragMoveEvent<PageDrag>, _, cx| {
                 this.drag_moved(event.bounds.contains(&event.event.position), cx)
             }))
+            // One for each kind of drag: GPUI panics on a second.
             .on_drop(cx.listener(Self::drop_project))
-            .on_drop(cx.listener(Self::drop_worktree))
+            .on_drop(cx.listener(Self::drop_dragged))
             .on_drop(cx.listener(Self::drop_terminal))
             .track_focus(&self.focus)
             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
@@ -4631,6 +4639,7 @@ impl Render for Navigator {
                             &theme,
                         )
                         .children(self.card_caps(&theme, cx))
+                        .children(self.drag_divider(&theme, cx))
                         // Ending level with the detail's cards, so what scrolls past is cut
                         // where they end.
                         .mb(dp(CARD_GAP))
@@ -4655,15 +4664,6 @@ impl Render for Navigator {
                     )
                 }
             })
-            // Scrolling moves the rows from under a pointer that stays put, so where a drag
-            // would land goes until the pointer moves again, rather than stay on a row that
-            // isn't under it.
-            .on_scroll_wheel(cx.listener(|this, _: &ScrollWheelEvent, _, cx| {
-                if cx.has_active_drag() && this.store.read(cx).drop_at.is_some() {
-                    this.store.update(cx, |store, _| store.drop_at = None);
-                    cx.notify();
-                }
-            }))
         // A card out over the detail goes back once the pointer leaves it, so it's resized
         // only beside the detail, once it's all there.
     }
