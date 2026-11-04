@@ -28,7 +28,6 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       rust_core: ${{ steps.filter.outputs.rust_core }}
       ui: ${{ steps.filter.outputs.ui }}
-      but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
@@ -54,14 +53,6 @@ jobs:
               - 'pnpm-lock.yaml'
             ui:
               - 'packages/ui-svelte/**'
-            but_sdk:
-              - 'crates/!(but-gpui|but-tty)/**'
-              - *workflows
-              - 'Cargo.lock'
-              - 'Cargo.toml'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'packages/but-sdk/**'
             common-rust: &rust
               - *workflows
               - 'Cargo.lock'
@@ -153,39 +144,6 @@ jobs:
           BUILDKITE_ANALYTICS_BRANCH: ${{ github.head_ref || github.ref_name }}
           BUILDKITE_ANALYTICS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
-  but-sdk-build-check:
-    needs: changes
-    if: ${{ needs.changes.outputs.but_sdk == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Cache apt archives
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
-        with:
-          path: .apt-cache
-          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
-      - name: Install dependencies for but-sdk
-        run: |
-          sudo ./scripts/install-minimal-debian-dependencies.sh "$PWD/.apt-cache"
-          sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
-      - uses: ./.github/actions/init-env-node
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: but-sdk-build-check
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Build but-sdk
-        run: pnpm --filter @gitbutler/but-sdk build
-      - name: Verify generated types are up-to-date
-        run: ./scripts/generate-sdk-types.sh
-      - name: Check but-sdk
-        run: pnpm --filter @gitbutler/but-sdk check
-
   rust-lint:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
@@ -209,235 +167,14 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Install Zig
         uses: $/.github/actions/setup-zig
-      - run: cargo fmt --check --all
-      - name: cargo clippy
+      # ci.but.dev runs fmt and clippy for the rest of the workspace (.config/taste.toml).
+      - name: cargo clippy -p gitbutler-tauri
         run: |
           rustup component add clippy
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo clippy --workspace --all-targets --no-default-features -- -D warnings
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --no-default-features -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --all-features -- -D warnings
 
-  # Separate from rust-lint so the two run side by side.
-  rust-check-features:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: read
-    container:
-      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
-    env:
-      CARGO_TERM_COLOR: always
-      # Set for the whole job so the cached dependencies were built with the same flags.
-      RUSTFLAGS: "--deny warnings"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: check-features
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
-      - run: |
-          # should work without the "legacy" feature
-          cargo check -p but-testsupport --all-targets
-          cargo check -p but-testsupport --all-targets --features sandbox
-          cargo check -p but-testsupport --all-targets --features sandbox-but-api
-          cargo check -p but-ctx --all-targets
-          cargo check -p but-serde --all-targets
-          cargo check -p but-meta --all-targets
-          cargo check -p but-graph --all-targets
-          cargo check -p but-workspace --all-targets
-          cargo check -p but-api --all-targets
-          cargo check -p but --all-targets
-          # both workspace-projection flavors must keep compiling
-          cargo check -p but-api --all-targets --features graph-workspace
-          cargo check -p but --all-targets --features graph-workspace
-          make check-modern-but
-        name: Special `cargo check` runs
-
-  # Find unused cargo dependencies
-  cargo-machete:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install cargo-machete
-        run: |
-          # To update, change the version and take the checksum from the release's
-          # cargo-machete-<VERSION>-x86_64-unknown-linux-musl.tar.gz.sha256 artifact.
-          curl -LsSf https://github.com/bnjbvr/cargo-machete/releases/download/v0.9.1/cargo-machete-v0.9.1-x86_64-unknown-linux-musl.tar.gz -o cargo-machete.tar.gz
-          echo "640b0814480b401e4e72201e52a13e1311b8eb8d7c27faa08bbe9886f252f26d  cargo-machete.tar.gz" | sha256sum -c -
-          tar -xzf cargo-machete.tar.gz --strip-components=1 -C ${CARGO_HOME:-~/.cargo}/bin cargo-machete-v0.9.1-x86_64-unknown-linux-musl/cargo-machete
-          rm cargo-machete.tar.gz
-      - name: Run cargo-machete on workspace
-        run: cargo machete
-
-  cargo-deny:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with:
-          command: check bans licenses sources
-
-  cargo-doc:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CARGO_TERM_COLOR: always
-      RUSTDOCFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: cargo-doc
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
-      - name: Dependencies for 'keyring'
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      # fontconfig's build script looks it up with pkg-config.
-      - name: Dependencies for the GPUI client
-        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
-      - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
-
-  rust-test:
-    needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-latest, macos-15]
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 50
-    env:
-      CARGO_TERM_COLOR: always
-      GITBUTLER_TESTS_NO_CLEANUP: "1"
-      # These six tests fail on macOS CI for unclear reasons. Keep running them locally.
-      NEXTEST_FILTER: >-
-        ${{ matrix.platform == 'macos-15' && 'not (
-          test(=tests::reconciliation_reuses_filter_process) |
-          test(=tests::core_hunks_reuse_filter_process) |
-          test(=tests::assign_reuses_filter_process) |
-          test(=tests::reused_filter_recovers_after_file_failure) |
-          test(=locked_index_rejects_enter_edit_mode_without_changes) |
-          test(=locked_symlinked_index_rejects_enter_edit_mode_without_changes)
-        )' || 'all()' }}
-      # Redirect the app-data dir so any test that loads user-level settings writes here.
-      # The final step asserts nothing did - see 'Assert test hermeticity'.
-      # (a literal path - the `runner` context is not available in job-level `env`)
-      E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
-      # A change to just the GPUI client only needs its own tests.
-      PACKAGES: ${{ needs.changes.outputs.rust_core == 'true' && '--workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly' || '-p but-gpui -p but-tty' }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          shared-key: cargo-test-no-tauri-${{ runner.os }}
-          # A GPUI-only run builds a fraction of the dependencies, and saving that would leave
-          # the next full run to rebuild the rest.
-          save-if: ${{ github.ref == 'refs/heads/master' && needs.changes.outputs.rust_core == 'true' }}
-      - name: Install Zig
-        uses: $/.github/actions/setup-zig
-      - name: Dependencies for 'keyring'
-        if: runner.os == 'Linux'
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      # The libraries GPUI links to on Linux, for its windows and its font lookup.
-      - name: Dependencies for the GPUI client
-        if: runner.os == 'Linux'
-        run: sudo timeout 300 apt-get install -y --no-install-recommends -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
-      - name: Install cargo-nextest (Linux)
-        if: runner.os == 'Linux'
-        run: |
-
-          # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
-          # checksum.
-          #
-          # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
-          # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
-          curl -LsSf https://get.nexte.st/0.9.143/linux -o cargo-nextest.tar.gz
-          echo "66786b9abe23920d022a182d1416b1bbc8130dd4872a9553d76985a1708dcd1e  cargo-nextest.tar.gz" | sha256sum -c -
-          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
-          rm cargo-nextest.tar.gz
-      - name: Install cargo-nextest (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # Keep the version in sync with Linux above. Checksum from the release's
-          # cargo-nextest-<VERSION>-universal-apple-darwin.sha256 artifact.
-          curl -LsSf https://get.nexte.st/0.9.143/mac -o cargo-nextest.tar.gz
-          echo "4830d430411148d17602a75cc880bfb4dc8dac153dea59a48a2ef4cc93577f07  cargo-nextest.tar.gz" | shasum -a 256 -c -
-          mkdir -p ${CARGO_HOME:-~/.cargo}/bin
-          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
-          rm cargo-nextest.tar.gz
-      - name: Run workspace tests
-        run: cargo nextest run $PACKAGES --profile ci -E "$NEXTEST_FILTER"
-      - name: Run doctests
-        run: cargo test --doc $PACKAGES
-      - name: Upload results to tests.but.dev
-        if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
-        continue-on-error: true
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.TEST_RESULTS_TOKEN_CARGO }}
-          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
-          RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl --fail-with-body -X POST \
-            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
-            -F "data=@target/nextest/ci/junit.xml" \
-            -F "format=junit" \
-            -F "run_env[CI]=github_actions" \
-            -F "run_env[key]=$RUN_KEY" \
-            -F "run_env[number]=$RUN_NUMBER" \
-            -F "run_env[branch]=$RUN_BRANCH" \
-            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
-            -F "run_env[url]=$RUN_URL" \
-            -F "tags[framework]=nextest" \
-            -F "tags[language]=rust" \
-            -F "tags[type]=unit" \
-            https://tests.but.dev/v1/uploads
-      - name: Assert test hermeticity
-        run: |
-          if [ -e "$E2E_TEST_APP_DATA_DIR" ]; then
-            echo "::error::Tests wrote to the user-level app-data dir. Use Context::from_repo_for_testing or but_testsupport::isolated_app_data_dir instead of settings-loading constructors:"
-            find "$E2E_TEST_APP_DATA_DIR"
-            exit 1
-          fi
-
-  # The other feature sets the workspace tests must pass with. These don't vary by
-  # platform, so they run on Linux only and beside rust-test rather than after it.
   rust-test-variants:
     needs: changes
     if: ${{ needs.changes.outputs.rust_core == 'true' }}
@@ -445,11 +182,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # ci.but.dev runs this only on master, so pull requests still get it here. The
+          # main test run and `make test-modern-but` are on ci.but.dev (.config/taste.toml).
           - name: without nightly
             run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
-          # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
-          - name: make test-modern-but
-            run: make test-modern-but && (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
     name: rust-test-variants (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -468,7 +204,8 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: cargo-test-no-tauri-${{ runner.os }}
-          save-if: false
+          # The only job left using this cache, so it saves it now.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Install Zig
         uses: $/.github/actions/setup-zig
       - name: Dependencies for 'keyring'
@@ -523,10 +260,7 @@ jobs:
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      - name: Test but-api-macros (default)
-        run: cargo test -p but-api-macros-tests
-      - name: Test but-api-macros --features legacy
-        run: cargo test -p but-api-macros-tests --features legacy
+      # ci.but.dev tests but-api-macros without features and with `legacy`.
       - name: Test but-api-macros --features tauri
         run: cargo test -p but-api-macros-tests --features tauri
       - run: |
@@ -826,15 +560,10 @@ jobs:
       - check-rust-windows
       - test-rust-windows
       - build-tauri-windows
-      - rust-test
       - rust-test-variants
       - rust-test-tauri
       - rust-lint
-      - rust-check-features
-      - cargo-machete
-      - cargo-doc
       - build-installer
-      - but-sdk-build-check
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
