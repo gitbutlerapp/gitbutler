@@ -197,6 +197,13 @@ where
         if let Some(refusal) = error.downcast_ref::<gitbutler_oplog::BranchInOtherWorktree>() {
             return CliError::BadInput(bad_input(refusal.to_string()).hint(REVERSE_OPERATION_HINT));
         }
+        #[cfg(feature = "legacy")]
+        if let Some(reason) = gitbutler_git::remote_failure_reason(&error) {
+            return CliError::BadInput(bad_input(reason).code("RemoteUnavailable").hint(
+                "Check the remote's URL with `git remote -v`, your network connection and your \
+                credentials, then retry",
+            ));
+        }
         if let Some(unresolved) =
             error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
         {

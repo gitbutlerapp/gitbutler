@@ -201,6 +201,31 @@ fn map_needs_authorization(err: GitError) -> anyhow::Error {
     anyhow::Error::from(err).context(context)
 }
 
+/// What Git said if `err` is a fetch or push that Git gave up on with exit code 128, the code of
+/// its `die()`. That nearly always means it couldn't talk to the remote: the URL is wrong, the
+/// host can't be reached, the credentials are refused or the connection dropped. Git also dies
+/// when it can't write the objects it received. That is rare and isn't told apart here, as a
+/// dropped connection ends with the same words.
+///
+/// Every other failure returns `None`, like refs that can't be written locally or a push that
+/// the remote refused.
+pub fn remote_failure_reason(err: &anyhow::Error) -> Option<&str> {
+    use crate::repository::RepositoryError::Failed;
+    match err.downcast_ref::<GitError>()? {
+        crate::Error::Backend(Failed {
+            status: 128,
+            stderr,
+            ..
+        })
+        | crate::Error::AuthorizationFailed(Failed {
+            status: 128,
+            stderr,
+            ..
+        }) => Some(stderr),
+        _ => None,
+    }
+}
+
 /// Pick the message the app shows for a `NeedsAuthorization` failure based on the raw askpass
 /// prompt. Without this, the user sees the prompt Git wanted answered
 /// (e.g. `Username for 'https://github.com': `) with no hint at the actual problem: nothing could
