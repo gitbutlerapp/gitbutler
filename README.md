@@ -20,21 +20,6 @@
 
 [![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
 
-[s0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml/badge.svg
-[l0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml
-[s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
-[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
-[s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
-[l2]: https://discord.gg/MmFkmaJ42D
-[s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
-[l3]: https://www.instagram.com/gitbutler/
-[s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
-[l5]: https://www.youtube.com/@gitbutlerapp
-[s7]: https://deepwiki.com/badge.svg
-[l7]: https://deepwiki.com/gitbutlerapp/gitbutler
-[s8]: https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff
-[l8]: https://bsky.app/profile/gitbutler.com
-
 </div>
 
 <br/>
