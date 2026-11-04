@@ -226,6 +226,7 @@
 	color: var(--text-safe);
 }
 
+.conflicts,
 .cpu-danger,
 .failed {
 	color: var(--text-danger);

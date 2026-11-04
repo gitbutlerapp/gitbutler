@@ -312,8 +312,9 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * glyph and the badge, its number, and its title as `title`; without one, `title` is the branch's
  * name.
  *
- * Its `meta` reads in one order: `CiStatus`, then ↓ `behind`, ↑ `unpushed`, `uncommitted`, and
- * `commits`. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
+ * Its `meta` reads in one order: `conflicts`, then `CiStatus`, ↓ `behind`, ↑ `unpushed`,
+ * `uncommitted`, and `commits`. `conflicts` counts its conflicted commits while it is folded; on an
+ * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
  * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
  * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
  * then View PR on a branch with a request.
@@ -375,22 +376,31 @@ export const BranchItem: FC<
  * A commit under an expanded branch: the hollow glyph while it is only here, the solid one once it
  * is pushed. Its `menu` shows under the pointer, on keyboard focus and when selected.
  *
+ * A `conflicted` commit takes the warning in red in its glyph's place, pushed or not, so the
+ * commits to resolve stand out of the list. Its branch counts them in `conflicts` while folded;
+ * open, the marks on its commits say it.
+ *
  * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
  * commits it brought in, one level deeper.
  *
  * @import import { CommitItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
-export const CommitItem: FC<{ message: string; pushed?: boolean; merge?: boolean } & RowProps> = ({
-	message,
-	pushed = true,
-	merge = false,
-	tooltip,
-	...props
-}) => (
+export const CommitItem: FC<
+	{ message: string; pushed?: boolean; merge?: boolean; conflicted?: boolean } & RowProps
+> = ({ message, pushed = true, merge = false, conflicted = false, tooltip, ...props }) => (
 	<Row
 		{...props}
 		name={message}
-		icon={<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />}
+		icon={
+			conflicted ? (
+				// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A glyph with a name, not a picture with a source.
+				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
+					<Icon name="warning" />
+				</span>
+			) : (
+				<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />
+			)
+		}
 		label={
 			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
 				{message}
