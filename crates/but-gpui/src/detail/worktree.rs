@@ -323,7 +323,9 @@ impl Detail {
         }
         let rests_on = ws.zip(checkout.linked()).and_then(|(ws, name)| {
             let (branch, from) = ws.beneath(ws.worktree_lane(name)?).next()?.top()?;
-            let at = from.map_or(String::new(), |id| format!(" at {}", id.short()));
+            let at = from.map_or(String::new(), |id| {
+                format!(" at {}", ws.short_reference(id))
+            });
             Some(format!("On {}{at}", store.name_of(project, branch)))
         });
         let meta = meta_row(theme)

@@ -3301,7 +3301,7 @@ impl Render for Detail {
                             format!(
                                 "Commit {} is checked out for editing. Its files are under \
                                  Editing a commit, with Finish and Cancel.",
-                                editing.commit.short()
+                                editing.reference
                             ),
                             &theme,
                             cx,

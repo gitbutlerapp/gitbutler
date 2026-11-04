@@ -203,7 +203,7 @@ impl Cut {
                     Some((_, commit)) if !commit.title.is_empty() => {
                         format!("\"{}\"", commit.title)
                     }
-                    _ => format!("commit {}", id.short()),
+                    _ => format!("commit {}", store.short_reference(project, *id)),
                 },
                 ids => format!("{} commits", ids.len()),
             },
@@ -701,6 +701,11 @@ impl Store {
     /// `project`'s commit `id`, and the branch holding it.
     pub fn find_commit(&self, project: &str, id: CommitId) -> Option<(&Branch, &Commit)> {
         self.workspace(project)?.find_commit(id)
+    }
+
+    /// What `project`'s commit `id` is shown by: see [`Workspace::short_reference`].
+    pub fn short_reference(&self, project: &str, id: CommitId) -> String {
+        (self.workspace(project)).map_or_else(|| id.short(), |ws| ws.short_reference(id))
     }
 
     /// Read the commits a remote's merge `id` of `project` brought in, unless they've been

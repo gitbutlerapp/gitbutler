@@ -1239,6 +1239,7 @@ impl Store {
         let said = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
         });
+        let named = self.short_reference(project, into);
         let amend = backend::Amend {
             into,
             changes: files,
@@ -1247,7 +1248,7 @@ impl Store {
         };
         self.apply(
             project,
-            Label::new("Amend", format!("Amend {}", into.short())),
+            Label::new("Amend", format!("Amend {named}")),
             overlay,
             amend,
             move |store, amended, cx| {

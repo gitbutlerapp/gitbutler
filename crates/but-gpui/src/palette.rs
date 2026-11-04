@@ -58,10 +58,10 @@ pub struct Choice {
     /// It makes something named as typed: any text but another choice's label finds it,
     /// shown after its label.
     names: bool,
-    /// A commit's full id, which finds it typed from its start, as `git log` and Copy commit ID
-    /// give it, though its detail shows less. Never by letters scattered through it, which
-    /// would find every commit.
-    id: Option<SharedString>,
+    /// A commit's full ids, its sha and change ID, either of which finds it typed from its start,
+    /// as `git log` and the copy commands give them, though its detail shows less. Never by
+    /// letters scattered through them, which would find every commit.
+    ids: Vec<SharedString>,
     /// Where picking it goes, which the navigator outlines while it's selected. Picked, it runs
     /// at once rather than once the keys are drawn back where they were, so its `run` must
     /// dispatch no action, which would miss the handlers registered only there.
@@ -83,7 +83,7 @@ impl Choice {
             detail: None,
             risky: false,
             names: false,
-            id: None,
+            ids: Vec::new(),
             goes_to: None,
             run: Box::new(move |this, _, window, cx| run(this, window, cx)),
         }
@@ -120,10 +120,18 @@ impl Choice {
         self
     }
 
-    /// Found by commit `id` typed from its start: see [`Choice::id`].
+    /// Found by commit `id` typed from its start: see [`Choice::ids`].
     pub(crate) fn commit_id(mut self, id: CommitId) -> Choice {
-        self.id = Some(id.0.to_string().into());
+        self.ids.push(id.0.to_string().into());
         self
+    }
+
+    /// Found by `commit`'s sha and any change ID typed from their start: see [`Choice::ids`].
+    fn commit_ids(mut self, commit: &Commit) -> Choice {
+        if commit.has_change_id() {
+            self.ids.push(commit.key.clone().into());
+        }
+        self.commit_id(commit.id)
     }
 
     pub(crate) fn goes_to(mut self, selection: Selection) -> Choice {
@@ -201,7 +209,7 @@ impl Palette {
                 let label = alias.or(label);
                 // The label first on a tie, as a branch named as another's detail says.
                 let detail = (choice.detail.as_ref())
-                    .and_then(|detail| detail_score(detail, choice.id.as_deref(), &query))
+                    .and_then(|detail| detail_score(detail, &choice.ids, &query))
                     .map(|(score, found)| (score - 1, found))
                     .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
                 let (score, found) = match (label, detail) {
@@ -296,17 +304,28 @@ fn alias_score(aliases: &[&str], query: &str) -> Option<i32> {
         .max()
 }
 
-/// How well `query` matches a row's `detail`, as [`score`] says, but a commit's `id` only typed
-/// from its start, the short one the detail starts with too: letters scattered through it would
-/// find nearly every commit. The rest of the detail, its branch and project, matches as ever.
-fn detail_score(detail: &str, id: Option<&str>, query: &str) -> Option<(i32, Vec<Range<usize>>)> {
-    let Some(id) = id else {
-        return score(detail, query);
-    };
-    if !query.is_empty() && id_starts(id, query) {
+/// How much of a commit's id it takes to find it, as Git's shortest abbreviation does. Ids are
+/// mostly pasted, and a letter or two is more likely the start of a word: a change ID's letters
+/// are the ones people type, so `s` alone would find one commit in sixteen.
+const ID_QUERY_MIN: usize = 4;
+
+/// How well `query` matches a row's `detail`, as [`score`] says, but a commit's `ids` only typed
+/// from their start, at least [`ID_QUERY_MIN`] of them, the short one the detail starts with too:
+/// letters scattered through it would find nearly every commit. The rest of the detail, its branch
+/// and project, matches as ever.
+fn detail_score(
+    detail: &str,
+    ids: &[SharedString],
+    query: &str,
+) -> Option<(i32, Vec<Range<usize>>)> {
+    if query.len() >= ID_QUERY_MIN && ids.iter().any(|id| id_starts(id, query)) {
         return Some((2000, shared_start(detail, query).into_iter().collect()));
     }
-    let shown = shared_start(detail, id).map_or(0, |shown| shown.end);
+    let shown = (ids.iter())
+        .filter_map(|id| shared_start(detail, id))
+        .map(|shown| shown.end)
+        .max()
+        .unwrap_or(0);
     let (score, found) = score(detail.get(shown..)?, query)?;
     let found = (found.into_iter())
         .map(|range| range.start + shown..range.end + shown)
@@ -889,7 +908,7 @@ fn commit_choice(
 ) -> Choice {
     let (id, key) = (entry.id.clone(), commit.key.clone());
     let goes_to = Selection::Commit(id.clone(), commit.id);
-    let short = commit.id.0.to_hex_with_len(7).to_string();
+    let short = commit.short_reference();
     let gone = format!("Commit {short} left the workspace meanwhile");
     let project = several.then_some(entry.project.name.as_str());
     let details = [short.as_str(), store.label_of(&entry.id, branch)];
@@ -906,7 +925,7 @@ fn commit_choice(
     (choice.icon(Icon::Commit))
         .details(details.into_iter().chain(project))
         .goes_to(goes_to)
-        .commit_id(commit.id)
+        .commit_ids(commit)
 }
 
 impl AppView {
@@ -1465,7 +1484,7 @@ mod tests {
     #[test]
     fn a_short_id_is_not_found_by_letters_scattered_through_it() {
         assert_eq!(
-            detail_score("3a79334 · cache", Some(ID), "373"),
+            detail_score("3a79334 · cache", &[ID.into()], "373"),
             None,
             "3, 7 and 3 appear in order in 3a79334, but that isn't an id typed"
         );
@@ -1474,7 +1493,7 @@ mod tests {
     #[test]
     fn a_short_id_is_found_typed_from_its_start() {
         let detail = "3a79334 · cache";
-        let found = detail_score(detail, Some(ID), "3a79").map(|(_, found)| found);
+        let found = detail_score(detail, &[ID.into()], "3a79").map(|(_, found)| found);
         assert_eq!(
             found.map(|found| found
                 .into_iter()
@@ -1488,7 +1507,7 @@ mod tests {
     #[test]
     fn a_commit_is_still_found_by_its_branch() {
         let detail = "3a79334 · cart-checkout";
-        let found = detail_score(detail, Some(ID), "checkout").map(|(_, found)| found);
+        let found = detail_score(detail, &[ID.into()], "checkout").map(|(_, found)| found);
         assert_eq!(
             found.map(|found| found
                 .into_iter()
@@ -1496,6 +1515,87 @@ mod tests {
                 .collect::<Vec<_>>()),
             Some(Vec::from(["checkout"])),
             "past the id, the detail matches as any other, its underline where it was found"
+        );
+    }
+
+    const CHANGE_ID: &str = "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk";
+
+    #[test]
+    fn a_shown_change_id_is_not_found_by_letters_scattered_through_it() {
+        assert_eq!(
+            detail_score("vtlrvnl · cache", &[CHANGE_ID.into(), ID.into()], "vrl"),
+            None,
+            "v, r and l appear in order in vtlrvnl, but that isn't an id typed"
+        );
+    }
+
+    #[test]
+    fn a_shown_change_id_is_found_typed_from_its_start() {
+        let detail = "vtlrvnl · cache";
+        let ids = [CHANGE_ID.into(), ID.into()];
+        let found = detail_score(detail, &ids, "vtlr").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["vtlr"])),
+            "the start of the id shown is underlined"
+        );
+    }
+
+    #[test]
+    fn a_commit_showing_its_change_id_is_still_found_by_its_sha() {
+        let found = detail_score("vtlrvnl · cache", &[CHANGE_ID.into(), ID.into()], "3a79");
+        assert_eq!(
+            found,
+            Some((2000, Vec::new())),
+            "as `git log` gives it, with nothing to underline as the sha isn't shown"
+        );
+    }
+
+    #[test]
+    fn a_commit_showing_its_change_id_is_still_found_by_its_branch() {
+        let detail = "vtlrvnl · cart-checkout";
+        let ids = [CHANGE_ID.into(), ID.into()];
+        let found = detail_score(detail, &ids, "checkout").map(|(_, found)| found);
+        assert_eq!(
+            found.map(|found| found
+                .into_iter()
+                .map(|range| &detail[range])
+                .collect::<Vec<_>>()),
+            Some(Vec::from(["checkout"])),
+            "past the id, the detail matches as any other, its underline where it was found"
+        );
+    }
+
+    #[test]
+    fn a_change_id_is_not_found_by_its_first_few_letters() {
+        assert_eq!(
+            detail_score("vtlrvnl · cache", &[CHANGE_ID.into(), ID.into()], "vtl"),
+            None,
+            "three letters are more likely the start of a word than of an id"
+        );
+    }
+
+    #[test]
+    fn a_sha_is_not_found_by_its_first_few_letters() {
+        assert_eq!(
+            detail_score("3a79334 · cache", &[ID.into()], "3a7"),
+            None,
+            "three letters are more likely the start of a word than of an id"
+        );
+    }
+
+    #[test]
+    fn a_few_letters_starting_an_id_still_find_the_branch() {
+        let id = "ca79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
+        let found = detail_score("ca79334 · cache", &[id.into()], "ca")
+            .and_then(|(_, found)| found.first().cloned());
+        assert_eq!(
+            found,
+            Some(11..13),
+            "the underline is on the branch, past the id they also start"
         );
     }
 

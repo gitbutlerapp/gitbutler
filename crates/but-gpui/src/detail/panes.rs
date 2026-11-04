@@ -249,10 +249,7 @@ impl Detail {
                         // By its change ID, as y copies it, or its sha for one without.
                         let last = match store.among_picks(project, *id) {
                             true => plural(store.picked.len(), "commit"),
-                            false if commit.has_change_id() => {
-                                commit.key.get(..7).unwrap_or(&commit.key).to_owned()
-                            }
-                            false => commit.id.short(),
+                            false => commit.short_reference(),
                         };
                         crumbs.push((last.into(), None));
                     }
@@ -638,7 +635,7 @@ impl Detail {
                 commit.time,
                 theme,
             ))
-            .child(self.sha_chip(commit.id, theme))
+            .child(self.reference_chip(commit, theme))
             .child(div().text_color(color).child(state))
             .when(commit.conflicted, |el| {
                 el.child(div().text_color(theme.warn).child("conflicted"))
@@ -996,10 +993,29 @@ impl Detail {
         self.page_header(title, meta, target, None, None, theme)
     }
 
-    /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the
-    /// whole one on a click.
+    /// A workspace commit's ID: its change ID, as y copies it, or its sha for one without.
+    fn reference_chip(&self, commit: &backend::Commit, theme: &Theme) -> Stateful<Div> {
+        let tooltip = match commit.has_change_id() {
+            true => "Copy change ID",
+            false => "Copy commit ID",
+        };
+        self.id_chip(commit.short_reference(), commit.reference(), tooltip, theme)
+    }
+
+    /// The ID of a commit outside the workspace, which has only its sha to go by here.
     pub(super) fn sha_chip(&self, id: backend::CommitId, theme: &Theme) -> Stateful<Div> {
-        let sha = id.0.to_string();
+        self.id_chip(id.short(), id.0.to_string(), "Copy commit ID", theme)
+    }
+
+    /// A commit's `short` ID in its line's ink, as ui-react's `CopyableId`, which copies `whole`
+    /// on a click.
+    fn id_chip(
+        &self,
+        short: String,
+        whole: String,
+        tooltip: &'static str,
+        theme: &Theme,
+    ) -> Stateful<Div> {
         let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
         h_flex()
             .id("commit-sha")
@@ -1012,13 +1028,13 @@ impl Detail {
                     .text_color(theme.text_2.opacity(0.7))
                     .group_hover("commit-sha", move |el| el.text_color(hover.opacity(0.7))),
             )
-            .child(id.short())
-            .tooltip(Tooltip::text("Copy commit ID"))
+            .child(short)
+            .tooltip(Tooltip::text(tooltip))
             .on_click({
                 let app = self.app.clone();
                 move |_, window, cx| {
-                    let sha = sha.clone();
-                    app.update_later(window, cx, move |app, _, cx| app.copy_text(sha, cx));
+                    let whole = whole.clone();
+                    app.update_later(window, cx, move |app, _, cx| app.copy_text(whole, cx));
                 }
             })
     }

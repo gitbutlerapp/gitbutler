@@ -2218,7 +2218,7 @@ fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<
     let base = below.map_or_else(
         || target.to_owned(),
         |(branch, from)| match from {
-            Some(id) => format!("{} at {}", branch.name, id.short()),
+            Some(id) => format!("{} at {}", branch.name, workspace.short_reference(id)),
             None => branch.name.clone(),
         },
     );
@@ -2392,11 +2392,11 @@ mod tests {
             said,
             snapbox::str![[r#"
 Branch(upper): Some("No commits above lower on this branch")
-Branch(wt): Some("No commits above middle at 0303030 on this branch")
+Branch(wt): Some("No commits above middle at key3 on this branch")
 Branch(outside): Some("No commits above the target on this branch")
 Branch(on-top): Some("No commits above top on this branch")
 Stack(lower): Some("No commits above the target on these branches")
-Stack(wt): Some("No commits above middle at 0303030 on these branches")
+Stack(wt): Some("No commits above middle at key3 on these branches")
 
 "#]]
         );
