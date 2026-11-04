@@ -616,17 +616,20 @@ pub(crate) async fn user_config(
 pub(crate) async fn forge_config(
     out: &mut OutputChannel,
     cmd: Option<ForgeSubcommand>,
-) -> Result<()> {
+) -> CliResult<()> {
     match cmd {
-        Some(ForgeSubcommand::Auth) => forge_auth(out).await,
-        Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await,
-        Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
+        Some(ForgeSubcommand::Auth) => forge_auth(out).await?,
+        Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await?,
+        Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await?,
         #[cfg(feature = "legacy")]
         Some(ForgeSubcommand::GithubStacks { .. }) => {
-            anyhow::bail!("GitHub stacks configuration requires a repository")
+            return Err(
+                anyhow::anyhow!("GitHub stacks configuration requires a repository").into(),
+            );
         }
-        None => forge_show_overview(out).await,
+        None => forge_show_overview(out).await?,
     }
+    Ok(())
 }
 
 #[cfg(feature = "legacy")]
@@ -833,7 +836,7 @@ fn extract_account_details(
 }
 
 /// Authenticate with a forge provider (GitHub, GitLab, etc)
-async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
+async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
     #[derive(Debug, Clone)]
     enum ForgeProvider {
         GitHub,
@@ -857,9 +860,11 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         ("Bitbucket", ForgeProvider::Bitbucket)
     ];
     let selected_option = {
-        let mut input = out
-            .prepare_for_terminal_input()
-            .context("Human input required - run this in a terminal")?;
+        let mut input = out.prepare_for_terminal_input().ok_or_else(|| {
+            bad_input("Human input required - run this in a terminal").hint(
+                "Ask the user to run `but config forge auth` in a terminal. It has no non-interactive form",
+            )
+        })?;
         input
             .prompt_select(
                 "Select a forge provider to authenticate with",
@@ -872,10 +877,11 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
     };
 
     match selected_option {
-        ForgeProvider::GitHub => github_auth(out).await,
-        ForgeProvider::GitLab => gitlab_auth(out).await,
-        ForgeProvider::Bitbucket => bitbucket_auth(out).await,
+        ForgeProvider::GitHub => github_auth(out).await?,
+        ForgeProvider::GitLab => gitlab_auth(out).await?,
+        ForgeProvider::Bitbucket => bitbucket_auth(out).await?,
     }
+    Ok(())
 }
 
 /// Authenticate with Bitbucket Cloud using an Atlassian API token.

@@ -626,3 +626,18 @@ fn ai_anthropic_byok_without_api_key_fails_non_interactive() {
         "provider should not be written when BYOK key is missing",
     );
 }
+
+#[test]
+fn forge_auth_without_terminal_is_bad_input() {
+    let env = Sandbox::empty();
+
+    env.but("config forge auth")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Human input required - run this in a terminal
+
+Hint: Ask the user to run `but config forge auth` in a terminal. It has no non-interactive form
+
+"#]]);
+}
