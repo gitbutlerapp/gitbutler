@@ -396,6 +396,42 @@ Discarded branch 'wt'
     snapbox::assert_data_eq!(env.invoke_git("branch --list wt"), str![""]);
 }
 
+/// Git would refuse this for as long as it keeps the entry of the deleted checkout.
+#[test]
+fn deletes_a_branch_whose_worktree_checkout_is_gone() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("worktree list").assert().success();
+    // Different start points, as the same commit would put all of them into the applied lane.
+    let unapplied = crate::command::util::add_worktree_with_commit(&env, "unapplied", "main");
+    let applied = crate::command::util::add_worktree_with_commit(&env, "applied", "A");
+    let locked = crate::command::util::add_worktree_with_commit(&env, "locked", "B");
+    env.invoke_git(&format!("worktree lock {}", locked.display()));
+    for checkout in [&unapplied, &applied, &locked] {
+        std::fs::remove_dir_all(checkout).unwrap();
+    }
+    env.but("apply applied").assert().success();
+
+    for name in ["unapplied", "applied"] {
+        env.but(format!("branch delete {name}"))
+            .assert()
+            .success()
+            .stderr_eq(str![[""]])
+            .stdout_eq(format!("Discarded branch '{name}'\n"));
+    }
+    snapbox::assert_data_eq!(env.invoke_git("branch --list unapplied applied"), str![""]);
+
+    // A locked worktree may only be unmounted, so its branch stays checked out.
+    env.but("branch delete locked")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Refusing to delete a branch that is checked out. Worktrees are: [..]/locked
+
+"#]]);
+}
+
 /// A linked worktree with a detached `HEAD` is drawn as an anonymous lane. It has no branch to
 /// delete, so point at removing the worktree, which is what clears the lane.
 #[test]

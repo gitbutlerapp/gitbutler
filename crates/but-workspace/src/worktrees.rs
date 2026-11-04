@@ -114,12 +114,15 @@ pub fn updated_at(repo: &gix::Repository, name: &BStr) -> anyhow::Result<Option<
 }
 
 /// Remove the linked worktree named `name`, refusing a dirty checkout unless `force`.
+/// If its checkout is gone already, this only forgets the worktree.
 /// Uses gix's bounded retries to handle files created during deletion.
 /// Forced removal overrides locks; otherwise a lock is released and restored if removal is refused.
 pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Result<()> {
     use gix::worktree::remove::{Error, Force};
     let worktree = repo
-        .worktree_proxy_by_id(name)?
+        .worktrees()?
+        .into_iter()
+        .find(|proxy| proxy.id().is_ok_and(|id| id == name))
         .with_context(|| format!("Worktree {name} does not exist"))?;
     let remove = || {
         let result = worktree.clone().remove(
@@ -146,6 +149,11 @@ pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Resul
     if force || !worktree.is_locked() {
         return remove();
     }
+    // Nothing can tell if a checkout that is only unavailable has changes.
+    anyhow::ensure!(
+        worktree.base().is_ok_and(|base| base.exists()),
+        "Worktree {name} is locked and its checkout is unavailable; use --force to forget it"
+    );
     let lock_reason = worktree
         .lock_reason()
         .context("Could not read the worktree lock reason")?;
@@ -156,6 +164,32 @@ pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Resul
         Ok(()) => err,
         Err(relock_err) => err.context(relock_err),
     })
+}
+
+/// Forget the linked worktrees that have `branch` checked out while their checkout is gone, the way
+/// `git worktree prune` would, as Git otherwise keeps treating `branch` as checked out there.
+///
+/// Locked worktrees are kept, as they may only be unavailable, and so is every other worktree, as
+/// the entry of a detached one may be all that keeps its commits from being garbage collected.
+/// A checkout that can't be read isn't gone, as it may be healthy.
+pub fn prune_gone(repo: &gix::Repository, branch: &gix::refs::FullNameRef) -> anyhow::Result<()> {
+    for worktree in repo.worktrees()? {
+        let gone = !worktree.is_locked()
+            && worktree
+                .base()
+                .is_ok_and(|base| matches!(base.try_exists(), Ok(false)));
+        if gone
+            && worktree
+                .clone()
+                .into_repo_with_possibly_inaccessible_worktree()
+                .ok()
+                .and_then(|repo| repo.head_name().ok().flatten())
+                .is_some_and(|head| head.as_ref() == branch)
+        {
+            remove(repo, worktree.id()?, false)?;
+        }
+    }
+    Ok(())
 }
 
 /// The destination was occupied before worktree creation made any changes.

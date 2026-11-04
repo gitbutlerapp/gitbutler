@@ -485,6 +485,11 @@ pub fn run(
     let source_repo = ChangeSourceRepo::open(ctx, &source)?;
     let executable = match operation {
         DiscardOperation::Branches(branches) => {
+            // The rebase keeps a reference any worktree has checked out, even if that is gone.
+            for branch in &branches {
+                but_workspace::worktrees::prune_gone(&*ctx.repo.get()?, branch.as_ref())?;
+            }
+            ctx.invalidate_workspace_cache()?;
             let commits = {
                 let (repo, workspace, _db) =
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
