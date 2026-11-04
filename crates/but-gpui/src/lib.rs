@@ -377,6 +377,11 @@ pub fn run(embedded: Option<Embedded>) {
             });
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
+            // The window the user looks at, which an agent can lay out as asked.
+            #[cfg(all(feature = "dev-script", unix))]
+            if !scripted {
+                dev::listen_for_layout(window.into(), cx);
+            }
             if !scripted {
                 cx.activate(true);
             }

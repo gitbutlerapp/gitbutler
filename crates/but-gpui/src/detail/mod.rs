@@ -3489,24 +3489,30 @@ impl Detail {
         )
     }
 
-    /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
-    /// files beside its list, as `f` does.
-    pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Whether the files `f` shows or hides show: those beside the diff or a checkout's
+    /// overview, or on a list page those beside its list. `None` where `f` does nothing.
+    pub(crate) fn files_toggled(&self, cx: &App) -> Option<bool> {
         let list_page = self.list_page();
         if self.overview_only()
             || self.single_file_diff(cx)
             || (list_page && !self.has_files_beside(cx))
         {
-            return;
+            return None;
         }
-        let Some(files) = self.page.files() else {
-            return;
-        };
-        let hidden = match list_page {
+        let files = self.page.files()?;
+        Some(match list_page {
             true => !files.beside_files_hidden,
             false => !files.files_hidden,
+        })
+    }
+
+    /// Show or hide the file list beside the diff or a checkout's overview, or a list page's
+    /// files beside its list, as `f` does.
+    pub(crate) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(hidden) = self.files_toggled(cx) else {
+            return;
         };
-        self.hide_files(list_page, hidden, cx);
+        self.hide_files(self.list_page(), hidden, cx);
         // Keys go on to the diff once the list they went to is gone, and its filter goes with
         // it, so no file stays out of the diff unseen.
         if hidden {

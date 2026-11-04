@@ -821,6 +821,25 @@ fn go_to_choices(store: &Store) -> Vec<Choice> {
         .collect()
 }
 
+/// The row Go to anything goes to typed `query` in full: the one it names whole, ignoring case,
+/// else the first whose label has it, in the selected project before the others.
+#[cfg(feature = "dev-script")]
+pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
+    let query = query.to_lowercase();
+    let selected = store.selection.as_ref().map(Selection::project);
+    let mut rows: Vec<(bool, bool, Selection)> = (go_to_choices(store).into_iter())
+        .filter_map(|choice| {
+            let label = choice.label.to_lowercase();
+            let goes_to = choice.goes_to?;
+            let elsewhere = selected != Some(goes_to.project());
+            (label.contains(&query)).then(|| (label != query, elsewhere, goes_to))
+        })
+        .collect();
+    // Stable, so rows that tie keep the navigator's order.
+    rows.sort_by_key(|(partly, elsewhere, _)| (*partly, *elsewhere));
+    rows.into_iter().next().map(|(_, _, selection)| selection)
+}
+
 /// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
 /// one's first, as the navigator lists them under each.
 fn terminal_choices(

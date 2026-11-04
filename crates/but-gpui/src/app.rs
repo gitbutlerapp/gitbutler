@@ -2665,10 +2665,16 @@ impl AppView {
 
     /// Copy how the selected row's tiles are laid out, drawn in text, each by its name.
     fn copy_tile_diagram(&mut self, cx: &mut Context<Self>) {
+        if let Some(diagram) = self.tile_diagram(cx) {
+            self.copy_text(diagram, cx);
+        }
+    }
+
+    /// How the selected row's tiles are laid out, drawn in text, each by its name: `None` while
+    /// its page shows alone.
+    pub(crate) fn tile_diagram(&self, cx: &App) -> Option<String> {
         let store = self.store.read(cx);
-        let (Some(tiling), Some(selection)) = (store.tiling(), &store.selection) else {
-            return;
-        };
+        let (tiling, selection) = (store.tiling()?, store.selection.as_ref()?);
         let home = store.row_key(selection);
         let label = |tile: &Tile| {
             let row = match tile {
@@ -2677,8 +2683,7 @@ impl AppView {
             };
             tile_label(store, row).1.to_string()
         };
-        let diagram = tiling.diagram(label, 60, 18);
-        self.copy_text(diagram, cx);
+        Some(tiling.diagram(label, 60, 18))
     }
 
     /// Whether the tile of the selected row that had the keys last is gone, and they went to
