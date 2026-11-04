@@ -77,7 +77,8 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 					/>
 				</div>
 			</div>
-			<nav className="docs-site-pages" aria-label="Pages">
+			{/* The page shown is the selection, so it takes the solid fill of a focused one. */}
+			<nav className="docs-site-pages" aria-label="Pages" data-selection-focused="true">
 				{groupPages(found).map(([heading, group]) => (
 					<div key={heading} className="docs-site-group">
 						<GroupLabel
@@ -104,6 +105,9 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 					</div>
 				))}
 			</nav>
+			<div className="docs-site-pages-foot">
+				<div className="docs-site-pages-bottom" />
+			</div>
 		</div>
 	);
 };
@@ -116,7 +120,7 @@ const ThemeSwitch: FC = () => {
 	};
 
 	return (
-		<SegmentedControl value={theme} onValueChange={pick} aria-label="Theme">
+		<SegmentedControl fill value={theme} onValueChange={pick} aria-label="Theme">
 			<Segment value="system">System</Segment>
 			<Segment value="light">Light</Segment>
 			<Segment value="dark">Dark</Segment>

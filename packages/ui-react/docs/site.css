@@ -44,14 +44,14 @@ body[data-layout="centered"] {
 }
 
 .docs-site-scroll-viewport {
-	padding: 0 var(--gap-stack) var(--gap-stack);
+	padding: 0 var(--gap-stack);
 }
 
 /* The pages in a card, as sidebar rows always are, never loose on the panel's ground, led by the
-   search full-bleed as a popup is. Scrolled, the search sticks at the top while the pages pass
-   under it, as a machine's card does on but.dev: so the card is drawn by its parts, the search its
-   rounded top and the pages its sides and bottom, and the search's ground fills the notches outside
-   its corners. */
+   search full-bleed as a popup is. Scrolled, the search sticks at the top and the card's rounded
+   bottom at the bottom while the pages pass between them, as a machine's card does on but.dev: so
+   the card is drawn by its parts, the search its top, the pages its sides and a cap its bottom, and
+   the ground around each end fills the notches outside its corners. */
 .docs-site-pages-head {
 	z-index: 1;
 	position: sticky;
@@ -69,10 +69,43 @@ body[data-layout="centered"] {
 }
 
 .docs-site-pages {
+	border-inline: 1px solid var(--border-section);
+	background-color: var(--bg-1);
+}
+
+/* The card's bottom edge, laid over the last group's padding so the card ends where it did. The
+   edge is see-through, so the pages scroll right down to it; the ground is painted only outside its
+   rounded corners and below it. */
+.docs-site-pages-foot {
+	--corner: var(--radius-card);
+
+	z-index: 1;
+	position: sticky;
+	bottom: 0;
+	margin-top: calc(-1 * var(--corner));
+	padding-bottom: var(--gap-stack);
+	background:
+		radial-gradient(
+				circle at 100% 0,
+				transparent calc(var(--corner) - 0.5px),
+				var(--bg-2) var(--corner)
+			)
+			left top / var(--corner) var(--corner) no-repeat,
+		radial-gradient(
+				circle at 0 0,
+				transparent calc(var(--corner) - 0.5px),
+				var(--bg-2) var(--corner)
+			)
+			right top / var(--corner) var(--corner) no-repeat,
+		linear-gradient(var(--bg-2), var(--bg-2)) bottom / 100% var(--gap-stack) no-repeat;
+	pointer-events: none;
+}
+
+.docs-site-pages-bottom {
+	height: var(--corner);
 	border: 1px solid var(--border-section);
 	border-top: 0;
-	border-radius: 0 0 var(--radius-card) var(--radius-card);
-	background-color: var(--bg-1);
+	border-radius: 0 0 var(--corner) var(--corner);
 }
 
 /* A hairline parts the groups. */
