@@ -34,6 +34,15 @@ pub(super) struct Reload {
     linked: HashSet<bstr::BString>,
 }
 
+/// What asked for a project by its folder.
+#[derive(Debug, Clone, Copy)]
+enum Asked {
+    /// Add project.
+    Add,
+    /// A `but://open` link.
+    Link,
+}
+
 impl Reload {
     pub(super) fn full() -> Self {
         Self {
@@ -299,6 +308,16 @@ impl Store {
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.add_or_open(path, Asked::Add, cx);
+    }
+
+    /// Open the project at `path` as a `but://open` link asks, adding it first if it's new.
+    pub fn open_from_link(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        self.add_or_open(path, Asked::Link, cx);
+    }
+
+    /// Add `path` and select it, as `asked`.
+    fn add_or_open(&mut self, path: PathBuf, asked: Asked, cx: &mut Context<Self>) {
         self.project_edits += 1;
         cx.spawn(async move |this, cx| {
             let folder = path.clone();
@@ -313,6 +332,9 @@ impl Store {
                     let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
+                    if let Asked::Link = asked {
+                        return store.select_linked(id, existed, cx);
+                    }
                     store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
                     match (existed, store.project(&id)) {
                         (true, Some(entry)) => {
@@ -328,6 +350,17 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Select `id` as a `but://open` link asks: as a click on its row does, and where the user
+    /// already is in it, they stay.
+    fn select_linked(&mut self, id: ProjectId, existed: bool, cx: &mut Context<Self>) {
+        if !existed {
+            self.select_by_hand(Selection::Checkout(id.clone(), Checkout::Main), cx);
+            self.added = Some(id);
+        } else if (self.selection.as_ref()).is_none_or(|selection| selection.project() != &id) {
+            self.select_by_hand(self.opening(&id), cx);
+        }
     }
 
     /// Offer to make `folder`, which isn't a Git repository, one, then add it.

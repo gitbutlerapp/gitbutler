@@ -39,6 +39,7 @@ mod edits;
 mod fps;
 mod help;
 mod keymap;
+mod links;
 mod navigator;
 mod open_in;
 mod overlays;
@@ -188,6 +189,10 @@ pub fn run(embedded: Option<Embedded>) {
     use crate::app::AppView;
     use crate::ui::fixed;
 
+    // With the app already running, this launch hands it its links and is done.
+    let Some(incoming_links) = backend::links::hand_off() else {
+        return;
+    };
     backend::init();
     backend::metrics::start(embedded.as_ref().map(|embedded| embedded.version.clone()));
     // The desktop app writes to the same files, so say which app this is.
@@ -205,8 +210,10 @@ pub fn run(embedded: Option<Embedded>) {
     #[cfg(unix)]
     let handed = but_tty::handed();
 
-    gpui_platform::application()
-        .with_assets(ui::Assets)
+    let app = gpui_platform::application();
+    // Before `run`, as the link that launched the app can arrive while it starts.
+    let links = links::listen(&app, incoming_links);
+    app.with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
             // Before the other quit handlers run, and so outside the little time GPUI gives
@@ -381,6 +388,7 @@ pub fn run(embedded: Option<Embedded>) {
                     .update(cx, |app, window, cx| app.quit(&app::Quit, window, cx))
                     .unwrap_or_else(|_| cx.quit())
             });
+            links::follow(links, window, cx);
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
             // The window the user looks at, which an agent can lay out as asked.

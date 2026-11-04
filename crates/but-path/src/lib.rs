@@ -21,6 +21,8 @@ use std::{env, path::PathBuf};
 
 use anyhow::Context;
 
+pub mod link;
+
 /// The directory to store application-wide data in, like logs, **one per channel**.
 ///
 /// > ⚠️Keep in sync with `tauri::AppHandle::path().app_data_dir().`
@@ -202,6 +204,25 @@ impl AppChannel {
         }
     }
 
+    /// Every channel: release, nightly and dev. A link may name any of their apps.
+    pub const ALL: [AppChannel; 3] = {
+        // As `scheme` and `identifier_for_channel` do, a new channel fails to build here until
+        // it's in the list.
+        match AppChannel::Dev {
+            AppChannel::Release | AppChannel::Nightly | AppChannel::Dev => {}
+        }
+        [AppChannel::Release, AppChannel::Nightly, AppChannel::Dev]
+    };
+
+    /// The URL scheme this channel's app is registered for.
+    pub const fn scheme(self) -> &'static str {
+        match self {
+            AppChannel::Nightly => "but-nightly",
+            AppChannel::Release => "but",
+            AppChannel::Dev => "but-dev",
+        }
+    }
+
     /// Open the GitButler GUI application for `possibly_project_dir`.
     ///
     /// This uses the deeplink URL scheme registered for the specific channel.
@@ -213,12 +234,6 @@ impl AppChannel {
         possibly_project_dir: &std::path::Path,
         new_window: bool,
     ) -> anyhow::Result<()> {
-        let scheme = match self {
-            AppChannel::Nightly => "but-nightly",
-            AppChannel::Release => "but",
-            AppChannel::Dev => "but-dev",
-        };
-
         // Add a timestamp to avoid processing the same URL multiple times due to caching.
         // Read more https://github.com/gitbutlerapp/gitbutler/pull/11234#issuecomment-3533202481
         let timestamp = std::time::SystemTime::now()
@@ -226,7 +241,11 @@ impl AppChannel {
             .unwrap()
             .as_millis();
 
-        let url = build_open_url(scheme, possibly_project_dir, timestamp, new_window)?;
+        let url = link::OpenLink {
+            path: possibly_project_dir.to_owned(),
+            new_window,
+        }
+        .to_url(*self, timestamp)?;
 
         let cleaned_vars: Vec<(&str, String)> = clean_env_vars(&[
             "APPDIR",
@@ -314,20 +333,6 @@ impl AppChannel {
     }
 }
 
-fn build_open_url(
-    scheme: &str,
-    possibly_project_dir: &std::path::Path,
-    timestamp: u128,
-    new_window: bool,
-) -> anyhow::Result<url::Url> {
-    let mut url = url::Url::parse(&format!("{scheme}://open"))?;
-    url.query_pairs_mut()
-        .append_pair("path", &possibly_project_dir.to_string_lossy())
-        .append_pair("t", &timestamp.to_string())
-        .append_pair("new_window", if new_window { "1" } else { "0" });
-    Ok(url)
-}
-
 impl std::str::FromStr for AppChannel {
     type Err = anyhow::Error;
 
@@ -359,40 +364,4 @@ fn clean_env_vars<'a, 'b>(
                     .join(":"),
             )
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::build_open_url;
-
-    #[test]
-    fn open_url_encodes_query_parameters() -> anyhow::Result<()> {
-        let path = std::path::Path::new(r"C:\project & tools\#one");
-        let url = build_open_url("but", path, 123, true)?;
-
-        assert_eq!(
-            url.as_str(),
-            "but://open?path=C%3A%5Cproject+%26+tools%5C%23one&t=123&new_window=1",
-            "reserved path characters are encoded"
-        );
-        assert_eq!(url.scheme(), "but", "the requested app channel is retained");
-        assert_eq!(url.host_str(), Some("open"), "the open command is retained");
-        assert_eq!(
-            url.query_pairs()
-                .collect::<std::collections::HashMap<_, _>>(),
-            std::collections::HashMap::from([
-                (std::borrow::Cow::Borrowed("path"), path.to_string_lossy()),
-                (
-                    std::borrow::Cow::Borrowed("t"),
-                    std::borrow::Cow::Borrowed("123")
-                ),
-                (
-                    std::borrow::Cow::Borrowed("new_window"),
-                    std::borrow::Cow::Borrowed("1"),
-                ),
-            ]),
-            "query values round-trip after encoding"
-        );
-        Ok(())
-    }
 }
