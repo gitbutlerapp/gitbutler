@@ -1,10 +1,10 @@
-use gitbutler_branch_actions::update_workspace_commit;
+use gitbutler_branch_actions::update_workspace_commit_with_perm;
 use gitbutler_operating_modes::{
     INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF, ensure_open_workspace_mode,
 };
 
 /// Tests that "verify branch" won't complain if we are on the old integration
-/// branch, and that `update_workspace_commit` will put us back on the a branch
+/// branch, and that `update_workspace_commit_with_perm` will put us back on the a branch
 /// with the new name.
 #[test]
 fn works_on_integration_branch() -> anyhow::Result<()> {
@@ -24,7 +24,8 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     drop(guard);
 
     // Updating workspace commit should put us on the workspace branch.
-    update_workspace_commit(&mut ctx, false)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    update_workspace_commit_with_perm(&ctx, false, guard.write_permission())?;
     assert_eq!(
         ctx.repo.get()?.head_name()?.map(|name| name.to_string()),
         Some(WORKSPACE_BRANCH_REF.to_owned())

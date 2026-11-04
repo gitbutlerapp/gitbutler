@@ -23,8 +23,6 @@ pub use gitbutler_filemonitor::WatchMode;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
-    /// The id of the project we are watching.
-    project_id: ProjectHandleOrLegacyProjectId,
     /// Must be dropped synchronously so disconnecting its command channel unblocks
     /// `BlockingPool::shutdown` during Tokio runtime teardown.
     file_monitor: FileMonitorHandle,
@@ -40,11 +38,6 @@ impl Drop for WatcherHandle {
 }
 
 impl WatcherHandle {
-    /// Return the id of the project we are watching.
-    pub fn project_id(&self) -> &ProjectHandleOrLegacyProjectId {
-        &self.project_id
-    }
-
     pub fn flush(&self) -> Result<()> {
         self.file_monitor.flush()
     }
@@ -87,7 +80,6 @@ pub fn watch_in_background(
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
-        project_id: project_id.clone(),
         file_monitor,
         cancellation_token: cancellation_token.clone(),
     };

@@ -45,24 +45,7 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.StackDetails),
 			],
 		}),
-		setTarget: build.mutation<
-			BaseBranch,
-			{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
-		>({
-			extraOptions: { command: "set_base_branch" },
-			query: (args) => args,
-			invalidatesTags: [
-				invalidatesType(ReduxTag.ForgeProvider),
-				// The review listing follows the target remote: a stopped
-				// (unrecognized-forge) listing must retry once it changes.
-				invalidatesList(ReduxTag.PullRequests),
-				invalidatesType(ReduxTag.BaseBranchData),
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.StackDetails),
-			],
-		}),
-		// Like setTarget, but only writes project metadata: the user stays on the
-		// current branch instead of being moved into the GitButler workspace.
+		// Only writes project metadata: the user stays on the current branch.
 		setTargetRef: build.mutation<
 			void,
 			{ projectId: string; targetRef: string; pushRemote?: string }

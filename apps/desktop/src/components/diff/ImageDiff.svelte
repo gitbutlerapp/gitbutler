@@ -106,7 +106,7 @@
 	 *
 	 * @param source - The image source to load.
 	 * @param signal - Optional AbortSignal. Note: The backend service methods
-	 *   (readFromWorkspace, readFromCommit, readFromBlob) do NOT support AbortSignal,
+	 *   (readFromWorkspace, readFromBlob) do NOT support AbortSignal,
 	 *   so the actual IO operations cannot be cancelled once started. The signal is
 	 *   only used to prevent processing results after abortion, not to abort the IO itself.
 	 *

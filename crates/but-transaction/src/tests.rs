@@ -1,4 +1,3 @@
-use but_api::WorkspaceState;
 use but_core::{DiffSpec, DryRun, RefMetadata};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
@@ -10,7 +9,7 @@ use but_workspace::{
 };
 use gix::{ObjectId, refs::FullName};
 
-use crate::{DynamicOutcome, with_transaction, with_transaction_with_perm};
+use crate::{DynamicOutcome, WorkspaceState, with_transaction, with_transaction_with_perm};
 
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {

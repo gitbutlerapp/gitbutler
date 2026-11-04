@@ -19,14 +19,6 @@ export class FileService {
 		});
 	}
 
-	async readFromCommit(filePath: string, projectId: string, commitId: string): Promise<FileInfo> {
-		return await this.backend.invoke("get_commit_file", {
-			relativePath: filePath,
-			projectId: projectId,
-			commitId: commitId,
-		});
-	}
-
 	async readFromBlob(filePath: string, projectId: string, blobId: string): Promise<FileInfo> {
 		return await this.backend.invoke("get_blob_file", {
 			relativePath: filePath,
@@ -63,20 +55,5 @@ export class FileService {
 	async showFileInFolder(projectId: string, worktree: string | undefined, path: string) {
 		const checkout = checkoutOf({ worktree });
 		await this.backend.invoke<void>("show_in_finder", { projectId, checkout, path });
-	}
-
-	findFiles(projectId: string, query: string, limit: number) {
-		return this.backendApi.endpoints.findFiles.useQuery(
-			{ projectId, query, limit },
-			{ forceRefetch: true },
-		);
-	}
-
-	async fetchFiles(projectId: string, query: string, limit: number) {
-		return await this.backendApi.endpoints.findFiles.fetch({
-			projectId,
-			query,
-			limit,
-		});
 	}
 }

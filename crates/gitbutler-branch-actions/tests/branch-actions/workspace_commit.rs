@@ -27,7 +27,14 @@ fn conflicting_stacks_do_not_rewrite_workspace_projection() -> Result<()> {
     let before = stack_ids(&ctx)?;
     assert_eq!(before.len(), 2, "both fixture stacks are projected");
 
-    let error = gitbutler_branch_actions::update_workspace_commit(&mut ctx, false).unwrap_err();
+    let mut guard = ctx.exclusive_worktree_access();
+    let error = gitbutler_branch_actions::update_workspace_commit_with_perm(
+        &ctx,
+        false,
+        guard.write_permission(),
+    )
+    .unwrap_err();
+    drop(guard);
     assert!(
         error.to_string().contains("Merge conflict"),
         "conflicting projected stacks are rejected: {error:#}"
@@ -50,7 +57,12 @@ fn workspace_commits_ignore_commit_signing_configuration() -> Result<()> {
         ..Default::default()
     })?;
 
-    let workspace_commit = gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let workspace_commit = gitbutler_branch_actions::update_workspace_commit_with_perm(
+        &ctx,
+        false,
+        guard.write_permission(),
+    )?;
     let repo = ctx.repo.get()?;
     assert!(
         repo.find_commit(workspace_commit)?
@@ -74,7 +86,12 @@ fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
         deleted_head
     };
 
-    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::update_workspace_commit_with_perm(
+        &ctx,
+        false,
+        guard.write_permission(),
+    )?;
 
     let repo = ctx.repo.get()?;
     assert!(
@@ -101,7 +118,12 @@ fn deleted_applied_ref_is_not_recreated_from_legacy_metadata() -> Result<()> {
 fn update_workspace_commit_installs_no_hooks() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
 
-    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::update_workspace_commit_with_perm(
+        &ctx,
+        false,
+        guard.write_permission(),
+    )?;
 
     let repo = ctx.repo.get()?;
     for hook in ["pre-commit", "post-checkout"] {
@@ -128,7 +150,12 @@ fn update_workspace_commit_installs_no_hooks() -> Result<()> {
 fn update_workspace_commit_with_diverged_stacks_preserves_target_content() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("diverged-stacks")?;
 
-    gitbutler_branch_actions::update_workspace_commit(&mut ctx, false)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::update_workspace_commit_with_perm(
+        &ctx,
+        false,
+        guard.write_permission(),
+    )?;
 
     let repo = ctx.repo.get()?;
     let ws_ref = repo.find_reference("refs/heads/gitbutler/workspace")?;

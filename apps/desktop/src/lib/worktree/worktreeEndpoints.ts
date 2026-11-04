@@ -124,13 +124,6 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			}),
 			providesTags: [providesList(ReduxTag.Stacks)],
 		}),
-
-		// ── File Search ─────────────────────────────────────────────
-		findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({
-			extraOptions: { command: "find_files" },
-			query: (args) => args,
-			keepUnusedDataFor: 604800,
-		}),
 	};
 }
 

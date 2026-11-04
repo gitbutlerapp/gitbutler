@@ -11,7 +11,6 @@ pub mod git;
 pub mod modes;
 pub mod oplog;
 pub mod projects;
-pub mod remotes;
 pub mod repo;
 pub mod secret;
 pub mod settings;

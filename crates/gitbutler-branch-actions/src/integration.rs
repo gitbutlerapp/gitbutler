@@ -38,15 +38,6 @@ fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()>
     Ok(())
 }
 
-/// Update `gitbutler/workspace` using the current virtual branch state from `ctx`.
-pub fn update_workspace_commit(
-    ctx: &mut Context,
-    checkout_new_worktree: bool,
-) -> Result<gix::ObjectId> {
-    let mut guard = ctx.exclusive_worktree_access();
-    update_workspace_commit_with_perm(ctx, checkout_new_worktree, guard.write_permission())
-}
-
 /// Update `gitbutler/workspace` while reusing caller-held exclusive repository access.
 #[instrument(level = "debug", skip(ctx, perm), err(Debug))]
 pub fn update_workspace_commit_with_perm(

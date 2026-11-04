@@ -2027,8 +2027,8 @@ fn discard(
     // Hunks that moved since the diff was shown refuse it before anything is recorded.
     let context_lines = ctx.settings.context_lines;
     let specs = current_hunks(repo, selected, taken_specs(selected)?, context_lines)?;
-    // The snapshot is recorded before anything changes, as the but-api discard does: undo
-    // then brings back whatever goes, conflicts included, even when some of it couldn't be
+    // The snapshot is recorded before anything changes: undo then brings back whatever
+    // goes, conflicts included, even when some of it couldn't be
     // discarded. The oplog can't restore a linked worktree, so its discard has none.
     let mut recorded = false;
     if worktree.is_none() {

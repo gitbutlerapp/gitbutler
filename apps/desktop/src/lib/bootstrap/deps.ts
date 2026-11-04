@@ -33,7 +33,6 @@ import { PR_SERVICE, PrService } from "$lib/forge/prService.svelte";
 import { REPO_SERVICE, RepoService } from "$lib/forge/repoService.svelte";
 import { GitService, GIT_SERVICE } from "$lib/git/gitService";
 import { HOOKS_SERVICE, HooksService } from "$lib/git/hooksService";
-import { REMOTES_SERVICE, RemotesService } from "$lib/git/remotesService";
 import { HISTORY_SERVICE, HistoryService } from "$lib/history/history";
 import { OplogService, OPLOG_SERVICE } from "$lib/history/oplogService.svelte";
 import { DiffService, DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
@@ -175,7 +174,6 @@ export function initDependencies(args: {
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
 	const branchService = new BranchService(clientState.backendApi);
-	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);
 
 	// ============================================================================
@@ -333,7 +331,6 @@ export function initDependencies(args: {
 		[POSTHOG_WRAPPER, posthog],
 		[PROJECTS_SERVICE, projectsService],
 		[PROMPT_SERVICE, promptService],
-		[REMOTES_SERVICE, remotesService],
 		[RESIZE_SYNC, resizeSync],
 		[SECRET_SERVICE, secretsService],
 		[SETTINGS_SERVICE, settingsService],

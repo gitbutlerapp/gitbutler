@@ -7,11 +7,9 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, RadioButton, FileListItem, Link, TestId } from "@gitbutler/ui-svelte";
+	import { AsyncButton, FileListItem, Link, TestId } from "@gitbutler/ui-svelte";
 	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
-
-	type OptionsType = "stash" | "bring-to-workspace";
 
 	interface Props {
 		projectId: string;
@@ -19,9 +17,9 @@
 		children?: Snippet;
 	}
 
-	const { projectId, baseBranch, children }: Props = $props();
+	const { projectId, children }: Props = $props();
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+	const [switchBackToWorkspace, targetBranchSwitch] = baseBranchService.switchBackToWorkspace;
 
 	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode(projectId));
@@ -29,42 +27,13 @@
 	const worktreeService = inject(WORKTREE_SERVICE);
 	const changes = $derived(worktreeService.treeChanges(projectId));
 
-	async function switchTarget(branch: string, remote?: string, stashUncommitted?: boolean) {
-		await setBaseBranchTarget({
-			projectId,
-			branch,
-			pushRemote: remote,
-			stashUncommitted,
-		});
-	}
-
 	const conflicts = $derived(
 		mode.response?.type === "OutsideWorkspace" &&
 			mode.response.subject.worktreeConflicts.length > 0,
 	);
 
-	let selectedHandlingOfUncommitted: OptionsType = $state("stash");
-	let doStash = $derived(selectedHandlingOfUncommitted === "stash");
-
-	let handlingOptions: { label: string; value: OptionsType; selectable: boolean }[] = $derived([
-		{
-			label: "Stash",
-			value: "stash",
-			selectable: true,
-		},
-		{
-			label: "Bring to Workspace",
-			value: "bring-to-workspace",
-			selectable: !conflicts, // TODO: Reactivity??
-		},
-	]);
-
 	async function initSwithToWorkspace() {
-		if (changes.response?.length === 0) {
-			switchTarget(baseBranch.branchName);
-		} else {
-			switchTarget(baseBranch.branchName, undefined, doStash);
-		}
+		await switchBackToWorkspace({ projectId });
 	}
 </script>
 
@@ -128,28 +97,10 @@
 							{/if}
 						</div>
 
-						<hr class="switchrepo__divider" />
-
-						<p class="switchrepo__label text-13 text-body text-bold">
-							What should we do with your uncommitted changes?
+						<p class="text-13 text-body">
+							Your uncommitted changes will be carried into the workspace. If they conflict,
+							switching will stop. Commit or stash them before retrying.
 						</p>
-
-						<div class="switchrepo__handling-options">
-							{#each handlingOptions as item (item.value)}
-								<label for={item.value} class="switchrepo__handling-options__item">
-									<RadioButton
-										id={item.value}
-										value={item.value}
-										onchange={() => {
-											selectedHandlingOfUncommitted = item.value as OptionsType;
-											doStash = selectedHandlingOfUncommitted === "stash";
-										}}
-										checked={selectedHandlingOfUncommitted === item.value}
-									/>
-									<p class="text-13 text-body">{item.label}</p>
-								</label>
-							{/each}
-						</div>
 					</div>
 				{/if}
 
@@ -192,12 +143,6 @@
 		border-radius: var(--radius-ml);
 	}
 
-	.switchrepo__divider {
-		margin: 20px -16px;
-		border: 0;
-		border-top: 1px solid var(--border-2);
-	}
-
 	.switchrepo__label {
 		margin-bottom: 12px;
 	}
@@ -207,18 +152,6 @@
 		overflow: hidden;
 		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-	}
-
-	.switchrepo__handling-options {
-		display: flex;
-		gap: 20px;
-	}
-
-	.switchrepo__handling-options__item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		cursor: pointer;
 	}
 
 	.switchrepo__actions {

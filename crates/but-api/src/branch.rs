@@ -942,7 +942,9 @@ pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
 /// This acquires exclusive worktree access from `ctx`, creates the branch,
 /// records an oplog snapshot on success, and in ad-hoc/single-branch mode
 /// checks out the new branch when it was created directly above the currently
-/// checked-out local branch. For lower-level implementation details, see
+/// checked-out local branch. With legacy workspace setup enabled, independent
+/// branches use the same single-branch transaction as the CLI and GPUI.
+/// For lower-level implementation details, see
 /// [`but_workspace::branch::create_reference()`].
 #[but_api(try_from = json::BranchCreateResult)]
 #[instrument(err(Debug))]
@@ -974,6 +976,34 @@ pub fn branch_create_with_perm(
 ) -> anyhow::Result<BranchCreateResult> {
     use but_workspace::branch::create_reference::{Anchor, Position};
 
+    let new_ref = if let Some(new_ref) = new_ref {
+        new_ref
+    } else {
+        let repo = ctx.repo.get()?;
+        unique_canned_refname(&repo)?
+    };
+
+    #[cfg(feature = "legacy")]
+    if let json::BranchCreatePlacement::Independent { order } = placement {
+        let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
+            ctx,
+            perm.read_permission(),
+            false,
+        )?;
+        let mut meta = ctx.meta()?;
+        let workspace = sbm.transaction_with_workspace_setup(
+            ctx,
+            &mut meta,
+            SnapshotDetails::new(OperationKind::CreateBranch)
+                .with_trailers([Trailer::Name(new_ref.to_string())]),
+            &[new_ref.as_ref()],
+            perm,
+            true,
+            |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), order),
+        )?;
+        return Ok(BranchCreateResult { workspace, new_ref });
+    }
+
     let (anchor, order) = match placement {
         json::BranchCreatePlacement::Independent { order } => (None, order),
         json::BranchCreatePlacement::Dependent { relative_to, side } => {
@@ -996,13 +1026,6 @@ pub fn branch_create_with_perm(
             };
             (Some(anchor), None)
         }
-    };
-
-    let new_ref = if let Some(new_ref) = new_ref {
-        new_ref
-    } else {
-        let repo = ctx.repo.get()?;
-        unique_canned_refname(&repo)?
     };
 
     // The snapshot lists `new_ref` so that undo deletes it again: left behind, it would join

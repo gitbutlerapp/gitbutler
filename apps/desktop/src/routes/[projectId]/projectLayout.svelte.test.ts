@@ -204,7 +204,7 @@ function setup(
 		reducerPath: "backend",
 		tagTypes: Object.values(ReduxTag),
 		// Only `list_reviews` and the token store consume scripted responses;
-		// other commands (e.g. `set_base_branch`) succeed without counting as a call.
+		// other commands (e.g. `set_target_ref_and_init_project`) succeed without counting as a call.
 		baseQuery: async (_args: unknown, _api: unknown, extra: any) => {
 			if (extra?.command === "list_reviews") {
 				return await responses[Math.min(calls++, responses.length - 1)]!;
@@ -517,9 +517,9 @@ describe("project review-list polling", () => {
 		// Re-targeting onto a supported remote retries immediately.
 		responses.splice(0, responses.length, success);
 		await harness.store.dispatch(
-			(harness.api.endpoints as any).setTarget.initiate({
+			(harness.api.endpoints as any).setTargetRef.initiate({
 				projectId: PROJECT_ID,
-				branch: "origin/main",
+				targetRef: "refs/heads/main",
 			}),
 		);
 		await settle();

@@ -48,11 +48,4 @@ export class ModeService {
 	async fetchMode(projectId: string) {
 		return await this.backendApi.endpoints.headAndMode.fetch({ projectId }, { forceRefetch: true });
 	}
-
-	head(projectId: string) {
-		return this.backendApi.endpoints.headSha.useQuery(
-			{ projectId },
-			{ transform: (response) => response.headSha },
-		);
-	}
 }

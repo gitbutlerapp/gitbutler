@@ -2,9 +2,8 @@ use std::collections::BTreeMap;
 
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteVec};
-use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata,
+    ChangeId, DiffSpec, DryRun, RefMetadata,
     commit::CommitIdentifiers,
     ref_metadata,
     sync::RepoExclusive,
@@ -18,6 +17,8 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
+#[cfg(not(feature = "graph-workspace"))]
+use but_workspace::RefInfo;
 use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
@@ -37,6 +38,34 @@ mod tests;
 /// Running transactions while a branch is checked out on its own, as the CLI and the GUI do.
 #[cfg(feature = "legacy")]
 pub mod single_branch_mode;
+
+/// Functions for workspace state.
+pub mod workspace_state;
+
+/// Represents the workspace for the frontend
+///
+/// This describes the post-operation workspace view that mutations should
+/// return regardless of whether they executed for real or as a dry-run.
+#[derive(Debug, Clone)]
+pub struct WorkspaceState {
+    /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    /// Conflicted commits that were created.
+    pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
+    /// The workspace presented for the frontend. See [`RefInfo`] for more
+    /// detail.
+    #[cfg(not(feature = "graph-workspace"))]
+    pub head_info: RefInfo,
+    /// The workspace presented for the frontend, as the rendered graph
+    /// projection. See
+    /// [`DetailedGraphWorkspace`](but_workspace::ui::workspace::DetailedGraphWorkspace)
+    /// for more detail.
+    #[cfg(feature = "graph-workspace")]
+    pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
+    /// True if a checkout occurred, and a conflict occurred during that
+    /// checkout.
+    pub checkout_conflict_occurred: bool,
+}
 
 /// Run a workspace transaction.
 ///
