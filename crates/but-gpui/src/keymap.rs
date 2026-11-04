@@ -170,6 +170,42 @@ mod tests {
             .collect()
     }
 
+    fn in_context(entry: &Entry, context: &str) -> bool {
+        entry.context.as_deref() == Some(context)
+    }
+
+    /// Whether every key on the drawer's bar does there what it does in the navigator.
+    fn drawer_bar_keys_are_the_navigators(keymap: Keymap) -> bool {
+        let entries = bound(keymap, "macos");
+        let mut bar = (entries.iter())
+            .filter(|entry| in_context(entry, "DrawerBar && !TextInput"))
+            .peekable();
+        bar.peek().is_some()
+            && bar.all(|entry| {
+                entries.iter().any(|other| {
+                    in_context(other, "Navigator && !TextInput")
+                        && other.keys == entry.keys
+                        && other.action == entry.action
+                })
+            })
+    }
+
+    #[test]
+    fn the_drawer_bars_keys_are_the_navigators_in_the_gitbutler_keymap() {
+        assert!(
+            drawer_bar_keys_are_the_navigators(Keymap::GitButler),
+            "a key means the same on the bar as on a row"
+        );
+    }
+
+    #[test]
+    fn the_drawer_bars_keys_are_the_navigators_in_the_tui_keymap() {
+        assert!(
+            drawer_bar_keys_are_the_navigators(Keymap::Tui),
+            "a key means the same on the bar as on a row"
+        );
+    }
+
     #[test]
     fn keymaps_bind_on_every_platform() {
         let actions: HashSet<&str> = gpui::generate_list_of_all_registered_actions()
