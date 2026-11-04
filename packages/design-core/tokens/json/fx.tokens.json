@@ -1,0 +1,138 @@
+{
+  "fx": {
+    "shadow": {
+      "sm": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "inset": false,
+            "color": "{semantic.shadow-clr}",
+            "offsetX": {
+              "value": 0,
+              "unit": "px"
+            },
+            "offsetY": {
+              "value": 4,
+              "unit": "px"
+            },
+            "blur": {
+              "value": 14,
+              "unit": "px"
+            },
+            "spread": {
+              "value": 0,
+              "unit": "px"
+            }
+          }
+        ]
+      },
+      "md": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "inset": false,
+            "color": "{semantic.shadow-clr}",
+            "offsetX": {
+              "value": 0,
+              "unit": "px"
+            },
+            "offsetY": {
+              "value": 6,
+              "unit": "px"
+            },
+            "blur": {
+              "value": 30,
+              "unit": "px"
+            },
+            "spread": {
+              "value": 0,
+              "unit": "px"
+            }
+          }
+        ]
+      },
+      "lg": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "inset": false,
+            "color": "{semantic.shadow-clr}",
+            "offsetX": {
+              "value": 0,
+              "unit": "px"
+            },
+            "offsetY": {
+              "value": 10,
+              "unit": "px"
+            },
+            "blur": {
+              "value": 40,
+              "unit": "px"
+            },
+            "spread": {
+              "value": 0,
+              "unit": "px"
+            }
+          }
+        ]
+      },
+      "tooltip": {
+        "$type": "shadow",
+        "$value": [
+          {
+            "inset": false,
+            "color": "{semantic.shadow-clr}",
+            "offsetX": {
+              "value": 0,
+              "unit": "px"
+            },
+            "offsetY": {
+              "value": 4,
+              "unit": "px"
+            },
+            "blur": {
+              "value": 14,
+              "unit": "px"
+            },
+            "spread": {
+              "value": 0,
+              "unit": "px"
+            }
+          },
+          {
+            "inset": false,
+            "color": "{semantic.component.tooltip.border}",
+            "offsetX": {
+              "value": 0,
+              "unit": "px"
+            },
+            "offsetY": {
+              "value": 0,
+              "unit": "px"
+            },
+            "blur": {
+              "value": 0,
+              "unit": "px"
+            },
+            "spread": {
+              "value": 1,
+              "unit": "px"
+            }
+          }
+        ]
+      }
+    },
+    "$extensions": {
+      "tokens-bruecke-meta": {
+        "useDTCG": true,
+        "spec": "https://www.designtokens.org/tr/2025.10/format/",
+        "colorMode": "hex",
+        "variableCollections": [
+          "core",
+          "semantic"
+        ],
+        "createdAt": "2026-09-29T18:00:22.059Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+	"name": "@gitbutler/design-core",
+	"version": "11.3.0",
+	"type": "module",
+	"description": "Design tokens for GitButler applications",
+	"keywords": [
+		"design-tokens",
+		"css",
+		"terrazzo",
+		"gitbutler"
+	],
+	"homepage": "https://github.com/gitbutlerapp/design-core",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gitbutlerapp/design-core.git"
+	},
+	"main": "./tokens/tokens.css",
+	"exports": {
+		"./tokens": "./tokens/tokens.css",
+		"./fonts": "./fonts/fonts.css",
+		"./fonts/*": "./fonts/*",
+		"./core": "./core.css",
+		"./styles/reset": "./styles/reset.css",
+		"./styles/text": "./styles/text.css"
+	},
+	"scripts": {
+		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs",
+		"prepublishOnly": "pnpm run build",
+		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch",
+		"format": "prettier --write \"**/*.{css,ts,js}\"",
+		"format:check": "prettier --check \"**/*.{css,ts,js}\"",
+		"dev:hue-dini": "cd tools/hue-dini && pnpm dev"
+	},
+	"devDependencies": {
+		"@terrazzo/cli": "0.10.3",
+		"@terrazzo/parser": "0.10.4",
+		"@terrazzo/plugin-css": "0.10.4",
+		"prettier": "^3.0.0"
+	},
+	"files": [
+		"tokens/",
+		"fonts/",
+		"styles/",
+		"core.css",
+		"README.md"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"packageManager": "pnpm@12.8.1",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "^24.0.0",
+			"onFail": "download"
+		}
+	}
+}

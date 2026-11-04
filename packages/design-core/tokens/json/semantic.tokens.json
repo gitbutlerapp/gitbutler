@@ -1,0 +1,1603 @@
+{
+  "semantic": {
+    "bg": {
+      "1": {
+        "$type": "color",
+        "$value": "{core.clr.gray.100}",
+        "$description": "Top-level surface. Use for the main page background and primary content areas. Do not use bg/2 or bg/3 as hover states on this surface.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.100}",
+            "dark": "{core.clr.gray.10}"
+          }
+        }
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{core.clr.gray.90}",
+        "$description": "Recessed or secondary surface. Use behind bg/1 as a page-level backdrop, or on top of bg/1 for small elevated elements like cards. Do not use as a hover color for bg/1.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.90}",
+            "dark": "{core.clr.gray.5}"
+          }
+        }
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{core.clr.gray.80}",
+        "$description": "Nested surface. Use only on top of bg/2 for additional layering. Never place directly on bg/1 or use as a hover color for bg/1 or bg/2.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.80}",
+            "dark": "{core.clr.gray.0}"
+          }
+        }
+      },
+      "mute": {
+        "$type": "color",
+        "$value": "{core.clr.gray.95}",
+        "$description": "Muted background. Use for subdued, inactive, or disabled surfaces. Not for hover states.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.95}",
+            "dark": "{core.clr.gray.20}"
+          }
+        }
+      },
+      "overlay": {
+        "$type": "color",
+        "$value": "#d6d6d673",
+        "$description": "Overlay background. Use for modals, dialogs, and scrim layers.",
+        "$extensions": {
+          "mode": {
+            "light": "#d6d6d673",
+            "dark": "#00000080"
+          }
+        }
+      },
+      "pop": {
+        "$type": "color",
+        "$value": "{core.clr.pop.95}",
+        "$description": "Accent background. Use for large card-like areas as a subtle highlight. Place only on bg/1 surfaces — too light for bg/2 or bg/3.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.pop.95}",
+            "dark": "{core.clr.pop.5}"
+          }
+        }
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "{core.clr.danger.95}",
+        "$description": "Danger background. Use for large card-like areas as a subtle error or warning highlight. Place only on bg/1 surfaces — too light for bg/2 or bg/3.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.danger.95}",
+            "dark": "{core.clr.danger.5}"
+          }
+        }
+      },
+      "warn": {
+        "$type": "color",
+        "$value": "{core.clr.warn.95}",
+        "$description": "Warning background. Use for large card-like areas as a subtle caution highlight. Place only on bg/1 surfaces — too light for bg/2 or bg/3.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.warn.95}",
+            "dark": "{core.clr.warn.5}"
+          }
+        }
+      },
+      "safe": {
+        "$type": "color",
+        "$value": "{core.clr.safe.95}",
+        "$description": "Success background. Use for large card-like areas as a subtle positive highlight. Place only on bg/1 surfaces — too light for bg/2 or bg/3.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.safe.95}",
+            "dark": "{core.clr.safe.5}"
+          }
+        }
+      },
+      "purple": {
+        "$type": "color",
+        "$value": "{core.clr.purple.95}",
+        "$description": "Purple accent background. Use for large card-like areas as a subtle informational highlight. Place only on bg/1 surfaces — too light for bg/2 or bg/3.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.purple.95}",
+            "dark": "{core.clr.purple.5}"
+          }
+        }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.fill.gray.bg}",
+          "alpha": "{core.opacity.bg-hover}"
+        },
+        "$description": "The ground under the pointer on anything without a fill of its own: a ghost button, a list or popup row, a tab. fill/gray/bg at opacity/bg-hover, so it tints whatever it sits on.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "{core.opacity.bg-hover}"
+            },
+            "dark": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "{core.opacity.bg-hover}"
+            }
+          }
+        }
+      },
+      "hover-invert": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.scale.gray.100}",
+          "alpha": "{core.opacity.bg-hover}"
+        },
+        "$description": "bg/hover's twin for a dark surface: the ground under the pointer on a ghost-inverted or outline-inverted control. scale/gray/100 at opacity/bg-hover.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.scale.gray.100}",
+              "alpha": "{core.opacity.bg-hover}"
+            },
+            "dark": {
+              "components": "{semantic.scale.gray.100}",
+              "alpha": "{core.opacity.bg-hover}"
+            }
+          }
+        }
+      },
+      "selected-inactive": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.fill.gray.bg}",
+          "alpha": "{core.opacity.bg-selected-inactive}"
+        },
+        "$description": "The ground a selected row keeps while its list doesn't have focus — focus moved to the other list or the details pane — so the keyboard's place stays legible. fill/gray/bg at opacity/bg-selected-inactive. Text stays text/1.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "{core.opacity.bg-selected-inactive}"
+            },
+            "dark": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "{core.opacity.bg-selected-inactive}"
+            }
+          }
+        }
+      },
+      "selected": {
+        "$type": "color",
+        "$value": "{semantic.fill.gray.bg}",
+        "$description": "The ground of the selected row in the list that has focus: solid, so the keyboard's place is unmistakable. Text on it takes fill/gray/fg. When focus leaves the list, the row falls back to bg/selected-inactive.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.fill.gray.bg}",
+            "dark": "{semantic.fill.gray.bg}"
+          }
+        }
+      }
+    },
+    "shadow-clr": {
+      "$type": "color",
+      "$value": "#0000001a",
+      "$description": "Shadow color with transparency. Use for drop shadows and elevation effects.",
+      "$extensions": {
+        "mode": {
+          "light": "#0000001a",
+          "dark": "#00000080"
+        }
+      }
+    },
+    "fill": {
+      "pop": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.gray.100}",
+          "$description": "Accent fill foreground. Use for icons and text on accent fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.100}",
+              "dark": "{core.clr.gray.100}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.pop.50}",
+          "$description": "Accent fill background. Use for small interactive elements like primary buttons and action controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.50}",
+              "dark": "{core.clr.pop.40}"
+            }
+          }
+        }
+      },
+      "danger": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.danger.95}",
+          "$description": "Danger fill foreground. Use for icons and text on danger fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.95}",
+              "dark": "{core.clr.danger.95}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.danger.50}",
+          "$description": "Danger fill background. Use for small interactive elements like destructive buttons and error controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.50}",
+              "dark": "{core.clr.danger.40}"
+            }
+          }
+        }
+      },
+      "gray": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.gray.100}",
+          "$description": "Neutral fill foreground. Use for icons and text on neutral fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.100}",
+              "dark": "{core.clr.gray.0}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.gray.20}",
+          "$description": "Neutral fill background. Use for small interactive elements like buttons, badges, and tags. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.20}",
+              "dark": "{core.clr.gray.90}"
+            }
+          }
+        }
+      },
+      "warn": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.warn.95}",
+          "$description": "Warning fill foreground. Use for icons and text on warning fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.95}",
+              "dark": "{core.clr.warn.90}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.warn.50}",
+          "$description": "Warning fill background. Use for small interactive elements like caution buttons and alert controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.50}",
+              "dark": "{core.clr.warn.40}"
+            }
+          }
+        }
+      },
+      "safe": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.safe.95}",
+          "$description": "Success fill foreground. Use for icons and text on success fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.95}",
+              "dark": "{core.clr.safe.90}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.safe.50}",
+          "$description": "Success fill background. Use for small interactive elements like confirmation buttons and positive controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.50}",
+              "dark": "{core.clr.safe.40}"
+            }
+          }
+        }
+      },
+      "purple": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.purple.95}",
+          "$description": "Purple fill foreground. Use for icons and text on purple fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.95}",
+              "dark": "{core.clr.purple.90}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.purple.50}",
+          "$description": "Purple fill background. Use for small interactive elements like feature buttons and informational controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.50}",
+              "dark": "{core.clr.purple.50}"
+            }
+          }
+        }
+      },
+      "blue": {
+        "fg": {
+          "$type": "color",
+          "$value": "{core.clr.blue.95}",
+          "$description": "Purple fill foreground. Use for icons and text on purple fills.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.95}",
+              "dark": "{core.clr.blue.90}"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.blue.50}",
+          "$description": "Purple fill background. Use for small interactive elements like feature buttons and informational controls. Not for cards or large surfaces.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.50}",
+              "dark": "{core.clr.blue.50}"
+            }
+          }
+        }
+      }
+    },
+    "text": {
+      "1": {
+        "$type": "color",
+        "$value": "{core.clr.gray.5}",
+        "$description": "Primary text. Use for headings, body copy, and high-emphasis content.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.5}",
+            "dark": "{core.clr.gray.95}"
+          }
+        }
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{core.clr.gray.50}",
+        "$description": "Secondary text. Use for supporting copy, labels, and medium-emphasis content.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.50}",
+            "dark": "{core.clr.gray.60}"
+          }
+        }
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{core.clr.gray.60}",
+        "$description": "Tertiary text. Use for placeholders, captions, and low-emphasis content.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.60}",
+            "dark": "{core.clr.gray.40}"
+          }
+        }
+      },
+      "1-invert": {
+        "$type": "color",
+        "$value": "{core.clr.gray.95}",
+        "$description": "Inverted primary text. Use for text on dark/accent backgrounds.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.95}",
+            "dark": "{core.clr.gray.5}"
+          }
+        }
+      },
+      "2-invert": {
+        "$type": "color",
+        "$value": "{core.clr.gray.60}",
+        "$description": "Inverted secondary text. Use for supporting text on dark/accent backgrounds.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.60}",
+            "dark": "{core.clr.gray.50}"
+          }
+        }
+      },
+      "3-invert": {
+        "$type": "color",
+        "$value": "{core.clr.gray.40}",
+        "$description": "Inverted tertiary text. Use for low-emphasis text on dark/accent backgrounds.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.40}",
+            "dark": "{core.clr.gray.60}"
+          }
+        }
+      },
+      "pop": {
+        "$type": "color",
+        "$value": "{core.clr.pop.40}",
+        "$description": "Accent text. Use for links, interactive text, and emphasized inline content.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.pop.40}",
+            "dark": "{core.clr.pop.50}"
+          }
+        }
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "{core.clr.danger.50}",
+        "$description": "Danger text. Use for error messages and destructive action labels.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.danger.50}",
+            "dark": "{core.clr.danger.60}"
+          }
+        }
+      },
+      "warn": {
+        "$type": "color",
+        "$value": "{core.clr.warn.40}",
+        "$description": "Warning text. Use for caution messages and alert labels.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.warn.40}",
+            "dark": "{core.clr.warn.50}"
+          }
+        }
+      },
+      "safe": {
+        "$type": "color",
+        "$value": "{core.clr.safe.40}",
+        "$description": "Success text. Use for confirmation messages and positive labels.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.safe.40}",
+            "dark": "{core.clr.safe.50}"
+          }
+        }
+      },
+      "purple": {
+        "$type": "color",
+        "$value": "{core.clr.purple.40}",
+        "$description": "Purple accent text. Use for informational labels and feature highlights.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.purple.40}",
+            "dark": "{core.clr.purple.60}"
+          }
+        }
+      },
+      "blue": {
+        "$type": "color",
+        "$value": "{core.clr.blue.40}",
+        "$description": "Blue accent text. Use for informational labels and highlights that are not the pop accent.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.blue.40}",
+            "dark": "{core.clr.blue.60}"
+          }
+        }
+      }
+    },
+    "border": {
+      "1": {
+        "$type": "color",
+        "$value": "{core.clr.gray.60}",
+        "$description": "Strongest border. Reserved for hover states only — do not use as a default border.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.60}",
+            "dark": "{core.clr.gray.40}"
+          }
+        }
+      },
+      "2": {
+        "$type": "color",
+        "$value": "{core.clr.gray.70}",
+        "$description": "Primary border. Use for input fields, cards, and standard dividers.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.70}",
+            "dark": "{core.clr.gray.30}"
+          }
+        }
+      },
+      "3": {
+        "$type": "color",
+        "$value": "{core.clr.gray.80}",
+        "$description": "Subtle border. Use for faint separators and background-level divisions.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.80}",
+            "dark": "{core.clr.gray.20}"
+          }
+        }
+      },
+      "section": {
+        "$type": "color",
+        "$value": "{core.clr.gray.80}",
+        "$description": "Border color for section dividers and content area boundaries. Use to visually separate major sections or groups of related content.",
+        "$extensions": {
+          "mode": {
+            "light": "{core.clr.gray.80}",
+            "dark": "{core.clr.gray.20}"
+          }
+        }
+      },
+      "focus": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.fill.gray.bg}",
+          "alpha": "70%"
+        },
+        "$description": "The focus ring's color: the one outline for the keyboard's position, on every control. fill/gray/bg at 70%, drawn 1.5px, solid, outside the control.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "70%"
+            },
+            "dark": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "70%"
+            }
+          }
+        }
+      },
+      "control": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.fill.gray.bg}",
+          "alpha": "26%"
+        },
+        "$description": "The translucent line around an outline control and inside a split one: Button's outline variant and everything that borrows it (SwitchButton, ToggleGroup, Select's trigger), DropdownButton's separator. fill/gray/bg at 26%.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "26%"
+            },
+            "dark": {
+              "components": "{semantic.fill.gray.bg}",
+              "alpha": "26%"
+            }
+          }
+        }
+      }
+    },
+    "component": {
+      "commit": {
+        "local": {
+          "$type": "color",
+          "$value": "{core.clr.gray.50}",
+          "$description": "Local commit indicator color.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.50}",
+              "dark": "{core.clr.gray.50}"
+            }
+          }
+        },
+        "remote": {
+          "$type": "color",
+          "$value": "{core.clr.pop.50}",
+          "$description": "Remote commit indicator color.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.50}",
+              "dark": "{core.clr.pop.50}"
+            }
+          }
+        },
+        "upstream": {
+          "$type": "color",
+          "$value": "#e1a652",
+          "$description": "Upstream commit indicator color.",
+          "$extensions": {
+            "mode": {
+              "light": "#e1a652",
+              "dark": "#e9a03a"
+            }
+          }
+        },
+        "integrated": {
+          "$type": "color",
+          "$value": "{core.clr.purple.50}",
+          "$description": "Integrated commit indicator color.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.50}",
+              "dark": "{core.clr.purple.50}"
+            }
+          }
+        }
+      },
+      "tooltip": {
+        "border": {
+          "$type": "color",
+          "$value": "#0000001f",
+          "$description": "Tooltip border color.",
+          "$extensions": {
+            "mode": {
+              "light": "#0000001f",
+              "dark": "#ffffff29"
+            }
+          }
+        },
+        "bg": {
+          "$type": "color",
+          "$value": "{core.clr.gray.95}",
+          "$description": "Tooltip background color.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.95}",
+              "dark": "{core.clr.gray.10}"
+            }
+          }
+        }
+      },
+      "change-status": {
+        "modification": {
+          "$type": "color",
+          "$value": "{core.clr.blue.60}",
+          "$description": "Change status color for modified items.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.60}",
+              "dark": "{core.clr.blue.40}"
+            }
+          }
+        },
+        "addition": {
+          "$type": "color",
+          "$value": "{core.clr.safe.60}",
+          "$description": "Change status color for added items.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.60}",
+              "dark": "{core.clr.safe.30}"
+            }
+          }
+        },
+        "deletion": {
+          "$type": "color",
+          "$value": "{core.clr.danger.60}",
+          "$description": "Change status color for deleted items.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.60}",
+              "dark": "{core.clr.danger.40}"
+            }
+          }
+        },
+        "rename": {
+          "$type": "color",
+          "$value": "{core.clr.purple.60}",
+          "$description": "Change status color for renamed items.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.60}",
+              "dark": "{core.clr.purple.50}"
+            }
+          }
+        }
+      }
+    },
+    "scale": {
+      "gray": {
+        "0": {
+          "$type": "color",
+          "$value": "{core.clr.gray.0}",
+          "$description": "Gray scale step 0. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.0}",
+              "dark": "{core.clr.gray.100}"
+            }
+          }
+        },
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.gray.5}",
+          "$description": "Gray scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.5}",
+              "dark": "{core.clr.gray.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.gray.10}",
+          "$description": "Gray scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.10}",
+              "dark": "{core.clr.gray.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.gray.20}",
+          "$description": "Gray scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.20}",
+              "dark": "{core.clr.gray.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.gray.30}",
+          "$description": "Gray scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.30}",
+              "dark": "{core.clr.gray.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.gray.40}",
+          "$description": "Gray scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.40}",
+              "dark": "{core.clr.gray.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.gray.50}",
+          "$description": "Gray scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.50}",
+              "dark": "{core.clr.gray.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.gray.60}",
+          "$description": "Gray scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.60}",
+              "dark": "{core.clr.gray.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.gray.70}",
+          "$description": "Gray scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.70}",
+              "dark": "{core.clr.gray.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.gray.80}",
+          "$description": "Gray scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.80}",
+              "dark": "{core.clr.gray.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.gray.90}",
+          "$description": "Gray scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.90}",
+              "dark": "{core.clr.gray.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.gray.95}",
+          "$description": "Gray scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.95}",
+              "dark": "{core.clr.gray.5}"
+            }
+          }
+        },
+        "100": {
+          "$type": "color",
+          "$value": "{core.clr.gray.100}",
+          "$description": "Gray scale step 100. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.gray.100}",
+              "dark": "{core.clr.gray.0}"
+            }
+          }
+        }
+      },
+      "pop": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.pop.5}",
+          "$description": "Accent scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.5}",
+              "dark": "{core.clr.pop.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.pop.10}",
+          "$description": "Accent scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.10}",
+              "dark": "{core.clr.pop.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.pop.20}",
+          "$description": "Accent scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.20}",
+              "dark": "{core.clr.pop.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.pop.30}",
+          "$description": "Accent scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.30}",
+              "dark": "{core.clr.pop.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.pop.40}",
+          "$description": "Accent scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.40}",
+              "dark": "{core.clr.pop.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.pop.50}",
+          "$description": "Accent scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.50}",
+              "dark": "{core.clr.pop.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.pop.60}",
+          "$description": "Accent scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.60}",
+              "dark": "{core.clr.pop.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.pop.70}",
+          "$description": "Accent scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.70}",
+              "dark": "{core.clr.pop.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.pop.80}",
+          "$description": "Accent scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.80}",
+              "dark": "{core.clr.pop.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.pop.90}",
+          "$description": "Accent scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.90}",
+              "dark": "{core.clr.pop.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.pop.95}",
+          "$description": "Accent scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.pop.95}",
+              "dark": "{core.clr.pop.5}"
+            }
+          }
+        }
+      },
+      "safe": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.safe.5}",
+          "$description": "Success scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.5}",
+              "dark": "{core.clr.safe.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.safe.10}",
+          "$description": "Success scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.10}",
+              "dark": "{core.clr.safe.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.safe.20}",
+          "$description": "Success scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.20}",
+              "dark": "{core.clr.safe.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.safe.30}",
+          "$description": "Success scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.30}",
+              "dark": "{core.clr.safe.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.safe.40}",
+          "$description": "Success scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.40}",
+              "dark": "{core.clr.safe.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.safe.50}",
+          "$description": "Success scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.50}",
+              "dark": "{core.clr.safe.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.safe.60}",
+          "$description": "Success scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.60}",
+              "dark": "{core.clr.safe.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.safe.70}",
+          "$description": "Success scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.70}",
+              "dark": "{core.clr.safe.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.safe.80}",
+          "$description": "Success scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.80}",
+              "dark": "{core.clr.safe.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.safe.90}",
+          "$description": "Success scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.90}",
+              "dark": "{core.clr.safe.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.safe.95}",
+          "$description": "Success scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.safe.95}",
+              "dark": "{core.clr.safe.5}"
+            }
+          }
+        }
+      },
+      "warn": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.warn.5}",
+          "$description": "Warning scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.5}",
+              "dark": "{core.clr.warn.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.warn.10}",
+          "$description": "Warning scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.10}",
+              "dark": "{core.clr.warn.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.warn.20}",
+          "$description": "Warning scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.20}",
+              "dark": "{core.clr.warn.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.warn.30}",
+          "$description": "Warning scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.30}",
+              "dark": "{core.clr.warn.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.warn.40}",
+          "$description": "Warning scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.40}",
+              "dark": "{core.clr.warn.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.warn.50}",
+          "$description": "Warning scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.50}",
+              "dark": "{core.clr.warn.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.warn.60}",
+          "$description": "Warning scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.60}",
+              "dark": "{core.clr.warn.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.warn.70}",
+          "$description": "Warning scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.70}",
+              "dark": "{core.clr.warn.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.warn.80}",
+          "$description": "Warning scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.80}",
+              "dark": "{core.clr.warn.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.warn.90}",
+          "$description": "Warning scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.90}",
+              "dark": "{core.clr.warn.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.warn.95}",
+          "$description": "Warning scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.warn.95}",
+              "dark": "{core.clr.warn.5}"
+            }
+          }
+        }
+      },
+      "danger": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.danger.5}",
+          "$description": "Danger scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.5}",
+              "dark": "{core.clr.danger.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.danger.10}",
+          "$description": "Danger scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.10}",
+              "dark": "{core.clr.danger.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.danger.20}",
+          "$description": "Danger scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.20}",
+              "dark": "{core.clr.danger.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.danger.30}",
+          "$description": "Danger scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.30}",
+              "dark": "{core.clr.danger.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.danger.40}",
+          "$description": "Danger scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.40}",
+              "dark": "{core.clr.danger.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.danger.50}",
+          "$description": "Danger scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.50}",
+              "dark": "{core.clr.danger.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.danger.60}",
+          "$description": "Danger scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.60}",
+              "dark": "{core.clr.danger.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.danger.70}",
+          "$description": "Danger scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.70}",
+              "dark": "{core.clr.danger.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.danger.80}",
+          "$description": "Danger scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.80}",
+              "dark": "{core.clr.danger.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.danger.90}",
+          "$description": "Danger scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.90}",
+              "dark": "{core.clr.danger.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.danger.95}",
+          "$description": "Danger scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.danger.95}",
+              "dark": "{core.clr.danger.5}"
+            }
+          }
+        }
+      },
+      "purple": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.purple.5}",
+          "$description": "Purple scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.5}",
+              "dark": "{core.clr.purple.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.purple.10}",
+          "$description": "Purple scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.10}",
+              "dark": "{core.clr.purple.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.purple.20}",
+          "$description": "Purple scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.20}",
+              "dark": "{core.clr.purple.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.purple.30}",
+          "$description": "Purple scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.30}",
+              "dark": "{core.clr.purple.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.purple.40}",
+          "$description": "Purple scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.40}",
+              "dark": "{core.clr.purple.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.purple.50}",
+          "$description": "Purple scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.50}",
+              "dark": "{core.clr.purple.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.purple.60}",
+          "$description": "Purple scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.60}",
+              "dark": "{core.clr.purple.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.purple.70}",
+          "$description": "Purple scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.70}",
+              "dark": "{core.clr.purple.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.purple.80}",
+          "$description": "Purple scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.80}",
+              "dark": "{core.clr.purple.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.purple.90}",
+          "$description": "Purple scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.90}",
+              "dark": "{core.clr.purple.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.purple.95}",
+          "$description": "Purple scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.purple.95}",
+              "dark": "{core.clr.purple.5}"
+            }
+          }
+        }
+      },
+      "blue": {
+        "5": {
+          "$type": "color",
+          "$value": "{core.clr.blue.5}",
+          "$description": "Blue scale step 5. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.5}",
+              "dark": "{core.clr.blue.95}"
+            }
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "{core.clr.blue.10}",
+          "$description": "Blue scale step 10. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.10}",
+              "dark": "{core.clr.blue.90}"
+            }
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "{core.clr.blue.20}",
+          "$description": "Blue scale step 20. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.20}",
+              "dark": "{core.clr.blue.80}"
+            }
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "{core.clr.blue.30}",
+          "$description": "Blue scale step 30. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.30}",
+              "dark": "{core.clr.blue.70}"
+            }
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "{core.clr.blue.40}",
+          "$description": "Blue scale step 40. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.40}",
+              "dark": "{core.clr.blue.60}"
+            }
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "{core.clr.blue.50}",
+          "$description": "Blue scale step 50. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.50}",
+              "dark": "{core.clr.blue.50}"
+            }
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "{core.clr.blue.60}",
+          "$description": "Blue scale step 60. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.60}",
+              "dark": "{core.clr.blue.40}"
+            }
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "{core.clr.blue.70}",
+          "$description": "Blue scale step 70. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.70}",
+              "dark": "{core.clr.blue.30}"
+            }
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "{core.clr.blue.80}",
+          "$description": "Blue scale step 80. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.80}",
+              "dark": "{core.clr.blue.20}"
+            }
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "{core.clr.blue.90}",
+          "$description": "Blue scale step 90. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.90}",
+              "dark": "{core.clr.blue.10}"
+            }
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "{core.clr.blue.95}",
+          "$description": "Blue scale step 95. Theme-aware ramp value — use semantic tokens (bg/, text/, fill/) for UI; use scale/ for data visualization or custom needs.",
+          "$extensions": {
+            "mode": {
+              "light": "{core.clr.blue.95}",
+              "dark": "{core.clr.blue.5}"
+            }
+          }
+        }
+      }
+    },
+    "$extensions": {
+      "tokens-bruecke-meta": {
+        "useDTCG": true,
+        "spec": "https://www.designtokens.org/tr/2025.10/format/",
+        "colorMode": "hex",
+        "variableCollections": [
+          "core",
+          "semantic"
+        ],
+        "createdAt": "2026-10-18T15:16:12.088Z"
+      }
+    }
+  }
+}

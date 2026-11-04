@@ -1,0 +1,109 @@
+:root {
+	--fontfamily-mono: var(--font-family-mono), monospace;
+	--fontfamily-base: var(--font-family-base), sans-serif;
+	--fontfamily-accent: var(--font-family-accent), serif;
+}
+
+@layer text {
+	/* text Base Classes */
+	.text-11 {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.6875rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-12 {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.75rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-13 {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.8125rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-14 {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.875rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-15 {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.938rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-16 {
+		font-weight: var(--font-weight-regular);
+		font-size: 1rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-accent-head {
+		font-weight: 400;
+		font-size: 3.875rem;
+		line-height: var(--font-line-height-default);
+		font-family: var(--fontfamily-base);
+	}
+
+	/* Markdown headings, as Figma's Markdown/H1–H3 styles */
+	.text-h1 {
+		font-weight: var(--font-weight-semibold);
+		font-size: 1.25rem;
+		line-height: var(--font-line-height-heading);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-h2 {
+		font-weight: var(--font-weight-semibold);
+		font-size: 1.125rem;
+		line-height: var(--font-line-height-heading);
+		font-family: var(--fontfamily-base);
+	}
+
+	.text-h3 {
+		font-weight: var(--font-weight-semibold);
+		font-size: 1rem;
+		line-height: var(--font-line-height-heading);
+		font-family: var(--fontfamily-base);
+	}
+
+	/* MODIFIERS */
+	.text-body {
+		line-height: var(--font-line-height-body);
+	}
+
+	.text-semibold {
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.text-bold {
+		font-weight: var(--font-weight-bold);
+	}
+
+	.text-monospace {
+		font-family: var(--fontfamily-mono);
+	}
+
+	.text-balance {
+		text-wrap: balance;
+	}
+
+	.text-pre {
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.text-italic {
+		font-style: italic;
+	}
+}

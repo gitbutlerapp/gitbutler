@@ -1,0 +1,1287 @@
+{
+  "core": {
+    "clr": {
+      "gray": {
+        "0": {
+          "$type": "color",
+          "$value": "#000000",
+          "$description": "Gray step 0 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/0, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "5": {
+          "$type": "color",
+          "$value": "#1e1e1e",
+          "$description": "Gray step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#292929",
+          "$description": "Gray step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#434343",
+          "$description": "Gray step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#565656",
+          "$description": "Gray step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#6d6d6d",
+          "$description": "Gray step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#888888",
+          "$description": "Gray step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#b2b2b2",
+          "$description": "Gray step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#cccccc",
+          "$description": "Gray step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#dddddc",
+          "$description": "Gray step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#f2f2f2",
+          "$description": "Gray step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#f8f8f8",
+          "$description": "Gray step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "100": {
+          "$type": "color",
+          "$value": "#ffffff",
+          "$description": "Gray step 100 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/100, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "pop": {
+        "5": {
+          "$type": "color",
+          "$value": "#082626",
+          "$description": "Accent (pop) step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#0b3636",
+          "$description": "Accent (pop) step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#115151",
+          "$description": "Accent (pop) step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#177070",
+          "$description": "Accent (pop) step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#1e8e8e",
+          "$description": "Accent (pop) step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#25b1b1",
+          "$description": "Accent (pop) step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#61dddd",
+          "$description": "Accent (pop) step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#9ee7e7",
+          "$description": "Accent (pop) step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#d0f2f2",
+          "$description": "Accent (pop) step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#e5f8f8",
+          "$description": "Accent (pop) step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#f2fbfb",
+          "$description": "Accent (pop) step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "danger": {
+        "5": {
+          "$type": "color",
+          "$value": "#2f0e09",
+          "$description": "Danger step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#41140c",
+          "$description": "Danger step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#621d13",
+          "$description": "Danger step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#87281a",
+          "$description": "Danger step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#ac3421",
+          "$description": "Danger step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#d64029",
+          "$description": "Danger step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#e28576",
+          "$description": "Danger step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#ebb3ab",
+          "$description": "Danger step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#f4dad6",
+          "$description": "Danger step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#f9ebe9",
+          "$description": "Danger step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#fcf5f4",
+          "$description": "Danger step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "warn": {
+        "5": {
+          "$type": "color",
+          "$value": "#362001",
+          "$description": "Warning step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#4c2d02",
+          "$description": "Warning step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#724403",
+          "$description": "Warning step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#9d5d04",
+          "$description": "Warning step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#c87705",
+          "$description": "Warning step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#f99406",
+          "$description": "Warning step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#f8b960",
+          "$description": "Warning step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#f8d39e",
+          "$description": "Warning step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#fae9d0",
+          "$description": "Warning step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#fcf3e5",
+          "$description": "Warning step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#fef9f2",
+          "$description": "Warning step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "safe": {
+        "5": {
+          "$type": "color",
+          "$value": "#0a281b",
+          "$description": "Success step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#0e3826",
+          "$description": "Success step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#15543a",
+          "$description": "Success step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#1d744f",
+          "$description": "Success step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#259465",
+          "$description": "Success step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#2eb87e",
+          "$description": "Success step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#6fdaad",
+          "$description": "Success step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#a6e5cb",
+          "$description": "Success step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#d4f1e5",
+          "$description": "Success step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#e8f7f1",
+          "$description": "Success step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#f3fbf8",
+          "$description": "Success step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "purple": {
+        "5": {
+          "$type": "color",
+          "$value": "#1e0c30",
+          "$description": "Purple step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#2a1143",
+          "$description": "Purple step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#3f1964",
+          "$description": "Purple step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#57238b",
+          "$description": "Purple step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#6f2cb1",
+          "$description": "Purple step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#8a43d0",
+          "$description": "Purple step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#b387de",
+          "$description": "Purple step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#cfb5e9",
+          "$description": "Purple step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#e7dbf3",
+          "$description": "Purple step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#f2ebf9",
+          "$description": "Purple step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#f8f5fc",
+          "$description": "Purple step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "blue": {
+        "5": {
+          "$type": "color",
+          "$value": "#031a3f",
+          "$description": "Blue step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/5, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "10": {
+          "$type": "color",
+          "$value": "#042459",
+          "$description": "Blue step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/10, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "20": {
+          "$type": "color",
+          "$value": "#063685",
+          "$description": "Blue step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/20, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "30": {
+          "$type": "color",
+          "$value": "#084bb8",
+          "$description": "Blue step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/30, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "40": {
+          "$type": "color",
+          "$value": "#0b60eb",
+          "$description": "Blue step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/40, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "50": {
+          "$type": "color",
+          "$value": "#3b82f6",
+          "$description": "Blue step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/50, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "60": {
+          "$type": "color",
+          "$value": "#84aff5",
+          "$description": "Blue step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/60, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "70": {
+          "$type": "color",
+          "$value": "#b3cdf7",
+          "$description": "Blue step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/70, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "80": {
+          "$type": "color",
+          "$value": "#dae6fa",
+          "$description": "Blue step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/80, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "90": {
+          "$type": "color",
+          "$value": "#ebf2fc",
+          "$description": "Blue step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/90, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "95": {
+          "$type": "color",
+          "$value": "#f5f8fe",
+          "$description": "Blue step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/95, which flips with the theme.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      }
+    },
+    "font": {
+      "weight": {
+        "regular": {
+          "$type": "fontWeight",
+          "$value": 460,
+          "$description": "Body text weight.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "semibold": {
+          "$type": "fontWeight",
+          "$value": 600,
+          "$description": "Headings, labels and emphasis.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "bold": {
+          "$type": "fontWeight",
+          "$value": 700,
+          "$description": "Strong emphasis; rarely needed in the app UI.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "line-height": {
+        "body": {
+          "$type": "string",
+          "$value": "160%",
+          "$description": "Running text of more than one line: descriptions, markdown.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "default": {
+          "$type": "string",
+          "$value": "120%",
+          "$description": "Single-line and short UI text: labels, buttons, rows.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "accent": {
+          "$type": "string",
+          "$value": "94%",
+          "$description": "Brand display type.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "heading": {
+          "$type": "string",
+          "$value": "130%",
+          "$description": "Headings in rendered markdown, so a wrapped heading reads as one.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      },
+      "family": {
+        "base": {
+          "$type": "fontFamily",
+          "$value": "Inter",
+          "$description": "The UI font, for all interface text.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "mono": {
+          "$type": "fontFamily",
+          "$value": "Geist Mono",
+          "$description": "Code, commit hashes, paths and other monospaced content.",
+          "$extensions": {
+            "mode": {}
+          }
+        },
+        "accent": {
+          "$type": "fontFamily",
+          "$value": "But Head",
+          "$description": "Brand display type. Not for app UI.",
+          "$extensions": {
+            "mode": {}
+          }
+        }
+      }
+    },
+    "size": {
+      "icon": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "An icon's box: the glyph in a button, row, menu item or field. The icon stays this size; padding sets the size of what holds it.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "tag": {
+        "$type": "dimension",
+        "$value": "{core.size.control-sm}",
+        "$description": "Height of a tag or badge. Points at size/control-sm, so a tag lines up with a small button in the same row. Tags and badges are not controls; an interactive element takes size/control-sm.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "control": {
+        "$type": "dimension",
+        "$value": {
+          "value": 28,
+          "unit": "px"
+        },
+        "$description": "Height of a default control: a button, input, select or toggle, and of anything that sits beside one in a row, so the row lines up.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "control-sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 20,
+          "unit": "px"
+        },
+        "$description": "Height of a small control: a small button, and compact controls that sit in a line of text or a row.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "bar": {
+        "$type": "dimension",
+        "$value": {
+          "value": 36,
+          "unit": "px"
+        },
+        "$description": "Height of a bar inside a popup: its search row or footer. Also a snackbar.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "header": {
+        "$type": "dimension",
+        "$value": {
+          "value": 44,
+          "unit": "px"
+        },
+        "$description": "Height of a section or panel header.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "modal-xs": {
+        "$type": "dimension",
+        "$value": {
+          "value": 320,
+          "unit": "px"
+        },
+        "$description": "Width of an xsmall modal: a one-line question and its buttons — \"Discard 3 files?\".",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "modal-sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 420,
+          "unit": "px"
+        },
+        "$description": "Width of a small modal, the default: a prompt with a field or a short list, and pickers.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "modal-md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 520,
+          "unit": "px"
+        },
+        "$description": "Width of a medium modal: a pane that lays itself out around one group.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "modal-lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 820,
+          "unit": "px"
+        },
+        "$description": "Width of a large modal: settings, the conflict resolver, any pane with more than one group. Before reaching for it, ask whether the content wants a page.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "prose": {
+        "$type": "dimension",
+        "$value": {
+          "value": 540,
+          "unit": "px"
+        },
+        "$description": "The widest a column of reading text gets: headings, paragraphs, lists, quotes and code in rendered markdown. A comfortable line at Body/13.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "prose-wide": {
+        "$type": "dimension",
+        "$value": {
+          "value": 740,
+          "unit": "px"
+        },
+        "$description": "The widest rendered markdown gets: tables, images, galleries and video, centred on the size/prose column so they break out of it on both sides.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "space": {
+      "xs": {
+        "$type": "dimension",
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 4,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 6,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 10,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "2xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "3xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 16,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "4xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 20,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "5xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 24,
+          "unit": "px"
+        },
+        "$description": "Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "6xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 32,
+          "unit": "px"
+        },
+        "$description": "The step after 5xl, for the largest gaps and insets.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "gap": {
+      "buttons": {
+        "$type": "dimension",
+        "$value": "{core.space.lg}",
+        "$description": "Between buttons in a row: a modal footer, a form's actions, a settings row. The row is right-aligned, primary last. For small buttons or the toolbox, use gap/buttons-compact.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "buttons-compact": {
+        "$type": "dimension",
+        "$value": "{core.space.md}",
+        "$description": "Between buttons in a compact row: a row of small buttons, and the toolbox's action and confirm rows. A modal footer or a form keeps gap/buttons.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "fields": {
+        "$type": "dimension",
+        "$value": "{core.space.2xl}",
+        "$description": "Between form fields stacked in one form. A field is its label, control and hint together.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "label-field": {
+        "$type": "dimension",
+        "$value": "{core.space.md}",
+        "$description": "Between a field's label and its control, and between the control and its hint.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "icon-text": {
+        "$type": "dimension",
+        "$value": "{core.space.lg}",
+        "$description": "Between a leading icon and its text in a row or menu item. Buttons keep their own, tighter gap.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "toolbar": {
+        "$type": "dimension",
+        "$value": "{core.space.xs}",
+        "$description": "Between icon-only buttons packed into a toolbar or a header's actions.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "stack": {
+        "$type": "dimension",
+        "$value": "{core.space.2xl}",
+        "$description": "Between blocks stacked in a modal or panel: a title, a paragraph, a form, a group of settings.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "padding": {
+      "modal": {
+        "$type": "dimension",
+        "$value": "{core.space.3xl}",
+        "$description": "Inside a modal, on every side.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "panel": {
+        "$type": "dimension",
+        "$value": "{core.space.2xl}",
+        "$description": "Inside a panel or pane, between its edge and its content.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "card": {
+        "$type": "dimension",
+        "$value": "{core.space.3xl}",
+        "$description": "Inside a bordered card or a settings row.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "menu": {
+        "$type": "dimension",
+        "$value": "{core.space.sm}",
+        "$description": "Around the rows inside a popup, menu, select or suggestion list, so the hover on the first and last row sits clear of the edge. 4px, so a row taking radius/control stays concentric with the popup.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "list": {
+        "$type": "dimension",
+        "$value": "{core.space.lg}",
+        "$description": "Around the rows of a list on a page or in a panel, so their hover and selection sit clear of the edge. Roomier than padding/menu, since no rounded container needs its corners matched.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "row": {
+        "$type": "dimension",
+        "$value": "{core.space.2xl}",
+        "$description": "At the sides of a row inside a card, between the card edge and the row content: DescriptionList and Table rows.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "radius": {
+      "xs": {
+        "$type": "dimension",
+        "$value": {
+          "value": 2,
+          "unit": "px"
+        },
+        "$description": "The smallest corner: a checkbox, a key cap, a range thumb, a minimap marker. Also the innermost step of the section ladder (14 → 10 → 6 → 2).",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "sm": {
+        "$type": "dimension",
+        "$value": {
+          "value": 4,
+          "unit": "px"
+        },
+        "$description": "Step of the radius scale. Prefer radius/control, which points here and names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": {
+          "value": 6,
+          "unit": "px"
+        },
+        "$description": "Step of the radius scale. Prefer radius/card, which points here and names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Step of the radius scale. Prefer radius/popup, which points here and names the job. Also a drop target's outline.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 10,
+          "unit": "px"
+        },
+        "$description": "Something sitting 4px inside a section (radius/section), so the corners stay concentric.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "2xl": {
+        "$type": "dimension",
+        "$value": {
+          "value": 14,
+          "unit": "px"
+        },
+        "$description": "Step of the radius scale. Prefer radius/section, which points here and names the job.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "full": {
+        "$type": "dimension",
+        "$value": {
+          "value": 999,
+          "unit": "px"
+        },
+        "$description": "As round as the element can get: a pill on a wide element, a circle on a square one. For badges, switches, tags, avatars.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "control": {
+        "$type": "dimension",
+        "$value": "{core.radius.sm}",
+        "$description": "Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 8 minus a 4px inset). Tags and badges take radius/full.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "card": {
+        "$type": "dimension",
+        "$value": "{core.radius.md}",
+        "$description": "A card or bordered group. On the section ladder (14 → 10 → 6 → 2) it is two steps in, so a card 4px inside a 10 corner stays concentric.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "popup": {
+        "$type": "dimension",
+        "$value": "{core.radius.lg}",
+        "$description": "Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (4), so the corners stay concentric.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "section": {
+        "$type": "dimension",
+        "$value": "{core.radius.2xl}",
+        "$description": "A large panel of the app window: the changes list, the diff, the workspace. Things sitting 4px inside it take 10 (radius/xl), so the corners stay concentric.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "opacity": {
+      "disabled": {
+        "$type": "string",
+        "$value": "50%",
+        "$description": "A disabled control or row, applied to the whole element. Keep its colors; the opacity alone says it is unavailable.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "bg-hover": {
+        "$type": "string",
+        "$value": "5%",
+        "$description": "How much fill/gray/bg to mix into a surface on hover: a list row, a field. Mix it with color-mix over the surface, not as an overlay.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "bg-selected-inactive": {
+        "$type": "string",
+        "$value": "10%",
+        "$description": "How much fill/gray/bg a selected row keeps while its list doesn't have focus, so the selection stays legible from elsewhere. Used by bg/selected-inactive.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "transition": {
+      "fast": {
+        "$type": "duration",
+        "$value": {
+          "value": 80,
+          "unit": "ms"
+        },
+        "$description": "Fast transition (80ms). Use for state changes on controls: hover and press on buttons, outline and border color on focused fields, small opacity fades. Pairs with the default CSS ease. Not for anything that moves, opens, or closes.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "medium": {
+        "$type": "duration",
+        "$value": {
+          "value": 150,
+          "unit": "ms"
+        },
+        "$description": "Medium transition (150ms). Use for small layout changes: a switch thumb sliding, a chevron rotating, a section collapsing. Pairs with the default CSS ease or ease-out. Not for hover or press, which use transition/fast.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "popup": {
+        "$type": "duration",
+        "$value": "{core.transition.medium}",
+        "$description": "Popup transition (150ms). Use for anything that opens over the app: modals, dropdowns, the toolbox, and the backdrop behind them. Always pair with easing/popup. Not for hover or press states.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "easing": {
+      "popup": {
+        "$type": "cubicBezier",
+        "$value": [
+          0.45,
+          1,
+          0,
+          1
+        ],
+        "$description": "Popup curve. A hard ease-out that lands quickly and settles without overshoot, so popups arrive rather than drift in. Use only with transition/popup for the scale and opacity of modals, dropdowns, and the toolbox.",
+        "$extensions": {
+          "mode": {}
+        }
+      }
+    },
+    "$extensions": {
+      "tokens-bruecke-meta": {
+        "useDTCG": true,
+        "spec": "https://www.designtokens.org/tr/2025.10/format/",
+        "colorMode": "hex",
+        "variableCollections": [
+          "core",
+          "semantic"
+        ],
+        "createdAt": "2026-10-18T15:16:12.088Z"
+      }
+    }
+  }
+}

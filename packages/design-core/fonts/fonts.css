@@ -1,0 +1,52 @@
+/**
+ * GitButler Font System - Single Source of Truth
+ * 
+ * This file contains all font definitions for GitButler applications.
+ * 
+ * USAGE:
+ * Import this file: @import '@gitbutler/design-core/fonts';
+ * Or in JS: import '@gitbutler/design-core/fonts';
+ * 
+ * ARCHITECTURE:
+ * - Font files: fonts/{family}/
+ * - CSS definitions: This file (fonts.css)
+ * - Export: Available via @gitbutler/design-core/fonts
+ */
+
+@font-face {
+	font-style: normal;
+	font-weight: 400;
+	src: url("but-head/But-Head-Regular.woff2") format("woff2");
+	font-family: "But Head";
+	font-display: swap;
+}
+@font-face {
+	font-style: italic;
+	font-weight: 400;
+	src: url("but-head/But-Head-Italic.woff2") format("woff2");
+	font-family: "But Head";
+	font-display: swap;
+}
+
+@font-face {
+	font-style: normal;
+	font-weight: 100 900;
+	src: url("geist-mono/GeistMono-Variable.woff2") format("woff2");
+	font-family: "Geist Mono";
+	font-display: swap;
+}
+
+@font-face {
+	font-style: normal;
+	font-weight: 100 900;
+	src: url("inter/Inter-Variable.woff2") format("woff2");
+	font-family: "Inter";
+	font-display: swap;
+}
+@font-face {
+	font-style: italic;
+	font-weight: 100 900;
+	src: url("inter/Inter-Variable-Italic.woff2") format("woff2");
+	font-family: "Inter";
+	font-display: swap;
+}
