@@ -30,13 +30,12 @@ jobs:
         if: ${{ !inputs.force && github.event_name != 'workflow_dispatch' }}
         id: filter
         with:
-          # The e2e suites drive the Tauri app, so they run only when it (or CI itself)
-          # changes. quality.but.dev checks the rest. Keep in sync with the
-          # tauri_gui filter in push.yaml.
+          # The e2e suites drive the Tauri app, so they run only when it changes, not
+          # for CI changes alone: they're slow, and nightly and release builds run them
+          # regardless. quality.but.dev checks the rest. Keep in sync with the tauri_gui
+          # filter in push.yaml, which also counts CI's own files.
           filters: |
             e2e:
-              - '.github/workflows/**'
-              - '.github/actions/**'
               - 'apps/desktop/**'
               - 'crates/gitbutler-tauri/**'
               - 'packages/ui-svelte/**'
