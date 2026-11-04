@@ -11,7 +11,9 @@ use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelu
 use super::order::moving_terminal;
 use super::rows::{COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, span_height};
 use super::{Navigator, RowStyle};
-use crate::app::{MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, UseTargetMessage};
+use crate::app::{
+    MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
+};
 use crate::backend::{
     Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
 };
@@ -415,6 +417,27 @@ pub(super) fn stops<'a>(
     (stops, start.unwrap_or_default())
 }
 
+/// The commit right under a new commit placed at `at`, which the same changes amend instead.
+fn under_commit_at(at: &Stop, workspace: &Workspace) -> Option<CommitId> {
+    match at {
+        Stop::In(Destination::Branch(branch)) => {
+            Some(workspace.find_branch(Some(branch))?.commits.first()?.id)
+        }
+        Stop::In(Destination::AboveCommit(id)) => Some(*id),
+        Stop::In(Destination::BelowCommit(id)) => {
+            let (branch, _) = workspace.find_commit(*id)?;
+            let at = branch.commits.iter().position(|commit| commit.id == *id)?;
+            Some(branch.commits.get(at + 1)?.id)
+        }
+        Stop::NewBranch { .. }
+        | Stop::NewStack { .. }
+        | Stop::Into(_)
+        | Stop::Card(_)
+        | Stop::Worktree(_)
+        | Stop::Terminal { .. } => None,
+    }
+}
+
 /// The rows of `project`, in the order `rows` list them, that what's being squashed can go
 /// into, as `lands` says, and which of them is `home`, the row it starts from, listed whether
 /// it lands there or not. A branch's commits take it, but a folded branch stands in for its
@@ -764,10 +787,10 @@ impl Navigator {
         window.focus(&self.focus, cx);
     }
 
-    /// Start squashing the selected commit, with those picked with it, the selected branch, or
-    /// the selected worktree's uncommitted changes, those checked while they show, from its own
-    /// row, as the TUI's squash mode does: the keys step through what it can go into until
-    /// Return squashes it there or Escape lets go. While it's being moved, squash it instead.
+    /// Start squashing the selected commit, with those picked with it, or the selected branch,
+    /// from its own row, as the TUI's squash mode does: the keys step through what it can go
+    /// into until Return squashes it there or Escape lets go. While it's being moved, squash it
+    /// instead. The selected worktree's uncommitted changes start amending, as ⇧⌘↩ does.
     pub(super) fn start_squash(
         &mut self,
         _: &SquashSelection,
@@ -779,71 +802,62 @@ impl Navigator {
             return self.switch(moving, Op::Squash(Messages::default()), cx);
         }
         let (project, what) = match store.selection.clone() {
-            Some(item @ Selection::Uncommitted(..)) => {
-                let project = item.project().clone();
-                let what = (store.checkout_of(&item))
-                    .and_then(|worktree| self.uncommitted(&project, worktree, cx));
-                let Some(what) = what else {
-                    return snack(&self.store, "Nothing uncommitted to squash", cx);
-                };
-                (project, what)
+            Some(Selection::Uncommitted(..)) => {
+                return window.dispatch_action(Box::new(StartAmend), cx);
             }
             _ => match commits_selected(store) {
                 Some(selected) => selected,
                 None => return,
             },
         };
-        self.squash(project, what, window, cx)
+        self.squash(project, what, None, window, cx);
     }
 
-    /// Start squashing the uncommitted changes of the selected commit's worktree into it, or
-    /// into the selected branch's newest commit, as the TUI's ⇧R does: from their heading,
-    /// which is selected, as it holds them. At a folded branch, which stands in for its newest
-    /// commit, out of sight.
+    /// Start amending the selected commit, or the selected branch's newest commit, with the
+    /// uncommitted changes of its worktree, as the TUI's ⇧R does.
     pub(super) fn start_squash_into(
         &mut self,
         _: &SquashIntoSelection,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let store = self.store.read(cx);
-        let (project, into, at) = match store.selection.clone() {
-            Some(Selection::Commit(project, id)) => (project, id, Target::Commit(id)),
-            Some(item @ Selection::Branch(_, Some(_))) => {
-                let newest = (store.branch_for(&item)).and_then(|branch| branch.commits.first());
-                let (Some(newest), Selection::Branch(project, Some(name))) = (newest, &item) else {
-                    return snack(&self.store, "Nothing to squash into", cx);
-                };
-                let at = match self.open_as_built(&item) {
-                    true => Target::Commit(newest.id),
-                    false => Target::Branch(name.clone()),
-                };
-                (project.clone(), newest.id, at)
-            }
-            _ => return,
-        };
-        let Some(worktree) = store.checkout_of(&Selection::Commit(project.clone(), into)) else {
-            return;
-        };
-        let Some(what) = self.uncommitted(&project, worktree.clone(), cx) else {
-            return snack(&self.store, "Nothing uncommitted to squash", cx);
-        };
-        let changes = Selection::Uncommitted(project.clone(), worktree);
-        let moving = Move {
-            project,
-            what,
-            at: Stop::Into(at),
-            op: Op::Squash(Messages::default()),
-        };
-        if !moving.lands(self.store.read(cx)) {
-            return snack(&self.store, "Those changes can't go in there", cx);
+        if matches!(
+            self.store.read(cx).selection,
+            Some(Selection::Commit(..) | Selection::Branch(_, Some(_)))
+        ) {
+            window.dispatch_action(Box::new(StartAmend), cx);
         }
-        self.store
-            .update(cx, |store, cx| store.select(Some(changes), cx));
-        self.reveal_selection = true;
-        self.store
-            .update(cx, |store, cx| store.set_moving(Some(moving), cx));
-        window.focus(&self.focus, cx);
+    }
+
+    /// Where amending started from `from` in `project` starts: the commit right under a commit
+    /// being placed, which picking a branch for it moves, the selected commit, or the selected
+    /// branch's newest; `None` from the changes' own row, which starts at the top of the branch
+    /// below it ([`Self::squash`]). A folded branch stands in for its newest commit, out of
+    /// sight.
+    pub(crate) fn amend_start(
+        &self,
+        project: &ProjectId,
+        from: &Selection,
+        cx: &App,
+    ) -> Option<Stop> {
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project)?;
+        let placed = (store.moving.as_ref())
+            .filter(|moving| moving.op == Op::Commit && moving.project == *project);
+        let into = match (placed, from) {
+            (Some(moving), _) => under_commit_at(&moving.at, workspace)?,
+            (None, Selection::Commit(_, id)) => *id,
+            (None, Selection::Branch(_, Some(name))) => {
+                workspace.find_branch(Some(name))?.commits.first()?.id
+            }
+            (None, _) => return None,
+        };
+        let name = workspace.find_commit(into)?.0.ref_name.clone()?;
+        let row = Selection::Branch(project.clone(), Some(name.clone()));
+        Some(Stop::Into(match self.open_as_built(&row) {
+            true => Target::Commit(into),
+            false => Target::Branch(name),
+        }))
     }
 
     /// Where a commit started from `from` in `project` is placed first: on top of the selected
@@ -894,7 +908,7 @@ impl Navigator {
     /// mode does: the keys step through where it can go until Return commits it there, its
     /// message written first, or Escape lets go. The composer shows what goes in, and the
     /// message. So c and Return commit on top of the branch below the changes. The keys come
-    /// here to place it.
+    /// here to place it. Whether it started.
     pub(crate) fn start_committing(
         &mut self,
         project: ProjectId,
@@ -902,7 +916,7 @@ impl Navigator {
         start: Option<Stop>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let files = (self.detail.read(cx)).files_to_move(&project, worktree.clone(), cx);
         let what = Moving::Files {
             from: None,
@@ -926,7 +940,8 @@ impl Navigator {
         let at = (start.filter(|start| stops.contains(start)))
             .or_else(|| stops.into_iter().nth(topmost));
         let Some(at) = at else {
-            return snack(&self.store, "Nowhere to commit to", cx);
+            snack(&self.store, "Nowhere to commit to", cx);
+            return false;
         };
         let moving = Move {
             project,
@@ -938,6 +953,73 @@ impl Navigator {
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
         window.focus(&self.focus, cx);
+        true
+    }
+
+    /// Start placing `worktree`'s uncommitted changes in `project` from `start`, as a commit or
+    /// with `amend`, into one. Whether it started.
+    pub(crate) fn start_placing(
+        &mut self,
+        amend: bool,
+        project: ProjectId,
+        worktree: Checkout,
+        start: Option<Stop>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        match amend {
+            true => self.start_amending(project, worktree, start, window, cx),
+            false => self.start_committing(project, worktree, start, window, cx),
+        }
+    }
+
+    /// Why `worktree`'s changes in `project` can't amend anything, if they can't: none are
+    /// checked, or there are none.
+    pub(crate) fn amend_refused(
+        &self,
+        project: &ProjectId,
+        worktree: &Checkout,
+        cx: &App,
+    ) -> Option<&'static str> {
+        if self.uncommitted(project, worktree.clone(), cx).is_some() {
+            return None;
+        }
+        let uncommitted = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.uncommitted_in(worktree))
+            .is_some_and(|files| !files.is_empty());
+        Some(match uncommitted {
+            true => "Nothing checked to amend",
+            false => "Nothing uncommitted to amend",
+        })
+    }
+
+    /// Start amending a commit with `worktree`'s uncommitted changes in `project`, from `start`
+    /// if they can go there: the keys step through what they can go into until Return amends
+    /// it, or Escape lets go. With the composer open, it shows the commit's message and what
+    /// goes in. Whether it started.
+    pub(crate) fn start_amending(
+        &mut self,
+        project: ProjectId,
+        worktree: Checkout,
+        start: Option<Stop>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let composing = self.detail.read(cx).composing_in(&project, &worktree);
+        let Some(what) = self.uncommitted(&project, worktree.clone(), cx) else {
+            return false;
+        };
+        // The checks can change till it lands, and a file going from what's held would end it.
+        let what = match composing {
+            true => Moving::Files {
+                from: None,
+                worktree,
+                files: Arc::from([]),
+            },
+            false => what,
+        };
+        self.reveal_selection = true;
+        self.squash(project, what, start, window, cx)
     }
 
     /// `worktree`'s uncommitted changes, as what's squashed: those checked while they show, but
@@ -954,21 +1036,23 @@ impl Navigator {
         })
     }
 
-    /// Start squashing `what` of `project` from the selection's row, which holds it.
+    /// Start squashing `what` of `project` from the selection's row, which holds it, at `at`
+    /// if it can go there. Whether it started.
     pub(crate) fn squash(
         &mut self,
         project: ProjectId,
         what: Moving,
+        at: Option<Stop>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let op = Op::Squash(Messages::default());
         let store = self.store.read(cx);
         // Somewhere besides where it is, unless it goes somewhere there, as a branch squashing
         // into one commit does.
         let start = (self.stops_for(&project, &what, op, cx)).and_then(|(stops, start)| {
             // Uncommitted changes go first into what's on top of the branch below their row, as
-            // a commit of them goes there first: s and Return amend it.
+            // a commit of them goes there first.
             let start = match &what {
                 Moving::Files { from: None, .. } => (stops.iter().enumerate().skip(start + 1))
                     .find(|(_, stop)| {
@@ -983,6 +1067,9 @@ impl Navigator {
                 | Moving::Files { .. }
                 | Moving::Copies(_) => start,
             };
+            let start = (at.as_ref())
+                .and_then(|at| stops.iter().position(|stop| stop == at))
+                .unwrap_or(start);
             let at = stops.get(start)?.clone();
             let home = Move {
                 project: project.clone(),
@@ -993,7 +1080,18 @@ impl Navigator {
             (stops.len() > 1 || home.lands(store)).then_some(at)
         });
         let Some(at) = start else {
-            return snack(&self.store, "Nowhere to squash it", cx);
+            let why = match what {
+                Moving::Files { from: None, .. } => "Nowhere to amend it",
+                Moving::Commits(_)
+                | Moving::Branch(_)
+                | Moving::Project(_)
+                | Moving::Worktree { .. }
+                | Moving::Terminal { .. }
+                | Moving::Files { .. }
+                | Moving::Copies(_) => "Nowhere to squash it",
+            };
+            snack(&self.store, why, cx);
+            return false;
         };
         let moving = Move {
             project,
@@ -1004,6 +1102,7 @@ impl Navigator {
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
         window.focus(&self.focus, cx);
+        true
     }
 
     /// Start cherry-picking the selected commit, with those picked with it, or the commit a
@@ -1233,15 +1332,26 @@ impl Navigator {
     /// Land what's being moved where the move is at, as dropping it there would, or squash it
     /// there.
     pub(super) fn move_here(&mut self, _: &MoveHere, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(moving) = self.store.read(cx).moving.as_ref() else {
+            return;
+        };
+        // A commit's made as ⌘↩ makes it: from the composer, its message written first, or
+        // as it is without one, where the navigator came out for it. An amend, as ⇧⌘↩ does.
+        if moving.op == Op::Commit {
+            return window.dispatch_action(Box::new(crate::app::StartCommit), cx);
+        }
+        if moving.amending() {
+            return window.dispatch_action(Box::new(StartAmend), cx);
+        }
+        self.land_move(window, cx)
+    }
+
+    /// Land what's being moved where the move is at, but a commit, which the composer makes.
+    pub(crate) fn land_move(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(moving) = store.moving.clone() else {
             return;
         };
-        // A commit's made as ⌘↩ makes it: from the composer, its message written first, or
-        // as it is without one, where the navigator came out for it.
-        if moving.op == Op::Commit {
-            return window.dispatch_action(Box::new(crate::app::StartCommit), cx);
-        }
         let lands = moving.lands(store);
         let squashed = moving.squashed(store);
         self.store
@@ -1757,6 +1867,7 @@ mod tests {
 
     use super::{
         Row, RowKey, branch_stops, clicked_stop, squash_stops, stops, taken_away, terminal_lists,
+        under_commit_at,
     };
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
     use crate::backend::{Checkout, CommitId, Destination, Messages, Workspace, short_ref};
@@ -2341,6 +2452,61 @@ last on empty
         let terminal = Selection::Terminal(project, TerminalId(1));
         let clicked = clicked_stop(&stops, (start, start), &moving, &terminal, false, None);
         assert_eq!(clicked, None, "a terminal takes no commits");
+    }
+
+    /// A branch of commits, newest first: 3, 2, 1.
+    fn branch_of_three() -> Workspace {
+        workspace(vec![vec![branch("ui", &[3, 2, 1])]], Vec::new())
+    }
+
+    #[test]
+    fn a_commit_placed_on_top_of_a_branch_has_its_newest_under_it() {
+        let at = Stop::In(Destination::Branch(full("refs/heads/ui")));
+        assert_eq!(
+            under_commit_at(&at, &branch_of_three()),
+            Some(id(3)),
+            "amending instead goes into the commit it'd go on top of"
+        );
+    }
+
+    #[test]
+    fn a_commit_placed_below_one_has_the_next_under_it() {
+        let at = Stop::In(Destination::BelowCommit(id(3)));
+        assert_eq!(
+            under_commit_at(&at, &branch_of_three()),
+            Some(id(2)),
+            "the commit it's below is above it, so not the one it'd amend"
+        );
+    }
+
+    #[test]
+    fn a_commit_placed_above_one_has_that_one_under_it() {
+        let at = Stop::In(Destination::AboveCommit(id(2)));
+        assert_eq!(
+            under_commit_at(&at, &branch_of_three()),
+            Some(id(2)),
+            "it's right on top of it"
+        );
+    }
+
+    #[test]
+    fn a_commit_placed_at_the_bottom_of_a_branch_has_nothing_under_it() {
+        let at = Stop::In(Destination::BelowCommit(id(1)));
+        assert_eq!(
+            under_commit_at(&at, &branch_of_three()),
+            None,
+            "the branch has no commit further down"
+        );
+    }
+
+    #[test]
+    fn a_commit_placed_in_a_new_stack_has_nothing_under_it() {
+        let at = Stop::NewStack { first: false };
+        assert_eq!(
+            under_commit_at(&at, &branch_of_three()),
+            None,
+            "a new branch has no commits"
+        );
     }
 
     #[test]

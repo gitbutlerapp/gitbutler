@@ -8,12 +8,12 @@ use gpui::{
 
 use crate::app::{
     AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, MoveSelection,
-    OpenPullRequest, PasteHere, Push, SquashSelection, StartCommit, Undo, UpdateFromTarget,
-    UseTargetMessage,
+    OpenPullRequest, PasteHere, Push, SquashSelection, StartAmend, StartCommit, Undo,
+    UpdateFromTarget, UseTargetMessage,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
-use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
+use crate::detail::{DiscardHunk, NextFile, NextHunk};
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, Part, ProjectId, SLOW, Section, Selection};
@@ -85,7 +85,11 @@ impl AppView {
         } else if let Some(moving) = &store.moving {
             // What's moving, and where Return lands it, unless that's where it is.
             let lands = moving.lands(store);
-            let what = moving.describe(store);
+            // What the composer has checked shows in the composer.
+            let what = match moving.amending() && detail.composing() {
+                true => String::new(),
+                false => moving.describe(store),
+            };
             // A new commit has no name till its message is written.
             let what = match lands {
                 true => format!("{what} {}", moving.place(store))
@@ -94,7 +98,7 @@ impl AppView {
                 false => what,
             };
             // In the colour each marks rows in, as the TUI's modes have their own.
-            let (doing, color) = (moving.op.doing(), moving.op.colour(&theme));
+            let (doing, color) = (moving.doing(), moving.op.colour(&theme));
             let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
@@ -113,29 +117,52 @@ impl AppView {
                 (Op::Squash(_) | Op::Move | Op::Commit | Op::CherryPick, _) => None,
             };
             // Commits or a branch squash instead of moving, or move instead of squashing, and
-            // commits cherry-picked move instead.
+            // commits cherry-picked move instead. Uncommitted changes commit instead of
+            // amending, and the other way around.
             let instead = match moving.op {
-                Op::Squash(_) | Op::CherryPick => {
-                    shortcut(&MoveSelection, cx).map(|keys| (keys, "move instead"))
+                Op::Squash(_) if moving.amending() => {
+                    shortcut(&StartCommit, cx).map(|keys| (keys, "commit instead"))
                 }
-                Op::Move => shortcut(&SquashSelection, cx).map(|keys| (keys, "squash instead")),
-                Op::Commit => None,
+                Op::Squash(_) | Op::CherryPick => (shortcut(&MoveSelection, cx))
+                    .filter(|_| moving.of_commits())
+                    .map(|keys| (keys, "move instead")),
+                Op::Move => (shortcut(&SquashSelection, cx))
+                    .filter(|_| moving.of_commits())
+                    .map(|keys| (keys, "squash instead")),
+                Op::Commit => shortcut(&StartAmend, cx).map(|keys| (keys, "amend instead")),
             };
             // Without the composer, as where the navigator came out for it, Return commits as
             // it is, without a message. Without the navigator, the arrows go on through the
             // files.
-            let unseen = moving.op == Op::Commit && !self.navigator_shown();
-            let verb = match moving.op == Op::Commit && !self.detail.read(cx).composing() {
-                true => "commit",
-                false => moving.verb(store),
+            let unseen = (moving.op == Op::Commit || moving.amending()) && !self.navigator_shown();
+            // With it, Return goes to the commit's message first, to keep or rewrite.
+            let verb = match (
+                moving.op == Op::Commit,
+                moving.amending(),
+                detail.composing(),
+            ) {
+                (true, _, false) => "commit",
+                (_, true, true) => "edit the message",
+                (_, _, _) => moving.verb(store),
             };
-            let keys = (!unseen)
+            // In the message of what's amended the keys write it, and those that confirm amend.
+            let writing = moving.amending() && detail.message_focused(window, cx);
+            let keys = (!unseen && !writing)
                 .then(|| ("↑↓".into(), "choose where"))
                 .into_iter()
-                .chain((shortcut(&MoveHere, cx).filter(|_| lands)).map(|keys| (keys, verb)))
+                .chain(
+                    (shortcut(&MoveHere, cx).filter(|_| lands && !writing))
+                        .map(|keys| (keys, verb)),
+                )
                 .chain(messages)
-                .chain(instead.filter(|_| moving.of_commits()))
-                .chain([("esc".into(), "cancel")])
+                .chain(instead.filter(|_| !writing))
+                .chain([(
+                    "esc".into(),
+                    match writing {
+                        true => "back",
+                        false => "cancel",
+                    },
+                )])
                 .collect();
             (state.into_any_element(), keys)
         } else if let Some(cut) = &store.cut {
@@ -236,13 +263,17 @@ impl AppView {
         let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(..)));
         let composing = uncommitted && detail.composing();
         let hints: Vec<(&dyn Action, &str)> = if composing {
-            let amend = detail
-                .can_amend(cx)
-                .then_some((&AmendTop as &dyn Action, "amend"));
-            [(&StartCommit as &dyn Action, "commit")]
-                .into_iter()
-                .chain(amend)
-                .collect()
+            // The other's key shows as what to do instead while one's being placed.
+            let moving = store.moving.as_ref();
+            let commit = (&StartCommit as &dyn Action, "commit");
+            let amend = (&StartAmend as &dyn Action, "amend");
+            match moving.map(|moving| (moving.op, moving.amending())) {
+                Some((Op::Commit, _)) => Vec::from([commit]),
+                Some((Op::Squash(_), true)) => Vec::from([amend]),
+                Some((Op::Move | Op::Squash(_) | Op::CherryPick, _)) | None => {
+                    Vec::from([commit, amend])
+                }
+            }
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusDiff, "pick conflicts")]
@@ -314,9 +345,16 @@ impl AppView {
                         .chain((!conflicted).then_some((&Uncommit as &dyn Action, "uncommit")))
                         .collect()
                 }
-                Some(Selection::Checkout(..) | Selection::Uncommitted(..)) => {
-                    vec![(&StartCommit, "commit")]
+                // What's being placed says its own keys.
+                Some(Selection::Checkout(..) | Selection::Uncommitted(..))
+                    if store.moving.is_some() =>
+                {
+                    Vec::new()
                 }
+                Some(Selection::Checkout(..) | Selection::Uncommitted(..)) => Vec::from([
+                    (&StartCommit as &dyn Action, "commit"),
+                    (&StartAmend, "amend"),
+                ]),
                 Some(Selection::Terminal(..)) => vec![(&RenameTerminal, "rename")],
                 _ => Vec::new(),
             };

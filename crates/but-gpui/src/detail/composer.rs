@@ -20,9 +20,17 @@ use crate::transfer::{Move, Moving, Op, Stop};
 use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, dp, faint, h_flex, icon_button, plural, shortcut,
-    small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, commit_title, dp, faint, h_flex, icon_button, plural,
+    shortcut, small_icon, v_flex,
 };
+
+/// The message box's text while a commit's being amended.
+pub(super) struct AmendMessage {
+    /// The change ID of the commit it came from, `None` at a row that's no commit to amend.
+    into: Option<String>,
+    /// As the box showed it, to tell whether it was rewritten.
+    loaded: String,
+}
 
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
@@ -262,6 +270,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.stop_committing(cx);
+        self.amend_message = None;
         let left = (self.checks_project.take(), self.checks_worktree.clone());
         let next = (self.other_checks)
             .remove(&(project.clone(), worktree.clone()))
@@ -519,14 +528,34 @@ impl Detail {
         (self.store.read(cx).moving.clone()).filter(|moving| places(moving, project, worktree))
     }
 
+    /// The amend the navigator is placing, with the keys, for the checkout the composer's open
+    /// on, while one is.
+    pub(super) fn amending(&self, cx: &App) -> Option<Move> {
+        let (project, worktree) = (self.checks_project.as_ref(), &self.checks_worktree);
+        (self.store.read(cx).moving.clone())
+            .filter(|moving| self.composing && amends(moving, project, worktree))
+    }
+
     /// Change the commit the navigator is placing for the checkout the composer's on, if it's
     /// placing one, once the update under way ends, as the composer closes as one lands.
     fn change_committing(&self, change: impl FnOnce(&mut Store) + 'static, cx: &mut App) {
+        self.change_placing(places, change, cx);
+    }
+
+    /// Change what the navigator is placing for the checkout the composer's on, if `placing`
+    /// says it's that, once the update under way ends.
+    fn change_placing(
+        &self,
+        placing: fn(&Move, Option<&ProjectId>, &Checkout) -> bool,
+        change: impl FnOnce(&mut Store) + 'static,
+        cx: &mut App,
+    ) {
         let (store, project) = (self.store.clone(), self.checks_project.clone());
         let worktree = self.checks_worktree.clone();
         cx.defer(move |cx| {
             store.update(cx, |store, cx| {
-                if (store.moving.as_ref()).is_some_and(|m| places(m, project.as_ref(), &worktree)) {
+                if (store.moving.as_ref()).is_some_and(|m| placing(m, project.as_ref(), &worktree))
+                {
                     change(store);
                     cx.notify();
                 }
@@ -534,9 +563,62 @@ impl Detail {
         });
     }
 
-    /// Stop placing the commit, as the composer it's made from closes.
+    /// Stop placing the commit, or the amend, as the composer it's made from closes.
     fn stop_committing(&self, cx: &mut App) {
-        self.change_committing(|store| store.moving = None, cx);
+        self.change_placing(
+            |moving, project, worktree| {
+                places(moving, project, worktree) || amends(moving, project, worktree)
+            },
+            |store| store.moving = None,
+            cx,
+        );
+    }
+
+    /// Show the message of the commit being amended in the box, which holds it till the amend
+    /// moves on to another, whose message takes its place, edited or not. Once it's over, the
+    /// next commit's message comes back.
+    pub(super) fn show_amended_message(&mut self, cx: &mut Context<Self>) {
+        let amending = self.amending(cx);
+        let Some(moving) = amending else {
+            if self.amend_message.take().is_some() {
+                let key = (self.checks_project.clone()).map(|p| (p, self.checks_worktree.clone()));
+                let draft = (key.and_then(|key| self.store.read(cx).drafts.get(&key).cloned()))
+                    .unwrap_or_default();
+                self.writing = None;
+                self.message.update(cx, |input, cx| input.load(draft, cx));
+                cx.notify();
+            }
+            return;
+        };
+        let store = self.store.read(cx);
+        let commit = (moving.amended(store))
+            .and_then(|id| store.find_commit(&moving.project, id))
+            .map(|(_, commit)| (commit.key.clone(), commit.message.clone()));
+        let (into, message) = commit.unzip();
+        match &self.amend_message {
+            Some(shown) if shown.into == into => return,
+            Some(_) => self.writing = None,
+            // A message being written for the next commit goes back to what was written by hand.
+            None => {
+                if let (Some((_, notes)), Some(project)) =
+                    (self.writing.take(), self.checks_project.clone())
+                {
+                    let key = (project, self.checks_worktree.clone());
+                    (self.store).update(cx, |store, _| store.drafts.insert(key, notes));
+                }
+            }
+        }
+        // First, so the box's change isn't taken for the next commit's message.
+        self.amend_message = Some(AmendMessage {
+            into,
+            loaded: String::new(),
+        });
+        (self.message).update(cx, |input, cx| input.load(message.unwrap_or_default(), cx));
+        let loaded = self.message.read(cx).text(cx);
+        if let Some(shown) = &mut self.amend_message {
+            shown.loaded = loaded;
+        }
+        cx.notify();
     }
 
     /// Commit where the navigator's placing the commit, once its message is written; till then,
@@ -1160,24 +1242,6 @@ impl Detail {
         }
     }
 
-    /// Whether a commit to the branch new commits go to is still pending, so the newest
-    /// commit shown there isn't the newest.
-    fn commit_pending(&self, project: &ProjectId, cx: &App) -> bool {
-        (self.effective_target(project, cx)).is_some_and(|target| {
-            (self.store.read(cx))
-                .new_commit(
-                    project,
-                    |at| matches!(at, NewAt::Top(branch) if *branch == target),
-                )
-                .is_some()
-        })
-    }
-
-    /// Whether Amend has a commit to add to, as the status bar says.
-    pub fn can_amend(&self, cx: &App) -> bool {
-        (self.selected_project(cx)).is_some_and(|project| self.amend_target(&project, cx).is_some())
-    }
-
     /// Whether the branch the composer showed went, as an agent can unapply or rename it, so
     /// `target` is elsewhere than picked: says where, once, rather than go there unseen.
     fn target_went(
@@ -1204,19 +1268,6 @@ impl Detail {
         true
     }
 
-    /// The newest commit on the branch new commits go to, which Amend adds to.
-    fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
-        if self.commit_pending(project, cx) {
-            return None;
-        }
-        let target = self.effective_target(project, cx)?;
-        let workspace = self.store.read(cx).workspace(project)?;
-        // The engine won't amend a conflicted commit.
-        let top =
-            (workspace.find_branch(Some(&target))?.commits.first()).filter(|c| !c.conflicted)?;
-        Some((top.id, top.title.clone()))
-    }
-
     /// Whether hunk or line choices can't be told apart yet, as `project`'s worktree diff
     /// is loading or older than its files; says so when they can't. Choices index into the
     /// diff as loaded, so committing them from another would take other lines.
@@ -1237,42 +1288,64 @@ impl Detail {
         !current
     }
 
-    /// Add the checked changes to the newest commit of the target branch, keeping its
-    /// message.
-    pub(crate) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Amend the commit the navigator's at from the message box; from anywhere else, go there
+    /// first, to keep or rewrite its message. As Return does there.
+    pub fn amend_here(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let at_commit =
+            (self.amending(cx)).is_some_and(|moving| moving.amended(self.store.read(cx)).is_some());
+        match at_commit && !self.message.read(cx).contains_focus(window, cx) {
+            true => self.focus_message(window, cx),
+            false => self.amend(window, cx),
+        }
+    }
+
+    /// Add the checked changes to the commit the navigator's at, with the message in the box
+    /// if that was rewritten.
+    pub(super) fn amend(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(moving) = self.amending(cx) else {
+            return;
+        };
         let Some((project, worktree)) = self.selected_checkout(cx) else {
             return;
         };
-        if self.commit_pending(&project, cx) {
-            snack(&self.store, "Wait for the commit to finish", cx);
-            return;
+        if self.writing.is_some() {
+            let why = "The message is still being written: the sparkle keeps what's written so far";
+            return snack(&self.store, why, cx);
         }
-        let Some((into, _)) = self.amend_target(&project, cx) else {
-            return;
+        let Some(into) = moving.amended(self.store.read(cx)) else {
+            return snack(&self.store, "Pick a commit to amend", cx);
         };
-        if self.target_went(&project, &self.effective_target(&project, cx), cx) {
-            return;
-        }
         if self.choices_loading(&project, cx) {
             return;
         }
         let files = self.selected_changes(cx);
         if files.is_empty() {
-            snack(&self.store, "Nothing checked to amend", cx);
-            return;
+            return snack(&self.store, "Nothing checked to amend", cx);
         }
+        let written = self.message.read(cx).text(cx);
+        let rewritten = (self.amend_message.as_ref()).is_some_and(|shown| shown.loaded != written);
+        let message = rewritten.then(|| written.trim().to_owned());
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
         let (finished, from) = (project.clone(), worktree.clone());
-        // The composer stays open until it lands, so a failed amend keeps the choices.
-        let landed = move |_: &mut Store, cx: &mut Context<Store>| {
+        // The composer and the move stay until it lands, so a failed amend keeps the choices
+        // and the message. It's selected, as a commit placed with the keys is.
+        let landed = move |store: &mut Store, made: CommitId, cx: &mut Context<Store>| {
+            store.select(Some(Selection::Commit(finished.clone(), made)), cx);
             after_landing(&detail, window, &finished, cx, |detail, window, cx| {
                 detail.finish_composing(&from, window, cx)
             });
             forget_checks_left(&detail, &finished, &from, cx);
         };
         (self.store).update(cx, |store, cx| {
-            store.amend(&project, into, files.into(), worktree, landed, cx)
+            let amend = backend::Amend {
+                into,
+                changes: files.into(),
+                checkout: worktree,
+                message,
+                run_hooks: store.runs_hooks(&project),
+            };
+            store.amend(&project, amend, landed, cx)
         });
     }
 
@@ -1428,9 +1501,17 @@ impl Detail {
                     whole && check == Toggled::True,
                 )
             });
+        let amending = self.amending(cx);
+        // What's amended, while it's at a commit.
+        let amended = amending.as_ref().and_then(|moving| {
+            let store = self.store.read(cx);
+            let id = moving.amended(store)?;
+            Some(commit_title(&store.find_commit(&moving.project, id)?.1.title).to_string())
+        });
         // Where the navigator places the commit, while it does: a new branch by where it goes,
         // as it has no name yet.
         let target = match self.committing(cx) {
+            _ if amending.is_some() => amended.clone().unwrap_or("no commit".into()),
             Some(moving) => match moving.commit_to(self.store.read(cx)) {
                 Some(CommitTo::Branch(branch) | CommitTo::BelowCommit { branch, .. }) => {
                     short_ref(&branch).into_owned()
@@ -1456,8 +1537,11 @@ impl Detail {
                     .gap(dp(6.))
                     .text_size(dp(12.))
                     .text_color(theme.text_2)
-                    .child("Commit to")
-                    .child(self.render_target_picker(target, theme, cx))
+                    .child(match amending {
+                        Some(_) => "Amend",
+                        None => "Commit to",
+                    })
+                    .child(self.render_target_picker(target, amending.is_none(), theme, cx))
                     // Saying it's writing, as an answer can take a while to start. Above the
                     // box, as in it the words would run under it.
                     .when(self.writing.is_some(), |el| {
@@ -1529,34 +1613,32 @@ impl Detail {
                         button("close-composer", "Cancel")
                             .small()
                             .style(ButtonStyle::Ghost)
-                            .tooltip_with_key("Close without committing", Some("esc".into()))
+                            .tooltip_with_key(
+                                match amending {
+                                    Some(_) => "Close without amending",
+                                    None => "Close without committing",
+                                },
+                                Some("esc".into()),
+                            )
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.leave_composer(window, cx)),
                             ),
                     )
-                    // There without a commit to add to too, so Cancel stays put as the branch
-                    // picked changes or a commit goes in.
-                    .child({
-                        let target = self.amend_target(project, cx);
-                        button("amend", "Amend")
+                    .child(match amending {
+                        Some(_) => button("amend", "Amend")
                             .small()
-                            .disabled_because(match &target {
-                                None => Some("No commit to add to"),
+                            .min_width(dp(super::COMMIT_BUTTON_WIDTH))
+                            .style(ButtonStyle::Pop)
+                            .disabled_because(match &amended {
+                                None => Some("Pick a commit to amend"),
                                 Some(_) => (checked == 0).then_some("Check some changes first"),
                             })
                             .tooltip_for(
-                                match &target {
-                                    Some((_, title)) if !title.is_empty() => {
-                                        format!("Add the checked changes to \"{title}\"")
-                                    }
-                                    _ => "Add the checked changes to the newest commit".into(),
-                                },
-                                &super::AmendTop,
+                                "Add the checked changes to this commit",
+                                &crate::app::StartAmend,
                             )
-                            .on_click(cx.listener(|this, _, window, cx| this.amend_top(window, cx)))
-                    })
-                    .child(
-                        button("commit", "Commit")
+                            .on_click(cx.listener(|this, _, window, cx| this.amend(window, cx))),
+                        None => button("commit", "Commit")
                             .small()
                             .min_width(dp(super::COMMIT_BUTTON_WIDTH))
                             .style(ButtonStyle::Pop)
@@ -1569,16 +1651,18 @@ impl Detail {
                                 Some("⌘↩".into()),
                             )
                             .on_click(cx.listener(|this, _, window, cx| this.commit(window, cx))),
-                    ),
+                    }),
             )
             .into_any_element()
     }
 
-    /// Where the commit goes, said as `label`, which picks another branch, the main
-    /// checkout's or a linked worktree's. A linked worktree's commits go on its own branches.
+    /// Where the commit goes, said as `label`, which with `pickable` picks another branch, the
+    /// main checkout's or a linked worktree's. A linked worktree's commits go on its own
+    /// branches.
     fn render_target_picker(
         &self,
         label: String,
+        pickable: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
@@ -1593,9 +1677,15 @@ impl Detail {
             .bg(theme.fill_gray.opacity(0.08))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
-            .child(small_icon(Icon::Branch).text_color(theme.blue))
+            .child(
+                small_icon(match pickable {
+                    true => Icon::Branch,
+                    false => Icon::Commit,
+                })
+                .text_color(theme.blue),
+            )
             .child(div().min_w_0().truncate().child(label))
-            .when(!self.checks_worktree.is_linked(), |el| {
+            .when(pickable && !self.checks_worktree.is_linked(), |el| {
                 el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
                     .tooltip(Tooltip::keyed("Pick the branch to commit to", key))
@@ -1610,6 +1700,10 @@ impl Detail {
         let Some(Selection::Uncommitted(project, Checkout::Main)) = self.selection(cx) else {
             return;
         };
+        // The navigator picks what's amended.
+        if self.amending(cx).is_some() {
+            return;
+        }
         let current = self.effective_target(&project, cx);
         let detail = cx.entity().downgrade();
         let Some(workspace) = self.store.read(cx).workspace(&project) else {
@@ -1698,8 +1792,17 @@ const NEW_STACK: &str = "new independent branch";
 
 /// Whether `moving` places a commit of `project`'s checkout `worktree`'s changes.
 fn places(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bool {
-    moving.op == Op::Commit
-        && Some(&moving.project) == project
+    moving.op == Op::Commit && changes_of(moving, project, worktree)
+}
+
+/// Whether `moving` amends a commit with `project`'s checkout `worktree`'s changes.
+fn amends(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bool {
+    moving.amending() && changes_of(moving, project, worktree)
+}
+
+/// Whether `moving` is of `project`'s checkout `worktree`'s changes.
+fn changes_of(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bool {
+    Some(&moving.project) == project
         && matches!(&moving.what, Moving::Files { worktree: of, .. } if of == worktree)
 }
 

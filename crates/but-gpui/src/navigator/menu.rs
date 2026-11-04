@@ -10,7 +10,7 @@ use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
     CopyPath, CopyPullRequestLink, CopySelection, CutSelection, Expand, Fetch, MarkAllRead,
     MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SplitBelow,
-    SplitRight, SquashSelection, StartCommit, ToggleRead, UpdateFromTarget,
+    SplitRight, SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -504,11 +504,11 @@ impl Navigator {
     }
 }
 
-/// Commit, squash and discarding the changes of the selected checkout, which has some.
+/// Commit, amend and discarding the changes of the selected checkout, which has some.
 fn changes_items(cx: &App) -> [MenuItem; 3] {
     [
         MenuItem::command(&StartCommit, cx).separated(),
-        MenuItem::command(&SquashSelection, cx),
+        MenuItem::command(&StartAmend, cx),
         MenuItem::command(&DiscardChanges, cx).danger(),
     ]
 }

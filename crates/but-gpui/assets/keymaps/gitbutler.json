@@ -75,6 +75,11 @@
     "context": "Diff && Committing && !TextInput",
     "bindings": { "enter": "app::StartCommit" }
   },
+  // And an amend placed that way, keeping the commit's message.
+  {
+    "context": "Diff && Amending && !TextInput",
+    "bindings": { "enter": "app::StartAmend" }
+  },
   // From the file filter too, which the commit then takes the files of.
   {
     "context": "Files && !Composer > TextInput",
@@ -428,8 +433,8 @@
   {
     "context": "Workspace",
     "bindings": {
-      // Zed's amend key.
-      "secondary-shift-enter": "diff::AmendTop",
+      // Zed's amend key. Amends what the navigator's at, once that's started.
+      "secondary-shift-enter": "app::StartAmend",
       "secondary-shift-b": "diff::PickCommitTarget"
     }
   },
