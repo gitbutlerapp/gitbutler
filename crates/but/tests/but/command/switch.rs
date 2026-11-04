@@ -877,8 +877,6 @@ Hint: run `but branch new` to create a new branch to work on
         .stdout_eq(str![[r#"
 Switched to workspace
 
-Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
-
 "#]]);
 
     env.but("status -f")

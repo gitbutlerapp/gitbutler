@@ -808,6 +808,7 @@ fn apply_from_single_branch_mode_reports_only_requested_branch() {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
+Applied branch 'A' to workspace
 Applied branch 'feature-branch' to workspace
 
 "#]]);

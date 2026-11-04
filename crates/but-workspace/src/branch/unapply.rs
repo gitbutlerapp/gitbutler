@@ -136,21 +136,21 @@ pub(crate) mod function {
 
     use crate::{WorkspaceCommit, branch::try_find_validated_ref};
     use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
-    use but_error::bail_precondition;
-    use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
+    use but_rebase::graph_rebase::{
+        Editor, LookupStep as _, Step, SuccessfulRebase,
+        mutate::{SegmentDelimiter, SelectorSet},
+    };
 
     /// Ensure that `branch` is not a parent of the workspace commit.
-    ///
-    /// A workspace commit must exist.
-    ///
-    /// If the workspace commit would end up with no parents, it is instead rebased onto the target
-    /// commit (if it exists).
     ///
     /// Nothing changes if `branch` isn't a lane, which [SuccessfulRebase::references_updated()]
     /// tells once nothing else was edited.
     pub fn unapply_stack<'ws, 'meta, M: RefMetadata>(
         mut editor: Editor<'ws, 'meta, M>,
         branch: &FullNameRef,
+        Options {
+            workspace_disposition,
+        }: Options,
     ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let Some(branch_selector) = editor.try_select_reference(branch) else {
             if editor.repo().try_find_reference(branch)?.is_none() {
@@ -158,30 +158,102 @@ pub(crate) mod function {
             }
             return editor.rebase();
         };
-        let (branch_commit, _) = editor.find_commit_target(branch_selector)?;
-        let Some(workspace_commit) = editor
-            .workspace_reference()
-            .and_then(|workspace_reference| editor.workspace_commit(workspace_reference))
-        else {
-            bail_precondition!(
-                "Cannot unapply '{}' outside of a workspace with a workspace commit",
-                branch.shorten()
-            );
+        let local_target = editor
+            .target_ref()
+            .and_then(|local_target| editor.try_select_reference(local_target));
+        let Some(workspace_reference) = editor.workspace_reference() else {
+            // Either "unapply" HEAD's branch by moving HEAD to the target, or do nothing.
+            let head = editor
+                .head()
+                .context("HEAD has no checkout recorded in the editor")?;
+            if head != branch_selector || Some(head) == local_target {
+                return editor.rebase();
+            }
+            let local_target = local_target.context(
+                "Cannot unapply the last branch because no local target branch is available",
+            )?;
+            editor.set_head_checkout(local_target)?;
+            return editor.rebase();
         };
-        if editor.target_selector() == Some(branch_commit) {
+
+        // Take the lane out of the graph.
+        let workspace_commit = editor.workspace_commit(workspace_reference);
+        let workspace_step = workspace_commit.unwrap_or(workspace_reference);
+        let parents = editor.direct_parents(workspace_step)?;
+        if Some(branch_selector) == local_target
+            || !parents.iter().any(|(parent, _)| *parent == branch_selector)
+        {
+            // The branch is either the target or not applied; do nothing.
             return editor.rebase();
         }
+        editor.remove_edges(workspace_step, branch_selector)?;
 
-        let workspace_commit_parents = editor.direct_parents(workspace_commit)?;
-        let only_one_parent = workspace_commit_parents.len() == 1;
-        for (parent_selector, _order) in workspace_commit_parents {
-            if editor.find_commit_target(parent_selector)?.0 == branch_commit {
-                editor.remove_edges(workspace_commit, parent_selector)?;
-                if only_one_parent && let Some(target) = editor.target_selector() {
-                    editor.add_edge(workspace_commit, target, 0)?;
-                }
-                break;
+        let parent = match editor.direct_parents(workspace_step)?[..] {
+            // If no parent edges remain, we need to add an edge to the target if possible.
+            [] => {
+                let Some(target) = editor.target_selector() else {
+                    ensure!(
+                        workspace_commit.is_some(),
+                        "Cannot unapply '{}' as the workspace reference has no target to point at instead",
+                        branch.shorten()
+                    );
+                    // The workspace commit has nothing to rest on.
+                    return editor.rebase();
+                };
+                editor.add_edge(workspace_step, target, 0)?;
+                target
             }
+            [(parent, _)] => parent,
+            _ => {
+                // Nothing more to do; if there is more than one parent, we cannot remove anything
+                // no matter the `workspace_disposition`.
+                return editor.rebase();
+            }
+        };
+
+        // Peel the workspace reference and commit off, checking out the tip of the only lane left,
+        // or the local target branch if the target is all that's left.
+        if workspace_disposition.may_delete_workspace_reference() {
+            let checkout = match editor.lookup_step(parent)? {
+                Step::Reference { .. } => Some(parent),
+                Step::Pick(_) | Step::None => {
+                    local_target.filter(|_| Some(parent) == editor.target_selector())
+                }
+            };
+            if let Some(checkout) = checkout {
+                editor.set_head_checkout(checkout)?;
+                for step in [workspace_commit, Some(workspace_reference)]
+                    .into_iter()
+                    .flatten()
+                {
+                    editor.replace_with_none(step)?;
+                }
+                return editor.rebase();
+            }
+        }
+
+        // Peel just the workspace commit off.
+        let keep_workspace_commit = match workspace_disposition {
+            WorkspaceDisposition::KeepWorkspaceCommit
+            | WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit => {
+                true
+            }
+            WorkspaceDisposition::KeepWorkspaceReference
+            | WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences => false,
+        };
+        if let Some(workspace_commit) = workspace_commit
+            && !keep_workspace_commit
+        {
+            editor.disconnect_segment_from(
+                SegmentDelimiter {
+                    child: workspace_commit,
+                    parent: workspace_commit,
+                },
+                SelectorSet::All,
+                SelectorSet::All,
+                false,
+            )?;
+            editor.replace_with_none(workspace_commit)?;
         }
         editor.rebase()
     }
@@ -761,7 +833,8 @@ pub(crate) mod function {
     ///
     /// `ws` is the source of truth for the stack shape, including virtual stacks, so it must be
     /// projected from the workspace reference as it is now. `overlay` is applied when reprojecting
-    /// from the new checkout. Workspace metadata is kept so the target branch isn't lost.
+    /// from the new checkout. Workspace metadata is kept, so switching back to the workspace can
+    /// reapply the stacks it remembers.
     ///
     /// Return the reprojected workspace and the checked-out ref, or `None` if `ws` isn't managed,
     /// still needs its reference, or the checkout is refused because the destination is a
@@ -801,8 +874,8 @@ pub(crate) mod function {
                 .context("BUG: unborn should be impossible here")?
                 .id,
         )?;
-        // Keep the workspace metadata or we lose the target branch.
-        // Currently that's a problem, so deal with it later.
+        // Keep the workspace metadata, so switching back to the workspace can reapply the stacks
+        // it remembers. The target doesn't depend on it, as it is stored in Git configuration.
 
         let overlay = overlay.with_entrypoint(
             ref_to_switch_to.commit_id,
