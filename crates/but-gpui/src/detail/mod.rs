@@ -2650,11 +2650,7 @@ impl Detail {
             cx.notify();
         }
         // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
-        if stop.is_none()
-            && !forward
-            && self.focus.is_focused(window)
-            && self.selected_review(cx).is_some()
-        {
+        if stop.is_none() && !forward && self.focus.is_focused(window) && self.tabs_shown(cx) {
             return self.focus_tabs(window, cx);
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
