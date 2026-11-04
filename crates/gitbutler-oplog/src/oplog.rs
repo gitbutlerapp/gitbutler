@@ -625,8 +625,12 @@ struct SnapshotReference {
 /// files stay as they are, because another agent may be working on them.
 #[derive(Debug)]
 pub struct BranchInOtherWorktree {
-    branch: gix::refs::FullName,
-    dirs: Vec<PathBuf>,
+    /// The branch that restoring would have to move.
+    pub branch: gix::refs::FullName,
+    /// Where restoring would move `branch` to, or `None` if it didn't exist in the snapshot.
+    pub restored_tip: Option<gix::ObjectId>,
+    /// The worktrees that have `branch` checked out.
+    pub dirs: Vec<PathBuf>,
 }
 
 impl std::fmt::Display for BranchInOtherWorktree {
@@ -1410,6 +1414,7 @@ fn restore_snapshot_tree(
             if !dirs.is_empty() {
                 bail!(BranchInOtherWorktree {
                     branch: reference.ref_name.clone(),
+                    restored_tip: reference.target,
                     dirs,
                 });
             }
