@@ -452,7 +452,8 @@ pub struct BlockedHunk {
 /// A commit a hunk builds on.
 #[derive(Debug)]
 pub struct BuiltOn {
-    pub id: CommitId,
+    /// What it's shown by: see [`super::short_reference`].
+    pub reference: String,
     pub title: String,
     /// The branch that has it, if it could be told.
     pub branch: Option<FullName>,
@@ -492,7 +493,7 @@ fn blocked_change(
             };
             let builds_on = (dependency.commits.iter())
                 .map(|commit| BuiltOn {
-                    id: CommitId(commit.commit_id),
+                    reference: super::short_reference(repo, CommitId(commit.commit_id)),
                     title: commit_title(repo, commit.commit_id),
                     branch: commit.branch.clone(),
                 })
@@ -1691,7 +1692,7 @@ fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<
             bail!(
                 "{} is a merge with commits above it, which would merge the same changes \
                  instead, so nothing would come back. Take out the commits above it first.",
-                merge.short()
+                super::short_reference(repo, *merge)
             );
         }
     }
@@ -2344,6 +2345,36 @@ pub(super) mod tests {
         git(path, &["add", "file"]);
         git(path, &["commit", "-q", "-m", "first"]);
         dir
+    }
+
+    #[test]
+    fn a_commit_without_a_change_id_is_named_by_its_short_sha() {
+        let dir = repo_with("one\n");
+        let repo = gix::open(dir.path()).unwrap();
+        let id = head(dir.path());
+        assert_eq!(
+            crate::backend::short_reference(&repo, id),
+            id.short(),
+            "plain Git's commit carries no change ID"
+        );
+    }
+
+    #[test]
+    fn a_commit_is_named_by_the_start_of_the_change_id_it_carries() {
+        let dir = repo_with("one\n");
+        let repo = gix::open(dir.path()).unwrap();
+        let plain = repo.find_commit(head(dir.path()).0).unwrap();
+        let mut carrying = plain.decode().unwrap().into_owned().unwrap();
+        carrying.extra_headers.push((
+            "change-id".into(),
+            "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into(),
+        ));
+        let id = repo.write_object(&carrying).unwrap().detach();
+        assert_eq!(
+            crate::backend::short_reference(&repo, CommitId(id)),
+            "vtlrvnl",
+            "the header it carries, not its sha"
+        );
     }
 
     #[test]

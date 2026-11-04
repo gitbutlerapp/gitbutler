@@ -253,6 +253,12 @@ impl Workspace {
         })
     }
 
+    /// What commit `id` is shown by: see [`Commit::short_reference`]. Its short sha if it's not
+    /// in the workspace.
+    pub fn short_reference(&self, id: CommitId) -> String {
+        (self.find_commit(id)).map_or_else(|| id.short(), |(_, commit)| commit.short_reference())
+    }
+
     /// The commits only shown branches' remotes have.
     pub fn remote_commits(&self) -> impl Iterator<Item = &RemoteCommit> {
         self.all_branches().flat_map(|branch| &branch.incoming)
@@ -696,6 +702,11 @@ pub struct Commit {
     pub tree: gix::ObjectId,
 }
 
+/// The start of change ID `key`, as a commit's sha is cut short.
+pub(super) fn short_change_id(key: &str) -> String {
+    key.get(..7).unwrap_or(key).to_owned()
+}
+
 /// What [`Commit::authored`] is made of.
 pub(super) fn authored(author: &gix::actor::Signature, message: &[u8]) -> String {
     let time = author.time.seconds.to_string();
@@ -715,6 +726,14 @@ impl Commit {
         match self.has_change_id() {
             true => self.key.clone(),
             false => self.id.0.to_string(),
+        }
+    }
+
+    /// [`Commit::reference`] as it's shown: cut short, as the sha's own is.
+    pub fn short_reference(&self) -> String {
+        match self.has_change_id() {
+            true => short_change_id(&self.key),
+            false => self.id.short(),
         }
     }
 
@@ -1690,6 +1709,35 @@ mod tests {
         assert!(
             name == "Codex GPT-6" && agent.is_none(),
             "a merge on GitHub's website isn't a person"
+        );
+    }
+
+    #[test]
+    fn a_commit_is_shown_by_the_start_of_its_change_id() {
+        let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
+        let commit = Commit {
+            key: "vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into(),
+            ..Commit::bare(id)
+        };
+        assert_eq!(
+            commit.short_reference(),
+            "vtlrvnl",
+            "its change ID outlives its sha, so it's what names it"
+        );
+    }
+
+    #[test]
+    fn a_commit_without_a_change_id_is_shown_by_its_short_sha() {
+        let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
+        let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
+        let commit = Commit {
+            key: made.to_string(),
+            ..Commit::bare(id)
+        };
+        assert_eq!(
+            commit.short_reference(),
+            "99a9648",
+            "the key made from its sha names it to nothing else"
         );
     }
 

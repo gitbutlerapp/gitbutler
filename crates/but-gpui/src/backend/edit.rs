@@ -12,7 +12,8 @@ use super::{CommitId, Intent, OpKind, title};
 /// The commit being edited.
 #[derive(Debug, Clone)]
 pub struct Editing {
-    pub commit: CommitId,
+    /// What it's shown by: see [`super::short_reference`].
+    pub reference: String,
     pub title: String,
 }
 
@@ -24,7 +25,7 @@ pub(super) fn editing(ctx: &Context) -> Result<Option<Editing>> {
     let repo = ctx.repo.get()?;
     let message = repo.find_commit(meta.commit_oid)?.message_raw()?.to_owned();
     Ok(Some(Editing {
-        commit: CommitId(meta.commit_oid),
+        reference: super::short_reference(&repo, CommitId(meta.commit_oid)),
         title: title(&but_core::commit::strip_conflict_markers(message.as_ref())),
     }))
 }

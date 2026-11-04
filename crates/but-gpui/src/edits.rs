@@ -880,7 +880,10 @@ impl AppView {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| store.key_of(&project, *id)));
         let (message, done) = match ids.len() {
             1 => (
-                format!("Discard commit {}?", newest.short()),
+                format!(
+                    "Discard commit {}?",
+                    store.short_reference(&project, newest)
+                ),
                 "Commit discarded".to_owned(),
             ),
             n => (
@@ -1414,6 +1417,10 @@ impl AppView {
         let moved = store.moved_by(&project, &[commit]);
         let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
+        let question = format!(
+            "Discard {what} from commit {}?",
+            store.short_reference(&project, commit)
+        );
         let at = Selection::Commit(project.clone(), commit);
         let run = then_run(
             project,
@@ -1430,7 +1437,7 @@ impl AppView {
         }
         self.confirm_then(
             Some(at),
-            format!("Discard {what} from commit {}?", commit.short()),
+            question,
             "The commit, and the ones after it, lose the change. This can't be undone.",
             "Discard",
             window,

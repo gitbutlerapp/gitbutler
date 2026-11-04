@@ -3193,7 +3193,7 @@ impl Navigator {
         let name = store.name_of(item.project(), branch);
         let below_tip = match item {
             Selection::Commit(_, id) if branch.commits.first()?.id != *id => {
-                format!(" at {}", id.short())
+                format!(" at {}", store.short_reference(item.project(), *id))
             }
             _ => String::new(),
         };

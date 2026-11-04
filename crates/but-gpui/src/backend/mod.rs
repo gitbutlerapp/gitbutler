@@ -866,6 +866,21 @@ fn printable(text: &str) -> String {
     out
 }
 
+/// What commit `id` is shown by, where no [`Commit`] is at hand for its
+/// [`short_reference`](Commit::short_reference): the start of the change ID it carries, or its
+/// short sha.
+fn short_reference(repo: &gix::Repository, id: CommitId) -> String {
+    use gix::prelude::ObjectIdExt as _;
+
+    let carried = but_core::Commit::from_id(id.0.attach(repo))
+        .ok()
+        .and_then(|commit| commit.headers()?.change_id);
+    carried.map_or_else(
+        || id.short(),
+        |change_id| model::short_change_id(&change_id.to_string()),
+    )
+}
+
 /// A commit message or comment's subject, as [`subject_and_body`] has it.
 fn title(message: &[u8]) -> String {
     subject_and_body(&message.to_str_lossy()).0

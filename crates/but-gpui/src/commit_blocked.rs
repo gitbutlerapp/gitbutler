@@ -243,13 +243,12 @@ fn lines_of(hunk: &BlockedHunk) -> (String, u32) {
     }
 }
 
-/// What `hunk` builds on, as `Line 5 builds on "Edit line 5" (21c7fd7) in feature`, or
+/// What `hunk` builds on, as `Line 5 builds on "Edit line 5" (vtlrvnl) in feature`, or
 /// `Lines 5–9 build on …`.
 fn builds_on(hunk: &BlockedHunk) -> String {
     let commits: Vec<String> = (hunk.builds_on.iter())
         .map(|commit| {
-            let id = commit.id.0.to_hex_with_len(7);
-            let named = format!("\"{}\" ({id})", commit_title(&commit.title));
+            let named = format!("\"{}\" ({})", commit_title(&commit.title), commit.reference);
             match &commit.branch {
                 Some(branch) => format!("{named} in {}", short_ref(branch)),
                 None => named,

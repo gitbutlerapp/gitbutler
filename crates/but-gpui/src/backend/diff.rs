@@ -258,12 +258,16 @@ fn add_conflicts(
         let ix = row(diffs, &manual.path, scope_lines, change);
         if let Some(diff) = ix.and_then(|ix| diffs.get_mut(ix)) {
             diff.file.conflicted = true;
+            let named = (ctx.repo.get()).map_or_else(
+                |_| commit.short(),
+                |repo| super::short_reference(&repo, commit),
+            );
             // The reason is a sentence of its own; the command names the commit, as the
             // branch it's on may hold several.
             diff.body = DiffBody::Unresolvable(format!(
                 "{}. Resolve it in a terminal, with `but resolve {}`.",
                 manual.reason.trim_end_matches('.'),
-                commit.short()
+                named
             ));
         }
     }

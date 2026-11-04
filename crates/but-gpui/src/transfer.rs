@@ -1056,17 +1056,27 @@ impl Transfer {
         }
     }
 
-    /// A short verb phrase for hints, like "Squash into a1b2c3d".
-    pub fn describe(&self) -> SharedString {
+    /// A short verb phrase for hints, like "Squash into vtlrvnl".
+    pub fn describe(&self, project: &str, store: &Store) -> SharedString {
         match self {
             Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. } => "Uncommit".into(),
-            Transfer::MoveCommit { to, .. } => format!("Move {}", place(to)).into(),
-            Transfer::CherryPick { to, .. } => format!("Cherry-pick {}", place(to)).into(),
+            Transfer::MoveCommit { to, .. } => format!("Move {}", place(to, project, store)).into(),
+            Transfer::CherryPick { to, .. } => {
+                format!("Cherry-pick {}", place(to, project, store)).into()
+            }
             Transfer::StackBranch { onto, .. } => format!("Stack on {}", short_ref(onto)).into(),
-            Transfer::BranchBelow { commit, .. } => format!("Move below {}", commit.short()).into(),
-            Transfer::Squash { into, .. } => format!("Squash into {}", into.short()).into(),
-            Transfer::Amend { into, .. } => format!("Amend {}", into.short()).into(),
-            Transfer::MoveFiles { to, .. } => format!("Move into {}", to.short()).into(),
+            Transfer::BranchBelow { commit, .. } => {
+                format!("Move below {}", store.short_reference(project, *commit)).into()
+            }
+            Transfer::Squash { into, .. } => {
+                format!("Squash into {}", store.short_reference(project, *into)).into()
+            }
+            Transfer::Amend { into, .. } => {
+                format!("Amend {}", store.short_reference(project, *into)).into()
+            }
+            Transfer::MoveFiles { to, .. } => {
+                format!("Move into {}", store.short_reference(project, *to)).into()
+            }
             Transfer::StageOnBranch { branch, .. } => {
                 format!("Start a commit on {}", short_ref(branch)).into()
             }
@@ -1088,7 +1098,7 @@ impl Transfer {
     ) -> Option<(FullName, Arc<[Selected]>)> {
         let lands = lands.filter(|lands| lands.of_commits() || lands.picked().is_some());
         // The pill's verb names it without a branch or commit.
-        let label = Label::new(self.verb(), self.describe());
+        let label = Label::new(self.verb(), self.describe(project, store));
         // Picked commits that moved, or went into one, are no longer what's picked.
         if let Transfer::MoveCommit { ids, .. } | Transfer::Squash { ids, .. } = &self
             && ids.len() > 1
@@ -1291,12 +1301,16 @@ fn uncommits_into(store: &Store, project: &ProjectId, id: CommitId, target: &Sel
     }
 }
 
-/// Where `to` is, said after a verb: "to feature-x", "above a1b2c3d".
-fn place(to: &Destination) -> String {
+/// Where `to` is, said after a verb: "to feature-x", "above vtlrvnl".
+fn place(to: &Destination, project: &str, store: &Store) -> String {
     match to {
         Destination::Branch(branch) => format!("to {}", short_ref(branch)),
-        Destination::AboveCommit(id) => format!("above {}", id.short()),
-        Destination::BelowCommit(id) => format!("below {}", id.short()),
+        Destination::AboveCommit(id) => {
+            format!("above {}", store.short_reference(project, *id))
+        }
+        Destination::BelowCommit(id) => {
+            format!("below {}", store.short_reference(project, *id))
+        }
     }
 }
 
