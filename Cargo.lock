@@ -1709,6 +1709,7 @@ dependencies = [
  "but-askpass",
  "but-bitbucket",
  "but-branches",
+ "but-briefs",
  "but-core",
  "but-ctx",
  "but-error",

@@ -48,6 +48,9 @@ fn followed(url: &reqwest::Url) -> bool {
 /// The image at `url`, decoded, its first frame only when it moves, and shrunk to the most a
 /// description shows of it.
 pub fn picture(url: &str) -> Result<Picture> {
+    if but_briefs::is_media_url(url) {
+        return decode(&super::briefs::media(url)?);
+    }
     ensure!(on_github(url), "Only images on GitHub are shown");
     let bytes = match fetch(url, None) {
         Ok(bytes) => bytes,

@@ -4844,6 +4844,7 @@ impl Render for AppView {
             })
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::open_keyboard_shortcuts))
+            .on_action(cx.listener(Self::open_briefs_settings))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
@@ -5014,6 +5015,12 @@ impl Render for AppView {
                 cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
                     this.detail
                         .update(cx, |detail, cx| detail.switch_tab(window, cx))
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::ShowBrief, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.show_brief(window, cx))
                 }),
             )
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {

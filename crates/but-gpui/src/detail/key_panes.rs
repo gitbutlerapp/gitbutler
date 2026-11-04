@@ -17,10 +17,11 @@ pub(crate) enum KeyPane {
     ProjectTabs,
     /// A Branches, Operations history or project page's list.
     List,
-    /// A page's Changes and pull request tabs, over what they show.
+    /// A page's Changes, pull request and brief tabs, over what they show.
     Tabs,
     /// The file list, or the files beside a list page's list.
     Files,
+    /// The diff, or a brief in its place, which the keys read on through.
     Diff,
 }
 
@@ -127,6 +128,7 @@ impl Detail {
         let list_page = self.list_page();
         let changes = !self.without_changes(cx);
         let review = self.showing_review(cx);
+        let brief = self.showing_brief();
         let project_tabs = matches!(self.selection(), Some(Selection::Project(_)));
         let files = match list_page {
             true => self.beside_files_shown(cx),
@@ -136,8 +138,11 @@ impl Detail {
             (KeyPane::ProjectTabs, project_tabs),
             (KeyPane::List, list_page),
             (KeyPane::Tabs, self.tabs_shown(cx)),
-            (KeyPane::Files, changes && !review && files),
-            (KeyPane::Diff, changes && !review && !self.overview_only()),
+            (KeyPane::Files, changes && !review && !brief && files),
+            (
+                KeyPane::Diff,
+                brief || (changes && !review && !self.overview_only()),
+            ),
         ]
         .into_iter()
         .filter_map(|(pane, shown)| shown.then_some(pane))

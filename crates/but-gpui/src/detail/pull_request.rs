@@ -13,6 +13,7 @@ use gpui::{
 };
 
 use super::diff_view::pressed;
+use super::page::PageTab;
 use super::panes::{editable_title, measured, reword_editor};
 use super::{Detail, PageFold};
 use crate::app::{SelectNext, SelectPrevious};
@@ -75,26 +76,69 @@ impl Detail {
         self.page.review_tab() && self.selected_review(cx).is_some()
     }
 
-    /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
-    /// beside its pull request, takes them back from the diff.
-    /// ⌃Tab: the other of a branch's Changes and Pull request tabs, when it has both.
-    pub(crate) fn switch_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Whether a tab shows in place of the changes.
+    pub fn over_changes(&self, cx: &App) -> bool {
+        self.showing_review(cx) || self.showing_brief()
+    }
+
+    /// The tabs the page has, as they're drawn from the left, and which of them shows. Only
+    /// Changes means it draws none.
+    fn tabs_of_page(&self, cx: &App) -> (Vec<PageTab>, usize) {
+        let mut tabs = vec![PageTab::Changes];
         if self.selected_review(cx).is_some() {
-            self.set_review_tab(!self.page.review_tab(), window, cx)
+            tabs.push(PageTab::Review);
+        }
+        if self.has_brief() {
+            tabs.push(PageTab::Brief);
+        }
+        let shown = self.shown_tab(cx);
+        let at = tabs.iter().position(|tab| *tab == shown).unwrap_or(0);
+        (tabs, at)
+    }
+
+    pub(super) fn has_page_tabs(&self, cx: &App) -> bool {
+        self.selected_review(cx).is_some() || self.has_brief()
+    }
+
+    /// The tab the page shows: the one picked, if it has that one.
+    fn shown_tab(&self, cx: &App) -> PageTab {
+        match (self.showing_review(cx), self.showing_brief()) {
+            (true, _) => PageTab::Review,
+            (false, true) => PageTab::Brief,
+            (false, false) => PageTab::Changes,
         }
     }
 
-    /// Show the pull request's tab, or the changes'. The tabs keep the keys when they have
-    /// them; from anywhere else the keys go to what the tab shows.
-    pub(crate) fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+    /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
+    /// beside its pull request, takes them back from the diff.
+    /// ⌃Tab: the next of the page's tabs, round to the first, when it has more than one.
+    pub(crate) fn switch_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (tabs, at) = self.tabs_of_page(cx);
+        let next = tabs.iter().cycle().nth(at + 1).copied();
+        if tabs.len() > 1
+            && let Some(next) = next
+        {
+            self.set_page_tab(next, window, cx)
+        }
+    }
+
+    /// Show one of the page's tabs. The tabs keep the keys when they have them; from anywhere
+    /// else the keys go to what the tab shows.
+    pub(crate) fn set_page_tab(
+        &mut self,
+        tab: PageTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(review) = self.page.review_mut() {
-            review.tab = on;
+            review.tab = tab;
         }
         match self.tabs_focus.is_focused(window) {
             true => cx.notify(),
             false => self.focus_files(window, cx),
         }
         self.ask_forge(cx);
+        self.ask_briefs(cx);
     }
 
     /// Whether the tabs have the keys.
@@ -114,18 +158,22 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        // The pull request's tab is the right one.
-        if self.page.review_tab() == forward {
+        let (tabs, at) = self.tabs_of_page(cx);
+        let next = match forward {
+            true => tabs.get(at + 1),
+            false => at.checked_sub(1).and_then(|at| tabs.get(at)),
+        };
+        let Some(&next) = next else {
             return false;
-        }
-        self.set_review_tab(forward, window, cx);
+        };
+        self.set_page_tab(next, window, cx);
         true
     }
 
-    /// Whether the tabs draw: with a pull request, beside a list page's list, or in a
-    /// branch's or a remote's commit's header while it's shown.
+    /// Whether the tabs draw: with a pull request or a brief, beside a list page's list, or in
+    /// a branch's or a remote's commit's header while it's shown.
     pub(super) fn tabs_shown(&self, cx: &App) -> bool {
-        self.selected_review(cx).is_some()
+        self.has_page_tabs(cx)
             && match self.selection() {
                 Some(Selection::Branch(..)) => self.branch_header_shown(cx),
                 Some(Selection::Upstream(..)) => self.upstream_header_shown(cx),
@@ -394,58 +442,81 @@ impl Detail {
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,
     /// with a glyph while its checks fail or run. They take the keys as the panes do.
-    pub(super) fn review_tabs(
+    pub(super) fn page_tabs(
         &self,
-        review: &Review,
         theme: &Theme,
         window: &Window,
         cx: &Context<Self>,
-    ) -> AnyElement {
+    ) -> Option<AnyElement> {
+        if !self.has_page_tabs(cx) {
+            return None;
+        }
+        let review = self.selected_review(cx);
+        let shown = self.shown_tab(cx);
         let files = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
-        let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
-        let state = (self.selected_project()).map_or(review.state, |project| {
-            self.store.read(cx).review_state(&project, review)
-        });
         let solid = has_keys(&self.tabs_focus, window, cx);
-        h_flex()
-            .track_focus(&self.tabs_focus)
-            .map(|el| self.tab_keys(el, cx))
-            // The first tab's label, not its hover ground, lines up with the text above.
-            .ml(dp(-8.))
-            .child(
-                tab(
-                    "tab-changes",
-                    Icon::Diff,
-                    "Changes",
-                    !self.page.review_tab(),
-                    solid,
-                    theme,
+        let tabs =
+            h_flex()
+                .track_focus(&self.tabs_focus)
+                .map(|el| self.tab_keys(el, cx))
+                // The first tab's label, not its hover ground, lines up with the text above.
+                .ml(dp(-8.))
+                .child(
+                    tab(
+                        "tab-changes",
+                        Icon::Diff,
+                        "Changes",
+                        shown == PageTab::Changes,
+                        solid,
+                        theme,
+                    )
+                    .children(files.map(|n| count_badge(n, theme)))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.set_page_tab(PageTab::Changes, window, cx)
+                    })),
                 )
-                .children(files.map(|n| count_badge(n, theme)))
-                .on_click(
-                    cx.listener(|this, _, window, cx| this.set_review_tab(false, window, cx)),
-                ),
-            )
-            .child(
-                tab(
-                    "tab-review",
-                    Icon::Pr,
-                    // Its number, as Lite's tab names it.
-                    match state {
-                        ReviewState::Draft => format!("Draft #{}", review.number),
-                        _ => format!("PR #{}", review.number),
-                    },
-                    self.page.review_tab(),
-                    solid,
-                    theme,
-                )
-                .children(checks.map(|checks| {
-                    let (glyph, color, _) = ui_review::checks_summary(checks, theme);
-                    small_icon(glyph).text_color(color)
+                .children(review.map(|review| {
+                    let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
+                    let state = (self.selected_project()).map_or(review.state, |project| {
+                        self.store.read(cx).review_state(&project, review)
+                    });
+                    tab(
+                        "tab-review",
+                        Icon::Pr,
+                        // Its number, as Lite's tab names it.
+                        match state {
+                            ReviewState::Draft => format!("Draft #{}", review.number),
+                            _ => format!("PR #{}", review.number),
+                        },
+                        shown == PageTab::Review,
+                        solid,
+                        theme,
+                    )
+                    .children(checks.map(|checks| {
+                        let (glyph, color, _) = ui_review::checks_summary(checks, theme);
+                        small_icon(glyph).text_color(color)
+                    }))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.set_page_tab(PageTab::Review, window, cx)
+                    }))
                 }))
-                .on_click(cx.listener(|this, _, window, cx| this.set_review_tab(true, window, cx))),
-            )
-            .into_any_element()
+                .when(self.has_brief(), |el| {
+                    el.child(
+                        tab(
+                            "tab-brief",
+                            Icon::Docs,
+                            "Brief",
+                            shown == PageTab::Brief,
+                            solid,
+                            theme,
+                        )
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.set_page_tab(PageTab::Brief, window, cx)
+                        })),
+                    )
+                })
+                .into_any_element();
+        Some(tabs)
     }
 
     /// How wide the pull request tab was last drawn on a page like this one: beside a list
@@ -464,7 +535,7 @@ impl Detail {
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
-        match self.list_page() && self.selected_review(cx).is_some() {
+        match self.list_page() && self.has_page_tabs(cx) {
             true => TABS_HEIGHT,
             false => 0.,
         }
@@ -544,8 +615,16 @@ impl Detail {
         let width = measured(self.review_width(), &self.app, |bounds| {
             bounds.size.width.into()
         });
-        // A press on a note's text selects there before this sees it, and one anywhere else on
-        // the tab drops the selection. Letting go ends a drag, as on the diff's ground.
+        (self.text_tab_ground(cx))
+            .child(page)
+            .child(width)
+            .into_any_element()
+    }
+
+    /// The ground of a tab of text. A press on its text selects there before this sees it, and
+    /// one anywhere else on the tab drops the selection. Letting go ends a drag, as on the
+    /// diff's ground.
+    pub(super) fn text_tab_ground(&self, cx: &Context<Self>) -> Div {
         (div().relative().flex_1().min_h_0().w_full())
             .on_mouse_down(
                 MouseButton::Left,
@@ -563,9 +642,6 @@ impl Detail {
                 MouseButton::Left,
                 cx.listener(|this, _, _, cx| this.let_go(cx)),
             )
-            .child(page)
-            .child(width)
-            .into_any_element()
     }
 
     /// Row `ix` of the pull request tab's column: its title, the panel when it isn't beside
@@ -954,7 +1030,7 @@ const PANEL_INSET: f32 = 16.;
 
 /// How wide the column's content gets, so a description's lines stay short enough to read and
 /// 120 columns of code still fit.
-const COLUMN_MAX_WIDTH: f32 = 840.;
+pub(super) const COLUMN_MAX_WIDTH: f32 = 840.;
 
 /// The rows of the tab's column before what's been said: the title, the panel, empty while it's
 /// beside the column so a change of layout adds or takes no row, the description and the

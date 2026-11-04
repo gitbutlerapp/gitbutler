@@ -704,7 +704,7 @@ impl Detail {
     /// in sight.
     pub fn clear_text_selection(&mut self, cx: &mut Context<Self>) -> bool {
         let had =
-            self.text_range().is_some() || (self.showing_review(cx) && self.note_range().is_some());
+            self.text_range().is_some() || (self.over_changes(cx) && self.note_range().is_some());
         self.text_selection = None;
         self.note_selection = None;
         cx.notify();

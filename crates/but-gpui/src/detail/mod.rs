@@ -4,6 +4,7 @@
 
 mod blame;
 mod branches;
+mod brief;
 mod composer;
 mod conversation;
 mod diff_view;
@@ -32,6 +33,7 @@ mod worktree;
 pub use diff_view::DiffPane;
 pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
+pub(crate) use page::PageTab;
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
@@ -98,6 +100,7 @@ actions!(
         ScrollDown,
         ScrollUp,
         SwitchTab,
+        ShowBrief,
         PickCommitTarget,
         ToggleWrap,
         TogglePlainLines,
@@ -480,6 +483,10 @@ pub struct Detail {
     opening: Option<(ProjectTab, crate::state::SeenCommit)>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
+    /// The branch Briefs was last asked about, and the asking: see [`Self::ask_briefs`].
+    brief_asked: Option<backend::briefs::BriefAnchor>,
+    _brief_ask: Task<()>,
+    brief_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
     /// How wide the pull request tab was drawn, for whether its side panel fits beside it: on
@@ -789,6 +796,7 @@ impl Detail {
                     this.refresh_diff(false, cx);
                 }
                 this.ask_forge(cx);
+                this.ask_briefs(cx);
                 cx.notify()
             }),
         ];
@@ -850,6 +858,9 @@ impl Detail {
             pending_file: None,
             opening: None,
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
+            brief_asked: None,
+            _brief_ask: Task::ready(()),
+            brief_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
             target_message_height: Rc::new(Cell::new(0.)),
@@ -1102,6 +1113,7 @@ impl Detail {
         self.reload_page(true, cx);
         self.refresh_diff(true, cx);
         self.open_waiting(false, cx);
+        self.ask_briefs(cx);
     }
 
     /// Where the diff of the page shown is, unless what's loaded is still an earlier page's.
@@ -1346,6 +1358,11 @@ impl Detail {
             review.top.set(Some(top));
             review.side = side;
         }
+        if self.brief_list.item_count() > 0
+            && let Some(brief) = self.page.brief()
+        {
+            brief.top.set(Some(self.brief_list.logical_scroll_top()));
+        }
     }
 
     /// Show or hide what's past the title of the message.
@@ -1562,6 +1579,7 @@ impl Detail {
         self.fold_rows.clear();
         self.review_list.reset(0);
         self.review_side_scroll.set_offset(Default::default());
+        self.brief_list.reset(0);
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
@@ -1578,10 +1596,17 @@ impl Detail {
         if let Some(review) = self.page.review() {
             review.top.set(None);
         }
+        // Another pick of the same branch still has its brief.
+        if self.brief_anchor(cx) != self.brief_asked
+            && let Some(brief) = self.page.brief_mut()
+        {
+            *brief = Default::default();
+        }
         self.forget_side_top();
         self.refresh_diff(true, cx);
         // A pick on the page changes no selection, which the store's observer would ask on.
         self.ask_forge(cx);
+        self.ask_briefs(cx);
         cx.notify();
     }
 
@@ -2033,7 +2058,7 @@ impl Detail {
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let side_list = self.list_page();
         // Not the file list under a pull request's tab, which draws none.
-        let files = !side_list && self.files_shown(cx) && !self.showing_review(cx);
+        let files = !side_list && self.files_shown(cx) && !self.over_changes(cx);
         // So has what the project's page opens on, what merged lately, and the Branches page's
         // overview: their lists take them on their first row, as the first step down would.
         if self.showing_shipped(cx) {
@@ -2531,6 +2556,11 @@ impl Detail {
     /// A file at a time, it stops at the file's end: the next commit would skip the other files,
     /// which the file list goes to.
     pub fn page(&mut self, by: f32, window: &mut Window, cx: &mut Context<Self>) {
+        if self.showing_brief() {
+            let height = self.brief_list.viewport_bounds().size.height;
+            self.brief_list.scroll_by(height * by);
+            return cx.notify();
+        }
         let at_end = -self.list.scroll_px_offset_for_scrollbar().y
             >= self.list.max_offset_for_scrollbar().y - crate::ui::fixed(1.);
         if by > 0. && at_end {
@@ -2681,6 +2711,7 @@ impl Detail {
         self.glide = None;
         self.list.scroll_to(top);
         self.review_list.remeasure();
+        self.brief_list.remeasure();
         let theme = Theme::get(cx);
         for side in [
             &self.uncommitted_files,
@@ -2778,12 +2809,15 @@ impl Detail {
     }
 
     pub(crate) fn move_hunk(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.showing_brief() {
+            return self.step_brief(forward, window, cx);
+        }
         let past_end = if forward { Side::Bottom } else { Side::Top };
         // The keys go on to hunks that show, not a cursor out of sight. From a branch's pull
         // request, its changes. Nothing else that hides the diff shows its hunks.
         if self.showing_review(cx) {
             if let Some(review) = self.page.review_mut() {
-                review.tab = false;
+                review.tab = PageTab::Changes;
             }
             cx.notify();
         }
@@ -3112,7 +3146,7 @@ impl Detail {
     /// The path of the current file, unless the diff it's in is hidden under a pull
     /// request's tab, which draws no files.
     pub fn shown_cursor_path(&self, cx: &App) -> Option<String> {
-        if self.showing_review(cx) {
+        if self.over_changes(cx) {
             return None;
         }
         self.cursor_path()
@@ -3125,6 +3159,9 @@ impl Detail {
     pub fn copy(&mut self, window: &Window, cx: &mut Context<Self>) -> Option<String> {
         if self.showing_review(cx) {
             return self.selected_note_text(cx);
+        }
+        if self.showing_brief() {
+            return self.selected_brief_text();
         }
         let in_list = self.files_focus.is_focused(window);
         let (text, copied) = match self.selected_text() {
@@ -3947,6 +3984,9 @@ impl Render for Detail {
                     {
                         self.render_review_tab(project, &theme, cx)
                     }
+                    Selection::Branch(..) if self.showing_brief() => {
+                        self.render_brief_tab(&theme, cx)
+                    }
                     _ => h_flex()
                         .w_full()
                         .flex_1()
@@ -4094,6 +4134,7 @@ impl Render for Detail {
                 cx.listener(|this, _: &ScrollUp, _, cx| this.scroll_lines(-SCROLL_LINES, cx)),
             )
             .on_action(cx.listener(|this, _: &SwitchTab, window, cx| this.switch_tab(window, cx)))
+            .on_action(cx.listener(|this, _: &ShowBrief, window, cx| this.show_brief(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))
             .on_action(cx.listener(|this, _: &ToggleSplit, _, cx| this.toggle_split(cx)))

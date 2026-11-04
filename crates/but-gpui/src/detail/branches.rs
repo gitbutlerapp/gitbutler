@@ -324,6 +324,8 @@ impl Detail {
                     // The filter may hide what's selected now.
                     this.select_shown_branch(cx);
                     this.refresh_diff(false, cx);
+                    // The opened branch may have moved, and the list landing doesn't notify the store.
+                    this.ask_briefs(cx);
                 }
                 cx.notify();
             })

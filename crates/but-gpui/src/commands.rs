@@ -234,6 +234,7 @@ commands! {
     AddProject => "Add project",
     crate::projects::CloneRepository => "Clone a repository",
     crate::settings::OpenSettings => "Settings",
+    crate::settings::OpenBriefsSettings => "Briefs settings" { listed: briefs_off },
     crate::settings::OpenKeyboardShortcuts => "Keyboard shortcuts",
     crate::app::OperationsHistory => "Operations history",
     crate::app::NextProjectPage => "Next project tab" { aliases: &["Next project page"] },
@@ -244,7 +245,10 @@ commands! {
     crate::app::FocusPreviousPane => "Previous pane",
     crate::app::FocusPaneRight => "Pane to the right",
     crate::app::FocusPaneLeft => "Pane to the left",
-    crate::detail::SwitchTab => "Switch between Changes and Pull request",
+    crate::detail::SwitchTab => "Switch tab" {
+        aliases: &["Switch between Changes and Pull request"]
+    },
+    crate::detail::ShowBrief => "Show brief" { listed: briefs_on },
     crate::app::CloseWindow => "Close window",
     GoTo => "Go to anything",
     GoToTerminal => "Go to a terminal",
@@ -405,6 +409,16 @@ fn pushable(app: &AppView, cx: &App) -> bool {
     };
     (app.store.read(cx).workspace(&project))
         .is_none_or(|ws| ws.push_blocked(ref_name.as_ref()).is_none())
+}
+
+/// Everywhere while they're on, not only where the page has one: on a page without one, what
+/// it says is where they are, which nothing else tells a newcomer.
+fn briefs_on(app: &AppView, cx: &App) -> bool {
+    app.store.read(cx).briefs
+}
+
+fn briefs_off(app: &AppView, cx: &App) -> bool {
+    !briefs_on(app, cx)
 }
 
 fn has_pull_request(app: &AppView, cx: &App) -> bool {

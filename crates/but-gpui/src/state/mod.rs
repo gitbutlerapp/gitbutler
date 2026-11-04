@@ -473,6 +473,8 @@ pub struct Store {
     /// Diffs show only the cursor's file rather than every file one after another, as
     /// GitButler's experimental `gpuiSingleFileDiff` says.
     pub single_file_diff: bool,
+    /// Whether a branch's page asks Briefs for its brief.
+    pub briefs: bool,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
     pub account: account::Account,
@@ -693,6 +695,7 @@ impl Store {
             prefs: saved.prefs,
             // Read with the saved state, so the diff doesn't start in the other layout.
             single_file_diff: backend::settings::single_file_diff(),
+            briefs: backend::settings::briefs(),
             window: saved.window,
             restored: Restored {
                 expanded: saved.expanded,
