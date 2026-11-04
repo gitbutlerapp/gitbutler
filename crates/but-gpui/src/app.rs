@@ -164,6 +164,8 @@ pub struct AppView {
     /// The lines of the selected row's tiling sliding to where they're even, while they are.
     tile_glide: Option<TileGlide>,
     tile_zoom: Option<TileZoom>,
+    /// The tile zoomed on each row left with one zoomed, to zoom again on coming back.
+    kept_zooms: HashMap<RowKey, Tile>,
     row_drag: Option<RowDrag>,
     row_tile: Option<RowTile>,
     /// Whether the selected row's tiles are moving, sliding or dragged: see
@@ -484,8 +486,9 @@ impl AppView {
                 StoreEvent::SelectionChanged => {
                     this.tile_slide = None;
                     this.tile_drag = None;
-                    this.tile_zoom = None;
+                    this.keep_zoom();
                     this.take_row_tile_back(cx);
+                    this.restore_zoom(cx);
                     this.move_tiles(cx);
                     this.sync_pages(window, cx)
                 }
@@ -570,6 +573,7 @@ impl AppView {
             tile_slide: None,
             tile_glide: None,
             tile_zoom: None,
+            kept_zooms: HashMap::new(),
             row_drag: None,
             row_tile: None,
             tiles_moving: false,
@@ -1146,12 +1150,11 @@ impl AppView {
         let staged =
             (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
-            self.store.update(cx, |store, cx| {
-                store.select(
-                    Some(Selection::Uncommitted(project.clone(), Checkout::Main)),
-                    cx,
-                )
-            });
+            let changes = Selection::Uncommitted(project.clone(), Checkout::Main);
+            let row = self.store.read(cx).row_key(&changes);
+            self.uncover_home(&row, cx);
+            self.store
+                .update(cx, |store, cx| store.select(Some(changes), cx));
             self.detail.update(cx, |detail, cx| {
                 detail.follow_selection(window, cx);
                 detail.stage(branch, &files, window, cx)
@@ -1304,13 +1307,15 @@ impl AppView {
         }
     }
 
-    /// Give the keys to the terminal shown, which covers the detail, if one is.
-    fn focus_terminal(&self, window: &mut Window, cx: &mut App) -> bool {
-        let terminal = self.shown_terminal(cx);
-        if let Some(terminal) = &terminal {
-            window.focus(&terminal.focus_handle(cx), cx);
+    /// Give the keys to what covers the detail, if anything does: a tile zoomed over the home
+    /// one, or else the terminal shown.
+    fn focus_cover(&self, window: &mut Window, cx: &mut App) -> bool {
+        let cover =
+            (self.zoomed_over_home(cx)).or_else(|| Some(self.shown_terminal(cx)?.focus_handle(cx)));
+        if let Some(cover) = &cover {
+            window.focus(cover, cx);
         }
-        terminal.is_some()
+        cover.is_some()
     }
 
     /// Go into the selected terminal, to type in: the detail it shows in comes back, and it
@@ -1321,7 +1326,7 @@ impl AppView {
             return;
         }
         self.set_detail(true, window, cx);
-        self.focus_terminal(window, cx);
+        self.focus_cover(window, cx);
         // The navigator ⌘1 brought out goes back now the keys left it, which no frame shows
         // when a picker's choice runs at once, so GPUI never says it lost them.
         if self.peek.keyed {
@@ -1334,7 +1339,7 @@ impl AppView {
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
         if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
-        } else if !self.focus_terminal(window, cx) {
+        } else if !self.focus_cover(window, cx) {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
         }
@@ -1368,6 +1373,19 @@ impl AppView {
     ) {
         // With the detail hidden, the navigator is the only pane.
         if self.covered() || !self.detail_open {
+            return;
+        }
+        // Under a tile zoomed, the home tile's panes are out of sight: it and the navigator
+        // are all there is, with nothing to its right.
+        if let Some(zoomed) = self.zoomed_over_home(cx) {
+            let navigator = self.navigator.focus_handle(cx);
+            match navigator.contains_focused(window, cx) {
+                true if wrap || forward => window.focus(&zoomed, cx),
+                false if (wrap || !forward) && self.navigator_shown() => {
+                    window.focus(&navigator, cx)
+                }
+                _ => {}
+            }
             return;
         }
         // A terminal takes every key it's given, so only the navigator moves to it.
@@ -1457,7 +1475,7 @@ impl AppView {
     /// the page kept them, else the file list, else the diff. A page with none, as an overview
     /// alone or a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.focus_terminal(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
+        if !self.focus_cover(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
         }
     }
@@ -1502,22 +1520,26 @@ impl AppView {
     }
 
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() || self.focus_terminal(window, cx) {
+        if self.covered() {
             return;
         }
         // Asking for what's in the detail brings it back.
         self.set_detail(true, window, cx);
-        self.detail
-            .update(cx, |detail, cx| detail.focus_files(window, cx));
+        if !self.focus_cover(window, cx) {
+            self.detail
+                .update(cx, |detail, cx| detail.focus_files(window, cx));
+        }
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() || self.focus_terminal(window, cx) {
+        if self.covered() {
             return;
         }
         self.set_detail(true, window, cx);
-        self.detail
-            .update(cx, |detail, cx| detail.focus(window, cx));
+        if !self.focus_cover(window, cx) {
+            self.detail
+                .update(cx, |detail, cx| detail.focus(window, cx));
+        }
     }
 
     /// Whether the navigator shows, beside the detail or out over it.
@@ -1624,6 +1646,8 @@ impl AppView {
             }
             return;
         }
+        let row = self.store.read(cx).row_key(&checkout);
+        self.uncover_home(&row, cx);
         if selection != checkout {
             self.store
                 .update(cx, |store, cx| store.select(Some(checkout), cx));
@@ -2623,13 +2647,16 @@ impl AppView {
     }
 
     /// Give the keys back to the tile of the selected row's tiling that had them last, or its
-    /// home tile, as when the row is clicked or the tile with them closes. Whether it has one.
+    /// home tile, as when the row is clicked or the tile with them closes, or to the tile
+    /// zoomed, the only one in sight. Whether it has one.
     pub(crate) fn focus_last_tile(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let store = self.store.read(cx);
         if store.tiling().is_none() {
             return false;
         }
-        let last = store.last_tile_with_keys().unwrap_or(Tile::Home);
+        let last = (self.zoomed().cloned())
+            .or_else(|| store.last_tile_with_keys())
+            .unwrap_or(Tile::Home);
         match self.tile_focus(&last, cx) {
             Some(focus) => window.focus(&focus, cx),
             None => self.focus_main(window, cx),
@@ -2721,9 +2748,11 @@ impl AppView {
         if self.zoomed().is_some() {
             return self.zoom_out(cx);
         }
-        let Some(tiling) = self.store.read(cx).tiling().cloned() else {
+        let store = self.store.read(cx);
+        let (Some(tiling), Some(selection)) = (store.tiling().cloned(), &store.selection) else {
             return;
         };
+        let row = store.row_key(selection);
         if self.tile_dragged() || self.row_tile.is_some() {
             return;
         }
@@ -2737,6 +2766,7 @@ impl AppView {
                 let mut slide = Slide::lasting(millis(reflow));
                 slide.start(true, cx);
                 self.tile_zoom = Some(TileZoom {
+                    row,
                     tile: tile.clone(),
                     tiling,
                     open: true,
@@ -2759,6 +2789,12 @@ impl AppView {
             .map(|zoom| &zoom.tile)
     }
 
+    /// What takes the keys of the pinned tile zoomed over the home one, if one is.
+    fn zoomed_over_home(&self, cx: &App) -> Option<FocusHandle> {
+        let tile = self.zoomed().filter(|tile| **tile != Tile::Home)?;
+        self.tile_focus(tile, cx)
+    }
+
     /// Send the tile zoomed back to its place.
     fn zoom_out(&mut self, cx: &mut Context<Self>) {
         if let Some(zoom) = self.tile_zoom.as_mut().filter(|zoom| zoom.open) {
@@ -2768,12 +2804,65 @@ impl AppView {
         }
     }
 
-    /// Forget the zoom once the tiling changes under it, as with a tile split or closed.
+    /// Bring `row`'s home tile out from under a tile zoomed over it, now or for coming back to
+    /// the row, for what opens in it, as the composer, to show.
+    fn uncover_home(&mut self, row: &RowKey, cx: &mut Context<Self>) {
+        if (self.kept_zooms.get(row)).is_some_and(|tile| *tile != Tile::Home) {
+            self.kept_zooms.remove(row);
+        }
+        let on_row = (self.tile_zoom.as_ref()).is_some_and(|zoom| zoom.row == *row);
+        if on_row && self.zoomed_over_home(cx).is_some() {
+            self.zoom_out(cx);
+        }
+    }
+
+    /// Forget the zoom once the tiling changes under it, as with a tile split or the tile zoomed
+    /// closed. Another tile going, as when its shell exits, leaves it zoomed.
     fn drop_stale_zoom(&mut self, cx: &App) {
         let tiling = self.store.read(cx).tiling();
-        if (self.tile_zoom.as_ref()).is_some_and(|zoom| tiling != Some(&zoom.tiling)) {
-            self.tile_zoom = None;
+        let Some(zoom) = self.tile_zoom.as_mut() else {
+            return;
+        };
+        if tiling == Some(&zoom.tiling) {
+            return;
         }
+        match tiling.filter(|tiling| tiling.keeps_zoom(&zoom.tile, &zoom.tiling)) {
+            Some(tiling) => {
+                zoom.tiling = tiling.clone();
+                // Not drawn under the zoom, and holding what it shows, as a terminal's shell.
+                self.tile_slide = None;
+            }
+            None => self.tile_zoom = None,
+        }
+    }
+
+    /// Keep the zoom of the row just left, to come back to. One on its way back is over.
+    fn keep_zoom(&mut self) {
+        if let Some(zoom) = self.tile_zoom.take().filter(|zoom| zoom.open) {
+            self.kept_zooms.insert(zoom.row, zoom.tile);
+        }
+    }
+
+    /// Zoom the tile the selected row was left with zoomed, as it was, while it's still there.
+    fn restore_zoom(&mut self, cx: &App) {
+        let store = self.store.read(cx);
+        let Some(selection) = &store.selection else {
+            return;
+        };
+        let row = store.row_key(selection);
+        let Some(tile) = self.kept_zooms.remove(&row) else {
+            return;
+        };
+        let Some(tiling) = store.tiling().filter(|tiling| tiling.has(&tile)).cloned() else {
+            return;
+        };
+        self.tile_zoom = Some(TileZoom {
+            row,
+            tile,
+            tiling,
+            open: true,
+            slide: Slide::lasting(millis(store.tile_drag_feel.reflow)),
+        });
     }
 
     /// Where the selected row's tiles are drawn at `now` around the tile zoomed, and whether
@@ -3865,6 +3954,8 @@ struct TileDrag {
 /// A tile of the selected row grown over the others to take all their room, or on its way
 /// there or back.
 struct TileZoom {
+    /// The row whose tile it is, kept for coming back to as the selection leaves it.
+    row: RowKey,
     tile: Tile,
     /// The tiling it's zoomed in, which the others stay as they are in.
     tiling: Tiling,
