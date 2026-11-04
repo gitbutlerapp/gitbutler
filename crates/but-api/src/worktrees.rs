@@ -243,7 +243,8 @@ pub fn worktree_set_archived_with_perm(
 ///
 /// A locked worktree is removed like any other.
 ///
-/// This works on archived worktrees as well.
+/// This works on archived worktrees as well, and on those whose checkout is gone, which aren't
+/// listed but which Git keeps until they are removed.
 #[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub fn worktree_remove(ctx: &mut but_ctx::Context, name: String, force: bool) -> Result<()> {
@@ -264,17 +265,9 @@ pub fn worktree_remove_with_perm(
     force: bool,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let worktree = ctx
-        .worktrees_with_state()?
-        .into_iter()
-        .find(|worktree| worktree.name == name)
-        .with_context(|| format!("Worktree {name} does not exist"))?;
     let repo = ctx.repo.get()?;
-    but_workspace::worktrees::remove(&repo, worktree.name.as_ref(), force)?;
-    ctx.db
-        .get_cache_mut()?
-        .worktree_meta_mut()
-        .delete(&worktree.name)?;
+    but_workspace::worktrees::remove(&repo, name, force)?;
+    ctx.db.get_cache_mut()?.worktree_meta_mut().delete(name)?;
     ctx.invalidate_workspace_cache()
 }
 
@@ -412,6 +405,9 @@ fn add_worktree(
     _perm: &mut RepoExclusive,
 ) -> Result<(BString, PathBuf)> {
     let repo = ctx.repo.get()?;
+    but_workspace::worktrees::prune_gone(&repo, branch.name())?;
+    // Forget the archived state of what was pruned, so the new worktree starts out active.
+    ctx.worktrees_with_state()?;
     let slug = slug(branch.name().shorten());
     let slug = if slug.is_empty() { "wt" } else { &slug };
     let repo_name = repo

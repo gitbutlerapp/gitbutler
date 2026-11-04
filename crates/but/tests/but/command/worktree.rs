@@ -613,6 +613,195 @@ Removed worktree new
     );
 }
 
+/// Git keeps a worktree whose checkout was deleted behind its back, hidden from everything else
+/// here, until it is removed by name, path or the branch it has checked out.
+#[test]
+fn remove_forgets_a_worktree_whose_checkout_is_gone() {
+    let env = adopted_sandbox();
+    let by_name = add_worktree_with_commit(&env, "by-name", "A");
+    let by_path = add_worktree_with_commit(&env, "by-path", "A");
+    let locked = add_worktree_with_commit(&env, "locked", "A");
+    env.invoke_git(&format!("worktree lock {}", locked.display()));
+    env.but("worktree new feat/by-branch").assert().success();
+    let by_branch = env
+        .home_dir()
+        .join(".gitbutler-worktrees")
+        .join(env.projects_root().file_name().unwrap())
+        .join("feat-by-branch");
+    for checkout in [&by_name, &by_path, &locked, &by_branch] {
+        std::fs::remove_dir_all(checkout).unwrap();
+    }
+
+    for (arg, name) in [
+        ("by-name".to_owned(), "by-name"),
+        (format!("'{}'", by_path.display()), "by-path"),
+        ("feat/by-branch".to_owned(), "feat-by-branch"),
+    ] {
+        env.but(format!("worktree remove {arg}"))
+            .assert()
+            .success()
+            .stderr_eq(snapbox::str![])
+            .stdout_eq(format!("Removed worktree {name}\n"));
+    }
+
+    // The lock may mean the checkout is only unmounted, and nothing can tell if it has changes.
+    env.but("worktree remove locked")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree locked is locked and its checkout is unavailable; use --force to forget it
+
+"#]]);
+    env.but("worktree remove locked --force").assert().success();
+
+    assert_eq!(
+        std::fs::read_dir(env.projects_root().join(".git/worktrees"))
+            .map(Iterator::count)
+            .unwrap_or_default(),
+        0,
+        "Git no longer knows any of them"
+    );
+}
+
+/// A name can also be the branch of another worktree, and the name wins there too.
+#[test]
+fn remove_prefers_a_name_over_a_branch() {
+    let env = adopted_sandbox();
+    let wt = env.app_data_dir().join("worktrees");
+    env.invoke_git(&format!(
+        "worktree add -q -b second {}/first A",
+        wt.display()
+    ));
+    env.invoke_git(&format!(
+        "worktree add -q -b third {}/second A",
+        wt.display()
+    ));
+
+    env.but("worktree remove second")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree second
+
+"#]]);
+    assert!(wt.join("first").is_dir(), "the worktree on `second` stays");
+}
+
+/// The name wins over a CLI ID here too, or the wrong worktree would go.
+#[test]
+fn remove_prefers_the_name_of_a_gone_worktree_over_a_cli_id() {
+    let env = adopted_sandbox();
+    let alive = add_worktree_with_commit(&env, "alive", "A");
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+al alive - [..]/alive
+
+"#]]);
+    let gone = env.app_data_dir().join("worktrees/al");
+    env.invoke_git(&format!("worktree add -q --detach {} A", gone.display()));
+    std::fs::remove_dir_all(&gone).unwrap();
+
+    env.but("worktree remove al")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Removed worktree al
+
+"#]]);
+    assert!(alive.is_dir(), "the worktree whose ID is `al` stays");
+}
+
+#[test]
+fn new_recreates_a_worktree_whose_checkout_is_gone() {
+    let env = adopted_sandbox();
+    let checkout = add_worktree_with_commit(&env, "gone", "A");
+    env.but("worktree archive gone").assert().success();
+    std::fs::remove_dir_all(&checkout).unwrap();
+
+    env.but("worktree new gone")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree gone on 'gone' from [..] at [..]/gone
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.invoke_git("log -1 --format=%s gone"),
+        snapbox::str!["add W"]
+    );
+    // The archived state went with the old checkout.
+    env.but("worktree list --active")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+[..] gone - [..]/gone
+
+"#]]);
+}
+
+/// Creating a worktree on one branch has no business forgetting any other worktree, as a detached
+/// one may be all that keeps its commits alive.
+#[test]
+fn new_keeps_the_gone_worktrees_of_other_branches() {
+    let env = adopted_sandbox();
+    let other = add_worktree_with_commit(&env, "other", "A");
+    std::fs::remove_dir_all(&other).unwrap();
+
+    env.but("worktree new fresh").assert().success();
+    assert!(
+        env.projects_root().join(".git/worktrees/other").is_dir(),
+        "other is still registered"
+    );
+}
+
+/// A location that can't be read may hold a healthy checkout, so its worktree isn't gone.
+#[cfg(unix)]
+#[test]
+fn a_checkout_that_cannot_be_read_is_not_gone() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let env = adopted_sandbox();
+    let checkout = add_worktree_with_commit(&env, "wt", "A");
+    let parent = checkout.parent().unwrap();
+    std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o000)).unwrap();
+    if std::fs::read_dir(parent).is_ok() {
+        return; // Root can read anything, so there is no such location here.
+    }
+    let new = env.but("worktree new wt").assert();
+    let delete = env.but("branch delete wt").assert();
+    std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    new.failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'wt' is already checked out in [..]/wt
+
+Hint: Run `but worktree new <new-name> -A wt` to start a new branch from it
+
+"#]]);
+    delete
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Refusing to delete a branch that is checked out. Worktrees are: [..]/wt
+
+"#]]);
+    assert!(checkout.join(".git").is_file());
+    snapbox::assert_data_eq!(
+        env.invoke_git("log -1 --format=%s wt"),
+        snapbox::str!["add W"]
+    );
+}
+
 #[test]
 fn new_checks_out_a_new_branch_at_the_highest_base() {
     let env = adopted_sandbox();
