@@ -37,7 +37,7 @@
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
 //! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
-//!                         # Settings › Experimental does
+//!                         # Settings › Appearance does
 //! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
 //!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
@@ -1081,7 +1081,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 (app.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx))
             });
         }
-        // A part Settings › Experimental would show or hide, without opening it.
+        // A part Settings › Appearance would show or hide, without opening it.
         "pref" => {
             let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
             let hidden = match state.trim() {

@@ -504,7 +504,7 @@ pub struct Prefs {
     pub show_fps: bool,
 }
 
-/// A part of the window a setting in Settings › Experimental can leave out.
+/// A part of the window a setting in Settings › Appearance can leave out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Part {
     /// The bar along the window's bottom, with what's under way and the keys that go with it.

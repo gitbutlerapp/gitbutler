@@ -69,10 +69,16 @@ impl AppPage {
     ];
 
     /// The pages this build has: Developer only in a build of its own, not a nightly or a
-    /// release.
-    fn shown() -> impl Iterator<Item = AppPage> {
+    /// release, and Experimental only inside the desktop app's binary, the only place it has
+    /// anything.
+    fn shown(cx: &App) -> impl Iterator<Item = AppPage> + use<> {
         let dev = backend::dev_build();
-        (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
+        let embedded = cx.has_global::<crate::Embedded>();
+        (AppPage::ALL.into_iter()).filter(move |page| match page {
+            AppPage::Developer => dev,
+            AppPage::Experimental => embedded,
+            _ => true,
+        })
     }
 }
 
@@ -377,7 +383,7 @@ impl SettingsView {
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
-            app_links: (AppPage::shown())
+            app_links: (AppPage::shown(cx))
                 .map(|page| Link::new(Page::App(page), cx))
                 .collect(),
             project_focus: HashMap::new(),
@@ -671,6 +677,7 @@ impl SettingsView {
         let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
+        let status_bar = self.status_bar_row(cx);
         let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
@@ -721,6 +728,12 @@ impl SettingsView {
                 )),
             ),
         ];
+        diff.splice(
+            5..5,
+            [self.single_file_row(cx)]
+                .into_iter()
+                .chain(self.diff_layout_rows(cx)),
+        );
         if !prefs.no_semantic_context {
             let detail = self.detail.clone();
             let scope = segmented(
@@ -840,7 +853,7 @@ impl SettingsView {
             terminal_font,
         );
         vec![
-            Card::new(None, vec![scheme, appearance, size]),
+            Card::new(None, vec![scheme, appearance, size, status_bar]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts]),
             Card::new(Some("Diff"), diff),
@@ -955,21 +968,21 @@ impl SettingsView {
         .with_keywords("all-in-one one file at a time per screen")
     }
 
-    /// A switch for each part of the window Experimental can leave out.
-    fn part_rows(&self, cx: &Context<Self>) -> [Row; 3] {
+    /// The status bar's switch, on while it shows.
+    fn status_bar_row(&self, cx: &Context<Self>) -> Row {
+        let shown = !self.store.read(cx).prefs.hide_status_bar;
+        Row::new(
+            "Show status bar",
+            "The bar along the window's bottom, with what's under way and the keys for it.",
+            self.pref_switch("status-bar", shown, |p| p.hide_status_bar ^= true, cx),
+        )
+        .with_keywords("minimal compact footer hide")
+    }
+
+    /// Where the messages go and which controls the diff draws.
+    fn diff_layout_rows(&self, cx: &Context<Self>) -> [Row; 2] {
         let prefs = &self.store.read(cx).prefs;
         [
-            Row::new(
-                "Hide status bar",
-                "Leaves out the bar along the window's bottom.",
-                self.pref_switch(
-                    "hide-status-bar",
-                    prefs.hide_status_bar,
-                    |p| p.hide_status_bar ^= true,
-                    cx,
-                ),
-            )
-            .with_keywords("minimal compact footer"),
             Row::new(
                 "Commit messages in the diff",
                 "Commit and branch pages list their messages above the files in place of \
@@ -983,17 +996,17 @@ impl SettingsView {
             )
             .with_keywords("minimal compact header"),
             Row::new(
-                "Fewer diff controls",
-                "Leaves out the bar over the diff and the buttons in file headers, which keys \
-                 and menus have too.",
+                "Show diff controls",
+                "The bar over the diff, and the line counts and buttons in file headers. Off, \
+                 keys and menus still have them.",
                 self.pref_switch(
-                    "hide-diff-controls",
-                    prefs.hide_diff_controls,
+                    "diff-controls",
+                    !prefs.hide_diff_controls,
                     |p| p.hide_diff_controls ^= true,
                     cx,
                 ),
             )
-            .with_keywords("minimal compact toolbar wrap split"),
+            .with_keywords("minimal compact toolbar hide"),
         ]
     }
 
@@ -1207,14 +1220,7 @@ impl SettingsView {
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx))
                     .flatten();
-                vec![Card::new(
-                    None,
-                    start
-                        .into_iter()
-                        .chain([self.single_file_row(cx)])
-                        .chain(self.part_rows(cx))
-                        .collect(),
-                )]
+                vec![Card::new(None, start.into_iter().collect())]
             }
             Page::App(AppPage::Developer) => vec![
                 Card::new(None, vec![self.fps_row(cx)]),
@@ -1275,7 +1281,8 @@ impl SettingsView {
         let project = (self.page.project().cloned())
             .into_iter()
             .flat_map(|project| ProjectPage::ALL.map(|page| Page::Project(project.clone(), page)));
-        AppPage::shown().map(Page::App).chain(project).collect()
+        let app = self.app_links.iter().map(|link| link.page.clone());
+        app.chain(project).collect()
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
