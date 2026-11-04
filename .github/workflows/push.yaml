@@ -138,7 +138,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: Cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |
@@ -639,7 +639,7 @@ jobs:
           version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
           echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
       - name: cache playwright binaries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: playwright-cache
         with:
           path: |
