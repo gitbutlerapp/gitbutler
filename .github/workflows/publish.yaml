@@ -29,11 +29,105 @@ on:
         type: boolean
         required: true
         default: false
+      skip_tests:
+        description: Build without running the Tauri app's tests first. For emergencies only.
+        type: boolean
+        required: false
+        default: false
 
 permissions: {}
 
 jobs:
+  # The Tauri app's whole test suite, before anything is built or published. Pull requests
+  # run these only when the app's own files change (ci.but.dev checks the rest), so a break
+  # that comes from shared code is caught here at the latest.
+  test-tauri:
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: cargo-test-tauri
+          save-if: false
+      - name: Install Zig
+        uses: $/.github/actions/setup-zig
+      # The same checks as push.yaml's rust-lint and rust-test-tauri.
+      - name: cargo clippy -p gitbutler-tauri
+        run: |
+          rustup component add clippy
+          cargo clippy -p gitbutler-tauri --all-targets -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --no-default-features -- -D warnings
+          cargo clippy -p gitbutler-tauri --all-targets --all-features -- -D warnings
+      - name: Test but-api-macros --features tauri
+        run: cargo test -p but-api-macros-tests --features tauri
+      - name: Check Tauri app features
+        run: |
+          set -e
+          cargo check -p gitbutler-tauri --no-default-features
+          for feature in devtools custom-protocol error-context packaged-but-distribution builtin-but; do
+            cargo check -p gitbutler-tauri --no-default-features --features "$feature"
+          done
+
+  # The desktop frontend and the packages it uses: lint, type checks and unit tests.
+  test-frontend:
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/init-env-node
+      - id: get_playwright_version
+        shell: bash
+        run: |
+          version=$(pnpm --filter @gitbutler/ui-svelte --fail-if-no-match exec node -p 'require("playwright/package.json").version')
+          echo "playwright-version=v$version" >> "$GITHUB_OUTPUT"
+      - name: Cache playwright binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - run: pnpm ui:playwright:install:unit
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+      - run: pnpm lint
+      - run: pnpm check
+      - run: pnpm test
+
+  # Every e2e suite, whatever changed.
+  test-e2e:
+    if: ${{ !inputs.skip_tests }}
+    uses: ./.github/workflows/test-e2e.yml
+    with:
+      before_publish: true
+    secrets:
+      TEST_RESULTS_TOKEN_BLACKBOX: ${{ secrets.TEST_RESULTS_TOKEN_BLACKBOX }}
+      TEST_RESULTS_TOKEN_PLAYWRIGHT: ${{ secrets.TEST_RESULTS_TOKEN_PLAYWRIGHT }}
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+
   build-sveltekit:
+    # Skipped tests (skip_tests) don't block the build; failed or cancelled ones do.
+    needs: [test-tauri, test-frontend, test-e2e]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
