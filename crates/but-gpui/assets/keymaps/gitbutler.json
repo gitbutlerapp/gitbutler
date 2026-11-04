@@ -43,6 +43,23 @@
       "secondary-shift-h": "app::OperationsHistory"
     }
   },
+  // A project's tabs, Overview, Branches, Operations history and Graph, as ⇧⌘] and ⇧⌘[ step
+  // through tabs in Safari, Xcode and Zed, and Ctrl+PageDown and Ctrl+PageUp in browsers and VS
+  // Code elsewhere. From anywhere in a project, as its card's rows don't list them.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-}": "app::NextProjectPage",
+      "cmd-{": "app::PreviousProjectPage"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "bindings": {
+      "ctrl-pagedown": "app::NextProjectPage",
+      "ctrl-pageup": "app::PreviousProjectPage"
+    }
+  },
   // Fetching runs in the background, so this is a refresh: ⌘R, as Fork, Tower and the
   // desktop app refresh, and F5 too on Windows and Linux, first so menus show Ctrl+R.
   {

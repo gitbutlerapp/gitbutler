@@ -2,10 +2,10 @@
 // committing, moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
-// to the navigator, the files and the diff, ⌘B and ⌥⌘B to show and hide the navigator and the
-// details, ⌘D and ⇧⌘D to split a tile and ⌘] and ⌘[ to go between tiles (Ghostty's keys for
-// them on Linux), and the keys the app's lists and overlays need, as GitButler's keymap has
-// them.
+// to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
+// tabs and ⇧⌘H to its Operations history, ⌘B and ⌥⌘B to show and hide the navigator and the
+// details, ⌘D and ⇧⌘D to split a tile and ⌘] and ⌘[ to go between tiles (Ghostty's keys for them
+// on Linux), and the keys the app's lists and overlays need, as GitButler's keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -58,7 +58,34 @@
       "secondary-2": "app::FocusChanges",
       "secondary-3": "app::FocusDiff",
       "secondary-b": "app::ToggleNavigator",
-      "secondary-alt-b": "app::ToggleDetail"
+      "secondary-alt-b": "app::ToggleDetail",
+      "secondary-shift-h": "app::OperationsHistory"
+    }
+  },
+  // A project's tabs, Overview, Branches, Operations history and Graph, as ⇧⌘] and ⇧⌘[ step
+  // through tabs in Safari, Xcode and Zed, and Ctrl+PageDown and Ctrl+PageUp in browsers and VS
+  // Code elsewhere. From anywhere in a project, as its card's rows don't list them.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-}": "app::NextProjectPage",
+      "cmd-{": "app::PreviousProjectPage"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "bindings": {
+      "ctrl-pagedown": "app::NextProjectPage",
+      "ctrl-pageup": "app::PreviousProjectPage"
+    }
+  },
+  // ] and [ too, as vim-unimpaired steps to the next and the one before, bound last so they're
+  // the keys shown.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "]": "app::NextProjectPage",
+      "[": "app::PreviousProjectPage"
     }
   },
   // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the

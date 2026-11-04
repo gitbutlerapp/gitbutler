@@ -1710,36 +1710,16 @@ impl Detail {
     fn project_tabs(&self, page: &Selection, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let project = page.project();
         let unapplied = self.unapplied(project).filter(|n| *n > 0);
-        let tabs = [
-            (
-                "tab-overview",
-                Icon::Repo,
-                "Overview",
-                Selection::Project(project.clone()),
-            ),
-            (
-                "tab-branches",
-                Icon::Branch,
-                "Branches",
-                Selection::Branches(project.clone()),
-            ),
-            (
-                "tab-history",
-                Icon::Clock,
-                "Operations history",
-                Selection::History(project.clone()),
-            ),
-            (
-                "tab-graph",
-                Icon::Fork,
-                "Graph",
-                Selection::Graph(project.clone()),
-            ),
-        ];
         h_flex()
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
-            .children(tabs.into_iter().map(|(id, glyph, label, to)| {
+            .children(Selection::project_pages(project).map(|to| {
+                let (id, glyph, label) = match to {
+                    Selection::Branches(_) => ("tab-branches", Icon::Branch, "Branches"),
+                    Selection::History(_) => ("tab-history", Icon::Clock, "Operations history"),
+                    Selection::Graph(_) => ("tab-graph", Icon::Fork, "Graph"),
+                    _ => ("tab-overview", Icon::Repo, "Overview"),
+                };
                 let selected = *page == to;
                 tab(id, glyph, label, selected, true, theme)
                     .when(id == "tab-branches", |el| {
