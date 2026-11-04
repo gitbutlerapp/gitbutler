@@ -2,7 +2,8 @@ use snapbox::str;
 
 use crate::{
     command::util::{
-        add_dirty_worktree, branch_commit_cli_ids, status_json_with_files as status_json,
+        add_dirty_worktree, add_worktree_with_lower_branch, branch_commit_cli_ids,
+        status_json_with_files as status_json,
     },
     utils::Sandbox,
 };
@@ -904,5 +905,93 @@ Hint: Run `but status` to show applicable targets
 
 "#]]);
         assert_eq!(env.invoke_git("rev-parse A"), tip);
+    }
+}
+
+/// A linked worktree's branch is a target like a workspace branch, in either mode and from either
+/// checkout, and it means that branch's tip rather than the tip of the lane.
+#[test]
+fn amend_into_a_worktree_branch_by_name() {
+    let workspace = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    workspace.setup_metadata(&["A"]);
+    let single_branch = Sandbox::open_with_default_settings("single-branch-mode");
+
+    for (env, start_point) in [(workspace, "A"), (single_branch, "main")] {
+        env.but("status").assert().success();
+        let wt_dir = add_worktree_with_lower_branch(&env, "wt-feature", start_point);
+
+        for (amend, dir, file) in [
+            ("amend -t wt-feature", wt_dir.as_path(), "in-worktree.txt"),
+            (
+                "amend in-main.txt -t wt-feature",
+                env.projects_root(),
+                "in-main.txt",
+            ),
+            ("amend -t wt-lower", wt_dir.as_path(), "in-lower.txt"),
+        ] {
+            std::fs::write(dir.join(file), "content\n").unwrap();
+            env.but(amend)
+                .current_dir(dir)
+                .assert()
+                .success()
+                .stderr_eq(str![])
+                .stdout_eq(str![[r#"
+Amended [..]
+
+"#]]);
+        }
+
+        assert_eq!(
+            env.invoke_git("show --format= --name-only wt-feature"),
+            "in-main.txt\nin-worktree.txt\nwt-top.txt",
+            "the tip of the named branch took the changes of both checkouts"
+        );
+        assert_eq!(
+            env.invoke_git("show --format= --name-only wt-lower"),
+            "in-lower.txt\nwt-file.txt",
+            "naming the lower branch means its own tip, not the tip of the lane"
+        );
+        assert_eq!(
+            env.invoke_git("rev-parse wt-feature^"),
+            env.invoke_git("rev-parse wt-lower"),
+            "no commit was added"
+        );
+    }
+}
+
+/// A branch without commits only has the commit below it to offer, which belongs to another
+/// branch or to the target.
+#[test]
+fn amend_refuses_a_branch_without_commits_as_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    let single = Sandbox::open_with_default_settings("single-branch-mode");
+    single.invoke_git("checkout -q -b empty");
+    single.file("new.txt", "content\n");
+
+    let wt_on_lane = add_dirty_worktree(&env, "wt-on-lane", "A");
+    let wt_on_target = add_dirty_worktree(&env, "wt-on-target", "main");
+    for (env, branch, dir, below) in [
+        (&env, "wt-on-lane", wt_on_lane.as_path(), "A"),
+        (&env, "wt-on-target", wt_on_target.as_path(), "main"),
+        (&single, "empty", single.projects_root(), "main"),
+    ] {
+        let before = env.invoke_git(&format!("rev-parse {below}"));
+
+        env.but(format!("amend -t {branch}"))
+            .current_dir(dir)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: --target cannot be an empty branch
+
+"#]]);
+        assert_eq!(
+            env.invoke_git(&format!("rev-parse {below}")),
+            before,
+            "the commit below the empty branch isn't rewritten"
+        );
     }
 }
