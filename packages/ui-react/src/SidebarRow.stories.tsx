@@ -6,8 +6,10 @@ import { CiStatus, MetaCount } from "./MetaCount.tsx";
 import {
 	BranchItem,
 	CommitItem,
+	GroupLabel,
 	MachineItem,
 	MoreItem,
+	NavItem,
 	NoticeItem,
 	RepoItem,
 	StackCaption,
@@ -1313,3 +1315,56 @@ const NewOnTargetTree: FC = () => {
 		</div>
 	);
 };
+
+const DocsNavigation: FC = () => {
+	const [folded, setFolded] = useState(false);
+	return (
+		// In a card, as every sidebar row is: never loose on a panel's ground.
+		<nav
+			aria-label="Pages"
+			style={{
+				padding: 8,
+				border: "1px solid var(--border-section)",
+				borderRadius: "var(--radius-card)",
+				backgroundColor: "var(--bg-1)",
+			}}
+		>
+			<GroupLabel
+				name="Getting started"
+				folded={folded}
+				onToggleFolded={() => setFolded(!folded)}
+			/>
+			{!folded &&
+				(
+					[
+						["Overview", "docs"],
+						["Emphasis", "bullseye"],
+						["Icons", "file-text"],
+						["Buttons", "bullet-list"],
+					] as const
+				).map(([page, icon]) => (
+					<NavItem
+						key={page}
+						name={page}
+						icon={icon}
+						depth={1}
+						selected={page === "Emphasis"}
+						render={
+							// oxlint-disable-next-line jsx_a11y/anchor-has-content, jsx_a11y/control-has-associated-label -- The row renders as this link, and NavItem fills it with the name.
+							<a
+								href={`#${page.toLowerCase()}`}
+								aria-current={page === "Emphasis" ? "page" : undefined}
+							/>
+						}
+					/>
+				))}
+		</nav>
+	);
+};
+
+/** A docs site's pages: a group label that folds them away, and the pages one level under it, the
+ * page on screen selected. */
+export const Navigation = meta.story({
+	parameters: { design: { type: "figma", url: core("4793-4281") } },
+	render: () => <DocsNavigation />,
+});

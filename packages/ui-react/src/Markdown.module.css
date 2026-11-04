@@ -1,0 +1,123 @@
+/* The rhythm is 12, 16, 4 (design/patterns/markdown.md): 12 between text blocks, 16 around
+   anything with an edge, since a box lacks text's leading, and 4 between list items. Margins
+   collapse, so a box next to a paragraph gets 16, not 28. */
+.markdown {
+	max-width: var(--size-prose-wide);
+	color: var(--text-1);
+	overflow-wrap: anywhere;
+
+	/* Text keeps to the prose column, centred, so wide blocks break out of it on both sides. */
+	& > * {
+		max-width: var(--size-prose);
+		margin-inline: auto;
+		margin-block: var(--space-2xl);
+	}
+
+	& > :first-child {
+		margin-block-start: 0;
+	}
+
+	& > :last-child {
+		margin-block-end: 0;
+	}
+
+	/* A heading takes twice the text gap above, a little less from h3 down, and sits close to what
+	   it heads. */
+	& > :is(h1, h2) {
+		margin-block: var(--space-5xl) var(--space-lg);
+	}
+
+	& > :is(h3, h4, h5, h6) {
+		margin-block: var(--space-4xl) var(--space-lg);
+	}
+
+	& :is(ul, ol) {
+		padding-inline-start: var(--space-5xl);
+	}
+
+	/* design-core's reset drops list markers app-wide, which suits the lists the UI is built from;
+	   in markdown a list is content, so they come back, alternating as they nest. */
+	& ul {
+		list-style: disc;
+	}
+
+	& ul ul {
+		list-style: circle;
+	}
+
+	& ol {
+		list-style: decimal;
+	}
+
+	& li + li,
+	& li > :is(ul, ol) {
+		margin-block-start: var(--space-sm);
+	}
+
+	& li::marker {
+		color: var(--text-2);
+	}
+
+	/* A task's box stands in the marker's gutter. */
+	& li:has(> .task) {
+		margin-inline-start: calc(-1 * var(--space-5xl));
+		list-style: none;
+	}
+
+	& blockquote {
+		padding-inline-start: var(--space-2xl);
+		border-inline-start: 3px solid var(--border-2);
+		color: var(--text-2);
+
+		& > :first-child {
+			margin-block-start: 0;
+		}
+
+		& > :last-child {
+			margin-block-end: 0;
+		}
+	}
+
+	& hr {
+		width: 100%;
+		border: none;
+		border-block-start: 1px solid var(--border-section);
+	}
+
+	& > :is(blockquote, hr, .box, p:has(> .image:only-child), p:has(> a:only-child > .image)) {
+		margin-block: var(--space-3xl);
+	}
+
+	& > :is(.wide, p:has(> .image:only-child), p:has(> a:only-child > .image)) {
+		max-width: var(--size-prose-wide);
+	}
+
+	& strong {
+		font-weight: var(--font-weight-semibold);
+	}
+}
+
+/* An 18 column for the 14 box and a 6 gap, so the text starts where a list item's does. */
+.task {
+	display: inline-flex;
+	margin-inline: 2px var(--space-lg);
+	vertical-align: -2px;
+}
+
+/* An edge on a white screenshot, drawn over the picture so it follows the corners. */
+.image {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--radius-card);
+	outline: 1px solid var(--border-section);
+	outline-offset: -1px;
+}
+
+.box {
+	width: 100%;
+}
+
+.wide {
+	max-width: var(--size-prose-wide);
+}

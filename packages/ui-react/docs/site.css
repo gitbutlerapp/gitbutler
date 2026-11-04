@@ -22,145 +22,139 @@ body[data-layout="centered"] {
 	min-height: 100vh;
 }
 
-/* The page beside the sidebar, which is fixed to the left. */
+/* The sidebar and the page, side by side across the window's height (set inline, as the group
+   sets its own height there); each scrolls on its own. */
 .docs-site {
-	min-height: 100vh;
-	padding-left: 240px;
 	background-color: var(--bg-2);
 }
 
 .docs-site-sidebar {
 	display: flex;
-	z-index: 1;
-	position: fixed;
-	top: 0;
-	bottom: 0;
-	left: 0;
 	flex-direction: column;
-	width: 240px;
-	padding: 16px 12px;
-	gap: 16px;
+	height: 100%;
 	background-color: var(--bg-2);
 	color: var(--text-1);
 	font-family: var(--fontfamily-base);
 }
 
-.docs-site-top {
-	display: flex;
-	flex-direction: column;
-	padding: 0 4px;
-	gap: 16px;
-}
-
+/* The sidebar scrolls as a whole, its scrollbar in the gutter beside the card rather than in it. */
 .docs-site-scroll {
 	flex: 1;
 	min-height: 0;
 }
 
-.docs-site-nav {
-	display: flex;
-	flex-direction: column;
-	padding: 0 4px;
-	gap: 20px;
+.docs-site-scroll-viewport {
+	padding: 0 var(--gap-stack);
 }
 
-/* A card's row, tightened to a list of pages. */
-.docs-site-nav .docs-site-page {
-	padding: 6px 8px;
-	border-radius: var(--radius-control);
+/* The pages in a card, as sidebar rows always are, never loose on the panel's ground, led by the
+   search full-bleed as a popup is. Scrolled, the search sticks at the top and the card's rounded
+   bottom at the bottom while the pages pass between them, as a machine's card does on but.dev: so
+   the card is drawn by its parts, the search its top, the pages its sides and a cap its bottom, and
+   the ground around each end fills the notches outside its corners. */
+.docs-site-pages-head {
+	z-index: 1;
+	position: sticky;
+	top: 0;
+	padding-top: var(--gap-stack);
+	background-color: var(--bg-2);
 }
 
-.docs-site-search {
-	min-width: 0;
+.docs-site-pages-top {
+	overflow: hidden;
+	border: 1px solid var(--border-section);
+	border-bottom: 0;
+	border-radius: var(--radius-card) var(--radius-card) 0 0;
+	background-color: var(--bg-1);
 }
 
-.docs-site-page[aria-current="page"] {
-	background-color: var(--bg-3);
+.docs-site-pages {
+	border-inline: 1px solid var(--border-section);
+	background-color: var(--bg-1);
 }
 
-.docs-site-theme {
-	align-self: stretch;
+/* The card's bottom edge, laid over the last group's padding so the card ends where it did. The
+   edge is see-through, so the pages scroll right down to it; the ground is painted only outside its
+   rounded corners and below it. */
+.docs-site-pages-foot {
+	--corner: var(--radius-card);
+
+	z-index: 1;
+	position: sticky;
+	bottom: 0;
+	margin-top: calc(-1 * var(--corner));
+	padding-bottom: var(--gap-stack);
+	background:
+		radial-gradient(
+				circle at 100% 0,
+				transparent calc(var(--corner) - 0.5px),
+				var(--bg-2) var(--corner)
+			)
+			left top / var(--corner) var(--corner) no-repeat,
+		radial-gradient(
+				circle at 0 0,
+				transparent calc(var(--corner) - 0.5px),
+				var(--bg-2) var(--corner)
+			)
+			right top / var(--corner) var(--corner) no-repeat,
+		linear-gradient(var(--bg-2), var(--bg-2)) bottom / 100% var(--gap-stack) no-repeat;
+	pointer-events: none;
 }
 
-.docs-site-main {
-	min-height: calc(100vh - 16px);
-	margin: 8px 8px 8px 0;
-	border: 1px solid var(--border-3);
+.docs-site-pages-bottom {
+	height: var(--corner);
+	border: 1px solid var(--border-section);
+	border-top: 0;
+	border-radius: 0 0 var(--corner) var(--corner);
+}
+
+/* A hairline parts the groups. */
+.docs-site-group {
+	padding: var(--padding-list);
+
+	& + & {
+		border-top: 1px solid var(--border-section);
+	}
+}
+
+.docs-site-card {
+	overflow: hidden;
+	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
 }
 
-/* The design notes: Markdown, set as the component pages' prose is. */
+/* The theme stays put under the pages, past a hairline. */
+.docs-site-footer {
+	margin: 0 var(--gap-stack);
+	padding: var(--gap-stack) 0;
+	border-top: 1px solid var(--border-section);
+}
+
+.docs-site-theme {
+	display: flex;
+	flex-direction: column;
+	padding: var(--gap-stack);
+}
+
+.docs-site-main {
+	height: 100%;
+	overflow: auto;
+	background-color: var(--bg-1);
+}
+
+/* The design notes: Markdown, drawn as any app draws it. */
 .docs-site-prose {
 	max-width: 760px;
 	margin: 0 auto;
 	padding: 48px 32px 64px;
-	color: var(--text-2);
-	font-size: 0.875rem;
-	line-height: var(--font-line-height-body);
+}
 
-	& :is(h1, h2, h3, h4) {
-		margin: 32px 0 12px;
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-		line-height: var(--font-line-height-default);
-	}
-
-	& h1 {
-		margin-top: 0;
-		font-size: 1.5rem;
-	}
-
-	& h2 {
-		font-size: 1rem;
-	}
-
-	& :is(h3, h4) {
-		font-size: 0.875rem;
-	}
-
-	& :is(p, ul, ol, table, pre) {
-		margin: 0 0 12px;
-	}
-
-	& :is(ul, ol) {
-		padding-left: 20px;
-	}
-
-	& strong {
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	& a {
-		color: var(--text-1);
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	& code {
-		padding: 1px 4px;
-		border-radius: var(--radius-xs);
-		background-color: var(--bg-3);
-		font-size: 0.8125rem;
-		font-family: var(--fontfamily-mono);
-	}
-
-	& table {
-		border-collapse: collapse;
-	}
-
-	& :is(th, td) {
-		padding: 6px 12px 6px 0;
-		border-bottom: 1px solid var(--border-3);
-		text-align: start;
-		vertical-align: top;
-	}
-
-	& th {
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-	}
+/* A link to another page of notes stays on the site, so it goes without TextLink's arrow. */
+.docs-site-page-link {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
 }
 
 /* A component's page. */

@@ -49,6 +49,16 @@
 	--segment-icon-size: 14px;
 }
 
+/* Across its container, the segments sharing the width evenly whatever their labels. */
+.fill {
+	display: flex;
+
+	& > .segment {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+}
+
 .segment {
 	display: inline-flex;
 	position: relative;

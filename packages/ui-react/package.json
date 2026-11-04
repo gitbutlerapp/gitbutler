@@ -25,15 +25,16 @@
 		"@tanstack/react-hotkeys": "^0.10.0",
 		"@tanstack/react-virtual": "^3.14.10",
 		"effect": "^3.20.0",
+		"markdown-to-jsx": "^7.7.17",
 		"react-resizable-panels": "^4.11.2"
 	},
 	"peerDependencies": {
-		"@gitbutler/design-core": "^11.1.0",
+		"@gitbutler/design-core": "^11.3.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
-		"@gitbutler/design-core": "11.1.0",
+		"@gitbutler/design-core": "11.3.0",
 		"@playwright/test": "catalog:",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/user-event": "^14.6.1",
@@ -44,7 +45,6 @@
 		"@vitest/browser": "catalog:",
 		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"jsdom": "28.1.0",
-		"markdown-to-jsx": "^7.7.17",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"stylelint": "^17.15.0",

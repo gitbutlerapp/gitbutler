@@ -49,6 +49,23 @@ export const Theme = meta.story({
 	},
 });
 
+/** With `fill`, across the foot of a sidebar: the segments share the width evenly. */
+export const Fill = meta.story({
+	parameters: figma("4819-878"),
+	render: function Fill() {
+		const [theme, setTheme] = useState<"system" | "light" | "dark">("system");
+		return (
+			<div style={{ width: 240 }}>
+				<SegmentedControl fill value={theme} onValueChange={setTheme} aria-label="Theme">
+					<Segment value="system">System</Segment>
+					<Segment value="light">Light</Segment>
+					<Segment value="dark">Dark</Segment>
+				</SegmentedControl>
+			</div>
+		);
+	},
+});
+
 /** An option that isn't available for this branch stays visible at half strength. */
 export const Unavailable = meta.story({
 	parameters: figma("3485-80410"),

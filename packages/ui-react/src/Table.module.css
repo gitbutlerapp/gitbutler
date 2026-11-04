@@ -1,0 +1,39 @@
+/* Clips the scrollbar to the card's corners. */
+.table {
+	overflow: hidden;
+}
+
+.grid {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+/* Every row at least 40 tall, as a DescriptionList row is. The columns sit 24 apart and the end
+   ones padding/row in from the card, from the same inset on both sides of every cell. */
+.cell {
+	height: 40px;
+	padding: 10px var(--padding-row);
+	color: var(--text-1);
+	font-weight: inherit;
+	text-align: start;
+	vertical-align: middle;
+
+	/* What a cell holds beside its text, an icon or a button, centres on its line. */
+	& > * {
+		vertical-align: middle;
+	}
+}
+
+/* The hairline above each body row, so the last has none and the card's border closes the table.
+   Inset, so it takes no height. */
+tbody .cell {
+	box-shadow: inset 0 1px 0 var(--border-section);
+}
+
+.header {
+	color: var(--text-2);
+}
+
+.end {
+	text-align: end;
+}

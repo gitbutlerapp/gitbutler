@@ -432,3 +432,26 @@
 		outline: var(--focus-ring);
 	}
 }
+
+/* A group's name and its chevron, quieter than the pages they head. A button when it folds, reset
+   as MoreItem's is, keeping the row's tint. */
+.groupLabel {
+	width: 100%;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	font: inherit;
+	text-align: start;
+
+	&:is(button):hover {
+		background-color: var(--bg-hover);
+	}
+
+	&:not(button) {
+		cursor: default;
+
+		&:hover {
+			background-color: transparent;
+		}
+	}
+}
