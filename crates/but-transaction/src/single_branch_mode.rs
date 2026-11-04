@@ -238,7 +238,7 @@ impl SingleBranchMode {
         // Also apply an empty branch, which set_base_branch doesn't apply itself.
         // Non-empty branches may already have been applied by set_base_branch.
         let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, &repo, &mut db)?;
-        let outcome = but_workspace::branch::apply_stack(editor, head.as_ref())?;
+        let outcome = but_workspace::branch::apply_stack(editor, head.as_ref(), None)?;
         outcome.rebase.materialize(Default::default())?;
         if let Some(tracking) = outcome.tracking {
             tracking.write(&repo)?;

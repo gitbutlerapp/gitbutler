@@ -53,6 +53,24 @@ impl std::fmt::Debug for ConflictingStack {
     }
 }
 
+/// Attached to the error of [apply_stack()] if the branch shares commits with a stack of the
+/// workspace, so callers can tell it apart from other failures.
+#[derive(Debug, Clone)]
+pub struct OverlapErrorContext {
+    /// The branch that couldn't be applied.
+    pub branch: gix::refs::FullName,
+}
+
+impl std::fmt::Display for OverlapErrorContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "'{}' overlaps with a stack of the workspace",
+            self.branch.shorten()
+        )
+    }
+}
+
 /// What kind of apply operation completed.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -195,20 +213,22 @@ impl LocalTracking {
     }
 }
 
-/// Ensure that `branch` is a parent of the workspace commit.
+/// Ensure that `branch` is a parent of the workspace commit, at `order` among its parents if it
+/// isn't one yet, or as its last parent if `order` is `None` or past the end.
 ///
 /// If there is no workspace commit, one is first created with `HEAD` as its parent.
 ///
 /// For each parent of the workspace commit P, `target..branch` must have no commits in common with
-/// `target..P`.
+/// `target..P`, or the error carries an [`OverlapErrorContext`].
 ///
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
 /// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
 /// returned to be written after materializing.
-#[instrument(skip(editor), err(Debug))]
+#[instrument(skip(editor, order), err(Debug))]
 pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
     editor: Editor<'ws, 'meta, M>,
     branch: &FullNameRef,
+    order: impl Into<Option<usize>>,
 ) -> anyhow::Result<ApplyStackOutcome<'ws, 'meta, M>> {
     let (branch, remote_tracking_branch) = if branch.category() == Some(Category::RemoteBranch) {
         // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
@@ -319,17 +339,15 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             }
         };
     let commits_in_branch = commits_in(editor.repo(), branch_commit_id, target)?;
-    let already_applied = 'already_applied: {
-        if commits_in_branch.is_empty() {
-            break 'already_applied true;
-        }
-        for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
-            if editor.find_commit_target(parent_selector)?.0 == branch_commit_selector {
-                break 'already_applied true;
+    let already_applied = Some(branch) == editor.target_ref()
+        || 'already_applied: {
+            for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
+                if Some(parent_selector) == branch_selector {
+                    break 'already_applied true;
+                }
             }
-        }
-        false
-    };
+            false
+        };
     if already_applied {
         // Branch is already applied, perhaps through ensure_workspace_commit() or
         // switch_to_workspace() (or even before this function was invoked)
@@ -348,11 +366,18 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
     // Check for empty branches and overlaps
     let mut empty_parents = Vec::new();
     for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
-        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
-        if Some(parent_commit_id) == target {
+        // The target commit, or the target branch pointing at it, only stands in for the target
+        // in a workspace without lanes.
+        let is_target = Some(parent_selector) == editor.target_selector()
+            || matches!(
+                editor.lookup_step(parent_selector)?,
+                Step::Reference { refname, .. } if Some(refname.as_ref()) == editor.target_ref()
+            );
+        if is_target {
             empty_parents.push(parent_selector);
             continue;
         }
+        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
         let overlap: Vec<gix::ObjectId> = commits_in_branch
             .intersection(&commits_in(editor.repo(), parent_commit_id, target)?)
             .copied()
@@ -365,10 +390,16 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
                     commit.id.to_hex_with_len(7).to_string()
                 }
             };
-            bail_precondition!(
-                "Cannot apply '{}' as it overlaps with {parent_label}",
-                branch.shorten()
-            );
+            return Err(anyhow::Error::msg(OverlapErrorContext {
+                branch: branch.to_owned(),
+            })
+            .context(
+                but_error::Context::new(format!(
+                    "Cannot apply '{}' as it overlaps with {parent_label}",
+                    branch.shorten()
+                ))
+                .with_code(but_error::Code::PreconditionFailed),
+            ));
         }
     }
 
@@ -380,7 +411,7 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             branch_selector
         }
     };
-    editor.insert_parent(workspace_commit, branch_selector, None)?;
+    editor.insert_parent(workspace_commit, branch_selector, order.into())?;
     for empty_parent in empty_parents {
         editor.remove_edges(workspace_commit, empty_parent)?;
     }

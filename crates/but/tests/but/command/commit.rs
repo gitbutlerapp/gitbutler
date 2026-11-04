@@ -4937,7 +4937,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   c1ed93d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-.   c23dbe5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 6e48c63 (three) on three
 | * | 5ec2cd8 (two) on two
@@ -4975,7 +4975,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   45db92d (gitbutler/workspace) GitButler Workspace Commit
+*-.   2eb3982 (gitbutler/workspace) GitButler Workspace Commit
 |/ /  
 | | * 6e48c63 (three) on three
 | * | 5ec2cd8 (two) on two

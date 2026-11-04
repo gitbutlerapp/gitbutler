@@ -545,7 +545,7 @@ Hint: run `but help` for all commands
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-*   6154bb8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   6769ac6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * d3e2ba3 (B) add B
 * | e1df4fe (A) two
@@ -715,7 +715,7 @@ Hint: run `but help` for all commands
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* de5dad6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 24b9239 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * f41568d (a-branch-1) 
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -759,7 +759,7 @@ Hint: run `but help` for all commands
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* d4b6a25 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -836,7 +836,7 @@ Hint: run `but branch new` to create a new branch to work on
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* 60080ce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 979750e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -869,11 +869,13 @@ Hint: run `but branch new` to create a new branch to work on
     // intentionally dont commit this file to cause conflicts
     env.file("one", "different content of one");
 
+    // The workspace is entered even though the uncommitted file conflicts with `one`.
     env.but("switch --workspace")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Uncommitted files would be overwritten by checkout: "one"
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Switched to workspace
 
 Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <file>` to drop them, then retry
 
@@ -885,20 +887,39 @@ Hint: Run `but commit -b <branch> <file>` to keep those files or `but discard <f
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted]
-┊   kl A one
+┊    one {conflicted}
 ┊
-┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
+┊╭┄ on [one]
+┊●   unl add one
+┊│     unl:k A one
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+⚠ Uncommitted file conflicts: edit each file to the wanted contents (or delete it), then run `but resolve <path>...` to mark it resolved.
 
-Hint: run `but branch new` to create a new branch to work on
+Hint: run `but help` for all commands
 
 "#]]);
 
     assert_data_eq!(
         env.git_log(),
         str![[r#"
-* bdda79c (gitbutler/workspace) GitButler Workspace Commit
+* f5353ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 72aceac (one) add one
-* 0dc3733 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+
+    // Nothing is lost: the uncommitted content stays in the worktree, next to the committed one.
+    assert_data_eq!(
+        std::fs::read_to_string(env.projects_root().join("one")).unwrap(),
+        str![[r#"
+<<<<<<< ours
+different content of one
+=======
+content of one
+>>>>>>> theirs
 
 "#]]
     );

@@ -649,7 +649,7 @@ fn unapply_last_branch_with_existing_workspace_can_be_undone() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 53ed094 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* b736c11 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9939bf0 (one) one
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -754,7 +754,7 @@ fn unapply_checked_out_branch_preserves_other_remembered_applied_branches() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 75ac05b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 117d765 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 2c9e5ce (two) two
 | * 9939bf0 (one) one
 |/  
@@ -803,14 +803,14 @@ Hint: run `but help` for all commands
         .raw()
     );
 
-    // The saved workspace is emptied immediately, without checking it out or deleting one.
+    // The saved workspace commit keeps one, without being checked out or deleting one. Switching
+    // back builds a new workspace commit from the remembered branches, so it's never restored.
     env.but("unapply one").assert().success();
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 86b310d (gitbutler/workspace) GitButler Workspace Commit
-| * 9939bf0 (one) one
-|/  
+* 78a1aad (gitbutler/workspace) GitButler Workspace Commit
+* 9939bf0 (one) one
 * b1540e5 (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) M
 * e31e6ca add init
 
@@ -849,7 +849,7 @@ Hint: run `but branch new` to create a new branch to work on
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 86b310d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 1fbe8e1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 9939bf0 (one) one
 |/  
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
