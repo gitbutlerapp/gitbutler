@@ -39,7 +39,7 @@ permissions: {}
 
 jobs:
   # The Tauri app's whole test suite, before anything is built or published. Pull requests
-  # run these only when the app's own files change (ci.but.dev checks the rest), so a break
+  # run these only when the app's own files change (quality.but.dev checks the rest), so a break
   # that comes from shared code is caught here at the latest.
   test-tauri:
     if: ${{ !inputs.skip_tests }}

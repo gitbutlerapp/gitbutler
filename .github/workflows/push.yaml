@@ -74,7 +74,7 @@ jobs:
               - 'crates/but-installer/**'
             install_script:
               - 'scripts/install.sh'
-            # The Tauri app and what only it uses. ci.but.dev checks the rest (its spec is
+            # The Tauri app and what only it uses. quality.but.dev checks the rest (its spec is
             # specs/gitbutler.toml in gitbutlerapp/taste-tester), so the checks below run only
             # when one of these (or CI itself) changes.
             # Keep in sync with check-e2e-changes.yml.
@@ -180,7 +180,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Install Zig
         uses: $/.github/actions/setup-zig
-      # ci.but.dev runs fmt and clippy for the rest of the workspace.
+      # quality.but.dev runs fmt and clippy for the rest of the workspace.
       - name: cargo clippy -p gitbutler-tauri
         run: |
           rustup component add clippy
@@ -195,8 +195,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ci.but.dev runs this only on master, so pull requests still get it here. The
-          # main test run and `make test-modern-but` are on ci.but.dev.
+          # quality.but.dev runs this only on master, so pull requests still get it here. The
+          # main test run and `make test-modern-but` are on quality.but.dev.
           - name: without nightly
             run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
     name: rust-test-variants (${{ matrix.name }})
@@ -273,7 +273,7 @@ jobs:
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
-      # ci.but.dev tests but-api-macros without features and with `legacy`.
+      # quality.but.dev tests but-api-macros without features and with `legacy`.
       - name: Test but-api-macros --features tauri
         run: cargo test -p but-api-macros-tests --features tauri
       - run: |

@@ -31,7 +31,7 @@ jobs:
         id: filter
         with:
           # The e2e suites drive the Tauri app, so they run only when it (or CI itself)
-          # changes. ci.but.dev checks the rest. Keep in sync with the
+          # changes. quality.but.dev checks the rest. Keep in sync with the
           # tauri_gui filter in push.yaml.
           filters: |
             e2e:
