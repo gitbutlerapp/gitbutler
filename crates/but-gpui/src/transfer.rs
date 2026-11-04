@@ -491,6 +491,11 @@ impl Move {
         Some(slot.place(order, name))
     }
 
+    /// Whether it's terminal `id` that's moving.
+    pub fn of_terminal(&self, id: TerminalId) -> bool {
+        matches!(self.what, Moving::Terminal { id: moving, .. } if moving == id)
+    }
+
     /// The checkouts' terminals as a terminal's move shows them, it where it's at.
     pub fn terminal_order(&self) -> Option<Vec<(Checkout, Vec<TerminalId>)>> {
         let (Moving::Terminal { id, lists }, Stop::Terminal { checkout, slot }) =
@@ -1685,22 +1690,29 @@ impl Render for ProjectPreview {
     }
 }
 
-/// A terminal dragged by its row, among the terminals of its project's worktrees, the others
-/// making room for it where it'd go, as moving it with the keys does.
+/// A terminal dragged by its row or its tile's bar, among the terminals of its project's
+/// worktrees, the others making room for it where it'd go, as moving it with the keys does.
 pub struct TerminalDrag {
     pub project: ProjectId,
     pub id: TerminalId,
 }
 
 /// Start a drag of a terminal shown as a pill with its title, as [`drag_preview`] starts a
-/// cut's.
+/// cut's. Dragged by its tile's bar, `from_tile`, the tile shows it until a row in the navigator
+/// does, and only then the pill.
 pub fn terminal_preview(
     store: Entity<Store>,
+    from_tile: bool,
 ) -> impl Fn(&TerminalDrag, Point<Pixels>, &mut Window, &mut App) -> Entity<TerminalPreview> + 'static
 {
     move |drag, offset, _, cx| {
         let (store, id) = (store.clone(), drag.id);
-        cx.new(|_| TerminalPreview { store, id, offset })
+        cx.new(|_| TerminalPreview {
+            store,
+            id,
+            offset,
+            from_tile,
+        })
     }
 }
 
@@ -1711,16 +1723,19 @@ pub struct TerminalPreview {
     id: TerminalId,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
     offset: Point<Pixels>,
+    /// Whether it's dragged by its tile's bar, not its row.
+    from_tile: bool,
 }
 
 impl Render for TerminalPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
-        let lands = (store.moving.as_ref()).is_some_and(|moving| {
-            matches!(moving.what, Moving::Terminal { id, .. } if id == self.id)
-                && moving.lands(store)
-        });
+        let moving = (store.moving.as_ref()).filter(|moving| moving.of_terminal(self.id));
+        if self.from_tile && moving.is_none() {
+            return div();
+        }
+        let lands = moving.is_some_and(|moving| moving.lands(store));
         let mark = small_icon(Icon::TextCode).text_color(theme.pop);
         let label = pill_label(SharedString::from(terminal_title(store, self.id)));
         let hint = tile_hint(store).or(lands.then_some("Move"));
