@@ -15,9 +15,9 @@ mod changed_path;
 mod shipped;
 
 use super::panes::{
-    Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
-    not_found, reveal_side_row, rows_under, side_header, side_list, step_from, title_text,
-    unfinished_banner,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, message_body, meta_item,
+    meta_row, not_found, reveal_side_row, rows_under, side_header, side_list, step_from,
+    title_text, unfinished_banner,
 };
 use super::pull_request::{TABS_HEIGHT, tab};
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
@@ -27,7 +27,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person,
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Pane, ProjectId, Section, Selection};
+use crate::state::{Pane, Part, ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
@@ -51,9 +51,38 @@ fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picke
         .or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
 }
 
+/// What a target commit's message says after its title: its body without the line naming the
+/// pull request it merged, or that pull request's description when that's all it says.
+fn target_text(commit: &TargetCommit) -> String {
+    // A merge names the pull request by its title, which the body often repeats.
+    let names_review =
+        |line: &&str| (commit.review.as_ref()).is_some_and(|r| line.trim() == r.title);
+    let own = (commit.body.lines())
+        .filter(|line| !names_review(line))
+        .any(|line| !line.trim().is_empty());
+    // A merge with no more to say than the pull request it merged says what that does, in
+    // its description's words.
+    let described;
+    let text = match (own, &commit.review) {
+        (false, Some(review)) if !review.body.trim().is_empty() => {
+            let end = review.body.floor_char_boundary(4096);
+            let body = review.body.get(..end).unwrap_or(&review.body);
+            let blocks = markdown::parse(body);
+            described = markdown::selected_text(&blocks, ((0, 0), (blocks.len(), 0)));
+            &described
+        }
+        _ => &commit.body,
+    };
+    let shown = (text.lines())
+        .filter(|line| !names_review(line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    shown.trim().to_owned()
+}
+
 /// What a target commit is called: the pull request it merged, by its title, as Lite names
 /// it, or else the commit's own title.
-fn label(commit: &TargetCommit) -> SharedString {
+pub(super) fn label(commit: &TargetCommit) -> SharedString {
     match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
         Some(review) => review.title.clone().into(),
         None => crate::ui::commit_title(&commit.title),
@@ -659,6 +688,60 @@ impl Detail {
             .into_any_element()
     }
 
+    /// Whether the message over a list page's diff draws: a commit's, or an opened branch's
+    /// header. Always, unless Lite lists it first among the files instead, as a commit's page
+    /// or a branch's.
+    pub(super) fn list_header_shown(&self, project: &ProjectId, cx: &gpui::App) -> bool {
+        let part = match self.selection() {
+            Some(Selection::Branches(_)) if self.picked_branch_commit(project).is_none() => {
+                Part::BranchHeader
+            }
+            _ => Part::CommitHeader,
+        };
+        self.store.read(cx).prefs.shows(part)
+    }
+
+    /// The commit whose message shows over a list page's diff: the project page's, or the
+    /// one picked of the opened branch.
+    pub(super) fn target_message_commit<'a>(
+        &'a self,
+        project: &ProjectId,
+        cx: &'a gpui::App,
+    ) -> Option<&'a TargetCommit> {
+        match self.selection()? {
+            Selection::Project(_) => self.shown_target_commit(project, cx),
+            Selection::Branches(_) => self.picked_branch_commit(project),
+            _ => None,
+        }
+    }
+
+    /// [`Self::target_message_commit`]'s message, where the diff lists it first: its title,
+    /// who wrote it and when, its ID, and the whole of the rest of it.
+    pub(super) fn target_commit_message(
+        &self,
+        project: &ProjectId,
+        flat: bool,
+        theme: &Theme,
+        cx: &gpui::App,
+    ) -> Option<(gpui::Div, Option<gpui::Div>)> {
+        let commit = self.target_message_commit(project, cx)?;
+        let title =
+            title_text(label(commit)).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let meta = meta_row(theme)
+            .child(byline(
+                &commit.author,
+                &commit.email,
+                commit.agent.as_ref(),
+                commit.time,
+                theme,
+            ))
+            .child(self.sha_chip(commit.id, theme));
+        let top = v_flex().min_w_0().gap(dp(8.)).child(title).child(meta);
+        let shown = target_text(commit);
+        let body = (!shown.is_empty()).then(|| message_body(shown, theme));
+        Some((top, body))
+    }
+
     /// A target commit's message: its title and who wrote it and when, with a link that shows
     /// the rest of it, when there is any.
     pub(super) fn render_target_message(
@@ -670,30 +753,7 @@ impl Detail {
         // Folded, it's as tall whatever the commit, so picking another moves nothing below:
         // one line of title, and one of who wrote it, which holds the link.
         const LINE: f32 = 20.;
-        // A merge names the pull request by its title, which the body often repeats.
-        let names_review =
-            |line: &&str| (commit.review.as_ref()).is_some_and(|r| line.trim() == r.title);
-        let own = (commit.body.lines())
-            .filter(|line| !names_review(line))
-            .any(|line| !line.trim().is_empty());
-        // A merge with no more to say than the pull request it merged says what that does, in
-        // its description's words.
-        let described;
-        let text = match (own, &commit.review) {
-            (false, Some(review)) if !review.body.trim().is_empty() => {
-                let end = review.body.floor_char_boundary(4096);
-                let body = review.body.get(..end).unwrap_or(&review.body);
-                let blocks = markdown::parse(body);
-                described = markdown::selected_text(&blocks, ((0, 0), (blocks.len(), 0)));
-                &described
-            }
-            _ => &commit.body,
-        };
-        let shown = (text.lines())
-            .filter(|line| !names_review(line))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let shown = shown.trim().to_owned();
+        let shown = target_text(commit);
         let title = label(commit).to_string();
         let open = self.page.message_open();
         let toggle = (!shown.is_empty()).then(|| {

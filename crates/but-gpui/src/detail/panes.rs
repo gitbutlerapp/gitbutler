@@ -682,6 +682,12 @@ impl Detail {
             Some(Messages::Upstream(project, ref_name)) => {
                 self.upstream_messages(&project, ref_name.as_ref(), flat, theme, cx)
             }
+            Some(Messages::TargetCommit(project)) => {
+                self.target_commit_message(&project, flat, theme, cx)
+            }
+            Some(Messages::OtherBranch(project)) => {
+                self.other_branch_message(&project, entity.clone(), flat, theme, cx)
+            }
             Some(Messages::UpstreamCommit(project, ref_name, id)) => {
                 self.upstream_commit_message(&project, ref_name.as_ref(), id, flat, theme, cx)
             }
@@ -2442,7 +2448,7 @@ pub(super) fn and_more(rest: usize, theme: &Theme) -> Option<Div> {
 /// How many commits are conflicted, when any are.
 /// A commit message's body, set as written: wrapped where its author wrapped it, and at most a
 /// reading line wide.
-fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
+pub(super) fn message_body(body: impl IntoElement, theme: &Theme) -> Div {
     div()
         .max_w(dp(MESSAGE_WIDTH))
         .font_family(theme.mono_font.clone())
