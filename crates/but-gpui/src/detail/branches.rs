@@ -1857,7 +1857,7 @@ impl Detail {
         )
     }
 
-    /// The opened branch's header, where the diff lists it first, as Lite does in place of
+    /// The opened branch's header, where the diff lists it first in place of
     /// the header: the same, its ⋯ reached through `entity`.
     pub(super) fn other_branch_message(
         &self,

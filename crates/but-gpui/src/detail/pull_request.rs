@@ -123,7 +123,7 @@ impl Detail {
     }
 
     /// Whether the tabs draw: with a pull request, beside a list page's list, or in a
-    /// branch's or a remote's commit's header while Lite doesn't leave it out.
+    /// branch's or a remote's commit's header while it's shown.
     pub(super) fn tabs_shown(&self, cx: &App) -> bool {
         self.selected_review(cx).is_some()
             && match self.selection() {

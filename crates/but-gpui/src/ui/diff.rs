@@ -31,8 +31,8 @@ pub fn file_header_height(titled: bool) -> f32 {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DiffRow {
-    /// The messages, a commit's or a branch's commits', above the files, where Lite lists them
-    /// in place of the page's header.
+    /// The messages, a commit's or a branch's commits', above the files, where they list in
+    /// place of the page's header.
     Message,
     File(usize),
     Hunk {
@@ -477,9 +477,9 @@ pub struct HeaderDecor {
     pub blink: Option<usize>,
     /// Its file fills the pane alone, without a card around it.
     pub flat: bool,
-    /// Leaves out the lines the file changed, as Lite does.
+    /// Leaves out the lines the file changed, with the diff's controls hidden.
     pub uncounted: bool,
-    /// Its file fills the pane alone in Lite, and its header titles the pane as the file
+    /// Its file fills the pane alone with the diff's controls hidden, and its header titles the pane as the file
     /// list's heading does beside it: as tall, its name as large, on the pane's ground.
     pub titled: bool,
 }

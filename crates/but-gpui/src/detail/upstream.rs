@@ -685,7 +685,7 @@ impl Detail {
     }
 
     /// Whether the message over a list page's diff draws: a commit's, or an opened branch's
-    /// header. Always, unless Lite lists it first among the files instead, as a commit's page
+    /// header. Always, unless it lists first among the files instead, as a commit's page
     /// or a branch's.
     pub(super) fn list_header_shown(&self, project: &ProjectId, cx: &gpui::App) -> bool {
         let on_branches = self.on_tab(ProjectTab::Branches).is_some();

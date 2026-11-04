@@ -439,8 +439,14 @@ pub struct Prefs {
     pub terminal_command: String,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
-    /// How much of the window draws, as Settings › Experimental picks it.
-    pub interface: Interface,
+    /// The bar along the window's bottom is left out.
+    pub hide_status_bar: bool,
+    /// Commit and branch pages list the messages first among their files, in place of their
+    /// headers, and the uncommitted changes go without theirs.
+    pub messages_in_diff: bool,
+    /// The bar over the diff and the file headers' counts and buttons are left out, as keys
+    /// and menus have what they do.
+    pub hide_diff_controls: bool,
     /// The keys the app binds, as Settings › Keyboard picks them.
     pub keymap: crate::keymap::Keymap,
     /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
@@ -498,33 +504,20 @@ pub struct Prefs {
     pub show_fps: bool,
 }
 
-/// How much of the window the app draws.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Interface {
-    #[default]
-    Full,
-    /// Fewer parts of the window, each left out to try before it goes for everyone or comes
-    /// back.
-    Lite,
-}
-
-/// A part of the window Lite can leave out.
+/// A part of the window a setting in Settings › Experimental can leave out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Part {
     /// The bar along the window's bottom, with what's under way and the keys that go with it.
     StatusBar,
-    /// The bar along the detail's top, with the navigator's toggle and the trail of where the
-    /// selection is. Only while the navigator shows, as the traffic lights and the toggle go
-    /// there then.
-    LocationBar,
     /// The header across a branch's or a stack's page, with its name, commits and push state,
     /// which the navigator's row has too. Where it's left out, a branch's messages list first
     /// among its files instead, as do those of the commits only a remote has, and the header
     /// of the branch opened on the Branches page.
     BranchHeader,
-    /// The header across a commit's page, with its message, author, ID and push state, which
-    /// Lite lists first among its files instead, as the commit's message. Also a commit's
-    /// only a remote has, with which remote has it, and the message over a list page's diff.
+    /// The header across a commit's page, with its message, author, ID and push state. Where
+    /// it's left out, the commit's message lists first among its files instead. Also a
+    /// commit's only a remote has, with which remote has it, and the message over a list
+    /// page's diff.
     CommitHeader,
     /// The header across a worktree's uncommitted changes, with their title and the worktree,
     /// which the navigator's row has too.
@@ -539,18 +532,10 @@ pub enum Part {
 impl Prefs {
     /// Whether `part` of the window draws.
     pub fn shows(&self, part: Part) -> bool {
-        match (self.interface, part) {
-            (Interface::Full, _) => true,
-            (
-                Interface::Lite,
-                Part::StatusBar
-                | Part::LocationBar
-                | Part::BranchHeader
-                | Part::CommitHeader
-                | Part::ChangesHeader
-                | Part::DiffTools
-                | Part::FileHeaderControls,
-            ) => false,
+        match part {
+            Part::StatusBar => !self.hide_status_bar,
+            Part::BranchHeader | Part::CommitHeader | Part::ChangesHeader => !self.messages_in_diff,
+            Part::DiffTools | Part::FileHeaderControls => !self.hide_diff_controls,
         }
     }
 

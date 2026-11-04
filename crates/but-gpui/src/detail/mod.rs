@@ -127,8 +127,8 @@ struct Cursor {
 /// What of its file the cursor is on.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 enum Stop {
-    /// The messages, a commit's or a branch's commits', above every file, where Lite lists
-    /// them: in no file, so the cursor's `file` says nothing.
+    /// The messages, a commit's or a branch's commits', above every file, where they list in
+    /// the diff: in no file, so the cursor's `file` says nothing.
     Message,
     /// The file's header.
     #[default]
@@ -183,7 +183,7 @@ impl Cursor {
 }
 
 /// One of what the diff lists: the messages, a commit's or a branch's commits', first where
-/// Lite lists them in place of the page's header, then each file. In that order, as the file
+/// they list in place of the page's header, then each file. In that order, as the file
 /// list has them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Entry {
@@ -2195,7 +2195,7 @@ impl Detail {
     /// The rows `files` show: files folded by hand show only their header, and uncommitted
     /// files and hunks, or files of the commit shown, that a pending operation takes away are
     /// left out until it's done. `unfolded`, as they would with every file open and one line a
-    /// row, as Find searches them. The commit's message heads them where Lite lists it. With
+    /// row, as Find searches them. The commit's message heads them where the diff lists it. With
     /// them, the files shown and, with the single file diff on, the one entry the rows are of.
     fn build_rows(
         &self,
@@ -2278,7 +2278,7 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// Whose messages the diff of `key` lists first, as Lite does in place of the page's
+    /// Whose messages the diff of `key` lists first, with them in the diff in place of the page's
     /// header: one commit's, not several picked together, also one only a remote has, or a
     /// branch's commits', or those only a remote has, as a branch's; and the commit or branch
     /// a list page shows over its diff.
@@ -2427,8 +2427,8 @@ impl Detail {
     }
 
     /// Show the cursor's entry alone once the cursor goes to another, or every file once
-    /// Settings turns the single file diff off, and list the commit's message or stop as Lite
-    /// turns on or off.
+    /// Settings turns the single file diff off, and list the commit's message or stop as
+    /// Settings lists messages in the diff or not.
     pub(super) fn follow_alone(&mut self, cx: &mut Context<Self>) {
         let message = self.message_listed(cx);
         if !message && self.cursor.at == Stop::Message {
@@ -3043,15 +3043,11 @@ impl Detail {
         crate::ui::TILE_MARGIN * (1. - 2. * self.navigator_shown.get())
     }
 
-    /// How far the tiles' room sits from the bottom of the strip along the detail's top: up
-    /// into it as far as the cards sit in, so they start where it ends, as the navigator's
-    /// under its own bar, its controls as far above them as tiles are apart. Down from the
-    /// window's top, with no strip, as from its other edges.
-    pub fn room_top(&self, window: &Window, cx: &App) -> f32 {
-        match self.top_strip_height(window, cx) > 0. {
-            true => -crate::ui::TILE_MARGIN,
-            false => crate::ui::TILE_MARGIN,
-        }
+    /// How far the tiles' room sits from the bottom of the location bar: up into it as far as
+    /// the cards sit in, so they start where it ends, as the navigator's under its own bar,
+    /// its controls as far above them as tiles are apart.
+    pub fn room_top(&self) -> f32 {
+        -crate::ui::TILE_MARGIN
     }
 
     /// Where the page goes in the room below the header: its tile's area, as it's drawn in
@@ -4138,18 +4134,9 @@ impl Render for Detail {
                 Some(_) => theme.bg_1,
                 None => theme.bg_2,
             })
-            // A pinned page goes in its tile, under the location bar across the home tile's, or
-            // the room for dragging the window it leaves while Lite leaves it out.
+            // A pinned page goes in its tile, under the location bar across the home tile's.
             .when(self.pinned.is_none(), |el| {
-                match self.location_bar_shown(window, cx) {
-                    true => el.child(self.render_header(selection.as_ref(), &theme, window, cx)),
-                    false => el.when(self.top_strip_height(window, cx) > 0., |el| {
-                        el.child(
-                            (div().flex_none().h(dp(crate::ui::HEADER_HEIGHT)))
-                                .map(crate::ui::drags_window),
-                        )
-                    }),
-                }
+                el.child(self.render_header(selection.as_ref(), &theme, window, cx))
             })
             .child(
                 div()
@@ -4161,7 +4148,7 @@ impl Render for Detail {
                         // On its card, in from the window's edges as tiles are from each other.
                         None => crate::ui::inset_by(div(), crate::ui::TILE_MARGIN)
                             .left(dp(self.room_left()))
-                            .top(dp(self.room_top(window, cx)))
+                            .top(dp(self.room_top()))
                             .child({
                                 let tile = placed(self.tile_area(cx))
                                     .child(crate::ui::tile_card(&theme))

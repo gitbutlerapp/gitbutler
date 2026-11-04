@@ -22,9 +22,7 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{
-    Interface, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
-};
+use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -957,26 +955,46 @@ impl SettingsView {
         .with_keywords("all-in-one one file at a time per screen")
     }
 
-    fn lite_row(&self, cx: &Context<Self>) -> Row {
-        let lite = self.store.read(cx).prefs.interface == Interface::Lite;
-        Row::new(
-            "Lite interface",
-            "Leaves out parts of the window that repeat what's elsewhere or switch what keys \
-             do, as the status bar and the pages' headers. What's left out may change from \
-             one release to the next.",
-            self.pref_switch(
-                "lite-interface",
-                lite,
-                |p| {
-                    p.interface = match p.interface {
-                        Interface::Full => Interface::Lite,
-                        Interface::Lite => Interface::Full,
-                    }
-                },
-                cx,
-            ),
-        )
-        .with_keywords("minimal compact hide status bar breadcrumbs toolbar header")
+    /// A switch for each part of the window Experimental can leave out.
+    fn part_rows(&self, cx: &Context<Self>) -> [Row; 3] {
+        let prefs = &self.store.read(cx).prefs;
+        [
+            Row::new(
+                "Hide status bar",
+                "Leaves out the bar along the window's bottom.",
+                self.pref_switch(
+                    "hide-status-bar",
+                    prefs.hide_status_bar,
+                    |p| p.hide_status_bar ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact footer"),
+            Row::new(
+                "Commit messages in the diff",
+                "Commit and branch pages list their messages above the files in place of \
+                 their headers, and uncommitted changes go without theirs.",
+                self.pref_switch(
+                    "messages-in-diff",
+                    prefs.messages_in_diff,
+                    |p| p.messages_in_diff ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact header"),
+            Row::new(
+                "Fewer diff controls",
+                "Leaves out the bar over the diff and the buttons in file headers, which keys \
+                 and menus have too.",
+                self.pref_switch(
+                    "hide-diff-controls",
+                    prefs.hide_diff_controls,
+                    |p| p.hide_diff_controls ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact toolbar wrap split"),
+        ]
     }
 
     fn fps_row(&self, cx: &Context<Self>) -> Row {
@@ -1193,7 +1211,8 @@ impl SettingsView {
                     None,
                     start
                         .into_iter()
-                        .chain([self.single_file_row(cx), self.lite_row(cx)])
+                        .chain([self.single_file_row(cx)])
+                        .chain(self.part_rows(cx))
                         .collect(),
                 )]
             }

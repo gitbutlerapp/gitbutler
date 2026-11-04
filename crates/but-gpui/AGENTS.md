@@ -242,8 +242,8 @@ and tests it.
   `MenuItem::keyed` or `MenuItem::action`. Snackbars are fragments without a full stop.
   Misleading copy is a bug.
 - The app is reactive, so no reload buttons. Nothing added may make it slower.
-- A part the Lite interface leaves out is a `Part`, asked through `Prefs::shows`, never a
-  `bool` of its own in `Prefs`.
+- A part of the window a setting can leave out is a `Part`. Call sites ask `Prefs::shows`,
+  never the flag behind it.
 - Nothing outside tests may panic, as the app runs as GitButler itself: clippy denies unwrap,
   expect and indexing or slicing that can fail. When an index is stale, render code skips what
   it would have drawn (`.get(ix)?`), and code that acts returns early or errs. Neither invents
