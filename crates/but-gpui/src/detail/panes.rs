@@ -23,7 +23,7 @@ use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Part, ProjectId, Section, Selection};
+use crate::state::{Part, ProjectId, Section, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -2009,8 +2009,8 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, ↑ from its
-    /// top going up to the project's tabs, gg and G to either end, ⇧→ and ⇧← `fold` what's
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, going on
+    /// from its ends to what's over and under it, gg and G to either end, ⇧→ and ⇧← `fold` what's
     /// selected, on a page whose rows fold, and Return does `confirm` to it. Where rows don't fold, ⇧→ and ⇧← do nothing, not fold the diff.
     /// The TUI's keymap has Return `toggle` what's selected where rows fold, and `confirm`
     /// it only where they don't.
@@ -2026,12 +2026,14 @@ impl Detail {
             .size_full()
             .track_focus(&self.side_focus)
             .key_context("List")
-            .on_action(cx.listener(move |this, _: &SelectNext, _, cx| {
-                step(this, 1, cx);
+            .on_action(cx.listener(move |this, _: &SelectNext, window, cx| {
+                if !step(this, 1, cx) {
+                    this.leave(Side::Bottom, window, cx)
+                }
             }))
             .on_action(cx.listener(move |this, _: &SelectPrevious, window, cx| {
                 if !step(this, -1, cx) {
-                    this.up_to_project_tabs(window, cx)
+                    this.leave(Side::Top, window, cx)
                 }
             }))
             .on_action(cx.listener(move |this, _: &SelectFirst, _, cx| {

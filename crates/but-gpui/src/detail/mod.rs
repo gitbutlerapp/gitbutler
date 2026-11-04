@@ -11,6 +11,7 @@ mod file_list;
 mod file_tree;
 mod find;
 mod graph;
+mod key_panes;
 pub use branches::{ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowOnlyLocalBranches};
 pub use file_list::{DiscardFromCommit, MarkResolved, SplitIntoNewCommit, UncommitChanges};
 pub use find::FindInDiff;
@@ -29,6 +30,7 @@ mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
+pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
@@ -57,8 +59,8 @@ use crate::clock;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, RowKey, Section, Selection, Store,
-    StoreEvent, Tile, snack,
+    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, RowKey, Section, Selection, Side,
+    Store, StoreEvent, Tile, snack,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -367,16 +369,9 @@ pub struct Detail {
     /// The Changes and pull request tabs', which ↑ from the top of the files under them
     /// reaches, and where ← and → switch tabs.
     tabs_focus: FocusHandle,
-    /// The keys went left out of the tabs, so coming back from the left lands on them again
-    /// rather than on the files under them. Another page forgets it.
-    tabs_kept: bool,
     /// The tabs to a project's pages, which ↑ from the top of a list page's list reaches, and
     /// where ← and → go to the page on that side.
     project_tabs_focus: FocusHandle,
-    /// The keys went left out of those tabs, as `tabs_kept` says of the others.
-    project_tabs_kept: bool,
-    /// What ↑ came to those tabs from beside a list page's list, which ↓ goes back to.
-    project_tabs_from: Option<FocusHandle>,
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
@@ -802,10 +797,7 @@ impl Detail {
             files_focus: cx.focus_handle(),
             side_focus: cx.focus_handle(),
             tabs_focus: cx.focus_handle(),
-            tabs_kept: false,
             project_tabs_focus: cx.focus_handle(),
-            project_tabs_kept: false,
-            project_tabs_from: None,
             people_focus: cx.focus_handle(),
             people_scroll: ScrollHandle::new(),
             glide: None,
@@ -1422,8 +1414,6 @@ impl Detail {
     /// same page.
     fn reset_view(&mut self) {
         self.reopening = None;
-        self.tabs_kept = false;
-        self.project_tabs_kept = false;
         self.text_selection = None;
         self.note_selection = None;
         self.cursor = Cursor::default();
@@ -1442,6 +1432,7 @@ impl Detail {
             files.place = None;
             files.file_picks.clear();
             files.line_picks = None;
+            files.last_pane = None;
         }
         // Another pick's pull request starts at its top, and its row is where the list is.
         if let Some(review) = self.page.review() {
@@ -1916,12 +1907,6 @@ impl Detail {
             (false, false) => &self.focus,
         };
         window.focus(handle, cx);
-        cx.notify();
-    }
-
-    /// Focus the files between a list page's list and the diff.
-    pub fn focus_beside_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        window.focus(&self.files_focus, cx);
         cx.notify();
     }
 
@@ -2607,8 +2592,13 @@ impl Detail {
     }
 
     /// Whether the current entry is the first the file list shows, with none over it to step to.
-    pub(super) fn on_first_entry(&self, cx: &App) -> bool {
+    fn on_first_entry(&self, cx: &App) -> bool {
         (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry())
+    }
+
+    /// Whether the current entry is the last the file list shows, with none under it to step to.
+    fn on_last_entry(&self, cx: &App) -> bool {
+        (self.file_step(1, cx)).is_none_or(|entry| entry == self.current_entry())
     }
 
     /// The files the file list shows, in its order: not those a filter or a pending
@@ -2643,6 +2633,7 @@ impl Detail {
     }
 
     pub(crate) fn move_hunk(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let past_end = if forward { Side::Bottom } else { Side::Top };
         // The keys go on to hunks that show, not a cursor out of sight. From a branch's pull
         // request, its changes. Nothing else that hides the diff shows its hunks.
         if self.showing_review(cx) {
@@ -2652,6 +2643,9 @@ impl Detail {
             cx.notify();
         }
         if self.diff_hidden(cx) {
+            if self.focus.is_focused(window) {
+                self.leave(past_end, window, cx);
+            }
             return;
         }
         let Some(diff) = &self.diff else {
@@ -2667,13 +2661,9 @@ impl Detail {
             self.reveal_cursor(cx);
             cx.notify();
         }
-        // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
-        if stop.is_none()
-            && !forward
-            && self.focus.is_focused(window)
-            && self.up_past_top(window, cx)
-        {
-            return;
+        // Past its ends, the diff's keys go on to what's over or under it, as the file list's do.
+        if stop.is_none() && self.focus.is_focused(window) {
+            return self.leave(past_end, window, cx);
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
         // and the keys after act on it.
@@ -3882,19 +3872,22 @@ impl Render for Detail {
             )
             .when(self.shows_conflicts(), |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
-            .on_action(cx.listener(|this, _: &NextFile, window, cx| {
-                if !this.down_from_tabs(window, cx) {
-                    this.move_file(1, cx)
-                }
-            }))
-            // With none over it, the diff's keys go on as ↑ does, up its hunks and out of its top.
+            .on_action(cx.listener(
+                |this, _: &NextFile, window, cx| match this.on_last_entry(cx) {
+                    true => this.leave(Side::Bottom, window, cx),
+                    false => this.move_file(1, cx),
+                },
+            ))
+            // With none over it, the file list's keys go on from it, and the diff's as ↑ does, up
+            // its hunks and out of its top.
             .on_action(cx.listener(|this, _: &PreviousFile, window, cx| {
-                if this.up_to_tabs(window, cx) {
-                    return;
-                }
-                match this.focus.is_focused(window) && this.on_first_entry(cx) {
-                    true => this.move_hunk(false, window, cx),
-                    false => this.move_file(-1, cx),
+                let first = this.on_first_entry(cx);
+                if first && this.files_focus.is_focused(window) {
+                    this.leave(Side::Top, window, cx)
+                } else if first && this.focus.is_focused(window) {
+                    this.move_hunk(false, window, cx)
+                } else {
+                    this.move_file(-1, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
@@ -3902,16 +3895,12 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
-            .on_action(cx.listener(|this, _: &NextHunk, window, cx| {
-                if !this.down_from_tabs(window, cx) {
-                    this.move_hunk(true, window, cx)
-                }
-            }))
-            .on_action(cx.listener(|this, _: &PreviousHunk, window, cx| {
-                if !this.up_from_tabs(window, cx) {
-                    this.move_hunk(false, window, cx)
-                }
-            }))
+            .on_action(
+                cx.listener(|this, _: &NextHunk, window, cx| this.move_hunk(true, window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
+            )
             // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
             // shown, not under a checkout's overview, where no row says which it is. Only with
             // the diff's keys: elsewhere its hunk shows faint, and a discard mustn't land on it.

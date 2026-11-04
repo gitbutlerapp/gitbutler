@@ -15,7 +15,7 @@ use super::lines::LinePicks;
 use super::review_edit::EditLeft;
 use super::slots::SlotPick;
 use super::upstream::Upstream;
-use super::{Cursor, LoadedDiff, Stop, follow_hunk, hunk_keys};
+use super::{Cursor, KeyPane, LoadedDiff, Stop, follow_hunk, hunk_keys};
 use crate::backend::{FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
@@ -47,6 +47,8 @@ pub(super) struct FilesState {
     pub(super) message_open: bool,
     /// What was written of the commit's message being edited as the page's detail went.
     pub(super) reworded: Option<String>,
+    /// The pane the keys last left, which they go back to where several are on that side.
+    pub(super) last_pane: Option<KeyPane>,
 }
 
 impl Default for FilesState {
@@ -64,6 +66,7 @@ impl Default for FilesState {
             find: None,
             message_open: false,
             reworded: None,
+            last_pane: None,
         }
     }
 }

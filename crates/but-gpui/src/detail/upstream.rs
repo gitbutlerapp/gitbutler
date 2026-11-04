@@ -7,8 +7,8 @@ use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, Bounds, Context, FocusHandle, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Window, div, prelude::*,
+    AnyElement, Bounds, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window,
+    div, prelude::*,
 };
 
 mod changed_path;
@@ -1771,56 +1771,6 @@ impl Detail {
         self.project_tabs_focus.is_focused(window)
     }
 
-    /// Give the keys to the tabs to the project's pages. Whether the page keeps them for coming
-    /// back from the left is up to how the keys next leave.
-    pub(crate) fn focus_project_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.project_tabs_kept = false;
-        self.project_tabs_from = None;
-        window.focus(&self.project_tabs_focus, cx);
-        cx.notify();
-    }
-
-    /// Whether coming from the left lands on the tabs to the project's pages: on the Graph,
-    /// which has nothing under them to take the keys, or when the keys last went left out of
-    /// them on this page.
-    pub(crate) fn project_tabs_reachable(&self) -> bool {
-        match self.selection() {
-            Some(Selection::Graph(_)) => true,
-            Some(Selection::Project(_) | Selection::Branches(_) | Selection::History(_)) => {
-                self.project_tabs_kept
-            }
-            _ => false,
-        }
-    }
-
-    /// Keep the tabs to the project's pages for coming back from the left, or forget them.
-    pub(crate) fn keep_project_tabs(&mut self, kept: bool) {
-        self.project_tabs_kept = kept;
-    }
-
-    /// ↑ past the top of a list page's list or from the tabs beside it: up to the project's
-    /// tabs over them. Not in a pinned tile, where ← and → would go to the page on that side
-    /// in the home tile.
-    pub(super) fn up_to_project_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.pinned.is_none() {
-            let from = window.focused(cx).filter(|from| *from != self.side_focus);
-            self.focus_project_tabs(window, cx);
-            self.project_tabs_from = from;
-        }
-    }
-
-    /// Whether `from`, what ↑ left for the project's tabs, still shows to take the keys back:
-    /// a reload can take the pull request's tabs away, and `f` the files.
-    pub(super) fn takes_keys_back(&self, from: &FocusHandle, cx: &gpui::App) -> bool {
-        if *from == self.tabs_focus {
-            self.tabs_shown(cx)
-        } else if *from == self.files_focus {
-            self.beside_files_shown(cx)
-        } else {
-            *from == self.focus && !self.without_changes(cx)
-        }
-    }
-
     /// The tabs to a project's pages, `page` the one selected; Branches says how many are in
     /// progress without being applied. They take the keys as the panes do.
     fn project_tabs(
@@ -1834,12 +1784,11 @@ impl Detail {
         let unapplied = self.unapplied(project).filter(|n| *n > 0);
         let solid = has_keys(&self.project_tabs_focus, window, cx);
         h_flex()
-            // Not in a pinned tile, as `up_to_project_tabs` says, where a click would take the
-            // keys.
+            // Not in a pinned tile, as `key_panes` says, where a click would take the keys.
             .when(self.pinned.is_none(), |el| {
                 el.track_focus(&self.project_tabs_focus)
             })
-            .key_context("Tabs")
+            .map(|el| self.tab_keys(el, cx))
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
             .children(Selection::project_pages(project).map(|to| {

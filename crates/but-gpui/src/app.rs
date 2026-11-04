@@ -17,7 +17,7 @@ use gpui::{
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
-use crate::detail::{Detail, DiffPane, KeptPages};
+use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
@@ -25,7 +25,7 @@ use crate::projects::pick_folder;
 use crate::state::{
     Area, Axis, Cut, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane,
     Prefs, ProjectId, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones, snack,
-    up_to_date,
+    tile_beside, up_to_date,
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -1380,83 +1380,51 @@ impl AppView {
         }
     }
 
-    /// Tab, or ⇧Tab going back: the next of the navigator, a project's tabs, a Branches,
-    /// Operations history or project page's list, the files beside that list, a page's Changes
-    /// and pull request tabs, the file list and the diff that show, round again. Without
-    /// `wrap`, as → and ← go, only the panes on that side, and on either tabs, the tab on that
-    /// side first.
-    fn focus_pane(
-        &mut self,
-        forward: bool,
-        wrap: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        // With the detail hidden, the navigator is the only pane.
+    /// Have the keys go on `by` that move: past the panes of the tile with them to the next,
+    /// left of the tiles to the navigator, and going round, through all of those. On either
+    /// tabs, ← and → go to the tab on that side first. Over what's open, or with the detail
+    /// hidden, where the navigator is the only pane, they stay.
+    pub(crate) fn move_keys(&mut self, by: KeyMove, window: &mut Window, cx: &mut Context<Self>) {
         if self.covered() || !self.detail_open {
             return;
         }
-        // Under a tile zoomed, the home tile's panes are out of sight: it and the navigator
-        // are all there is, with nothing to its right.
-        if let Some(zoomed) = self.zoomed_over_home(cx) {
-            let navigator = self.navigator.focus_handle(cx);
-            match navigator.contains_focused(window, cx) {
-                true if wrap || forward => window.focus(&zoomed, cx),
-                false if (wrap || !forward) && self.navigator_shown() => {
-                    window.focus(&navigator, cx)
-                }
-                _ => {}
-            }
+        let from = self.place_with_keys(window, cx);
+        if self.step_tabs(&from, by, window, cx) {
             return;
         }
-        // A terminal takes every key it's given, so only the navigator moves to it.
-        if let Some(terminal) = self.shown_terminal(cx) {
-            if self.navigator.focus_handle(cx).contains_focused(window, cx) {
-                window.focus(&terminal.focus_handle(cx), cx);
-            }
+        let Some(to) = self.place_after(&from, by, cx).filter(|to| *to != from) else {
             return;
-        }
-        let detail = self.detail.read(cx);
-        let at = if self.navigator.focus_handle(cx).contains_focused(window, cx) {
-            0
-        } else if detail.project_tabs_focused(window) {
-            1
-        } else if detail.side_list_focused(window) {
-            2
-        } else if detail.files_focused(window) && detail.list_page() {
-            3
-        } else if detail.tabs_focused(window) {
-            4
-        } else if detail.files_focused(window) {
-            5
-        } else {
-            6
         };
-        if at == 1 && !wrap {
-            let stepped = self.step_project_tab(forward, window, cx);
-            // Right of the last tab is nothing: what the tabs show is under them.
-            if stepped || forward {
-                return;
-            }
+        self.focus_place(&to, window, cx);
+        if let KeyPlace::Tile(tile, Some(pane)) = &from
+            && let Some(detail) = self.tile_detail(tile, cx)
+        {
+            detail.update(cx, |detail, _| detail.left_pane(*pane));
         }
-        if at == 4 && !wrap {
-            let stepped =
-                (self.detail).update(cx, |detail, cx| detail.step_tab(forward, window, cx));
-            // Right of the last tab is nothing: what the tabs show is under them.
-            if stepped || forward {
-                return;
-            }
-        }
-        let moved = self.focus_pane_from(at, forward, wrap, window, cx);
-        // Going left out of tabs, the page keeps them for coming back from the left, and going
-        // out of what's under them, it forgets them.
-        if moved && at >= 1 {
-            let kept = at == 1 && !forward;
-            (self.detail).update(cx, |detail, _| detail.keep_project_tabs(kept));
-        }
-        if moved && at >= 4 {
-            let kept = at == 4 && !forward;
-            (self.detail).update(cx, |detail, _| detail.keep_tabs(kept));
+    }
+
+    /// ← or → on either tabs, in `from`: the tab on that side. Says whether there was one.
+    fn step_tabs(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let forward = match by {
+            KeyMove::Beside(Side::Left) => false,
+            KeyMove::Beside(Side::Right) => true,
+            KeyMove::Beside(Side::Top | Side::Bottom) | KeyMove::Round { .. } => return false,
+        };
+        let KeyPlace::Tile(tile, Some(pane)) = from else {
+            return false;
+        };
+        match pane {
+            KeyPane::ProjectTabs => self.step_project_tab(forward, window, cx),
+            KeyPane::Tabs => (self.tile_detail(tile, cx)).is_some_and(|detail| {
+                detail.update(cx, |detail, cx| detail.step_tab(forward, window, cx))
+            }),
+            KeyPane::List | KeyPane::Files | KeyPane::Diff => false,
         }
     }
 
@@ -1489,64 +1457,106 @@ impl AppView {
         let on_tabs = self.detail.read(cx).project_tabs_focused(window);
         self.select(page, window, cx);
         if on_tabs {
-            (self.detail).update(cx, |detail, cx| detail.focus_project_tabs(window, cx));
+            (self.detail).update(cx, |detail, cx| {
+                detail.focus_key_pane(KeyPane::ProjectTabs, window, cx)
+            });
         }
     }
 
-    /// Focus the pane after `at`, or before it going back, of those [`AppView::focus_pane`]
-    /// steps through, numbered from the navigator's 0. Tabs count while nothing under them
-    /// takes the keys, as under the pull request, on a page without changes or on the Graph,
-    /// and otherwise only while the page keeps them, as ↑ from what's under them reaches them.
-    /// Says whether one took the keys.
-    fn focus_pane_from(
-        &mut self,
-        at: usize,
-        forward: bool,
-        wrap: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let detail = self.detail.read(cx);
-        // A page that's an overview alone has no pane past the navigator to take the keys, nor
-        // has the file list or the diff without changes to show.
-        let list_page = detail.list_page();
-        let changes = !detail.without_changes(cx);
-        let review = detail.showing_review(cx);
-        let shown = [
-            self.navigator_open,
-            detail.project_tabs_reachable(),
-            list_page,
-            changes && list_page && detail.beside_files_shown(cx),
-            detail.tabs_reachable(cx),
-            changes && !list_page && !review && detail.files_shown(cx),
-            changes && !review && !detail.overview_only(),
-        ];
-        let next = |n: usize| (at + if forward { n } else { shown.len() - n }) % shown.len();
-        match (1..shown.len())
-            .map(next)
-            .filter(|&pane| wrap || (pane > at) == forward)
-            .find(|&pane| shown.get(pane) == Some(&true))
-        {
-            Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
-            Some(1) => (self.detail).update(cx, |detail, cx| detail.focus_project_tabs(window, cx)),
-            Some(3) => (self.detail).update(cx, |detail, cx| detail.focus_beside_files(window, cx)),
-            Some(4) => (self.detail).update(cx, |detail, cx| detail.focus_tabs(window, cx)),
-            // A list page's list, or the file list.
-            Some(2 | 5) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
-            Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
-            None => return false,
+    /// The detail of `tile`'s page, while it shows one rather than a terminal.
+    fn tile_detail(&self, tile: &Tile, cx: &App) -> Option<Entity<Detail>> {
+        match tile {
+            Tile::Home => self
+                .shown_terminal(cx)
+                .is_none()
+                .then(|| self.detail.clone()),
+            Tile::Pinned(RowKey::Row(Selection::Terminal(..))) => None,
+            Tile::Pinned(row) => Some(self.pages.get(row)?.detail.clone()),
         }
-        true
     }
 
-    /// Move the keys off the navigator as it goes, to the leftmost pane beside it, as → from
-    /// it does: a project's tabs while the page kept them or on the Graph, else a list page's
-    /// list, else the tabs while nothing under them takes the keys or the page kept them, else
-    /// the file list, else the diff. A page with none, as an overview
-    /// alone or a branch with no commits, gives them to the detail.
+    /// The tiles that show, and where: the one zoomed, else the selected row's, else the home
+    /// tile alone.
+    fn shown_tiles(&self, cx: &App) -> Vec<(Tile, Area)> {
+        match (self.zoomed(), self.store.read(cx).tiling()) {
+            (Some(tile), _) => Vec::from([(tile.clone(), Area::WHOLE)]),
+            (None, Some(tiling)) => tiling.areas(),
+            (None, None) => Vec::from([(Tile::Home, Area::WHOLE)]),
+        }
+    }
+
+    /// Where the keys are, of the places they go between.
+    fn place_with_keys(&self, window: &Window, cx: &App) -> KeyPlace {
+        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+            return KeyPlace::Navigator;
+        }
+        let tile = (self.zoomed().cloned()).unwrap_or_else(|| self.focused_tile(window, cx));
+        let pane = self.tile_detail(&tile, cx);
+        let pane = pane.map(|detail| detail.read(cx).pane_with_keys(window, cx));
+        KeyPlace::Tile(tile, pane)
+    }
+
+    /// Where `by` takes the keys from `from`, as [`AppView::move_keys`] says.
+    fn place_after(&self, from: &KeyPlace, by: KeyMove, cx: &App) -> Option<KeyPlace> {
+        if let KeyPlace::Tile(tile, Some(pane)) = from {
+            let detail = self.tile_detail(tile, cx)?;
+            let next = detail.read(cx).key_pane_after(*pane, by, cx);
+            if next.is_some() {
+                return Some(KeyPlace::Tile(tile.clone(), next));
+            }
+        }
+        let tiles = self.shown_tiles(cx);
+        let navigator = self.navigator_shown();
+        let next = match by {
+            KeyMove::Beside(side) => stop_beside(&from.stop(), side, &tiles, navigator),
+            KeyMove::Round { forward } => stop_round(&from.stop(), forward, &tiles, navigator),
+        };
+        match next? {
+            KeyStop::Navigator => Some(KeyPlace::Navigator),
+            KeyStop::Tile(tile) => {
+                let alone = tile == Tile::Home && tiles.len() == 1;
+                self.place_in(tile, by, alone, cx)
+            }
+        }
+    }
+
+    /// Where the keys land coming into `tile` `by` that move. A page with no panes has nothing
+    /// to take them while it's the home tile `alone`; any other stops them, to go on from, as
+    /// ⌘] does.
+    fn place_in(&self, tile: Tile, by: KeyMove, alone: bool, cx: &App) -> Option<KeyPlace> {
+        let Some(detail) = self.tile_detail(&tile, cx) else {
+            return Some(KeyPlace::Tile(tile, None));
+        };
+        let pane = detail.read(cx).key_pane_entered(by, cx);
+        (pane.is_some() || !alone).then_some(KeyPlace::Tile(tile, pane))
+    }
+
+    /// Give `place` the keys.
+    fn focus_place(&mut self, place: &KeyPlace, window: &mut Window, cx: &mut Context<Self>) {
+        match place {
+            KeyPlace::Navigator => window.focus(&self.navigator.focus_handle(cx), cx),
+            KeyPlace::Tile(tile, Some(pane)) => {
+                if let Some(detail) = self.tile_detail(tile, cx) {
+                    detail.update(cx, |detail, cx| detail.focus_key_pane(*pane, window, cx));
+                }
+            }
+            KeyPlace::Tile(tile, None) => {
+                if let Some(focus) = self.tile_focus(tile, cx) {
+                    window.focus(&focus, cx);
+                }
+            }
+        }
+    }
+
+    /// Move the keys off the navigator as it goes, to the home tile's pane beside it, as → from
+    /// it does there. A page with none, as an overview alone or a branch with no commits, gives
+    /// them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.focus_cover(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
-            (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
+        if !self.focus_cover(window, cx) {
+            (self.detail).update(cx, |detail, cx| {
+                let pane = detail.key_pane_entered(KeyMove::Beside(Side::Right), cx);
+                detail.focus_key_pane(pane.unwrap_or(KeyPane::Diff), window, cx);
+            });
         }
     }
 
@@ -4209,6 +4219,70 @@ struct Page {
     diff: Entity<DiffPane>,
 }
 
+/// Somewhere the keys can be, of those [`AppView::move_keys`] goes between.
+#[derive(Debug, Clone, PartialEq)]
+enum KeyPlace {
+    Navigator,
+    /// A tile, at a pane of its page, or without one where it takes the keys whole: a terminal,
+    /// or a page with no panes.
+    Tile(Tile, Option<KeyPane>),
+}
+
+impl KeyPlace {
+    fn stop(&self) -> KeyStop {
+        match self {
+            KeyPlace::Navigator => KeyStop::Navigator,
+            KeyPlace::Tile(tile, _) => KeyStop::Tile(tile.clone()),
+        }
+    }
+}
+
+/// What the keys go to past the panes of a tile.
+#[derive(Debug, Clone, PartialEq)]
+enum KeyStop {
+    Navigator,
+    Tile(Tile),
+}
+
+/// Past the last of `from`'s panes going round: the next tile, in the order they're laid out,
+/// with the `navigator`, while it shows, between the last and the first.
+fn stop_round(
+    from: &KeyStop,
+    forward: bool,
+    tiles: &[(Tile, Area)],
+    navigator: bool,
+) -> Option<KeyStop> {
+    let tiles = (tiles.iter()).map(|(tile, _)| KeyStop::Tile(tile.clone()));
+    let navigator = navigator.then_some(KeyStop::Navigator);
+    let stops: Vec<KeyStop> = navigator.into_iter().chain(tiles).collect();
+    let at = stops.iter().position(|stop| stop == from)?;
+    let count = stops.len();
+    let next = if forward { at + 1 } else { at + count - 1 };
+    stops.into_iter().nth(next % count)
+}
+
+/// Past the last of `from`'s panes on `side`: the tile beside it, left of the tiles the
+/// `navigator`, while it shows, and right of the navigator the first tile.
+fn stop_beside(
+    from: &KeyStop,
+    side: Side,
+    tiles: &[(Tile, Area)],
+    navigator: bool,
+) -> Option<KeyStop> {
+    match from {
+        KeyStop::Navigator if side == Side::Right => {
+            let (first, _) = tiles.first()?;
+            Some(KeyStop::Tile(first.clone()))
+        }
+        KeyStop::Navigator => None,
+        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side) {
+            Some(beside) => Some(KeyStop::Tile(beside)),
+            None if side == Side::Left && navigator => Some(KeyStop::Navigator),
+            None => None,
+        },
+    }
+}
+
 /// A tile sliding open out of the split it's pinned at, or shut back into it as it closes, as
 /// the detail slides in beside the navigator.
 struct TileSlide {
@@ -4792,16 +4866,16 @@ impl Render for AppView {
             .on_action(cx.listener(Self::focus_changes))
             .on_action(cx.listener(Self::focus_diff))
             .on_action(cx.listener(|this, _: &FocusNextPane, window, cx| {
-                this.focus_pane(true, true, window, cx)
+                this.move_keys(KeyMove::Round { forward: true }, window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
-                this.focus_pane(false, true, window, cx)
+                this.move_keys(KeyMove::Round { forward: false }, window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPaneLeft, window, cx| {
-                this.focus_pane(false, false, window, cx)
+                this.move_keys(KeyMove::Beside(Side::Left), window, cx)
             }))
             .on_action(cx.listener(|this, _: &FocusPaneRight, window, cx| {
-                this.focus_pane(true, false, window, cx)
+                this.move_keys(KeyMove::Beside(Side::Right), window, cx)
             }))
             .on_action(cx.listener(Self::operations_history))
             .on_action(cx.listener(|this, _: &NextProjectPage, window, cx| {
@@ -5148,4 +5222,154 @@ pub(crate) fn scripted() -> bool {
     return crate::dev::scripted();
     #[cfg(not(feature = "dev-script"))]
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{KeyStop, stop_beside, stop_round};
+    use crate::state::{Area, RowKey, Selection, Side, Tile};
+
+    fn pinned() -> Tile {
+        Tile::Pinned(RowKey::Row(Selection::Branches("p".into())))
+    }
+
+    fn side_by_side() -> [(Tile, Area); 2] {
+        let area = |left| Area {
+            left,
+            top: 0.,
+            width: 0.5,
+            height: 1.,
+        };
+        [(Tile::Home, area(0.)), (pinned(), area(0.5))]
+    }
+
+    fn at(tile: Tile) -> KeyStop {
+        KeyStop::Tile(tile)
+    }
+
+    #[test]
+    fn going_round_the_navigator_comes_before_the_first_tile() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, true, &side_by_side(), true),
+            Some(at(Tile::Home)),
+            "Tab from the navigator goes to the first tile"
+        );
+    }
+
+    #[test]
+    fn going_round_goes_tile_by_tile() {
+        assert_eq!(
+            stop_round(&at(Tile::Home), true, &side_by_side(), true),
+            Some(at(pinned())),
+            "Tab past the home tile's last pane goes to the tile after it"
+        );
+    }
+
+    #[test]
+    fn going_round_past_the_last_tile_reaches_the_navigator() {
+        assert_eq!(
+            stop_round(&at(pinned()), true, &side_by_side(), true),
+            Some(KeyStop::Navigator),
+            "the navigator is between the last tile and the first"
+        );
+    }
+
+    #[test]
+    fn going_round_back_from_the_navigator_reaches_the_last_tile() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, false, &side_by_side(), true),
+            Some(at(pinned())),
+            "⇧Tab from the navigator goes round to the last tile"
+        );
+    }
+
+    #[test]
+    fn going_round_without_the_navigator_goes_from_the_last_tile_to_the_first() {
+        assert_eq!(
+            stop_round(&at(pinned()), true, &side_by_side(), false),
+            Some(at(Tile::Home)),
+            "a hidden navigator isn't a stop"
+        );
+    }
+
+    #[test]
+    fn right_of_the_navigator_is_the_first_tile() {
+        assert_eq!(
+            stop_beside(&KeyStop::Navigator, Side::Right, &side_by_side(), true),
+            Some(at(Tile::Home)),
+            "→ from the navigator goes to the tile beside it"
+        );
+    }
+
+    #[test]
+    fn nothing_is_left_of_the_navigator() {
+        assert_eq!(
+            stop_beside(&KeyStop::Navigator, Side::Left, &side_by_side(), true),
+            None,
+            "← stops at the window's edge"
+        );
+    }
+
+    #[test]
+    fn left_of_a_pinned_tile_is_the_tile_beside_it() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Left, &side_by_side(), true),
+            Some(at(Tile::Home)),
+            "← out of a pinned tile goes on to the tile on its left"
+        );
+    }
+
+    #[test]
+    fn right_of_a_tile_is_the_tile_beside_it() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Right, &side_by_side(), true),
+            Some(at(pinned())),
+            "→ out of the home tile reaches the tile pinned on its right"
+        );
+    }
+
+    #[test]
+    fn left_of_the_tiles_is_the_navigator() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), true),
+            Some(KeyStop::Navigator),
+            "← out of the leftmost tile reaches the navigator"
+        );
+    }
+
+    #[test]
+    fn left_of_the_tiles_without_the_navigator_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), false),
+            None,
+            "a hidden navigator takes no keys"
+        );
+    }
+
+    #[test]
+    fn nothing_is_over_or_under_the_navigator() {
+        assert_eq!(
+            stop_beside(&KeyStop::Navigator, Side::Bottom, &side_by_side(), true),
+            None,
+            "↓ on the navigator steps through its rows"
+        );
+    }
+
+    #[test]
+    fn over_a_tile_with_none_above_it_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Top, &side_by_side(), true),
+            None,
+            "the navigator is only left of the tiles"
+        );
+    }
+
+    #[test]
+    fn right_of_the_last_tile_is_nothing() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Right, &side_by_side(), true),
+            None,
+            "→ stops at the window's edge rather than going round"
+        );
+    }
 }
