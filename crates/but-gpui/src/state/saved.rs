@@ -516,7 +516,8 @@ pub enum Part {
     /// there then.
     LocationBar,
     /// The header across a branch's or a stack's page, with its name, commits and push state,
-    /// which the navigator's row has too.
+    /// which the navigator's row has too. Where it's left out, a branch's messages list first
+    /// among its files instead, as do those of the commits only a remote has.
     BranchHeader,
     /// The header across a commit's page, with its message, author, ID and push state, which
     /// Lite lists first among its files instead, as the commit's message.

@@ -14,8 +14,8 @@ use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::{rows_under, side_list};
 use super::{
-    CheckAll, Copied, Detail, FilterFiles, LoadedDiff, PageFold, UncheckAll, keeps_path, merged,
-    ranked,
+    CheckAll, Copied, Detail, FilterFiles, LoadedDiff, Messages, PageFold, UncheckAll, keeps_path,
+    merged, ranked,
 };
 actions!(
     changes,
@@ -45,6 +45,7 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
     }
 }
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
@@ -297,32 +298,33 @@ impl Detail {
             .into_any_element()
     }
 
-    /// The messages as the list's first entry, where Lite lists them in place of the page's
-    /// header: a commit's title, or a branch's name, which shows them in the diff. It stays put
-    /// above the files as they scroll.
+    /// The messages as the list's first entry, where the diff lists them: a commit's title, a
+    /// branch's name, or where a remote's new commits are, which shows them in the diff. It
+    /// stays put above the files as they scroll.
     fn render_message_entry(
         &self,
         theme: &Theme,
         window: &Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        if !self.message_listed(cx) {
-            return None;
-        }
         let store = self.store.read(cx);
-        // A commit by its title, a branch by its name and how many commits it has.
-        let (glyph, title, count) = match &store.selection {
-            Some(Selection::Commit(project, id)) => {
-                let (_, commit) = store.find_commit(project, *id)?;
-                let title = commit_title(store.message_of(project, commit).0);
+        // A commit by its title, a branch or a remote's new commits by their name and count.
+        let (glyph, title, count) = match self.loaded_messages(cx)? {
+            Messages::Commit(project, id) => {
+                let (_, commit) = store.find_commit(&project, id)?;
+                let title = commit_title(store.message_of(&project, commit).0);
                 (Icon::Commit, title, None)
             }
-            Some(Selection::Branch(project, ref_name)) => {
-                let branch = store.workspace(project)?.find_branch(ref_name.as_ref())?;
-                let name = SharedString::from(store.name_of(project, branch).to_owned());
+            Messages::Branch(project, ref_name) => {
+                let branch = store.workspace(&project)?.find_branch(ref_name.as_ref())?;
+                let name = SharedString::from(store.name_of(&project, branch).to_owned());
                 (Icon::Branch, name, Some(branch.commits.len()))
             }
-            _ => return None,
+            Messages::Upstream(project, ref_name) => {
+                let workspace = store.workspace(&project);
+                let (label, count, _) = upstream_label(workspace, ref_name.as_ref());
+                (Icon::ArrowDown, label.into(), Some(count))
+            }
         };
         let current = self.current_entry() == super::Entry::Message;
         let solid = current && has_keys(&self.files_focus, window, cx);

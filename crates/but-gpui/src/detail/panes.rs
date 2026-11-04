@@ -11,7 +11,7 @@ use gpui::{
 };
 
 use super::upstream::noon;
-use super::{Detail, PageFold, machine};
+use super::{Detail, Messages, PageFold, machine};
 use crate::app::{
     AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit, ToggleFold,
 };
@@ -21,7 +21,7 @@ use crate::backend::{
 };
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
-use crate::navigator::{SelectFirst, SelectLast};
+use crate::navigator::{SelectFirst, SelectLast, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, Section, Selection};
 use crate::theme::Theme;
@@ -655,8 +655,8 @@ impl Detail {
             )
     }
 
-    /// The messages Lite lists first among the files in place of the page's header: the
-    /// selected commit's, or every commit's of the selected branch, newest first. `flat` fills
+    /// The messages the diff lists first among the files: the selected commit's, every
+    /// commit's of the selected branch, or those only a remote has, newest first. `flat` fills
     /// the pane, as the one entry the diff shows, with the files under it; else it's a card
     /// above the files' cards.
     pub(super) fn render_message(
@@ -666,14 +666,17 @@ impl Detail {
         theme: &Theme,
         cx: &App,
     ) -> AnyElement {
-        let messages = match &self.store.read(cx).selection {
-            Some(Selection::Commit(project, id)) => {
-                self.commit_message(project, *id, flat, entity.clone(), theme, cx)
+        let messages = match self.loaded_messages(cx) {
+            Some(Messages::Commit(project, id)) => {
+                self.commit_message(&project, id, flat, entity.clone(), theme, cx)
             }
-            Some(Selection::Branch(project, ref_name)) => {
-                self.branch_messages(project, ref_name.as_ref(), flat, theme, cx)
+            Some(Messages::Branch(project, ref_name)) => {
+                self.branch_messages(&project, ref_name.as_ref(), flat, theme, cx)
             }
-            _ => None,
+            Some(Messages::Upstream(project, ref_name)) => {
+                self.upstream_messages(&project, ref_name.as_ref(), flat, theme, cx)
+            }
+            None => None,
         };
         let Some((top, rest)) = messages else {
             return div().into_any_element();
@@ -781,45 +784,136 @@ impl Detail {
             let (title, message) = store.message_of(project, commit);
             let body = backend::subject_and_body(message).1;
             let at = Selection::Commit(project.clone(), commit.id);
-            let app = self.app.clone();
-            let hover = theme.hover();
-            let title = div()
-                .id("commit-title")
-                .role(Role::Link)
-                .aria_label(title.to_owned())
-                .mx(dp(-4.))
-                .px(dp(4.))
-                .rounded(dp(4.))
-                .text_size(dp(15.))
-                .line_height(dp(22.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .hover(move |el| el.bg(hover))
-                .tooltip(Tooltip::text("Open commit"))
-                .child(commit_title(title))
-                .on_click(move |_, window, cx| {
-                    let at = at.clone();
-                    app.update_later(window, cx, move |app, window, cx| {
-                        app.select(at, window, cx)
-                    });
-                });
-            // Each its own, as every commit's parts are named alike.
-            v_flex()
-                .id(("branch-commit", ix))
-                .gap(dp(6.))
-                .pt(dp(16.))
-                .border_t_1()
-                .border_color(theme.border_3)
-                .child(h_flex().child(title))
-                .child(self.commit_meta(project, commit, theme, cx))
-                .when(!body.is_empty(), |el| {
-                    el.child(message_body(body, theme).mt(dp(6.)))
-                })
+            let meta = self.commit_meta(project, commit, theme, cx);
+            self.listed_commit(ix, title, at, meta, &body, theme)
         });
         let commits = v_flex()
             .max_w(dp(MESSAGE_WIDTH))
             .gap(dp(20.))
             .children(commits);
         Some((top, Some(commits)))
+    }
+
+    /// The commits only `ref_name`'s remote has, or with `None` the target's new ones: where
+    /// they are and how many, as the navigator's heading says it, then each, newest first, as
+    /// its header would say it, with its whole message. A click on a commit's title opens it.
+    /// The target's lists the newest only, and then how many more its page lists.
+    fn upstream_messages(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&FullName>,
+        flat: bool,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
+        let store = self.store.read(cx);
+        let ws = store.workspace(project)?;
+        let (label, _, count) = upstream_label(Some(ws), ref_name);
+        let name = title_text(label).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let target = Selection::Section(project.clone(), Section::Upstream(ref_name.cloned()));
+        let top = h_flex()
+            .items_start()
+            .gap(dp(16.))
+            .child(
+                v_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(dp(8.))
+                    .child(name)
+                    .child(meta_row(theme).child(count)),
+            )
+            .child(h_flex().h(dp(22.)).child(self.page_menu(target)));
+        let listed = ws.upstream(ref_name);
+        let commits = listed.iter().enumerate().map(|(ix, commit)| {
+            let at = Selection::Upstream(project.clone(), ref_name.cloned(), commit.id);
+            let agent = commit.agent.as_ref();
+            let meta = meta_row(theme)
+                .child(byline(
+                    &commit.author,
+                    &commit.email,
+                    agent,
+                    commit.time,
+                    theme,
+                ))
+                .child(self.sha_chip(commit.id, theme));
+            self.listed_commit(ix, &commit.title, at, meta, &commit.body, theme)
+        });
+        let behind = ws.target.as_ref().filter(|_| ref_name.is_none());
+        let more = behind.map_or(0, |target| target.behind.saturating_sub(listed.len()));
+        let more = (more > 0).then(|| {
+            let page = Selection::Project(project.clone());
+            self.open_link(
+                "upstream-more",
+                format!("{more} more on its page"),
+                page,
+                theme,
+            )
+            .text_size(dp(13.))
+            .text_color(theme.text_2)
+        });
+        let commits = v_flex()
+            .max_w(dp(MESSAGE_WIDTH))
+            .gap(dp(20.))
+            .children(commits)
+            .children(more.map(|more| h_flex().child(more)));
+        Some((top, Some(commits)))
+    }
+
+    /// One commit of a list of messages: its `title`, which opens `at`, `meta` under it,
+    /// and its `body`. Each its own, as every commit's parts are named alike.
+    fn listed_commit(
+        &self,
+        ix: usize,
+        title: &str,
+        at: Selection,
+        meta: impl IntoElement,
+        body: &str,
+        theme: &Theme,
+    ) -> Stateful<Div> {
+        let title = self
+            .open_link("commit-title", commit_title(title), at, theme)
+            .aria_label(title.to_owned())
+            .text_size(dp(15.))
+            .line_height(dp(22.))
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .tooltip(Tooltip::text("Open commit"));
+        v_flex()
+            .id(("listed-commit", ix))
+            .gap(dp(6.))
+            .pt(dp(16.))
+            .border_t_1()
+            .border_color(theme.border_3)
+            .child(h_flex().child(title))
+            .child(meta)
+            .when(!body.is_empty(), |el| {
+                el.child(message_body(body.to_owned(), theme).mt(dp(6.)))
+            })
+    }
+
+    /// `label` as a link in a list of messages that selects `at`.
+    fn open_link(
+        &self,
+        id: &'static str,
+        label: impl Into<SharedString>,
+        at: Selection,
+        theme: &Theme,
+    ) -> Stateful<Div> {
+        let app = self.app.clone();
+        let hover = theme.hover();
+        div()
+            .id(id)
+            .role(Role::Link)
+            .mx(dp(-4.))
+            .px(dp(4.))
+            .rounded(dp(4.))
+            .hover(move |el| el.bg(hover))
+            .child(label.into())
+            .on_click(move |_, window, cx| {
+                let at = at.clone();
+                app.update_later(window, cx, move |app, window, cx| {
+                    app.select(at, window, cx)
+                });
+            })
     }
 
     /// Under the commit's message filling the pane, the files it changes, as the file list
