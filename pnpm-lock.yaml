@@ -729,8 +729,8 @@ importers:
         specifier: workspace:*
         version: link:../but-sdk
       '@gitbutler/design-core':
-        specifier: 11.2.0
-        version: 11.2.0
+        specifier: 11.3.0
+        version: 11.3.0
       '@hono/node-server':
         specifier: 2.0.10
         version: 2.0.10(hono@4.12.32)
@@ -964,13 +964,16 @@ importers:
       effect:
         specifier: ^3.20.0
         version: 3.20.0
+      markdown-to-jsx:
+        specifier: ^7.7.17
+        version: 7.7.17(react@19.2.4)
       react-resizable-panels:
         specifier: ^4.11.2
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@gitbutler/design-core':
-        specifier: 11.2.0
-        version: 11.2.0
+        specifier: 11.3.0
+        version: 11.3.0
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.58.2
@@ -1001,9 +1004,6 @@ importers:
       jsdom:
         specifier: 28.1.0
         version: 28.1.0(@noble/hashes@1.8.0)(supports-color@8.1.1)
-      markdown-to-jsx:
-        specifier: ^7.7.17
-        version: 7.7.17(react@19.2.4)
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -2080,8 +2080,8 @@ packages:
     peerDependencies:
       svelte: ^3.59.1
 
-  '@gitbutler/design-core@11.2.0':
-    resolution: {integrity: sha512-Sc7j75EPTsL3sK839mqqnIOcP1/MLztE/eWH1D/M73uqQ9YZbFlGQ5b3ELD9TUZ5Ri0swLfrb8Zu3ieYyQC4vA==}
+  '@gitbutler/design-core@11.3.0':
+    resolution: {integrity: sha512-LsXx6pXdVjU5QUcCqkJ1pydCwD05eEPWM8+q0jVkVWuUnpHTgcz018nJh2DlGnu1N3UIdf7ssEfyZdupJzFQKA==}
 
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
@@ -10218,7 +10218,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@gitbutler/design-core@11.2.0': {}
+  '@gitbutler/design-core@11.3.0': {}
 
   '@gitbutler/design-core@2.2.2': {}
 

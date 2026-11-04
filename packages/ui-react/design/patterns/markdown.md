@@ -1,7 +1,8 @@
 # Markdown
 
 How rendered markdown — a pull request description, a comment — looks in any
-app.
+app. `Markdown` draws it; these are its rules, and ⚛️ Core's Markdown section
+draws the same.
 
 **The rhythm is 12, 16, 4.** 12px between text blocks; 16px around anything
 with an edge — a table, a code block, a quote bar, an image, a rule — because a
@@ -11,9 +12,9 @@ below, collapsing into the next block's margin. Margins collapse, so a box next
 to a paragraph gets 16, not 28.
 
 **Text reads narrow; media spreads wide.** Headings, paragraphs, lists, quotes
-and code keep to a 540px column, a comfortable line. Tables, images, galleries
-and video take the full 740px, centred on the same axis, so they break out of
-the text on both sides.
+and code keep to `--size-prose` (540px), a comfortable line. Tables, images,
+galleries and video take `--size-prose-wide` (740px), centred on the same axis,
+so they break out of the text on both sides.
 
 **Type.** Body/13 on a 160% line. H1 is 20, H2 18, H3 16, all semibold on a
 130% line so a wrapped heading reads as one: design-core's `text-h1`,

@@ -90,77 +90,18 @@ body[data-layout="centered"] {
 	background-color: var(--bg-1);
 }
 
-/* The design notes: Markdown, set as the component pages' prose is. */
+/* The design notes: Markdown, drawn as any app draws it. */
 .docs-site-prose {
 	max-width: 760px;
 	margin: 0 auto;
 	padding: 48px 32px 64px;
-	color: var(--text-2);
-	font-size: 0.875rem;
-	line-height: var(--font-line-height-body);
+}
 
-	& :is(h1, h2, h3, h4) {
-		margin: 32px 0 12px;
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-		line-height: var(--font-line-height-default);
-	}
-
-	& h1 {
-		margin-top: 0;
-		font-size: 1.5rem;
-	}
-
-	& h2 {
-		font-size: 1rem;
-	}
-
-	& :is(h3, h4) {
-		font-size: 0.875rem;
-	}
-
-	& :is(p, ul, ol, table, pre) {
-		margin: 0 0 12px;
-	}
-
-	& :is(ul, ol) {
-		padding-left: 20px;
-	}
-
-	& strong {
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	& a {
-		color: var(--text-1);
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	& code {
-		padding: 1px 4px;
-		border-radius: var(--radius-xs);
-		background-color: var(--bg-3);
-		font-size: 0.8125rem;
-		font-family: var(--fontfamily-mono);
-	}
-
-	& table {
-		border-collapse: collapse;
-	}
-
-	& :is(th, td) {
-		padding: 6px 12px 6px 0;
-		border-bottom: 1px solid var(--border-3);
-		text-align: start;
-		vertical-align: top;
-	}
-
-	& th {
-		color: var(--text-1);
-		font-weight: var(--font-weight-semibold);
-	}
+/* A link to another page of notes stays on the site, so it goes without TextLink's arrow. */
+.docs-site-page-link {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
 }
 
 /* A component's page. */
