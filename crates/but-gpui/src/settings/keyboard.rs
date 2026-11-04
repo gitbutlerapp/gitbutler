@@ -168,7 +168,7 @@ fn places<'a>(contexts: impl Iterator<Item = Option<&'a str>>) -> String {
 fn place(context: &str) -> Option<&'static str> {
     Some(match context {
         "Workspace" => "Main window",
-        "Navigator" => "Navigator",
+        "Navigator" | "DrawerBar" => "Navigator",
         "Moving" => "While moving",
         "Squashing" => "While squashing",
         "Diff" => "Diff",

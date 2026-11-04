@@ -179,6 +179,21 @@
     "context": "Navigator && !TextInput",
     "bindings": { "/": "navigator::FocusFilter" }
   },
+  // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
+  // fold and no others, as those would act on the row it left.
+  {
+    "context": "DrawerBar && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "enter": "navigator::ToggleFold",
+      "/": "navigator::FocusFilter"
+    }
+  },
   {
     "context": "Diff && !TextInput",
     "bindings": { "/": "find::FindInDiff" }

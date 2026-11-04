@@ -257,6 +257,27 @@
       "/": "navigator::FocusFilter"
     }
   },
+  // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
+  // fold and no others, as those would act on the row it left.
+  {
+    "context": "DrawerBar && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "g g": "navigator::SelectFirst",
+      "home": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "end": "navigator::SelectLast",
+      "shift-l": "navigator::Expand",
+      "shift-right": "navigator::Expand",
+      "shift-h": "navigator::Collapse",
+      "shift-left": "navigator::Collapse",
+      "enter": "navigator::Confirm",
+      "/": "navigator::FocusFilter"
+    }
+  },
   // In the file list, as in but.dev's, ↑ and ↓ step through files, and with ⇧ pick them, as
   // in Finder.
   {

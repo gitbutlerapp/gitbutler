@@ -185,6 +185,47 @@ enum Blink {
     Move,
 }
 
+/// Where a step of the keys lands.
+#[derive(Debug, PartialEq, Eq)]
+enum Step {
+    /// The item at this index of those listed.
+    Item(usize),
+    /// The drawer's bar, between the cards' rows and its own.
+    Bar,
+}
+
+/// Where a step of `delta` goes from item `at` of `items`, or from the drawer's bar while
+/// `on_bar`, with `bar` how many items are above the bar, if it's a stop. From off the list, a
+/// step forward starts at the top and one back at the bottom. Past an end it's `None`, rather
+/// than picking the row again, which would take its page back to how it opens on every repeat
+/// of a held key.
+fn step_to(
+    at: Option<usize>,
+    items: usize,
+    bar: Option<usize>,
+    on_bar: bool,
+    delta: isize,
+) -> Option<Step> {
+    let stops = (items + usize::from(bar.is_some())) as isize;
+    let from = match (bar.filter(|_| on_bar), at) {
+        (Some(bar), _) => bar as isize,
+        (None, Some(ix)) if bar.is_some_and(|bar| ix >= bar) => ix as isize + 1,
+        (None, Some(ix)) => ix as isize,
+        (None, None) if delta > 0 => -1,
+        (None, None) => stops,
+    };
+    let next = (from + delta).clamp(0, stops - 1);
+    if next == from {
+        return None;
+    }
+    let next = next as usize;
+    Some(match bar {
+        Some(bar) if next == bar => Step::Bar,
+        Some(bar) if next > bar => Step::Item(next - 1),
+        Some(_) | None => Step::Item(next),
+    })
+}
+
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
 /// step in from their heading, which is under the branch's commit glyphs.
 fn upstream_indent(ref_name: Option<&FullName>) -> f32 {
@@ -446,6 +487,9 @@ pub struct Navigator {
     /// The room above the drawer at the list's end, and its card's height, as last worked out:
     /// see [`Self::fit_footer`].
     footer: Cell<(f32, f32)>,
+    /// The keys stepped onto the drawer's bar, which folds but is nothing to select, so the
+    /// selection and its page stay as they were: see [`Step`].
+    on_drawer_bar: bool,
     /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
     /// date, to the copies of commits being moved where they'd land rather than to them.
     reveal_selection: bool,
@@ -667,6 +711,7 @@ impl Navigator {
             drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             footer: Cell::new((0., 0.)),
+            on_drawer_bar: false,
             reveal_selection: false,
             shown_op: None,
             shown_landing: false,
@@ -842,6 +887,7 @@ impl Navigator {
     /// Show the selection where it is once the rows are up to date, opening the drawer when
     /// it's one of its projects.
     fn reveal(&mut self, cx: &mut Context<Self>) {
+        self.leave_drawer_bar(cx);
         self.reveal_selection = true;
         let store = self.store.read(cx);
         let in_drawer = matches!(&store.selection, Some(Selection::Project(id))
@@ -854,6 +900,7 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
+        self.leave_drawer_bar(cx);
         // While something is being moved the selection stays on it, which goes toward what's
         // asked for instead, before the folds below follow a selection that doesn't change.
         if self.store.read(cx).moving.is_some() {
@@ -934,7 +981,8 @@ impl Navigator {
         }
         // ↓ onto a fold of commits shows the rest and goes on into them, as a feed loads more:
         // the fold is no stop of its own.
-        let built = (delta > 0 && self.unfold_after_selection(cx)).then(|| self.build_rows(cx));
+        let unfolds = delta > 0 && !self.on_drawer_bar && self.unfold_after_selection(cx);
+        let built = unfolds.then(|| self.build_rows(cx));
         let items = match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &built.drawer.rows),
             None => self.items(),
@@ -943,22 +991,63 @@ impl Navigator {
             return;
         }
         let current = self.store.read(cx).selection.as_ref();
-        // From off the list, a step forward starts at the top and one back at the bottom.
-        let at = match current.and_then(|s| items.iter().position(|item| *item == s)) {
-            Some(ix) => ix as isize,
-            None if delta > 0 => -1,
-            None => items.len() as isize,
+        let at = current.and_then(|s| items.iter().position(|item| *item == s));
+        let bar = self.drawer_toggles(cx).then(|| match &built {
+            Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
+            None => self.staying(&self.rows, &self.moving, &[]).len(),
+        });
+        let next = match step_to(at, items.len(), bar, self.on_drawer_bar, delta) {
+            Some(Step::Bar) => return self.enter_drawer_bar(cx),
+            Some(Step::Item(next)) => next,
+            None => return,
         };
-        let next = (at + delta).clamp(0, items.len() as isize - 1) as usize;
-        // Past an end it stays put, rather than picking the row again, which would take its
-        // page back to how it opens on every repeat of a held key.
-        if next as isize == at {
-            return;
-        }
         let Some(next) = items.get(next).map(|item| (*item).clone()) else {
             return;
         };
+        // Back on the row it left, whose page stays as it was, not back to how it opens.
+        if self.on_drawer_bar && current == Some(&next) {
+            return self.leave_drawer_bar(cx);
+        }
         self.select(next, window, cx);
+    }
+
+    /// Whether the drawer's bar opens and closes it, and so is a stop for the keys: with no
+    /// cards it's always open, and while the filter lists what it finds, they show as they
+    /// are, as cards don't fold.
+    fn drawer_toggles(&self, cx: &App) -> bool {
+        self.drawer.total > 0 && !self.rows.is_empty() && !self.filtering(cx)
+    }
+
+    /// Give the drawer's bar the keys, in view.
+    fn enter_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
+        self.on_drawer_bar = true;
+        let theme = Theme::get(cx);
+        let (spacer, _) = self.footer.get();
+        let top = theme.scaled(spacer + CARD_MARGIN);
+        self.reveal_in_footer(top, theme.scaled(DRAWER_CHROME));
+        cx.notify();
+    }
+
+    /// Give the keys back to the selection's row, if the drawer's bar has them.
+    fn leave_drawer_bar(&mut self, cx: &mut Context<Navigator>) {
+        if std::mem::take(&mut self.on_drawer_bar) {
+            cx.notify();
+        }
+    }
+
+    /// Open the drawer, or fold it.
+    fn set_drawer_folded(&mut self, folded: bool, cx: &mut Context<Navigator>) {
+        if self.store.read(cx).prefs.projects_folded != folded {
+            (self.store).update(cx, |store, cx| {
+                store.set_prefs(|p| p.projects_folded = folded, cx)
+            });
+        }
+    }
+
+    /// Fold the drawer if it's open, or open it.
+    fn toggle_drawer(&mut self, cx: &mut Context<Navigator>) {
+        let folded = self.store.read(cx).prefs.projects_folded;
+        self.set_drawer_folded(!folded, cx);
     }
 
     /// Unfold the branch's "N more" right under the selection, saying whether there was one.
@@ -1121,6 +1210,9 @@ impl Navigator {
     }
 
     fn expand(&mut self, _: &Expand, window: &mut Window, cx: &mut Context<Self>) {
+        if self.on_drawer_bar {
+            return self.set_drawer_folded(false, cx);
+        }
         let store = self.store.read(cx);
         match store.selection.clone() {
             // A folded card opens; an unwatched project is watched.
@@ -1162,6 +1254,9 @@ impl Navigator {
     /// closed, a branch up to its worktree, and anything else up to its project.
     /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
+        if self.on_drawer_bar {
+            return self.set_drawer_folded(true, cx);
+        }
         let filtering = self.filtering(cx);
         let store = self.store.read(cx);
         let selection = store.selection.clone();
@@ -1249,6 +1344,9 @@ impl Navigator {
     }
 
     fn confirm(&mut self, _: &Confirm, window: &mut Window, cx: &mut Context<Self>) {
+        if self.on_drawer_bar {
+            return self.toggle_drawer(cx);
+        }
         match self.store.read(cx).selection.clone() {
             Some(Selection::Project(id)) => self.toggle_project(&id, cx),
             Some(Selection::Section(project, section)) => {
@@ -1270,14 +1368,22 @@ impl Navigator {
     }
 
     /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
-    /// chevron does, or go into a terminal. A row that heads none stays as it is, as every row
-    /// does under the filter.
+    /// chevron does, go into a terminal, or start watching a project. Any other row that heads
+    /// none stays as it is, as every row does under the filter.
     fn toggle_fold(&mut self, _: &ToggleFold, window: &mut Window, cx: &mut Context<Self>) {
+        if self.on_drawer_bar {
+            return self.toggle_drawer(cx);
+        }
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
         if let Selection::Terminal(..) = selection {
             return self.enter_terminal(window, cx);
+        }
+        if let Selection::Project(id) = &selection
+            && (self.store.read(cx).project(id)).is_some_and(|entry| !entry.expanded)
+        {
+            return self.toggle_project(id, cx);
         }
         let fold = Fold::Under(selection.clone());
         let Some(open) = (self.build_rows(cx).folds.into_iter())
@@ -1506,6 +1612,8 @@ impl Navigator {
             self.row_keys = keys;
         }
         self.rows = rows;
+        // The bar goes with the rows that made it a stop, or once something moves.
+        self.on_drawer_bar &= self.drawer_toggles(cx) && self.store.read(cx).moving.is_none();
         if changed {
             // The clone shares the list's state.
             self.list.clone().with_uniform_item_height(row);
@@ -1596,7 +1704,11 @@ impl Navigator {
         let (spacer, _) = self.footer.get();
         let scale = f32::from(row) / ROW_HEIGHT;
         let above = spacer + CARD_MARGIN + DRAWER_CHROME;
-        let top = fixed(above * scale) + row * ix as f32;
+        self.reveal_in_footer(fixed(above * scale) + row * ix as f32, row);
+    }
+
+    /// Scroll what's `top` down the list's last item, `height` tall, into the column.
+    fn reveal_in_footer(&self, top: Pixels, height: Pixels) {
         let footer = self.rows.len();
         let Some(bounds) = self.list.bounds_for_item(footer) else {
             return self.list.scroll_to(ListOffset {
@@ -1605,7 +1717,7 @@ impl Navigator {
             });
         };
         let view = self.list.viewport_bounds();
-        let (from, to) = (bounds.top() + top, bounds.top() + top + row);
+        let (from, to) = (bounds.top() + top, bounds.top() + top + height);
         if to > view.bottom() {
             self.list.scroll_by(to - view.bottom());
         } else if from < view.top() {
@@ -1709,7 +1821,7 @@ impl Navigator {
     /// row it draws and by one near its last ([`Self::slide_edges`]).
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         if ix == self.rows.len() {
-            return self.drawer_footer(Theme::get(cx), cx);
+            return self.drawer_footer(window, Theme::get(cx), cx);
         }
         let row = self.row_in_card(ix, window, cx);
         let Some((first, below)) = self.slide_edges else {
@@ -2144,11 +2256,7 @@ impl Navigator {
             _ => false,
         };
         let outlined_with = (ix > 0 && outlined_at(ix - 1), outlined_at(ix + 1));
-        // Not while typing in the filter, where the keys go to it.
-        let solid = selected
-            && keys_at(window, cx).is_some_and(|keys| {
-                self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
-            });
+        let solid = selected && !self.on_drawer_bar && self.rows_have_keys(window, cx);
         let style = RowStyle {
             theme,
             selected,
@@ -2375,7 +2483,7 @@ impl Navigator {
 
     /// The projects not watched, in a drawer under the cards as tall as its rows, which the
     /// list scrolls. With no cards it's the column, open, and scrolls past that.
-    fn drawer(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+    fn drawer(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
         let (left, right) = self.card_margins();
         // The column's only card, filling it, as far from its edges as cards are apart.
         div()
@@ -2385,11 +2493,11 @@ impl Navigator {
             .pl(dp(left))
             .pr(dp(right))
             .py(dp(CARD_MARGIN))
-            .child(self.drawer_card(true, theme, cx))
+            .child(self.drawer_card(true, window, theme, cx))
     }
 
     /// The drawer's card: its bar, and under it its rows as far as it's open.
-    fn drawer_card(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> Div {
+    fn drawer_card(&self, alone: bool, window: &Window, theme: &Theme, cx: &Context<Self>) -> Div {
         let rows = list(
             self.drawer_list.clone(),
             cx.processor(|this, ix: usize, window, cx| this.render_drawer_row(ix, window, cx)),
@@ -2405,7 +2513,7 @@ impl Navigator {
             .border_1()
             .border_color(theme.border_3)
             .rounded(dp(6.))
-            .child(self.drawer_bar(alone, theme, cx))
+            .child(self.drawer_bar(alone, window, theme, cx))
             .child(
                 div()
                     .relative()
@@ -2433,7 +2541,7 @@ impl Navigator {
     /// The list's last item, after the cards: the drawer's card, as far from them as they are
     /// apart, and while they're short of the column, pushed down to its bottom by the room
     /// they leave, as [`Self::fit_footer`] works out.
-    fn drawer_footer(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn drawer_footer(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let (left, right) = self.card_margins();
         let (spacer, height) = self.footer.get();
         div()
@@ -2443,7 +2551,7 @@ impl Navigator {
             .child(
                 div()
                     .h(dp(height))
-                    .child(self.drawer_card(false, theme, cx)),
+                    .child(self.drawer_card(false, window, theme, cx)),
             )
             .into_any_element()
     }
@@ -2484,12 +2592,18 @@ impl Navigator {
         }
     }
 
+    /// Whether the navigator has the keys, but not while typing in the filter, where they go
+    /// to it.
+    fn rows_have_keys(&self, window: &Window, cx: &App) -> bool {
+        keys_at(window, cx).is_some_and(|keys| {
+            self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
+        })
+    }
+
     /// Note the card the selection's in while the navigator has the keys, but in its filter,
     /// for its rows to edge it as the tile with the keys is.
     fn find_focused_card(&self, window: &Window, cx: &App) {
-        let keys = keys_at(window, cx).is_some_and(|keys| {
-            self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
-        });
+        let keys = !self.on_drawer_bar && self.rows_have_keys(window, cx);
         let selection = self.store.read(cx).selection.as_ref();
         let at = selection.filter(|_| keys).and_then(|selection| {
             (self.rows.iter()).position(|row| matches!(row, Row::Item(item) if item == selection))
@@ -2668,8 +2782,15 @@ impl Navigator {
     }
 
     /// The drawer's handle: a click opens or closes it, and it says how many projects it lists
-    /// of how many there are, and has ways to add, order and find them.
-    fn drawer_bar(&self, alone: bool, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+    /// of how many there are, and has ways to add, order and find them. With the keys on it,
+    /// it's drawn as a selected row is.
+    fn drawer_bar(
+        &self,
+        alone: bool,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.drawer;
         let title = match alone {
             true => "All projects",
@@ -2679,11 +2800,16 @@ impl Navigator {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
         };
-        // While the filter lists what it finds, they show as they are, as cards don't fold.
-        let toggles = total > 0 && !alone && !self.filtering(cx);
+        let toggles = self.drawer_toggles(cx);
+        let selected = self.on_drawer_bar;
+        let solid = selected && self.rows_have_keys(window, cx);
+        let (ink, muted) = match solid {
+            true => (theme.text_inverted, theme.muted_on_solid()),
+            false => (theme.text_3, theme.text_3),
+        };
         // Up while it's folded, turning down as it opens.
         let open = !self.store.read(cx).prefs.projects_folded;
-        let chevron = fold::turned("drawer-fold", open, Icon::ChevronUp, PI, theme.text_3);
+        let chevron = fold::turned("drawer-fold", open, Icon::ChevronUp, PI, muted);
         // Its chevron over the projects' eyes.
         let fold = h_flex()
             .flex_1()
@@ -2691,14 +2817,17 @@ impl Navigator {
             .h_full()
             .gap(dp(6.))
             .when(toggles, |el| el.child(chevron))
-            .child(section_label(title, theme).truncate())
+            .child(section_label(title, theme).text_color(ink).truncate())
             .when(total > 0, |el| {
-                el.child(faint(count, theme).text_size(dp(12.)))
+                el.child(faint(count, theme).text_size(dp(12.)).text_color(muted))
             });
         // In from its card's edges as a row is, its hover rounded as one's, so it stays inside
         // the card's corners.
         h_flex()
             .id("drawer-bar")
+            .role(Role::ListItem)
+            .aria_label(title)
+            .aria_selected(selected)
             .flex_none()
             .h(dp(DRAWER_BAR_HEIGHT))
             .m(dp(DRAWER_INSET))
@@ -2706,10 +2835,13 @@ impl Navigator {
             .pl(dp(10.))
             .pr(dp(6.))
             .gap(dp(2.))
+            .when(selected, |el| el.bg(theme.selected_unfocused()))
+            .when(solid, |el| el.bg(theme.fill_gray))
             .child(fold)
             .child(
                 icon_button("add-project", Icon::Plus)
                     .small()
+                    .inverted(solid)
                     .tooltip("Add project")
                     .dispatch(&AddProject),
             )
@@ -2717,6 +2849,7 @@ impl Navigator {
                 el.child(
                     icon_button("project-view-options", Icon::Kebab)
                         .small()
+                        .inverted(solid)
                         .tooltip("Sort and show")
                         .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                             this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
@@ -2724,13 +2857,10 @@ impl Navigator {
                 )
             })
             .when(toggles, |el| {
-                el.cursor_pointer()
-                    .hover(|el| el.bg(theme.hover()))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        (this.store).update(cx, |store, cx| {
-                            store.set_prefs(|p| p.projects_folded = !p.projects_folded, cx)
-                        })
-                    }))
+                el.aria_expanded(open)
+                    .cursor_pointer()
+                    .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
             })
     }
 
@@ -4348,11 +4478,13 @@ impl Render for Navigator {
 
         v_flex()
             .id("navigator")
-            // While commits move, Return lands them.
-            .key_context(match (moving, squashing) {
-                (true, true) => "Navigator Moving Squashing",
-                (true, false) => "Navigator Moving",
-                (false, _) => "Navigator",
+            // While commits move, Return lands them. On the drawer's bar, the keys that act on
+            // the selection are off, as it's left the row.
+            .key_context(match (self.on_drawer_bar, moving, squashing) {
+                (true, _, _) => "DrawerBar",
+                (false, true, true) => "Navigator Moving Squashing",
+                (false, true, false) => "Navigator Moving",
+                (false, false, _) => "Navigator",
             })
             .on_drag_move(cx.listener(Self::follow_project_drag))
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
@@ -4479,7 +4611,7 @@ impl Render for Navigator {
                 if empty {
                     el
                 } else if self.rows.is_empty() {
-                    el.child(self.drawer(&theme, cx))
+                    el.child(self.drawer(window, &theme, cx))
                 } else {
                     let rows = list(
                         self.list.clone(),
@@ -4544,9 +4676,118 @@ impl Render for Navigator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, headings_reordered};
+    use super::{Row, Step, headings_reordered, step_to};
     use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
+
+    #[test]
+    fn a_step_down_from_the_last_card_row_lands_on_the_bar() {
+        assert_eq!(
+            step_to(Some(2), 3, Some(3), false, 1),
+            Some(Step::Bar),
+            "the folded drawer's bar comes after the cards' rows"
+        );
+    }
+
+    #[test]
+    fn a_step_down_from_the_folded_bar_stays_put() {
+        assert_eq!(
+            step_to(Some(2), 3, Some(3), true, 1),
+            None,
+            "a held key doesn't open the drawer"
+        );
+    }
+
+    #[test]
+    fn a_step_down_from_the_open_bar_goes_to_its_first_project() {
+        assert_eq!(
+            step_to(Some(2), 5, Some(3), true, 1),
+            Some(Step::Item(3)),
+            "the drawer's rows follow its bar"
+        );
+    }
+
+    #[test]
+    fn a_step_up_from_the_bar_goes_to_the_last_card_row() {
+        assert_eq!(
+            step_to(Some(4), 5, Some(3), true, -1),
+            Some(Step::Item(2)),
+            "from the bar, wherever the selection stayed"
+        );
+    }
+
+    #[test]
+    fn a_step_up_from_the_drawers_first_project_lands_on_the_bar() {
+        assert_eq!(
+            step_to(Some(3), 5, Some(3), false, -1),
+            Some(Step::Bar),
+            "the bar is above the drawer's rows"
+        );
+    }
+
+    #[test]
+    fn a_step_within_the_drawer_counts_the_bar_above_it() {
+        assert_eq!(
+            step_to(Some(3), 5, Some(3), false, 1),
+            Some(Step::Item(4)),
+            "the bar is a stop, not an item"
+        );
+    }
+
+    #[test]
+    fn selecting_the_last_lands_on_the_folded_bar() {
+        assert_eq!(
+            step_to(Some(0), 3, Some(3), false, isize::MAX / 2),
+            Some(Step::Bar),
+            "it's the last stop while the drawer's folded"
+        );
+    }
+
+    #[test]
+    fn selecting_the_last_passes_the_open_bar() {
+        assert_eq!(
+            step_to(Some(0), 5, Some(3), false, isize::MAX / 2),
+            Some(Step::Item(4)),
+            "the drawer's last project is the last stop"
+        );
+    }
+
+    #[test]
+    fn selecting_the_first_leaves_the_bar_for_the_top() {
+        assert_eq!(
+            step_to(Some(2), 3, Some(3), true, isize::MIN / 2),
+            Some(Step::Item(0)),
+            "from the bar too"
+        );
+    }
+
+    #[test]
+    fn without_a_bar_a_step_stops_at_the_last_item() {
+        assert_eq!(
+            step_to(Some(2), 3, None, false, 1),
+            None,
+            "a drawer that can't fold is no stop"
+        );
+    }
+
+    #[test]
+    fn a_bar_that_stopped_being_a_stop_steps_from_the_selection() {
+        assert_eq!(
+            step_to(Some(1), 3, None, true, 1),
+            Some(Step::Item(2)),
+            "the filter took the bar away before the rows were drawn"
+        );
+    }
+
+    #[test]
+    fn from_off_the_list_a_step_back_starts_at_the_bottom() {
+        assert_eq!(
+            step_to(None, 3, None, false, -1),
+            Some(Step::Item(2)),
+            "and forward, at the top"
+        );
+        assert_eq!(step_to(None, 3, None, false, 1), Some(Step::Item(0)));
+    }
 
     #[test]
     fn cards_or_worktrees_trading_places_are_a_reorder() {
