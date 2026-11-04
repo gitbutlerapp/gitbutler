@@ -1985,7 +1985,7 @@ fn contains_target(env: &Sandbox, branch: &str) -> bool {
 }
 
 #[test]
-fn pull_points_worktree_conflicts_at_their_commit_ids() {
+fn pull_points_worktree_conflicts_at_their_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     // The first read archives every worktree already on disk.
@@ -1999,29 +1999,45 @@ fn pull_points_worktree_conflicts_at_their_commit_ids() {
     ));
     add_upstream_commit(&env);
 
-    // Conflicts are looked up by branch in workspace stacks only, so a worktree's conflicted
-    // commit has to be named by its ID.
     env.but("pull").assert().success().stdout_eq(str![[r#"
 ...
   wt-conflict - conflicted
+      [..] add upstream.txt in worktree
 
 To resolve conflicts:
-  `wt-conflict` is checked out in a worktree. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`
+  `wt-conflict` is in a worktree. Run `but resolve conflicts wt-conflict`, then `but resolve apply <path>:<N> --commit wt-conflict`
 
 To undo this operation:
   Run `but undo`
 
 "#]]);
 
+    // Without a target, the lookup finds the worktree's commit, so nothing claims all is well.
+    let conflicts = str![[r#"
+Conflicts in commit [..] on branch wt-conflict
+
+upstream.txt
+── conflict 1 of 1
+<<< ours (new base)
+upstream
+||| base
+
+>>> theirs (this commit)
+worktree
+
+Resolve with `but resolve apply <path>[:<N>] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>`. `but resolve --ai` resolves everything at once.
+
+"#]];
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(conflicts.clone());
     env.but("resolve conflicts wt-conflict")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Branch "wt-conflict" is checked out in a worktree, where conflicts can't be looked up by branch name yet. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`.
+        .success()
+        .stdout_eq(conflicts);
 
-"#]]);
-
-    // The same goes for `apply`, so the command `conflicts` prints has to name the commit too.
+    // The listing names the commit as `but status` does.
     let status = status_json(&env);
     let commit = status["worktrees"][0]["branches"][0]["commits"]
         .as_array()
@@ -2030,6 +2046,15 @@ Branch "wt-conflict" is checked out in a worktree, where conflicts can't be look
         .find(|commit| commit["conflicted"].as_bool() == Some(true))
         .and_then(|commit| commit["cliId"].as_str())
         .expect("the worktree holds a conflicted commit");
+    env.but("resolve").assert().success().stdout_eq(format!(
+        r#"Found conflicted commits:
+
+Branch: wt-conflict
+  ● {commit} [conflict] add upstream.txt in worktree
+
+Run `but resolve conflicts <branch>` to see a branch's conflicts and how to resolve them.
+"#
+    ));
 
     // Edit mode can't check that commit out, so it points at the route that works.
     env.but(format!("resolve {commit}"))
@@ -2042,29 +2067,117 @@ Hint: Run `but resolve conflicts [..]`, then `but resolve apply <path>:<N> --com
 
 "#]]);
 
-    env.but(format!("resolve conflicts {commit}"))
+    env.but("resolve apply upstream.txt --ours")
+        .assert()
+        .success();
+    env.but("resolve conflicts")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Conflicts in commit [..]
-
-upstream.txt
-── conflict 1 of 1
-<<< ours (new base)
-upstream
-||| base
-
->>> theirs (this commit)
-worktree
-
-Resolve with `but resolve apply <path>[:<N>] --commit [..] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N> --commit [..]`. `but resolve --ai` resolves everything at once.
+No conflicted commits found.
 
 "#]]);
-    env.but(format!(
-        "resolve apply upstream.txt --commit {commit} --ours"
-    ))
-    .assert()
-    .success();
+}
+
+/// A commit conflicting on a lower branch of a worktree's lane, and a detached worktree's commit,
+/// which has no branch to go by.
+#[test]
+fn resolve_finds_conflicts_on_lower_branches_and_detached_worktrees() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b wt-top "{lower}" main
+        (cd "{lower}" && echo worktree >upstream.txt && git add upstream.txt && git commit -q -m "lower commit" && git branch wt-lower \
+          && echo top >top.txt && git add top.txt && git commit -q -m "top commit")
+        git worktree add -q --detach "{detached}" main
+        (cd "{detached}" && echo detached >upstream.txt && git add upstream.txt && git commit -q -m "detached commit")
+        "#,
+        lower = env.app_data_dir().join("worktrees/wt-top").display(),
+        detached = env.app_data_dir().join("worktrees/wt-detached").display(),
+    ));
+    add_upstream_commit(&env);
+    env.but("pull").assert().success();
+
+    // A branch includes the conflicts below it, as in a workspace stack.
+    for branch in ["wt-lower", "wt-top"] {
+        env.but(format!("resolve conflicts {branch}"))
+            .assert()
+            .success()
+            .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch wt-[..]
+...
+>>> theirs (this commit)
+worktree
+...
+"#]]);
+    }
+    env.but("resolve conflicts wt-detached")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch wt-detached
+...
+>>> theirs (this commit)
+detached
+...
+"#]]);
+}
+
+/// A worktree can rest on another, whose conflicts then have to go first: resolving them can
+/// conflict the commit above again. Lanes follow the worktrees' names, so the branch names here
+/// sort the other way around.
+#[test]
+fn resolve_conflicts_starts_with_the_worktree_another_rests_on() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b z-parent "{parent}" main
+        (cd "{parent}" && echo parent >upstream.txt && git add upstream.txt && git commit -q -m "parent commit")
+        git worktree add -q -b a-child "{child}" z-parent
+        (cd "{child}" && echo child >upstream.txt && git commit -q -am "child commit")
+        "#,
+        parent = env.app_data_dir().join("worktrees/first").display(),
+        child = env.app_data_dir().join("worktrees/second").display(),
+    ));
+    add_upstream_commit(&env);
+    env.but("pull").assert().success();
+
+    env.but("resolve conflicts")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Conflicts in commit [..] on branch z-parent
+...
+>>> theirs (this commit)
+parent
+
+1 other conflicted commit exists — scope with `but resolve conflicts <branch>`.
+...
+"#]]);
+}
+
+/// A worktree branch without conflicts is an ordinary "nothing to do".
+#[test]
+fn resolve_conflicts_on_a_clean_worktree_branch_reports_none() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    // The first read archives every worktree already on disk.
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-clean", "main");
+
+    env.but("resolve conflicts wt-clean")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Branch "wt-clean" has no conflicted commits.
+
+"#]]);
 }
 
 #[test]
@@ -2480,11 +2593,10 @@ Summary
   A - rebased
   B - rebased
   wt-detached - conflicted
+      [..] [conflict] add local
 
 To resolve conflicts:
-  1. Run `but status` to inspect the conflicted commits, then `but resolve <commit>`. Worktree files show no conflict markers until resolve checks the commit out
-  2. Edit files to resolve the conflicts
-  3. Run `but resolve finish` to finalize the resolution
+  `wt-detached` is in a worktree. Run `but resolve conflicts wt-detached`, then `but resolve apply <path>:<N> --commit wt-detached`
 
 To undo this operation:
   Run `but undo`

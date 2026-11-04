@@ -632,16 +632,14 @@ async fn handle_pull(
                         tracing::warn!(?err, "could not tell whether a branch is checked out");
                         false
                     });
-                // The lookup above doesn't walk linked worktrees' lanes, so their conflicted
-                // branches get the commit-ID route instead of the steps below.
+                // Resolution mode can't check out a linked worktree's commit, so those
+                // branches get the `conflicts` and `apply` route instead of the steps below.
                 let worktree_conflicts: Vec<&String> = conflicted_rebases
                     .iter()
                     .filter(|branch| {
-                        !conflicted_commits.contains_key(*branch)
-                            && crate::command::legacy::resolve::is_worktree_branch(
-                                &current_head_info,
-                                branch,
-                            )
+                        conflicted_commits.get(*branch).is_some_and(|commits| {
+                            commits.iter().any(|c| c.worktree_lane.is_some())
+                        })
                     })
                     .collect();
                 let workspace_conflicts = conflicted_rebases.is_empty()
@@ -750,10 +748,10 @@ async fn handle_pull(
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
                         for branch in &worktree_conflicts {
+                            let arg = shell_words::quote(branch);
                             writeln!(
                                 out,
-                                "  `{branch}` is checked out in a worktree. {}",
-                                crate::command::legacy::resolve::WORKTREE_CONFLICT_ROUTE
+                                "  `{branch}` is in a worktree. Run `but resolve conflicts {arg}`, then `but resolve apply <path>:<N> --commit {arg}`"
                             )?;
                         }
                         if workspace_conflicts {
