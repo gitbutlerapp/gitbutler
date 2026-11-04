@@ -7,9 +7,9 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, MoveHere, MoveSelection,
-    OpenPullRequest, PasteHere, Push, SquashSelection, StartAmend, StartCommit, Undo,
-    UpdateFromTarget, UseTargetMessage,
+    AppView, CommandPalette, CutSelection, Fetch, FinishArranging, FocusDiff, MoveHere,
+    MoveSelection, OpenPullRequest, PasteHere, Push, SquashSelection, StartAmend, StartCommit,
+    Undo, UpdateFromTarget, UseTargetMessage,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
@@ -73,9 +73,15 @@ impl AppView {
         });
         // What the bar's left says, and the keys that go with it, which go on its right with the
         // others.
-        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if let Some(working) =
-            working
-        {
+        let (state, state_keys): (AnyElement, Vec<(SharedString, &str)>) = if self.arranging() {
+            let state = div().text_color(theme.pop).child("Arranging tiles");
+            let keys = [("hjkl".into(), "move tile")]
+                .into_iter()
+                .chain(shortcut(&FinishArranging, cx).map(|keys| (keys, "done")))
+                .chain([("esc".into(), "cancel")])
+                .collect();
+            (state.into_any_element(), keys)
+        } else if let Some(working) = working {
             let working = h_flex()
                 .gap(dp(6.))
                 .text_color(theme.pop)

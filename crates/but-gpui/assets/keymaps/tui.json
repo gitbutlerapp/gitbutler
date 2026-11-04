@@ -4,8 +4,9 @@
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
 // tabs and ⇧⌘H to its Operations history, ⌘B and ⌥⌘B to show and hide the navigator and the
-// details, ⌘D and ⇧⌘D to split a tile and ⌘] and ⌘[ to go between tiles (Ghostty's keys for them
-// on Linux), and the keys the app's lists and overlays need, as GitButler's keymap has them.
+// details, ⌘D and ⇧⌘D to split a tile, ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on
+// Linux) and ⇧⌘M to move one, and the keys the app's lists and overlays need, as GitButler's
+// keymap has them.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -90,8 +91,9 @@
   },
   // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
   // next tile and the one before, as iTerm's and Ghostty's panes do. ⌥⌘↩ zooms it, ⇧⌘↩ being
-  // amend's, and ⇧⌘W closes it, ⌘W being the window's. On macOS, where ⌘ leaves a terminal's
-  // Ctrl keys alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
+  // amend's, ⇧⌘W closes it, ⌘W being the window's, and ⇧⌘M moves it with the keys, ⌘M being
+  // the window's too. On macOS, where ⌘ leaves a terminal's Ctrl keys alone: elsewhere Ctrl+D
+  // and Ctrl+[ are a shell's.
   {
     "os": ["macos"],
     "bindings": {
@@ -100,7 +102,8 @@
       "cmd-]": "tiling::NextTile",
       "cmd-[": "tiling::PreviousTile",
       "cmd-shift-w": "tiling::CloseTile",
-      "cmd-alt-enter": "tiling::ZoomTile"
+      "cmd-alt-enter": "tiling::ZoomTile",
+      "cmd-shift-m": "tiling::ArrangeTiles"
     }
   },
   // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and
@@ -408,6 +411,24 @@
     "bindings": {
       "up": "whats_new::PreviousRelease",
       "down": "whats_new::NextRelease"
+    }
+  },
+  // Moving a tile with the keys, from Arrange tiles: a step at a time, Return to leave it there
+  // and Escape to put the tiles back, as moving a commit has them. After the text field's own
+  // keys, so these win here.
+  {
+    "context": "ArrangingTiles",
+    "bindings": {
+      "left": "tiling::MoveTileLeft",
+      "h": "tiling::MoveTileLeft",
+      "down": "tiling::MoveTileDown",
+      "j": "tiling::MoveTileDown",
+      "up": "tiling::MoveTileUp",
+      "k": "tiling::MoveTileUp",
+      "right": "tiling::MoveTileRight",
+      "l": "tiling::MoveTileRight",
+      "enter": "tiling::FinishArranging",
+      "escape": "tiling::CancelArranging"
     }
   },
   // A description's image previewed: the one before or after it, and Space closes it, as in

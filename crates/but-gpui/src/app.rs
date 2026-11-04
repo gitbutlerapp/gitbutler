@@ -124,7 +124,14 @@ actions!(
         EqualizeTiles,
         NextTile,
         PreviousTile,
-        CopyTileDiagram
+        CopyTileDiagram,
+        ArrangeTiles,
+        MoveTileLeft,
+        MoveTileRight,
+        MoveTileUp,
+        MoveTileDown,
+        FinishArranging,
+        CancelArranging
     ]
 );
 actions!(
@@ -164,6 +171,13 @@ pub struct AppView {
     /// The lines of the selected row's tiling sliding to where they're even, while they are.
     tile_glide: Option<TileGlide>,
     tile_zoom: Option<TileZoom>,
+    /// The tile being moved with the keys, while one is.
+    arranging: Option<Arranging>,
+    /// Has the keys while a tile's being moved with them, so they reach neither a terminal nor
+    /// the page in it.
+    arranging_focus: FocusHandle,
+    /// The selected row's tiles sliding to where the keys moved one, while they are.
+    tile_shift: Option<TileShift>,
     /// The tile zoomed on each row left with one zoomed, to zoom again on coming back.
     kept_zooms: HashMap<RowKey, Tile>,
     row_drag: Option<RowDrag>,
@@ -449,6 +463,7 @@ impl AppView {
                     this.drop_stale_tile_drag(cx);
                     this.drop_stale_row_tile(cx);
                     this.drop_stale_zoom(cx);
+                    this.drop_stale_arranging(cx);
                     this.move_tiles(cx);
                     this.sync_pages(window, cx);
                     this.forget_closed_tiles(cx)
@@ -486,6 +501,7 @@ impl AppView {
                 StoreEvent::SelectionChanged => {
                     this.tile_slide = None;
                     this.tile_drag = None;
+                    this.arranging = None;
                     this.keep_zoom();
                     this.take_row_tile_back(cx);
                     this.restore_zoom(cx);
@@ -573,6 +589,9 @@ impl AppView {
             tile_slide: None,
             tile_glide: None,
             tile_zoom: None,
+            arranging: None,
+            arranging_focus: cx.focus_handle(),
+            tile_shift: None,
             kept_zooms: HashMap::new(),
             row_drag: None,
             row_tile: None,
@@ -2274,9 +2293,7 @@ impl AppView {
                 el.on_action(move |_: &CloseTile, _, cx| close(cx))
             })
             .child(tile_content().child(page).children(home_bar))
-            .when(self.has_keys(&Tile::Home, window, cx), |el| {
-                el.child(card_edge(theme.focus_edge()))
-            })
+            .children(self.tile_edge(&Tile::Home, window, theme, cx))
             .when(self.shown_terminal(cx).is_some(), |el| {
                 el.child(self.paste_outline(theme))
             });
@@ -2352,8 +2369,47 @@ impl AppView {
                     .children(dividers)
                     .children(junctions)
                     .children(self.render_drop_zones(theme, cx))
-                    .children(self.render_row_zones(theme, cx)),
+                    .children(self.render_row_zones(theme, cx))
+                    .children(self.render_arranging_keys(cx)),
             )
+    }
+
+    /// What has the keys while a tile's moved with them: nothing to see. A text field to the
+    /// keys, as a terminal is, so that letters bound across the window do nothing here.
+    fn render_arranging_keys(&self, cx: &Context<Self>) -> Option<Div> {
+        self.arranging.as_ref()?;
+        Some(
+            div()
+                .absolute()
+                .key_context("ArrangingTiles TextInput")
+                .track_focus(&self.arranging_focus)
+                .on_action(
+                    cx.listener(|this, _: &MoveTileLeft, _, cx| this.step_tile(Side::Left, cx)),
+                )
+                .on_action(
+                    cx.listener(|this, _: &MoveTileRight, _, cx| this.step_tile(Side::Right, cx)),
+                )
+                .on_action(cx.listener(|this, _: &MoveTileUp, _, cx| this.step_tile(Side::Top, cx)))
+                .on_action(
+                    cx.listener(|this, _: &MoveTileDown, _, cx| this.step_tile(Side::Bottom, cx)),
+                )
+                .on_action(cx.listener(|this, _: &FinishArranging, window, cx| {
+                    this.finish_arranging(window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &CancelArranging, window, cx| {
+                    this.cancel_arranging(window, cx)
+                })),
+        )
+    }
+
+    /// The line over the edge of `tile`'s card, if it has one: the tile being moved with the
+    /// keys', in pop, else the tile with the keys'.
+    fn tile_edge(&self, tile: &Tile, window: &Window, theme: &Theme, cx: &App) -> Option<Div> {
+        match self.arranging.as_ref() {
+            Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop)),
+            Some(_) => None,
+            None => (self.has_keys(tile, window, cx)).then(|| card_edge(theme.focus_edge())),
+        }
     }
 
     /// A tile pinned beside the home tile, over `area` of the room below the header, edged
@@ -2369,7 +2425,7 @@ impl AppView {
         cx: &Context<Self>,
     ) -> Option<Div> {
         let terminal = matches!(pinned, RowKey::Row(Selection::Terminal(..)));
-        let keys = self.has_keys(&Tile::Pinned(pinned.clone()), window, cx);
+        let edge = self.tile_edge(&Tile::Pinned(pinned.clone()), window, theme, cx);
         let content = match &pinned {
             RowKey::Row(Selection::Terminal(_, id)) => div().size_full().child(
                 (self.store.read(cx).terminals.get(*id).cloned())
@@ -2422,7 +2478,7 @@ impl AppView {
                         .child(bar)
                         .child(div().flex_1().min_h_0().relative().child(content)),
                 )
-                .when(keys, |el| el.child(card_edge(theme.focus_edge())))
+                .children(edge)
                 .when(terminal, |el| el.child(self.paste_outline(theme))),
         )
     }
@@ -3005,6 +3061,127 @@ impl AppView {
             .and_then(|slide| slide.going.as_ref())
     }
 
+    /// Start moving the tile of the selected row's tiling with the keys, or that had them last,
+    /// with the keys: see [`Tiling::stepped`].
+    fn arrange_tiles(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.arranging.is_some()
+            || self.covered()
+            || self.tile_dragged()
+            || self.row_tile.is_some()
+        {
+            return;
+        }
+        self.zoom_out(cx);
+        let store = self.store.read(cx);
+        let Some(tiling) = store.tiling().cloned() else {
+            return;
+        };
+        let last = store.last_tile_with_keys();
+        let tile = self.tile_with_keys(window, cx).or(last);
+        self.arranging = Some(Arranging {
+            tile: tile.unwrap_or(Tile::Home),
+            before: tiling.clone(),
+            landed: tiling,
+        });
+        window.focus(&self.arranging_focus, cx);
+        cx.notify();
+    }
+
+    /// Whether a tile's being moved with the keys.
+    pub(crate) fn arranging(&self) -> bool {
+        self.arranging.is_some()
+    }
+
+    /// Move the tile being moved with the keys a step toward `side`.
+    fn step_tile(&mut self, side: Side, cx: &mut Context<Self>) {
+        let least = self.least_tile(cx);
+        let Some(arranging) = self.arranging.as_mut() else {
+            return;
+        };
+        let stepped = (arranging.landed).stepped(&arranging.tile, side, least);
+        if stepped != arranging.landed {
+            arranging.landed = stepped.clone();
+            let tile = arranging.tile.clone();
+            self.shift_tiles(tile, stepped, cx);
+        }
+    }
+
+    /// Leave the tile being moved with the keys where it's got to, and give it the keys.
+    fn finish_arranging(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        cx.notify();
+    }
+
+    /// Put the tiles back as they were before the keys moved one, and give it the keys.
+    fn cancel_arranging(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(arranging) = self.arranging.take() else {
+            return;
+        };
+        if let Some(focus) = self.tile_focus(&arranging.tile, cx) {
+            window.focus(&focus, cx);
+        }
+        if arranging.before != arranging.landed {
+            self.shift_tiles(arranging.tile, arranging.before, cx);
+        }
+        cx.notify();
+    }
+
+    /// Stop moving a tile with the keys once the tiling's not as they left it, as a tile closed
+    /// or a line dragged meanwhile leaves it: what Escape would put back is gone.
+    fn drop_stale_arranging(&mut self, cx: &App) {
+        let tiling = self.store.read(cx).tiling();
+        if (self.arranging.as_ref()).is_some_and(|arranging| tiling != Some(&arranging.landed)) {
+            self.arranging = None;
+        }
+    }
+
+    /// Lay the selected row's tiles out as `to`, from where they're drawn now, with `tile`, which
+    /// the keys moved, over the others.
+    fn shift_tiles(&mut self, tile: Tile, to: Tiling, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (from, reflow) = (store.drawn_areas(), store.tile_drag_feel.reflow);
+        self.store
+            .update(cx, |store, cx| store.land_tiling(to.clone(), cx));
+        self.tile_shift = Some(TileShift {
+            tile,
+            from: from.unwrap_or_default(),
+            to,
+            slide: moving_for(reflow, cx),
+        });
+        self.move_tiles(cx);
+    }
+
+    /// The selected row's tiling as it's drawn at `now` while its tiles slide to where the keys
+    /// moved one, until that's over or it changes under them.
+    fn shifted_tiling(&mut self, now: Instant, cx: &App) -> Option<(Drawn, bool)> {
+        let shift = self.tile_shift.as_ref()?;
+        let still = self.store.read(cx).tiling() == Some(&shift.to);
+        let Some(at) = shift.slide.openness(now).filter(|_| still) else {
+            self.tile_shift = None;
+            return None;
+        };
+        let areas = (shift.to.areas().into_iter())
+            .map(|(tile, area)| {
+                let was = (shift.from.iter()).find(|(other, _)| *other == tile);
+                let drawn = was.map_or(area, |(_, was)| was.toward(area, at));
+                (tile, drawn)
+            })
+            .collect();
+        let drawn = Drawn {
+            areas,
+            dividers: Vec::new(),
+            rest: shift.to.clone(),
+            lifted: Some(shift.tile.clone()),
+            zoomed: false,
+        };
+        Some((drawn, true))
+    }
+
     /// Start dragging `tile` of the selected row's tiling by its bar, pressed `at` in the
     /// window: it comes off once the pointer's moved far enough.
     fn press_tile(&mut self, tile: Tile, at: Point<Pixels>, cx: &mut Context<Self>) {
@@ -3364,7 +3541,8 @@ impl AppView {
         self.move_row_tile(now, cx);
         let dragged = (self.dragged_tiling(now, cx))
             .or_else(|| self.row_tiling(now))
-            .or_else(|| self.zoomed_tiling(now));
+            .or_else(|| self.zoomed_tiling(now))
+            .or_else(|| self.shifted_tiling(now, cx));
         let (drawn, moving) = match dragged {
             Some((drawn, moving)) => (Some(drawn), moving),
             None => match (self.sliding_tiling(now, cx)).or_else(|| self.gliding_tiling(now, cx)) {
@@ -3815,7 +3993,7 @@ impl AppView {
 }
 
 /// A line over the edge of a tile's card, in `color`: the tile with the keys', in gray, or one
-/// a drag would paste into, in pop.
+/// a drag would paste into or the keys are moving, in pop.
 fn card_edge(color: gpui::Hsla) -> Div {
     crate::ui::inset_by(div(), TILE_MARGIN)
         .rounded(dp(6.))
@@ -3946,6 +4124,23 @@ struct TileGlide {
     from: Tiling,
     to: Tiling,
     slide: Slide,
+}
+
+/// The tiles sliding from where they were drawn to where the keys moved `tile`.
+struct TileShift {
+    tile: Tile,
+    from: Vec<(Tile, Area)>,
+    to: Tiling,
+    slide: Slide,
+}
+
+/// A tile being moved with the keys.
+struct Arranging {
+    tile: Tile,
+    /// The row's tiling as it started, which Escape puts back.
+    before: Tiling,
+    /// The tiling as the keys last left it.
+    landed: Tiling,
 }
 
 /// A tile shutting: the tiling as it was with it there, and what it showed, kept to draw it
@@ -4275,6 +4470,11 @@ impl Render for AppView {
         crate::ui::Covered::note(self.covered(), window, cx);
         // GPUI draws the window again whenever the keys move.
         self.note_tile_with_keys(window, cx);
+        // The keys going elsewhere end moving a tile with them, where it's got to, but for what's
+        // over the window, which gives them back.
+        if !self.arranging_focus.is_focused(window) && !self.covered() {
+            self.arranging = None;
+        }
         // After this frame, whose actions are the selection's now.
         if self.pending_menu.is_some() {
             let this = cx.entity().downgrade();
@@ -4414,6 +4614,11 @@ impl Render for AppView {
                     cx.listener(|this, _: &ZoomTile, window, cx| this.zoom_with_keys(window, cx)),
                 )
                 .on_action(cx.listener(|this, _: &EqualizeTiles, _, cx| this.equalize_tiles(cx)))
+                .on_action(
+                    cx.listener(|this, _: &ArrangeTiles, window, cx| {
+                        this.arrange_tiles(window, cx)
+                    }),
+                )
                 .on_action(cx.listener(|this, _: &NextTile, window, cx| {
                     this.focus_next_tile(false, window, cx)
                 }))
