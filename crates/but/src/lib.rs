@@ -67,6 +67,7 @@ pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, 
 mod retired_syntax;
 pub mod theme;
 mod tui;
+mod unknown_commands;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
@@ -110,6 +111,10 @@ fn parse_args_and_output_format(args: Vec<OsString>, agent_detected: bool) -> (A
                     let retired_hint = retired_syntax::parse_failure_hint(&args, agent_detected);
                     if let Some(hint) = &retired_hint {
                         print_err_infallible(hint);
+                    }
+                    if let Some(note) = unknown_commands::parse_failure_note(&args, agent_detected)
+                    {
+                        print_err_infallible(note);
                     }
                     utils::metrics::emit_parse_error(&args, &err, retired_hint.is_some());
                     // The examples say what to run instead of a Git flag. Clap's tips don't: they
@@ -386,11 +391,12 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
         Err(CliError::ExternalCommandFailed(code)) => std::process::exit(code),
         Err(CliError::ExternalCommandNotFound(command_name)) => {
-            // Commands removed by the revamp (`rub`) land here as unknown
-            // external subcommands; teach their replacements before the error.
-            if let Some(hint) = retired_syntax::removed_command_hint(&command_name, agent_detected)
-            {
-                print_err_infallible(hint);
+            // Commands removed by the revamp (`rub`) and common words that aren't commands land
+            // here as unknown external subcommands; say what to run before the error.
+            let note = retired_syntax::removed_command_hint(&command_name, agent_detected)
+                .or_else(|| unknown_commands::external_command_note(&command_name, agent_detected));
+            if let Some(note) = &note {
+                print_err_infallible(note);
             }
             // We reparse without external subcommands allowed, which _should_ result in a proper
             // clap error, including suggestions for "near matches". This gives richer error
@@ -398,11 +404,19 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             let cmd = Args::command();
             let argv = [OsString::from(cmd.get_name()), command_name.clone()];
 
-            // This should fail to parse, print a nicely formatted Clap error and exit on its own.
-            let _ = cmd
+            // This should fail to parse, which gives us the nicely formatted Clap error.
+            if let Err(mut err) = cmd
                 .external_subcommand_value_parser(None)
                 .allow_external_subcommands(false)
-                .get_matches_from(argv);
+                .try_get_matches_from(argv)
+            {
+                // Clap's tip is only the nearest spelling, and the note named the real command.
+                if note.is_some() {
+                    err.remove(clap::error::ContextKind::SuggestedSubcommand);
+                    err.remove(clap::error::ContextKind::Suggested);
+                }
+                err.exit();
+            }
 
             // If for some reason we succeeded to parse now, we'll print the original error.
             // This shouldn't happen in practice but logically it could.

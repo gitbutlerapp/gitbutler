@@ -45,7 +45,7 @@
 use std::ffi::OsString;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::{args::find_subcommand, theme::Paint as _};
+use crate::{args::find_subcommand, unknown_commands::note};
 
 static USED: AtomicBool = AtomicBool::new(false);
 
@@ -82,19 +82,6 @@ pub(crate) fn removed_command_hint(command_name: &std::ffi::OsStr, agent: bool) 
             agent,
         )
     })
-}
-
-/// A stderr note in the shared teaching-hint format, with a pointer to the
-/// bundled skill docs when an agent is driving the CLI.
-fn note(body: &str, agent: bool) -> String {
-    let t = crate::theme::get();
-    let mut text = format!("\n{} {body}\n", t.attention.paint("note:"));
-    if agent {
-        text.push_str(
-            "Run `but skill install` (or `but skill check --update`) to load current command docs.\n",
-        );
-    }
-    text
 }
 
 /// The outcome of attempting to translate a command line.
