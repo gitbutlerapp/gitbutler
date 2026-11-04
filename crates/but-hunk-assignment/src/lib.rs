@@ -19,7 +19,6 @@ use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
 use but_hunk_dependency::ui::HunkDependencies;
-use gix::ObjectId;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -703,28 +702,6 @@ pub fn convert_hunks_to_diff_specs(
             hunk_headers,
         })
         .collect())
-}
-
-/// Tracks mappings between old and new commit IDs during rebase operations
-#[derive(Debug, Clone, Default)]
-pub struct CommitMap {
-    map: HashMap<ObjectId, ObjectId>,
-}
-
-impl CommitMap {
-    /// Find the final mapped commit ID by following the chain of mappings
-    pub fn find_mapped_id(&self, commit_id: ObjectId) -> ObjectId {
-        let mut current_id = commit_id;
-        while let Some(mapped_id) = self.map.get(&current_id) {
-            current_id = *mapped_id;
-        }
-        current_id
-    }
-
-    /// Add a mapping from old commit ID to new commit ID
-    pub fn add_mapping(&mut self, old_commit_id: ObjectId, new_commit_id: ObjectId) {
-        self.map.insert(old_commit_id, new_commit_id);
-    }
 }
 
 /// A hunk to absorb, along with the routing information the absorb planner needs.

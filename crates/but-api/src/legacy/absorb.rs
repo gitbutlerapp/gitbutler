@@ -6,14 +6,18 @@ use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
-    AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap,
-    GroupedChanges, convert_hunks_to_diff_specs,
+    AbsorbCandidate, AbsorptionReason, AbsorptionTarget, CommitAbsorption, GroupedChanges,
+    convert_hunks_to_diff_specs,
 };
 use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeTo},
+};
+use but_workspace::commit::{ChangeSource, amend_in_editor, cancel_consumed_changes};
 use but_workspace::{RefInfo, branch::Stack};
 use gitbutler_oplog::{
     OplogExt,
@@ -22,10 +26,7 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::{
-    commit::amend::commit_amend_only_impl, commit::insert_blank::commit_insert_blank_only_impl,
-    commit::json::ChangesSource,
-};
+use crate::{commit::insert_blank::commit_insert_blank_only_impl, commit::json::ChangesSource};
 use but_core::DryRun;
 
 /// Absorb the changes described by `absorption_plan` using the behavior documented by
@@ -52,7 +53,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 }
 
 /// Absorb the changes described by `absorption_plan` using the exclusive repository
-/// access granted by `perm`, applying the updates through the modern commit amend API.
+/// access granted by `perm`.
 ///
 /// Returns the total amount of rejected diff specs.
 pub fn absorb_with_perm(
@@ -60,31 +61,35 @@ pub fn absorb_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
-    // Apply each group to its target commit and track failures
-    let mut total_rejected = 0;
-    let mut commit_map = CommitMap::default();
     let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
 
+    let mut total_rejected = 0;
+    let mut consumed = Vec::new();
     for absorption in absorption_plan {
         let diff_specs = convert_hunks_to_diff_specs(&absorption.hunks)?;
-        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome = commit_amend_only_impl(
-            ctx,
-            commit_id,
+        let outcome = amend_in_editor(
+            &mut editor,
+            absorption.commit_id,
             diff_specs,
-            &ChangesSource::Head,
-            DryRun::No,
             context_lines,
-            perm,
+            &ChangeSource::Head,
         )?;
         if !outcome.rejected_specs.is_empty() {
             tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
         }
-        for (old, new) in &outcome.workspace.replaced_commits {
-            commit_map.add_mapping(*old, *new);
-        }
         total_rejected += outcome.rejected_specs.len();
+        consumed.extend(outcome.consumed);
     }
+
+    cancel_consumed_changes(&mut editor, &ChangeSource::Head, consumed, context_lines)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    drop(repo);
+    drop(db);
+    ctx.update_workspace_cache(ws);
     Ok(total_rejected)
 }
 
