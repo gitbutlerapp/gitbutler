@@ -24,7 +24,7 @@ use crate::{
         discard::Platform,
     },
     bad_input,
-    command::worktree::remove::{RemoveOperation, RemoveOutcome},
+    command::worktree::remove::{RemoveOperation, RemoveOutcome, run_with_hint},
     id::{CommitId, CommittedFileId, CommittedHunk, IdAndHunk, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
@@ -311,7 +311,14 @@ pub fn discard(
     let operation = {
         let repo = ctx.repo.get()?;
         if let Some(name) = resolve_worktree(&repo, &id_map, &args.changes)? {
-            let removed = remove_clean_worktree(ctx, guard.write_permission(), &repo, name)?;
+            let removed = run_with_hint(
+                ctx,
+                guard.write_permission(),
+                RemoveOperation {
+                    worktree: name,
+                    force: false,
+                },
+            )?;
             return Ok((DiscardOutcome::Worktree(removed), None));
         }
         resolve(&repo, &id_map, args, invoked_from)?
@@ -346,35 +353,6 @@ fn resolve_worktree(
         }
     }
     Ok(None)
-}
-
-fn remove_clean_worktree(
-    ctx: &Context,
-    perm: &mut RepoExclusive,
-    repo: &gix::Repository,
-    name: BString,
-) -> CliResult<RemoveOutcome> {
-    let operation = RemoveOperation {
-        worktree: name.clone(),
-        force: false,
-    };
-    let err = match crate::command::worktree::remove::run(ctx, perm, operation) {
-        Ok(removed) => return Ok(removed),
-        Err(err) => err,
-    };
-    let dirty = but_workspace::worktrees::open_worktree_repo(repo, name.as_ref())
-        .and_then(|worktree_repo| but_core::diff::worktree_changes(&worktree_repo))
-        .is_ok_and(|changes| !changes.changes.is_empty());
-    if !dirty {
-        return Err(err.into());
-    }
-    Err(
-        bad_input(format!("Worktree {name} has uncommitted changes"))
-            .hint(format!(
-                "Use `but worktree remove --force {name}` to remove it anyway"
-            ))
-            .into(),
-    )
 }
 
 fn resolve(

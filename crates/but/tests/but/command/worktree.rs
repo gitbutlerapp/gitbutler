@@ -374,23 +374,100 @@ Archived worktrees
 }
 
 #[test]
+fn remove_of_a_dirty_checkout_hints_at_a_commit_that_works() {
+    let env = adopted_sandbox();
+    let worktrees = env.app_data_dir().join("worktrees");
+
+    // Archived, so it has no `<name>:@`, and at a path that needs quoting.
+    add_worktree_at(
+        &env,
+        "wt dirty",
+        "-b wt-dirty",
+        "A",
+        "2000-01-03 00:00:00 +0000",
+    );
+    std::fs::write(worktrees.join("wt dirty/note.txt"), "dirty\n").unwrap();
+    env.but("worktree archive wt-dirty").assert().success();
+    env.but("worktree remove wt-dirty")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-dirty has uncommitted changes
+
+Hint: Run `but -C '[..]/worktrees/wt dirty' commit -m "<message>"` to keep them, or `but worktree remove wt-dirty --force` to discard them
+
+"#]]);
+    env.but(format!(
+        "-C '{}' commit -m keep",
+        worktrees.join("wt dirty").display()
+    ))
+    .assert()
+    .success();
+    env.but("worktree remove wt-dirty").assert().success();
+
+    // Detached, so it has no branch to commit to until `-b` names one.
+    add_worktree_at(&env, "wt-at", "--detach", "B", "2000-01-04 00:00:00 +0000");
+    std::fs::write(worktrees.join("wt-at/note.txt"), "dirty\n").unwrap();
+    env.but("worktree remove wt-at")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-at has uncommitted changes
+
+Hint: Run `but -C [..]/worktrees/wt-at commit -b <new-branch> -m "<message>"` to keep them, or `but worktree remove wt-at --force` to discard them
+
+"#]]);
+    env.but(format!(
+        "-C {} commit -b kept -m keep",
+        worktrees.join("wt-at").display()
+    ))
+    .assert()
+    .success();
+    env.but("worktree remove wt-at").assert().success();
+}
+
+#[test]
+fn remove_of_a_checkout_with_a_submodule_needs_force() {
+    let env = adopted_sandbox();
+    let path = add_worktree_with_commit(&env, "wt-sub", "A");
+    invoke_bash_at_dir(
+        &format!(
+            r#"git -c protocol.file.allow=always submodule add -q "{}" sub"#,
+            env.projects_root().display()
+        ),
+        &path,
+    );
+
+    env.but("worktree remove wt-sub")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Worktree wt-sub contains an initialized submodule
+
+Hint: Run `but worktree remove wt-sub --force` to remove it anyway
+
+"#]]);
+    env.but("worktree remove wt-sub --force").assert().success();
+}
+
+#[test]
 fn remove_requires_force_for_a_dirty_checkout() {
     let env = adopted_sandbox();
     add_dirty_worktree(&env, "wt-dirty", "A");
     add_worktree_with_commit(&env, "wt-clean", "B");
     env.but("worktree archive wt-clean").assert().success();
 
-    // Git's own refusal is shown; it is localized, so pin the language.
     env.but("worktree remove wt-dirty")
-        .env("LC_ALL", "C")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: Worktree contains changes; use --force to discard them
+Error: Worktree wt-dirty has uncommitted changes
 
-Caused by:
-    The worktree "[..]/worktrees/wt-dirty" contains modified or untracked files, at [..]
+Hint: Run `but -C [..]/worktrees/wt-dirty commit -m "<message>"` to keep them, or `but worktree remove wt-dirty --force` to discard them
 
 "#]]);
     // `wt` is a default alias for `worktree`.
@@ -631,10 +708,111 @@ Hint: run `but help` for all commands
             .failure()
             .stdout_eq(snapbox::str![])
             .stderr_eq(snapbox::str![[r#"
-Error: Branch 'A' is already in the workspace
+Error: Bad input 'A' for '<NAME>'
+
+Branch 'A' is already in the workspace
+
+Hint: Run `but unapply A` first to move it out of the workspace, or pass a new name
 
 "#]]);
     }
+    // What the hint says works.
+    env.but("unapply A").assert().success();
+    env.but("worktree new A").assert().success();
+}
+
+/// Git allows `&` in a branch name, so a hinted command has to quote it for the shell.
+#[test]
+fn new_hints_quote_the_branch_name() {
+    let env = adopted_sandbox();
+    env.but("branch new 'in&workspace'").assert().success();
+    env.but("worktree new 'in&workspace'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'in&workspace' for '<NAME>'
+
+Branch 'in&workspace' is already in the workspace
+
+Hint: Run `but unapply 'in&workspace'` first to move it out of the workspace, or pass a new name
+
+"#]]);
+
+    env.but("worktree new 'par&ked'").assert().success();
+    env.but("worktree archive par-ked").assert().success();
+    env.but("worktree new 'par&ked'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'par&ked' is already checked out in [..]
+
+Hint: Run `but worktree new <new-name> -A 'par&ked'` to start a new branch from it
+
+"#]]);
+}
+
+#[test]
+fn new_refuses_an_invalid_name_and_suggests_a_valid_one() {
+    let env = adopted_sandbox();
+    env.but("worktree new 'a b'")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'a b'
+
+Invalid branch name
+
+Hint: Try 'a-b' instead
+
+"#]]);
+    // `git worktree add` takes a path here, so this is what its users try.
+    env.but("worktree new ../other --above main")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input '../other'
+
+Invalid branch name
+
+Hint: Try 'other' instead
+
+"#]]);
+}
+
+/// Git refuses these, and they are neither in the workspace nor among the active worktrees.
+#[test]
+fn new_refuses_a_branch_checked_out_elsewhere() {
+    let env = adopted_sandbox();
+    env.but("worktree new parked").assert().success();
+    env.but("worktree archive parked").assert().success();
+    env.but("worktree new parked")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'parked' is already checked out in [..]/parked
+
+Hint: Run `but worktree new <new-name> -A parked` to start a new branch from it
+
+"#]]);
+    // What the hint says works.
+    env.but("worktree new fresh -A parked").assert().success();
+
+    env.invoke_git("checkout -q main");
+    env.but("worktree new main")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'main' is already checked out in [..]
+
+Hint: Run `but worktree new <new-name> -A main` to start a new branch from it
+
+"#]]);
 }
 
 #[test]
@@ -671,7 +849,7 @@ Created worktree loose on 'loose' from 0dc3733 at [..]/home/.gitbutler-worktrees
         .stderr_eq(snapbox::str![[r#"
 Error: Bad input 'loose' for '<NAME>'
 
-Branch 'loose' is already checked out in worktree 'loose'
+Branch 'loose' is already in worktree 'loose'
 
 Hint: Run `but worktree list` for its path, or pass a new name
 
@@ -749,7 +927,7 @@ Caused by:
         .stderr_eq(snapbox::str![[r#"
 Error: Bad input 'w' for '<NAME>'
 
-Branch 'w' is already checked out in worktree 'w'
+Branch 'w' is already in worktree 'w'
 
 Hint: Run `but worktree list` for its path, or pass a new name
 
@@ -1675,6 +1853,19 @@ fn a_lower_branch_does_not_name_its_worktree() {
     let env = adopted_sandbox();
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
 
+    // It can't be unapplied like a branch of a stack, as `but unapply` refuses a worktree's.
+    env.but("worktree new wt-lower")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'wt-lower' for '<NAME>'
+
+Branch 'wt-lower' is already in worktree 'wt-inside'
+
+Hint: Run `but worktree list` for its path, or pass a new name
+
+"#]]);
     env.but("worktree remove wt-lower")
         .assert()
         .stdout_eq(snapbox::str![""])
