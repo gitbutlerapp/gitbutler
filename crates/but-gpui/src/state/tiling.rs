@@ -433,6 +433,12 @@ impl Tiling {
         others.chain(grown).collect()
     }
 
+    /// Whether `tile`, zoomed in the tiling `before`, stays zoomed now it's this one: only
+    /// another tile going leaves it so.
+    pub fn keeps_zoom(&self, tile: &Tile, before: &Tiling) -> bool {
+        self.has(tile) && self.areas().len() < before.areas().len()
+    }
+
     /// `at` of the way to `to`, which has the same divisions with other shares.
     pub fn toward(&self, to: &Tiling, at: f32) -> Tiling {
         let mut drawn = self.clone();
@@ -2023,6 +2029,47 @@ mod tests {
                 (tile.clone(), Area::WHOLE)
             ],
             "there, only the home tile stays under it, where it was"
+        );
+    }
+
+    #[test]
+    fn another_tile_going_leaves_a_tile_zoomed() {
+        let tile = Tile::Pinned(terminal(1));
+        let mut before = Tiling::default();
+        before.pin(&Tile::Home, Axis::Across, terminal(1));
+        before.pin(&tile, Axis::Across, terminal(2));
+        let mut after = before.clone();
+        after.retain(&|pinned| *pinned != terminal(2));
+        assert!(
+            after.keeps_zoom(&tile, &before),
+            "what went has nothing to do with the tile zoomed"
+        );
+    }
+
+    #[test]
+    fn the_tile_zoomed_going_ends_the_zoom() {
+        let tile = Tile::Pinned(terminal(1));
+        let mut before = Tiling::default();
+        before.pin(&Tile::Home, Axis::Across, terminal(1));
+        before.pin(&tile, Axis::Across, terminal(2));
+        let mut after = before.clone();
+        after.retain(&|pinned| *pinned != terminal(1));
+        assert!(
+            !after.keeps_zoom(&tile, &before),
+            "there's nothing left to zoom, so all the tiles show"
+        );
+    }
+
+    #[test]
+    fn a_tile_added_ends_the_zoom() {
+        let tile = Tile::Pinned(terminal(1));
+        let mut before = Tiling::default();
+        before.pin(&Tile::Home, Axis::Across, terminal(1));
+        let mut after = before.clone();
+        after.pin(&tile, Axis::Across, terminal(2));
+        assert!(
+            !after.keeps_zoom(&tile, &before),
+            "the zoom would hide the tile just asked for"
         );
     }
 

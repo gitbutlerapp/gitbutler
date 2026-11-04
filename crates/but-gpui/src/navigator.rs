@@ -1358,7 +1358,11 @@ impl Navigator {
 
     /// Go into the selected terminal, to type in, once the update running now is over.
     fn enter_terminal(&self, window: &mut Window, cx: &mut Context<Self>) {
-        (self.app).update_later(window, cx, |app, window, cx| app.enter_terminal(window, cx));
+        (self.app).update_later(window, cx, |app, window, cx| {
+            app.enter_terminal(window, cx);
+            // A row with tiles gives the keys back to the one that had them last.
+            app.focus_last_tile(window, cx);
+        });
     }
 
     /// Return in the TUI's keymap: fold or unfold the rows the selected one heads, as its
