@@ -37,6 +37,8 @@
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
 //! lite on                 # turn the Lite interface on or off, as Settings › Experimental does
+//! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
+//!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
@@ -66,6 +68,11 @@
 //!                         # draw and the longest stall
 //! quit
 //! ```
+
+mod control;
+
+#[cfg(unix)]
+pub(crate) use control::listen as listen_for_layout;
 
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -1086,6 +1093,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     store.set_prefs(|p| p.interface = interface, cx)
                 })
             });
+        }
+        "layout" => {
+            control::run(rest, window, cx)?;
+            for line in control::describe(window, cx)?.lines() {
+                println!("LAYOUT {line}");
+            }
         }
         // The window as if another app's covered it, or shown again.
         "hide" | "show" => {

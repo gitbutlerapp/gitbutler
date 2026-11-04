@@ -81,6 +81,19 @@ Each `step` runs its arguments as script lines, saves a shot, and prints its pat
 on its own after `--timeout` seconds (1800); always `stop` it when done. One session per
 checkout.
 
+## Laying out the user's window
+
+When the user asks to see a layout in the app they have open, don't drive it: lay it out with
+`crates/but-gpui/scripts/control.sh`, which only works on a dev build started with
+`--features dev-script` and takes only layout commands (`src/dev/control.rs`):
+
+```bash
+crates/but-gpui/scripts/control.sh "select Branches" "pick first" "files on"
+```
+
+It prints any command's error, then what's selected, what shows and the tiles. The same
+commands go in a script after `layout`, as `layout files on`, to try them here first.
+
 ## Where the keys go
 
 `KEYS Workspace > Navigator > TextInput` says what typing reaches: here a text field in the

@@ -37,3 +37,4 @@ The app is built for watching what coding agents change. Reading their changes c
 - `E2E_TEST_APP_DATA_DIR=<dir>` points GitButler's app data and settings at a sandbox.
 - `GITBUTLER_API_URL` signs in to another GitButler server than production, as staging.
 - `scripts/drive.sh run <file>` runs the app from a script of clicks, drags and keystrokes, saving screenshots, against app data of its own and in a window that never shows. `src/dev.rs` documents the commands.
+- Built with `--features dev-script`, the app takes layout commands on a socket, which `scripts/control.sh` sends, so an agent can set up the window you're looking at. `src/dev/control.rs` documents them.
