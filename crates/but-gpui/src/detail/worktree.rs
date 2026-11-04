@@ -6,9 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, App, Context, Div, ElementId, MouseButton, ScrollHandle, div, prelude::*, relative,
-};
+use gpui::{AnyElement, App, Context, Div, ElementId, ScrollHandle, div, prelude::*, relative};
 
 use super::Detail;
 use super::panes::{
@@ -27,7 +25,7 @@ use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, glow_once, h_flex,
-    keep_focus_on_press, list_row, relative_time, short_path, small_icon, unread_line, v_flex,
+    list_row, relative_time, short_path, small_icon, unread_line, v_flex,
 };
 
 mod activity;
@@ -523,7 +521,6 @@ impl Detail {
             share_row(("now-hot", ix), label, bar, (*n, most), (on, true), theme)
                 // In full, as a long name can leave its folder no room.
                 .tooltip(Tooltip::text(path.to_string()))
-                .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(
                     cx.listener(move |this, _, _, cx| this.pick_hot_file(Some(path.clone()), cx)),
                 )
@@ -741,7 +738,6 @@ impl Detail {
                             COMMITS_TIME_WIDTH,
                             theme,
                         ))
-                        .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             let target = target.clone();
                             let tab = opening.as_ref().map(|(tab, _)| *tab);

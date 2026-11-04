@@ -45,8 +45,8 @@ use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, TILE_MARGIN, Tooltip,
     WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, dot, dp, faint,
     field, fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex, icon,
-    icon_button, list_row, mark_dragged, meta_count, plural, pulsing, relative_time, review,
-    section_label, small_icon, spinning, unread_line, v_flex,
+    icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, relative_time,
+    review, section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -783,7 +783,7 @@ impl Navigator {
     ) -> AnyElement {
         match open.is_some() && self.filtering(cx) {
             true => fold_glyph(id, Some(true), color).into_any_element(),
-            false => fold_button(id, open, color, cx, toggle).into_any_element(),
+            false => fold_button(id, open, color, &self.focus, cx, toggle).into_any_element(),
         }
     }
 
@@ -2927,26 +2927,32 @@ impl Navigator {
         // being moved, the eye is only part of the row, which a press puts the move at; the
         // chevron folds the card still.
         let moving = self.store.read(cx).moving.is_some();
-        let button =
-            |name: &str, folds: bool, click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
-                let id = id.clone();
-                div()
-                    .id(ElementId::Name(format!("{name}-{id}").into()))
-                    .flex_none()
-                    .size(dp(20.))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(dp(4.))
-                    .when(folds || !moving, |el| {
-                        el.hover(|el| el.bg(theme.hover()))
-                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                cx.stop_propagation();
-                                click(this, &id, cx)
-                            }))
-                    })
-            };
+        let button = |name: &str,
+                      folds: bool,
+                      click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
+            let id = id.clone();
+            div()
+                .id(ElementId::Name(format!("{name}-{id}").into()))
+                .flex_none()
+                .size(dp(20.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(dp(4.))
+                .when(folds || !moving, |el| {
+                    el.hover(|el| el.bg(theme.hover()))
+                        .map(|el| match folds {
+                            true => el.on_mouse_down(MouseButton::Left, press_in_pane(&self.focus)),
+                            // A button, which leaves the keys where they were.
+                            false => el
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()),
+                        })
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            cx.stop_propagation();
+                            click(this, &id, cx)
+                        }))
+                })
+        };
         Some(
             style
                 .row(format!("project-{id}"), 0.)
@@ -3706,7 +3712,7 @@ impl Navigator {
                     || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
                         if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
                 let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                fold_button(fold, Some(open), warn, cx, toggle)
+                fold_button(fold, Some(open), warn, &self.focus, cx, toggle)
                     .mx(fixed(-1.))
                     .into_any_element()
             }

@@ -46,6 +46,8 @@ impl Render for RowsStory {
                         "src-fold",
                         Some(open),
                         theme.text_2,
+                        // There's no pane around it here to give the keys.
+                        &cx.focus_handle(),
                         cx,
                         |this, _, cx| {
                             this.open = !this.open;
