@@ -93,7 +93,7 @@ fn unapply_stack<'ws>(
 ) -> anyhow::Result<unapply::Outcome<'ws>> {
     let mut changed = ws.clone();
     let editor = Editor::create(&mut changed, meta, repo, db)?;
-    let rebase = but_workspace::branch::unapply_stack(editor, branch)?;
+    let rebase = but_workspace::branch::unapply_stack(editor, branch, Default::default())?;
     let workspace = if rebase.references_updated()? {
         rebase.materialize(Default::default())?;
         Cow::Owned(changed)
@@ -152,8 +152,11 @@ fn apply_and_unapply_compose_in_one_editor() -> anyhow::Result<()> {
 
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
     let applied = but_workspace::branch::apply_stack(editor, r("refs/heads/C"), None)?;
-    let rebase =
-        but_workspace::branch::unapply_stack(applied.rebase.into_editor(), r("refs/heads/B"))?;
+    let rebase = but_workspace::branch::unapply_stack(
+        applied.rebase.into_editor(),
+        r("refs/heads/B"),
+        Default::default(),
+    )?;
     rebase.materialize(Default::default())?;
 
     // C replaced B as a lane with a single rewrite of the workspace commit.
@@ -768,26 +771,22 @@ fn unapply_of_a_branch_that_is_not_a_lane_changes_nothing() -> anyhow::Result<()
 }
 
 #[test]
-fn unapply_of_a_branch_at_the_tip_of_a_lane_removes_that_lane() -> anyhow::Result<()> {
+fn unapply_of_a_branch_below_the_tip_of_a_lane_changes_nothing() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["branch", "also-A", "A"]).run();
+    let before = visualize_commit_graph_all(&repo)?;
     let ws = workspace(&repo, &meta, &mut db)?;
 
     let out = unapply_stack(r("refs/heads/also-A"), &ws, &repo, &mut meta, &mut db)?;
 
     assert!(
-        out.workspace_changed(),
-        "lanes are matched by their tip commit, which also-A shares with A"
+        !out.workspace_changed(),
+        "lanes are matched by their tip branch, and also-A is below A even though they share a commit"
     );
-    snapbox::assert_data_eq!(
-        graph_workspace_determinisitcally(&out.workspace).to_string(),
-        snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
-└── ≡📙:B on 0dc3733 {1}
-    └── 📙:B
-        └── ·e16577c (🏘️)
-
-"#]]
+    assert_eq!(
+        visualize_commit_graph_all(&repo)?,
+        before,
+        "the repository is unchanged"
     );
     Ok(())
 }

@@ -419,14 +419,12 @@ fn assigned_diffspec_for_stack(
 /// - identify the workspace metadata branch representing the stack;
 /// - create a best-effort unapply snapshot with all stack branch names as trailers;
 /// - commit assigned changes below the branch being unapplied so they travel with it;
-/// - delegate the actual workspace mutation to [`but_workspace::branch::unapply()`]
-///   and update the cached workspace projection with the returned workspace.
 ///
 /// # What makes this legacy
 ///
 /// - use of `stack_id` should be branch name or maybe even stack index (i.e. index in workspace projection,
 ///   along with other identification, maybe even as much as we have)
-/// - Ideally, this new way of identifying stacks by bundling various identifiers, is also used in `unapply()`
+/// - Ideally, this new way of identifying stacks by bundling various identifiers, is also used in `unapply_stack()`
 ///   itself and a simple [`but_graph::Workspace`] method.
 fn unapply_stack_v3_with_perm(
     ctx: &mut Context,
@@ -453,19 +451,18 @@ fn unapply_stack_v3_with_perm(
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-    let outcome = but_workspace::branch::unapply(
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    but_workspace::branch::unapply_stack(
+        editor,
         branch_to_unapply.as_ref(),
-        &ws,
-        &repo,
-        &mut meta,
         but_workspace::branch::unapply::Options {
             workspace_disposition:
                 WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
         },
-    )?;
-    let new_ws = outcome.workspace.into_owned();
+    )?
+    .materialize(Default::default())?;
     if was_ad_hoc {
         // Collapsing a managed workspace retains its metadata after deleting its ref.
         // Don't resurrect the last unapplied branch when switching back to that workspace.
@@ -477,9 +474,8 @@ fn unapply_stack_v3_with_perm(
     // Keeping the workspace merge commit can make legacy reconciliation infer the
     // removed stack as applied again, so persist the explicit workspace metadata.
     meta.write_unreconciled()?;
-    drop(repo);
-    drop(ws);
-    ctx.update_workspace_cache(new_ws);
+    drop((repo, db));
+    ctx.update_workspace_cache(ws);
     Ok(())
 }
 
