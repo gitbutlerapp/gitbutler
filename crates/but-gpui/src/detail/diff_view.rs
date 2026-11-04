@@ -551,7 +551,7 @@ impl Detail {
         let (path, rows) = (self.fold_rows.iter()).find(|(path, rows)| {
             rows.left_out > 0
                 && self.file_folds.openness(path).is_none()
-                && !self.folded.contains(*path)
+                && !(self.page.files()).is_some_and(|files| files.folded.contains(*path))
         })?;
         let file = (diff.files.iter()).position(|f| f.file.path == *path)?;
         let header = self.row_of(|row| *row == DiffRow::File(file))?;
@@ -725,7 +725,7 @@ impl Detail {
         }
         let Some(diff) = self.shown_diff() else {
             // Another machine's branch, until it's here.
-            if let Some(Selection::Mesh(project, id, pick)) = &self.selection(cx)
+            if let Some(Selection::Mesh(project, id, pick)) = &self.selection()
                 && !self.loading.is_some()
             {
                 let message = self.machine_placeholder(project, id, pick, theme, cx);
@@ -968,7 +968,7 @@ impl Detail {
     /// For a selected branch or stack with no commits, what but.dev's branch page says.
     fn nothing_committed(&self, cx: &App) -> Option<SharedString> {
         let store = self.store.read(cx);
-        let selection = self.selection(cx)?;
+        let selection = self.selection()?;
         nothing_committed_in(store.workspace(selection.project())?, &selection)
     }
 
@@ -976,7 +976,7 @@ impl Detail {
     /// branch the target already has changes nothing against it.
     fn changes_nothing(&self, cx: &App) -> SharedString {
         let store = self.store.read(cx);
-        let Some(selection) = self.selection(cx) else {
+        let Some(selection) = self.selection() else {
             return "No changes".into();
         };
         let selection = &selection;
@@ -1082,7 +1082,7 @@ impl Detail {
                 focus.dispatch_action(action, window, cx)
             }
         };
-        let list_page = self.list_page(cx);
+        let list_page = self.list_page();
         let toggles = !list_page || self.has_files_beside(cx);
         // The files aren't beside the diff: hidden, or a list page has none.
         let hidden = match list_page {
@@ -1638,7 +1638,8 @@ impl Detail {
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         file_diff.drawing.as_ref()?;
-        let text = self.svg_text.contains(&file_diff.file.path);
+        let path = &file_diff.file.path;
+        let text = (self.page.files()).is_some_and(|files| files.svg_text.contains(path));
         Some(
             icon_button(("drawing", ix), Icon::TextCode)
                 .small()
@@ -1658,7 +1659,9 @@ impl Detail {
 
     /// The drawing `file` shows in place of its lines: an SVG's, unless it's shown as text.
     pub(super) fn drawing_of<'a>(&self, file: &'a FileDiff) -> Option<&'a Drawing> {
-        (file.drawing.as_ref()).filter(|_| !self.svg_text.contains(&file.file.path))
+        (file.drawing.as_ref()).filter(|_| {
+            !(self.page.files()).is_some_and(|files| files.svg_text.contains(&file.file.path))
+        })
     }
 
     /// Show `file`'s lines rather than its drawing, or the drawing again.
@@ -1666,8 +1669,11 @@ impl Detail {
         let Some(path) = self.diff_path(file) else {
             return;
         };
-        if !self.svg_text.remove(&path) {
-            self.svg_text.insert(path);
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        if !files.svg_text.remove(&path) {
+            files.svg_text.insert(path);
         }
         self.rebuild_rows(cx);
     }
@@ -1745,6 +1751,7 @@ impl Detail {
                     }
                 }
                 this.rebuild_rows(cx);
+                this.finish_reopening();
                 if let Some((_, hunk, down)) = anchor
                     && let Some(at) = (this.diff.as_ref()).and_then(|diff| {
                         (diff.rows.iter()).position(|r| *r == DiffRow::Hunk { file, hunk })
@@ -1840,7 +1847,7 @@ impl Detail {
             move |modifiers, dragging, window: &mut Window, cx: &mut App| {
                 (picking.update(cx, |detail, cx| match dragging {
                     // Dragging on down the numbers from a press on one runs the pick along.
-                    true if detail.picking_lines && detail.line_picks.is_some() => {
+                    true if detail.picking_lines && detail.page.line_picks().is_some() => {
                         detail.pick_line(place, Pick::Run, cx)
                     }
                     true => {}

@@ -1,7 +1,7 @@
 //! How a navigator row lays out the detail: its home tile, the page the row picks, divided
 //! with the tiles pinned beside it.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use gpui::{Context, Entity};
 
@@ -27,7 +27,7 @@ pub enum Axis {
 }
 
 /// What a tile shows.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Tile {
     /// The page of the row the tiling is for, which follows the navigator. It closes only as a
     /// terminal, whose place a terminal pinned beside it takes: see [`Tiling::promote`].
@@ -1259,6 +1259,18 @@ impl Store {
                 Some(Selection::Commit(project.clone(), commit.id))
             }
         }
+    }
+
+    /// Whether `row`'s tiling has `tile`.
+    pub fn has_tile(&self, row: &RowKey, tile: &Tile) -> bool {
+        (self.tilings.get(row)).is_some_and(|tiling| tiling.has(tile))
+    }
+
+    /// The change IDs of `project`'s commits, while its workspace is loaded.
+    pub fn commit_keys(&self, project: &ProjectId) -> Option<HashSet<&str>> {
+        let branches = self.workspace(project)?.all_branches();
+        let commits = branches.flat_map(|branch| &branch.commits);
+        Some(commits.map(|commit| commit.key.as_str()).collect())
     }
 
     /// How the selected row lays out the detail, while it has tiles pinned beside its page.

@@ -263,6 +263,15 @@ impl TextInput {
         (self.undo, self.redo) = (Vec::new(), Vec::new());
     }
 
+    /// Show `text` as the field was left, which nothing needs to hear of: no one typed it.
+    pub fn restore(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
+        self.content = cleaned(&text.into(), self.multiline);
+        self.selected_range = self.content.len()..self.content.len();
+        self.marked_range = None;
+        (self.undo, self.redo) = (Vec::new(), Vec::new());
+        cx.notify();
+    }
+
     pub fn select_all_text(&mut self, cx: &mut Context<Self>) {
         self.selected_range = 0..self.content.len();
         self.selection_reversed = false;

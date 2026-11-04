@@ -916,8 +916,9 @@ impl Navigator {
         {
             self.set_heading_open(project, section, true, cx);
         }
-        self.store
-            .update(cx, |store, cx| store.reopen(selection, cx));
+        self.store.update(cx, |store, cx| {
+            store.select_by_hand(selection, cx);
+        });
     }
 
     /// Draw the navigator as a card out over the detail, or beside it again.
@@ -3476,6 +3477,7 @@ impl Navigator {
                             cx.listener(move |this, _, window, cx| {
                                 this.select(shown.clone(), window, cx);
                                 (this.detail).update(cx, |detail, cx| {
+                                    detail.follow_selection(window, cx);
                                     detail.set_review_tab(true, window, cx)
                                 });
                                 (this.store)

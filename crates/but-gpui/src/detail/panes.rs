@@ -992,7 +992,7 @@ impl Detail {
 
     /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
     fn message_title(&self, title: impl IntoElement, body: &str, cx: &Context<Self>) -> Div {
-        let open = self.message_open;
+        let open = self.page.message_open();
         let toggle = (!body.is_empty()).then(|| {
             icon_button("full-message", Icon::TextBlock)
                 .small()
@@ -1002,10 +1002,7 @@ impl Detail {
                 } else {
                     "Show full message"
                 })
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.message_open = !this.message_open;
-                    cx.notify();
-                }))
+                .on_click(cx.listener(|this, _, _, cx| this.toggle_message(cx)))
         });
         (h_flex().items_start().min_w_0().gap(dp(6.)))
             .child(title)
@@ -1028,7 +1025,7 @@ impl Detail {
     /// The rest of a commit's message under its title, once its button shows it.
     fn full_message(&self, body: String, theme: &Theme) -> Option<Div> {
         // Further off the lines around it than they stand from each other.
-        (self.message_open && !body.is_empty()).then(|| {
+        (self.page.message_open() && !body.is_empty()).then(|| {
             div()
                 .mt(dp(2.))
                 .mb(dp(6.))
@@ -2017,7 +2014,7 @@ impl Detail {
                 let to = picked.map_or(0, |ix| ix.saturating_add_signed(by).min(last));
                 if let Some(key) = keys.get(to) {
                     // Folded, one past the busiest few shows right after them.
-                    let row = match this.people_open {
+                    let row = match this.people_open() {
                         true => to,
                         false => to.min(PEOPLE_SHOWN),
                     };
@@ -2027,14 +2024,14 @@ impl Detail {
             }
         };
         let fold_to = |this: &mut Self, open: bool, cx: &mut Context<Self>| {
-            if this.people_open != open {
+            if this.people_open() != open {
                 this.page_folds.start(PageFold::People, open, cx);
             }
-            this.people_open = open;
+            this.set_people_open(open);
             cx.notify();
         };
         let everyone = rows.len();
-        let open = self.people_open && everyone > PEOPLE_SHOWN;
+        let open = self.people_open() && everyone > PEOPLE_SHOWN;
         // Folded, the busiest few and whoever's picked; the rest open under them, and while
         // they open or close, they do so after them, as one.
         let moving = self.page_folds.openness(&PageFold::People).is_some();
@@ -2063,7 +2060,7 @@ impl Detail {
                 false => ("people-more", Icon::Kebab),
             };
             fold_row(id, glyph, 18., 42., theme).on_click(cx.listener(move |this, _, _, cx| {
-                this.people_open = !open;
+                this.set_people_open(!open);
                 this.page_folds.start(PageFold::People, !open, cx);
                 this.people_scroll.set_offset(Point::default());
                 cx.notify();
@@ -2087,11 +2084,9 @@ impl Detail {
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
             .on_action(cx.listener(move |this, _: &Expand, _, cx| fold_to(this, true, cx)))
             .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold_to(this, false, cx)))
-            .on_action(
-                cx.listener(move |this, _: &ToggleFold, _, cx| {
-                    fold_to(this, !this.people_open, cx)
-                }),
-            )
+            .on_action(cx.listener(move |this, _: &ToggleFold, _, cx| {
+                fold_to(this, !this.people_open(), cx)
+            }))
             .on_mouse_down_out(back_to_list(&self.people_focus, cx))
             // As tall with Clear as without, so picking someone moves no row.
             .child(

@@ -91,9 +91,14 @@ unseen is what a laptop's battery pays for.
 - `AppView` draws `DiffPane` absolutely over the detail pane, below
   `Detail::view_header_height`. Anything that changes the height above the file list, like tabs
   or a banner, must be counted there, or the diff covers it and takes its clicks.
-- In a split, what acts reads the selection, the side with the keys. What the detail and the
-  diff draw and load reads `Store::shown`, and resets on `StoreEvent::ShownChanged`, not
-  `SelectionChanged`.
+- A `Detail` draws and loads what it `shows`, not `Store::selection`: a pinned page shows its own
+  row, and the home tile's takes the selection as the update making it ends, so its page, diff
+  and checks change together. What acts on a page it just selected calls
+  `Detail::follow_selection` first.
+- How a page is being looked at goes in its `PageState` variant (`detail/page.rs`), not on
+  `Detail`, so it stays with that item in that tile. A position in the loaded diff is kept by what
+  it's on, as `Place` does. A field or an editor stays on `Detail`, which saves what it holds as
+  the page goes (`Detail::put_page_away`) and shows it again (`Detail::enter_page`).
 - A cached view draws again when its bounds or its clip change, and a `list` measures every row
   again when its width does, so a pane opens and shuts by sliding at its full width
   (`ui::fold::Slide`), not by resizing.

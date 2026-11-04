@@ -72,12 +72,12 @@ impl Detail {
         let Some(repo) = self.store.read(cx).path(&project) else {
             return;
         };
-        let asked = self.selection(cx);
+        let asked = self.selection();
         let blamed = backend::run(move || backend::blame_lines(&repo, tip, path.as_ref(), &lines));
         cx.spawn(async move |this, cx| {
             let blamed = blamed.await;
             this.update(cx, |this, cx| {
-                if this.selection(cx) != asked {
+                if this.selection() != asked {
                     return;
                 }
                 let paths = match blamed {

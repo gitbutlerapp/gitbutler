@@ -285,6 +285,14 @@ pub(super) struct History {
     failed: Option<String>,
 }
 
+impl History {
+    /// As it's taken up by a new detail: a read the one before had under way went with it.
+    pub(super) fn resumed(mut self) -> History {
+        self.loading = false;
+        self
+    }
+}
+
 impl Detail {
     /// Load `project`'s newest operations, as many as are shown so the older pages and the
     /// selection stay, or with `more` the next page after those.
@@ -382,8 +390,8 @@ impl Detail {
     }
 
     /// The operations of the History page selected.
-    fn page_history(&self, cx: &App) -> Option<&History> {
-        match self.selection(cx) {
+    fn page_history(&self) -> Option<&History> {
+        match self.selection() {
             Some(Selection::History(project)) => self.history_for(&project),
             _ => None,
         }
@@ -402,7 +410,7 @@ impl Detail {
     }
 
     fn select_operation(&mut self, id: SnapshotId, cx: &mut Context<Self>) {
-        let Some(Selection::History(project)) = self.selection(cx) else {
+        let Some(Selection::History(project)) = self.selection() else {
             return;
         };
         let Some(history) = self.history.get_mut(&project) else {
@@ -416,7 +424,7 @@ impl Detail {
 
     /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view.
     fn step_history(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(history) = self.page_history(cx) else {
+        let Some(history) = self.page_history() else {
             return;
         };
         let shown = self.shown_operations(history, cx);
@@ -447,7 +455,7 @@ impl Detail {
         let query = self.history_filter.read(cx).text().trim().to_lowercase();
         let matches = |text: &str| text.to_lowercase().contains(&query);
         (history.operations.iter().enumerate())
-            .filter(|(_, op)| !self.history_hidden.contains(&describe(op.kind).1))
+            .filter(|(_, op)| !self.page.hides_operations(&describe(op.kind).1))
             .filter(|(_, op)| {
                 query.is_empty() || matches(&op.title) || summary(op).is_some_and(|s| matches(&s))
             })
@@ -467,14 +475,14 @@ impl Detail {
     /// operation in a long log agents add to, up to [`READ_FOR_FILTER`] operations, past which
     /// Show older goes on. Whether it did.
     fn read_older_while_none_shown(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(history) = self.page_history(cx) else {
+        let Some(history) = self.page_history() else {
             return false;
         };
         let reads = history.more
             && history.operations.len() < READ_FOR_FILTER
-            && self.history_hidden.len() < Group::ALL.len()
+            && self.page.operations_hidden() < Group::ALL.len()
             && self.shown_operations(history, cx).is_empty();
-        match (reads, self.selection(cx)) {
+        match (reads, self.selection()) {
             (true, Some(Selection::History(project))) => {
                 self.load_history(&project, true, cx);
                 true
@@ -484,7 +492,7 @@ impl Detail {
     }
 
     fn select_first_shown(&mut self, cx: &mut Context<Self>) {
-        let Some(history) = self.page_history(cx) else {
+        let Some(history) = self.page_history() else {
             return;
         };
         let shown = self.shown_operations(history, cx);
@@ -498,37 +506,28 @@ impl Detail {
     }
 
     /// Which kinds of operation the list shows, each ticked or not.
-    fn history_filter_items(&self, _: &mut Context<Self>) -> Vec<MenuItem> {
+    fn history_filter_items(&self, cx: &mut Context<Self>) -> Vec<MenuItem> {
+        // This page's, which needn't be the home tile's.
+        let this = cx.entity();
         (Group::ALL.into_iter())
             .map(|group| {
-                MenuItem::new(group.label(), move |app, _, cx| {
-                    app.detail.update(cx, |detail, cx| {
-                        if !detail.history_hidden.remove(&group) {
-                            detail.history_hidden.insert(group);
-                        }
+                let this = this.clone();
+                MenuItem::new(group.label(), move |_, _, cx| {
+                    this.update(cx, |detail, cx| {
+                        detail.page.toggle_operations(group);
                         detail.select_shown_operation(cx);
                         cx.notify()
                     })
                 })
-                .ticked(!self.history_hidden.contains(&group))
+                .ticked(!self.page.hides_operations(&group))
             })
             .collect()
-    }
-
-    /// Opening `project`'s history, wherever from: at the top, on the newest operation, which
-    /// the reload that follows picks, rather than on one picked a visit ago and since pushed
-    /// out of view by newer ones.
-    pub(super) fn open_on_newest_operation(&mut self, project: &ProjectId) {
-        if let Some(history) = self.history.get_mut(project) {
-            history.selected = None;
-        }
-        (self.history_scroll).scroll_to(Default::default());
     }
 
     /// Back to the newest operation listed, at the top, as the page opens on, when it's picked
     /// again.
     pub(super) fn pick_newest_operation(&mut self, cx: &mut Context<Self>) {
-        let Some(history) = self.page_history(cx) else {
+        let Some(history) = self.page_history() else {
             return;
         };
         let newest = self.shown_operations(history, cx).first().copied();
@@ -548,7 +547,7 @@ impl Detail {
     /// Return on the list: restore to before the selected operation, after asking, as its
     /// menu's Restore does.
     fn restore_selected_operation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Selection::History(project)) = self.selection(cx) else {
+        let Some(Selection::History(project)) = self.selection() else {
             return;
         };
         if let Some(id) = self.selected_operation(&project).map(|op| op.id) {
@@ -605,7 +604,7 @@ impl Detail {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let selected = match self.selection(cx) {
+        let selected = match self.selection() {
             Some(Selection::History(project)) => self.selected_operation(&project).map(|op| op.id),
             _ => None,
         };
@@ -886,7 +885,7 @@ impl Detail {
         let no_target =
             (self.store.read(cx).workspace(project)).is_some_and(|ws| ws.target.is_none());
         // The filter, which kinds of operation it shows, and a snapshot of the project now.
-        let narrowed = !self.history_hidden.is_empty();
+        let narrowed = self.page.operations_hidden() > 0;
         let bar = self
             .filter_bar(
                 &self.history_filter,
@@ -923,6 +922,7 @@ impl Detail {
         } else {
             let rows = rows(history, &shown);
             let project = project.clone();
+            self.restore_side_top(&self.history_scroll, rows.len(), cx);
             side_list(
                 rows.len(),
                 &self.history_scroll,

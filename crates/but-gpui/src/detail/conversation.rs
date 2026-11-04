@@ -175,7 +175,9 @@ impl Detail {
     /// A thread as Lite's: a row naming where it hangs that folds it, then the lines it's on
     /// and what was said there. It shows open unless it's resolved.
     fn thread(&self, thread: &Thread, theme: &Theme, cx: &Context<Self>) -> Div {
-        let open = thread.resolved == self.threads_flipped.contains(&thread.id);
+        let flipped =
+            (self.page.review()).is_some_and(|review| review.threads_flipped.contains(&thread.id));
+        let open = thread.resolved == flipped;
         let (name, dir) = split_path(&thread.path);
         let lines = match thread.lines {
             Some((start, end)) if start < end => format!(":{start}-{end}"),
@@ -231,8 +233,11 @@ impl Detail {
                 )
             })
             .on_click(cx.listener(move |this, _, _, cx| {
-                if !this.threads_flipped.remove(&id) {
-                    this.threads_flipped.insert(id.clone());
+                let Some(review) = this.page.review_mut() else {
+                    return;
+                };
+                if !review.threads_flipped.remove(&id) {
+                    review.threads_flipped.insert(id.clone());
                 }
                 this.page_folds
                     .start(PageFold::Thread(id.clone()), !open, cx);

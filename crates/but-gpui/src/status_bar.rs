@@ -465,7 +465,7 @@ impl AppView {
                     }),
             );
             // The checkout selected says both of its own, so only the others' count.
-            let here = (self.detail.read(cx).selected_checkout(cx)).map(|(_, checkout)| checkout);
+            let here = (self.detail.read(cx).selected_checkout()).map(|(_, checkout)| checkout);
             let writing: Vec<Checkout> = (store.being_written(&project).into_iter())
                 .filter(|checkout| Some(checkout) != here.as_ref())
                 .collect();

@@ -164,7 +164,7 @@ commands! {
     CherryPick => "Cherry-pick" {
         // The workspace's commits picked, or the Branches page's.
         phrase: |app, cx| {
-            let n = picks(app, cx).or_else(|| app.detail.read(cx).branch_cherry_picks(cx))?;
+            let n = picks(app, cx).or_else(|| app.detail.read(cx).branch_cherry_picks())?;
             (n > 1).then(|| format!("Cherry-pick {n} commits"))
         },
     },

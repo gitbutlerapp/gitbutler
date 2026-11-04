@@ -450,6 +450,10 @@ impl Store {
         tiling.promote(&heir);
         if !tiling.is_home_only() {
             self.tilings.insert(heir.clone(), tiling);
+            cx.emit(StoreEvent::TilingMoved {
+                from: row.clone(),
+                to: heir.clone(),
+            });
         }
         self.tiles_with_keys.insert(heir.clone(), recent);
         cx.emit(StoreEvent::TilingChanged);
