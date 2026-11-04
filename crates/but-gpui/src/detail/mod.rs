@@ -102,6 +102,8 @@ actions!(
         ToggleFiles,
         FilterFiles,
         ToggleCheck,
+        CheckAll,
+        UncheckAll,
         WriteMessage,
     ]
 );
@@ -3606,6 +3608,10 @@ impl Render for Detail {
                 el.on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
                     this.toggle_cursor_check(window, cx)
                 }))
+                .on_action(cx.listener(|this, _: &CheckAll, _, cx| this.set_all_checked(true, cx)))
+                .on_action(
+                    cx.listener(|this, _: &UncheckAll, _, cx| this.set_all_checked(false, cx)),
+                )
                 .on_action(
                     cx.listener(|this, _: &WriteMessage, window, cx| {
                         this.focus_message(window, cx)

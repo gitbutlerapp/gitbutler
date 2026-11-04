@@ -63,6 +63,16 @@ impl Checks {
         }
     }
 
+    /// How much of `paths` goes in the next commit, if there are any.
+    pub(super) fn all_check(&self, paths: &[String]) -> Option<Toggled> {
+        let mut checks = paths.iter().map(|path| self.file_check(path));
+        let first = checks.next()?;
+        Some(match checks.all(|check| check == first) {
+            true => first,
+            false => Toggled::Mixed,
+        })
+    }
+
     /// Whether any of a hunk goes in the next commit.
     pub(super) fn hunk_checked(&self, path: &str, key: HunkKey) -> bool {
         self.hunk_check(path, key) != Toggled::False
@@ -1376,6 +1386,31 @@ impl Detail {
         cx.notify();
     }
 
+    /// Put every file the list shows in the next commit, or with `check` false, leave them all
+    /// out. Not one that starts out of it, which only its own checkbox brings in.
+    pub(super) fn set_all_checked(&mut self, check: bool, cx: &mut Context<Self>) {
+        let paths = match check {
+            true => self.checkable_paths(cx),
+            false => self.listed_paths(cx),
+        };
+        self.set_checked(paths, check, cx);
+    }
+
+    /// The files the list shows, but those that start out of the commit.
+    pub(super) fn checkable_paths(&self, cx: &App) -> Vec<String> {
+        let files = (self.checks_project.as_ref())
+            .and_then(|project| self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.uncommitted_in(&self.checks_worktree))
+            .unwrap_or_default();
+        let left_out: HashSet<&str> = (files.iter())
+            .filter(|file| file.conflicted || file.nested_repository())
+            .map(|file| file.path.as_str())
+            .collect();
+        let mut paths = self.listed_paths(cx);
+        paths.retain(|path| !left_out.contains(path.as_str()));
+        paths
+    }
+
     /// The commit box under the uncommitted `files` of `project`'s checkout.
     pub(super) fn render_composer(
         &self,
@@ -1696,6 +1731,67 @@ mod tests {
             new_start: old_start,
             new_lines: old_lines,
         })
+    }
+
+    fn paths(names: &[&str]) -> Vec<String> {
+        names.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    #[test]
+    fn no_files_have_no_check_for_them_all() {
+        assert_eq!(
+            Checks::default().all_check(&[]),
+            None,
+            "with nothing to check, there's nothing to say about it"
+        );
+    }
+
+    #[test]
+    fn files_all_in_check_as_all() {
+        assert_eq!(
+            Checks::default().all_check(&paths(&["a", "b"])),
+            Some(Toggled::True),
+            "files start in the commit"
+        );
+    }
+
+    #[test]
+    fn files_all_out_check_as_none() {
+        let checks = Checks {
+            unchecked: ["a", "b"].map(str::to_owned).into(),
+            ..Checks::default()
+        };
+        assert_eq!(
+            checks.all_check(&paths(&["a", "b"])),
+            Some(Toggled::False),
+            "both are left out"
+        );
+    }
+
+    #[test]
+    fn files_in_and_out_check_as_some() {
+        let checks = Checks {
+            unchecked: ["b"].map(str::to_owned).into(),
+            ..Checks::default()
+        };
+        assert_eq!(
+            checks.all_check(&paths(&["a", "b"])),
+            Some(Toggled::Mixed),
+            "one's in and the other's out"
+        );
+    }
+
+    #[test]
+    fn a_file_partly_in_checks_as_some() {
+        let checks = Checks {
+            unchecked_hunks: [("a".to_owned(), key(1, 1))].into(),
+            ..Checks::default()
+        };
+        assert_eq!(
+            checks.all_check(&paths(&["a"])),
+            Some(Toggled::Mixed),
+            "a hunk of it is left out"
+        );
     }
 
     #[test]

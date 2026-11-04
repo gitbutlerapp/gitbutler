@@ -221,6 +221,14 @@
     "context": "Diff && Composer && !TextInput",
     "bindings": { "space": "diff::ToggleCheck" }
   },
+  // ⌘A checks every file, over the list's picking them all, and ⇧⌘A unchecks them.
+  {
+    "context": "(Diff || Files) && Composer && !TextInput",
+    "bindings": {
+      "secondary-a": "diff::CheckAll",
+      "secondary-shift-a": "diff::UncheckAll"
+    }
+  },
   // A commit placed with the navigator hidden, and so no composer, Return commits as it is,
   // without a message, rather than folding the file.
   {

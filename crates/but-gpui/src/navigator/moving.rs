@@ -308,10 +308,10 @@ impl Rows {
 }
 
 /// The places `commits` of `project` can land, in the order `rows` list them, and which of
-/// them is where they are: the one just above the first of them. `open` says whether a heading
-/// shows what it holds: a folded branch has only the new branches either side of it, so what's
-/// folded is stepped over and stays folded, and the main checkout's stacks show only while
-/// its heading's open, as a new stack goes before and after them, which starts from the
+/// them is where they are: the one just above the first of them. A folded branch takes them at
+/// its top, where they show under its row, its commits stepped over and it staying folded.
+/// `open` says whether a heading shows what it holds: the main checkout's stacks show only
+/// while its heading's open, as a new stack goes before and after them, which starts from the
 /// target, so not without one. A linked worktree's lane takes new branches as a stack does,
 /// and so does the stack checked out without the workspace, where a new stack sets the
 /// workspace up.
@@ -354,7 +354,7 @@ pub(super) fn stops<'a>(
             }
             // Not an unnamed branch, which has no ref to land on, nor the default branch,
             // which work stays off.
-            Row::Item(item @ Selection::Branch(p, Some(name)))
+            Row::Item(Selection::Branch(p, Some(name)))
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
             {
                 end_stack(&mut stops, &mut bottom);
@@ -367,10 +367,7 @@ pub(super) fn stops<'a>(
                         bottom = Some(name);
                     }
                 }
-                // Folded, its top is out of sight with its commits.
-                if open(item) {
-                    stops.push(Stop::In(Destination::Branch(name.clone())));
-                }
+                stops.push(Stop::In(Destination::Branch(name.clone())));
                 in_branch = true;
             }
             Row::Item(Selection::Branch(p, _)) if p == project => {
@@ -653,13 +650,9 @@ impl Navigator {
                 let home = (store.selection.as_ref()).and_then(Target::of)?;
                 squash_stops(self.shown_rows(), project, workspace, &home, open, lands)
             }
-            // Where commits moved can land, but the top of a folded branch too, which the new
-            // commit shows under, as the most likely place for it. It starts where it's
-            // started from ([`Self::start_committing`]), not where anything is.
+            // Where commits moved can land. It starts where it's started from
+            // ([`Self::start_committing`]), not where anything is.
             Op::Commit => {
-                let open = |heading: &Selection| {
-                    matches!(heading, Selection::Branch(..)) || self.open_as_built(heading)
-                };
                 let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
                 let mut stops: Vec<Stop> = all.into_iter().filter(|stop| lands(stop)).collect();
                 // The main checkout's changes can always go in a new branch of their own, after
@@ -678,6 +671,12 @@ impl Navigator {
     fn open_as_built(&self, heading: &Selection) -> bool {
         let fold = Fold::Under(heading.clone());
         self.folds_seen.get(&fold).copied().unwrap_or(true)
+    }
+
+    /// Whether `target` is the heading of a worktree folded away: nothing lands in what's out
+    /// of sight, as a move has no stops there, so neither a paste nor a drop does on its heading.
+    pub(crate) fn folded_heading(&self, target: &Selection) -> bool {
+        matches!(target, Selection::Checkout(..)) && !self.open_as_built(target)
     }
 
     /// The terminals of `project`'s worktrees for a move of one among them to start from: as
@@ -1431,8 +1430,8 @@ pub(super) fn goes_itself(store: &Store, item: &Selection) -> bool {
 /// moves, or of it, as a branch's commits are, which takes it back to where it started, but a
 /// commit being made, which started nowhere. `checkout` is where the row is.
 ///
-/// Commits land under the commit clicked, or at the top of the branch clicked, or above it in a
-/// new branch while it's folded, as a branch does; what's squashed goes into the row clicked.
+/// Commits land under the commit clicked, or at the top of the branch clicked, folded or not; a
+/// branch lands above the one clicked; what's squashed goes into the row clicked.
 /// A project's card, a linked worktree or a terminal takes the place of the one clicked, as
 /// dragging it there does, or of the card or worktree a row clicked is in; a terminal goes last
 /// in the worktree clicked.
@@ -1865,8 +1864,8 @@ mod tests {
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
-        // stacks end. Folded, typo has only the new branches either side of it. The linked
-        // worktree's lane takes new branches as a stack does.
+        // stacks end. Folded, typo has its top but nothing below its commits, out of sight. The
+        // linked worktree's lane takes new branches as a stack does.
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
@@ -1879,6 +1878,7 @@ top of api <
 below 1
 new branch below api
 new branch above typo
+top of typo
 new branch below typo
 new stack
 new branch above agent
@@ -1919,6 +1919,7 @@ top of api
 below 2 <
 new branch below api
 new branch above typo
+top of typo
 new branch below typo
 new branch above agent
 top of agent
@@ -2259,15 +2260,37 @@ last on empty
     }
 
     #[test]
-    fn a_click_on_a_folded_branch_puts_commits_in_a_new_branch_above_it() {
+    fn a_click_on_a_folded_branch_puts_commits_at_its_top() {
         let project = ProjectId::from("p");
         let (moving, stops, start) = moving_commit(&project, Op::Move);
         let typo = Selection::Branch(project, Some(full("refs/heads/typo")));
         let clicked = clicked_stop(&stops, (start, start), &moving, &typo, false, None);
         assert_eq!(
             named(&stops, clicked).as_deref(),
+            Some("top of typo"),
+            "folded, it takes them at its top as an open branch does"
+        );
+    }
+
+    #[test]
+    fn a_click_on_a_folded_branch_puts_a_branch_above_it() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let api = full("refs/heads/api");
+        let (stops, start) = branch_stops(all, &api, |_| true).unwrap();
+        let moving = Move {
+            project: project.clone(),
+            what: Moving::Branch(api),
+            at: stops[start].clone(),
+            op: Op::Move,
+        };
+        let typo = Selection::Branch(project, Some(full("refs/heads/typo")));
+        let clicked = clicked_stop(&stops, (start, start), &moving, &typo, false, None);
+        assert_eq!(
+            named(&stops, clicked).as_deref(),
             Some("new branch above typo"),
-            "folded, its top is out of sight, so it goes above it"
+            "a branch lands only between branches, so never at another's top"
         );
     }
 
