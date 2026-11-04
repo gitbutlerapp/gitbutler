@@ -45,12 +45,15 @@ export const pageLink = (id: string) => ({
 	},
 });
 
-export type Theme = "light" | "dark";
+export type Theme = "system" | "light" | "dark";
 
-/** The theme is the root's `light` or `dark` class, which the tokens follow. */
+/**
+ * The theme is the root's `light` or `dark` class, which the tokens follow; without either they
+ * follow the system's.
+ */
 export const paintTheme = (theme: Theme, root = document.documentElement) => {
 	root.classList.toggle("dark", theme === "dark");
-	root.classList.toggle("light", theme !== "dark");
+	root.classList.toggle("light", theme === "light");
 };
 
 const themeKey = "ui-react-docs-theme";
@@ -63,7 +66,7 @@ export function savedTheme(): Theme {
 	} catch {
 		// Storage can be off; the system's theme stands in.
 	}
-	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	return "system";
 }
 
 export function pickTheme(theme: Theme) {

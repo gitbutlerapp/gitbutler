@@ -20,10 +20,16 @@ export const Site: FC = () => {
 
 	return (
 		<Group orientation="horizontal" className="docs-site" style={{ height: "100vh" }} {...layout}>
-			<Panel id="sidebar" defaultSize="240px" minSize="200px" maxSize="400px">
+			<Panel id="sidebar" defaultSize="280px" minSize="220px" maxSize="400px">
 				<aside className="docs-site-sidebar">
-					<Navigation current={page} />
-					<ThemeSwitch />
+					<ScrollArea className="docs-site-scroll" viewportClassName="docs-site-scroll-viewport">
+						<Navigation current={page} />
+					</ScrollArea>
+					<div className="docs-site-footer">
+						<div className="docs-site-card docs-site-theme">
+							<ThemeSwitch />
+						</div>
+					</div>
 				</aside>
 			</Panel>
 			<ResizeHandle />
@@ -59,43 +65,45 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 		});
 
 	return (
-		<div className="docs-site-card">
-			<PopupSearch
-				placeholder="Search…"
-				aria-label="Search the pages"
-				value={query}
-				onChange={(event) => setQuery(event.target.value)}
-				onClear={query === "" ? undefined : () => setQuery("")}
-			/>
-			<ScrollArea className="docs-site-scroll">
-				<nav className="docs-site-nav" aria-label="Pages">
-					{groupPages(found).map(([heading, group]) => (
-						<div key={heading}>
-							<GroupLabel
-								name={heading}
-								folded={folded.has(heading)}
-								onToggleFolded={() => toggle(heading)}
-							/>
-							{!folded.has(heading) &&
-								group.map((page) => (
-									<NavItem
-										key={page.id}
-										name={pageName(page)}
-										depth={1}
-										selected={page === current}
-										render={
-											// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
-											<a
-												{...pageLink(page.id)}
-												aria-current={page === current ? "page" : undefined}
-											/>
-										}
-									/>
-								))}
-						</div>
-					))}
-				</nav>
-			</ScrollArea>
+		<div>
+			<div className="docs-site-pages-head">
+				<div className="docs-site-pages-top">
+					<PopupSearch
+						placeholder="Search…"
+						aria-label="Search the pages"
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+						onClear={query === "" ? undefined : () => setQuery("")}
+					/>
+				</div>
+			</div>
+			<nav className="docs-site-pages" aria-label="Pages">
+				{groupPages(found).map(([heading, group]) => (
+					<div key={heading} className="docs-site-group">
+						<GroupLabel
+							name={heading}
+							folded={folded.has(heading)}
+							onToggleFolded={() => toggle(heading)}
+						/>
+						{!folded.has(heading) &&
+							group.map((page) => (
+								<NavItem
+									key={page.id}
+									name={pageName(page)}
+									depth={1}
+									selected={page === current}
+									render={
+										// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
+										<a
+											{...pageLink(page.id)}
+											aria-current={page === current ? "page" : undefined}
+										/>
+									}
+								/>
+							))}
+					</div>
+				))}
+			</nav>
 		</div>
 	);
 };
@@ -108,12 +116,8 @@ const ThemeSwitch: FC = () => {
 	};
 
 	return (
-		<SegmentedControl
-			value={theme}
-			onValueChange={pick}
-			aria-label="Theme"
-			className="docs-site-theme"
-		>
+		<SegmentedControl value={theme} onValueChange={pick} aria-label="Theme">
+			<Segment value="system">System</Segment>
 			<Segment value="light">Light</Segment>
 			<Segment value="dark">Dark</Segment>
 		</SegmentedControl>

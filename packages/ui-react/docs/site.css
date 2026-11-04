@@ -32,40 +32,76 @@ body[data-layout="centered"] {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	padding: 12px;
-	gap: 12px;
 	background-color: var(--bg-2);
 	color: var(--text-1);
 	font-family: var(--fontfamily-base);
 }
 
-/* The pages in a card, as sidebar rows always are, never loose on the panel's ground: the search
-   leads it full-bleed, as it leads a popup. */
-.docs-site-card {
-	display: flex;
+/* The sidebar scrolls as a whole, its scrollbar in the gutter beside the card rather than in it. */
+.docs-site-scroll {
 	flex: 1;
-	flex-direction: column;
 	min-height: 0;
+}
+
+.docs-site-scroll-viewport {
+	padding: 0 var(--gap-stack) var(--gap-stack);
+}
+
+/* The pages in a card, as sidebar rows always are, never loose on the panel's ground, led by the
+   search full-bleed as a popup is. Scrolled, the search sticks at the top while the pages pass
+   under it, as a machine's card does on but.dev: so the card is drawn by its parts, the search its
+   rounded top and the pages its sides and bottom, and the search's ground fills the notches outside
+   its corners. */
+.docs-site-pages-head {
+	z-index: 1;
+	position: sticky;
+	top: 0;
+	padding-top: var(--gap-stack);
+	background-color: var(--bg-2);
+}
+
+.docs-site-pages-top {
+	overflow: hidden;
+	border: 1px solid var(--border-section);
+	border-bottom: 0;
+	border-radius: var(--radius-card) var(--radius-card) 0 0;
+	background-color: var(--bg-1);
+}
+
+.docs-site-pages {
+	border: 1px solid var(--border-section);
+	border-top: 0;
+	border-radius: 0 0 var(--radius-card) var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+/* A hairline parts the groups. */
+.docs-site-group {
+	padding: var(--padding-list);
+
+	& + & {
+		border-top: 1px solid var(--border-section);
+	}
+}
+
+.docs-site-card {
 	overflow: hidden;
 	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
 	background-color: var(--bg-1);
 }
 
-.docs-site-scroll {
-	flex: 1;
-	min-height: 0;
-}
-
-.docs-site-nav {
-	display: flex;
-	flex-direction: column;
-	padding: 8px;
-	gap: 12px;
+/* The theme stays put under the pages, past a hairline. */
+.docs-site-footer {
+	margin: 0 var(--gap-stack);
+	padding: var(--gap-stack) 0;
+	border-top: 1px solid var(--border-section);
 }
 
 .docs-site-theme {
-	align-self: stretch;
+	display: flex;
+	flex-direction: column;
+	padding: var(--gap-stack);
 }
 
 .docs-site-main {

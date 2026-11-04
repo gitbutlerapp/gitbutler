@@ -12,7 +12,14 @@ import { createRoot } from "react-dom/client";
 export async function renderFrame(id: string) {
 	const search = new URLSearchParams(window.location.search);
 	const site = sitePage();
-	const followSite = () => paintTheme(site?.classList.contains("dark") ? "dark" : "light");
+	const followSite = () =>
+		paintTheme(
+			site?.classList.contains("dark") === true
+				? "dark"
+				: site?.classList.contains("light") === true
+					? "light"
+					: "system",
+		);
 	if (site === undefined) {
 		paintTheme(search.get("theme") === "dark" ? "dark" : "light");
 	} else {
