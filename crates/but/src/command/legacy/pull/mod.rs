@@ -88,7 +88,7 @@ pub async fn handle(
         handle_check(ctx, out, update).await?;
         Ok(None)
     } else {
-        Ok(handle_pull(ctx, out, update).await?)
+        handle_pull(ctx, out, update).await
     }
 }
 
@@ -205,7 +205,7 @@ async fn handle_check(
     ctx: &Context,
     out: &mut OutputChannel,
     update: &[PullUpdate],
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     let mut progress = out.progress_channel();
 
@@ -358,7 +358,7 @@ async fn handle_pull(
     ctx: &mut Context,
     out: &mut OutputChannel,
     update: &[PullUpdate],
-) -> anyhow::Result<Option<WorkspaceState>> {
+) -> CliResult<Option<WorkspaceState>> {
     let t = theme::get();
     let mut pull_result = PullResult {
         status: String::new(),
@@ -822,7 +822,7 @@ async fn handle_pull(
                 if let Some(out) = out.for_json() {
                     out.write_value(&pull_result)?;
                 }
-                return Err(e);
+                return Err(e.into());
             }
         }
     }

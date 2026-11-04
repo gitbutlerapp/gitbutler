@@ -317,9 +317,11 @@ fn external_extra_props_include_sanitized_subcommand() {
 
 #[test]
 fn internal_errors_omit_private_details() {
-    let result = Err::<(), _>(CliError::Internal(
-        anyhow::anyhow!("private-branch-name failed").context("private-path failed"),
-    ));
+    let result = Err::<(), CliError>(
+        anyhow::anyhow!("private-branch-name failed")
+            .context("private-path failed")
+            .into(),
+    );
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
     assert_eq!(props.values["error"], "Internal error");
@@ -331,10 +333,38 @@ fn internal_errors_omit_private_details() {
 }
 
 #[test]
+fn internal_errors_and_preconditions_report_the_line_that_left_the_command() {
+    fn internal() -> anyhow::Result<()> {
+        anyhow::bail!("private failure")
+    }
+    fn precondition() -> anyhow::Result<()> {
+        but_error::bail_precondition!("private refusal")
+    }
+    let line = line!() + 2;
+    fn command(step: fn() -> anyhow::Result<()>) -> crate::CliResult<()> {
+        step()?;
+        Ok(())
+    }
+    let site = format!("{}:{line}", file!().replace('\\', "/"));
+
+    for (step, kind) in [
+        (internal as fn() -> anyhow::Result<()>, "internal"),
+        (precondition, "badInput"),
+    ] {
+        let result = command(step).map_err(|err| err.context("private context"));
+        let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
+
+        assert_eq!(props.values["errorKind"], kind);
+        assert_eq!(props.values["errorSite"], site.as_str(), "{kind}");
+    }
+}
+
+#[test]
 fn initialization_errors_use_distinct_kind_without_private_details() {
-    let result = Err::<(), _>(CliError::Initialization(anyhow::anyhow!(
-        "No git repository found at /Users/alice/secret-client"
-    )));
+    let result = Err::<(), _>(CliError::Initialization(
+        anyhow::anyhow!("No git repository found at /Users/alice/secret-client"),
+        std::panic::Location::caller(),
+    ));
 
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
@@ -348,11 +378,12 @@ fn initialization_errors_use_distinct_kind_without_private_details() {
 #[cfg(feature = "legacy")]
 #[test]
 fn explained_commit_rejections_omit_private_details() {
-    let result = Err::<(), _>(CliError::Internal(anyhow::Error::new(
-        crate::utils::rejection::ExplainedRejection(
+    let result = Err::<(), CliError>(
+        anyhow::Error::new(crate::utils::rejection::ExplainedRejection(
             "Cannot commit private/path on private-branch".to_string(),
-        ),
-    )));
+        ))
+        .into(),
+    );
 
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
@@ -369,7 +400,7 @@ fn explained_commit_rejections_omit_private_details() {
 
 #[test]
 fn command_failures_do_not_guess_mutation_outcomes() {
-    let result = Err::<(), _>(CliError::Internal(anyhow::anyhow!("private failure")));
+    let result = Err::<(), CliError>(anyhow::anyhow!("private failure").into());
     let props = Props::from_cli_error_result(std::time::Instant::now(), &result);
 
     assert!(!props.values.contains_key("agentSetupOutcome"));
@@ -509,6 +540,35 @@ fn parse_errors_name_the_command_reason_and_flag_without_user_text() {
         parse_error_event(&args, &err, false).is_none(),
         "the metrics transport must not report its own failures"
     );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn rejected_subcommand_words_are_kept_unless_they_look_like_a_name() {
+    use clap::Parser;
+
+    for (line, word) in [
+        ("branch create", Some("create")),
+        ("branch private-name", Some(INVALID_UNRECOGNIZED_SUBCOMMAND)),
+        ("branch Private", Some(INVALID_UNRECOGNIZED_SUBCOMMAND)),
+        ("status private-name", None),
+    ] {
+        let args: Vec<std::ffi::OsString> =
+            format!("but {line}").split(' ').map(Into::into).collect();
+        let err = crate::args::Args::try_parse_from(&args).expect_err("the line is rejected");
+
+        let (_, props) = parse_error_event(&args, &err, false).expect("an event");
+
+        assert_eq!(
+            props
+                .values
+                .get("unrecognizedSubcommand")
+                .and_then(|word| word.as_str()),
+            word,
+            "{line}"
+        );
+        assert!(!props.as_json_string().contains("rivate"), "{line}");
+    }
 }
 
 #[test]

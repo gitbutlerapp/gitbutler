@@ -386,7 +386,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     match result {
-        Err(CliError::Internal(err) | CliError::Initialization(err)) => Err(err),
+        Err(CliError::Internal(err, _) | CliError::Initialization(err, _)) => Err(err),
         Err(CliError::CommandRejection) => std::process::exit(1),
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
         Err(CliError::ExternalCommandFailed(code)) => std::process::exit(code),
@@ -684,19 +684,16 @@ async fn dispatch_subcommand(
                 .as_ref()
                 .map(|path| args.current_dir.join(path))
                 .unwrap_or_else(|| args.current_dir.clone());
-            return command::gui::open(&path, new_window)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::gui::open(&path, new_window)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Completions { shell } => {
-            return command::completions::generate_completions(shell)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::completions::generate_completions(shell)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Update(update_args::Platform { cmd }) => {
-            return command::update::handle(cmd, out, &app_settings)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::update::handle(cmd, out, &app_settings)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Help { topic } => {
             command::help::print(out, topic)?;
@@ -717,20 +714,17 @@ async fn dispatch_subcommand(
             return Ok(DispatchOutcome::Return);
         }
         Subcommands::Onboarding => {
-            return command::onboarding::handle(out)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::onboarding::handle(out)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Config(args::config::Platform { cmd }) => {
             // Handle subcommands that don't require a repo context
             return (match &cmd {
                 Some(args::config::Subcommands::Metrics { status }) => {
-                    command::config::metrics_config(out, *status)
-                        .await
-                        .map_err(CliError::from)
+                    Ok(command::config::metrics_config(out, *status).await?)
                 }
                 Some(args::config::Subcommands::Feature { flag, status }) => {
-                    command::config::feature_config(out, *flag, *status).map_err(CliError::from)
+                    Ok(command::config::feature_config(out, *flag, *status)?)
                 }
                 Some(args::config::Subcommands::User { cmd }) => {
                     let ctx = match cmd {
@@ -740,9 +734,7 @@ async fn dispatch_subcommand(
                         ) => None,
                         _ => discover_optional_context(&args.current_dir)?,
                     };
-                    command::config::user_config(ctx.as_ref(), out, cmd.clone())
-                        .await
-                        .map_err(CliError::from)
+                    Ok(command::config::user_config(ctx.as_ref(), out, cmd.clone()).await?)
                 }
                 #[cfg(feature = "legacy")]
                 Some(args::config::Subcommands::Forge {
@@ -769,8 +761,12 @@ async fn dispatch_subcommand(
                     cmd: ai_cmd,
                     local,
                     global,
-                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
-                    .map_err(CliError::from),
+                }) if !local => Ok(command::config::ai_config(
+                    out,
+                    ai_cmd.clone(),
+                    *local,
+                    *global,
+                )?),
                 _ => {
                     // Other subcommands need a repo context
                     cfg_if! {
@@ -798,7 +794,7 @@ async fn dispatch_subcommand(
                 ) => None,
                 _ => discover_optional_context(&args.current_dir)?,
             };
-            return (match cmd {
+            (match cmd {
                 Some(alias_args::Subcommands::List) | None => {
                     command::alias::list(ctx.as_ref(), out)
                 }
@@ -810,31 +806,24 @@ async fn dispatch_subcommand(
                 Some(alias_args::Subcommands::Remove { name, global }) => {
                     command::alias::remove(ctx.as_ref(), out, &name, global.into())
                 }
-            })
-            .map(|()| DispatchOutcome::Return)
-            .map_err(CliError::from);
+            })?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Skill(platform) => {
             // The handler discovers a repository only for the modes that need
             // one, so reads and global installs work inside an unreadable repo.
-            return command::skill::handle(&args.current_dir, out, platform)
-                .map(|()| DispatchOutcome::Return)
-                .map_err(CliError::from);
+            command::skill::handle(&args.current_dir, out, platform)?;
+            return Ok(DispatchOutcome::Return);
         }
         Subcommands::Agent(agent::Platform { cmd }) => {
-            return command::agent::handle(&args.current_dir, out, cmd)
-                .map(|outcome| {
-                    outcome.map_or(DispatchOutcome::Return, DispatchOutcome::ReturnWithOutcome)
-                })
-                .map_err(CliError::from);
+            let outcome = command::agent::handle(&args.current_dir, out, cmd)?;
+            return Ok(outcome.map_or(DispatchOutcome::Return, DispatchOutcome::ReturnWithOutcome));
         }
         Subcommands::Mcp(args::mcp::Platform { cmd }) => {
-            return (match cmd {
-                args::mcp::Subcommands::Serve => {
-                    command::mcp::serve().await.map_err(CliError::from)
-                }
-            })
-            .map(|()| DispatchOutcome::Return);
+            match cmd {
+                args::mcp::Subcommands::Serve => command::mcp::serve().await?,
+            }
+            return Ok(DispatchOutcome::Return);
         }
         #[cfg(feature = "legacy")]
         Subcommands::Init(init_args) => {
@@ -845,7 +834,7 @@ async fn dispatch_subcommand(
         Subcommands::Edit { file } => {
             let path = args.current_dir.join(&file);
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                tui::editor::edit_file(&path).map_err(Into::into),
+                tui::editor::edit_file(&path).map_err(|err| err.into()),
             ));
         }
         #[cfg(feature = "nightly")]
@@ -858,9 +847,7 @@ async fn dispatch_subcommand(
             out,
         ),
         #[cfg(feature = "nightly")]
-        Subcommands::_Expand { .. } => {
-            but_ctx::Context::discover(&args.current_dir).map_err(CliError::from)
-        }
+        Subcommands::_Expand { .. } => Ok(but_ctx::Context::discover(&args.current_dir)?),
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
             match cmd {
@@ -959,7 +946,9 @@ async fn dispatch_subcommand(
     };
     let mut ctx = match ctx {
         Ok(ctx) => ctx,
-        Err(CliError::Internal(err)) => return Err(CliError::Initialization(err)),
+        Err(CliError::Internal(err, location)) => {
+            return Err(CliError::Initialization(err, location));
+        }
         Err(err) => return Err(err),
     };
 
@@ -1324,7 +1313,7 @@ async fn dispatch_subcommand(
         } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
                 command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat)
-                    .map_err(Into::into),
+                    .map_err(|err| err.into()),
             ));
         }
         #[cfg(feature = "legacy")]
@@ -1902,7 +1891,7 @@ fn discover_optional_context(path: &std::path::Path) -> CliResult<Option<but_ctx
     match but_ctx::Context::discover(path) {
         Ok(ctx) => Ok(Some(ctx)),
         Err(err) if is_not_in_git_repository_error(&err) => Ok(None),
-        Err(err) => Err(CliError::Internal(err)),
+        Err(err) => Err(CliError::Internal(err, std::panic::Location::caller())),
     }
 }
 

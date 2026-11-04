@@ -257,7 +257,7 @@ fn resolve_file_source(
         ResolvedCliIdArg::CommittedFile(committed_file) => repo
             .workdir_path(committed_file.path.as_bstr())
             .context("Failed to resolve path")
-            .map_err(Into::into),
+            .map_err(|err| err.into()),
         ResolvedCliIdArg::CommittedHunk(_) => Err(hunk_with_multiple_sources_error(source)),
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             Err(crate::args::atoms::anonymous_segment_error(&segment.id))

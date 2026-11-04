@@ -75,10 +75,10 @@ pub(crate) fn handle(
                 "--ai cannot be combined with a resolve subcommand. For one conflict, use `but resolve apply <path>[:<N>] --ai` instead."
             ).into());
         }
-        return Ok(resolve_with_ai(ctx, out, commit_id.as_deref())?);
+        return resolve_with_ai(ctx, out, commit_id.as_deref());
     }
     match cmd {
-        Some(Subcommands::Conflicts { commit }) => Ok(list_conflicts(ctx, out, commit.as_deref())?),
+        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
         Some(Subcommands::Apply {
             target,
             commit,
@@ -104,9 +104,9 @@ pub(crate) fn handle(
                 std::io::stdin().lock(),
             )
         }
-        Some(Subcommands::Status) => Ok(show_status(ctx, out)?),
-        Some(Subcommands::Finish) => Ok(finish_resolution(ctx, out)?),
-        Some(Subcommands::Cancel { force }) => Ok(cancel_resolution(ctx, out, force)?),
+        Some(Subcommands::Status) => show_status(ctx, out),
+        Some(Subcommands::Finish) => finish_resolution(ctx, out),
+        Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
         None => {
             // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
@@ -116,7 +116,7 @@ pub(crate) fn handle(
                 let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
                     // If in edit mode, show status instead of help
-                    Ok(show_status(ctx, out)?)
+                    show_status(ctx, out)
                 } else {
                     // Not in edit mode and no commit specified - check for conflicted commits
                     Ok(check_and_prompt_for_conflicts(ctx, out)?)
@@ -323,15 +323,15 @@ fn enter_resolution(
     }
 
     // Now show the same status as `but resolve status` would show
-    Ok(show_status(ctx, out)?)
+    show_status(ctx, out)
 }
 
-fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, true)
 }
 
 /// Public function to show resolve status without prompting (for use by `but status`)
-pub(crate) fn show_resolve_status(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+pub(crate) fn show_resolve_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, false)
 }
 
@@ -339,7 +339,7 @@ fn show_status_impl(
     ctx: &mut Context,
     out: &mut OutputChannel,
     prompt_to_finalize: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
@@ -572,7 +572,7 @@ fn write_conflict_regions<W: std::fmt::Write + ?Sized>(
     Ok(())
 }
 
-fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
@@ -593,10 +593,10 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
             .iter()
             .map(|p| format!("{p:?}"))
             .collect();
-        bail!(
+        return Err(anyhow::anyhow!(
             "Unresolved submodule conflicts: {}\nPut the wanted submodule commit or file at each path and run `git add -- <path>`, remove it with `git rm -- <path>`, or discard the resolution with `but resolve cancel --force`.",
             paths.join(", ")
-        );
+        ).into());
     }
 
     // Note files that still contain conflict markers, so the finish output can
@@ -695,7 +695,7 @@ fn uncommitted_worktree_paths(ctx: &mut Context) -> Result<Vec<String>> {
     Ok(paths)
 }
 
-fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> Result<()> {
+fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> CliResult<()> {
     let t = theme::get();
     // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
@@ -708,9 +708,9 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
         let guard = ctx.shared_worktree_access();
         !changes_from_initial(ctx, guard.read_permission())?.is_empty()
     } {
-        bail!(
+        return Err(anyhow::anyhow!(
             "There are changes that differ from the original commit you were editing. Canceling will drop those changes.\n\nIf you want to go through with this, please re-run with `--force`.\n\nIf you want to keep the changes you have made, consider finishing the resolution and then moving the changes with `but squash`."
-        )
+        ).into());
     }
 
     // Abort and return to workspace
@@ -816,7 +816,11 @@ fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBra
 }
 
 /// List the conflicts of a conflicted commit without entering resolution mode.
-fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&str>) -> Result<()> {
+fn list_conflicts(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit: Option<&str>,
+) -> CliResult<()> {
     let t = theme::get();
     let target = match target_conflicted_commit(ctx, commit)? {
         Ok(target) => target,
@@ -1235,13 +1239,13 @@ fn resolve_with_ai(
     ctx: &mut Context,
     out: &mut OutputChannel,
     commit_id_str: Option<&str>,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
     if matches!(mode, OperatingMode::Edit(_)) {
-        bail!(
+        return Err(anyhow::anyhow!(
             "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` before using --ai."
-        );
+        ).into());
     }
 
     let mut results = Vec::new();
@@ -1684,7 +1688,7 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
 
     if conflicts_by_branch.is_empty() {
         // No conflicts found, show the normal help text
-        return Ok(show_workflow_help(out)?);
+        return show_workflow_help(out);
     }
 
     if let Some(json_out) = out.for_json() {
@@ -1791,7 +1795,7 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     Ok(())
 }
 
-fn show_workflow_help(out: &mut OutputChannel) -> Result<()> {
+fn show_workflow_help(out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", t.important.paint("Conflict Resolution Workflow"))?;

@@ -1,7 +1,7 @@
 use bstr::{BStr, ByteSlice};
 use gix::refs::{Category, FullName, FullNameRef};
 
-use crate::{CliError, CliResult, CliResultExt as _, bad_input};
+use crate::{CliError, CliResult, bad_input};
 
 /// An argument atom for branches.
 #[derive(Debug, Clone)]
@@ -143,8 +143,7 @@ impl BranchArg {
         }
 
         but_core::branch::refuse_colliding_refname(repo, local_name.as_ref(), renamed)
-            .map_err(CliError::from)
-            .hint("Pick another name")?;
+            .map_err(|err| CliError::from(err).hint("Pick another name"))?;
 
         Ok(local_name)
     }

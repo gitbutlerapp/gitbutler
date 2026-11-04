@@ -431,6 +431,9 @@ impl Props {
             return props;
         };
 
+        if let Some(site) = error.site() {
+            props.insert("errorSite", site);
+        }
         match error {
             CliError::BadInput(bad_input) => {
                 props.insert("error", "Bad input");
@@ -438,7 +441,6 @@ impl Props {
                 if let Some(code) = bad_input.error_code() {
                     props.insert("errorCode", code);
                 }
-                props.insert("errorSite", bad_input.site());
                 if let Some(arg_name) = bad_input.argument_name() {
                     props.insert("badInputArgName", arg_name);
                 }
@@ -460,10 +462,10 @@ impl Props {
                 props.insert("error", "External command failed");
                 props.insert("errorKind", "externalCommandFailed");
             }
-            CliError::Internal(error) => {
+            CliError::Internal(error, _) => {
                 props.insert_internal_error_details(error);
             }
-            CliError::Initialization(_) => {
+            CliError::Initialization(..) => {
                 props.insert("error", "Internal error");
                 props.insert("errorKind", "initialization");
             }
@@ -851,6 +853,9 @@ fn parse_error_event(
     if let Some(arg_name) = parse_error_arg_name(err) {
         props.insert("badInputArgName", arg_name);
     }
+    if let Some(word) = rejected_subcommand_word(err) {
+        props.insert("unrecognizedSubcommand", word);
+    }
     if retired_syntax_hint {
         props.insert("retiredSyntaxHint", true);
     }
@@ -903,6 +908,23 @@ fn parse_error_arg_name(err: &clap::Error) -> Option<String> {
             .then(|| unrecognized_subcommand_metric_value(name.as_ref()));
     }
     Some(name.to_owned())
+}
+
+/// The word `err` rejected as a subcommand, as in `but branch create`.
+///
+/// A single lowercase word shows which command was expected. Anything else is more likely the
+/// user's own text, like the branch name in `but branch my-feature`, so it's reported as invalid.
+fn rejected_subcommand_word(err: &clap::Error) -> Option<String> {
+    use clap::error::{ContextKind, ContextValue};
+
+    let ContextValue::String(word) = err.get(ContextKind::InvalidSubcommand)? else {
+        return None;
+    };
+    Some(if word.chars().all(|c| c.is_ascii_lowercase()) {
+        unrecognized_subcommand_metric_value(word.as_ref())
+    } else {
+        INVALID_UNRECOGNIZED_SUBCOMMAND.to_owned()
+    })
 }
 
 fn emit_metrics(command: CommandName, props: Props, current_dir: &Path, failed: bool) {
