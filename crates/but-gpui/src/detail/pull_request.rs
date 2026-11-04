@@ -105,10 +105,12 @@ impl Detail {
         cx.notify();
     }
 
-    /// Whether coming back from the left lands on the tabs, as the keys last went left out of
-    /// them on this page.
-    pub(crate) fn tabs_kept(&self, cx: &App) -> bool {
-        self.tabs_kept && self.selected_review(cx).is_some()
+    /// Whether coming from the left lands on the tabs: they show the pull request, which has
+    /// nothing under it to take the keys, nor have the changes when there are none, or the keys
+    /// last went left out of them on this page.
+    pub(crate) fn tabs_reachable(&self, cx: &App) -> bool {
+        self.selected_review(cx).is_some()
+            && (self.review_tab || self.tabs_kept || self.without_changes(cx))
     }
 
     /// Keep the tabs for coming back from the left, or forget them.
@@ -148,12 +150,16 @@ impl Detail {
 
     /// ↓ from the tabs: down to the files under Changes, the file list or the files beside a
     /// list page's list, or the diff while they're hidden. The pull request's tab has nothing
-    /// under it to take the keys. Says whether the tabs had them.
+    /// under it to take the keys, nor has a page without changes. Says whether the tabs had
+    /// them.
     pub(super) fn down_from_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if !self.tabs_focus.is_focused(window) {
             return false;
         }
-        match (self.review_tab, self.list_page(cx)) {
+        match (
+            self.review_tab || self.without_changes(cx),
+            self.list_page(cx),
+        ) {
             (true, _) => {}
             (false, true) if self.beside_files_shown(cx) => self.focus_beside_files(window, cx),
             (false, true) => self.focus(window, cx),

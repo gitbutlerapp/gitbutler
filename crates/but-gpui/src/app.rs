@@ -1331,10 +1331,10 @@ impl AppView {
     }
 
     /// Focus the pane after `at`, or before it going back, of those [`AppView::focus_pane`]
-    /// steps through, numbered from the navigator's 0. The tabs count while they show the
-    /// pull request, which has nothing under it to take the keys, and otherwise only while
-    /// the page keeps them, as ↑ from the files under them reaches them. Says whether one
-    /// took the keys.
+    /// steps through, numbered from the navigator's 0. The tabs count while nothing under them
+    /// takes the keys, as under the pull request or on a page without changes, and otherwise
+    /// only while the page keeps them, as ↑ from the files under them reaches them. Says
+    /// whether one took the keys.
     fn focus_pane_from(
         &mut self,
         at: usize,
@@ -1353,7 +1353,7 @@ impl AppView {
             self.navigator_open,
             list_page,
             changes && list_page && detail.beside_files_shown(cx),
-            review || detail.tabs_kept(cx),
+            detail.tabs_reachable(cx),
             changes && !list_page && !review && detail.files_shown(cx),
             changes && !review && !detail.overview_only(cx),
         ];
@@ -1375,9 +1375,9 @@ impl AppView {
     }
 
     /// Move the keys off the navigator as it goes, to the leftmost pane beside it, as → from
-    /// it does: a list page's list, else the tabs while they show the pull request or the page
-    /// kept them, else the file list, else the diff. A page with none, as an overview alone or
-    /// a branch with no commits, gives them to the detail.
+    /// it does: a list page's list, else the tabs while nothing under them takes the keys or
+    /// the page kept them, else the file list, else the diff. A page with none, as an overview
+    /// alone or a branch with no commits, gives them to the detail.
     fn focus_past_navigator(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.focus_terminal(window, cx) && !self.focus_pane_from(0, true, false, window, cx) {
             (self.detail).update(cx, |detail, cx| detail.focus(window, cx));
