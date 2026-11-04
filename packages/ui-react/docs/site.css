@@ -45,11 +45,21 @@ body[data-layout="centered"] {
 	font-family: var(--fontfamily-base);
 }
 
-.docs-site-top {
-	display: flex;
-	flex-direction: column;
+.docs-site-title {
 	padding: 0 4px;
-	gap: 16px;
+}
+
+/* The pages in a card, as sidebar rows always are, never loose on the panel's ground: the search
+   leads it full-bleed, as it leads a popup. */
+.docs-site-card {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
 }
 
 .docs-site-scroll {
@@ -60,12 +70,8 @@ body[data-layout="centered"] {
 .docs-site-nav {
 	display: flex;
 	flex-direction: column;
-	padding: 0 4px;
+	padding: 8px;
 	gap: 12px;
-}
-
-.docs-site-search {
-	min-width: 0;
 }
 
 .docs-site-theme {

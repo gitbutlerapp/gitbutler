@@ -1,5 +1,4 @@
-import { FieldControlWithIcon } from "../src/Field.tsx";
-import { Icon } from "../src/Icon.tsx";
+import { PopupSearch } from "../src/Popup.tsx";
 import { ScrollArea } from "../src/ScrollArea.tsx";
 import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
 import { GroupLabel, NavItem } from "../src/SidebarRow.tsx";
@@ -50,47 +49,45 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 
 	return (
 		<>
-			<div className="docs-site-top">
-				<div className="text-14 text-semibold">GitButler UI</div>
-				<FieldControlWithIcon
-					icon={<Icon name="search" size={16} />}
-					type="search"
+			<div className="text-14 text-semibold docs-site-title">GitButler UI</div>
+			<div className="docs-site-card">
+				<PopupSearch
 					placeholder="Search…"
 					aria-label="Search the pages"
-					className="docs-site-search"
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
+					onClear={query === "" ? undefined : () => setQuery("")}
 				/>
+				<ScrollArea className="docs-site-scroll">
+					<nav className="docs-site-nav" aria-label="Pages">
+						{groupPages(found).map(([heading, group]) => (
+							<div key={heading}>
+								<GroupLabel
+									name={heading}
+									folded={folded.has(heading)}
+									onToggleFolded={() => toggle(heading)}
+								/>
+								{!folded.has(heading) &&
+									group.map((page) => (
+										<NavItem
+											key={page.id}
+											name={pageName(page)}
+											depth={1}
+											selected={page === current}
+											render={
+												// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
+												<a
+													{...pageLink(page.id)}
+													aria-current={page === current ? "page" : undefined}
+												/>
+											}
+										/>
+									))}
+							</div>
+						))}
+					</nav>
+				</ScrollArea>
 			</div>
-			<ScrollArea className="docs-site-scroll">
-				<nav className="docs-site-nav" aria-label="Pages">
-					{groupPages(found).map(([heading, group]) => (
-						<div key={heading}>
-							<GroupLabel
-								name={heading}
-								folded={folded.has(heading)}
-								onToggleFolded={() => toggle(heading)}
-							/>
-							{!folded.has(heading) &&
-								group.map((page) => (
-									<NavItem
-										key={page.id}
-										name={pageName(page)}
-										depth={1}
-										selected={page === current}
-										render={
-											// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
-											<a
-												{...pageLink(page.id)}
-												aria-current={page === current ? "page" : undefined}
-											/>
-										}
-									/>
-								))}
-						</div>
-					))}
-				</nav>
-			</ScrollArea>
 		</>
 	);
 };

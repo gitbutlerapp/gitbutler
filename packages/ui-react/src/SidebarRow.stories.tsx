@@ -1319,7 +1319,16 @@ const NewOnTargetTree: FC = () => {
 const DocsNavigation: FC = () => {
 	const [folded, setFolded] = useState(false);
 	return (
-		<div>
+		// In a card, as every sidebar row is: never loose on a panel's ground.
+		<nav
+			aria-label="Pages"
+			style={{
+				padding: 8,
+				border: "1px solid var(--border-section)",
+				borderRadius: "var(--radius-card)",
+				backgroundColor: "var(--bg-1)",
+			}}
+		>
 			<GroupLabel
 				name="Getting started"
 				folded={folded}
@@ -1349,7 +1358,7 @@ const DocsNavigation: FC = () => {
 						}
 					/>
 				))}
-		</div>
+		</nav>
 	);
 };
 

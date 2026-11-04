@@ -563,7 +563,9 @@ export const MoreItem: FC<
  * The label over a group of pages in a navigation panel, such as the docs site's "Getting
  * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
  * button that hides and shows them, its chevron saying which; without, it only names them. Its
- * pages sit one level under it, as {@link NavItem}s at `depth={1}`.
+ * pages sit one level under it, as {@link NavItem}s at `depth={1}`. Like every sidebar row, the
+ * label and its pages sit in a card (`--bg-1` in a `--border-section` ring at `--radius-card`),
+ * never loose on a panel's ground.
  *
  * @import import { GroupLabel } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
@@ -602,7 +604,8 @@ export const GroupLabel: FC<
  * the guide that ties it to the label's chevron, the way a sidebar row sits under the row that folds
  * it. It opens a page rather than folding, so it has no chevron and no menu: render it as the link
  * that opens the page (`render={<a href={…} />}`). `selected` is the page on screen, which the link
- * also marks with `aria-current="page"`.
+ * also marks with `aria-current="page"`. It sits in a card with its {@link GroupLabel}, never loose
+ * on a panel's ground.
  *
  * @import import { NavItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
