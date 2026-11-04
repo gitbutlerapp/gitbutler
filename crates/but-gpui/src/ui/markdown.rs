@@ -379,8 +379,10 @@ fn collapse_spaces(text: &str) -> String {
 /// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
     let end = markdown.floor_char_boundary(MAX_BYTES);
-    let options =
-        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_TABLES;
+    let options = Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_TABLES
+        | Options::ENABLE_GFM;
     let mut blocks = Vec::new();
     let mut current: Option<Block> = None;
     let mut style = Style::default();
@@ -1273,6 +1275,14 @@ mod tests {
     /// Where `block`'s links go.
     fn urls(block: &Block) -> Vec<&str> {
         block.links.iter().map(|(_, url)| url.as_str()).collect()
+    }
+
+    #[test]
+    fn a_github_alert_reads_as_a_quote_without_its_marker() {
+        let blocks = parse("> [!NOTE]\n> Mind the gap");
+        assert_eq!(blocks.len(), 1, "the marker is no block of its own");
+        assert_eq!(blocks[0].text, "Mind the gap", "GitHub doesn't show it");
+        assert!(blocks[0].quoted, "it still sets the passage apart");
     }
 
     #[test]
