@@ -517,10 +517,12 @@ pub enum Part {
     LocationBar,
     /// The header across a branch's or a stack's page, with its name, commits and push state,
     /// which the navigator's row has too. Where it's left out, a branch's messages list first
-    /// among its files instead, as do those of the commits only a remote has.
+    /// among its files instead, as do those of the commits only a remote has, and the header
+    /// of the branch opened on the Branches page.
     BranchHeader,
     /// The header across a commit's page, with its message, author, ID and push state, which
-    /// Lite lists first among its files instead, as the commit's message.
+    /// Lite lists first among its files instead, as the commit's message. Also a commit's
+    /// only a remote has, with which remote has it, and the message over a list page's diff.
     CommitHeader,
     /// The header across a worktree's uncommitted changes, with their title and the worktree,
     /// which the navigator's row has too.

@@ -195,6 +195,13 @@ enum Messages {
     Branch(ProjectId, Option<FullName>),
     /// The commits only `ref_name`'s remote has, or with `None` the target's new ones.
     Upstream(ProjectId, Option<FullName>),
+    /// One commit only `ref_name`'s remote has, or with `None` the target.
+    UpstreamCommit(ProjectId, Option<FullName>, CommitId),
+    /// The commit a list page shows over its diff: the project page's, or the one picked of
+    /// the opened branch on the Branches page.
+    TargetCommit(ProjectId),
+    /// The branch opened on the Branches page, with no commit of it picked.
+    OtherBranch(ProjectId),
 }
 
 /// What of the detail y copied, which blinks.
@@ -2130,9 +2137,10 @@ impl Detail {
         (rows, shown, alone)
     }
 
-    /// Whose messages the diff of `key` lists first: one commit's, not several picked
-    /// together, or a branch's commits', as Lite does in place of the page's header; and the
-    /// commits only a remote has, whose page has no header to say them.
+    /// Whose messages the diff of `key` lists first, as Lite does in place of the page's
+    /// header: one commit's, not several picked together, also one only a remote has, or a
+    /// branch's commits', or those only a remote has, as a branch's; and the commit or branch
+    /// a list page shows over its diff.
     fn listed_messages(&self, key: &DiffKey, cx: &App) -> Option<Messages> {
         let store = self.store.read(cx);
         match (self.shows.as_ref()?, &key.source) {
@@ -2141,10 +2149,29 @@ impl Detail {
             {
                 Some(Messages::Commit(project.clone(), *id))
             }
+            (Selection::Upstream(project, ref_name, id), DiffSource::Commit(_))
+                if !store.prefs.shows(Part::CommitHeader) =>
+            {
+                Some(Messages::UpstreamCommit(
+                    project.clone(),
+                    ref_name.clone(),
+                    *id,
+                ))
+            }
             (Selection::Branch(project, ref_name), DiffSource::Range { .. })
                 if !store.prefs.shows(Part::BranchHeader) =>
             {
                 Some(Messages::Branch(project.clone(), ref_name.clone()))
+            }
+            (Selection::Project(project) | Selection::Branches(project), DiffSource::Commit(_))
+                if !self.list_header_shown(project, cx) =>
+            {
+                Some(Messages::TargetCommit(project.clone()))
+            }
+            (Selection::Branches(project), DiffSource::Branch { .. })
+                if !self.list_header_shown(project, cx) =>
+            {
+                Some(Messages::OtherBranch(project.clone()))
             }
             (
                 Selection::Section(project, Section::Upstream(ref_name)),
@@ -2623,11 +2650,7 @@ impl Detail {
             cx.notify();
         }
         // Up from its top, the diff's keys go to the tabs over it, as the file list's do.
-        if stop.is_none()
-            && !forward
-            && self.focus.is_focused(window)
-            && self.selected_review(cx).is_some()
-        {
+        if stop.is_none() && !forward && self.focus.is_focused(window) && self.tabs_shown(cx) {
             return self.focus_tabs(window, cx);
         }
         // From the file list too: the diff takes the keys, so the hunk or header shows solid
@@ -3360,6 +3383,7 @@ impl Detail {
             Some(Selection::Commit(project, id)) if !self.commit_header_shown(&project, id, cx) => {
                 0.
             }
+            Some(Selection::Upstream(..)) if !self.upstream_header_shown(cx) => 0.,
             Some(
                 Selection::Commit(..)
                 | Selection::Upstream(..)
@@ -3367,7 +3391,9 @@ impl Detail {
                 | Selection::Stack(..),
             ) => self.header_height.get(),
             Some(Selection::Project(project)) => {
-                let message = match self.showing_target_commit(&project, cx) {
+                let message = match self.showing_target_commit(&project, cx)
+                    && self.list_header_shown(&project, cx)
+                {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
@@ -3375,9 +3401,11 @@ impl Detail {
             }
             Some(Selection::Branches(project)) => {
                 // The opened branch's header, or its picked commit's message.
-                let message = match self.selected_other_branch(&project) {
-                    Some(_) => self.target_message_height.get(),
-                    None => 0.,
+                let message = match self.selected_other_branch(&project).is_some()
+                    && self.list_header_shown(&project, cx)
+                {
+                    true => self.target_message_height.get(),
+                    false => 0.,
                 };
                 self.project_header_height.get() + message + self.list_tabs_height(cx)
             }
@@ -3645,6 +3673,7 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         Some(self.render_stack_header(project, bottom.as_ref(), &theme, cx))
                     }
+                    Selection::Upstream(..) if !self.upstream_header_shown(cx) => None,
                     Selection::Upstream(project, ref_name, id) => {
                         Some(self.render_upstream_header(
                             project,
@@ -3677,6 +3706,7 @@ impl Render for Detail {
                 let beside = match selection {
                     Selection::Project(project) if self.showing_target_commit(project, cx) => {
                         let message = (self.shown_target_commit(project, cx))
+                            .filter(|_| self.list_header_shown(project, cx))
                             .map(|commit| self.render_target_message(commit, &theme, cx));
                         Some(self.list_beside(project, message, &theme, window, cx))
                     }
@@ -3688,6 +3718,7 @@ impl Render for Detail {
                     }
                     Selection::Branches(project) => {
                         let header = match self.picked_branch_commit(project) {
+                            _ if !self.list_header_shown(project, cx) => None,
                             Some(commit) => Some(self.render_target_message(commit, &theme, cx)),
                             None => self.render_other_branch_header(project, &theme, cx),
                         };

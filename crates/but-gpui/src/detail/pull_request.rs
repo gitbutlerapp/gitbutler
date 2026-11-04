@@ -110,7 +110,7 @@ impl Detail {
     /// nothing under it to take the keys, nor have the changes when there are none, or the keys
     /// last went left out of them on this page.
     pub(crate) fn tabs_reachable(&self, cx: &App) -> bool {
-        self.selected_review(cx).is_some()
+        self.tabs_shown(cx)
             && (self.page.review_tab() || self.tabs_kept || self.without_changes(cx))
     }
 
@@ -134,15 +134,26 @@ impl Detail {
         true
     }
 
-    /// ↑ on the tabs stays there, and from the top of the files under them goes up to them,
-    /// as it does from the top of the diff. Says whether it did either.
+    /// Whether the tabs draw: with a pull request, beside a list page's list, or in a
+    /// branch's or a remote's commit's header while Lite doesn't leave it out.
+    pub(super) fn tabs_shown(&self, cx: &App) -> bool {
+        self.selected_review(cx).is_some()
+            && match self.selection() {
+                Some(Selection::Branch(..)) => self.branch_header_shown(cx),
+                Some(Selection::Upstream(..)) => self.upstream_header_shown(cx),
+                _ => true,
+            }
+    }
+
+    /// ↑ on the tabs stays there, and from the top of the files under them, the commit's
+    /// message where it's listed, goes up to them, as it does from the top of the diff. Says
+    /// whether it did either.
     pub(super) fn up_to_tabs(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.tabs_focus.is_focused(window) {
             return true;
         }
-        let top =
-            (self.listed_files(cx).first()).is_none_or(|&file| Some(file) == self.current_file());
-        let up = self.files_focus.is_focused(window) && top && self.selected_review(cx).is_some();
+        let top = (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry());
+        let up = self.files_focus.is_focused(window) && top && self.tabs_shown(cx);
         if up {
             self.focus_tabs(window, cx);
         }

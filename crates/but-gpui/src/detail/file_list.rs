@@ -325,6 +325,27 @@ impl Detail {
                 let (label, count, _) = upstream_label(workspace, ref_name.as_ref());
                 (Icon::ArrowDown, label.into(), Some(count))
             }
+            Messages::TargetCommit(project) => {
+                let commit = self.target_message_commit(&project, cx)?;
+                (Icon::Commit, super::upstream::label(commit), None)
+            }
+            Messages::OtherBranch(project) => {
+                let (glyph, name) = self.other_branch_entry(&project)?;
+                (glyph, name.into(), None)
+            }
+            Messages::UpstreamCommit(project, ref_name, id) => {
+                let ws = store.workspace(&project)?;
+                let title = match ws.upstream(ref_name.as_ref()).iter().find(|c| c.id == id) {
+                    Some(c) => &c.title,
+                    None => {
+                        &store
+                            .merged_upstream(&project, ref_name.as_ref(), id)?
+                            .1
+                            .title
+                    }
+                };
+                (Icon::ArrowDown, commit_title(title), None)
+            }
         };
         let current = self.current_entry() == super::Entry::Message;
         let solid = current && has_keys(&self.files_focus, window, cx);

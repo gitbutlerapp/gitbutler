@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bstr::ByteSlice as _;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Stateful, Window, actions, div, prelude::*,
+    SharedString, Stateful, WeakEntity, Window, actions, div, prelude::*,
 };
 
 mod overview;
@@ -1817,6 +1817,93 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
+        // What right-clicking its row offers, as a page's ⋯ does.
+        let (p, r) = (
+            project.clone(),
+            self.selected_other_branch(project)?.ref_name.clone(),
+        );
+        // Its commands are the detail's, as a right-click on its row gives the list the keys.
+        let menu = icon_button("branch-menu", Icon::Kebab).on_click(cx.listener(
+            move |this, event: &ClickEvent, window, cx| {
+                window.focus(&this.focus, cx);
+                this.branch_menu(&p, &r, event.position(), cx)
+            },
+        ));
+        let (top, description) = self.other_branch_parts(project, menu, false, theme, cx)?;
+        // And the rule along its bottom, which the diff starts below, as a commit's message.
+        let height = measured(&self.target_message_height, &self.app, |bounds| {
+            f32::from(bounds.size.height) + 1.
+        });
+        Some(
+            v_flex()
+                .relative()
+                .flex_none()
+                .gap(dp(8.))
+                .px(dp(16.))
+                .py(dp(12.))
+                .border_b_1()
+                .border_color(theme.border_3)
+                .child(top)
+                .children(description)
+                .child(height)
+                .into_any_element(),
+        )
+    }
+
+    /// The opened branch's header, where the diff lists it first, as Lite does in place of
+    /// the header: the same, its ⋯ reached through `entity`.
+    pub(super) fn other_branch_message(
+        &self,
+        project: &ProjectId,
+        entity: WeakEntity<Detail>,
+        flat: bool,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
+        let (p, r) = (
+            project.clone(),
+            self.selected_other_branch(project)?.ref_name.clone(),
+        );
+        let menu = icon_button("branch-menu", Icon::Kebab).on_click(
+            move |event: &ClickEvent, window, cx| {
+                let at = event.position();
+                (entity.update(cx, |this, cx| {
+                    window.focus(&this.focus, cx);
+                    this.branch_menu(&p, &r, at, cx)
+                }))
+                .ok();
+            },
+        );
+        self.other_branch_parts(project, menu, flat, theme, cx)
+    }
+
+    /// How the file list names the opened branch, where the diff lists its header first: a
+    /// stack by how many branches it has, a branch by its name.
+    pub(super) fn other_branch_entry(&self, project: &ProjectId) -> Option<(Icon, String)> {
+        let branches = self.branches_for(project)?;
+        let branch = branches.selected_branch()?;
+        Some(match branches.stack {
+            true => {
+                let count = (branches.list.iter())
+                    .filter(|b| b.stack == branch.stack)
+                    .count();
+                (Icon::Stack, format!("Stack of {count}"))
+            }
+            false => (Icon::Branch, shown_name(branch).into_owned()),
+        })
+    }
+
+    /// What the opened branch's header says, with `menu` for its ⋯: what it's called, beside
+    /// the menu, over its name, its pull request, its commits and who last worked on it; and
+    /// its description.
+    fn other_branch_parts(
+        &self,
+        project: &ProjectId,
+        menu: impl IntoElement,
+        flat: bool,
+        theme: &Theme,
+        cx: &App,
+    ) -> Option<(Div, Option<Div>)> {
         let branches = self.branches_for(project)?;
         let branch = branches.selected_branch()?;
         let target = (self.store.read(cx).workspace(project))
@@ -1874,59 +1961,41 @@ impl Detail {
                 byline(author, email, branch.agent.as_ref(), time, theme).flex_none()
             });
         let description = (branch.description.clone()).filter(|_| !branches.stack);
-        // What right-clicking its row offers, as a page's ⋯ does.
-        let (p, r) = (project.clone(), branch.ref_name.clone());
-        // Its commands are the detail's, as a right-click on its row gives the list the keys.
-        let menu = icon_button("branch-menu", Icon::Kebab).on_click(cx.listener(
-            move |this, event: &ClickEvent, window, cx| {
-                window.focus(&this.focus, cx);
-                this.branch_menu(&p, &r, event.position(), cx)
-            },
-        ));
-        // And the rule along its bottom, which the diff starts below, as a commit's message.
-        let height = measured(&self.target_message_height, &self.app, |bounds| {
-            f32::from(bounds.size.height) + 1.
+        let name_text = title_text(title.clone())
+            .truncate()
+            .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
+        let top = v_flex()
+            .min_w_0()
+            .gap(dp(8.))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .gap(dp(8.))
+                    .child(page_title(glyph, theme).child(name_text))
+                    .child(menu),
+            )
+            .child(
+                meta_row(theme)
+                    // Its name, unless the title already is.
+                    .when(name != title, |el| {
+                        el.child(
+                            meta_item(Icon::Branch, theme)
+                                .min_w_0()
+                                .child(div().min_w_0().truncate().child(name)),
+                        )
+                    })
+                    .children(review)
+                    .child(meta_item(Icon::Commit, theme).flex_none().child(commits))
+                    .children(byline),
+            );
+        let description = description.map(|description| {
+            div()
+                .text_size(dp(13.))
+                .text_color(theme.text_2)
+                .whitespace_normal()
+                .child(description)
         });
-        Some(
-            v_flex()
-                .relative()
-                .flex_none()
-                .gap(dp(8.))
-                .px(dp(16.))
-                .py(dp(12.))
-                .border_b_1()
-                .border_color(theme.border_3)
-                .child(
-                    h_flex()
-                        .justify_between()
-                        .gap(dp(8.))
-                        .child(page_title(glyph, theme).child(title_text(title.clone()).truncate()))
-                        .child(menu),
-                )
-                .child(
-                    meta_row(theme)
-                        // Its name, unless the title already is.
-                        .when(name != title, |el| {
-                            el.child(
-                                meta_item(Icon::Branch, theme)
-                                    .min_w_0()
-                                    .child(div().min_w_0().truncate().child(name)),
-                            )
-                        })
-                        .children(review)
-                        .child(meta_item(Icon::Commit, theme).flex_none().child(commits))
-                        .children(byline),
-                )
-                .children(description.map(|description| {
-                    div()
-                        .text_size(dp(13.))
-                        .text_color(theme.text_2)
-                        .whitespace_normal()
-                        .child(description)
-                }))
-                .child(height)
-                .into_any_element(),
-        )
+        Some((top, description))
     }
 
     /// The page's crumbs after "Branches": the selected stack or branch, and the commit of it
