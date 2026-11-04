@@ -19,7 +19,7 @@ use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
 use crate::detail::{Detail, DiffPane, KeptPages};
 use crate::navigator::Navigator;
-use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
+use crate::overlays::{ContextMenu, MenuItem, Prompt, keys_at, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
@@ -301,6 +301,11 @@ pub struct AppHandle(WeakEntity<AppView>);
 impl AppHandle {
     pub fn of(cx: &Context<AppView>) -> Self {
         Self(cx.entity().downgrade())
+    }
+
+    /// Whether a tile of the selected row's tiling has the keys.
+    pub fn tiles_have_keys(&self, window: &Window, cx: &App) -> bool {
+        (self.0.upgrade()).is_some_and(|app| app.read(cx).tiles_have_keys(window, cx))
     }
 
     pub fn update_later(
@@ -2787,6 +2792,18 @@ impl AppView {
             .map(|(tile, _)| tile)
             .find(|tile| {
                 (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
+            })
+    }
+
+    /// Whether a tile of the selected row's tiling is drawn as having the keys, as [`keys_at`]
+    /// says, or one's being moved with them, for the navigator to draw the row as having them.
+    fn tiles_have_keys(&self, window: &Window, cx: &App) -> bool {
+        let (Some(tiling), Some(keys)) = (self.store.read(cx).tiling(), keys_at(window, cx)) else {
+            return false;
+        };
+        keys == self.arranging_focus
+            || (tiling.areas().into_iter()).any(|(tile, _)| {
+                (self.tile_focus(&tile, cx)).is_some_and(|focus| focus.contains(&keys, window))
             })
     }
 
