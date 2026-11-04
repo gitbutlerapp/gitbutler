@@ -29,8 +29,8 @@ use crate::clock;
 use crate::detail::{ChecksChanged, Detail, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
-    Axis, Cut, DividerDrag, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
-    WatchedOrder,
+    Axis, Cut, DividerDrag, Pane, Prefs, ProjectId, ProjectTab, Section, Selection, Store,
+    StoreEvent, Tile, WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -991,7 +991,7 @@ impl Navigator {
         if items.is_empty() {
             return;
         }
-        let current = self.store.read(cx).selection.as_ref().map(selected_row);
+        let current = self.store.read(cx).selection.clone();
         let at = (current.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
         let bar = self.drawer_toggles(cx).then(|| match &built {
             Some(built) => self.staying(&built.rows, &built.moving, &[]).len(),
@@ -1105,7 +1105,7 @@ impl Navigator {
             return self.jump_move(forward, cx);
         }
         let items = self.items();
-        let current = self.store.read(cx).selection.as_ref().map(selected_row);
+        let current = self.store.read(cx).selection.clone();
         let at = current.and_then(|s| items.iter().position(|item| **item == s));
         let heads =
             |item: &&&Selection| matches!(item, Selection::Project(_) | Selection::Branch(..));
@@ -1409,9 +1409,6 @@ impl Navigator {
             Selection::Commit(..)
             | Selection::Uncommitted(..)
             | Selection::Stack(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
             | Selection::Terminal(..) => {}
         }
     }
@@ -1632,7 +1629,7 @@ impl Navigator {
             _ => false,
         };
         if std::mem::take(&mut self.reveal_selection)
-            && let Some(selection) = store.selection.as_ref().map(selected_row)
+            && let Some(selection) = store.selection.clone()
             && !self.scroll_to_row(ghost, row)
             && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if *it == selection), row)
         {
@@ -1980,11 +1977,14 @@ impl Navigator {
                 moving::new_commit_row(project, inset, blink, self.store.read(cx), theme)
             }
             Some(Row::UpstreamMore(project, more)) => {
-                let page = Selection::Project(project.clone());
+                let project = project.clone();
                 under_commits("upstream-more", Icon::Kebab)
                     .child(format!("{more} more on its page"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                        this.select(page.clone(), window, cx)
+                        let project = project.clone();
+                        (this.app).update_later(window, cx, move |app, window, cx| {
+                            app.open_project_tab(project, ProjectTab::Overview, window, cx)
+                        })
                     }))
                     .into_any_element()
             }
@@ -2210,7 +2210,7 @@ impl Navigator {
             return div().into_any_element();
         };
         let store = self.store.read(cx);
-        let shown = store.selection.as_ref().map(selected_row);
+        let shown = store.selection.clone();
         let lit = |item: &Selection| {
             shown.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
@@ -2304,12 +2304,8 @@ impl Navigator {
             }
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
-            // The rows list a stack's branches, not the stack, and a project's pages are tabs
-            // of its own page, which its card opens.
-            Selection::Stack(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_) => None,
+            // The rows list a stack's branches, not the stack.
+            Selection::Stack(..) => None,
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
                 self.upstream_row(item, id, ref_name.as_ref(), commit, style, cx)
@@ -4093,17 +4089,6 @@ fn items<'a>(rows: impl IntoIterator<Item = &'a Row>) -> Vec<&'a Selection> {
             _ => None,
         })
         .collect()
-}
-
-/// The row standing for `selection`: its own, or for a project's pages, which are tabs of its
-/// page, its card.
-fn selected_row(selection: &Selection) -> Selection {
-    match selection {
-        Selection::Branches(project) | Selection::History(project) | Selection::Graph(project) => {
-            Selection::Project(project.clone())
-        }
-        other => other.clone(),
-    }
 }
 
 /// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the

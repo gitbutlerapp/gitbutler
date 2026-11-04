@@ -9,7 +9,7 @@ use crate::backend::upstream::PathQuery;
 use crate::detail::Detail;
 use crate::detail::file_list::At;
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection};
+use crate::state::{ProjectId, ProjectTab};
 use crate::theme::Theme;
 use crate::ui::{dp, faint, h_flex};
 
@@ -81,8 +81,10 @@ impl Detail {
         Some(MenuItem::new(label, move |_, window, cx| {
             let (project, query) = (project.clone(), PathQuery::Whole(whole.clone()));
             (entity.update(cx, |detail, cx| {
-                let selection = Selection::Project(project.clone());
-                if !(detail.store).update(cx, |store, cx| store.select_by_hand(selection, cx)) {
+                let shown = (detail.store).update(cx, |store, cx| {
+                    store.show_tab(project.clone(), ProjectTab::Overview, cx)
+                });
+                if !shown {
                     return;
                 }
                 // Once the page has opened.

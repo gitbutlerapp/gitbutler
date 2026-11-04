@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use but_tty::Status;
 use gpui::{Context, Entity};
 
-use super::{ProjectId, Selection, Store, StoreEvent};
+use super::{ProjectId, ProjectTab, Selection, Store, StoreEvent};
 use crate::backend::Checkout;
 use crate::terminal::{Terminal, TerminalId};
 
@@ -16,6 +16,9 @@ use crate::terminal::{Terminal, TerminalId};
 pub enum RowKey {
     Commit(ProjectId, String),
     Row(Selection),
+    /// A project's page pinned on a tab, so it can sit beside its own row. It's what the tile
+    /// opened on: its tabs go on working there.
+    Tab(ProjectId, ProjectTab),
 }
 
 /// Which way a division lays out its parts.
@@ -1459,6 +1462,7 @@ impl Store {
     pub fn selection_of(&self, row: &RowKey) -> Option<Selection> {
         match row {
             RowKey::Row(selection) => Some(selection.clone()),
+            RowKey::Tab(project, _) => Some(Selection::Project(project.clone())),
             RowKey::Commit(project, key) => {
                 let workspace = self.workspace(project)?;
                 let commit = (workspace.all_branches())
@@ -1705,9 +1709,8 @@ impl Store {
         if self.tilings.is_empty() {
             return own;
         }
-        let pages = pages_of_row(selection);
-        let tilings = (pages.iter()).filter_map(|page| self.tilings.get(&self.row_key(page)));
-        let pinned = tilings.flat_map(Tiling::pinned_terminals);
+        let tiling = self.tilings.get(&self.row_key(selection));
+        let pinned = tiling.into_iter().flat_map(Tiling::pinned_terminals);
         let statuses = pinned.filter_map(|id| self.terminals.status(id));
         Status::most_urgent(own.into_iter().chain(statuses))
     }
@@ -1851,31 +1854,6 @@ impl Store {
             });
         }
         cx.emit(StoreEvent::TilingChanged);
-    }
-}
-
-/// The pages whose tilings `selection`'s row answers for: its own, and a project's tabs, which
-/// have no rows of their own.
-fn pages_of_row(selection: &Selection) -> Vec<Selection> {
-    match selection {
-        Selection::Project(project) => Vec::from([
-            selection.clone(),
-            Selection::Branches(project.clone()),
-            Selection::History(project.clone()),
-            Selection::Graph(project.clone()),
-        ]),
-        Selection::Branch(..)
-        | Selection::Branches(_)
-        | Selection::History(_)
-        | Selection::Graph(_)
-        | Selection::Section(..)
-        | Selection::Checkout(..)
-        | Selection::Uncommitted(..)
-        | Selection::Terminal(..)
-        | Selection::Stack(..)
-        | Selection::Commit(..)
-        | Selection::Upstream(..)
-        | Selection::Mesh(..) => Vec::from([selection.clone()]),
     }
 }
 
@@ -3498,31 +3476,6 @@ mod tests {
             tiling.pinned_terminals().collect::<Vec<_>>(),
             Vec::from([TerminalId(1)]),
             "a branch's page has no status to show"
-        );
-    }
-
-    #[test]
-    fn a_projects_row_answers_for_its_tabs() {
-        let project = Selection::Project("project".into());
-        assert_eq!(
-            pages_of_row(&project),
-            Vec::from([
-                project.clone(),
-                Selection::Branches("project".into()),
-                Selection::History("project".into()),
-                Selection::Graph("project".into()),
-            ]),
-            "they're pages of its card, with no rows of their own"
-        );
-    }
-
-    #[test]
-    fn a_terminals_row_answers_for_its_own_page_alone() {
-        let row = Selection::Terminal("project".into(), TerminalId(1));
-        assert_eq!(
-            pages_of_row(&row),
-            Vec::from([row.clone()]),
-            "it has a row, so nothing else stands for it"
         );
     }
 }

@@ -19,7 +19,7 @@ use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, ReviewState,
     Workspace,
 };
-use crate::state::{Activity, ProjectId, QUARTER, SeenCommit, Selection, Store};
+use crate::state::{Activity, ProjectId, ProjectTab, QUARTER, SeenCommit, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -548,32 +548,32 @@ impl Detail {
     /// again: once that's `read`, it opens or not, the history read further back first, and
     /// another page picked lets go of it.
     pub(super) fn open_waiting(&mut self, read: bool, cx: &mut Context<Self>) {
-        let Some((page, seen)) = self.opening.take() else {
+        let Some((tab, seen)) = self.opening.take() else {
             return;
         };
-        if self.selection().as_ref() != Some(&page) {
+        let Some(project) = self.on_tab(tab) else {
             return;
-        }
-        let done = match &page {
+        };
+        let done = match tab {
             // A merge past the pages read is looked for further back, as far as the commit.
-            Selection::Project(project) => {
-                self.open_merge(project, seen.pull, seen.id, cx)
-                    || (read && !self.read_back_to(project, seen.time, cx))
+            ProjectTab::Overview => {
+                self.open_merge(&project, seen.pull, seen.id, cx)
+                    || (read && !self.read_back_to(&project, seen.time, cx))
             }
-            Selection::Branches(project) => {
+            ProjectTab::Branches => {
                 let seen_branch = (seen.branch.as_deref()).and_then(|b| FullName::try_from(b).ok());
                 let listed = (seen_branch.as_ref())
-                    .and_then(|branch| self.listed_branch(project, branch))
+                    .and_then(|branch| self.listed_branch(&project, branch))
                     .is_some();
                 if listed {
                     self.select_other_branch(seen_branch, cx);
                 }
                 listed || read
             }
-            _ => true,
+            ProjectTab::History | ProjectTab::Graph => true,
         };
         if !done {
-            self.opening = Some((page, seen));
+            self.opening = Some((tab, seen));
         }
     }
 
@@ -693,16 +693,17 @@ impl Detail {
                             (Icon::Commit, theme.text_3),
                             left_said(seen, theme),
                             false,
-                            match seen.state {
-                                CommitState::Integrated => Selection::Project(project.clone()),
-                                CommitState::Local | CommitState::Pushed => {
-                                    Selection::Branches(project.clone())
-                                }
-                            },
+                            Selection::Project(project.clone()),
                         ),
                     };
                     let opening = match made {
-                        Made::Gone(seen) => Some((target.clone(), seen.clone())),
+                        Made::Gone(seen) => {
+                            let tab = match seen.state {
+                                CommitState::Integrated => ProjectTab::Overview,
+                                CommitState::Local | CommitState::Pushed => ProjectTab::Branches,
+                            };
+                            Some((tab, seen.clone()))
+                        }
                         Made::Here(..) => None,
                     };
                     // Under the row's place in the list, so its own id goes by the commit.
@@ -743,8 +744,12 @@ impl Detail {
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             let target = target.clone();
-                            if (this.store).update(cx, |store, cx| store.select_by_hand(target, cx))
-                            {
+                            let tab = opening.as_ref().map(|(tab, _)| *tab);
+                            let shown = (this.store).update(cx, |store, cx| match tab {
+                                Some(tab) => store.show_tab(target.project().clone(), tab, cx),
+                                None => store.select_by_hand(target, cx),
+                            });
+                            if shown {
                                 this.opening = opening.clone();
                             }
                         }))

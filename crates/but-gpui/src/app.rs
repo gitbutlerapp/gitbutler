@@ -24,8 +24,8 @@ use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
     Area, Axis, Cut, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane,
-    Prefs, ProjectId, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones, snack,
-    tile_beside, up_to_date,
+    Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones,
+    snack, tile_beside, up_to_date,
 };
 use crate::terminal::NewTerminal;
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -393,7 +393,7 @@ impl AppView {
         let store = self.store.clone();
         self.kept_pages.update(cx, |kept, cx| {
             let store = store.read(cx);
-            kept.retain(|(row, tile)| *tile == Tile::Home || store.has_tile(row, tile));
+            kept.retain(|(row, tile, _)| *tile == Tile::Home || store.has_tile(row, tile));
         });
     }
 
@@ -404,12 +404,13 @@ impl AppView {
         self.kept_pages.update(cx, |kept, cx| {
             let store = store.read(cx);
             let keys = store.commit_keys(project);
-            kept.retain(|(row, _)| match row {
+            kept.retain(|(row, ..)| match row {
                 RowKey::Commit(of, key) if of == project => {
                     keys.as_ref().is_none_or(|keys| keys.contains(key.as_str()))
                 }
                 RowKey::Commit(of, _) => store.project(of).is_some(),
                 RowKey::Row(selection) => store.project(selection.project()).is_some(),
+                RowKey::Tab(of, _) => store.project(of).is_some(),
             });
         });
     }
@@ -1420,46 +1421,15 @@ impl AppView {
             return false;
         };
         match pane {
-            KeyPane::ProjectTabs => self.step_project_tab(forward, window, cx),
+            KeyPane::ProjectTabs => (self.tile_detail(tile, cx)).is_some_and(|detail| {
+                detail.update(cx, |detail, cx| {
+                    detail.step_project_tab(forward, window, cx)
+                })
+            }),
             KeyPane::Tabs => (self.tile_detail(tile, cx)).is_some_and(|detail| {
                 detail.update(cx, |detail, cx| detail.step_tab(forward, window, cx))
             }),
             KeyPane::List | KeyPane::Files | KeyPane::Diff => false,
-        }
-    }
-
-    /// ← or → on a project's tabs: the page on that side, if there is one. Says whether there
-    /// was.
-    fn step_project_tab(
-        &mut self,
-        forward: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let beside = self
-            .selection(cx)
-            .and_then(|s| s.project_page_beside(forward));
-        let stepped = beside.is_some();
-        if let Some(page) = beside {
-            self.select_project_page(page, window, cx);
-        }
-        stepped
-    }
-
-    /// Select one of a project's pages. Its tabs keep the keys when they have them, as the
-    /// Changes and pull request tabs do.
-    pub(crate) fn select_project_page(
-        &mut self,
-        page: Selection,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let on_tabs = self.detail.read(cx).project_tabs_focused(window);
-        self.select(page, window, cx);
-        if on_tabs {
-            (self.detail).update(cx, |detail, cx| {
-                detail.focus_key_pane(KeyPane::ProjectTabs, window, cx)
-            });
         }
     }
 
@@ -1567,7 +1537,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         if let Some(selection) = self.selection(cx) {
-            self.select(Selection::History(selection.project().clone()), window, cx);
+            self.open_project_tab(selection.project().clone(), ProjectTab::History, window, cx);
         }
     }
 
@@ -1578,17 +1548,31 @@ impl AppView {
         let Some(selection) = self.selection(cx) else {
             return;
         };
-        let pages = Selection::project_pages(selection.project());
-        let n = pages.len();
-        let next = match (pages.iter().position(|page| *page == selection), forward) {
-            (Some(at), true) => (at + 1) % n,
-            (Some(at), false) => (at + n - 1) % n,
-            (None, true) => 0,
-            (None, false) => n - 1,
+        let detail = self.detail.read(cx);
+        let tab = match (&selection, forward) {
+            (Selection::Project(_), _) => detail.project_tab().round(forward),
+            (_, true) => ProjectTab::Overview,
+            (_, false) => ProjectTab::Graph,
         };
-        if let Some(page) = pages.into_iter().nth(next) {
-            self.select_project_page(page, window, cx);
+        let on_tabs = detail.project_tabs_focused(window);
+        (self.store).update(cx, |store, cx| {
+            store.show_tab(selection.project().clone(), tab, cx)
+        });
+        if !on_tabs {
+            self.focus_main(window, cx);
         }
+    }
+
+    /// Go to `tab` of `project`'s page.
+    pub(crate) fn open_project_tab(
+        &mut self,
+        project: ProjectId,
+        tab: ProjectTab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        (self.store).update(cx, |store, cx| store.show_tab(project, tab, cx));
+        self.focus_main(window, cx);
     }
 
     /// As the window's close button does: closing it quits, asking first while operations run
@@ -1860,9 +1844,6 @@ impl AppView {
             ),
             Selection::Uncommitted(..)
             | Selection::Mesh(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
             | Selection::Stack(..)
             | Selection::Section(..) => None,
         });
@@ -2501,7 +2482,11 @@ impl AppView {
                     .children(diff)
             }
         };
-        let (kind, title) = tile_label(self.store.read(cx), &pinned);
+        // A tile pinned on a project's tab says the one it's on now.
+        let (kind, title) = match (&pinned, self.pages.get(&pinned)) {
+            (RowKey::Tab(..), Some(page)) => tab_label(page.detail.read(cx).project_tab()),
+            _ => tile_label(self.store.read(cx), &pinned),
+        };
         let focus = self.tile_focus(&Tile::Pinned(pinned.clone()), cx);
         let grab = self.grab_tile(Tile::Pinned(pinned.clone()), cx);
         let tile_buttons = self.tile_buttons(&Tile::Pinned(pinned.clone()), cx);
@@ -4168,6 +4153,9 @@ fn landing_text(landing: &Landing, store: &Store, home: &RowKey) -> String {
 /// What a tile pinned to `row` shows, as Go to anything names it: its kind's icon, and its
 /// name.
 pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
+    if let RowKey::Tab(_, tab) = row {
+        return tab_label(*tab);
+    }
     let Some(selection) = store.selection_of(row) else {
         return (Icon::Commit, "Gone".into());
     };
@@ -4198,9 +4186,6 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
             (Icon::Branch, name.into())
         }
         Selection::Stack(..) => (Icon::Branch, "Stack".into()),
-        Selection::Branches(_) => (Icon::Branch, "Branches".into()),
-        Selection::History(_) => (Icon::Clock, "Operations history".into()),
-        Selection::Graph(_) => (Icon::Fork, "Graph".into()),
         Selection::Project(project) => {
             let name = store.project(project).map(|e| e.project.name.clone());
             (Icon::Repo, name.unwrap_or_default().into())
@@ -4208,6 +4193,16 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
         Selection::Checkout(_, checkout) => (Icon::FolderCopy, worktree(checkout)),
         Selection::Uncommitted(..) => (Icon::FolderCopy, "Uncommitted changes".into()),
         Selection::Section(..) | Selection::Mesh(..) => (Icon::FolderCopy, "Worktrees".into()),
+    }
+}
+
+/// What a tile on `tab` of a project's page says of itself.
+fn tab_label(tab: ProjectTab) -> (Icon, SharedString) {
+    match tab {
+        ProjectTab::Overview => (Icon::Repo, "Overview".into()),
+        ProjectTab::Branches => (Icon::Branch, "Branches".into()),
+        ProjectTab::History => (Icon::Clock, "Operations history".into()),
+        ProjectTab::Graph => (Icon::Fork, "Graph".into()),
     }
 }
 
@@ -5227,10 +5222,10 @@ pub(crate) fn scripted() -> bool {
 #[cfg(test)]
 mod tests {
     use super::{KeyStop, stop_beside, stop_round};
-    use crate::state::{Area, RowKey, Selection, Side, Tile};
+    use crate::state::{Area, ProjectTab, RowKey, Side, Tile};
 
     fn pinned() -> Tile {
-        Tile::Pinned(RowKey::Row(Selection::Branches("p".into())))
+        Tile::Pinned(RowKey::Tab("p".into(), ProjectTab::Branches))
     }
 
     fn side_by_side() -> [(Tile, Area); 2] {

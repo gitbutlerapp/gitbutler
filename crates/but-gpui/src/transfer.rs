@@ -215,9 +215,6 @@ impl Target {
             | Selection::Stack(..)
             | Selection::Upstream(..)
             | Selection::Section(..)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
             | Selection::Terminal(..)
             | Selection::Mesh(..) => return None,
         })

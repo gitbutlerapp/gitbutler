@@ -122,15 +122,12 @@ fn pane_round(shown: &[KeyPane], from: KeyPane, forward: bool) -> Option<KeyPane
 
 impl Detail {
     /// The panes that show and can take the keys, in reading order. A page that's an overview
-    /// alone has none past the tabs, nor have the files or the diff without changes to show. Not
-    /// the project's tabs in a pinned tile, where ← and → would go to the page on that side in
-    /// the home tile.
+    /// alone has none past the tabs, nor have the files or the diff without changes to show.
     pub(crate) fn key_panes(&self, cx: &App) -> Vec<KeyPane> {
         let list_page = self.list_page();
         let changes = !self.without_changes(cx);
         let review = self.showing_review(cx);
-        let project_tabs = self.pinned.is_none()
-            && (list_page || matches!(self.selection(), Some(Selection::Graph(_))));
+        let project_tabs = matches!(self.selection(), Some(Selection::Project(_)));
         let files = match list_page {
             true => self.beside_files_shown(cx),
             false => self.files_shown(cx),
@@ -148,7 +145,7 @@ impl Detail {
     }
 
     /// What has the keys in `pane`.
-    fn pane_focus(&self, pane: KeyPane) -> &FocusHandle {
+    pub(super) fn pane_focus(&self, pane: KeyPane) -> &FocusHandle {
         match pane {
             KeyPane::ProjectTabs => &self.project_tabs_focus,
             KeyPane::List => &self.side_focus,

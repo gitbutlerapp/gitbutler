@@ -20,7 +20,7 @@ use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, CheckState, Forge, FullName, Remark, Review, ReviewState};
 use crate::overlays::{MenuItem, has_keys};
 use crate::pr::{MarkReadyForReview, Mergeability, Offer};
-use crate::state::{ProjectId, Selection, Side, snack};
+use crate::state::{ProjectId, ProjectTab, Selection, Side, snack};
 use crate::theme::Theme;
 use crate::ui::fold;
 use crate::ui::markdown;
@@ -52,10 +52,13 @@ impl Detail {
                 .find_branch(ref_name.as_ref())?
                 .review
                 .as_ref(),
-            Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
-            Selection::Project(project) if self.showing_target_commit(project, cx) => {
-                self.selected_target_commit(project)?.review.as_ref()
-            }
+            Selection::Project(project) => match self.project_tab() {
+                ProjectTab::Branches => self.selected_other_branch(project)?.review.as_ref(),
+                ProjectTab::Overview if self.showing_target_commit(project, cx) => {
+                    self.selected_target_commit(project)?.review.as_ref()
+                }
+                ProjectTab::Overview | ProjectTab::History | ProjectTab::Graph => None,
+            },
             Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
                 .upstream(ref_name.as_ref())
                 .iter()

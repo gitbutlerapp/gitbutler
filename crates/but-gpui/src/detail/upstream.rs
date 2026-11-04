@@ -27,7 +27,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person,
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Pane, Part, ProjectId, Section, Selection};
+use crate::state::{Pane, Part, ProjectId, ProjectTab, Section, Selection};
 use crate::theme::Theme;
 use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
@@ -418,8 +418,7 @@ impl Detail {
                 this.load_selected_merge(&project, cx);
                 // Left since, the page keeps the pick for later rather than taking over what's
                 // shown now, as a composer opened meanwhile.
-                let shown = matches!(&this.selection(),
-                    Some(Selection::Project(p)) if *p == project);
+                let shown = this.on_tab(ProjectTab::Overview).as_ref() == Some(&project);
                 match found {
                     Some(id) if shown => {
                         this.pick_on_page(&project, Picked::Commit(id), None, cx);
@@ -546,21 +545,18 @@ impl Detail {
     /// Whether the project's page asks which of the local branches tracking its target is it.
     pub fn choosing_target(&self, cx: &gpui::App) -> bool {
         let store = self.store.read(cx);
-        match self.selection() {
-            Some(Selection::Project(project)) => {
-                (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
-            }
-            _ => false,
-        }
+        (self.on_tab(ProjectTab::Overview)).is_some_and(|project| {
+            (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
+        })
     }
 
     /// Whether a list page shows a commit's or a branch's files between its list and the diff.
     pub(super) fn has_files_beside(&self, cx: &gpui::App) -> bool {
-        let shows = match &self.selection() {
-            Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
-            Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
-            _ => false,
-        };
+        let project_on = |tab| self.on_tab(tab);
+        let shows = (project_on(ProjectTab::Overview))
+            .is_some_and(|project| self.showing_target_commit(&project, cx))
+            || (project_on(ProjectTab::Branches))
+                .is_some_and(|project| self.selected_other_branch(&project).is_some());
         shows && !self.showing_review(cx)
     }
 
@@ -692,11 +688,10 @@ impl Detail {
     /// header. Always, unless Lite lists it first among the files instead, as a commit's page
     /// or a branch's.
     pub(super) fn list_header_shown(&self, project: &ProjectId, cx: &gpui::App) -> bool {
-        let part = match self.selection() {
-            Some(Selection::Branches(_)) if self.picked_branch_commit(project).is_none() => {
-                Part::BranchHeader
-            }
-            _ => Part::CommitHeader,
+        let on_branches = self.on_tab(ProjectTab::Branches).is_some();
+        let part = match on_branches && self.picked_branch_commit(project).is_none() {
+            true => Part::BranchHeader,
+            false => Part::CommitHeader,
         };
         self.store.read(cx).prefs.shows(part)
     }
@@ -708,9 +703,9 @@ impl Detail {
         project: &ProjectId,
         cx: &'a gpui::App,
     ) -> Option<&'a TargetCommit> {
-        match self.selection()? {
-            Selection::Project(_) => self.shown_target_commit(project, cx),
-            Selection::Branches(_) => self.picked_branch_commit(project),
+        match (self.selection()?, self.project_tab()) {
+            (Selection::Project(_), ProjectTab::Overview) => self.shown_target_commit(project, cx),
+            (Selection::Project(_), ProjectTab::Branches) => self.picked_branch_commit(project),
             _ => None,
         }
     }
@@ -822,20 +817,17 @@ impl Detail {
 
     /// Whether the project's page shows what merged lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        match &self.selection() {
-            Some(Selection::Project(project)) => {
-                self.editing(project, cx).is_none()
-                    && (self.upstream_for(project))
-                        .is_some_and(|u| u.selected == Some(Picked::Shipped))
-            }
-            _ => false,
-        }
+        (self.on_tab(ProjectTab::Overview)).is_some_and(|project| {
+            self.editing(&project, cx).is_none()
+                && (self.upstream_for(&project))
+                    .is_some_and(|u| u.selected == Some(Picked::Shipped))
+        })
     }
 
     /// Esc on the project's page with a commit shown: back to what merged
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(Selection::Project(project)) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::Overview) else {
             return false;
         };
         let opened = self.editing(&project, cx).is_none()
@@ -1784,21 +1776,18 @@ impl Detail {
         let unapplied = self.unapplied(project).filter(|n| *n > 0);
         let solid = has_keys(&self.project_tabs_focus, window, cx);
         h_flex()
-            // Not in a pinned tile, as `key_panes` says, where a click would take the keys.
-            .when(self.pinned.is_none(), |el| {
-                el.track_focus(&self.project_tabs_focus)
-            })
+            .track_focus(&self.project_tabs_focus)
             .map(|el| self.tab_keys(el, cx))
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(dp(-8.))
-            .children(Selection::project_pages(project).map(|to| {
+            .children(ProjectTab::ALL.map(|to| {
                 let (id, glyph, label) = match to {
-                    Selection::Branches(_) => ("tab-branches", Icon::Branch, "Branches"),
-                    Selection::History(_) => ("tab-history", Icon::Clock, "Operations history"),
-                    Selection::Graph(_) => ("tab-graph", Icon::Fork, "Graph"),
-                    _ => ("tab-overview", Icon::Repo, "Overview"),
+                    ProjectTab::Overview => ("tab-overview", Icon::Repo, "Overview"),
+                    ProjectTab::Branches => ("tab-branches", Icon::Branch, "Branches"),
+                    ProjectTab::History => ("tab-history", Icon::Clock, "Operations history"),
+                    ProjectTab::Graph => ("tab-graph", Icon::Fork, "Graph"),
                 };
-                let selected = *page == to;
+                let selected = self.project_tab() == to;
                 tab(id, glyph, label, selected, solid, theme)
                     .when(id == "tab-branches", |el| {
                         el.children(unapplied.map(|n| count_badge(n, theme)))
@@ -1809,12 +1798,9 @@ impl Detail {
                     })
                     // Clicking what's open changes nothing.
                     .when(!selected, |el| {
-                        el.on_click(cx.listener(move |this, _, window, cx| {
-                            let to = to.clone();
-                            (this.app).update_later(window, cx, move |app, window, cx| {
-                                app.select_project_page(to, window, cx)
-                            })
-                        }))
+                        el.on_click(
+                            cx.listener(move |this, _, window, cx| this.show_tab(to, window, cx)),
+                        )
                     })
             }))
             .into_any_element()

@@ -554,7 +554,7 @@ fn surviving(
 fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
     match row {
         RowKey::Row(Selection::Terminal(_, id)) => open(*id),
-        RowKey::Row(_) | RowKey::Commit(..) => true,
+        RowKey::Row(_) | RowKey::Commit(..) | RowKey::Tab(..) => true,
     }
 }
 
@@ -562,7 +562,7 @@ fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
 mod tests {
     use super::{Handed, HandedTilings, surviving};
     use crate::backend::Checkout;
-    use crate::state::{Axis, MeshPick, RowKey, Section, Selection, Tile, Tiling};
+    use crate::state::{Axis, MeshPick, ProjectTab, RowKey, Section, Selection, Tile, Tiling};
     use crate::terminal::TerminalId;
 
     fn handed(named: Option<&str>) -> Handed {
@@ -665,6 +665,20 @@ mod tests {
             "each row lays its tiles out as it did"
         );
         assert_eq!(adopted.selection, Some(branch), "the same row is selected");
+    }
+
+    #[test]
+    fn a_project_tab_pinned_comes_over_with_its_tiling() {
+        let tab = RowKey::Tab("project".into(), ProjectTab::Branches);
+        let tilings = Vec::from([(commit(), tiled([tab.clone()]))]);
+        let json = serde_json::to_string(&tilings).unwrap();
+        let adopted: Vec<(RowKey, Tiling)> = serde_json::from_str(&json).unwrap();
+        let left = surviving(adopted, |_| true);
+        assert_eq!(
+            left.get(&commit()),
+            Some(&tiled([tab])),
+            "only a terminal can be gone from the next build"
+        );
     }
 
     #[test]

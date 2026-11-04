@@ -68,13 +68,8 @@ pub type ProjectId = SharedString;
 )]
 #[strum_discriminants(name(SelectionKind), derive(strum::EnumIter))]
 pub enum Selection {
+    /// A project's page, whose tabs are what its page keeps: see [`ProjectTab`].
     Project(ProjectId),
-    /// The branches outside the workspace, to apply or delete.
-    Branches(ProjectId),
-    /// The operation log, to look back at and restore.
-    History(ProjectId),
-    /// The project's commits drawn as a graph, the workspace's and the history below them.
-    Graph(ProjectId),
     /// The heading over a section of a project's card, whose page shows what it folds away.
     Section(ProjectId, Section),
     /// A worktree's heading, the main one's or a linked one's by name, whose page is its
@@ -96,6 +91,46 @@ pub enum Selection {
     /// A checkout of the project on one of the user's other machines, by the mesh's id for
     /// it, or a branch or commit in it.
     Mesh(ProjectId, Arc<str>, MeshPick),
+}
+
+/// A tab of a project's page, as a branch's page has Changes and its pull request. Which one
+/// shows is the page's, so it stays with the tile showing it.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum ProjectTab {
+    #[default]
+    Overview,
+    /// The branches outside the workspace, to apply or delete.
+    Branches,
+    /// The operation log, to look back at and restore.
+    History,
+    /// The project's commits drawn as a graph, the workspace's and the history below them.
+    Graph,
+}
+
+impl ProjectTab {
+    /// Every tab, in the order they show.
+    pub const ALL: [ProjectTab; 4] = [
+        ProjectTab::Overview,
+        ProjectTab::Branches,
+        ProjectTab::History,
+        ProjectTab::Graph,
+    ];
+
+    /// The tab on that side of this one: none past either end.
+    pub fn beside(self, forward: bool) -> Option<ProjectTab> {
+        let at = ProjectTab::ALL.iter().position(|tab| *tab == self)?;
+        let beside = at.checked_add_signed(if forward { 1 } else { -1 })?;
+        ProjectTab::ALL.get(beside).copied()
+    }
+
+    /// The tab after this one, or before it going back, round again past either end.
+    pub fn round(self, forward: bool) -> ProjectTab {
+        let (first, last) = (ProjectTab::Overview, ProjectTab::Graph);
+        self.beside(forward)
+            .unwrap_or(if forward { first } else { last })
+    }
 }
 
 /// A section of a project's card that folds away under its heading. Each kind needs a
@@ -129,34 +164,12 @@ impl Selection {
             | Selection::Uncommitted(project, _)
             | Selection::Branch(project, _)
             | Selection::Commit(project, _)
-            | Selection::Branches(project)
-            | Selection::History(project)
-            | Selection::Graph(project)
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
             | Selection::Upstream(project, ..)
             | Selection::Section(project, _)
             | Selection::Terminal(project, _) => project,
         }
-    }
-
-    /// `project`'s pages, in the order its page's tabs list them.
-    pub fn project_pages(project: &ProjectId) -> [Selection; 4] {
-        [
-            Selection::Project(project.clone()),
-            Selection::Branches(project.clone()),
-            Selection::History(project.clone()),
-            Selection::Graph(project.clone()),
-        ]
-    }
-
-    /// The project page on that side of this one, as its page's tabs list them: none past
-    /// either end, or from anything but a project page.
-    pub fn project_page_beside(&self, forward: bool) -> Option<Selection> {
-        let pages = Selection::project_pages(self.project());
-        let at = pages.iter().position(|page| page == self)?;
-        let beside = at.checked_add_signed(if forward { 1 } else { -1 })?;
-        pages.into_iter().nth(beside)
     }
 
     /// Whether it's `branch`, or under it.
@@ -292,6 +305,8 @@ pub enum StoreEvent {
     /// The selected page was asked for again, as by the crumb naming it, to go back to how it
     /// opens.
     Reopened,
+    /// A tab of the project being selected was asked for, as Go to anything does.
+    TabAsked(ProjectTab),
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
     Renamed(ProjectId, Option<FullName>, FullName),
@@ -832,9 +847,6 @@ impl Store {
             Selection::Project(_)
             | Selection::Checkout(..)
             | Selection::Uncommitted(_, Checkout::Main)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
             | Selection::Uncommitted(_, Checkout::Linked(_))
             | Selection::Stack(..)
             | Selection::Mesh(..)
@@ -973,11 +985,7 @@ impl Store {
             return true;
         };
         match selection {
-            Selection::Project(_)
-            | Selection::Branches(_)
-            | Selection::History(_)
-            | Selection::Graph(_)
-            | Selection::Checkout(_, Checkout::Main) => true,
+            Selection::Project(_) | Selection::Checkout(_, Checkout::Main) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Checkout(_, Checkout::Linked(name)) => {
@@ -1082,27 +1090,39 @@ impl Store {
 
     /// For the metrics: what the user opens in the window, with the app as it is then.
     fn count_view(&self, selection: &Selection) {
-        // Selecting what's left as it changes, while the user is away, isn't use, nor is the
-        // launch putting back what was selected, before the workspace has loaded.
-        let workspace = self.workspace(selection.project());
-        let Some(workspace) = workspace.filter(|_| !self.hidden) else {
-            return;
-        };
         let view = match selection {
             Selection::Project(_) => "project",
             Selection::Checkout(..) => "checkout",
             Selection::Uncommitted(_, Checkout::Main) => "uncommitted",
             Selection::Branch(..) => "branch",
             Selection::Commit(..) => "commit",
-            Selection::Branches(_) => "branches",
-            Selection::History(_) => "history",
-            Selection::Graph(_) => "graph",
             Selection::Uncommitted(_, Checkout::Linked(_)) => "worktree",
             Selection::Stack(..) => "stack",
             Selection::Mesh(..) => "mesh",
             Selection::Upstream(..) => "upstream",
             Selection::Section(..) => "section",
             Selection::Terminal(..) => "terminal",
+        };
+        self.count_view_named(view, selection.project());
+    }
+
+    /// For the metrics: the user opened `tab` of `project`'s page.
+    pub fn count_tab(&self, project: &ProjectId, tab: ProjectTab) {
+        let view = match tab {
+            ProjectTab::Overview => "project",
+            ProjectTab::Branches => "branches",
+            ProjectTab::History => "history",
+            ProjectTab::Graph => "graph",
+        };
+        self.count_view_named(view, project);
+    }
+
+    fn count_view_named(&self, view: &'static str, project: &ProjectId) {
+        // Selecting what's left as it changes, while the user is away, isn't use, nor is the
+        // launch putting back what was selected, before the workspace has loaded.
+        let workspace = self.workspace(project);
+        let Some(workspace) = workspace.filter(|_| !self.hidden) else {
+            return;
         };
         backend::metrics::viewed(view, || backend::metrics::State {
             theme: match self.prefs.appearance {
@@ -1142,6 +1162,21 @@ impl Store {
         }
         self.select(Some(selection), cx);
         true
+    }
+
+    /// Select `project` as the user asked, and have its page show `tab`. Says whether it was.
+    /// The tab's asked for first, so the page opens on it rather than on the tab it was left on.
+    pub fn show_tab(
+        &mut self,
+        project: ProjectId,
+        tab: ProjectTab,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let selection = Selection::Project(project);
+        if (self.moving.as_ref()).is_none_or(|moving| moving.holds(&selection)) {
+            cx.emit(StoreEvent::TabAsked(tab));
+        }
+        self.select_by_hand(selection, cx)
     }
 
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
@@ -1435,48 +1470,48 @@ mod tests {
     use crate::backend::{Lane, PushState, Worktree};
 
     #[test]
-    fn a_project_page_has_the_tab_on_either_side() {
-        let project = ProjectId::from("p");
-        let branches = Selection::Branches(project.clone());
+    fn a_tab_has_the_tab_on_either_side() {
         assert_eq!(
-            branches.project_page_beside(true),
-            Some(Selection::History(project.clone())),
+            ProjectTab::Branches.beside(true),
+            Some(ProjectTab::History),
             "Operations history is right of Branches"
         );
         assert_eq!(
-            branches.project_page_beside(false),
-            Some(Selection::Project(project)),
+            ProjectTab::Branches.beside(false),
+            Some(ProjectTab::Overview),
             "Overview is left of Branches"
         );
     }
 
     #[test]
-    fn nothing_is_left_of_the_first_project_page() {
-        let overview = Selection::Project(ProjectId::from("p"));
+    fn nothing_is_left_of_the_first_tab() {
         assert_eq!(
-            overview.project_page_beside(false),
+            ProjectTab::Overview.beside(false),
             None,
             "the keys leave the tabs here rather than going round"
         );
     }
 
     #[test]
-    fn nothing_is_right_of_the_last_project_page() {
-        let graph = Selection::Graph(ProjectId::from("p"));
+    fn nothing_is_right_of_the_last_tab() {
         assert_eq!(
-            graph.project_page_beside(true),
+            ProjectTab::Graph.beside(true),
             None,
-            "the keys stay on the tabs here rather than going round"
+            "the keys leave the tabs here rather than going round"
         );
     }
 
     #[test]
-    fn only_a_project_page_has_a_tab_beside_it() {
-        let branch = Selection::Branch(ProjectId::from("p"), None);
+    fn going_round_the_tabs_passes_the_ends() {
         assert_eq!(
-            branch.project_page_beside(true),
-            None,
-            "a branch's page isn't one of the project's tabs"
+            ProjectTab::Graph.round(true),
+            ProjectTab::Overview,
+            "past the last tab is the first"
+        );
+        assert_eq!(
+            ProjectTab::Overview.round(false),
+            ProjectTab::Graph,
+            "before the first tab is the last"
         );
     }
 
