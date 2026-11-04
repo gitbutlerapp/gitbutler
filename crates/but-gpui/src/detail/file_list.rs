@@ -13,7 +13,10 @@ use gpui::{
 use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::{rows_under, side_list};
-use super::{Copied, Detail, FilterFiles, LoadedDiff, PageFold, keeps_path, merged, ranked};
+use super::{
+    CheckAll, Copied, Detail, FilterFiles, LoadedDiff, PageFold, UncheckAll, keeps_path, merged,
+    ranked,
+};
 actions!(
     changes,
     [
@@ -51,8 +54,9 @@ use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, ROW_HEIGHT, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint,
-    fixed, h_flex, icon_button, matched, muted, popover, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state,
+    faint, fixed, h_flex, icon_button, matched, muted, popover, shortcut, side_row, small_icon,
+    v_flex,
 };
 
 /// Where a file list's files come from.
@@ -233,6 +237,7 @@ impl Detail {
                 .map(|f| f.path.as_str())
                 .filter(|path| shown(path)),
             diffs.iter().filter(|diff| shown(&diff.file.path)),
+            self.check_all_box(theme, cx),
             theme,
             cx,
         );
@@ -282,7 +287,7 @@ impl Detail {
             .map(|f| f.file.path.as_str())
             .filter(|path| !leaving(path));
         let diffs = diff.files.iter().filter(|f| !leaving(&f.file.path));
-        let header = self.list_header(paths, diffs, theme, cx);
+        let header = self.list_header(paths, diffs, None, theme, cx);
         v_flex()
             .flex_1()
             .min_h_0()
@@ -823,7 +828,7 @@ impl Detail {
     }
 
     /// The paths of the files the list shows, in its order.
-    fn listed_paths(&self, cx: &App) -> Vec<String> {
+    pub(super) fn listed_paths(&self, cx: &App) -> Vec<String> {
         (self.listed_files(cx).into_iter())
             .filter_map(|file| self.diff_path(file))
             .collect()
@@ -1039,13 +1044,39 @@ impl Detail {
         Some(row.into_any_element())
     }
 
-    /// A file list's header: how many `paths` it has, the lines `diffs` add and remove, and
-    /// ways to filter it or show it as a tree. While the filter is open: the filter, how many
-    /// of `paths` it keeps, and a way to close it.
+    /// The checkbox for all the files the composer can take, while it's open and there are
+    /// any: a click checks them all, or once they all are, unchecks them.
+    fn check_all_box(&self, theme: &Theme, cx: &Context<Self>) -> Option<Stateful<Div>> {
+        if !self.composing {
+            return None;
+        }
+        let all = self.checks.all_check(&self.checkable_paths(cx))?;
+        let check = all != Toggled::True;
+        let (tip, key) = match check {
+            true => ("Check all files", shortcut(&CheckAll, cx)),
+            false => ("Uncheck all files", shortcut(&UncheckAll, cx)),
+        };
+        Some(
+            // An id for each, as a tooltip stays as it showed, over a click that changes it.
+            checkbox(("check-all", usize::from(check)), all, theme)
+                .aria_label(tip)
+                .tooltip(Tooltip::keyed(tip, key))
+                // The keys stay where they are, as in the navigator placing the commit.
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(
+                    cx.listener(move |this, _: &ClickEvent, _, cx| this.set_all_checked(check, cx)),
+                ),
+        )
+    }
+
+    /// A file list's header: `check_all`, how many `paths` it has, the lines `diffs` add and
+    /// remove, and ways to filter it or show it as a tree. While the filter is open: the
+    /// filter, how many of `paths` it keeps, and a way to close it.
     fn list_header<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
         diffs: impl Iterator<Item = &'a FileDiff>,
+        check_all: Option<Stateful<Div>>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
@@ -1077,6 +1108,7 @@ impl Detail {
                 );
         }
         header_row()
+            .children(check_all)
             .child(files_heading(
                 paths.count(),
                 diff::total_stats(diffs),

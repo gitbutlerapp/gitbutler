@@ -119,6 +119,8 @@ commands! {
             _ => None,
         },
     },
+    crate::detail::CheckAll => "Check all files",
+    crate::detail::UncheckAll => "Uncheck all files",
     crate::detail::MarkResolved => "Mark resolved",
     crate::detail::UncommitChanges => "Uncommit changes" risky {
         phrase: |app, cx| Some(format!("Uncommit {}", app.detail.read(cx).cut_kind(cx)?)),
