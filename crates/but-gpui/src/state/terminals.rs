@@ -351,10 +351,7 @@ impl Store {
             Some(Selection::Terminal(_, id)) => Some(*id),
             _ => None,
         };
-        let pinned = self.pinned().into_iter().filter_map(|row| match row {
-            RowKey::Row(Selection::Terminal(_, id)) => Some(id),
-            _ => None,
-        });
+        let pinned = self.tiling().into_iter().flat_map(Tiling::pinned_terminals);
         let on_screen: Vec<TerminalId> = match self.hidden() {
             true => Vec::new(),
             false => selected.into_iter().chain(pinned).collect(),

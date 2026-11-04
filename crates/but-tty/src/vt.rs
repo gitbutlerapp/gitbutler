@@ -91,6 +91,28 @@ pub enum Status {
 }
 
 impl Status {
+    /// The most urgent of `statuses`, for where one has to stand for several: the first of
+    /// those alike.
+    pub fn most_urgent<'a>(statuses: impl IntoIterator<Item = &'a Status>) -> Option<&'a Status> {
+        (statuses.into_iter()).reduce(|most, status| match status.urgency() > most.urgency() {
+            true => status,
+            false => most,
+        })
+    }
+
+    /// What's waiting on the user first, then what went wrong, then what's under way. What's
+    /// finished comes after that, as it lasts until it's looked at, so it still shows once the
+    /// rest ends.
+    fn urgency(&self) -> u8 {
+        match self {
+            Status::Idle => 0,
+            Status::Done => 1,
+            Status::Working => 2,
+            Status::Failed(_) => 3,
+            Status::Blocked(_) => 4,
+        }
+    }
+
     /// The root record of a report; records beneath it are parts of the work.
     fn reported(report: ProgramStatus<'_>) -> Option<Self> {
         if !report.id().is_empty() {
@@ -1696,5 +1718,68 @@ mod tests {
             fresh.term.mode(Mode::BRACKETED_PASTE).unwrap(),
             "the modes the shell set carry over"
         );
+    }
+
+    #[test]
+    fn what_waits_on_the_user_is_most_urgent() {
+        let blocked = Status::Blocked("Apply?".into());
+        let statuses = [
+            Status::Idle,
+            Status::Done,
+            Status::Working,
+            Status::Failed(String::new()),
+            blocked.clone(),
+        ];
+        assert_eq!(
+            Status::most_urgent(&statuses),
+            Some(&blocked),
+            "nothing goes on until the user acts"
+        );
+    }
+
+    #[test]
+    fn what_went_wrong_is_more_urgent_than_what_is_under_way() {
+        let failed = Status::Failed("Crashed".into());
+        assert_eq!(
+            Status::most_urgent(&[Status::Working, failed.clone()]),
+            Some(&failed),
+            "it stopped, and the other goes on by itself"
+        );
+    }
+
+    #[test]
+    fn what_is_under_way_is_more_urgent_than_what_finished() {
+        assert_eq!(
+            Status::most_urgent(&[Status::Done, Status::Working]),
+            Some(&Status::Working),
+            "the row doesn't say finished while something still runs"
+        );
+    }
+
+    #[test]
+    fn what_finished_is_more_urgent_than_nothing() {
+        assert_eq!(
+            Status::most_urgent(&[Status::Idle, Status::Done]),
+            Some(&Status::Done),
+            "a result is for the user to look at"
+        );
+    }
+
+    #[test]
+    fn the_first_of_those_alike_stands_for_them() {
+        let (first, second) = (
+            Status::Blocked("First".into()),
+            Status::Blocked("Second".into()),
+        );
+        assert_eq!(
+            Status::most_urgent(&[first.clone(), second]),
+            Some(&first),
+            "a row's own terminal comes first, so its reason wins"
+        );
+    }
+
+    #[test]
+    fn no_statuses_have_no_most_urgent() {
+        assert_eq!(Status::most_urgent(&[]), None, "there's nothing to show");
     }
 }
