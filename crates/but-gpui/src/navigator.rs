@@ -2325,7 +2325,7 @@ impl Navigator {
         let Some(el) = el else {
             return div().into_any_element();
         };
-        let el = self.with_tiles(el, item, (selected, solid), theme, cx);
+        let el = self.with_tiles(el, item, style, cx);
         let el = self.drop_target(el, item.clone(), window, theme, cx);
         match outlined {
             Some(outline) => {
@@ -2338,19 +2338,26 @@ impl Navigator {
     }
 
     /// Row `el` of `item`, beside a small map of its tiles while it has others than its page,
-    /// which is the brightest: shaded with the row while it's `selected`, solid as it is, and
-    /// naming them in its tooltip. A click on it is one on the row.
+    /// which is the brightest: shaded with the row while it's selected, solid as it is, and
+    /// naming them in its tooltip. A click on it is one on the row. Before the map goes the
+    /// status of the terminals in the row's tilings, which a terminal's row shows itself.
     fn with_tiles(
         &self,
         el: AnyElement,
         item: &Selection,
-        (selected, solid): (bool, bool),
-        theme: &Theme,
+        style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let (theme, selected, solid) = (style.theme, style.selected, style.solid);
         let store = self.store.read(cx);
         let tiles = store.tiles_of(item);
-        if tiles.len() < 2 {
+        let status = match item {
+            Selection::Terminal(..) => None,
+            _ => store.row_status(item),
+        };
+        let mark = status.and_then(|status| status_mark(status, !store.hidden(), style));
+        let mapped = tiles.len() >= 2;
+        if !mapped && mark.is_none() {
             return el;
         }
         let ink = match selected && solid {
@@ -2381,6 +2388,7 @@ impl Navigator {
             .h(dp(ROW_HEIGHT))
             .mr(dp(3.))
             .px(dp(7.))
+            .gap(dp(6.))
             .rounded(dp(4.))
             .map(|el| match (selected, solid) {
                 (true, true) => el.bg(theme.fill_gray),
@@ -2389,14 +2397,17 @@ impl Navigator {
                     .bg(theme.hover())
                     .hover(|el| el.bg(theme.selected_unfocused())),
             })
-            .child(
-                div()
-                    .relative()
-                    .w(dp(TILE_MAP.0))
-                    .h(dp(TILE_MAP.1))
-                    .children(cells),
-            )
-            .tooltip(Tooltip::text(names))
+            .children(mark)
+            .when(mapped, |el| {
+                el.child(
+                    div()
+                        .relative()
+                        .w(dp(TILE_MAP.0))
+                        .h(dp(TILE_MAP.1))
+                        .children(cells),
+                )
+                .tooltip(Tooltip::text(names))
+            })
             .map(|el| self.selectable(el, item, cx))
             .map(|el| self.page_drag(el, item, cx));
         h_flex()
@@ -3113,7 +3124,7 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let title = store.terminals.title(id)?.clone();
-        let status = store.terminals.status(id)?;
+        let status = store.row_status(item);
         let field = self.rename_field(item, style.theme, cx);
         let renaming = field.is_some();
         let row = style
@@ -3123,7 +3134,7 @@ impl Navigator {
                 Some(field) => field,
                 None => (div().flex_1().min_w_0().truncate().child(title)).into_any_element(),
             })
-            .children(status_mark(status, !store.hidden(), style))
+            .children(status.and_then(|status| status_mark(status, !store.hidden(), style)))
             .when(!renaming, |el| self.terminal_drag(el, item, id, cx))
             .map(|el| self.selectable(el, item, cx));
         Some(row.into_any_element())
