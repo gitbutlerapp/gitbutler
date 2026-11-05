@@ -17,7 +17,7 @@ mod find;
 mod graph;
 mod key_panes;
 pub use branches::{ApplyBranch, EditDescription, NewWorktreeFromBranch, ShowOnlyLocalBranches};
-pub use file_list::{DiscardFromCommit, MarkResolved, SplitIntoNewCommit, UncommitChanges};
+pub use file_list::{MarkResolved, SplitIntoNewCommit, UncommitChanges};
 pub use find::FindInDiff;
 pub use history::RestoreOperation;
 mod history;
@@ -61,11 +61,12 @@ use crate::backend::{
     LineKind, Selected,
 };
 use crate::clock;
+use crate::edits::Discard;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Area, Cut, FileSort, FileView, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Section,
-    Selection, Side, Store, StoreEvent, Tile, snack,
+    Area, FileSort, FileView, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Section, Selection,
+    Side, Store, StoreEvent, Tile,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -91,8 +92,6 @@ actions!(
         LastFile,
         NextHunk,
         PreviousHunk,
-        DiscardHunk,
-        DiscardFile,
         FoldFile,
         UnfoldFile,
         ToggleFileFold,
@@ -955,7 +954,7 @@ impl Detail {
 
     /// The page shown: what was selected as it last took a selection, or for a pinned page
     /// what it was pinned to.
-    fn selection(&self) -> Option<Selection> {
+    pub(crate) fn selection(&self) -> Option<Selection> {
         self.shows.clone()
     }
 
@@ -3041,10 +3040,10 @@ impl Detail {
             && self.checks_worktree == *checkout
     }
 
-    /// Whether the diff's cursor is on a hunk, rather than a file's header or the box above a
-    /// hunk, for ⌥⌘Z to discard.
-    pub fn on_hunk(&self) -> bool {
-        self.cursor.at.hunk().is_some()
+    /// Whether the diff's cursor is on a hunk that shows, rather than a file's header, the box
+    /// above a hunk or a hunk scrolled away.
+    pub fn on_hunk(&self, cx: &App) -> bool {
+        self.cursor.at.hunk().is_some() && self.cursor_in_sight(cx)
     }
 
     /// Whether there's a file shown for the diff's keys to act on, not one the filter hides.
@@ -3344,80 +3343,6 @@ impl Detail {
         if folded == Some(!fold) && !self.diff_hidden(cx) {
             self.toggle_fold(file, cx);
         }
-    }
-
-    /// Throw away one hunk of the uncommitted file at `file_ix`, or the whole file when `hunk`
-    /// is `None`. Never a file the diff doesn't show, as one the filter hides.
-    pub fn discard(
-        &mut self,
-        file_ix: usize,
-        hunk: Option<usize>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.cursor = Cursor {
-            file: file_ix,
-            at: hunk.map_or(Stop::File, Stop::Hunk),
-        };
-        let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
-            return self.not_live(window, cx);
-        };
-        let Some(file) = diff.files.get(file_ix) else {
-            return;
-        };
-        // A conflicted file's hunk can't be discarded alone: it goes whole or not at all.
-        if !self.shown_files().contains(&file_ix) || (hunk.is_some() && file.file.conflicted) {
-            return;
-        }
-        let hunks = match hunk.map(|ix| file.hunks().get(ix)) {
-            None => None,
-            Some(Some(hunk)) => Some(vec![hunk.key]),
-            // Never widen a hunk discard to the whole file.
-            Some(None) => return,
-        };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
-        let change = file.part(hunks);
-        self.app.update_later(window, cx, move |app, window, cx| {
-            app.discard(project, worktree, vec![change], window, cx)
-        });
-    }
-
-    /// Discard the picked lines of a diff of uncommitted changes.
-    fn discard_picked_lines(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(Cut::Files {
-            project,
-            from: None,
-            worktree,
-            files,
-        }) = self.line_picks_cut(cx)
-        else {
-            return self.not_live(window, cx);
-        };
-        self.app.update_later(window, cx, move |app, window, cx| {
-            app.discard(project, worktree, files.to_vec(), window, cx)
-        });
-    }
-
-    /// Say why the discard keys do nothing on a workspace commit's diff, whose file menu
-    /// discards from it. Not with a page's list in front, as its rows aren't the diff's.
-    fn not_live(&self, window: &Window, cx: &mut Context<Self>) {
-        if !self.side_list_focused(window) && self.owned_cut(Vec::new(), cx).is_some() {
-            let why = "Only uncommitted changes can be discarded with these keys. A commit's file menu has \
-                 Discard from commit";
-            snack(&self.store, why, cx);
-        }
-    }
-
-    /// Discard the picked files of a diff of uncommitted changes.
-    fn discard_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
-            return self.not_live(window, cx);
-        };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
-        let changes = self.picked_changes();
-        self.app.update_later(window, cx, move |app, window, cx| {
-            app.discard(project, worktree, changes, window, cx)
-        });
     }
 
     /// Bring diff row `row` into view: left where it is when it's on screen, else glided to
@@ -4075,11 +4000,14 @@ impl Render for Detail {
         v_flex()
             .id("detail")
             .key_context(context)
-            .map(|el| self.branches_page_actions(el, cx))
+            .map(|el| self.branches_page_actions(el, window, cx))
             .map(|el| self.history_actions(el, cx))
             .map(|el| self.upstream_page_actions(el, cx))
             .map(|el| self.change_actions(el, cx))
             .map(|el| self.brief_actions(el, cx))
+            // Always: what it takes is asked as it runs, as the cursor can come into sight with
+            // no draw of this view, and where there's nothing it mustn't go on to the row.
+            .on_action(cx.listener(|this, _: &Discard, window, cx| this.discard_here(window, cx)))
             // The file under the cursor, while the file list or the diff has the keys.
             .when_some(
                 self.focused_file_paths(window, cx),
@@ -4122,28 +4050,6 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
             )
-            // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
-            // shown, not under a checkout's overview, where no row says which it is. Only with
-            // the diff's keys: elsewhere its hunk shows faint, and a discard mustn't land on it.
-            .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
-                if !this.focus.is_focused(window) {
-                    return;
-                }
-                if this.page.line_picks().is_some() {
-                    this.discard_picked_lines(window, cx)
-                } else if let Some(hunk) = this.cursor.at.hunk() {
-                    this.discard(this.cursor.file, Some(hunk), window, cx)
-                }
-            }))
-            .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
-                if this.page.line_picks().is_some() {
-                    this.discard_picked_lines(window, cx)
-                } else if this.page.has_file_picks() {
-                    this.discard_picked(window, cx)
-                } else if let Some(file) = this.current_file() {
-                    this.discard(file, None, window, cx)
-                }
-            }))
             .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
             .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
             // On its header, or its row in the file list, or scrolled to past the cursor, not

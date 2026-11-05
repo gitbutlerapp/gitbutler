@@ -2829,6 +2829,13 @@ impl AppView {
         (self.tile_focus(tile, cx)).is_some_and(|focus| focus.contains_focused(window, cx))
     }
 
+    /// The detail that has the keys, the home tile's or a pinned one's, if one does.
+    pub(crate) fn detail_with_keys(&self, window: &Window, cx: &App) -> Option<&Entity<Detail>> {
+        (std::iter::once(&self.detail))
+            .chain(self.pages.values().map(|page| &page.detail))
+            .find(|detail| detail.read(cx).is_focused(window, cx))
+    }
+
     /// The tile of the selected row's tiling that has the keys, if one does.
     fn tile_with_keys(&self, window: &Window, cx: &App) -> Option<Tile> {
         let tiling = self.store.read(cx).tiling()?;
@@ -4875,6 +4882,7 @@ impl Render for AppView {
             .map(|el| self.pr_actions(el, cx))
             .map(|el| self.copy_actions(el, cx))
             .map(|el| self.navigator_actions(el, cx))
+            .map(|el| self.discard_actions(el, window, cx))
             .map(|el| self.project_list_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to))

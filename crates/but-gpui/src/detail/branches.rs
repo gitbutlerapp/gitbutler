@@ -36,7 +36,7 @@ use crate::app::{CopyBranchName, CopyCommitId, OpenPullRequest};
 use crate::backend::branches::{self, ApplyOutcome, DescribeBranch, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
-use crate::edits::{CherryPick, DeleteBranch};
+use crate::edits::{BRANCH_ALIASES, CherryPick, Discard};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, ProjectTab, Selection, Store};
 use crate::theme::Theme;
@@ -378,6 +378,13 @@ impl Detail {
     /// The branch whose diff shows; none while the overview does.
     pub(crate) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
         self.branches_for(project)?.selected_branch()
+    }
+
+    /// Whether the keys are on a branch's own row of the Branches page's list.
+    fn on_branch_row(&self, project: &ProjectId, window: &Window) -> bool {
+        self.side_list_focused(window)
+            && (self.branches_for(project))
+                .is_some_and(|branches| branches.commit.is_none() && !branches.stack)
     }
 
     fn opened_branch(&self, project: &ProjectId) -> Option<FullName> {
@@ -998,20 +1005,33 @@ impl Detail {
         &self,
         project: &ProjectId,
         ref_name: &FullName,
-        cx: &App,
+        cx: &Context<Self>,
     ) -> Vec<MenuItem> {
         // While it's listed.
-        if self.listed_branch(project, ref_name).is_none() {
+        let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
-        }
-        vec![
+        };
+        let local = branch.local;
+        let mut items = vec![
             MenuItem::command(&ApplyBranch, cx),
             MenuItem::command(&NewWorktreeFromBranch, cx),
             MenuItem::command(&OpenPullRequest, cx),
             MenuItem::command(&CopyBranchName, cx).separated(),
             MenuItem::command(&EditDescription, cx),
-            MenuItem::command(&DeleteBranch, cx).danger().separated(),
-        ]
+        ];
+        // Of this branch wherever the keys are: its ⋯ gives them to the diff.
+        if local {
+            let (detail, project, ref_name) =
+                (cx.entity().downgrade(), project.clone(), ref_name.clone());
+            let delete = MenuItem::keyed("Delete branch", &Discard, cx, move |_, window, cx| {
+                (detail.update(cx, |detail, cx| {
+                    detail.delete_other_branch(&project, &ref_name, window, cx)
+                }))
+                .ok();
+            });
+            items.push(delete.found_by(BRANCH_ALIASES).danger().separated());
+        }
+        items
     }
 
     /// What right-clicking the row the Branches page's list has selected offers, a branch or
@@ -1630,6 +1650,7 @@ impl Detail {
     pub(super) fn branches_page_actions(
         &self,
         el: Stateful<Div>,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let Some(project) = self.on_tab(ProjectTab::Branches) else {
@@ -1670,13 +1691,15 @@ impl Detail {
                         this.edit_branch_description(&described, &ref_name, window, cx)
                     }
                 }))
-                .on_action(cx.listener(
-                    move |this, _: &DeleteBranch, window, cx| {
+                // From its own row: not a commit's or a stack's, which offer no delete, or the
+                // diff beside the list, where Discard takes what's there.
+                .when(self.on_branch_row(&deleted, window), |el| {
+                    el.on_action(cx.listener(move |this, _: &Discard, window, cx| {
                         if let Some(ref_name) = this.opened_branch(&deleted) {
                             this.delete_other_branch(&deleted, &ref_name, window, cx)
                         }
-                    },
-                ))
+                    }))
+                })
             })
         })
         .when(picks, |el| {

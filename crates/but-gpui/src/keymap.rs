@@ -29,8 +29,9 @@ pub enum Keymap {
     /// and unfold, f to
     /// show and hide the files, ⌘B and ⌥⌘B the navigator and the details, / to filter or find,
     /// ⌘K for the command palette, ⌘P to go to anything and ⌘J to a terminal, ⌘T to open a
-    /// terminal, ⌘R and ⇧⌘R to fetch and pull, ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and go between
-    /// tiles, or Ghostty's keys for them on Linux, and ⇧⌘M and ⌥⌘M to move and swap a tile.
+    /// terminal, ⌘⌫ to discard, ⌘R and ⇧⌘R to fetch and pull, ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and
+    /// go between tiles, or Ghostty's keys for them on Linux, and ⇧⌘M and ⌥⌘M to move and swap
+    /// a tile.
     Tui,
 }
 
@@ -204,6 +205,43 @@ mod tests {
             drawer_bar_keys_are_the_navigators(Keymap::Tui),
             "a key means the same on the bar as on a row"
         );
+    }
+
+    /// The keys `keymap` binds to Discard on `os`.
+    fn discard_keys(keymap: Keymap, os: &str) -> Vec<String> {
+        (bound(keymap, os).into_iter())
+            .filter(|entry| entry.action == "edits::Discard")
+            .map(|entry| entry.keys)
+            .collect()
+    }
+
+    #[test]
+    fn discard_has_one_key_in_the_gitbutler_keymap_on_macos() {
+        assert_eq!(
+            discard_keys(Keymap::GitButler, "macos"),
+            ["secondary-backspace"]
+        );
+    }
+
+    #[test]
+    fn discard_has_one_key_in_the_gitbutler_keymap_on_windows() {
+        assert_eq!(
+            discard_keys(Keymap::GitButler, "windows"),
+            ["secondary-backspace"]
+        );
+    }
+
+    #[test]
+    fn discard_has_one_key_in_the_gitbutler_keymap_on_linux() {
+        assert_eq!(
+            discard_keys(Keymap::GitButler, "linux"),
+            ["secondary-backspace"]
+        );
+    }
+
+    #[test]
+    fn discard_has_one_key_in_the_tui_keymap() {
+        assert_eq!(discard_keys(Keymap::Tui, "macos"), ["secondary-backspace"]);
     }
 
     #[test]

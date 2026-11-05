@@ -10,14 +10,11 @@ use crate::app::{
     Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
-use crate::detail::{
-    DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
-};
+use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CopyChangeId, CopyMessage,
-    DeleteBranch, DiscardChanges, DiscardCommit, NameBranch, NewBranchBelow, NewBranchHere,
-    RenameBranch, RenameTerminal, Reword, RewrapMessage, SquashAll, UnapplyStack, Uncommit,
-    Unstack,
+    Discard, NameBranch, NewBranchBelow, NewBranchHere, RenameBranch, RenameTerminal, Reword,
+    RewrapMessage, SquashAll, UnapplyStack, Uncommit, Unstack,
 };
 use crate::palette::{CopyMore, GoTo, GoToTerminal};
 use crate::state::Selection;
@@ -108,16 +105,27 @@ commands! {
     FoldFile => "Fold file",
     UnfoldFile => "Unfold file",
     ToggleFileTree => "Show files as a tree or a list",
-    DiscardHunk => "Discard hunk" risky {
-        phrase: |app, cx| (app.detail.read(cx).cut_kind(cx) == Some("lines"))
-            .then(|| "Discard lines".to_owned()),
-    },
-    DiscardFile => "Discard file" risky {
-        phrase: |app, cx| match app.detail.read(cx).cut_kind(cx)? {
-            "lines" => Some("Discard lines".to_owned()),
-            "files" => Some("Discard files".to_owned()),
-            _ => None,
-        },
+    Discard => "Discard" risky {
+        aliases: &[
+            "Discard commit",
+            "Remove commit",
+            "Delete commit",
+            "Discard changes",
+            "Discard hunk",
+            "Discard lines",
+            "Discard file",
+            "Delete branch",
+            "Remove branch",
+            "Discard branch",
+            "Close terminal",
+            "Remove terminal",
+            "Delete terminal",
+            "Discard terminal",
+            "Delete worktree",
+            "Remove worktree",
+            "Discard worktree",
+        ],
+        listed: deletable,
     },
     crate::detail::CheckAll => "Check all files",
     crate::detail::UncheckAll => "Uncheck all files",
@@ -126,11 +134,6 @@ commands! {
         phrase: |app, cx| Some(format!("Uncommit {}", app.detail.read(cx).cut_kind(cx)?)),
     },
     crate::detail::SplitIntoNewCommit => "Split into a new commit",
-    crate::detail::DiscardFromCommit => "Discard changes from commit" risky {
-        phrase: |app, cx| {
-            Some(format!("Discard {} from commit", app.detail.read(cx).cut_kind(cx)?))
-        },
-    },
     StartCommit => "Commit",
     StartAmend => "Amend",
     Undo => "Undo",
@@ -191,15 +194,6 @@ commands! {
     RewrapMessage => "Rewrap message",
     CopyChangeId => "Copy change ID",
     CopyMessage => "Copy message",
-    DiscardCommit => "Discard commit" risky {
-        aliases: &["Remove commit", "Delete commit"],
-        phrase: |app, cx| picks(app, cx).map(|n| format!("Discard {n} commits")),
-    },
-    DeleteBranch => "Delete branch" risky {
-        aliases: &["Remove branch", "Discard branch"],
-        listed: deletable,
-    },
-    DiscardChanges => "Discard changes" risky { phrase: discard_changes_phrase },
     CopySelection => "Copy",
     crate::app::CopyCommitId => "Copy commit ID",
     crate::app::CopyBranchName => "Copy branch name" {
@@ -329,9 +323,6 @@ commands! {
     crate::app::CopyTileDiagram => "Copy tile layout as a diagram" {
         aliases: &["Copy splits as ASCII", "Copy tiling diagram"],
     },
-    crate::navigator::CloseTerminal => "Close terminal" {
-        aliases: &["Remove terminal", "Delete terminal", "Discard terminal"],
-    },
     crate::navigator::Watch => "Watch",
     crate::navigator::StopWatching => "Stop watching" { aliases: &["Unwatch"] },
     crate::navigator::UnarchiveWorktree => "Unarchive worktree",
@@ -339,9 +330,6 @@ commands! {
     crate::navigator::OpenProjectSettings => "Project settings",
     crate::navigator::ArchiveWorktree => "Archive worktree" {
         phrase: |_, _| Some("Archive".to_owned()),
-    },
-    crate::navigator::DeleteWorktree => "Delete worktree" risky {
-        aliases: &["Remove worktree", "Discard worktree"],
     },
     // Under their headings in the view menus, they're the choices.
     crate::navigator::SortProjectsByActivity => "Sort projects by last activity" {
@@ -546,14 +534,6 @@ fn composing_selected(app: &AppView, cx: &App) -> Option<bool> {
         _ => return None,
     };
     Some(app.detail.read(cx).composing_in(project, &checkout))
-}
-
-/// The changes the composer has checked, while it's open on them, or all of them.
-fn discard_changes_phrase(app: &AppView, cx: &App) -> Option<String> {
-    Some(match composing_selected(app, cx)? {
-        true => "Discard checked changes".to_owned(),
-        false => "Discard all changes".to_owned(),
-    })
 }
 
 /// While committing, a cut takes what's checked wherever the keys are, a file's menu too.

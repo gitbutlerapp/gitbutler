@@ -16,6 +16,7 @@ use crate::app::{
 };
 use crate::backend::{self, FullName, short_ref};
 use crate::commands::Command;
+use crate::edits::Discard;
 use crate::help::OpenReleaseNotes;
 use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
@@ -81,7 +82,20 @@ pub struct MenuItem {
     /// The command it runs, which says when it's offered and how it reads for the selection
     /// once the menu opens.
     pub command: Option<&'static dyn Command>,
+    /// What it discards, which says the same for an item of Discard.
+    pub discards: Option<Discards>,
+    /// The other names ⌘K finds it by.
+    pub aliases: &'static [&'static str],
     pub handler: MenuHandler,
+}
+
+/// What a menu's Discard takes.
+#[derive(Clone)]
+pub enum Discards {
+    /// The row, wherever the keys are, as a page's ⋯ offers from its diff.
+    Row(Selection),
+    /// What's under the keys in the diff or the file list.
+    Here,
 }
 
 impl MenuItem {
@@ -99,6 +113,8 @@ impl MenuItem {
             heading: None,
             ticked: false,
             command: None,
+            discards: None,
+            aliases: &[],
             handler: Rc::new(handler),
         }
     }
@@ -141,6 +157,36 @@ impl MenuItem {
             command: Some(command),
             ..Self::action(command.title(), command, cx)
         }
+    }
+
+    /// Discard of the row `target`, the way it reads for that row, wherever the keys are.
+    pub fn discard_row(target: &Selection, cx: &App) -> Self {
+        let row = target.clone();
+        let item = Self::keyed("Discard", &Discard, cx, move |app, window, cx| {
+            if let Some(discard) = app.row_discard(&row, cx) {
+                (discard.run)(app, window, cx)
+            }
+        });
+        Self {
+            discards: Some(Discards::Row(target.clone())),
+            ..item
+        }
+        .danger()
+    }
+
+    /// Discard of what's under the keys in the diff or the file list.
+    pub fn discard_here(cx: &App) -> Self {
+        Self {
+            discards: Some(Discards::Here),
+            ..Self::action("Discard", &Discard, cx)
+        }
+        .danger()
+    }
+
+    /// The other names ⌘K finds it by.
+    pub fn found_by(mut self, aliases: &'static [&'static str]) -> Self {
+        self.aliases = aliases;
+        self
     }
 
     /// Shows the keys of `action` instead, which does the same here: ⌘C beside the one copy
@@ -447,19 +493,22 @@ impl AppView {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> (Vec<MenuItem>, Option<Bounds<Pixels>>) {
-        let detail = (self.detail.read(cx).is_focused(window, cx))
-            .then(|| (self.detail).update(cx, |detail, cx| detail.selected_menu(window, cx)))
-            .flatten();
-        if let Some(menu) = detail {
+        let detail = self.detail_with_keys(window, cx).cloned();
+        let menu = (detail.as_ref())
+            .and_then(|detail| detail.update(cx, |detail, cx| detail.selected_menu(window, cx)));
+        if let Some(menu) = menu {
             return menu;
         }
-        let Some(selection) = self.store.read(cx).selection.clone() else {
+        // The row of the page with the keys, a pinned one's rather than the selected row's.
+        let row = (detail.and_then(|detail| detail.read(cx).selection()))
+            .or_else(|| self.store.read(cx).selection.clone());
+        let Some(row) = row else {
             return (Vec::new(), None);
         };
         let navigator = self.navigator.read(cx);
         (
-            navigator.row_menu_items(&selection, cx),
-            navigator.row_bounds(&selection),
+            navigator.row_menu_items(&row, cx),
+            navigator.row_bounds(&row),
         )
     }
 
@@ -469,6 +518,20 @@ impl AppView {
         let mut separated = false;
         (items.into_iter())
             .filter_map(|mut item| {
+                if let Some(discards) = &item.discards {
+                    let Some((phrase, aliases)) = self.discard_words(discards, window, cx) else {
+                        separated |= item.separated;
+                        return None;
+                    };
+                    item.label = phrase.into();
+                    item.aliases = aliases;
+                    // Elsewhere the keys do something else, or nothing.
+                    if let Discards::Row(row) = discards
+                        && !self.keys_discard(row, window, cx)
+                    {
+                        item.key = None;
+                    }
+                }
                 if let Some(command) = item.command {
                     if !self.offers(command, window, cx) {
                         separated |= item.separated;
@@ -482,6 +545,25 @@ impl AppView {
                 Some(item)
             })
             .collect()
+    }
+
+    /// What an item that discards `discards` says and is found by in ⌘K, unless there's nothing
+    /// to take.
+    fn discard_words(
+        &self,
+        discards: &Discards,
+        window: &Window,
+        cx: &App,
+    ) -> Option<(String, &'static [&'static str])> {
+        match discards {
+            Discards::Row(row) => (self.row_discard(row, cx))
+                .filter(|_| Discard.listed(self, cx))
+                .map(|discard| (discard.phrase, discard.aliases)),
+            Discards::Here => {
+                let detail = self.detail_with_keys(window, cx)?.read(cx);
+                Some((detail.discard_phrase(window, cx)?, &[]))
+            }
+        }
     }
 
     /// Whether ⌘K and the menus offer `command` where the keys are.
