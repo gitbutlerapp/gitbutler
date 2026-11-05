@@ -8,18 +8,24 @@
 //! less, and a stretch of line between commits hardly any, so a branch tucks in beside a line
 //! with nothing of its own there.
 //!
+//! All the target has goes first, what's still on a lane too, and the lanes take the room left:
+//! an update moves only the lanes, as what it brings in already stands where it will stay.
+//!
 //! Where edges turn from one line into another, they cross the gap between two rows, each on
 //! a track of its own where it would overlap another: turns out of a commit low in the gap, the
 //! widest lowest, and turns into one high, the widest highest, so they nest rather than cross.
 
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// A commit as the layout sees it: its parents by their place in the list, first parent
 /// first, `None` for one the graph doesn't have. One with several is a merge.
 #[derive(Debug, Clone, Default)]
 pub struct Input {
     pub parents: Vec<Option<usize>>,
+    /// The side a line with this tip goes when both are as near. It's the commit's own, not
+    /// counted from what else there is, so commits arriving above leave the line where it is.
+    pub leans_right: bool,
 }
 
 /// Where a line goes.
@@ -30,13 +36,14 @@ pub enum Side {
     /// Centred over the commit it forks from with the others forking from it, in their order,
     /// as the workspace's lanes.
     Over,
-    /// Beside the line it forks from, on the side with room nearer, taking turns when both
-    /// are as near, as the rest of the history.
+    /// Beside the line it forks from, on the side with room nearer, or the one its tip leans
+    /// to when both are as near, as the rest of the history.
     Beside,
 }
 
-/// A line laid out before the rest, from `tip` down its first parents, in the order given.
-/// Every other line goes beside the one it forks from, the newest first.
+/// A line from `tip` down its first parents, in the order given. The [`Side::Middle`] ones go
+/// first, then every other line they reach, then the others, then the rest. Those the given
+/// ones don't start go beside the one they fork from, the newest first.
 #[derive(Debug, Clone, Copy)]
 pub struct Line {
     pub tip: usize,
@@ -138,9 +145,17 @@ pub fn layout(commits: &[Input], lines: &[Line], widths: Widths) -> Layout {
         .collect();
     let mut rest: Vec<usize> = (0..n).collect();
     rest.sort_by_key(|commit| Reverse(row(&rows, *commit)));
-    let tips = (lines.iter().filter(|line| line.tip < n))
-        .map(|line| (line.tip, line.side))
-        .chain(rest.into_iter().map(|commit| (commit, Side::Beside)));
+    let (middle, others): (Vec<Line>, Vec<Line>) =
+        (lines.iter().filter(|line| line.tip < n)).partition(|line| line.side == Side::Middle);
+    let target = reach(commits, middle.iter().map(|line| line.tip).collect(), &[]);
+    let (history, rest): (Vec<usize>, Vec<usize>) =
+        (rest.into_iter()).partition(|commit| target.get(*commit).copied().unwrap_or(false));
+    let beside = |commit| (commit, Side::Beside);
+    let given = |line: Line| (line.tip, line.side);
+    let tips = (middle.into_iter().map(given))
+        .chain(history.into_iter().map(beside))
+        .chain(others.into_iter().map(given))
+        .chain(rest.into_iter().map(beside));
 
     let mut chain_of: Vec<Option<usize>> = std::iter::repeat_n(None, n).collect();
     let mut chains: Vec<Chain> = Vec::new();
@@ -189,8 +204,6 @@ pub fn layout(commits: &[Input], lines: &[Line], widths: Widths) -> Layout {
 
     let mut xs: Vec<f32> = Vec::with_capacity(chains.len());
     let mut taken: HashMap<u32, Vec<(f32, f32)>> = HashMap::new();
-    // How many lines went beside on the left and on the right, to even them out.
-    let mut beside = (0, 0);
     for (id, line) in chains.iter().enumerate() {
         let fork_x = (line.fork.and_then(|fork| chain(&chain_of, fork)))
             .and_then(|chain| xs.get(chain).copied());
@@ -203,7 +216,8 @@ pub fn layout(commits: &[Input], lines: &[Line], widths: Widths) -> Layout {
                     .map(|(sibling, other)| (sibling, widest(&other.needs)))
                     .collect();
                 let across: f32 = siblings.iter().map(|(_, width)| width + widths.gap).sum();
-                let mut wanted = fork_x.unwrap_or(0.) - (across - widths.gap) / 2.;
+                let centre = fork_x.unwrap_or(0.);
+                let mut wanted = centre - (across - widths.gap) / 2.;
                 for (sibling, width) in &siblings {
                     if *sibling == id {
                         wanted += width / 2.;
@@ -211,23 +225,20 @@ pub fn layout(commits: &[Input], lines: &[Line], widths: Widths) -> Layout {
                     }
                     wanted += width + widths.gap;
                 }
-                clear(&taken, &line.needs, wanted, 1., widths.gap)
+                // Out on its own side, so what's in the way doesn't send them all one way.
+                let step = if wanted < centre { -1. } else { 1. };
+                clear(&taken, &line.needs, wanted, step, widths.gap)
             }
             Side::Beside => {
                 let centre = fork_x.unwrap_or(0.);
                 let left = clear(&taken, &line.needs, centre, -1., widths.gap);
                 let right = clear(&taken, &line.needs, centre, 1., widths.gap);
                 let (left_by, right_by) = (centre - left, right - centre);
-                let goes_right = right_by < left_by || (right_by == left_by && beside.1 < beside.0);
-                match goes_right {
-                    true => {
-                        beside.1 += 1;
-                        right
-                    }
-                    false => {
-                        beside.0 += 1;
-                        left
-                    }
+                let leans_right = (line.commits.first().and_then(|tip| commits.get(*tip)))
+                    .is_some_and(|tip| tip.leans_right);
+                match right_by < left_by || (right_by == left_by && leans_right) {
+                    true => right,
+                    false => left,
                 }
             }
         };
@@ -294,6 +305,23 @@ pub fn layout(commits: &[Input], lines: &[Line], widths: Widths) -> Layout {
     }
     lay_tracks(&mut edges, &rows, &at_x);
     Layout { places, edges }
+}
+
+/// Which commits `from` and their ancestors are, not going past those `stop` marks.
+pub fn reach(commits: &[Input], from: Vec<usize>, stop: &[bool]) -> Vec<bool> {
+    let mut reached: Vec<bool> = std::iter::repeat_n(false, commits.len()).collect();
+    let mut queue = VecDeque::from(from);
+    while let Some(at) = queue.pop_front() {
+        let (Some(slot), Some(commit)) = (reached.get_mut(at), commits.get(at)) else {
+            continue;
+        };
+        if *slot || stop.get(at).copied().unwrap_or(false) {
+            continue;
+        }
+        *slot = true;
+        queue.extend(commit.parents.iter().flatten().copied());
+    }
+    reached
 }
 
 /// How wide a line is at its widest.
@@ -488,6 +516,14 @@ mod tests {
     fn input(parents: &[usize]) -> Input {
         Input {
             parents: parents.iter().copied().map(Some).collect(),
+            leans_right: false,
+        }
+    }
+
+    fn leaning_right(parents: &[usize]) -> Input {
+        Input {
+            leans_right: true,
+            ..input(parents)
         }
     }
 
@@ -589,21 +625,39 @@ mod tests {
     }
 
     #[test]
-    fn merged_branches_take_turns_either_side() {
+    fn a_branch_with_room_either_side_goes_the_way_its_tip_leans() {
         // Two branches merged one after the other, each forked off right after the last.
         let (m2, x2, m1, x1, b) = (0, 1, 2, 3, 4);
         let commits = [
             input(&[m1, x2]),
             input(&[m1]),
             input(&[b, x1]),
-            input(&[b]),
+            leaning_right(&[b]),
             input(&[]),
         ];
         let layout = layout(&commits, &[middle(m2)], WIDTHS);
         assert_eq!(
             (layout.places[x2].x, layout.places[x1].x),
             (-1.75, 1.75),
-            "with room as near either side, they even the sides out"
+            "each goes its own way, whatever the other does"
+        );
+    }
+
+    #[test]
+    fn branches_merged_later_leave_older_ones_where_they_are() {
+        // X merged into the target at M1; M2 and Y arrive with a fetch.
+        let (m1, x, b, m2, y) = (0, 1, 2, 3, 4);
+        let older = [input(&[b, x]), leaning_right(&[b]), input(&[])];
+        let mut newer = older.to_vec();
+        newer.extend([input(&[m1, y]), input(&[m1])]);
+        let (before, after) = (
+            layout(&older, &[middle(m1)], WIDTHS),
+            layout(&newer, &[middle(m2)], WIDTHS),
+        );
+        assert_eq!(
+            (after.places[m1], after.places[x], after.places[b]),
+            (before.places[m1], before.places[x], before.places[b]),
+            "a merge above takes nothing from the rows below it"
         );
     }
 
@@ -629,7 +683,62 @@ mod tests {
         assert_eq!(
             xs,
             Vec::from([-2.5, 2.5, -5.]),
-            "each takes the nearest room, on the side with fewer when both are as near"
+            "each takes the nearest room, the way it leans when both are as near"
+        );
+    }
+
+    #[test]
+    fn what_the_target_merged_goes_where_it_will_stay_while_its_still_a_lane() {
+        // M merges X, still a lane, into the target's P, which merged Y; L is a lane on P.
+        let (m, x, p, y, q, l) = (0, 1, 2, 3, 4, 5);
+        let commits = [
+            input(&[p, x]),
+            input(&[p]),
+            input(&[q, y]),
+            input(&[q]),
+            input(&[]),
+            input(&[p]),
+        ];
+        let as_a_lane = layout(&commits, &[middle(m), over(x), over(l)], WIDTHS);
+        let as_history = layout(&commits, &[middle(m), over(l)], WIDTHS);
+        assert_eq!(
+            as_a_lane.places, as_history.places,
+            "an update that takes X off its lane moves nothing"
+        );
+        assert_eq!(
+            (as_a_lane.places[x].x, as_a_lane.places[y].x),
+            (-1.75, -1.75),
+            "X goes as Y does, as any of the target's merges does"
+        );
+        assert_eq!(
+            as_a_lane.places[l],
+            place(3, 1.75),
+            "the lane is what makes room, clear of X"
+        );
+    }
+
+    #[test]
+    fn lanes_kept_from_their_places_go_out_on_their_own_sides() {
+        // M merged X into the target, and three lanes on P share the row X is on.
+        let (m, x, p, one, two, three) = (0, 1, 2, 3, 4, 5);
+        let commits = [
+            input(&[p, x]),
+            input(&[p]),
+            input(&[]),
+            input(&[p]),
+            input(&[p]),
+            input(&[p]),
+        ];
+        let lines = [middle(m), over(one), over(two), over(three)];
+        let layout = layout(&commits, &lines, WIDTHS);
+        let xs: Vec<f32> = [one, two, three]
+            .iter()
+            .map(|lane| layout.places[*lane].x)
+            .collect();
+        assert_eq!(
+            xs,
+            Vec::from([-4.25, 1.75, 4.25]),
+            "the first goes left of X, the middle one right of the line, and the last beyond it"
         );
     }
 
@@ -671,6 +780,7 @@ mod tests {
     fn a_parent_outside_the_graph_is_where_it_stops() {
         let commits = [Input {
             parents: Vec::from([None]),
+            ..Input::default()
         }];
         let layout = layout(&commits, &[], WIDTHS);
         assert_eq!(

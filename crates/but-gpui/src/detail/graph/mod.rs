@@ -41,7 +41,7 @@ use crate::ui::{
     popover, small_icon, v_flex,
 };
 
-use layout::{Input, Line, Route, Side, Track};
+use layout::{Input, Line, Route, Side, Track, reach};
 
 /// How far apart rows are, in pixels at 100%.
 const ROW: f32 = 72.;
@@ -699,11 +699,21 @@ impl GraphView {
                 self.deepening = None;
             }
             let shifted = |at: Point<f32>| point(at.x + shift.x, at.y + shift.y);
+            // What an update takes off a lane is known by its id from then on.
+            let ids: HashMap<CommitId, usize> = (old.nodes.iter().enumerate())
+                .filter(|(_, node)| node.shape != Shape::Empty)
+                .map(|(ix, node)| (node.id, ix))
+                .collect();
+            let was = |node: &Node| {
+                (old.keys.get(&node.key))
+                    .or_else(|| ids.get(&node.id).filter(|_| node.shape != Shape::Empty))
+                    .and_then(|was| old.nodes.get(*was))
+            };
             let mut load = Move::at(now);
             let kept = |ix: &usize| scene.keys.get(&old.nodes.get(*ix)?.key).copied();
             let mut swaps: HashSet<usize> = self.swaps.iter().filter_map(kept).collect();
             for (ix, node) in scene.nodes.iter().enumerate() {
-                let from = match old.keys.get(&node.key).and_then(|was| old.nodes.get(*was)) {
+                let from = match was(node) {
                     // Where it's still going from an earlier load stays that load's to ease.
                     Some(was) => Some(shifted(was.at)),
                     None => {
@@ -738,10 +748,7 @@ impl GraphView {
             // Older commits read aren't news.
             let ripples: Vec<usize> = (scene.nodes.iter().enumerate())
                 .filter(|_| !deeper)
-                .filter(|(_, node)| {
-                    (old.keys.get(&node.key).and_then(|was| old.nodes.get(*was)))
-                        .is_none_or(|was| was.id != node.id)
-                })
+                .filter(|(_, node)| was(node).is_none_or(|was| was.id != node.id))
                 .map(|(ix, _)| ix)
                 .collect();
             // A load that brings nothing leaves what the last one brought going.
@@ -1430,7 +1437,12 @@ fn names(name: &str, worktree: &str) -> bool {
 
 /// `graph`, with `history` commits of history, laid out, its commits coloured and named by
 /// `marks`.
-fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scene {
+fn build(mut graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scene {
+    // Which commits are seeds changes as an update lands, and what's in a list's order goes
+    // where it goes, so the order is the commits' own.
+    graph
+        .commits
+        .sort_by_key(|commit| (Reverse(commit.time), commit.id));
     let index: HashMap<CommitId, usize> = (graph.commits.iter().enumerate())
         .map(|(ix, commit)| (commit.id, ix))
         .collect();
@@ -1439,6 +1451,7 @@ fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scen
             parents: (commit.parents.iter())
                 .map(|parent| index.get(parent).copied())
                 .collect(),
+            leans_right: leans_right(commit.id),
         })
         .collect();
     // The branches with no commits whose refs are still there, after the commits, each on the
@@ -1456,6 +1469,7 @@ fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scen
         slots.insert(ix, inputs.len());
         inputs.push(Input {
             parents: Vec::from([index.get(&at).copied()]),
+            leans_right: false,
         });
         empties.push((empty, at));
     }
@@ -1604,6 +1618,13 @@ fn build(graph: backend::graph::Graph, mut marks: Marks, history: usize) -> Scen
     }
 }
 
+/// Which way the line `id` tops goes when it has room either side, an even split over commits.
+fn leans_right(id: CommitId) -> bool {
+    let mut hasher = std::hash::DefaultHasher::new();
+    id.hash(&mut hasher);
+    hasher.finish() % 2 == 1
+}
+
 /// Each of `edges` by its child's key and which of that child's edges it is.
 fn edge_keys(nodes: &[Node], edges: &[layout::Edge]) -> HashMap<EdgeKey, usize> {
     let mut seen: HashMap<usize, usize> = HashMap::new();
@@ -1642,23 +1663,6 @@ fn slot_key(name: &FullName) -> SharedString {
 /// An empty branch is its lane's, as its first commit will be.
 fn empty_kind(empty: &Empty) -> Kind {
     Kind::Lane(empty.lane, CommitState::Local, false)
-}
-
-/// Which commits `from` and their ancestors are, not going past those `stop` marks.
-fn reach(commits: &[Input], from: Vec<usize>, stop: &[bool]) -> Vec<bool> {
-    let mut reached: Vec<bool> = std::iter::repeat_n(false, commits.len()).collect();
-    let mut queue = VecDeque::from(from);
-    while let Some(at) = queue.pop_front() {
-        let (Some(slot), Some(commit)) = (reached.get_mut(at), commits.get(at)) else {
-            continue;
-        };
-        if *slot || stop.get(at).copied().unwrap_or(false) {
-            continue;
-        }
-        *slot = true;
-        queue.extend(commit.parents.iter().flatten().copied());
-    }
-    reached
 }
 
 /// What a frame paints, handed to the canvas.
@@ -3186,14 +3190,75 @@ mod tests {
     use gpui::{SharedString, point};
 
     use super::{
-        Bend, Camera, MOVE, Move, TagSlides, bent, commonest, glided, held, names, placed, reflowed,
+        Bend, Camera, MOVE, Marks, Move, TagSlides, Tip, bent, build, commonest, glided, held,
+        leans_right, names, placed, reflowed,
     };
+    use crate::backend::CommitId;
+    use crate::backend::graph::{Graph, GraphCommit};
 
     fn sliding(since: Instant, key: &str, by: f32) -> Move {
         Move {
             by: HashMap::from([(SharedString::from(key.to_owned()), point(0., by))]),
             ..Move::at(since)
         }
+    }
+
+    fn id(n: u8) -> CommitId {
+        CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]))
+    }
+
+    fn commit(n: u8, parents: &[u8]) -> GraphCommit {
+        GraphCommit {
+            id: id(n),
+            parents: parents.iter().map(|parent| id(*parent)).collect(),
+            title: String::new(),
+            body: String::new(),
+            author: String::new(),
+            email: String::new(),
+            agent: None,
+            time: i64::from(n),
+        }
+    }
+
+    #[test]
+    fn the_update_leaves_branches_merged_side_by_side_where_they_were() {
+        // A, a lane, and B forked from the same commit and were merged one after the other.
+        // They lean the same way, as two of any three do, so which goes first gets the place.
+        let (a, b) = [(1, 2), (1, 3), (2, 3)]
+            .into_iter()
+            .find(|(a, b)| leans_right(id(*a)) == leans_right(id(*b)))
+            .expect("two of three lean the same way");
+        let (base, merged_a, merged_b) = (0, 4, 5);
+        let commits = |order: &[u8]| {
+            let all = [
+                commit(base, &[]),
+                commit(a, &[base]),
+                commit(b, &[base]),
+                commit(merged_a, &[base, a]),
+                commit(merged_b, &[merged_a, b]),
+            ];
+            let of = |n: &u8| all.iter().find(|commit| commit.id == id(*n)).cloned();
+            order.iter().filter_map(of).collect::<Vec<_>>()
+        };
+        let places = |order: &[u8], marks: Marks| {
+            let graph = Graph {
+                commits: commits(order),
+                target: Some(id(merged_b)),
+                ..Graph::default()
+            };
+            let scene = build(graph, marks, 100);
+            let at = |n: u8| (scene.nodes.iter().find(|node| node.id == id(n))).map(|node| node.at);
+            (at(a), at(b))
+        };
+        let lane = Marks {
+            tips: Vec::from([Tip::Commit(id(a))]),
+            ..Marks::default()
+        };
+        assert_eq!(
+            places(&[a, merged_b, merged_a, b, base], lane),
+            places(&[merged_b, merged_a, b, a, base], Marks::default()),
+            "that A was a seed, read first, doesn't say where it goes"
+        );
     }
 
     #[test]
