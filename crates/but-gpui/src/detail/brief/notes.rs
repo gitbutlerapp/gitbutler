@@ -9,6 +9,7 @@ use gpui::{AnyElement, Context, Div, Focusable as _, ListOffset, Pixels, Window,
 
 use super::keys::NextBrief;
 use super::state::{BriefFold, BriefInput, BriefState, Writing};
+use super::talk::FINISH_EDITING;
 use super::{Row, block_place, briefs};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
@@ -214,6 +215,16 @@ impl Detail {
     /// go isn't what's in the field, and the note it replaces must still be there to replace.
     pub(super) fn editing_brief_note(&self) -> bool {
         (self.brief.input.as_ref()).is_some_and(|input| input.replaces.is_some())
+    }
+
+    /// Why notes can't go now, if so: some are going already, or what would go isn't what's being
+    /// written.
+    pub(super) fn brief_notes_busy(&self) -> Option<&'static str> {
+        match (self.brief.sending, self.editing_brief_note()) {
+            (true, _) => Some("Sending"),
+            (_, true) => Some(FINISH_EDITING),
+            _ => None,
+        }
     }
 
     /// Write note `note` again, with what it says so far to change.
@@ -530,6 +541,9 @@ impl Detail {
                                 icon_button(("brief-note-drop", id as u64), Icon::Cross)
                                     .small()
                                     .tooltip("Discard")
+                                    // It may be on its way, and a new note could take its id
+                                    // before sending it removes that.
+                                    .disabled_because(self.brief.sending.then_some("Sending"))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         // Not a click on the card it's on, which edits it.
                                         cx.stop_propagation();

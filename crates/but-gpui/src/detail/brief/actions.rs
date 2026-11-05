@@ -7,7 +7,6 @@ use super::head::agent_name;
 use super::keys::GoBack;
 use super::notes::target_words;
 use super::state::BriefState;
-use super::talk::FINISH_EDITING;
 use super::{NextBrief, briefs};
 use crate::backend::briefs::{Ask, BriefPage, CommentTo};
 use crate::detail::Detail;
@@ -89,13 +88,13 @@ impl Detail {
             }
         };
         let notes: Vec<i64> = state.notes.iter().map(|note| note.id).collect();
-        let editing = self.editing_brief_note().then_some(FINISH_EDITING);
+        let busy = self.brief_notes_busy();
         match self.brief_terminal(cx) {
             Some((id, terminal, title, tiled)) => button("brief-tell", format!("Tell {title}"))
                 .small()
                 .style(ButtonStyle::Ghost)
                 .tooltip("Types it in that terminal")
-                .disabled_because(editing)
+                .disabled_because(busy)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let Some(project) = this.selected_project() else {
                         return;
@@ -124,7 +123,7 @@ impl Detail {
             None => button("brief-tell", "Copy what to tell it")
                 .small()
                 .style(ButtonStyle::Ghost)
-                .disabled_because(editing)
+                .disabled_because(busy)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.clone()));
                     if let Some(brief) = this.page.brief_mut() {
@@ -173,7 +172,6 @@ impl Detail {
         };
         // Where the row is short, what's there says less rather than running over the tabs.
         let short = self.brief.room.get() < STATUS_NEEDS;
-        let sending = self.brief.sending;
         let and_send = notes > 0;
         let read_newer = newer.map(|latest| {
             button("brief-read-newer", "Read it")
@@ -243,10 +241,7 @@ impl Detail {
                     .small()
                     .style(ButtonStyle::Outline)
                     .tooltip(format!("Send to {}", self.brief_reaches(state)))
-                    .disabled_because(
-                        (sending.then_some("Sending"))
-                            .or(self.editing_brief_note().then_some(FINISH_EDITING)),
-                    )
+                    .disabled_because(self.brief_notes_busy())
                     .on_click(cx.listener(|this, _, _, cx| this.send_brief_talk(cx)))
                     .into_any_element(),
             );
