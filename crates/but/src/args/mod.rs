@@ -333,15 +333,18 @@ pub enum Subcommands {
 
     Worktree(worktree::Platform),
 
-    /// Merge a branch directly onto the target branch, bypassing review.
+    /// Merge branches directly onto the target branch, bypassing review.
     ///
-    /// Merges the branch onto the configured target (for example `origin/master`) without going
+    /// Merges the branches onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
-    /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
-    /// is created, or with `--ff-only` the merge is refused. When the target branch has no upstream
-    /// (for example in a repository without a remote), or for a local (`gb-local`) target, the
-    /// refs are moved locally; otherwise the result is pushed to the remote. After merging, the
-    /// remaining applied branches are reconciled onto the moved target, just like `but pull`.
+    /// fast-forwarded to a branch tip when possible (no merge commit); otherwise a merge commit is
+    /// created, or with `--ff-only` the merge is refused. Several branches are merged locally one
+    /// after another, in the order given, and the result is published in a single update, so the
+    /// target (and its CI) moves once. If any branch conflicts, nothing is published. When the
+    /// target branch has no upstream (for example in a repository without a remote), or for a local
+    /// (`gb-local`) target, the refs are moved locally; otherwise the result is pushed to the
+    /// remote. After merging, the remaining applied branches are reconciled onto the moved target,
+    /// just like `but pull`.
     ///
     /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
     /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
@@ -355,8 +358,11 @@ pub enum Subcommands {
     /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
     /// process. On a real remote, a branch protected against direct pushes will reject the merge.
     ///
-    /// Merging a segment with other segments below it is refused unless `--whole-stack` is
-    /// passed with the stack's top segment, which merges the entire stack.
+    /// Several branches merge in the order given: each one fast-forwards the target when it can
+    /// and gets a merge commit otherwise. Merging a segment with other segments below it is
+    /// refused unless those segments are named too, or `--whole-stack` is passed with the stack's
+    /// top segment, which merges the entire stack. With several branches, `--whole-stack` and
+    /// `--no-ff` apply to each of them.
     ///
     /// ## Examples
     ///
@@ -378,6 +384,12 @@ pub enum Subcommands {
     /// but merge my-feature-branch --ff-only
     /// ```
     ///
+    /// Merge several branches with a single push:
+    ///
+    /// ```text
+    /// but merge bu fe other-branch
+    /// ```
+    ///
     /// Merge an entire stack by naming its top segment:
     ///
     /// ```text
@@ -387,8 +399,9 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(alias = "land")]
     Merge {
-        /// Branch ID or name to merge onto the target branch.
-        branch: CliIdArg,
+        /// Branch IDs or names to merge onto the target branch, in merge order.
+        #[clap(required = true, num_args = 1..)]
+        branches: Vec<CliIdArg>,
         /// Skip the confirmation prompt.
         #[clap(long)]
         yes: bool,
@@ -398,8 +411,9 @@ pub enum Subcommands {
         /// Refuse to merge unless the target can be fast-forwarded to the branch tip.
         #[clap(long)]
         ff_only: bool,
-        /// Merge the entire stack: BRANCH must be the top segment, and the segments below it are
-        /// published to the target along with it.
+        /// Merge the entire stack: each BRANCH must be the top segment of its stack (or have
+        /// only other named BRANCHes above it), and the segments below it are published to the
+        /// target along with it.
         #[clap(long)]
         whole_stack: bool,
     },

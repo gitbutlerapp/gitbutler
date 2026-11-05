@@ -86,6 +86,7 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.branch_toggle_insert_side().register();
                 builder.discard().register();
                 builder.mark().register();
+                builder.branch_land().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Worktree => {
@@ -235,6 +236,26 @@ pub fn confirm_key_binds() -> KeyBinds {
             press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
             || Message::Confirm(ConfirmMessage::Right),
         )
+        .register();
+
+    builder
+        .key_bind(
+            "scroll up",
+            press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+            || Message::Confirm(ConfirmMessage::ScrollUp),
+        )
+        // The popup says when it scrolls.
+        .hide_from_hotbar()
+        .register();
+
+    builder
+        .key_bind(
+            "scroll down",
+            press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+            || Message::Confirm(ConfirmMessage::ScrollDown),
+        )
+        // The popup says when it scrolls.
+        .hide_from_hotbar()
         .register();
 
     builder.quit().register();
@@ -1100,6 +1121,13 @@ impl KeyBindsBuilder<'_> {
             || Message::Branch(BranchMessage::New { switch: true }),
         )
         .long_description("Create a new branch and switch to it")
+    }
+
+    fn branch_land(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("land", press().shift().code(KeyCode::Char('L')), || {
+            Message::Branch(BranchMessage::Land)
+        })
+        .long_description("Land the marked branches, or the selected one, onto the target")
     }
 
     fn branch_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
