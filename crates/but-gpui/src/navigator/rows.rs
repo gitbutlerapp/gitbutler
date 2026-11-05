@@ -1016,15 +1016,14 @@ fn changes_row(
 /// The terminals open on `project`'s `checkout`, first under its heading.
 fn terminal_rows(store: &Store, project: &ProjectId, checkout: &Checkout, rows: &mut Rows) {
     let open = store.terminals.on(project, checkout).map(|(id, _)| id);
-    // One being moved goes where it'd land, from its checkout to another too, the others making
-    // room; one opened since goes after them.
-    let moved = (store.moving.as_ref())
-        .filter(|moving| moving.project == *project)
-        .and_then(|moving| moving.terminal_order());
+    // One being moved goes where it'd land, from its checkout to another too, of this project
+    // or another's, the others making room; one opened since goes after them.
+    let moved = (store.moving.as_ref()).and_then(|moving| moving.terminal_order());
     let terminals: Vec<TerminalId> = match &moved {
         Some(lists) => {
             let listed = |id: &TerminalId| lists.iter().any(|(_, list)| list.contains(id));
-            let here = (lists.iter()).find(|(on, _)| on == checkout);
+            let here =
+                (lists.iter()).find(|(on, _)| on.project == *project && on.checkout == *checkout);
             let kept = here.into_iter().flat_map(|(_, list)| list.iter().copied());
             let kept = kept.filter(|id| store.terminals.get(*id).is_some());
             kept.chain(open.filter(|id| !listed(id))).collect()

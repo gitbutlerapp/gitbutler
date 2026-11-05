@@ -19,7 +19,7 @@ use crate::app::{
 use crate::backend::{
     Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
 };
-use crate::state::{Overlay, ProjectId, Section, Selection, Store, snack};
+use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
@@ -736,19 +736,18 @@ impl Navigator {
         self.folds_seen.get(&fold).copied().unwrap_or(true)
     }
 
-    /// The terminals of `project`'s worktrees for a move of one among them to start from: as
-    /// the move of one under way started, which the rows show elsewhere, else as they're
-    /// listed now (see [`terminal_lists`]).
+    /// The terminals of the watched projects' worktrees for a move of one among them to start
+    /// from: as the move of one under way started, which the rows show elsewhere, else as
+    /// they're listed now (see [`terminal_lists`]).
     pub(super) fn listed_terminals(
         &self,
         store: &Store,
-        project: &ProjectId,
-    ) -> Arc<[(Checkout, Vec<TerminalId>)]> {
-        if let Some((_, lists)) = moving_terminal(store, project) {
+    ) -> Arc<[(ProjectCheckout, Vec<TerminalId>)]> {
+        if let Some((_, lists)) = moving_terminal(store) {
             return lists.clone();
         }
         let open = |heading: &Selection| self.open_as_built(heading);
-        terminal_lists(self.shown_rows(), project, open).into()
+        terminal_lists(self.shown_rows(), open).into()
     }
 
     /// The stops of the move under way, which of them it's at, and which it started from:
@@ -792,9 +791,9 @@ impl Navigator {
                 };
                 (project, Moving::Worktree { name, order })
             }
-            // Among the terminals of its project's worktrees as they're listed now.
+            // Among the terminals of the watched projects' worktrees as they're listed now.
             Some(Selection::Terminal(project, id)) => {
-                let lists = self.listed_terminals(store, &project);
+                let lists = self.listed_terminals(store);
                 (project, Moving::Terminal { id, lists })
             }
             _ => match commits_selected(store) {
@@ -1441,9 +1440,7 @@ impl Navigator {
             });
         }
         if let Some(order) = moving.terminal_order() {
-            let project = moving.project.clone();
-            return (self.store)
-                .update(cx, |store, cx| store.order_terminals(&project, &order, cx));
+            return (self.store).update(cx, |store, cx| store.order_terminals(&order, cx));
         }
         // Copies go where it's at, the commits staying where they are, and show there till
         // they're there.
@@ -1546,32 +1543,32 @@ fn commits_selected(store: &Store) -> Option<(ProjectId, Moving)> {
     }
 }
 
-/// The terminals `rows` list for `project`, under each of its worktrees' headings, the main one's
-/// and its linked ones', in the order they're listed: those whose heading `open` says shows
+/// The terminals `rows` list under each worktree's heading, the main one's and the linked
+/// ones', of every project, in the order they're listed: those whose heading `open` says shows
 /// what it holds, as a terminal landing under a folded one would be out of sight.
 fn terminal_lists<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
-    project: &ProjectId,
     open: impl Fn(&Selection) -> bool,
-) -> Vec<(Checkout, Vec<TerminalId>)> {
-    let mut lists: Vec<(Checkout, Vec<TerminalId>)> = Vec::new();
-    // Under a heading of the project's that's open now.
+) -> Vec<(ProjectCheckout, Vec<TerminalId>)> {
+    let mut lists: Vec<(ProjectCheckout, Vec<TerminalId>)> = Vec::new();
+    // Under a heading that's open now.
     let mut under = false;
     for row in rows {
         let Row::Item(item) = row else {
             continue;
         };
         if let Selection::Terminal(p, id) = item {
-            if p == project
-                && under
-                && let Some((_, list)) = lists.last_mut()
+            if under
+                && let Some((on, list)) = lists.last_mut()
+                && on.project == *p
             {
                 list.push(*id);
             }
-        } else if let Some(checkout) = worktree_headed(item, project) {
+        } else if let Selection::Checkout(project, checkout) = item {
             under = open(item);
             if under {
-                lists.push((checkout, Vec::new()));
+                let (project, checkout) = (project.clone(), checkout.clone());
+                lists.push((ProjectCheckout { project, checkout }, Vec::new()));
             }
         }
     }
@@ -1614,22 +1611,28 @@ fn clicked_stop(
     match &moving.what {
         Moving::Project(_) if *project == moving.project => Some(at),
         Moving::Project(_) => instead_of(Stop::Card(Slot::Before(project.clone()))),
+        Moving::Terminal { id, .. } => {
+            let checkout = || {
+                let (project, checkout) = (project.clone(), checkout.clone()?);
+                Some(ProjectCheckout { project, checkout })
+            };
+            match item {
+                Selection::Terminal(_, other) if other == id => Some(at),
+                Selection::Terminal(_, other) => instead_of(Stop::Terminal {
+                    checkout: checkout()?,
+                    slot: Slot::Before(*other),
+                }),
+                _ => find(Stop::Terminal {
+                    checkout: checkout()?,
+                    slot: Slot::End,
+                }),
+            }
+        }
         _ if *project != moving.project => None,
         Moving::Worktree { name, .. } => match checkout? {
             Checkout::Linked(other) if other == *name => Some(at),
             Checkout::Linked(other) => instead_of(Stop::Worktree(Slot::Before(other))),
             Checkout::Main => None,
-        },
-        Moving::Terminal { id, .. } => match item {
-            Selection::Terminal(_, other) if other == id => Some(at),
-            Selection::Terminal(_, other) => instead_of(Stop::Terminal {
-                checkout: checkout?,
-                slot: Slot::Before(*other),
-            }),
-            _ => find(Stop::Terminal {
-                checkout: checkout?,
-                slot: Slot::End,
-            }),
         },
         Moving::Commits(_) | Moving::Branch(_) | Moving::Files(_) | Moving::Copies(_) => {
             if own {
@@ -1928,9 +1931,14 @@ mod tests {
     };
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
     use crate::backend::{Checkout, CommitId, Destination, Messages, Workspace, short_ref};
-    use crate::state::{ProjectId, Selection};
+    use crate::state::{ProjectCheckout, ProjectId, Selection};
     use crate::terminal::TerminalId;
     use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, group_slots, slots};
+
+    fn on(project: &ProjectId, checkout: Checkout) -> ProjectCheckout {
+        let project = project.clone();
+        ProjectCheckout { project, checkout }
+    }
 
     /// Whether `heading` shows what it holds, as [`listed`] lists them: all but typo.
     fn open(heading: &Selection) -> bool {
@@ -1957,10 +1965,11 @@ mod tests {
                     Stop::Worktree(Slot::Before(name)) => format!("before worktree {name}"),
                     Stop::Worktree(Slot::End) => "last worktree".into(),
                     Stop::Terminal { checkout, slot } => {
-                        let on = match checkout {
+                        let on = match &checkout.checkout {
                             Checkout::Main => "main".to_owned(),
                             Checkout::Linked(name) => name.to_string(),
                         };
+                        let on = format!("{}/{on}", checkout.project);
                         match slot {
                             Slot::Before(id) => format!("before terminal {} on {on}", id.0),
                             Slot::End => format!("last on {on}"),
@@ -2419,7 +2428,7 @@ new stack
         ];
         // `folded` lists terminal 3 as it closes.
         let open = |heading: &Selection| !matches!(heading, Selection::Checkout(_, Checkout::Linked(name)) if name == "folded");
-        let lists = terminal_lists(&rows, &project, open);
+        let lists = terminal_lists(&rows, open);
         let (stops, start) = group_slots(&lists, &TerminalId(1)).unwrap();
         let stops: Vec<Stop> = (stops.into_iter())
             .map(|(checkout, slot)| Stop::Terminal { checkout, slot })
@@ -2429,16 +2438,19 @@ new stack
         snapbox::assert_data_eq!(
             describe(&stops, start),
             snapbox::str![[r#"
-before terminal 2 on main <
-last on main
-last on wt
-last on empty
+before terminal 2 on p/main <
+last on p/main
+last on p/wt
+last on p/empty
 
 "#]]
         );
         assert_eq!(
             lists.first(),
-            Some(&(Checkout::Main, vec![TerminalId(1), TerminalId(2)])),
+            Some(&(
+                on(&project, Checkout::Main),
+                vec![TerminalId(1), TerminalId(2)]
+            )),
             "the main worktree's terminals, as listed"
         );
     }
@@ -2726,8 +2738,11 @@ last on empty
     fn a_click_in_a_worktree_puts_the_terminal_moving_last_in_it() {
         let project = ProjectId::from("p");
         let lists = [
-            (Checkout::Main, vec![TerminalId(1), TerminalId(2)]),
-            (Checkout::Linked("wt".into()), vec![]),
+            (
+                on(&project, Checkout::Main),
+                vec![TerminalId(1), TerminalId(2)],
+            ),
+            (on(&project, Checkout::Linked("wt".into())), vec![]),
         ];
         let (slots, start) = group_slots(&lists, &TerminalId(1)).expect("1 is listed");
         let stops: Vec<Stop> = (slots.into_iter())
@@ -2742,7 +2757,7 @@ last on empty
             at: stops[start].clone(),
             op: Op::Move,
         };
-        let agent = Selection::Branch(project, Some(full("refs/heads/agent")));
+        let agent = Selection::Branch(project.clone(), Some(full("refs/heads/agent")));
         let wt = Checkout::Linked("wt".into());
         let clicked = clicked_stop(
             &stops,
@@ -2755,7 +2770,7 @@ last on empty
         assert_eq!(
             clicked.map(|ix| &stops[ix]),
             Some(&Stop::Terminal {
-                checkout: wt,
+                checkout: on(&project, wt),
                 slot: Slot::End
             }),
             "a branch of wt's takes it under wt's heading"
@@ -2764,13 +2779,17 @@ last on empty
 
     #[test]
     fn a_terminal_from_a_tile_shows_among_those_listed_where_it_is_held() {
-        let wt = Checkout::Linked("wt".into());
+        let project = ProjectId::from("p");
+        let (main, wt) = (
+            on(&project, Checkout::Main),
+            on(&project, Checkout::Linked("wt".into())),
+        );
         let moving = Move {
-            project: ProjectId::from("p"),
+            project,
             what: Moving::Terminal {
                 id: TerminalId(3),
                 lists: Arc::from([
-                    (Checkout::Main, vec![TerminalId(1)]),
+                    (main.clone(), vec![TerminalId(1)]),
                     (wt.clone(), vec![TerminalId(2)]),
                 ]),
             },
@@ -2783,7 +2802,7 @@ last on empty
         assert_eq!(
             moving.terminal_order(),
             Some(vec![
-                (Checkout::Main, vec![TerminalId(1)]),
+                (main, vec![TerminalId(1)]),
                 (wt, vec![TerminalId(3), TerminalId(2)]),
             ]),
             "it's listed nowhere yet, so it only joins the worktree it's held over"
@@ -2793,7 +2812,10 @@ last on empty
     #[test]
     fn a_click_on_the_next_terminal_puts_the_terminal_moving_after_it() {
         let project = ProjectId::from("p");
-        let lists = [(Checkout::Main, vec![TerminalId(1), TerminalId(2)])];
+        let lists = [(
+            on(&project, Checkout::Main),
+            vec![TerminalId(1), TerminalId(2)],
+        )];
         let (slots, start) = group_slots(&lists, &TerminalId(1)).expect("1 is listed");
         let stops: Vec<Stop> = (slots.into_iter())
             .map(|(checkout, slot)| Stop::Terminal { checkout, slot })
@@ -2807,7 +2829,7 @@ last on empty
             at: stops[start].clone(),
             op: Op::Move,
         };
-        let two = Selection::Terminal(project, TerminalId(2));
+        let two = Selection::Terminal(project.clone(), TerminalId(2));
         let clicked = clicked_stop(
             &stops,
             (start, start),
@@ -2819,7 +2841,7 @@ last on empty
         assert_eq!(
             clicked.map(|ix| &stops[ix]),
             Some(&Stop::Terminal {
-                checkout: Checkout::Main,
+                checkout: on(&project, Checkout::Main),
                 slot: Slot::End
             }),
             "they trade places"

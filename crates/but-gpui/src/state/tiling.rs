@@ -1825,6 +1825,25 @@ impl Store {
         cx.notify();
     }
 
+    /// Have row `from`'s tiling, its tiles showing it and the keys it had go by `to`.
+    pub(super) fn rekey_row(&mut self, from: &RowKey, to: &RowKey) {
+        if let Some(tiling) = self.tilings.remove(from) {
+            self.tilings.insert(to.clone(), tiling);
+        }
+        if let Some(recent) = self.tiles_with_keys.remove(from) {
+            self.tiles_with_keys.insert(to.clone(), recent);
+        }
+        let (old, new) = (Tile::Pinned(from.clone()), Tile::Pinned(to.clone()));
+        for tiling in self.tilings.values_mut() {
+            tiling.replace(&old, new.clone());
+        }
+        for shown in self.tiles_with_keys.values_mut().flatten() {
+            if shown == from {
+                *shown = to.clone();
+            }
+        }
+    }
+
     /// Take away the tiles of terminals `closed`, and the tilings of their rows.
     pub(super) fn unpin_terminals(
         &mut self,

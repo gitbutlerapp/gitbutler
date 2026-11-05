@@ -44,7 +44,7 @@ pub use saved::{
 use saved::{Restored, Saved};
 use seen::Seen;
 pub use seen::{GLOW, Seeable};
-pub use terminals::Terminals;
+pub use terminals::{ProjectCheckout, Terminals};
 pub use tiling::{
     Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, RowKey, Side, Tile, TileDragFeel,
     Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
