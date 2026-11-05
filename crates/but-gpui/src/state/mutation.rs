@@ -69,6 +69,9 @@ pub struct Overlay {
     /// The move with the keys it lands, still shown as it was while being moved, its copy where
     /// it lands, until the reload after it shows it there.
     pub lands: Option<crate::transfer::Move>,
+    /// Whether what `lands` lands was dragged, so it shows no copy, staying as it is till the
+    /// reload slides it there.
+    pub dropped: bool,
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -1135,26 +1138,17 @@ impl Store {
 
     /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
     /// others with `first`, or `beside` a branch in its stack, as [`backend::MoveToNewBranch`]
-    /// says, landing the move with the keys `lands` if it's that, as it showed them until the
-    /// reload shows where they went. The selected one stays selected there, as a move to a
-    /// branch already there keeps it.
+    /// says, showing them as `overlay` does until the reload shows where they went. The selected
+    /// one stays selected there, as a move to a branch already there keeps it.
     pub fn move_to_new_branch(
         &mut self,
         project: &ProjectId,
         ids: Arc<[CommitId]>,
         beside: Option<(FullName, bool)>,
         first: bool,
-        lands: Option<crate::transfer::Move>,
+        overlay: Overlay,
         cx: &mut Context<Self>,
     ) {
-        let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
-        let overlay = match lands {
-            Some(lands) => Overlay {
-                lands: Some(lands),
-                ..Overlay::default()
-            },
-            None => Overlay::commits(keys.collect::<Vec<_>>()),
-        };
         self.apply(
             project,
             "Move to a new branch",
@@ -1793,6 +1787,11 @@ impl Store {
     /// The move with the keys an operation running now lands, in any project.
     pub fn landing(&self) -> Option<&crate::transfer::Move> {
         self.running.iter().find_map(|r| r.overlay.lands.as_ref())
+    }
+
+    /// Whether the move an operation running now lands was dragged.
+    pub fn landing_dropped(&self) -> bool {
+        (self.running.iter()).any(|r| r.overlay.dropped && r.overlay.lands.is_some())
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {

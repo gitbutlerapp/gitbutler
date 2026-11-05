@@ -449,11 +449,11 @@ pub struct Store {
     /// What the pointer is dragging, followed as agents rewrite it: GPUI's own copy stays as
     /// the drag began. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
+    /// Whether a drag holds [`Self::moving`], the pointer stepping it rather than the keys.
+    pub move_dragged: bool,
     /// What a terminal pastes of a drag from the diff, as it began: the patch of what it
     /// carries ([`Store::pasted`]). Only meaningful while GPUI has a drag active.
     pub dragged_patch: Option<String>,
-    /// The row the drag is over and where on it a drop lands, when it takes the drop.
-    pub drop_at: Option<(Selection, crate::transfer::Place)>,
     /// Commits being moved with the keys, followed as agents rewrite them, until they land or
     /// the selection goes elsewhere.
     pub moving: Option<crate::transfer::Move>,
@@ -647,8 +647,8 @@ impl Store {
             added: None,
             asked_author: false,
             dragging: None,
+            move_dragged: false,
             dragged_patch: None,
-            drop_at: None,
             moving: None,
             toasts: Vec::new(),
             account: account::Account::default(),
@@ -1459,6 +1459,7 @@ impl Store {
 
     pub fn set_moving(&mut self, moving: Option<crate::transfer::Move>, cx: &mut Context<Self>) {
         self.moving = moving;
+        self.move_dragged = false;
         cx.notify();
     }
 }

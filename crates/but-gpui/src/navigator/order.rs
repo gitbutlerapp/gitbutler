@@ -17,7 +17,7 @@ use bstr::{BStr, BString};
 
 use super::Navigator;
 use super::moving::worktree_headed;
-use super::rows::{HEADING_MIDDLE, Row, in_checkout, last_active, listed_with, span_height};
+use super::rows::{HEADING_MIDDLE, Row, last_active, listed_with, span_height};
 use crate::app::{AppView, MoveHere};
 use crate::backend::Checkout;
 use crate::overlays::MenuItem;
@@ -397,28 +397,6 @@ impl Navigator {
         self.hold_worktree(project, name.as_ref(), slot, cx);
     }
 
-    /// Whether a drop on row `item` lands there: as [`Self::drops`] says, but while a linked
-    /// worktree is dragged by its heading, only on its own rows, and only while it's where it
-    /// was.
-    pub(super) fn takes_drop(&self, item: &Selection, store: &Store) -> bool {
-        let Some((project, name)) = &self.dragged_worktree else {
-            return self.drops(store) && !self.folded_heading(item);
-        };
-        let own = match item {
-            Selection::Checkout(_, Checkout::Linked(heading)) => heading == name,
-            _ => (store.workspace(project))
-                .is_some_and(|ws| in_checkout(store, item, ws, &Checkout::Linked(name.clone()))),
-        };
-        item.project() == project && own && !worktree_held(self.dragged_worktree.as_ref(), store)
-    }
-
-    /// Whether what's dragged can land on the rows: not while something is being moved, which
-    /// a click puts where it goes instead, but a linked worktree dragged by its heading, which
-    /// moves it as it goes.
-    pub(super) fn drops(&self, store: &Store) -> bool {
-        store.moving.is_none() || self.dragged_worktree.is_some()
-    }
-
     /// Let go of the linked worktree dragged by its heading where it's shown, as Return lands
     /// it, if it's moving.
     pub(super) fn drop_worktree(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
@@ -532,7 +510,7 @@ impl Navigator {
 
     /// How far down the cards' rows `at` is, from the top of the first, as the rows count
     /// their heights ([`span_height`]): from the drawn row it's over, or else the nearest.
-    fn depth_at(&self, at: Point<Pixels>, theme: &Theme) -> Option<f32> {
+    pub(super) fn depth_at(&self, at: Point<Pixels>, theme: &Theme) -> Option<f32> {
         let list = &self.list;
         let mut drawn = (list.logical_scroll_top().item_ix..self.rows.len())
             .map_while(|ix| Some((ix, list.bounds_for_item(ix)?)));

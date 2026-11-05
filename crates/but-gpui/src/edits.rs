@@ -253,7 +253,9 @@ impl AppView {
                         this.store.update(cx, |store, cx| {
                             // With the commits picked with it, as dropping them on New branch does.
                             let ids = store.with_picks(&project, id);
-                            store.move_to_new_branch(&project, ids, None, false, None, cx)
+                            let keys = ids.iter().filter_map(|id| store.key_of(&project, *id));
+                            let overlay = Overlay::commits(keys.collect::<Vec<_>>());
+                            store.move_to_new_branch(&project, ids, None, false, overlay, cx)
                         });
                     }))
                     .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))

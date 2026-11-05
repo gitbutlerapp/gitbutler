@@ -159,15 +159,17 @@ impl AppView {
             };
             // In the message of what's amended the keys write it, and those that confirm amend.
             let writing = moving.amending() && detail.message_focused(window, cx);
-            let keys = (!unseen && !writing)
+            // What a drag holds goes by the pointer, which only Escape stops.
+            let dragged = moving.dragged(store);
+            let keys = (!unseen && !writing && !dragged)
                 .then(|| ("↑↓".into(), "choose where"))
                 .into_iter()
                 .chain(
-                    (shortcut(&MoveHere, cx).filter(|_| lands && !writing))
+                    (shortcut(&MoveHere, cx).filter(|_| lands && !writing && !dragged))
                         .map(|keys| (keys, verb)),
                 )
-                .chain(messages)
-                .chain(instead.filter(|_| !writing))
+                .chain(messages.filter(|_| !dragged))
+                .chain(instead.filter(|_| !writing && !dragged))
                 .chain([(
                     "esc".into(),
                     match writing {
@@ -274,7 +276,12 @@ impl AppView {
         // A linked worktree's changes commit and discard as the main checkout's do.
         let uncommitted = matches!(store.selection, Some(Selection::Uncommitted(..)));
         let composing = uncommitted && detail.composing();
-        let hints: Vec<(&dyn Action, &str)> = if composing {
+        let hints: Vec<(&dyn Action, &str)> = if (store.moving.as_ref())
+            .is_some_and(|moving| moving.dragged(store))
+        {
+            // What's selected isn't what the keys do while a drag holds the pointer.
+            Vec::new()
+        } else if composing {
             // The other's key shows as what to do instead while one's being placed.
             let moving = store.moving.as_ref();
             let commit = (&StartCommit as &dyn Action, "commit");
