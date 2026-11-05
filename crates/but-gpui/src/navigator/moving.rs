@@ -1011,16 +1011,20 @@ impl Navigator {
         }
     }
 
-    /// Why `worktree`'s changes in `project` can't amend anything, if they can't: none are
-    /// checked, or there are none.
+    /// Why `worktree`'s changes in `project` can't amend anything started from `from`, if they
+    /// can't: none are checked, there are none, or nothing can take them.
     pub(crate) fn amend_refused(
         &self,
         project: &ProjectId,
         worktree: &Checkout,
+        from: &Selection,
         cx: &App,
     ) -> Option<&'static str> {
-        if self.uncommitted(project, worktree.clone(), cx).is_some() {
-            return None;
+        if let Some(what) = self.uncommitted(project, worktree.clone(), cx) {
+            let start = self.amend_start(project, from, cx);
+            return (self.squash_move(project, &what, start, cx))
+                .is_none()
+                .then_some("Nowhere to amend it");
         }
         let uncommitted = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.uncommitted_in(worktree))
@@ -1074,6 +1078,44 @@ impl Navigator {
         })
     }
 
+    /// The squash of `what` of `project` from the selection's row, which holds it, at `at` if
+    /// it can go there. `None` with nowhere to go: somewhere besides where it is, unless it goes
+    /// somewhere there, as a branch squashing into one commit does.
+    fn squash_move(
+        &self,
+        project: &ProjectId,
+        what: &Moving,
+        at: Option<Stop>,
+        cx: &App,
+    ) -> Option<Move> {
+        let op = Op::Squash(Messages::default());
+        let (stops, start) = self.stops_for(project, what, op, cx)?;
+        // Uncommitted changes go first into what's on top of the branch below their row, as
+        // a commit of them goes there first.
+        let start = match what {
+            Moving::Files { from: None, .. } => (stops.iter().enumerate().skip(start + 1))
+                .find(|(_, stop)| matches!(stop, Stop::Into(Target::Commit(_) | Target::Branch(_))))
+                .map_or(start, |(at, _)| at),
+            Moving::Commits(_)
+            | Moving::Branch(_)
+            | Moving::Project(_)
+            | Moving::Worktree { .. }
+            | Moving::Terminal { .. }
+            | Moving::Files { .. }
+            | Moving::Copies(_) => start,
+        };
+        let start = (at.as_ref())
+            .and_then(|at| stops.iter().position(|stop| stop == at))
+            .unwrap_or(start);
+        let moving = Move {
+            project: project.clone(),
+            what: what.clone(),
+            at: stops.get(start)?.clone(),
+            op,
+        };
+        (stops.len() > 1 || moving.lands(self.store.read(cx))).then_some(moving)
+    }
+
     /// Start squashing `what` of `project` from the selection's row, which holds it, at `at`
     /// if it can go there. Whether it started.
     pub(crate) fn squash(
@@ -1084,40 +1126,7 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        let op = Op::Squash(Messages::default());
-        let store = self.store.read(cx);
-        // Somewhere besides where it is, unless it goes somewhere there, as a branch squashing
-        // into one commit does.
-        let start = (self.stops_for(&project, &what, op, cx)).and_then(|(stops, start)| {
-            // Uncommitted changes go first into what's on top of the branch below their row, as
-            // a commit of them goes there first.
-            let start = match &what {
-                Moving::Files { from: None, .. } => (stops.iter().enumerate().skip(start + 1))
-                    .find(|(_, stop)| {
-                        matches!(stop, Stop::Into(Target::Commit(_) | Target::Branch(_)))
-                    })
-                    .map_or(start, |(at, _)| at),
-                Moving::Commits(_)
-                | Moving::Branch(_)
-                | Moving::Project(_)
-                | Moving::Worktree { .. }
-                | Moving::Terminal { .. }
-                | Moving::Files { .. }
-                | Moving::Copies(_) => start,
-            };
-            let start = (at.as_ref())
-                .and_then(|at| stops.iter().position(|stop| stop == at))
-                .unwrap_or(start);
-            let at = stops.get(start)?.clone();
-            let home = Move {
-                project: project.clone(),
-                what: what.clone(),
-                at: at.clone(),
-                op,
-            };
-            (stops.len() > 1 || home.lands(store)).then_some(at)
-        });
-        let Some(at) = start else {
+        let Some(moving) = self.squash_move(&project, &what, at, cx) else {
             let why = match what {
                 Moving::Files { from: None, .. } => "Nowhere to amend it",
                 Moving::Commits(_)
@@ -1130,12 +1139,6 @@ impl Navigator {
             };
             snack(&self.store, why, cx);
             return false;
-        };
-        let moving = Move {
-            project,
-            what,
-            at,
-            op,
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));

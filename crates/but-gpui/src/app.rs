@@ -1684,8 +1684,8 @@ impl AppView {
             return;
         };
         // Refused here, what's shown stays as it is.
-        let refused = (self.navigator.read(cx)).amend_refused(&project, &worktree, cx);
-        if let Some(why) = refused.filter(|_| amend) {
+        let navigator = self.navigator.read(cx);
+        if amend && let Some(why) = navigator.amend_refused(&project, &worktree, &selection, cx) {
             return snack(&self.store, why, cx);
         }
         let shown = self.navigator_shown();
