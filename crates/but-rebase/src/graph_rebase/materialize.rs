@@ -301,8 +301,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Don't allow for linked worktrees.
-                        allow_uncommitted_changes_to_conflict_with_new_head: false,
+                        allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )
                 .with_context(|| linked_repo.worktree)?;
@@ -316,7 +315,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Allow for our worktree.
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
