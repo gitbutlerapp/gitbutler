@@ -2518,12 +2518,22 @@ impl AppView {
             .flex_none()
             .id(bar_id);
         // Dragged as its row is, so the navigator takes it in as it does a row. Not while
-        // something else moves, which that would end.
-        let bar = match terminal_of(&tile).filter(|_| self.store.read(cx).moving.is_none()) {
+        // something else moves, which that would end, or while a tile's zoomed, as nothing
+        // lifts it then.
+        let draggable = self.store.read(cx).moving.is_none() && self.tile_zoom.is_none();
+        let bar = match terminal_of(&tile).filter(|_| draggable) {
             Some((project, id)) => {
                 let project = project.clone();
                 let preview = terminal_preview(self.store.clone(), true);
-                bar.on_drag(TerminalDrag { project, id }, preview)
+                let left_zone_end = (self.store.read(cx).tiling())
+                    .filter(|_| self.navigator_open)
+                    .and_then(|tiling| left_zone_end(tiling, &tile, self.tile_room.get()));
+                let drag = TerminalDrag {
+                    project,
+                    id,
+                    left_zone_end,
+                };
+                bar.on_drag(drag, preview)
             }
             None => bar,
         };
@@ -3345,8 +3355,9 @@ impl AppView {
     /// Follow the pointer with the tile pressed by its bar, past the lift: what lands it
     /// where, and the other tiles make room there once it's rested over it. Whether the move
     /// was the drag's, so nothing under the pointer sees it. A terminal's bar drags it as its
-    /// row does too, so that once the navigator shows it where it'd go, a row takes the place
-    /// of its tile; another tile over the navigator lands along the left of the room.
+    /// row does too, so that once the navigator shows it where it'd go, past the zone along the
+    /// left of the room, a row takes the place of its tile; another tile over the navigator
+    /// lands along the left of the room.
     fn drag_tile(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) -> bool {
         if self.tile_drag.as_ref().is_none_or(|drag| drag.released) {
             return false;
@@ -4508,8 +4519,15 @@ const OUT_OF_SIGHT: f32 = -100.;
 /// How finely [`TileDrag::zones`] looks where the pointer lands the tile, in pixels.
 const ZONE_STEP: f32 = 6.;
 
-/// How far past the room [`TileDrag::zones`] looks, for the landings along its sides.
+/// How far past the room [`TileDrag::zones`] looks, for the landings along its sides, and so
+/// how far over the navigator the zone along its left reaches.
 const ZONE_BEYOND: f32 = 48.;
+
+/// Where in the window the zone along the left of the tiles ends, in `room`, for `tile`: it has
+/// none along the left already, where landing there moves nothing.
+fn left_zone_end(tiling: &Tiling, tile: &Tile, room: Bounds<Pixels>) -> Option<Pixels> {
+    (tiling.moves(tile, &Landing::Edge(Side::Left))).then(|| room.left() - fixed(ZONE_BEYOND))
+}
 
 impl TileDrag {
     /// Where it lands with the pointer `at`, in pixels in the room, `room` big. How far in a
@@ -5288,8 +5306,12 @@ pub(crate) fn scripted() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{KeyStop, stop_beside, stop_round};
-    use crate::state::{Area, ProjectTab, RowKey, Side, Tile};
+    use gpui::{Bounds, point, size};
+
+    use super::{KeyStop, ZONE_BEYOND, left_zone_end, stop_beside, stop_round};
+    use crate::state::{Area, Axis, Landing, ProjectTab, RowKey, Selection, Side, Tile, Tiling};
+    use crate::terminal::TerminalId;
+    use crate::ui::fixed;
 
     fn pinned() -> Tile {
         Tile::Pinned(RowKey::Tab("p".into(), ProjectTab::Branches))
@@ -5307,6 +5329,29 @@ mod tests {
 
     fn at(tile: Tile) -> KeyStop {
         KeyStop::Tile(tile)
+    }
+
+    #[test]
+    fn a_tile_has_a_zone_along_the_left_of_the_room_unless_it_is_there_already() {
+        let terminal = RowKey::Row(Selection::Terminal("p".into(), TerminalId(1)));
+        let tile = Tile::Pinned(terminal.clone());
+        let mut tiling = Tiling::default();
+        tiling.pin(&Tile::Home, Axis::Across, terminal);
+        let room = Bounds::new(
+            point(fixed(336.), fixed(36.)),
+            size(fixed(1020.), fixed(790.)),
+        );
+        assert_eq!(
+            left_zone_end(&tiling, &tile, room),
+            Some(fixed(336. - ZONE_BEYOND)),
+            "it reaches as far over the navigator as it's shown to"
+        );
+        let along_left = tiling.landed(&tile, &Landing::Edge(Side::Left), (0., 0.));
+        assert_eq!(
+            left_zone_end(&along_left, &tile, room),
+            None,
+            "there already, nothing keeps it from the navigator"
+        );
     }
 
     #[test]

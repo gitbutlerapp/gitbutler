@@ -776,9 +776,7 @@ impl Tiling {
         ];
         // Not a side it's along already, which goes by the tile under the pointer as anywhere.
         let nearest = (sides.into_iter())
-            .filter(|(past, side)| {
-                *past > 0. && self.landed(tile, &Landing::Edge(*side), (0., 0.)) != *self
-            })
+            .filter(|(past, side)| *past > 0. && self.moves(tile, &Landing::Edge(*side)))
             .max_by(|(a, _), (b, _)| a.total_cmp(b));
         if let Some((_, side)) = nearest {
             return Some(Landing::Edge(side));
@@ -789,8 +787,7 @@ impl Tiling {
         if over == *tile {
             // Dragged straight down, out of its row.
             let down = y >= area.top + area.height / 2.;
-            let moves = || self.landed(tile, &Landing::BelowRow, (0., 0.)) != *self;
-            return Some(match down && moves() {
+            return Some(match down && self.moves(tile, &Landing::BelowRow) {
                 true => Landing::BelowRow,
                 false => Landing::Stay,
             });
@@ -818,7 +815,7 @@ impl Tiling {
         // moves it.
         let moves = |side: Side| {
             let landing = Landing::Beside(over.clone(), side);
-            (self.landed(tile, &landing, (0., 0.)) != *self).then_some(landing)
+            self.moves(tile, &landing).then_some(landing)
         };
         let landing = moves(side).or_else(|| moves(side.opposite()));
         let two = self.areas().len() == 2;
@@ -863,6 +860,11 @@ impl Tiling {
             true => Some(*axis),
             false => parts.iter().find_map(|(_, part)| part.axis_holding(tile)),
         }
+    }
+
+    /// Whether `tile` landing at `landing` changes how the tiles are laid out.
+    pub fn moves(&self, tile: &Tile, landing: &Landing) -> bool {
+        self.landed(tile, landing, (0., 0.)) != *self
     }
 
     /// As it is once `tile` lands at `landing`, each tile taking at least `least` of the room's

@@ -1695,6 +1695,9 @@ impl Render for ProjectPreview {
 pub struct TerminalDrag {
     pub project: ProjectId,
     pub id: TerminalId,
+    /// Dragged by its tile's bar, where in the window the zone along the left of the tiles ends,
+    /// if it has one: the navigator takes it only past that.
+    pub left_zone_end: Option<Pixels>,
 }
 
 /// Start a drag of a terminal shown as a pill with its title, as [`drag_preview`] starts a
