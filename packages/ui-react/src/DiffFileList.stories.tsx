@@ -27,7 +27,7 @@ const files = [
  */
 export const Default = meta.story({
 	render: () => (
-		<DiffFileList style={{ width: 546 }}>
+		<DiffFileList>
 			{files.map((file, index) => (
 				<DiffFile
 					key={file.path}

@@ -57,13 +57,6 @@ const meta = stories({
 		collapsed: false,
 		header: <DiffFileHeader path="src/components/Button.svelte" added={4} removed={3} />,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 546 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 export const Default = meta.story({

@@ -1,0 +1,138 @@
+.bar {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+	padding: 8px 12px;
+	background-color: var(--bg-2);
+}
+
+/* The notes wrap onto a second line the start clips, so one that doesn't fit drops whole rather
+   than in half. `clip`, not `hidden`, so focusing a dropped note can't scroll the line into view;
+   the clip margin leaves room for the focus ring without reaching the second line. */
+.start {
+	display: flex;
+	flex: 1;
+	flex-wrap: wrap;
+	align-items: center;
+	min-width: 0;
+	height: var(--size-control-sm);
+	overflow: clip;
+	overflow-clip-margin: 2px;
+	gap: 12px;
+
+	> * {
+		flex-shrink: 0;
+	}
+
+	> .operation {
+		flex-shrink: 1;
+	}
+}
+
+.end {
+	display: flex;
+	column-gap: 12px;
+	flex-shrink: 0;
+	align-items: center;
+}
+
+.note {
+	display: inline-flex;
+	column-gap: 4px;
+	align-items: center;
+	height: var(--size-control-sm);
+	padding-inline: 6px;
+	border: none;
+	border-radius: var(--radius-control);
+	background-color: transparent;
+	color: var(--text-2);
+	white-space: nowrap;
+	cursor: var(--control-cursor);
+	transition: var(--transition-button);
+
+	&:hover {
+		background-color: var(--bg-hover);
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}
+
+.danger {
+	background-color: color-mix(in srgb, var(--scale-danger-50) 10%, transparent);
+	color: var(--text-danger);
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--scale-danger-50) 18%, transparent);
+	}
+}
+
+.alert {
+	display: inline-flex;
+	column-gap: 2px;
+	align-items: center;
+}
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	height: var(--size-control-sm);
+	padding-inline: 4px;
+	border-radius: var(--radius-control);
+	background-color: var(--fill-danger-bg);
+	color: var(--fill-danger-fg);
+}
+
+.location {
+	display: inline-flex;
+	column-gap: 4px;
+	align-items: center;
+	height: var(--size-control-sm);
+	padding-inline: 6px;
+	color: var(--text-2);
+	white-space: nowrap;
+}
+
+.hint {
+	display: inline-flex;
+	column-gap: 8px;
+	align-items: center;
+	color: var(--text-2);
+	white-space: nowrap;
+}
+
+.operation {
+	display: inline-flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+	color: var(--text-2);
+	white-space: nowrap;
+
+	> * {
+		flex-shrink: 0;
+	}
+
+	/* The subject and the place give way when the line runs out of room. */
+	> .name {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+.op {
+	color: var(--text-pop);
+
+	.running > & {
+		color: var(--text-2);
+	}
+}
+
+/* The seconds tick, so each digit keeps its width and the line doesn't shift. */
+.elapsed {
+	color: var(--text-3);
+	font-variant-numeric: tabular-nums;
+}

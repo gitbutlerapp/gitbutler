@@ -8,8 +8,21 @@ export type Design = { type: string; url: string };
 
 export type Parameters = {
 	design?: Design;
-	/** `fullscreen` fills the frame with no padding, `centered` centres the story in it. */
-	layout?: "fullscreen" | "centered";
+	/**
+	 * Left out, the story stands on the page's muted ground, with no border, so a component with a
+	 * card of its own isn't framed by a second one. `fullscreen` gives it a frame of its own with no
+	 * padding, as a window; `centered` centres it in that frame. `bar` is for a bar that runs the
+	 * width of a window, as a status bar or a location bar: drawn edge to edge in a bordered card,
+	 * with no padding and no scrolling, so the card's border is the bar's. AGENTS.md says which to
+	 * pick.
+	 */
+	layout?: "fullscreen" | "centered" | "bar";
+	/**
+	 * The story's own size, for one drawn at a window's or a pane's: a narrow bar, a full view. Its
+	 * card follows it, centred on the page and past the page's column if it must be.
+	 */
+	width?: number;
+	height?: number;
 };
 
 /** Wraps a story, as `(Story) => <div style={…}><Story /></div>`. */

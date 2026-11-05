@@ -34,6 +34,8 @@ export async function renderFrame(id: string) {
 	if (entry === undefined || root === null) throw new Error(`No story ${id}`);
 
 	document.body.dataset["layout"] = entry.story.parameters.layout ?? "padded";
+	if (entry.story.parameters.width !== undefined)
+		root.style.width = `${entry.story.parameters.width}px`;
 	flushSync(() => createRoot(root).render(<entry.story.Component />));
 	await play(entry.story, root);
 }

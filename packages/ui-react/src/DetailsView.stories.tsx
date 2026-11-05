@@ -21,6 +21,8 @@ const meta = stories({
 	id: "preview-details-view",
 	parameters: {
 		layout: "fullscreen",
+		width: 846,
+		height: 760,
 		design: {
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3249-51240",

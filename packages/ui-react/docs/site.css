@@ -197,6 +197,11 @@ body[data-layout="centered"] {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+
+	/* The card stands apart from the words above it, which belong to it as a caption does. */
+	& > :last-child {
+		margin-top: 12px;
+	}
 }
 
 .docs-page-example-title {
@@ -206,9 +211,29 @@ body[data-layout="centered"] {
 	line-height: var(--font-line-height-default);
 }
 
+/* The ground an example stands on: tinted, with no border, so a component that draws its own card
+   isn't framed by a second one that looks the same. Muted, not bg/2: bg/2 is the components' own
+   inset (a code chip, a segmented control's track), which would vanish on it. In the dark, muted is
+   ten steps above the page and shouts, so the ground takes a third of the way there: still apart
+   from a bg/1 card and from bg/2 below it. */
 .docs-page-canvas {
 	padding: 24px;
 	overflow: auto;
+	border-radius: var(--radius-card);
+	background-color: light-dark(var(--bg-mute), color-mix(in srgb, var(--bg-1) 65%, var(--bg-mute)));
+}
+
+/* A bar the width of a window, edge to edge in its card: the card's border is the bar's. The card
+   is the pane the bar tops, so it is the size container a bar's own container queries ask. */
+.docs-page-canvas-bar {
+	container-type: inline-size;
+	overflow: hidden;
+
+	/* A bar's own edge line, as the location bar's border under it, would double the card's. Two
+	   classes' weight, so it wins over the component's own whatever order the sheets load in. */
+	& > [class] {
+		border-block: none;
+	}
 }
 
 .docs-page-frame {

@@ -63,22 +63,16 @@ const RepoHeader = () => (
 );
 
 /**
- * A repo's header in but.dev, MetaParts beside MetaCounts in a ViewHeader's meta line. The pane is
- * a size container 820px wide, so the words show.
+ * A repo's header in but.dev, MetaParts beside MetaCounts in a ViewHeader's meta line. The pane
+ * is a size container over 640px wide, so the words show.
  */
 export const InAHeader = meta.story({
-	render: () => (
-		<div style={{ width: 820, containerType: "inline-size", backgroundColor: "var(--bg-1)" }}>
-			<RepoHeader />
-		</div>
-	),
+	parameters: { layout: "bar" },
+	render: () => <RepoHeader />,
 });
 
 /** The same header in a pane under 640px wide: each MetaWord drops, the glyphs and numbers stay. */
 export const NarrowPane = meta.story({
-	render: () => (
-		<div style={{ width: 420, containerType: "inline-size", backgroundColor: "var(--bg-1)" }}>
-			<RepoHeader />
-		</div>
-	),
+	parameters: { layout: "bar", width: 420 },
+	render: () => <RepoHeader />,
 });
