@@ -12,7 +12,9 @@ use crate::backend::{
     self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
     short_ref,
 };
-use crate::state::{Label, NewAt, Overlay, ProjectId, Selection, Side, Store, branch_moved};
+use crate::state::{
+    Label, NewAt, Overlay, ProjectCheckout, ProjectId, Selection, Side, Store, branch_moved,
+};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
@@ -202,12 +204,13 @@ pub enum Moving {
         name: bstr::BString,
         order: Arc<[bstr::BString]>,
     },
-    /// Terminal `id`, among the terminals of the checkouts `lists` has, each with those open on
-    /// it in order, as they were listed when the move started, which they keep while it lasts.
-    /// Landing it on another checkout lists it there; its shell stays where it started.
+    /// Terminal `id`, among the terminals of the checkouts `lists` has, of every watched
+    /// project, each with those open on it in order, as they were listed when the move started,
+    /// which they keep while it lasts. Landing it on another checkout, of its project or
+    /// another's, lists it there; its shell stays where it started.
     Terminal {
         id: TerminalId,
-        lists: Arc<[(Checkout, Vec<TerminalId>)]>,
+        lists: Arc<[(ProjectCheckout, Vec<TerminalId>)]>,
     },
     /// Changes as they were when the squash started, none of them while the composer's checks
     /// say what goes in as it lands. They're only squashed: into a commit, or out of theirs into
@@ -289,9 +292,8 @@ impl Moving {
             (Moving::Worktree { name, .. }, Selection::Checkout(on, Checkout::Linked(other))) => {
                 on == project && other == name
             }
-            (Moving::Terminal { id, .. }, Selection::Terminal(on, terminal)) => {
-                on == project && terminal == id
-            }
+            // Wherever it's listed, as it can land in another project.
+            (Moving::Terminal { id, .. }, Selection::Terminal(_, terminal)) => terminal == id,
             // The row the files are listed under: their commit's, or their worktree's.
             (
                 Moving::Files(Changes {
@@ -397,7 +399,7 @@ pub enum Stop {
     Worktree(Slot<bstr::BString>),
     /// Among the terminals listed under `checkout`.
     Terminal {
-        checkout: Checkout,
+        checkout: ProjectCheckout,
         slot: Slot<TerminalId>,
     },
 }
@@ -519,7 +521,7 @@ impl Move {
     }
 
     /// The checkouts' terminals as a terminal's move shows them, it where it's at.
-    pub fn terminal_order(&self) -> Option<Vec<(Checkout, Vec<TerminalId>)>> {
+    pub fn terminal_order(&self) -> Option<Vec<(ProjectCheckout, Vec<TerminalId>)>> {
         let (Moving::Terminal { id, lists }, Stop::Terminal { checkout, slot }) =
             (&self.what, &self.at)
         else {
@@ -924,10 +926,10 @@ impl Move {
     }
 
     /// Where landing a terminal at `slot` among `checkout`'s puts it, naming the worktree when
-    /// it's another than its own.
+    /// it's another than its own, and its project when that's another too.
     fn terminal_place(
         &self,
-        checkout: &Checkout,
+        checkout: &ProjectCheckout,
         slot: &Slot<TerminalId>,
         store: &Store,
     ) -> String {
@@ -939,9 +941,13 @@ impl Move {
             .find(|(on, _)| on == checkout)
             .map(|(_, list)| list.iter().filter(|other| *other != id).copied().collect())
             .unwrap_or_default();
-        let worktree = match checkout {
+        let worktree = match &checkout.checkout {
             Checkout::Main => "the main worktree".to_owned(),
             Checkout::Linked(name) => name.to_string(),
+        };
+        let worktree = match checkout.project == self.project {
+            true => worktree,
+            false => format!("{worktree} of {}", project_name(store, &checkout.project)),
         };
         let at = match (slot, others.last()) {
             (Slot::Before(before), _) => format!("above {}", terminal_title(store, *before)),

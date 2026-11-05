@@ -17,6 +17,13 @@ use crate::terminal::{Terminal, TerminalEvent, TerminalId, shell_quoted};
 use but_tty::Detached;
 use but_tty::{Ghostty, Shell, Status};
 
+/// A project's checkout, which terminals are listed under.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectCheckout {
+    pub project: ProjectId,
+    pub checkout: Checkout,
+}
+
 #[derive(Default)]
 pub struct Terminals {
     opened: u64,
@@ -259,27 +266,27 @@ impl Store {
         });
     }
 
-    /// List `project`'s terminals as `lists` has them: each under its checkout, in that order,
-    /// in the places they take among the others. One moved to another checkout is listed there,
-    /// while its shell stays where it started. One opened since that it doesn't have stays where
-    /// it is.
+    /// List the terminals `lists` has as it has them: each under its checkout, in that order,
+    /// in the places they take among the others. One moved to another checkout, of its project
+    /// or another's, is listed there, while its shell stays where it started. One opened since
+    /// that it doesn't have stays where it is.
     pub fn order_terminals(
         &mut self,
-        project: &ProjectId,
-        lists: &[(Checkout, Vec<TerminalId>)],
+        lists: &[(ProjectCheckout, Vec<TerminalId>)],
         cx: &mut Context<Self>,
     ) {
-        for open in (self.terminals.open.iter_mut()).filter(|open| open.project == *project) {
+        let mut rehomed = Vec::new();
+        for open in self.terminals.open.iter_mut() {
             if let Some((on, _)) = lists.iter().find(|(_, list)| list.contains(&open.id)) {
-                open.checkout = on.clone();
+                if open.project != on.project {
+                    rehomed.push((open.id, open.project.clone(), on.project.clone()));
+                }
+                open.project = on.project.clone();
+                open.checkout = on.checkout.clone();
             }
         }
         let order: Vec<TerminalId> = lists.iter().flat_map(|(_, list)| list).copied().collect();
-        let at = |open: &Open| {
-            let ours = open.project == *project;
-            ours.then(|| order.iter().position(|id| *id == open.id))
-                .flatten()
-        };
+        let at = |open: &Open| order.iter().position(|id| *id == open.id);
         let open = std::mem::take(&mut self.terminals.open);
         let ordered: Vec<bool> = open.iter().map(|open| at(open).is_some()).collect();
         let (mut moved, rest): (Vec<Open>, Vec<Open>) =
@@ -292,7 +299,27 @@ impl Store {
                 false => rest.next(),
             })
             .collect();
+        for (id, from, to) in rehomed {
+            self.rehome_terminal(id, from, to, cx);
+        }
         cx.notify();
+    }
+
+    /// Have terminal `id`'s row, moved from project `from` to `to`, keep its selection and
+    /// tiles.
+    fn rehome_terminal(
+        &mut self,
+        id: TerminalId,
+        from: ProjectId,
+        to: ProjectId,
+        cx: &mut Context<Self>,
+    ) {
+        let (from, to) = (Selection::Terminal(from, id), Selection::Terminal(to, id));
+        self.rekey_row(&RowKey::Row(from.clone()), &RowKey::Row(to.clone()));
+        cx.emit(StoreEvent::TilingChanged);
+        if self.selection.as_ref() == Some(&from) {
+            self.select(Some(to), cx);
+        }
     }
 
     /// Show `name` for terminal `id` in place of what its shell titles it, or with an empty
@@ -436,7 +463,7 @@ impl Store {
         if let Some(moving) = self.moving.take()
             && let Some(order) = moving.terminal_order()
         {
-            self.order_terminals(&moving.project, &order, cx);
+            self.order_terminals(&order, cx);
         }
         self.close_tile(pinned, cx);
     }
