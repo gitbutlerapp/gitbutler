@@ -19,8 +19,8 @@
 		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
 	},
 	"devDependencies": {
-		"@terrazzo/cli": "0.10.3",
-		"@terrazzo/parser": "0.10.4",
+		"@terrazzo/cli": "0.10.5",
+		"@terrazzo/parser": "0.10.5",
 		"@terrazzo/plugin-css": "0.10.4"
 	}
 }
