@@ -17,6 +17,7 @@ use gpui::{
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
+use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
 use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
@@ -552,6 +553,7 @@ impl AppView {
                         store.load_projects(cx);
                         store.recheck_folders(cx);
                     });
+                    crate::keymap::reload(cx);
                 }
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
@@ -4818,6 +4820,13 @@ impl Render for AppView {
             .on_action(cx.listener(Self::open_briefs_settings))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
+            // Only where there's a checkout to write the keys to.
+            .when(crate::keymap::source_dir().is_some(), |el| {
+                el.on_action(cx.listener(|this, _: &OpenCommandEditor, _, cx| {
+                    let store = this.store.clone();
+                    cx.defer(move |cx| crate::command_editor::open(store, cx))
+                }))
+            })
             // Here rather than around the navigator, so the details pane's buttons reach them.
             .map(|el| self.pr_actions(el, cx))
             .map(|el| self.copy_actions(el, cx))

@@ -249,6 +249,8 @@ and tests it.
   macOS and Ctrl elsewhere. `base.json` holds only the keys macOS gives every app; everything the
   app gives a meaning to, even ⌘C or ⌘Z, goes in the file of each `keymap::Keymap`. The last
   binding for an action is the key menus and tooltips show.
+  A dev build binds them from the checkout, and the Edit commands window (`command_editor`)
+  writes them there as text edits that keep their comments and order.
 - Write keys in copy as macOS does (`⌘↩`) and pass the text through `ui::keys_text`, which
   shows `Ctrl+Enter` on Windows and Linux.
 - Name platform things through one place: `ui::REVEAL` for the file manager,

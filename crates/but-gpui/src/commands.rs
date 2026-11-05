@@ -20,6 +20,25 @@ use crate::palette::{CopyMore, GoTo, GoToTerminal};
 use crate::state::Selection;
 use crate::ui::{commit_title, plural, quoted};
 
+/// What the palette calls the action named `name`, or its name in words: `navigator::SelectNext`
+/// is "Select next".
+pub(crate) fn title_of(name: &str) -> String {
+    if let Some(command) = COMMANDS.iter().find(|c| c.name() == name) {
+        return command.title().to_owned();
+    }
+    let last = name.rsplit("::").next().unwrap_or(name);
+    let mut words = String::new();
+    for (ix, c) in last.char_indices() {
+        if c.is_uppercase() && ix > 0 {
+            words.push(' ');
+            words.extend(c.to_lowercase());
+        } else {
+            words.push(c);
+        }
+    }
+    words
+}
+
 /// An action the palette and the menus offer, by the one title they all call it.
 pub(crate) trait Command: Action {
     fn title(&self) -> &'static str;
@@ -349,6 +368,9 @@ commands! {
     CheckForUpdates => "Check for updates",
     crate::app::BuildAndRestart => "Rebuild and restart",
     crate::app::BuildAndRestartFromHere => "Build and restart from here",
+    crate::command_editor::OpenCommandEditor => "Edit commands" {
+        aliases: &["Keybindings", "Keymap editor", "Edit keys", "Edit shortcuts"],
+    },
     crate::help::OpenDocs => "GitButler docs",
     crate::help::OpenReleaseNotes => "What's new (release notes)",
     crate::help::ReportIssue => "Report an issue",
@@ -527,7 +549,7 @@ fn deletable(app: &AppView, cx: &App) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::COMMANDS;
+    use super::{COMMANDS, title_of};
 
     #[test]
     fn every_command_has_a_title_of_its_own() {
@@ -554,6 +576,20 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn commands_without_a_palette_title_are_named_from_their_action() {
+        assert_eq!(
+            title_of("navigator::SelectNext"),
+            "Select next",
+            "words from the name"
+        );
+        assert_eq!(
+            title_of("remote::UpdateFromTarget"),
+            "Update workspace and worktrees",
+            "the palette's own title first"
+        );
     }
 
     #[test]

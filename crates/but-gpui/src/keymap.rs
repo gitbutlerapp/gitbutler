@@ -3,20 +3,68 @@
 //! `assets/keymaps/base.json` holds the few keys every keymap shares, those macOS gives every
 //! app, as ⌘Q. Each [`Keymap`] has a file of its own for the rest, which Settings › Keyboard
 //! picks.
+//!
+//! The files ship in the binary. A dev build binds them from the checkout it was built from
+//! instead ([`source_dir`]), and reads them again as a window comes in front, so the command
+//! editor's changes and a hand's take effect without a build.
 
+pub mod edit;
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result, bail};
-use gpui::{App, Entity, KeyBinding, KeyBindingContextPredicate};
+use gpui::{App, Entity, Global, KeyBinding, KeyBindingContextPredicate};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+use crate::backend;
 use crate::state::Store;
 
-const BASE: &str = include_str!("../assets/keymaps/base.json");
-
 /// The platforms a section can name, as `std::env::consts::OS` names them.
-const PLATFORMS: [&str; 3] = ["macos", "windows", "linux"];
+pub const PLATFORMS: [&str; 3] = ["macos", "windows", "linux"];
+
+/// What people call the platform `os`.
+pub fn platform_name(os: &str) -> &str {
+    match os {
+        "macos" => "macOS",
+        "windows" => "Windows",
+        "linux" => "Linux",
+        other => other,
+    }
+}
+
+/// A file of keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeymapFile {
+    GitButler,
+    Tui,
+    /// The keys every keymap shares.
+    Base,
+}
+
+impl KeymapFile {
+    pub const ALL: [KeymapFile; 3] = [KeymapFile::GitButler, KeymapFile::Tui, KeymapFile::Base];
+
+    fn name(self) -> &'static str {
+        match self {
+            KeymapFile::GitButler => "gitbutler.json",
+            KeymapFile::Tui => "tui.json",
+            KeymapFile::Base => "base.json",
+        }
+    }
+
+    /// The text that shipped in the binary.
+    fn embedded(self) -> &'static str {
+        match self {
+            KeymapFile::GitButler => include_str!("../assets/keymaps/gitbutler.json"),
+            KeymapFile::Tui => include_str!("../assets/keymaps/tui.json"),
+            KeymapFile::Base => include_str!("../assets/keymaps/base.json"),
+        }
+    }
+}
 
 /// A set of keys the app binds, beside the keys every keymap shares.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,18 +96,114 @@ impl Keymap {
 
     /// The files it binds, in their order: its own, then the shared keys, last so it can't take
     /// one of them.
-    fn files(self) -> [&'static str; 2] {
-        let own = match self {
-            Keymap::GitButler => include_str!("../assets/keymaps/gitbutler.json"),
-            Keymap::Tui => include_str!("../assets/keymaps/tui.json"),
-        };
-        [own, BASE]
+    pub fn files(self) -> [KeymapFile; 2] {
+        [self.own_file(), KeymapFile::Base]
+    }
+
+    /// The file of the keys only it binds.
+    pub fn own_file(self) -> KeymapFile {
+        match self {
+            Keymap::GitButler => KeymapFile::GitButler,
+            Keymap::Tui => KeymapFile::Tui,
+        }
     }
 }
 
+/// The folder a dev build reads its keymaps from and the command editor writes them to: the
+/// checkout's, or `None` when this isn't a dev build or the checkout is gone. A script's run
+/// gets a copy in its app data, so what it edits stays out of the checkout.
+pub fn source_dir() -> Option<&'static Path> {
+    static DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
+    DIR.get_or_init(find_source_dir).as_deref()
+}
+
+#[expect(
+    clippy::disallowed_methods,
+    reason = "once, at launch, and only a dev build goes on past the first line"
+)]
+fn find_source_dir() -> Option<PathBuf> {
+    if !backend::settings::dev_build() {
+        return None;
+    }
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/keymaps");
+    if !source.is_dir() {
+        return None;
+    }
+    if !crate::app::scripted() {
+        return Some(source);
+    }
+    let copy = but_path::app_data_dir().ok()?.join("keymaps");
+    std::fs::create_dir_all(&copy).ok()?;
+    for file in KeymapFile::ALL {
+        std::fs::copy(source.join(file.name()), copy.join(file.name())).ok()?;
+    }
+    Some(copy)
+}
+
+/// The text of each file as last read, and what's wrong with the ones that can't be used now.
+/// Those keep the text they last had that could.
+#[derive(Default)]
+pub struct Loaded {
+    texts: HashMap<KeymapFile, String>,
+    pub errors: Vec<String>,
+}
+
+impl Global for Loaded {}
+
+impl Loaded {
+    fn text(&self, file: KeymapFile) -> &str {
+        (self.texts.get(&file)).map_or(file.embedded(), String::as_str)
+    }
+
+    /// What the files say now, on top of what they last said.
+    fn read(&self) -> Loaded {
+        let mut read = Loaded::default();
+        for file in KeymapFile::ALL {
+            let last = self.text(file);
+            let text = match source_dir() {
+                Some(dir) => read_file(dir, file),
+                None => Ok(last.to_owned()),
+            };
+            let text = text.unwrap_or_else(|err| {
+                read.errors.push(format!("{err:#}"));
+                last.to_owned()
+            });
+            read.texts.insert(file, text);
+        }
+        read
+    }
+
+    fn same_as(&self, other: &Loaded) -> bool {
+        self.errors == other.errors
+            && KeymapFile::ALL
+                .into_iter()
+                .all(|file| self.text(file) == other.text(file))
+    }
+}
+
+/// `file`'s text in `dir`, if it's a keymap.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "only a dev build gets here, for a small file in its own checkout"
+)]
+fn read_file(dir: &Path, file: KeymapFile) -> Result<String> {
+    let reading = || format!("reading {}", file.name());
+    let text = std::fs::read_to_string(dir.join(file.name())).with_context(reading)?;
+    sections(&text).with_context(reading)?;
+    Ok(text)
+}
+
+/// What binding the keys again takes.
+struct Binder {
+    store: Entity<Store>,
+    set_menus: Rc<dyn Fn(&mut App)>,
+}
+
+impl Global for Binder {}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Section {
+pub(crate) struct Section {
     context: Option<String>,
     os: Option<Vec<String>>,
     /// Keys to the action each runs, in the file's order: the later binding wins, and is the one
@@ -74,9 +218,118 @@ struct Entry {
     context: Option<String>,
 }
 
+/// `file`'s text as last read.
+fn text_of(file: KeymapFile, cx: &App) -> String {
+    (cx.try_global::<Loaded>())
+        .map_or(file.embedded(), |loaded| loaded.text(file))
+        .to_owned()
+}
+
+/// One binding in a file, whatever the platform.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Binding {
+    pub file: KeymapFile,
+    /// Which of the file's sections it's in.
+    pub section: usize,
+    pub keys: String,
+    pub action: String,
+    pub context: Option<String>,
+    /// The platforms it binds on, or `None` for all of them.
+    pub os: Option<Vec<String>>,
+}
+
+impl Binding {
+    /// Whether it binds on the platform `os`.
+    pub fn binds_on(&self, os: &str) -> bool {
+        (self.os.as_ref()).is_none_or(|names| names.iter().any(|name| name == os))
+    }
+}
+
+/// Every binding of every file as last read, in each file's order.
+pub fn bindings(cx: &App) -> Vec<Binding> {
+    KeymapFile::ALL
+        .into_iter()
+        .flat_map(|file| file_bindings(file, &text_of(file, cx)))
+        .collect()
+}
+
+fn file_bindings(file: KeymapFile, text: &str) -> Vec<Binding> {
+    let sections = sections(text)
+        .inspect_err(|err| tracing::error!("couldn't read {}: {err:#}", file.name()))
+        .unwrap_or_default();
+    (sections.into_iter().enumerate())
+        .flat_map(|(section, parsed)| {
+            let (context, os) = (parsed.context, parsed.os);
+            (parsed.bindings.into_iter()).map(move |(keys, action)| Binding {
+                file,
+                section,
+                keys,
+                action,
+                context: context.clone(),
+                os: os.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Change `file` on disk with `change`, from what's there now, and bind what it says. A change
+/// that leaves it unreadable isn't written.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "only a dev build gets here, for a small file in its own checkout, and a key is saved \
+              once it's been pressed, so nothing's waiting on a frame"
+)]
+pub fn edit(
+    file: KeymapFile,
+    change: impl FnOnce(&str) -> Result<String>,
+    cx: &mut App,
+) -> Result<()> {
+    let dir = source_dir().context("this build's keymaps are built in")?;
+    let path = dir.join(file.name());
+    let text = std::fs::read_to_string(&path)?;
+    let changed = change(&text)?;
+    sections(&changed).context("the change would break the file")?;
+    std::fs::write(&path, changed)?;
+    reload(cx);
+    Ok(())
+}
+
+/// Read the files again and bind what's changed in them. Only a dev build's can change.
+pub fn reload(cx: &mut App) {
+    if source_dir().is_none() {
+        return;
+    }
+    let Some(last) = cx.try_global::<Loaded>() else {
+        return;
+    };
+    let read = last.read();
+    if read.same_as(last) {
+        return;
+    }
+    cx.set_global(read);
+    let Some(binder) = cx.try_global::<Binder>() else {
+        return;
+    };
+    let (store, set_menus) = (binder.store.clone(), binder.set_menus.clone());
+    bind_keys(store.read(cx).prefs.keymap, cx);
+    set_menus(cx);
+    // Views draw the keys they show, and the cached ones draw again only on a refresh.
+    cx.refresh_windows();
+}
+
 /// Binds the keys of the keymap the store's prefs pick, and again each time they pick another,
 /// then sets the menus, as the menu bar takes its keys when it's set.
 pub fn bind(store: &Entity<Store>, set_menus: impl Fn(&mut App) + 'static, cx: &mut App) {
+    let read = Loaded::default().read();
+    for error in &read.errors {
+        tracing::error!("couldn't read a keymap: {error}");
+    }
+    cx.set_global(read);
+    let set_menus: Rc<dyn Fn(&mut App)> = Rc::new(set_menus);
+    cx.set_global(Binder {
+        store: store.clone(),
+        set_menus: set_menus.clone(),
+    });
     let mut bound = store.read(cx).prefs.keymap;
     bind_keys(bound, cx);
     set_menus(cx);
@@ -97,10 +350,11 @@ pub fn bind(store: &Entity<Store>, set_menus: impl Fn(&mut App) + 'static, cx: &
 fn bind_keys(keymap: Keymap, cx: &mut App) {
     cx.clear_key_bindings();
     crate::ui::text_input::bind_keys(cx);
-    for json in keymap.files() {
+    for file in keymap.files() {
         // They ship with the app, so one that doesn't bind is a bug the tests catch; here it's
         // logged and the rest still bind.
-        let entries = entries(json, std::env::consts::OS)
+        let json = text_of(file, cx);
+        let entries = entries(&json, std::env::consts::OS)
             .inspect_err(|err| tracing::error!("couldn't read the {keymap:?} keymap: {err:#}"))
             .unwrap_or_default();
         let bindings: Vec<KeyBinding> = (entries.iter())
@@ -116,11 +370,15 @@ fn bind_keys(keymap: Keymap, cx: &mut App) {
     }
 }
 
+/// A file's sections, in its order.
+pub(crate) fn sections(json: &str) -> Result<Vec<Section>> {
+    serde_json_lenient::from_str(json).context("not a keymap")
+}
+
 /// The bindings `json` makes on the platform `os`, in its order.
 fn entries(json: &str, os: &str) -> Result<Vec<Entry>> {
-    let sections: Vec<Section> = serde_json_lenient::from_str(json).context("not a keymap")?;
     let mut entries = Vec::new();
-    for section in sections {
+    for section in sections(json)? {
         if let Some(names) = &section.os {
             if let Some(unknown) = names
                 .iter()
@@ -156,18 +414,80 @@ fn binding(entry: &Entry, cx: &App) -> Result<KeyBinding> {
     )?)
 }
 
+/// Keys the platform keeps: an app can't have them, or would take them from the system.
+fn reserved(os: &str) -> &'static [&'static str] {
+    match os {
+        "macos" => &[
+            "cmd-tab",
+            "cmd-`",
+            "cmd-space",
+            "ctrl-space",
+            "ctrl-up",
+            "ctrl-down",
+            "ctrl-left",
+            "ctrl-right",
+            "cmd-shift-3",
+            "cmd-shift-4",
+            "cmd-shift-5",
+            "cmd-alt-escape",
+            "cmd-ctrl-q",
+            "cmd-ctrl-f",
+        ],
+        // Ctrl+Alt+Backspace kills the X server where that's on; Ctrl+Alt with an arrow
+        // switches workspaces on Linux desktops.
+        _ => &[
+            "ctrl-alt-backspace",
+            "ctrl-alt-delete",
+            "alt-f4",
+            "alt-tab",
+            "alt-space",
+            "ctrl-escape",
+            "ctrl-shift-escape",
+            "ctrl-alt-up",
+            "ctrl-alt-down",
+            "ctrl-alt-left",
+            "ctrl-alt-right",
+        ],
+    }
+}
+
+/// A keystroke's modifiers, with `secondary` as the platform writes it, and its key.
+fn normal(keystroke: &str, os: &str) -> (std::collections::BTreeSet<String>, String) {
+    let (modifiers, key) = match keystroke.strip_suffix("--") {
+        Some(modifiers) => (modifiers, "-"),
+        None => keystroke.rsplit_once('-').unwrap_or(("", keystroke)),
+    };
+    let secondary = if os == "macos" { "cmd" } else { "ctrl" };
+    let modifiers = (modifiers.split('-').filter(|m| !m.is_empty()))
+        .map(|m| if m == "secondary" { secondary } else { m }.to_owned())
+        .collect();
+    (modifiers, key.to_owned())
+}
+
+/// The platform that keeps `keys`, of those a section for `os` binds on, or all of them.
+pub fn kept_by_platform(keys: &str, os: Option<&[String]>) -> Option<&'static str> {
+    (PLATFORMS.into_iter())
+        .filter(|platform| os.is_none_or(|names| names.iter().any(|name| name == platform)))
+        .find(|platform| {
+            let kept: Vec<_> = (reserved(platform).iter())
+                .map(|reserved| normal(reserved, platform))
+                .collect();
+            (keys.split_whitespace()).any(|stroke| kept.contains(&normal(stroke, platform)))
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
     use gpui::{KeyBindingContextPredicate, Keystroke};
 
-    use super::{Entry, Keymap, PLATFORMS, entries};
+    use super::{Entry, Keymap, PLATFORMS, entries, kept_by_platform, normal, reserved};
 
     /// What `keymap` binds on `os`, the shared keys too, in the order it binds them.
     fn bound(keymap: Keymap, os: &str) -> Vec<Entry> {
         (keymap.files().into_iter())
-            .flat_map(|json| entries(json, os).expect("the keymaps parse"))
+            .flat_map(|file| entries(file.embedded(), os).expect("the keymaps parse"))
             .collect()
     }
 
@@ -277,56 +597,6 @@ mod tests {
         }
     }
 
-    /// Keys the platform keeps: an app can't have them, or would take them from the system.
-    fn reserved(os: &str) -> &'static [&'static str] {
-        match os {
-            "macos" => &[
-                "cmd-tab",
-                "cmd-`",
-                "cmd-space",
-                "ctrl-space",
-                "ctrl-up",
-                "ctrl-down",
-                "ctrl-left",
-                "ctrl-right",
-                "cmd-shift-3",
-                "cmd-shift-4",
-                "cmd-shift-5",
-                "cmd-alt-escape",
-                "cmd-ctrl-q",
-                "cmd-ctrl-f",
-            ],
-            // Ctrl+Alt+Backspace kills the X server where that's on; Ctrl+Alt with an arrow
-            // switches workspaces on Linux desktops.
-            _ => &[
-                "ctrl-alt-backspace",
-                "ctrl-alt-delete",
-                "alt-f4",
-                "alt-tab",
-                "alt-space",
-                "ctrl-escape",
-                "ctrl-shift-escape",
-                "ctrl-alt-up",
-                "ctrl-alt-down",
-                "ctrl-alt-left",
-                "ctrl-alt-right",
-            ],
-        }
-    }
-
-    /// A keystroke's modifiers, with `secondary` as the platform writes it, and its key.
-    fn normal(keystroke: &str, os: &str) -> (std::collections::BTreeSet<String>, String) {
-        let (modifiers, key) = match keystroke.strip_suffix("--") {
-            Some(modifiers) => (modifiers, "-"),
-            None => keystroke.rsplit_once('-').unwrap_or(("", keystroke)),
-        };
-        let secondary = if os == "macos" { "cmd" } else { "ctrl" };
-        let modifiers = (modifiers.split('-').filter(|m| !m.is_empty()))
-            .map(|m| if m == "secondary" { secondary } else { m }.to_owned())
-            .collect();
-        (modifiers, key.to_owned())
-    }
-
     #[test]
     fn keymaps_leave_the_platforms_keys_alone() {
         for keymap in Keymap::ALL {
@@ -403,6 +673,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_key_macos_keeps_is_kept_in_a_section_for_every_platform() {
+        assert_eq!(kept_by_platform("secondary-tab", None), Some("macos"));
+    }
+
+    #[test]
+    fn a_key_macos_keeps_is_free_in_a_section_for_windows() {
+        let os = ["windows".to_owned()];
+        assert_eq!(kept_by_platform("ctrl-up", Some(&os)), None);
+    }
+
+    #[test]
+    fn a_key_no_platform_keeps_is_free() {
+        assert_eq!(kept_by_platform("secondary-k", None), None);
     }
 
     #[test]

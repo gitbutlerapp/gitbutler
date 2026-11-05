@@ -1496,47 +1496,59 @@ pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Op
     Some(keys_of(binding))
 }
 
-fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
+pub fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
     let keys: Vec<String> = binding
         .keystrokes()
         .iter()
-        .map(|keystroke| {
-            let m = keystroke.modifiers();
-            let mut text = String::new();
-            for (on, symbol) in [
-                (m.control, "⌃"),
-                (m.alt, "⌥"),
-                (m.shift, "⇧"),
-                (m.platform, "⌘"),
-            ] {
-                if on {
-                    text.push_str(symbol);
-                }
-            }
-            text.push_str(match keystroke.key() {
-                "enter" => "↩",
-                "backspace" => "⌫",
-                "delete" => "⌦",
-                "escape" => "esc",
-                "space" => "space",
-                "tab" => "⇥",
-                "up" => "↑",
-                "down" => "↓",
-                "left" => "←",
-                "right" => "→",
-                key if key.len() == 1
-                    || key
-                        .strip_prefix('f')
-                        .is_some_and(|n| n.parse::<u8>().is_ok()) =>
-                {
-                    return text + &key.to_uppercase();
-                }
-                key => key,
-            });
-            text
-        })
+        .map(|keystroke| key_text(keystroke.modifiers(), keystroke.key()))
         .collect();
     keys.join(" ").into()
+}
+
+/// `keys`, as a keymap writes them, as [`shortcut`] writes keys.
+pub fn keys_written(keys: &str) -> SharedString {
+    let strokes: Vec<String> = (keys.split_whitespace())
+        .map(|stroke| match gpui::Keystroke::parse(stroke) {
+            Ok(keystroke) => key_text(&keystroke.modifiers, &keystroke.key),
+            Err(_) => stroke.to_owned(),
+        })
+        .collect();
+    strokes.join(" ").into()
+}
+
+fn key_text(m: &gpui::Modifiers, key: &str) -> String {
+    let mut text = String::new();
+    for (on, symbol) in [
+        (m.control, "⌃"),
+        (m.alt, "⌥"),
+        (m.shift, "⇧"),
+        (m.platform, "⌘"),
+    ] {
+        if on {
+            text.push_str(symbol);
+        }
+    }
+    text.push_str(match key {
+        "enter" => "↩",
+        "backspace" => "⌫",
+        "delete" => "⌦",
+        "escape" => "esc",
+        "space" => "space",
+        "tab" => "⇥",
+        "up" => "↑",
+        "down" => "↓",
+        "left" => "←",
+        "right" => "→",
+        key if key.len() == 1
+            || key
+                .strip_prefix('f')
+                .is_some_and(|n| n.parse::<u8>().is_ok()) =>
+        {
+            return text + &key.to_uppercase();
+        }
+        key => key,
+    });
+    text
 }
 
 /// What Windows calls the keys macOS writes as symbols. The app's ⌘ keys are ctrl there, and a
@@ -1572,6 +1584,15 @@ pub fn keys_text(text: &str) -> String {
 /// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
 /// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
+    keycaps(text, 16., 11., theme.text_1.opacity(0.6), theme)
+}
+
+/// `keycap` for a table of keys, where they're what's being read.
+pub fn keycap_large(text: &str, theme: &Theme) -> Div {
+    keycaps(text, 20., 13., theme.text_1, theme)
+}
+
+fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Div {
     let mut keys: Vec<String> = Vec::new();
     for token in text.split(' ') {
         let mut rest = token;
@@ -1593,8 +1614,8 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
         .children(keys.into_iter().map(|key| {
             div()
                 .flex_none()
-                .min_w(dp(16.))
-                .h(dp(16.))
+                .min_w(dp(height))
+                .h(dp(height))
                 .px(dp(3.))
                 .flex()
                 .items_center()
@@ -1603,9 +1624,9 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
                 .bg(theme.fill_gray.opacity(0.05))
                 .border_1()
                 .border_color(theme.text_1.opacity(0.16))
-                .text_size(dp(11.))
+                .text_size(dp(size))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_1.opacity(0.6))
+                .text_color(color)
                 .child(key)
         }))
 }
