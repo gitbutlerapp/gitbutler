@@ -494,6 +494,12 @@ pub struct Detail {
     brief_reading: Option<(brief::ReadKey, Task<()>)>,
     /// The version whose talk is on its way out. It's here as a page outlives a send to it.
     brief_sending: Option<(String, u32)>,
+    /// Whether the margin beside a brief's words has room for what's said most.
+    brief_room: Cell<f32>,
+    /// What the comment the pointer is on quotes, which tints those words more strongly.
+    brief_said_hovered: Option<String>,
+    /// The words of a brief last pointed at, by what tells them apart, whose controls show.
+    brief_hovered: Option<usize>,
     /// The project whose Branches page lists only the branches a brief is known of.
     branches_with_brief: Option<ProjectId>,
     /// The version whose talk is kept current while its tab shows, and that keeping.
@@ -880,6 +886,9 @@ impl Detail {
             _brief_ask: Task::ready(()),
             brief_reading: None,
             brief_sending: None,
+            brief_room: Cell::new(0.),
+            brief_said_hovered: None,
+            brief_hovered: None,
             branches_with_brief: None,
             brief_talk: None,
             brief_first: true,

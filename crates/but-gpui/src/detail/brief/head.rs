@@ -725,8 +725,8 @@ impl Detail {
                             )
                             .small()
                             .style(ButtonStyle::Ghost)
-                            .tooltip("Keep a note asking for this back")
-                            .disabled_because(asked.then_some("There's a note asking for it"))
+                            .tooltip("Keep a comment asking for this back")
+                            .disabled_because(asked.then_some("There's a comment asking for it"))
                             .on_click(cx.listener(
                                 move |this, _, _, cx| this.keep_note_on_brief(body.clone(), cx),
                             )),

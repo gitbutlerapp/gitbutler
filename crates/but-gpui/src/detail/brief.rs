@@ -15,6 +15,7 @@ mod bar;
 mod code;
 mod head;
 mod keys;
+mod margin;
 mod names;
 mod notes;
 mod talk;
@@ -27,7 +28,9 @@ pub(crate) use keys::{
 use super::Detail;
 use super::page::{BriefFold, PageTab};
 use super::pull_request::COLUMN_MAX_WIDTH;
-use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPicture, Pictures};
+use crate::backend::briefs::{
+    self, BriefAnchor, BriefBlock, BriefBody, BriefPicture, CommentTo, Pictures,
+};
 use crate::backend::run;
 use crate::state::{ProjectTab, RowKey, Selection, Side};
 use crate::theme::Theme;
@@ -444,6 +447,7 @@ impl Detail {
         {
             self.brief_list.scroll_to(top);
         }
+        self.measure_brief_room(window);
         let column = list(
             self.brief_list.clone(),
             cx.processor(move |this, ix, _, cx| this.brief_row(&rows, ix, cx)),
@@ -455,7 +459,6 @@ impl Detail {
             Scroll::List(self.brief_list.clone()),
             theme,
         );
-        let bar = self.brief_bar(cx);
         (self.text_tab_ground(cx))
             // Clicking in it gives it the keys, for its own to work from there on.
             .on_mouse_down(
@@ -467,17 +470,21 @@ impl Detail {
                 }),
             )
             .child(
-                v_flex()
-                    .size_full()
-                    .child(
-                        div()
-                            .relative()
-                            .flex_1()
-                            .min_h_0()
-                            .child(column.h_full())
-                            .children(self.render_find(window, theme, cx)),
-                    )
-                    .children(bar),
+                v_flex().size_full().child(
+                    div()
+                        .id("brief-column")
+                        .relative()
+                        .flex_1()
+                        .min_h_0()
+                        .on_hover(cx.listener(|this, hovering: &bool, _, cx| {
+                            if !*hovering && this.brief_hovered.take().is_some() {
+                                cx.notify();
+                            }
+                        }))
+                        .child(column.h_full())
+                        .children(self.render_find(window, theme, cx))
+                        .children(self.brief_hold_card(cx)),
+                ),
             )
             .into_any_element()
     }
@@ -532,7 +539,25 @@ impl Detail {
                 Row::Head | Row::End | Row::Since | Row::Unchanged(_) => false,
             });
         let (above, content) = match row {
-            Row::Head => (16., self.brief_head(found, state, cx).into_any_element()),
+            Row::Head => {
+                let head = self.brief_head(found, state, cx).into_any_element();
+                (
+                    16.,
+                    self.with_talk(
+                        head,
+                        margin::Beside {
+                            key: 0,
+                            wide: MOST_WORDS_WIDE,
+                            spot: margin::Spot::Brief,
+                            to: CommentTo::Brief,
+                            held: false,
+                            floats: false,
+                        },
+                        state,
+                        cx,
+                    ),
+                )
+            }
             Row::End => (24., self.brief_end(state, cx).into_any_element()),
             Row::Since => (
                 14.,
@@ -574,7 +599,8 @@ impl Detail {
                 (14., row.into_any_element())
             }
             Row::Text { at, from, to } => {
-                let Some(words) = self.brief_words(ix, at, from, to, cx) else {
+                let next = rows.get(ix + 1).copied();
+                let Some(words) = self.brief_words(ix, at, from, to, next, cx) else {
                     return div().into_any_element();
                 };
                 let after_code = (ix.checked_sub(1).and_then(|before| rows.get(before)))
@@ -626,15 +652,43 @@ impl Detail {
                         .child(format!("{what}, which shows on the web"))
                         .into_any_element(),
                 };
+                let wide = match &block.body {
+                    BriefBody::Text(_) => MOST_WORDS_WIDE,
+                    _ => COLUMN_MAX_WIDTH,
+                };
                 (
                     12.,
-                    self.brief_block(ix, block, state, body, None, cx)
-                        .into_any_element(),
+                    self.with_talk(
+                        body,
+                        margin::Beside {
+                            key: ix * 1000,
+                            wide,
+                            spot: margin::Spot::Block(block),
+                            to: CommentTo::Block(*block.positions.start()),
+                            held: false,
+                            floats: false,
+                        },
+                        state,
+                        cx,
+                    ),
                 )
             }
         };
+        // Code and pictures take all there is, and all else one measure.
+        let wide = match row {
+            Row::Block(at)
+                if page
+                    .and_then(|page| page.blocks.get(at))
+                    .is_some_and(|block| !matches!(block.body, BriefBody::Text(_))) =>
+            {
+                COLUMN_MAX_WIDTH
+            }
+            _ => MOST_WORDS_WIDE,
+        };
+        // What has a margin beside it sets its own width, as the row takes in the margin too.
+        let has_margin = matches!(row, Row::Head | Row::Block(_) | Row::Text { .. });
+        let beside = has_margin && self.margin_beside(wide);
         (div().id(("brief-row", ix)).px(dp(24.)).pt(dp(above)))
-            .group(row_group(ix))
             // A note without a passage goes on what was last clicked in.
             .on_mouse_down(
                 gpui::MouseButton::Left,
@@ -650,17 +704,7 @@ impl Detail {
             .child(
                 div()
                     .relative()
-                    .max_w(dp(match row {
-                        // Code and pictures take all there is, and all else one measure.
-                        Row::Block(at)
-                            if page
-                                .and_then(|page| page.blocks.get(at))
-                                .is_some_and(|block| !matches!(block.body, BriefBody::Text(_))) =>
-                        {
-                            COLUMN_MAX_WIDTH
-                        }
-                        _ => MOST_WORDS_WIDE,
-                    }))
+                    .when(!beside, |el| el.max_w(dp(wide)))
                     .when(cursor || fresh, |el| {
                         el.child(
                             div()
@@ -702,6 +746,7 @@ impl Detail {
         at: usize,
         from: usize,
         to: usize,
+        next: Option<Row>,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let state = self.page.brief()?;
@@ -714,18 +759,49 @@ impl Detail {
         let select = self.note_select(&id, cx);
         let words = paragraphs.get(from..to).unwrap_or_default();
         let marked = self.found_in_words(at, from, words);
-        let body = markdown::render(&id, &marked, Some(select), Theme::get(cx));
-        Some(
-            self.brief_block(ix, block, state, body, Some(words), cx)
-                .into_any_element(),
-        )
+        let marked = self.said_in_words(block, state, marked);
+        let selected = (self.note_range())
+            .filter(|(of, _)| *of == id)
+            .map(|(_, range)| range.0.0);
+        let position = *block.positions.start();
+        let beside = |drawn: std::ops::Range<usize>, el: AnyElement| {
+            let held = selected.is_some_and(|selected| drawn.contains(&selected));
+            // Worked out now, as pressing anything lets go of the selection before its click.
+            let about = match words.get(drawn.start) {
+                _ if held => self.brief_note_target(),
+                Some(first) if !first.text.trim().is_empty() => CommentTo::Passage {
+                    block: position,
+                    quote: first.text.chars().take(notes::MOST_QUOTED).collect(),
+                },
+                _ => CommentTo::Block(position),
+            };
+            self.with_talk(
+                el,
+                margin::Beside {
+                    key: ix * 1000 + drawn.start,
+                    wide: MOST_WORDS_WIDE,
+                    spot: margin::Spot::Words(block, from + drawn.start..from + drawn.end),
+                    to: about,
+                    held,
+                    floats: self.margin_floats(
+                        from + drawn.start..from + drawn.end,
+                        Row::Text { at, from, to },
+                        next,
+                        state,
+                    ),
+                },
+                state,
+                cx,
+            )
+        };
+        Some(markdown::render_beside(
+            &id,
+            &marked,
+            Some(select),
+            Some(&beside),
+            Theme::get(cx),
+        ))
     }
-}
-
-/// What hovering row `ix` lights up beside its words. The row is the list's whole width, so what
-/// shows in the margin is still there when the pointer gets to it.
-pub(super) fn row_group(ix: usize) -> SharedString {
-    format!("brief-row-{ix}").into()
 }
 
 /// What the paragraphs from `from` of block `at` of brief `brief` draw as, which selecting goes

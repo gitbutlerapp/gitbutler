@@ -109,7 +109,7 @@ impl Detail {
                 Ok(_) if this.shown_version().as_ref() != Some(&key) => {}
                 Ok(notes) => this.took_brief_notes(notes, cx),
                 Err(err) => (this.store).update(cx, |store, cx| {
-                    store.snack(format!("Couldn't keep that note: {err:#}"), cx)
+                    store.snack(format!("Couldn't keep that comment: {err:#}"), cx)
                 }),
             })
             .ok();
@@ -118,30 +118,10 @@ impl Detail {
     }
 
     pub(super) fn took_brief_notes(&mut self, notes: Vec<Note>, cx: &mut Context<Self>) {
-        // One written just now shows, under what it's on, rather than out of sight below it.
-        let written = (notes.last().map(|note| note.id))
-            != (self
-                .page
-                .brief()
-                .and_then(|brief| brief.notes.last())
-                .map(|note| note.id));
         if let Some(brief) = self.page.brief_mut() {
             brief.notes = notes;
         }
         self.brief_list_changed(cx);
-        if written {
-            let row = self.brief_cursor();
-            // Once it's drawn, as that's when the list knows how tall the row has become.
-            cx.spawn(async move |this, cx| {
-                cx.background_executor().timer(ROW_MEASURED).await;
-                this.update(cx, |this, cx| {
-                    this.brief_list.scroll_to_reveal_item(row);
-                    cx.notify();
-                })
-                .ok();
-            })
-            .detach();
-        }
     }
 
     pub(super) fn remove_brief_note(&mut self, note: i64, cx: &mut Context<Self>) {
@@ -239,7 +219,7 @@ fn sent_words(notes: usize, answer: Option<&Option<String>>, waiting: Option<&st
         Some(_) => "Answered",
         None => "Took back your answer",
     });
-    let sent = (notes > 0).then(|| plural(notes, "note"));
+    let sent = (notes > 0).then(|| plural(notes, "comment"));
     let done = match (answer, sent) {
         (Some(answer), Some(sent)) => format!("{answer} and sent {sent}"),
         (Some(answer), None) => answer.to_owned(),

@@ -138,6 +138,12 @@ pub struct Style {
     pub current: bool,
     /// New since what was read before.
     pub fresh: bool,
+    /// Someone's comment is about it.
+    pub said: bool,
+    /// A comment not sent yet is about it.
+    pub draft: bool,
+    /// The comment being written, or pointed at, is about it, tinted more strongly.
+    pub saying: bool,
 }
 
 /// What the pointer does to a description's text, and what of it is selected, at points by
@@ -156,6 +162,9 @@ pub struct Select {
 
 pub type OnTextDown = Rc<dyn Fn(TextPoint, &str, &MouseDownEvent, &mut Window, &mut App)>;
 pub type OnTextDrag = Rc<dyn Fn(TextPoint, &mut Window, &mut App)>;
+/// What goes around a block as it's drawn, given which of the blocks it draws. It sets the text
+/// cursor on the block.
+pub type Beside<'a> = &'a dyn Fn(std::ops::Range<usize>, AnyElement) -> AnyElement;
 
 /// A block's text as it's laid out, by the block's index.
 type Laid = (usize, TextLayout, SharedString);
@@ -1031,6 +1040,17 @@ impl Gallery {
 /// `blocks` drawn as text, `id` telling apart the links of one description from another's,
 /// its text selectable as `select` says.
 pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme) -> AnyElement {
+    render_beside(id, blocks, select, None, theme)
+}
+
+/// [`render`], with `beside` drawing around each block, while a selection still runs across them.
+pub fn render_beside(
+    id: &str,
+    blocks: &[Block],
+    select: Option<Select>,
+    beside: Option<Beside<'_>>,
+    theme: &Theme,
+) -> AnyElement {
     let gallery = Gallery::of(blocks);
     let range = select.as_ref().and_then(|select| select.range);
     let mut texts = Vec::new();
@@ -1064,8 +1084,16 @@ pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme)
                 1,
             ),
         };
-        column = column.child(placed(block, space, el, theme));
-        ix += drawn.max(1);
+        let drawn = drawn.max(1);
+        column = column.child(match beside {
+            // The space goes outside, so what's beside it starts level with its text.
+            Some(beside) => div()
+                .mt(dp(space))
+                .child(beside(ix..ix + drawn, placed(block, 0., el, theme)))
+                .into_any_element(),
+            None => placed(block, space, el, theme),
+        });
+        ix += drawn;
     }
     let Some(select) = select else {
         return column.into_any_element();
@@ -1073,7 +1101,8 @@ pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme)
     let texts: Rc<[Laid]> = texts.into();
     let (pressed, down) = (texts.clone(), select.down);
     column
-        .cursor(CursorStyle::IBeam)
+        // What's drawn around the blocks can be more than text, so it says where the text is.
+        .when(beside.is_none(), |el| el.cursor(CursorStyle::IBeam))
         // Only a press on text selects: one on an image, a centred block or between blocks
         // doesn't reach into the text beside it.
         .on_mouse_down(MouseButton::Left, move |event, window, cx| {
@@ -1275,6 +1304,9 @@ fn text(
                     mark: all.mark || style.mark,
                     current: all.current || style.current,
                     fresh: all.fresh || style.fresh,
+                    said: all.said || style.said,
+                    draft: all.draft || style.draft,
+                    saying: all.saying || style.saying,
                 });
             let link = (block.links.iter())
                 .find(|(range, _)| range.contains(&at))
@@ -1303,6 +1335,10 @@ fn text(
                     }
                     _ if style.current => Some(theme.warn.opacity(0.6)),
                     (true, _) => Some(theme.warn.opacity(0.28)),
+                    _ if style.saying && style.draft => Some(theme.blue.opacity(0.24)),
+                    _ if style.saying => Some(theme.warn.opacity(0.34)),
+                    _ if style.draft => Some(theme.blue.opacity(0.12)),
+                    _ if style.said => Some(theme.warn.opacity(0.14)),
                     _ if style.fresh => Some(theme.pop.opacity(0.2)),
                     (false, true) => Some(theme.fill_gray.opacity(0.12)),
                     (false, false) => None,

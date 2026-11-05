@@ -1,20 +1,26 @@
-//! The foot of a Brief tab: what's being written, what's to send and answer, and who it reaches.
-//! It's always in view, so what's said is never something to go looking for, and writing there
-//! moves nothing on the page.
+//! Where a Brief tab stands, along the row of the page's tabs: what's asked, what's written and not
+//! sent yet, the answers and who they reach. So it's always in view, without a bar of its own.
 
 use gpui::{AnyElement, Context, Div, div, prelude::*};
 
 use super::head::agent_name;
 use super::keys::GoBack;
 use super::notes::target_words;
-use super::{Approve, Hold, NextBrief, SendNotes, WriteNote, briefs};
+use super::{Approve, Hold, NextBrief, SendNotes, briefs};
 use crate::backend::briefs::{Ask, BriefPage, CommentTo};
 use crate::detail::Detail;
 use crate::detail::page::{BriefState, Writing};
+use crate::overlays::MenuItem;
 use crate::state::{Axis, RowKey, Selection, Tile};
 use crate::terminal::{Terminal, TerminalId};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, plural, v_flex};
+
+/// How wide the tab has to be for the row of its tabs to say where the brief stands too.
+const STATUS_NEEDS: f32 = 760.;
+
+/// How wide Approve is, with the words it can have.
+const APPROVE_WIDTH: f32 = 104.;
 
 impl Detail {
     /// Who what's sent as comments reaches: the brief's author, and any agent waiting on it.
@@ -64,56 +70,47 @@ impl Detail {
         turned_off.into_iter().chain(unnamed).chain(stale).collect()
     }
 
-    /// The bar while something's being written: what it's about, the field, and what's quickest
-    /// to say.
-    fn brief_writing_bar(
-        &self,
-        writing: &Writing,
-        state: &BriefState,
-        cx: &Context<Self>,
-    ) -> Option<Div> {
+    /// Why this is being held, in a card under the Hold button that came and went without moving
+    /// anything: the field, and what's quickest to say.
+    pub(super) fn brief_hold_card(&self, cx: &Context<Self>) -> Option<Div> {
         let theme = Theme::get(cx);
+        let state = self.page.brief()?;
+        // Its field doesn't outlive leaving the page, which the page itself does.
         let (input, _) = self.brief_input.as_ref()?;
+        if !matches!(state.writing, Some(Writing::WhyHold)) {
+            return None;
+        }
         let page = state.page()?;
-        let (about, keeps): (String, &str) = match writing {
-            Writing::Note(to) => (
-                match to {
-                    CommentTo::Thread(_) => "A reply".to_owned(),
-                    to => format!("A note on {}", target_words(to, page)),
-                },
-                "Enter saves. Esc discards.",
-            ),
-            Writing::WhyHold => (
-                format!("Holding version {}. Why?", page.version),
-                "Enter holds and sends. Esc cancels.",
-            ),
-        };
         let written = input.read(cx).text().to_owned();
-        let reasons = match writing {
-            Writing::WhyHold => self.brief_reasons_to_hold(state, page),
-            Writing::Note(_) => Vec::new(),
-        };
+        let reasons = self.brief_reasons_to_hold(state, page);
         Some(
             v_flex()
-                .flex_none()
+                .absolute()
+                .top(dp(8.))
+                .right(dp(24.))
+                .w(dp(380.))
                 .gap(dp(6.))
-                .px(dp(24.))
-                .py(dp(8.))
-                .border_t_1()
-                .border_color(theme.border_3)
-                .bg(theme.bg_2)
+                .p(dp(10.))
+                .rounded(dp(8.))
+                .border_1()
+                .border_color(theme.border_2)
+                .bg(theme.bg_1)
+                .shadow_lg()
                 .child(
                     h_flex()
                         .flex_wrap()
                         .gap_x(dp(8.))
                         .text_size(dp(12.))
-                        .child(div().text_color(theme.text_1).child(about))
-                        .child(div().text_color(theme.text_3).child(match writing {
-                            Writing::Note(_) => "It stays here until you send it".to_owned(),
-                            Writing::WhyHold => {
-                                format!("Goes to {}", self.brief_reaches(state))
-                            }
-                        })),
+                        .child(
+                            div()
+                                .text_color(theme.text_1)
+                                .child(format!("Holding version {}. Why?", page.version)),
+                        )
+                        .child(
+                            div()
+                                .text_color(theme.text_3)
+                                .child(format!("Goes to {}", self.brief_reaches(state))),
+                        ),
                 )
                 .child(
                     div()
@@ -127,27 +124,39 @@ impl Detail {
                         .child(input.clone()),
                 )
                 .child(
+                    h_flex().flex_wrap().gap(dp(6.)).children(
+                        (reasons.into_iter())
+                            .filter(|(_, said)| !written.contains(said.as_str()))
+                            .enumerate()
+                            .map(|(ix, (label, said))| {
+                                button(("brief-reason", ix), label)
+                                    .small()
+                                    .style(ButtonStyle::Outline)
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.add_to_writing(&said, window, cx)
+                                    }))
+                            }),
+                    ),
+                )
+                .child(
                     h_flex()
-                        .flex_wrap()
+                        .justify_end()
                         .gap(dp(4.))
-                        .children(
-                            (reasons.into_iter().enumerate())
-                                .filter(|(_, (_, said))| !written.contains(said.as_str()))
-                                .map(|(ix, (label, said))| {
-                                    button(("brief-reason", ix), label)
-                                        .small()
-                                        .style(ButtonStyle::Outline)
-                                        .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.add_to_writing(&said, window, cx)
-                                        }))
-                                }),
+                        .child(
+                            button("brief-hold-cancel", "Cancel")
+                                .small()
+                                .style(ButtonStyle::Ghost)
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.finish_writing(None, window, cx)
+                                })),
                         )
                         .child(
-                            div()
-                                .ml(dp(6.))
-                                .text_size(dp(11.))
-                                .text_color(theme.text_3)
-                                .child(keeps.to_owned()),
+                            button("brief-hold-send", "Hold")
+                                .small()
+                                .style(ButtonStyle::Gray)
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.submit_writing(window, cx)
+                                })),
                         ),
                 ),
         )
@@ -206,8 +215,8 @@ impl Detail {
         match self.brief_terminal(cx) {
             Some((id, terminal, title, tiled)) => button("brief-tell", format!("Tell {title}"))
                 .small()
-                .style(ButtonStyle::Gray)
-                .tooltip("Type it in that terminal, for you to look at and send")
+                .style(ButtonStyle::Ghost)
+                .tooltip("Types it in that terminal")
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let Some(project) = this.selected_project() else {
                         return;
@@ -235,7 +244,7 @@ impl Detail {
                 .into_any_element(),
             None => button("brief-tell", "Copy what to tell it")
                 .small()
-                .style(ButtonStyle::Gray)
+                .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.clone()));
                     if let Some(brief) = this.page.brief_mut() {
@@ -247,19 +256,11 @@ impl Detail {
         }
     }
 
-    /// Along the tab's foot: what's being written, or what's to send and answer, and the way to
-    /// say something, so that's never a thing to go looking for.
-    pub(super) fn brief_bar(&self, cx: &Context<Self>) -> Option<Div> {
+    /// What goes along the row of the page's tabs: where the brief stands, what's not sent yet
+    /// and the way to send it, and the answers.
+    pub(in crate::detail) fn brief_tab_actions(&self, cx: &Context<Self>) -> Option<Div> {
         let theme = Theme::get(cx);
         let state = self.page.brief()?;
-        // Its field doesn't outlive leaving the page, which the page itself does.
-        if let Some(writing) = state
-            .writing
-            .as_ref()
-            .filter(|_| self.brief_input.is_some())
-        {
-            return self.brief_writing_bar(writing, state, cx);
-        }
         let page = state.page()?;
         let notes = state.notes.len();
         let answers = &state.activity.answers;
@@ -270,48 +271,24 @@ impl Detail {
             .chain(state.found.as_ref().map(|found| found.latest))
             .max()
             .filter(|latest| *latest > page.version);
-        let words = match (notes, mine) {
-            (0, _) if newer.is_some() => format!("Version {} is out", newer.unwrap_or_default()),
-            (0, _) if state.unheard => {
-                "Sent as comments. No agent is reading this brief right now.".to_owned()
-            }
-            (0, Some(mine)) => answered_words(mine, page),
-            (0, None) if answering => match (&state.answered, &page.ask) {
+        let listening = state.activity.listeners.first().map(|listener| {
+            agent_name(listener.agent.as_deref().unwrap_or(&listener.name)).to_owned()
+        });
+        let words = match mine {
+            _ if newer.is_some() => format!("Version {} is out", newer.unwrap_or_default()),
+            _ if state.unheard => "No agent is reading this".to_owned(),
+            Some(mine) => answered_words(mine, page),
+            None if answering => match (&state.answered, listening) {
                 (Some((version, answer)), _) if *version != page.version => format!(
-                    "You {} version {version}. This is version {}, asking afresh",
+                    "You {} version {version}. This one asks afresh",
                     if answer == "hold" { "held" } else { "answered" },
-                    page.version
                 ),
-                _ => match state.activity.listeners.first() {
-                    Some(listener) => format!(
-                        "{}. {} is waiting",
-                        asked_words(page),
-                        agent_name(listener.agent.as_deref().unwrap_or(&listener.name))
-                    ),
-                    None => asked_words(page),
-                },
+                (_, Some(agent)) => format!("{}. {agent} is waiting", asked_words(page)),
+                (_, None) => asked_words(page),
             },
-            (0, None) => match state.activity.listeners.first() {
-                Some(listener) => format!(
-                    "{} reads what you send here",
-                    agent_name(listener.agent.as_deref().unwrap_or(&listener.name))
-                ),
-                None => String::new(),
-            },
-            (n, _) => {
-                let reaches = self.brief_reaches(state);
-                let notes = plural(n, "note");
-                match (self.brief_terminal(cx), answering && mine.is_none()) {
-                    (Some((_, _, title, _)), _) => {
-                        format!("{notes}, not sent. Tell {title}, or send to {reaches}")
-                    }
-                    (None, true) => {
-                        let goes = if n == 1 { "goes" } else { "go" };
-                        format!("{notes} for {reaches} {goes} with any of these")
-                    }
-                    (None, false) => format!("{notes}, not sent. Send to {reaches}"),
-                }
-            }
+            None => listening.map_or_else(String::new, |agent| {
+                format!("{agent} reads what you send here")
+            }),
         };
         let sending = self.brief_sending.is_some();
         let and_send = notes > 0;
@@ -346,21 +323,7 @@ impl Detail {
                 .on_click(cx.listener(|this, _, window, cx| this.go_back_in_brief(window, cx)))
                 .into_any_element()
         });
-        let mut buttons: Vec<AnyElement> = vec![
-            button("brief-write", "Write a note")
-                .small()
-                .icon(Icon::Edit)
-                .style(ButtonStyle::Ghost)
-                .tooltip_for(
-                    "Write a note on what's selected, or where you are",
-                    &WriteNote,
-                )
-                .on_click(cx.listener(|this, _, window, cx| {
-                    let to = this.brief_note_target();
-                    this.write_brief_note(to, window, cx)
-                }))
-                .into_any_element(),
-        ];
+        let mut buttons: Vec<AnyElement> = Vec::new();
         if state.unheard && !and_send {
             buttons.insert(0, self.tell_agent_button(page, state, cx));
         }
@@ -370,11 +333,30 @@ impl Detail {
             if self.brief_terminal(cx).is_some() {
                 buttons.insert(0, self.tell_agent_button(page, state, cx));
             }
+            let first = (state.notes.iter()).find_map(|note| self.row_of_note(&note.to));
             buttons.push(
-                button("brief-send", "Send as comments")
+                button(
+                    "brief-unsent",
+                    format!("{} not sent", plural(notes, "comment")),
+                )
+                .small()
+                .icon(Icon::ArrowUp)
+                .style(ButtonStyle::Ghost)
+                .tint(theme.blue)
+                .tooltip("Go to the first")
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    if let Some(row) = first {
+                        this.brief_list.scroll_to_reveal_item(row);
+                        cx.notify();
+                    }
+                }))
+                .into_any_element(),
+            );
+            buttons.push(
+                button("brief-send", if notes == 1 { "Send" } else { "Send all" })
                     .small()
                     .style(ButtonStyle::Outline)
-                    .tooltip_for("Send what's written as comments", &SendNotes)
+                    .tooltip_for(format!("Send to {}", self.brief_reaches(state)), &SendNotes)
                     .disabled_because(sending.then_some("Sending"))
                     .on_click(cx.listener(|this, _, _, cx| this.send_brief_talk(None, cx)))
                     .into_any_element(),
@@ -404,11 +386,23 @@ impl Detail {
                     }));
                 }
                 (Some(Ask::SignOff), None) => {
+                    // Not a reason to refuse, but what's approved should be plain. So holding is
+                    // what's raised then, and approving otherwise: one or the other.
+                    let stale = page.out_of_date() || self.brief_has_alerts(state, cx);
                     buttons.push(
                         button("brief-hold", "Hold")
                             .small()
-                            .style(ButtonStyle::Gray)
-                            .tooltip_for("Hold this version, and say why", &Hold)
+                            .style(match stale {
+                                true => ButtonStyle::Gray,
+                                false => ButtonStyle::Ghost,
+                            })
+                            .tooltip_for(
+                                match and_send {
+                                    true => "Also sends your comments",
+                                    false => "Asks why first",
+                                },
+                                &Hold,
+                            )
                             .disabled_because(sending.then_some("Sending"))
                             .on_click(cx.listener(move |this, _, window, cx| match and_send {
                                 true => this.send_brief_talk(Some(Some("hold".to_owned())), cx),
@@ -416,8 +410,6 @@ impl Detail {
                             }))
                             .into_any_element(),
                     );
-                    // Not a reason to refuse, but what's approved should be plain.
-                    let stale = page.out_of_date() || self.brief_has_alerts(state, cx);
                     buttons.push(
                         answer_button(
                             "brief-approve",
@@ -428,10 +420,13 @@ impl Detail {
                             true => ButtonStyle::Ghost,
                             false => ButtonStyle::Pop,
                         })
+                        // One width either way, so Hold stays put from brief to brief.
+                        .min_width(dp(APPROVE_WIDTH))
                         .tooltip_for(
-                            match stale {
-                                true => "Approve this version, despite what's flagged above it",
-                                false => "Approve this version",
+                            match (and_send, stale) {
+                                (true, _) => "Also sends your comments",
+                                (false, true) => "Despite what's flagged",
+                                (false, false) => "This version",
                             },
                             &Approve,
                         )
@@ -440,44 +435,55 @@ impl Detail {
                 }
                 (Some(Ask::HeadsUp), None) => buttons
                     .push(answer_button("brief-ack", "Seen it", "acknowledge").into_any_element()),
+                // In a menu, as what can be chosen can be long and the row's short.
                 (Some(Ask::Decision { options }), None) => {
-                    for (ix, option) in options.iter().enumerate() {
-                        let answer = format!("option:{ix}");
-                        buttons.push(
-                            button(("brief-option", ix), option.clone())
-                                .small()
-                                .style(ButtonStyle::Gray)
-                                .disabled_because(sending.then_some("Sending"))
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.send_brief_talk(Some(Some(answer.clone())), cx)
-                                }))
-                                .into_any_element(),
-                        );
-                    }
+                    let options = options.clone();
+                    buttons.push(
+                        button("brief-decide", "Decide")
+                            .small()
+                            .style(ButtonStyle::Gray)
+                            .disabled_because(sending.then_some("Sending"))
+                            .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
+                                let (options, this_page) = (options.clone(), cx.entity());
+                                this.open_menu(
+                                    event.position(),
+                                    move |_, _| {
+                                        (options.iter().enumerate())
+                                            .map(|(ix, option)| {
+                                                let page = this_page.clone();
+                                                MenuItem::new(option.clone(), move |_, _, cx| {
+                                                    let answer = format!("option:{ix}");
+                                                    page.update(cx, |this, cx| {
+                                                        this.send_brief_talk(Some(Some(answer)), cx)
+                                                    });
+                                                })
+                                            })
+                                            .collect()
+                                    },
+                                    cx,
+                                )
+                            }))
+                            .into_any_element(),
+                    );
                 }
                 _ => {}
             }
         }
         Some(
             h_flex()
-                .flex_none()
-                .flex_wrap()
+                .flex_1()
+                .min_w_0()
+                .pl(dp(16.))
+                .pb(dp(11.))
                 .gap(dp(8.))
-                .px(dp(24.))
-                .py(dp(8.))
-                .border_t_1()
-                .border_color(theme.border_3)
-                .bg(theme.bg_2)
+                .justify_end()
                 .text_size(dp(12.))
                 .text_color(theme.text_2)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(dp(120.))
-                        .text_color(theme.text_1)
-                        .child(words),
-                )
-                .children(buttons),
+                // Left out where it would only be cut down to a letter or two.
+                .when(self.brief_room.get() >= STATUS_NEEDS, |el| {
+                    el.child(div().min_w_0().truncate().child(words))
+                })
+                .children(buttons.into_iter().map(|el| div().flex_none().child(el))),
         )
     }
 }

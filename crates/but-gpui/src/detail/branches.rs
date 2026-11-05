@@ -1337,6 +1337,15 @@ impl Detail {
                 Some((branch.name.clone(), known.found.as_ref()?.title.clone()))
             })
             .collect();
+        // Not while that's all it lists, which needs no saying.
+        let briefed: std::collections::HashSet<String> = (branches.list.iter())
+            .filter(|_| self.store.read(cx).briefs && brief_titles.is_empty())
+            .filter(|branch| {
+                (self.store.read(cx).brief_at(project, &branch.name))
+                    .is_some_and(|known| known.found.is_some())
+            })
+            .map(|branch| branch.name.clone())
+            .collect();
         let list = if rows.is_empty() {
             self.no_branches(branches, theme, cx)
         } else {
@@ -1512,6 +1521,21 @@ impl Detail {
                                 format!("in {}", target.as_deref().unwrap_or("the target"))
                             });
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
+                            // That someone wrote a brief for it, quietly, as nothing else here
+                            // would say.
+                            let brief_mark = briefed.contains(&branch.name).then(|| {
+                                let ref_name = ref_name.clone();
+                                div()
+                                    .id(("other-branch-brief", ix))
+                                    .flex_none()
+                                    .child(small_icon(Icon::Docs).text_color(ink(theme.text_3)))
+                                    .tooltip(Tooltip::text("Read the brief"))
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.brief_first = true;
+                                        this.select_other_branch(Some(ref_name.clone()), cx);
+                                    }))
+                            });
                             side_row(("other-branch", ix), selected, solid, theme)
                                 .pl(dp(if *stacked { 16. } else { 2. }))
                                 .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
@@ -1521,6 +1545,7 @@ impl Detail {
                                     false => ink(glyph_color),
                                 }))
                                 .child(name)
+                                .children(brief_mark)
                                 .when_some(merged, |el, merged| {
                                     el.child(quiet(faint(merged, theme), on, theme))
                                 })

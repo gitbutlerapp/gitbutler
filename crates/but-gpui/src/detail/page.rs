@@ -282,11 +282,16 @@ pub(super) struct ReviewState {
     pub(super) edit: Option<EditLeft>,
 }
 
-/// What's being written in a Brief tab's bar.
+/// What's being written on a Brief tab.
 #[derive(Clone, PartialEq, Eq)]
 pub(super) enum Writing {
     /// A note, kept until it's sent.
     Note(CommentTo),
+    /// A shortcut to a common note, at `editing` of them or a new one, written beside `to`.
+    Shortcut {
+        editing: Option<usize>,
+        to: CommentTo,
+    },
     /// Why this version is being held, which goes as it's held.
     WhyHold,
 }

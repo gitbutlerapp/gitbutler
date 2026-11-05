@@ -7,35 +7,19 @@
 
 use gpui::{AnyElement, Context, Div, Focusable as _, Window, div, prelude::*};
 
-use super::keys::{NextBrief, WriteNote};
+use super::keys::NextBrief;
 use super::{Row, block_place, briefs, run};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
 use crate::detail::page::{BriefFold, BriefState, Writing};
+use crate::detail::pull_request::{card, tag};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, icon_button, markdown, v_flex};
 
 /// How much of a paragraph a note quotes to say what it's on.
-const MOST_QUOTED: usize = 400;
-
-/// What a thread's about in the version's blocks, drawn under `block`, for the version it was
-/// said on. Those of others say what became of them at the top.
-fn is_about(thread: &Thread, block: &BriefBlock, version: u32) -> bool {
-    thread.version.is_none_or(|said_on| said_on == version)
-        && (thread.anchor.block()).is_some_and(|position| block.positions.contains(&position))
-}
-
-fn note_is_about(note: &Note, block: &BriefBlock) -> bool {
-    match &note.to {
-        CommentTo::Block(position)
-        | CommentTo::Passage {
-            block: position, ..
-        } => block.positions.contains(position),
-        CommentTo::Brief | CommentTo::Thread(_) => false,
-    }
-}
+pub(super) const MOST_QUOTED: usize = 400;
 
 /// What a note written with the keys on `row` is about. A section is a row of a block that can be
 /// the whole brief, so it's the section, by its first words, not the block.
@@ -117,7 +101,7 @@ impl Detail {
             .map_or(CommentTo::Brief, |row| row_target(row, &page.blocks))
     }
 
-    /// Start writing a note about `to`, in the bar, where it's always in view and nothing moves.
+    /// Start writing a note about `to`, in the margin beside it.
     pub(super) fn write_brief_note(
         &mut self,
         to: CommentTo,
@@ -125,10 +109,32 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         let placeholder = match to {
-            CommentTo::Thread(_) => "Write a reply",
-            _ => "What should change?",
+            CommentTo::Thread(_) => "Write a reply…",
+            _ => "Write a comment…",
         };
+        // What it's on is tinted from here, where a selection would hide that.
+        self.note_selection = None;
+        let row = self.row_of_note(&to);
         self.start_writing(Writing::Note(to), placeholder, window, cx);
+        if let Some(row) = row {
+            cx.spawn(async move |this, cx| {
+                cx.background_executor()
+                    .timer(super::talk::ROW_MEASURED)
+                    .await;
+                this.update(cx, |this, cx| {
+                    // Only from elsewhere: where it's beside what's on screen, nothing moves.
+                    let view = this.brief_list.viewport_bounds();
+                    let shown = (this.brief_list.bounds_for_item(row))
+                        .is_some_and(|row| row.intersects(&view));
+                    if !shown {
+                        this.brief_list.scroll_to_reveal_item(row);
+                        cx.notify();
+                    }
+                })
+                .ok();
+            })
+            .detach();
+        }
     }
 
     /// Ask why this version is being held, as a hold no one explains leaves an agent guessing.
@@ -136,14 +142,14 @@ impl Detail {
         self.start_writing(Writing::WhyHold, "What should change?", window, cx);
     }
 
-    fn start_writing(
+    pub(super) fn start_writing(
         &mut self,
         writing: Writing,
         placeholder: &'static str,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let input = cx.new(|cx| TextInput::new(placeholder, false, cx));
+        let input = cx.new(|cx| TextInput::new(placeholder, true, cx).enter_submits());
         let listen = cx.subscribe_in(
             &input,
             window,
@@ -153,7 +159,11 @@ impl Detail {
                     this.finish_writing(Some(body), window, cx);
                 }
                 InputEvent::Cancel => this.finish_writing(None, window, cx),
-                InputEvent::Changed => {}
+                // It wraps, so its row can grow as it's written.
+                InputEvent::Changed => {
+                    this.brief_list.remeasure();
+                    cx.notify();
+                }
             },
         );
         window.focus(&input.focus_handle(cx), cx);
@@ -161,7 +171,14 @@ impl Detail {
         if let Some(brief) = self.page.brief_mut() {
             brief.writing = Some(writing);
         }
-        cx.notify();
+        self.brief_list_changed(cx);
+    }
+
+    /// Finish what's being written, as Enter does.
+    pub(super) fn submit_writing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let body =
+            (self.brief_input.as_ref()).map(|(input, _)| input.read(cx).text().trim().to_owned());
+        self.finish_writing(body, window, cx);
     }
 
     /// Add `said` to what's being written.
@@ -196,7 +213,7 @@ impl Detail {
         self.brief_input = None;
         let writing = self.page.brief_mut().and_then(|brief| brief.writing.take());
         window.focus(&self.focus, cx);
-        cx.notify();
+        self.brief_list_changed(cx);
         let (Some(writing), Some(body), Some((id, version))) =
             (writing, body, self.shown_version())
         else {
@@ -205,6 +222,7 @@ impl Detail {
         match writing {
             Writing::Note(_) if body.is_empty() => {}
             Writing::Note(to) => self.keep_brief_note(id, version, to, body, cx),
+            Writing::Shortcut { editing, .. } => self.save_brief_shortcut(editing, body, cx),
             Writing::WhyHold => {
                 let key = (id.clone(), version);
                 cx.spawn(async move |this, cx| {
@@ -240,86 +258,12 @@ impl Detail {
         }
     }
 
-    /// A block with what's said about it under it, and the way to say something.
-    pub(super) fn brief_block(
-        &self,
-        at: usize,
-        block: &BriefBlock,
-        state: &BriefState,
-        body: AnyElement,
-        words: Option<&[markdown::Block]>,
-        cx: &Context<Self>,
-    ) -> Div {
-        let theme = Theme::get(cx);
-        let to = CommentTo::Block(*block.positions.start());
-        let write = icon_button(("brief-note", at), Icon::Edit)
-            .small()
-            .tooltip_for("Write a note on this", &WriteNote)
-            .on_click(cx.listener(move |this, _, window, cx| {
-                this.write_brief_note(to.clone(), window, cx)
-            }));
-        // A passage's under the row it's in. The rest, and one whose words are gone, go under the
-        // last of the block's rows.
-        let version = (state.shown.as_ref())
-            .and_then(|shown| shown.as_ref().ok())
-            .map_or(0, |page| page.version);
-        let all = match &block.body {
-            BriefBody::Text(paragraphs) => paragraphs.as_slice(),
-            _ => &[],
-        };
-        let has = |words: &[markdown::Block], quote: &str| {
-            words.iter().any(|word| word.text.contains(quote))
-        };
-        let here = |quote: Option<&str>| {
-            let last = words.is_none_or(|words| {
-                words.last().map(|last| last as *const _) == all.last().map(|last| last as *const _)
-            });
-            match quote {
-                Some(quote) if has(all, quote) => words.is_some_and(|words| has(words, quote)),
-                _ => last,
-            }
-        };
-        let threads = (state.activity.threads.iter()).filter(|thread| {
-            is_about(thread, block, version)
-                && here(match &thread.anchor {
-                    briefs::Anchor::Text { quote, .. } => Some(quote),
-                    _ => None,
-                })
-        });
-        let notes = (state.notes.iter()).filter(|note| {
-            note_is_about(note, block)
-                && here(match &note.to {
-                    CommentTo::Passage { quote, .. } => Some(quote),
-                    _ => None,
-                })
-        });
-        let group = super::row_group(at);
-        div()
-            .relative()
-            .child(body)
-            .child(
-                div()
-                    .absolute()
-                    .top_0()
-                    .right(dp(-22.))
-                    .opacity(0.)
-                    .group_hover(group, |el| el.opacity(1.))
-                    .child(write),
-            )
-            .children(threads.map(|thread| self.brief_thread(thread, &state.notes, theme, cx)))
-            .children(notes.map(|note| self.brief_note(note, cx)))
-    }
-
-    /// The end of the brief: that it ends, what's said about the whole of it, and the way to say
-    /// something about the whole of it.
+    /// The end of the brief: that it ends, what's next, and what was said on other versions.
     pub(super) fn brief_end(&self, state: &BriefState, cx: &Context<Self>) -> Div {
         let theme = Theme::get(cx);
         let version = (state.shown.as_ref())
             .and_then(|shown| shown.as_ref().ok())
             .map_or(0, |page| page.version);
-        let on_no_block = |thread: &&Thread| {
-            thread.anchor.block().is_none() && thread.version.is_none_or(|said| said == version)
-        };
         v_flex()
             .gap(dp(8.))
             .pt(dp(12.))
@@ -330,14 +274,6 @@ impl Detail {
                     .gap(dp(8.))
                     .text_size(dp(12.))
                     .text_color(theme.text_3)
-                    .child(
-                        button("brief-note-whole", "Note on the whole brief")
-                            .small()
-                            .style(ButtonStyle::Outline)
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.write_brief_note(CommentTo::Brief, window, cx)
-                            })),
-                    )
                     .children(self.next_brief(true, cx).map(|next| {
                         button("brief-next", format!("Next: {}", next.title))
                             .small()
@@ -345,11 +281,6 @@ impl Detail {
                             .tooltip_for(format!("Go on to {}", next.name), &NextBrief)
                             .on_click(cx.listener(|this, _, _, cx| this.hop_to_brief(true, cx)))
                     })),
-            )
-            .children(
-                (state.activity.threads.iter())
-                    .filter(on_no_block)
-                    .map(|thread| self.brief_thread(thread, &state.notes, theme, cx)),
             )
             // What was said on other versions, which has nowhere on this one to go.
             .children(
@@ -361,86 +292,66 @@ impl Detail {
                                 &format!("On version {}", thread.version.unwrap_or_default()),
                                 theme.text_3,
                             ))
-                            .child(self.brief_thread(thread, &state.notes, theme, cx))
+                            .child(self.brief_thread(thread, state, cx))
                     }),
-            )
-            .children(
-                (state.notes.iter())
-                    .filter(|note| matches!(note.to, CommentTo::Brief))
-                    .map(|note| self.brief_note(note, cx)),
             )
     }
 
-    /// What someone said, and the answers to it.
-    fn brief_thread(
+    /// What someone said, and the answers to it, in a card as a pull request's conversation has.
+    pub(super) fn brief_thread(
         &self,
         thread: &Thread,
-        notes: &[Note],
-        theme: &Theme,
+        state: &BriefState,
         cx: &Context<Self>,
-    ) -> Div {
-        let said = |name: &str, agent: Option<&str>, body: &str| {
-            h_flex()
-                .items_start()
-                .gap(dp(8.))
-                .child(person_avatar(name, 18., theme))
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w_0()
-                        .child(
-                            h_flex()
-                                .gap(dp(6.))
-                                .text_size(dp(12.))
-                                .text_color(theme.text_2)
-                                .child(name.to_owned())
-                                .children(agent.map(|agent| {
-                                    div().text_color(theme.text_3).child(agent.to_owned())
-                                })),
-                        )
-                        .child(
-                            div()
-                                .text_size(dp(13.))
-                                .line_height(dp(19.))
-                                .text_color(theme.text_1)
-                                .child(body.to_owned()),
-                        ),
-                )
-        };
+    ) -> gpui::Stateful<Div> {
+        let theme = Theme::get(cx);
+        let said =
+            |at: usize, name: &str, agent: Option<&str>, body: &str, end: Option<AnyElement>| {
+                let id = format!("brief-said-{}-{at}", thread.id);
+                v_flex()
+                    .px(dp(10.))
+                    .py(dp(8.))
+                    .gap(dp(2.))
+                    .when(at > 0, |el| el.border_t_1().border_color(theme.border_3))
+                    .child(
+                        h_flex()
+                            .min_h(dp(20.))
+                            .gap(dp(6.))
+                            .text_size(dp(12.))
+                            .text_color(theme.text_2)
+                            .child(person_avatar(name, 16., theme))
+                            .child(
+                                div()
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .text_color(theme.text_1)
+                                    .child(name.to_owned()),
+                            )
+                            .children(agent.map(|agent| div().child(agent.to_owned())))
+                            .child(div().flex_1())
+                            .children(end),
+                    )
+                    .child(markdown::render(&id, &markdown::parse(body), None, theme))
+            };
         let resolved = thread.resolved.is_some();
-        v_flex()
-            .mt(dp(8.))
-            .p(dp(8.))
-            .gap(dp(6.))
-            .rounded(dp(6.))
-            .border_1()
-            .border_color(theme.border_3)
-            .when(resolved, |el| el.opacity(0.6))
-            .child(said(
-                &thread.actor.name,
-                thread.actor.agent.as_deref(),
-                &thread.body,
-            ))
-            .children(thread.replies.iter().map(|reply| {
-                div().pl(dp(26.)).child(said(
-                    &reply.actor.name,
-                    reply.actor.agent.as_deref(),
-                    &reply.body,
-                ))
-            }))
-            .children(
-                (notes.iter())
-                    .filter(|note| matches!(&note.to, CommentTo::Thread(to) if *to == thread.id))
-                    .map(|note| self.brief_note(note, cx)),
-            )
-            .child(match resolved {
-                true => div()
-                    .text_size(dp(11.))
-                    .text_color(theme.text_3)
-                    .child("Resolved")
-                    .into_any_element(),
-                false => {
-                    let parent = thread.id.clone();
+        let quote = match &thread.anchor {
+            briefs::Anchor::Text { quote, .. } => Some(quote.clone()),
+            _ => None,
+        };
+        let gone = quote.clone().filter(|quote| {
+            (thread.anchor.block()).is_some_and(|at| super::margin::quote_is_gone(state, at, quote))
+        });
+        let replying = (state.writing.as_ref())
+            .filter(|writing| {
+                matches!(writing, Writing::Note(CommentTo::Thread(to)) if *to == thread.id)
+            })
+            .and_then(|writing| self.talk_composer(writing, true, cx));
+        // What's next for it, in the corner: that it's done with, or the way to answer.
+        let end = match (resolved, &replying) {
+            (true, _) => Some(tag(theme.safe).child("Resolved").into_any_element()),
+            (false, Some(_)) => None,
+            (false, None) => {
+                let parent = thread.id.clone();
+                Some(
                     button(
                         gpui::SharedString::from(format!("brief-reply-{}", thread.id)),
                         "Reply",
@@ -450,60 +361,118 @@ impl Detail {
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.write_brief_note(CommentTo::Thread(parent.clone()), window, cx)
                     }))
-                    .into_any_element()
-                }
-            })
+                    .into_any_element(),
+                )
+            }
+        };
+        card(theme)
+            .id(gpui::SharedString::from(format!(
+                "brief-thread-{}",
+                thread.id
+            )))
+            .when(resolved, |el| el.opacity(0.72).hover(|el| el.opacity(1.)))
+            .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                this.hover_said(quote.clone(), *hovering, cx)
+            }))
+            .children(gone.map(|quote| {
+                div()
+                    .px(dp(10.))
+                    .pt(dp(8.))
+                    .child(super::margin::quote_line(&quote, theme))
+            }))
+            .child(said(
+                0,
+                &thread.actor.name,
+                thread.actor.agent.as_deref(),
+                &thread.body,
+                end,
+            ))
+            .children(thread.replies.iter().enumerate().map(|(ix, reply)| {
+                said(
+                    ix + 1,
+                    &reply.actor.name,
+                    reply.actor.agent.as_deref(),
+                    &reply.body,
+                    None,
+                )
+            }))
+            .children(
+                (state.notes.iter())
+                    .filter(|note| matches!(&note.to, CommentTo::Thread(to) if *to == thread.id))
+                    .map(|note| self.brief_note(note, true, state, cx)),
+            )
+            .children(replying)
     }
 
-    /// A note not sent yet: marked as only here, and easy to throw away.
-    fn brief_note(&self, note: &Note, cx: &Context<Self>) -> Div {
+    /// A comment not sent yet, in the blue of what's not pushed, and easy to throw away. `nested`
+    /// in a thread's card, it has no card of its own.
+    pub(super) fn brief_note(
+        &self,
+        note: &Note,
+        nested: bool,
+        state: &BriefState,
+        cx: &Context<Self>,
+    ) -> gpui::Stateful<Div> {
         let theme = Theme::get(cx);
         let id = note.id;
         let quote = match &note.to {
             CommentTo::Passage { quote, .. } => Some(quote.clone()),
             _ => None,
         };
-        h_flex()
-            .mt(dp(8.))
+        let gone = match &note.to {
+            CommentTo::Passage { block, quote } => {
+                super::margin::quote_is_gone(state, *block, quote).then(|| quote.clone())
+            }
+            _ => None,
+        };
+        v_flex()
+            .id(("brief-note", id as u64))
             .pl(dp(10.))
-            .pr(dp(4.))
-            .py(dp(4.))
-            .gap(dp(8.))
-            .rounded(dp(4.))
-            .border_l_2()
-            .border_color(theme.pop)
-            .bg(theme.fill_gray.opacity(0.06))
+            .pr(dp(6.))
+            .py(dp(6.))
+            .gap(dp(2.))
+            .map(|el| match nested {
+                true => el.border_t_1().border_color(theme.border_3),
+                false => el
+                    .rounded(dp(6.))
+                    .border_1()
+                    .border_color(theme.blue.opacity(0.35))
+                    .bg(theme.blue.opacity(0.05)),
+            })
+            .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
+                this.hover_said(quote.clone(), *hovering, cx)
+            }))
+            .children(gone.map(|quote| super::margin::quote_line(&quote, theme)))
+            // On a line with what it says, until that needs the line to itself.
             .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .children(quote.map(|quote| {
-                        div()
-                            .truncate()
-                            .text_size(dp(11.))
-                            .text_color(theme.text_3)
-                            .child(format!("“{quote}”"))
-                    }))
+                h_flex()
+                    .flex_wrap()
+                    .items_start()
+                    .gap(dp(6.))
                     .child(
                         div()
+                            .flex_auto()
+                            .min_w_0()
                             .text_size(dp(13.))
-                            .line_height(dp(19.))
+                            .line_height(dp(20.))
                             .text_color(theme.text_1)
                             .child(note.body.clone()),
+                    )
+                    .child(
+                        h_flex()
+                            .flex_none()
+                            .ml_auto()
+                            .gap(dp(6.))
+                            .child(tag(theme.blue).child("Not sent"))
+                            .child(
+                                icon_button(("brief-note-drop", id as u64), Icon::Cross)
+                                    .small()
+                                    .tooltip("Discard")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.remove_brief_note(id, cx)
+                                    })),
+                            ),
                     ),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .text_size(dp(11.))
-                    .text_color(theme.text_3)
-                    .child("Not sent"),
-            )
-            .child(
-                icon_button(("brief-note-drop", id as u64), Icon::Cross)
-                    .small()
-                    .tooltip("Throw this note away")
-                    .on_click(cx.listener(move |this, _, _, cx| this.remove_brief_note(id, cx))),
             )
     }
 }

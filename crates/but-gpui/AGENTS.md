@@ -183,8 +183,8 @@ and the feature may go, so it stays separate.
 
 - Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
   Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState` and
-  `PageTab::Brief`, with at most a dispatch arm. The Branches page's "With a brief" filter is the
-  one place outside that reads it, and no row says anything about briefs unless it's on.
+  `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
+  filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
 - What Briefs sent is kept in a file of its own under the app's cache folder, never in `but-db`.
   It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
   is dropped and asked for again, and a bump of its `SCHEMA` empties it.
@@ -208,7 +208,16 @@ and the feature may go, so it stays separate.
 - A version never changes, so a commit landing only asks again how it stands. Reading it again would
   lose what's marked as new in it.
 - The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a
-  row needs from it is worked out before the list is drawn.
+  row needs from it is worked out before the list is drawn, as `measure_brief_room` does.
+- What's said goes in the margin, beside the paragraph it's about, or under it where the tab's too
+  narrow. A paragraph's margin takes no height while it can run on past the words without meeting
+  anything, so writing, sending and replying move nothing.
+- What a paragraph shows on hover goes by `brief_hovered`, the words last pointed at, not a hover
+  group: it has to last the way over the gap to it and over a card from the paragraph before. A
+  scripted `click` jumps there and can't catch that going wrong: walk there with `move`s and look.
+- Not sent yet is blue, as what's not pushed is, and pop stays for the one primary action.
+- The page's tab row says where a brief stands: what's asked, comments not sent and the answers.
+  It has no bar of its own, as one would sit on top of the status bar.
 - A debug build can be pointed at a stand-in server with `GITBUTLER_BRIEFS_BASE`, to try what writes
   without touching anyone's briefs.
 

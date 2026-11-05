@@ -3530,6 +3530,34 @@ impl Navigator {
                         ))
                     },
                 )
+                // That someone wrote a brief for it, quietly. Pressed, it's up to read.
+                .when(
+                    store.briefs
+                        && store
+                            .brief_at(id, &branch.name)
+                            .is_some_and(|known| known.found.is_some()),
+                    |el| {
+                        let color = style.meta(style.muted());
+                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
+                        let mark = div()
+                            .id(ElementId::Name(format!("brief-{row_id}").into()))
+                            .child(small_icon(Icon::Docs).text_color(color))
+                            .aria_label("Read the brief")
+                            .tooltip(Tooltip::text("Read the brief"));
+                        el.child(pressable(
+                            mark,
+                            color,
+                            moving,
+                            cx.listener(move |this, _, window, cx| {
+                                this.select(shown.clone(), window, cx);
+                                (this.detail).update(cx, |detail, cx| {
+                                    detail.follow_selection(window, cx);
+                                    detail.set_page_tab(PageTab::Brief, window, cx)
+                                });
+                            }),
+                        ))
+                    },
+                )
                 // So conflicts show while the commits are hidden too. Pressed, the first to
                 // resolve is up, unless a linked worktree resolves it.
                 .children({

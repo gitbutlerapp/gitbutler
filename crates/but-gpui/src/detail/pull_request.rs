@@ -524,7 +524,18 @@ impl Detail {
                     )
                 })
                 .into_any_element();
-        Some(tabs)
+        // Beside the tabs, what the one showing says of itself: there's no bar under them.
+        let actions = (shown == PageTab::Brief)
+            .then(|| self.brief_tab_actions(cx))
+            .flatten();
+        Some(
+            h_flex()
+                .w_full()
+                .items_end()
+                .child(div().flex_none().child(tabs))
+                .children(actions)
+                .into_any_element(),
+        )
     }
 
     /// How wide the pull request tab was last drawn on a page like this one: beside a list

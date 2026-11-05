@@ -307,7 +307,7 @@ impl AppView {
             };
             [
                 (&crate::detail::NextBlock as &dyn Action, "next part"),
-                (&crate::detail::WriteNote, "write a note"),
+                (&crate::detail::WriteNote, "write a comment"),
             ]
             .into_iter()
             .chain(answer)
