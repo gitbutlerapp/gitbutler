@@ -73,6 +73,8 @@ pub struct Choice {
     /// The terminal's row whose status it shows, kept when another picker takes it from Go to
     /// anything to do something else with it.
     status_of: Option<Selection>,
+    /// It's in the selected project, so it comes before what's found as well elsewhere.
+    in_selected_project: bool,
     run: Run,
 }
 
@@ -86,6 +88,7 @@ impl Choice {
             label: label.into(),
             pins: None,
             status_of: None,
+            in_selected_project: false,
             aliases: &[],
             phrase: None,
             key: None,
@@ -159,6 +162,12 @@ impl Choice {
         self.status_of = Some(selection);
         self
     }
+
+    /// Ranks it with what's in the selected project: see [`Choice::in_selected_project`].
+    fn in_selected_project(mut self) -> Choice {
+        self.in_selected_project = true;
+        self
+    }
 }
 
 /// The command palette, or another list to pick from the same way.
@@ -207,61 +216,78 @@ impl Palette {
     /// The choices the query finds, best first.
     fn find(&self, cx: &gpui::App) -> Vec<Found> {
         let query = self.input.read(cx).text().trim().to_owned();
-        let taken = (self.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
-        let mut scored: Vec<(i32, Found)> = self
-            .choices
-            .iter()
-            .enumerate()
-            .filter_map(|(ix, choice)| {
-                // Last, under what the text finds.
-                if choice.names && !query.is_empty() {
-                    let found = Found {
+        find_in(&self.choices, &query)
+    }
+}
+
+/// What being in the selected project adds to a label's match: more than where in the label it
+/// falls, so it comes before matches of its kind elsewhere, and less than the step between kinds
+/// of match, so what's named in full in another project still comes first.
+const SELECTED_PROJECT_BONUS: i32 = 500;
+
+/// The `choices` that `query` finds, best first.
+fn find_in(choices: &[Choice], query: &str) -> Vec<Found> {
+    let taken = (choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(query));
+    let mut scored: Vec<(i32, Found)> = choices
+        .iter()
+        .enumerate()
+        .filter_map(|(ix, choice)| {
+            // Last, under what the text finds.
+            if choice.names && !query.is_empty() {
+                let found = Found {
+                    ix,
+                    label: Vec::new(),
+                    detail: Vec::new(),
+                };
+                return (!taken).then_some((-1, found));
+            }
+            let label = score(&choice.label, query);
+            // Under the label on a tie, and with nothing underlined: what matched isn't shown.
+            let alias = alias_score(choice.aliases, query)
+                .map(|score| (score - 1, Vec::new()))
+                .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+            let label = alias.or(label);
+            // The label first on a tie, as a branch named as another's detail says.
+            let detail = (choice.detail.as_ref())
+                .and_then(|detail| detail_score(detail, &choice.ids, query))
+                .map(|(score, found)| (score - 1, found))
+                .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
+            let (score, found) = match (label, detail) {
+                (_, Some((score, detail))) => (
+                    score,
+                    Found {
                         ix,
                         label: Vec::new(),
+                        detail,
+                    },
+                ),
+                (Some((score, label)), None) => (
+                    score,
+                    Found {
+                        ix,
+                        label,
                         detail: Vec::new(),
-                    };
-                    return (!taken).then_some((-1, found));
-                }
-                let label = score(&choice.label, &query);
-                // Under the label on a tie, and with nothing underlined: what matched isn't shown.
-                let alias = alias_score(choice.aliases, &query)
-                    .map(|score| (score - 1, Vec::new()))
-                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
-                let label = alias.or(label);
-                // The label first on a tie, as a branch named as another's detail says.
-                let detail = (choice.detail.as_ref())
-                    .and_then(|detail| detail_score(detail, &choice.ids, &query))
-                    .map(|(score, found)| (score - 1, found))
-                    .filter(|(score, _)| label.as_ref().is_none_or(|(label, _)| score > label));
-                let (score, found) = match (label, detail) {
-                    (_, Some((score, detail))) => (
-                        score,
-                        Found {
-                            ix,
-                            label: Vec::new(),
-                            detail,
-                        },
-                    ),
-                    (Some((score, label)), None) => (
-                        score,
-                        Found {
-                            ix,
-                            label,
-                            detail: Vec::new(),
-                        },
-                    ),
-                    (None, None) => return None,
-                };
-                // One that throws work away shows for its words, not for letters scattered
-                // through it, so typing a command missing here doesn't land on it.
-                let scattered = score == 0 && !query.is_empty();
-                (!scattered || !choice.risky).then_some((score, found))
-            })
-            .collect();
-        // Stable, so equal scores keep the recent-first order.
-        scored.sort_by_key(|(score, _)| -score);
-        scored.into_iter().map(|(_, found)| found).collect()
-    }
+                    },
+                ),
+                (None, None) => return None,
+            };
+            // One that throws work away shows for its words, not for letters scattered
+            // through it, so typing a command missing here doesn't land on it.
+            let scattered = score == 0 && !query.is_empty();
+            // Not by its detail, as every row of a project has its name there. The order of the
+            // choices settles a tie, and all of it with nothing typed: see `rank_selected_project`.
+            let by_label = found.detail.is_empty() && !query.is_empty();
+            let bonus = if choice.in_selected_project && by_label {
+                SELECTED_PROJECT_BONUS
+            } else {
+                0
+            };
+            (!scattered || !choice.risky).then_some((score + bonus, found))
+        })
+        .collect();
+    // Stable, so equal scores keep the recent-first order.
+    scored.sort_by_key(|(score, _)| -score);
+    scored.into_iter().map(|(_, found)| found).collect()
 }
 
 /// A choice the query finds, with the letters it found to underline: in its label, or in its
@@ -859,13 +885,33 @@ fn open_workspaces(store: &Store) -> Vec<(&ProjectEntry, &Workspace)> {
 }
 
 /// What Go to anything lists: every row of the navigator's it can go to, broadest first, as
-/// `Selection` lists its kinds, which an equal match keeps: a project before a branch of its
-/// name.
+/// `Selection` lists its kinds, which an equal match in one project keeps: a project before a
+/// branch of its name. The selected project's rows lead: see [`rank_selected_project`].
 fn go_to_choices(store: &Store) -> Vec<Choice> {
     let open = open_workspaces(store);
-    (SelectionKind::iter())
+    let mut choices: Vec<Choice> = (SelectionKind::iter())
         .flat_map(|kind| kind_choices(kind, store, &open))
-        .collect()
+        .collect();
+    rank_selected_project(&mut choices, store.selection.as_ref());
+    choices
+}
+
+/// Note which of `choices` go somewhere in the project of `selection`, and list them as they show
+/// with nothing typed: that project's own row, the other projects' so switching stays a key or
+/// two away, the rest of that project's rows, then everything else.
+fn rank_selected_project(choices: &mut [Choice], selection: Option<&Selection>) {
+    let Some(selected) = selection.map(Selection::project) else {
+        return;
+    };
+    for choice in choices.iter_mut() {
+        choice.in_selected_project =
+            (choice.goes_to.as_ref()).is_some_and(|goes_to| goes_to.project() == selected);
+    }
+    // Stable, so rows that tie keep their order.
+    choices.sort_by_key(|choice| {
+        let project_row = matches!(choice.pins, Some(RowKey::Tab(_, ProjectTab::Overview)));
+        (!project_row, !choice.in_selected_project)
+    });
 }
 
 /// The row Go to anything goes to typed `query` in full: the one it names whole, ignoring case,
@@ -873,12 +919,11 @@ fn go_to_choices(store: &Store) -> Vec<Choice> {
 #[cfg(feature = "dev-script")]
 pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
     let query = query.to_lowercase();
-    let selected = store.selection.as_ref().map(Selection::project);
     let mut rows: Vec<(bool, bool, Selection)> = (go_to_choices(store).into_iter())
         .filter_map(|choice| {
             let label = choice.label.to_lowercase();
             let goes_to = choice.goes_to?;
-            let elsewhere = selected != Some(goes_to.project());
+            let elsewhere = !choice.in_selected_project;
             (label.contains(&query)).then(|| (label != query, elsewhere, goes_to))
         })
         .collect();
@@ -1164,7 +1209,8 @@ impl AppView {
         let new_terminal = Choice::new("New terminal", move |this, _, cx| {
             (this.store).update(cx, |store, cx| store.pin_terminal(beside, axis, cx))
         })
-        .icon(Icon::TextCode);
+        .icon(Icon::TextCode)
+        .in_selected_project();
         let rest = go_to_choices(store).into_iter().filter_map(|choice| {
             let pinned =
                 (choice.pins.clone()).or_else(|| Some(store.row_key(choice.goes_to.as_ref()?)))?;
@@ -1203,7 +1249,7 @@ impl AppView {
         let store = self.store.read(cx);
         let open = open_workspaces(store);
         let several = open.len() > 1;
-        let choices: Vec<Choice> = (open.iter())
+        let mut choices: Vec<Choice> = (open.iter())
             .filter(|(_, workspace)| workspace.editing.is_none())
             .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several))
             .collect();
@@ -1211,6 +1257,7 @@ impl AppView {
             return snack(&self.store, "No terminals open", cx);
         }
         let selection = store.selection.clone();
+        rank_selected_project(&mut choices, selection.as_ref());
         self.open_picker(None, "Go to a terminal", "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
@@ -1561,7 +1608,10 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{alias_score, detail_score, id_starts, score, shared_start};
+    use super::{
+        Choice, ProjectTab, RowKey, Selection, alias_score, detail_score, find_in, id_starts,
+        rank_selected_project, score, shared_start,
+    };
 
     const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
 
@@ -1780,6 +1830,198 @@ mod tests {
             underlined("Über-Änderung", "üänd"),
             Some(vec!["Ü", "Änd"]),
             "ranges are bytes of the label as shown, so a letter two bytes long stays whole"
+        );
+    }
+
+    fn labels_found(choices: &[Choice], query: &str) -> Vec<String> {
+        (find_in(choices, query).into_iter())
+            .filter_map(|found| Some(choices.get(found.ix)?.label.to_string()))
+            .collect()
+    }
+
+    fn row(label: &'static str) -> Choice {
+        Choice::new(label, |_, _, _| {})
+    }
+
+    fn project_row(label: &'static str) -> Choice {
+        row(label)
+            .goes_to(Selection::Project(label.into()))
+            .pins(RowKey::Tab(label.into(), ProjectTab::Overview))
+    }
+
+    #[test]
+    fn nothing_typed_lists_the_projects_then_the_selected_projects_rows_then_the_rest() {
+        let (here, elsewhere) = (Selection::Project("here".into()), "elsewhere".into());
+        let mut choices = [
+            project_row("elsewhere"),
+            project_row("here"),
+            row("Graph elsewhere").goes_to(Selection::Project(elsewhere)),
+            row("Graph here").goes_to(here.clone()),
+        ];
+        rank_selected_project(&mut choices, Some(&here));
+        assert_eq!(
+            labels_found(&choices, ""),
+            ["here", "elsewhere", "Graph here", "Graph elsewhere"],
+            "switching project stays a key away, and nothing is left out"
+        );
+    }
+
+    #[test]
+    fn nothing_typed_keeps_the_order_the_choices_came_in() {
+        let choices = [
+            row("New terminal"),
+            row("here").in_selected_project(),
+            row("elsewhere"),
+        ];
+        assert_eq!(
+            labels_found(&choices, ""),
+            ["New terminal", "here", "elsewhere"],
+            "a picker's own first row stays first"
+        );
+    }
+
+    #[test]
+    fn an_equal_match_in_the_selected_project_comes_first() {
+        let choices = [row("fix a"), row("fix b").in_selected_project()];
+        assert_eq!(
+            labels_found(&choices, "fix"),
+            ["fix b", "fix a"],
+            "both start with what's typed"
+        );
+    }
+
+    #[test]
+    fn a_later_match_in_the_selected_project_beats_an_earlier_one_of_its_kind() {
+        let choices = [
+            row("fix elsewhere"),
+            row("quick fix here").in_selected_project(),
+        ];
+        assert_eq!(
+            labels_found(&choices, "fix"),
+            ["quick fix here", "fix elsewhere"],
+            "both have it starting a word, so where in the label matters less than the project"
+        );
+    }
+
+    #[test]
+    fn a_name_typed_in_full_elsewhere_beats_a_longer_one_in_the_selected_project() {
+        let choices = [row("min-size-docs").in_selected_project(), row("min-size")];
+        assert_eq!(
+            labels_found(&choices, "min-size"),
+            ["min-size", "min-size-docs"],
+            "Enter takes the first, so it must be the one named"
+        );
+    }
+
+    #[test]
+    fn a_word_elsewhere_beats_scattered_letters_in_the_selected_project() {
+        let choices = [
+            row("find it here").in_selected_project(),
+            row("fit elsewhere"),
+        ];
+        assert_eq!(
+            labels_found(&choices, "fit"),
+            ["fit elsewhere", "find it here"],
+            "a better kind of match stays better wherever it is"
+        );
+    }
+
+    #[test]
+    fn scattered_letters_in_the_selected_project_stay_under_a_match_inside_a_word() {
+        let choices = [
+            row("find it here").in_selected_project(),
+            row("outfit elsewhere"),
+        ];
+        assert_eq!(
+            labels_found(&choices, "fit"),
+            ["outfit elsewhere", "find it here"],
+            "the bonus stops short of the step between kinds of match"
+        );
+    }
+
+    #[test]
+    fn a_label_elsewhere_beats_a_detail_naming_the_selected_project() {
+        let choices = [
+            row("git-fixes").detail("other"),
+            row("Refactor store")
+                .detail("my-branch · gitbutler")
+                .in_selected_project(),
+        ];
+        assert_eq!(
+            labels_found(&choices, "git"),
+            ["git-fixes", "Refactor store"],
+            "every row there has the project's name in its detail"
+        );
+    }
+
+    #[test]
+    fn a_project_elsewhere_beats_rows_naming_the_selected_project_it_shares_a_prefix_with() {
+        let choices = [
+            row("Graph").detail("but-app").in_selected_project(),
+            row("but-web"),
+        ];
+        assert_eq!(
+            labels_found(&choices, "but"),
+            ["but-web", "Graph"],
+            "typing the start of a sibling's name finds the sibling"
+        );
+    }
+
+    #[test]
+    fn an_equal_detail_match_in_the_selected_project_comes_first() {
+        let here = Selection::Project("here".into());
+        let mut choices = [
+            row("Docs pass")
+                .detail("dp-branch-3 · other")
+                .goes_to(Selection::Project("elsewhere".into())),
+            row("Speed up picker")
+                .detail("dp-branch-21 · gitbutler")
+                .goes_to(here.clone()),
+        ];
+        rank_selected_project(&mut choices, Some(&here));
+        assert_eq!(
+            labels_found(&choices, "dp-branch"),
+            ["Speed up picker", "Docs pass"],
+            "a branch with a pull request is found by its name in its detail"
+        );
+    }
+
+    #[test]
+    fn a_risky_choice_in_the_selected_project_is_still_not_found_by_scattered_letters() {
+        let mut risky = row("delete it").in_selected_project();
+        risky.risky = true;
+        assert!(
+            labels_found(&[risky], "dlt").is_empty(),
+            "the bonus must not read as a match of its words"
+        );
+    }
+
+    #[test]
+    fn only_rows_going_to_the_selected_project_are_marked() {
+        let (here, elsewhere) = ("here".into(), "elsewhere".into());
+        let selection = Selection::Project(here);
+        let mut choices = [
+            row("in it").goes_to(selection.clone()),
+            row("in another").goes_to(Selection::Project(elsewhere)),
+            row("going nowhere"),
+        ];
+        rank_selected_project(&mut choices, Some(&selection));
+        let marked = choices.iter().filter(|choice| choice.in_selected_project);
+        assert_eq!(
+            marked.map(|c| c.label.as_ref()).collect::<Vec<_>>(),
+            ["in it"],
+            "its project decides, and a row going nowhere has none"
+        );
+    }
+
+    #[test]
+    fn nothing_is_marked_with_nothing_selected() {
+        let selection = Selection::Project("here".into());
+        let mut choices = [row("in it").goes_to(selection)];
+        rank_selected_project(&mut choices, None);
+        assert!(
+            !choices.iter().any(|choice| choice.in_selected_project),
+            "there's no project to prefer"
         );
     }
 }
