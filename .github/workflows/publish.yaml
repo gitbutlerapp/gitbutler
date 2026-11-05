@@ -83,7 +83,7 @@ jobs:
   # The desktop frontend and the packages it uses: lint, type checks and unit tests.
   test-frontend:
     if: ${{ !inputs.skip_tests }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.58 does not support Ubuntu 26.04
     timeout-minutes: 20
     permissions:
       contents: read
