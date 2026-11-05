@@ -1342,11 +1342,11 @@ export const Updating = meta.story({
 
 /**
  * What the target has that the workspace doesn't, over the repository's worktrees: how many
- * commits, with Update beside them. Open, its commits sit under it; a merge opens to the commits
- * it brought in.
+ * commits, with Update beside them and who they come from before it. Open, its commits sit under
+ * it, each with its author's picture; a merge opens to the commits it brought in.
  */
 export const NewOnTarget = meta.story({
-	parameters: { design: { type: "figma", url: core("4275-219045") } },
+	parameters: { design: { type: "figma", url: core("4664-11729") } },
 	render: () => <NewOnTargetTree />,
 });
 
@@ -1355,7 +1355,7 @@ export const NewOnTarget = meta.story({
  * reason over it and Try again after it.
  */
 export const NewOnTargetFailed = meta.story({
-	parameters: { design: { type: "figma", url: core("4300-233475") } },
+	parameters: { design: { type: "figma", url: core("4318-12241") } },
 	render: () => (
 		<div>
 			<TargetItem target="master" count={2} depth={1} folded={false} actions={update} />
@@ -1370,6 +1370,9 @@ export const NewOnTargetFailed = meta.story({
 	),
 });
 
+const pavel = { seed: "pavel@gitbutler.com" };
+const kiril = { seed: "kiril@gitbutler.com" };
+
 /** {@link NewOnTarget}'s rows, folding as the sidebar's do. */
 const NewOnTargetTree: FC = () => {
 	const [open, setOpen] = useState(true);
@@ -1379,6 +1382,8 @@ const NewOnTargetTree: FC = () => {
 			<TargetItem
 				target="master"
 				count={74}
+				authors={[pavel, kiril]}
+				tooltip="74 new commits on master, from Pavel Laptev and Kiril Videlov"
 				depth={1}
 				folded={!open}
 				onToggleFolded={() => setOpen(!open)}
@@ -1389,17 +1394,33 @@ const NewOnTargetTree: FC = () => {
 					<CommitItem
 						message="chore: separator tokens"
 						merge
+						tooltip="Pavel Laptev · 2h ago"
 						depth={2}
 						folded={!merge}
 						onToggleFolded={() => setMerge(!merge)}
 					/>
 					{merge && (
 						<>
-							<CommitItem message="chore: separator tokens" depth={3} />
-							<CommitItem message="feature: user authentication" depth={3} />
+							<CommitItem
+								message="chore: separator tokens"
+								author={pavel}
+								tooltip="Pavel Laptev · 2h ago"
+								depth={3}
+							/>
+							<CommitItem
+								message="feature: user authentication"
+								author={pavel}
+								tooltip="Pavel Laptev · 3h ago"
+								depth={3}
+							/>
 						</>
 					)}
-					<CommitItem message="fix: retry stalled transfers" depth={2} />
+					<CommitItem
+						message="fix: retry stalled transfers"
+						author={kiril}
+						tooltip="Kiril Videlov · 5h ago"
+						depth={2}
+					/>
 				</>
 			)}
 			<WorktreeItem name="Main worktree" main depth={1} folded />
