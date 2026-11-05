@@ -104,6 +104,7 @@ actions!(
         ScrollDown,
         ScrollUp,
         SwitchTab,
+        PreviousTab,
         ShowBrief,
         ShowBranchesWithBriefs,
         PickCommitTarget,
@@ -4193,7 +4194,16 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &ScrollUp, _, cx| this.scroll_lines(-SCROLL_LINES, cx)),
             )
-            .on_action(cx.listener(|this, _: &SwitchTab, window, cx| this.switch_tab(window, cx)))
+            .on_action(cx.listener(|this, _: &SwitchTab, window, cx| {
+                if !this.switch_tab(true, window, cx) {
+                    cx.propagate();
+                }
+            }))
+            .on_action(cx.listener(|this, _: &PreviousTab, window, cx| {
+                if !this.switch_tab(false, window, cx) {
+                    cx.propagate();
+                }
+            }))
             .on_action(cx.listener(|this, _: &ShowBrief, window, cx| this.show_brief(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))

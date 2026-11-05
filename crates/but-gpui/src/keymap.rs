@@ -491,20 +491,28 @@ mod tests {
             .collect()
     }
 
-    fn in_context(entry: &Entry, context: &str) -> bool {
-        entry.context.as_deref() == Some(context)
+    /// Whether `entry` works in the context `name`, in the window, however its own context is
+    /// written.
+    fn works_in(entry: &Entry, name: &str) -> bool {
+        let predicate = (entry.context.as_deref())
+            .and_then(|context| KeyBindingContextPredicate::parse(context).ok());
+        let stack: Vec<gpui::KeyContext> = ["Workspace", name]
+            .into_iter()
+            .filter_map(|context| gpui::KeyContext::parse(context).ok())
+            .collect();
+        predicate.is_some_and(|predicate| predicate.depth_of(&stack).is_some())
     }
 
     /// Whether every key on the drawer's bar does there what it does in the navigator.
     fn drawer_bar_keys_are_the_navigators(keymap: Keymap) -> bool {
         let entries = bound(keymap, "macos");
         let mut bar = (entries.iter())
-            .filter(|entry| in_context(entry, "DrawerBar && !TextInput"))
+            .filter(|entry| works_in(entry, "DrawerBar"))
             .peekable();
         bar.peek().is_some()
             && bar.all(|entry| {
                 entries.iter().any(|other| {
-                    in_context(other, "Navigator && !TextInput")
+                    works_in(other, "Navigator")
                         && other.keys == entry.keys
                         && other.action == entry.action
                 })
@@ -644,7 +652,7 @@ mod tests {
                 ],
                 // The TUI's letters, which come after the arrows.
                 Keymap::Tui => &[
-                    ("app::CommandPalette", ":"),
+                    ("app::CommandPalette", "secondary-k"),
                     // ⌘ chords, as a terminal takes the letters.
                     ("palette::GoTo", "secondary-p"),
                     ("palette::GoToTerminal", "secondary-j"),

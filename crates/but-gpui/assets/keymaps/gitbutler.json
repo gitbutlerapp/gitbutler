@@ -12,12 +12,14 @@
   },
   // Letters for what ⌘K and ⌘B do, first so those are the keys shown: : as vim's and the TUI's
   // command line, and . as in Lite. ? lists the keys, as on GitHub, Linear and the TUI.
+  // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
       ":": "app::CommandPalette",
       ".": "app::ToggleNavigator",
-      "?": "settings::OpenKeyboardShortcuts"
+      "?": "settings::OpenKeyboardShortcuts",
+      "enter": "navigator::Confirm"
     }
   },
   {
@@ -81,19 +83,16 @@
     "bindings": { "enter": "app::StartAmend" }
   },
   // From the file filter too, which the commit then takes the files of.
-  {
-    "context": "Files && !Composer > TextInput",
-    "bindings": { "secondary-enter": "app::StartCommit" }
-  },
   // And from a terminal, whose shell has no use for it.
   {
-    "context": "Terminal",
-    "bindings": { "secondary-enter": "app::StartCommit" }
+    "context": "(Workspace && !TextInput) || (Files && !Composer > TextInput) || Terminal",
+    "bindings": {
+      "secondary-enter": "app::StartCommit"
+    }
   },
   {
     "context": "Workspace && !TextInput",
     "bindings": {
-      "secondary-enter": "app::StartCommit",
       "secondary-z": "app::Undo",
       "secondary-shift-z": "app::Redo",
       // y as in vim and the TUI, first so ⌘C is the key shown. ⇧Y picks what else to copy,
@@ -120,9 +119,17 @@
   },
   // o opens a branch's pull request and ⇧O opens a new one, as GitHub calls creating one. Not
   // from a dialog, whose form a new one would replace.
+  // From the navigator too, into the diff beside it, which the app passes them on to. Before
+  // the diff's own, so the arrows stay the keys shown.
   {
     "context": "(Navigator || Diff) && !TextInput",
-    "bindings": { "shift-o": "pr::CreatePullRequest" }
+    "bindings": {
+      "shift-o": "pr::CreatePullRequest",
+      "ctrl-d": "diff::HalfPageDown",
+      "ctrl-u": "diff::HalfPageUp",
+      "] c": "diff::NextHunk",
+      "[ c": "diff::PreviousHunk"
+    }
   },
   // As Explorer and browsers move between panes.
   {
@@ -133,35 +140,13 @@
       "shift-f6": "app::FocusPreviousPane"
     }
   },
-  // A branch's Changes and Pull request tabs, as ⌃Tab switches tabs in Safari, Xcode and VS
-  // Code. The app passes it on from the navigator.
-  {
-    "context": "Workspace",
-    "bindings": {
-      "ctrl-tab": "diff::SwitchTab",
-      "ctrl-shift-tab": "diff::SwitchTab"
-    }
-  },
   {
     "context": "Navigator && !TextInput",
     "bindings": {
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious",
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
       // The arrows come last, so menus show them.
-      "shift-l": "navigator::Expand",
-      "shift-right": "navigator::Expand",
-      "shift-h": "navigator::Collapse",
-      "shift-left": "navigator::Collapse",
-      "enter": "navigator::Confirm",
       // Reading the diff beside it, as a mail client's message list scrolls the message. At
       // the end of a commit, Space goes on to the next unread one. ⌃D and ⌃U go half a page, as
       // in the diff.
-      "space": "diff::PageDown",
-      "shift-space": "diff::PageUp",
-      "ctrl-d": "diff::HalfPageDown",
-      "ctrl-u": "diff::HalfPageUp",
       "b": "navigator::NewBranchOnTop",
       "o": "pr::OpenPullRequest",
       "u": "navigator::ToggleRead",
@@ -246,10 +231,6 @@
   {
     "context": "Navigator && !TextInput",
     "bindings": {
-      "g g": "navigator::SelectFirst",
-      "home": "navigator::SelectFirst",
-      "shift-g": "navigator::SelectLast",
-      "end": "navigator::SelectLast",
       // ⌥↑↓ jumps a paragraph in macOS text, { and } in vim.
       "{": "navigator::PreviousSection",
       "}": "navigator::NextSection",
@@ -293,15 +274,6 @@
       "secondary-a": "diff::PickAllFiles"
     }
   },
-  // From the navigator too, into the diff beside it, which the app passes them on to. Before
-  // the diff's own, so the arrows stay the keys shown.
-  {
-    "context": "Navigator && !TextInput",
-    "bindings": {
-      "] c": "diff::NextHunk",
-      "[ c": "diff::PreviousHunk"
-    }
-  },
   // Moving between files and hunks follows Lite, and to the first and last file the navigator.
   // The file list takes these too.
   {
@@ -314,8 +286,6 @@
       "shift-g": "diff::LastFile",
       "end": "diff::LastFile",
       // Vim's next and previous change, first so the arrows are shown.
-      "] c": "diff::NextHunk",
-      "[ c": "diff::PreviousHunk",
       "down": "diff::NextHunk",
       "up": "diff::PreviousHunk",
       // As the navigator folds, the arrows last so menus show them.
@@ -324,17 +294,20 @@
       "shift-l": "diff::UnfoldFile",
       "shift-right": "diff::UnfoldFile",
       "pagedown": "diff::PageDown",
-      "space": "diff::PageDown",
       "pageup": "diff::PageUp",
-      "shift-space": "diff::PageUp",
       // Half a page, as in vim and the TUI.
-      "ctrl-d": "diff::HalfPageDown",
-      "ctrl-u": "diff::HalfPageUp",
       // A few lines, from the file list too, whose keys stay there.
       "shift-j": "diff::ScrollDown",
       "shift-k": "diff::ScrollUp",
       "f": "diff::ToggleFiles",
       "/": "diff::FilterFiles"
+    }
+  },
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": {
+      "shift-space": "diff::PageUp",
+      "space": "diff::PageDown"
     }
   },
   // While committing, as a click on the checkbox does: space a file in the list, as in Lite,
@@ -356,7 +329,6 @@
   {
     "context": "Files && Composer && !TextInput",
     "bindings": {
-      "space": "diff::ToggleCheck",
       "enter": "diff::WriteMessage"
     }
   },
@@ -373,33 +345,19 @@
       "s": "diff::ToggleSplit"
     }
   },
-  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
-  {
-    "context": "Tabs && !TextInput",
-    "bindings": {
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious"
-    }
-  },
   // The History and Branches lists step, jump and fold as the navigator does, the arrows last
   // so menus show them.
   {
-    "context": "List && !TextInput",
+    "context": "(Navigator || List) && !TextInput",
     "bindings": {
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious",
-      "g g": "navigator::SelectFirst",
-      "home": "navigator::SelectFirst",
-      "shift-g": "navigator::SelectLast",
-      "end": "navigator::SelectLast",
       "shift-l": "navigator::Expand",
       "shift-right": "navigator::Expand",
       "shift-h": "navigator::Collapse",
-      "shift-left": "navigator::Collapse"
+      "shift-left": "navigator::Collapse",
+      "g g": "navigator::SelectFirst",
+      "home": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "end": "navigator::SelectLast"
     }
   },
   // Return applies the branch on Branches, and restores to before the operation on Operations
@@ -438,8 +396,7 @@
   {
     "context": "MessageTitle > TextInput",
     "bindings": {
-      "enter": "message_editor::ToBody",
-      "tab": "message_editor::ToBody"
+      "enter": "message_editor::ToBody"
     }
   },
   // A commit's title commits on Return, written or not, as a body is seldom wanted: Tab goes
@@ -458,8 +415,10 @@
   // A commit's title edited in its row saves on Return too, and Tab goes on to its body, in the
   // commit's header.
   {
-    "context": "Reword > TextInput",
-    "bindings": { "tab": "message_editor::ToBody" }
+    "context": "(MessageTitle || Reword) > TextInput",
+    "bindings": {
+      "tab": "message_editor::ToBody"
+    }
   },
   // As vim steps through matches.
   {
@@ -514,20 +473,17 @@
       "ctrl-n": "palette::PaletteDown"
     }
   },
-  // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
+  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
   {
-    "context": "ContextMenu",
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu",
     "bindings": {
-      "up": "navigator::SelectPrevious",
       "k": "navigator::SelectPrevious",
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
-      "enter": "navigator::Confirm"
+      "j": "navigator::SelectNext"
     }
   },
   // Settings' pages, from its search box too, as the palette's list is.
   {
-    "context": "SettingsPages > TextInput",
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu || (SettingsPages > TextInput)",
     "bindings": {
       "up": "navigator::SelectPrevious",
       "down": "navigator::SelectNext"
@@ -569,15 +525,16 @@
       "k": "tiling::MoveTileUp",
       "right": "tiling::MoveTileRight",
       "l": "tiling::MoveTileRight",
-      "enter": "tiling::FinishArranging",
-      "escape": "tiling::CancelArranging"
+      "enter": "tiling::FinishArranging"
     }
   },
   // Swapping a tile, from Swap tiles: the letters over the others are read as they're pressed,
   // and Escape leaves the tiles as they are.
   {
-    "context": "SwappingTiles",
-    "bindings": { "escape": "tiling::CancelArranging" }
+    "context": "ArrangingTiles || SwappingTiles",
+    "bindings": {
+      "escape": "tiling::CancelArranging"
+    }
   },
   // A description's image previewed: the one before or after it, and Space closes it, as in
   // Quick Look.

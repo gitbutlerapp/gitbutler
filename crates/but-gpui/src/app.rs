@@ -4989,8 +4989,20 @@ impl Render for AppView {
             )
             .on_action(
                 cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
-                    this.detail
-                        .update(cx, |detail, cx| detail.switch_tab(window, cx))
+                    let switched =
+                        (this.detail).update(cx, |detail, cx| detail.switch_tab(true, window, cx));
+                    if !switched {
+                        cx.propagate();
+                    }
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::PreviousTab, window, cx| {
+                    let switched =
+                        (this.detail).update(cx, |detail, cx| detail.switch_tab(false, window, cx));
+                    if !switched {
+                        cx.propagate();
+                    }
                 }),
             )
             .on_action(

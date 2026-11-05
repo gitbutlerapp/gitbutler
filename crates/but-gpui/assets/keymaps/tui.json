@@ -23,14 +23,11 @@
   {
     "context": "Workspace && !TextInput",
     "bindings": {
-      ":": "app::CommandPalette",
-      "?": "settings::OpenKeyboardShortcuts",
       "escape": "app::Cancel",
       "secondary-c": "navigator::CopySelection",
       "y": "navigator::CopySelection",
       "shift-y": "palette::CopyMore",
-      "u": "app::Undo",
-      "shift-u": "app::Redo",
+      "secondary-z": "app::Undo",
       "right": "app::FocusPaneRight",
       "l": "app::FocusPaneRight",
       "left": "app::FocusPaneLeft",
@@ -60,7 +57,9 @@
       "secondary-3": "app::FocusDiff",
       "secondary-b": "app::ToggleNavigator",
       "secondary-alt-b": "app::ToggleDetail",
-      "secondary-shift-h": "app::OperationsHistory"
+      "secondary-o": "app::AddProject",
+      "secondary-shift-o": "projects::CloneRepository",
+      "secondary-n": "navigator::NewBranch"
     }
   },
   // A project's tabs, Overview, Branches, Operations history and Graph, as ⇧⌘] and ⇧⌘[ step
@@ -80,13 +79,21 @@
       "ctrl-pageup": "app::PreviousProjectPage"
     }
   },
-  // ] and [ too, as vim-unimpaired steps to the next and the one before, bound last so they're
-  // the keys shown.
+  // A page's own tabs, as Changes and Pull request, on the same keys, as they're the tabs in
+  // front. After the project's, so these come first, and a page with none goes on to those.
+  // The app passes them on from the navigator.
   {
-    "context": "Workspace && !TextInput",
+    "os": ["macos"],
     "bindings": {
-      "]": "app::NextProjectPage",
-      "[": "app::PreviousProjectPage"
+      "cmd-}": "diff::SwitchTab",
+      "cmd-{": "diff::PreviousTab"
+    }
+  },
+  {
+    "os": ["windows", "linux"],
+    "bindings": {
+      "ctrl-pagedown": "diff::SwitchTab",
+      "ctrl-pageup": "diff::PreviousTab"
     }
   },
   // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
@@ -127,14 +134,8 @@
   {
     "context": "Navigator && !TextInput",
     "bindings": {
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious",
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
       "shift-k": "navigator::PreviousSection",
       "shift-j": "navigator::NextSection",
-      "g": "navigator::SelectFirst",
-      "shift-g": "navigator::SelectLast",
       "n": "edits::AddEmptyCommitAbove",
       "m": "navigator::MoveSelection",
       "shift-s": "navigator::SquashIntoSelection",
@@ -172,11 +173,11 @@
   },
   {
     "context": "Navigator && !TextInput",
-    "bindings": { "r": "edits::NameBranch" }
+    "bindings": { "r": "edits::NameBranch", "f2": "edits::Reword" }
   },
   {
     "context": "Navigator && !TextInput",
-    "bindings": { "r": "edits::RenameTerminal" }
+    "bindings": { "r": "edits::RenameTerminal", "f2": "edits::RenameTerminal" }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, ⇧J and ⇧K a few lines,
   // from the file list too, whose keys stay there, g and ⇧G to the first and last file. Return
@@ -206,14 +207,14 @@
   // a commit's files in the TUI. From the navigator too, which the app passes it on from.
   {
     "context": "(Navigator || Diff) && !TextInput",
-    "bindings": { "f": "diff::ToggleFiles" }
+    "bindings": { "f": "diff::ToggleFiles", "shift-space": "diff::PageUp", "secondary-shift-p": "pr::CreatePullRequest" }
   },
   // / searches what has the keys: the navigator with its filter, the diff with its find bar, and
   // the file list or a list with its filter, as the project page's commits, Branches and
   // Operations history have. Those are inside the diff's context, so theirs wins there.
   {
     "context": "Navigator && !TextInput",
-    "bindings": { "/": "navigator::FocusFilter" }
+    "bindings": { "/": "navigator::FocusFilter", "shift-n": "edits::AddEmptyCommitBelow", "f2": "edits::RenameBranch", "secondary-shift-u": "navigator::ToggleRead", "secondary-shift-n": "navigator::NewBranchOnTop", "secondary-f": "navigator::FocusFilter" }
   },
   // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
   // fold and no others, as those would act on the row it left.
@@ -227,12 +228,15 @@
       "g": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
       "enter": "navigator::ToggleFold",
-      "/": "navigator::FocusFilter"
+      "/": "navigator::FocusFilter",
+      "home": "navigator::SelectFirst",
+      "end": "navigator::SelectLast",
+      "secondary-f": "navigator::FocusFilter"
     }
   },
   {
     "context": "Diff && !TextInput",
-    "bindings": { "/": "find::FindInDiff" }
+    "bindings": { "/": "find::FindInDiff", "secondary-f": "diff::FilterFiles", "home": "diff::FirstFile", "end": "diff::LastFile", "pagedown": "diff::PageDown", "pageup": "diff::PageUp", "o": "open_in::OpenInEditor" }
   },
   {
     "context": "(Files || List) && !TextInput",
@@ -247,7 +251,8 @@
       "down": "diff::NextFile",
       "j": "diff::NextFile",
       "up": "diff::PreviousFile",
-      "k": "diff::PreviousFile"
+      "k": "diff::PreviousFile",
+      "secondary-a": "diff::PickAllFiles"
     }
   },
   // While committing, Space checks or unchecks the file under the cursor, as the TUI's Space
@@ -282,17 +287,14 @@
   // as in GitButler's keymap, from the file filter and a terminal as well. After Return's,
   // above, so c is the key shown.
   {
-    "context": "Files && !Composer > TextInput",
-    "bindings": { "secondary-enter": "app::StartCommit" }
-  },
-  {
-    "context": "Terminal",
-    "bindings": { "secondary-enter": "app::StartCommit" }
+    "context": "(Workspace && !TextInput) || (Files && !Composer > TextInput) || Terminal",
+    "bindings": {
+      "secondary-enter": "app::StartCommit"
+    }
   },
   {
     "context": "Workspace && !TextInput",
     "bindings": {
-      "secondary-enter": "app::StartCommit",
       "c": "app::StartCommit"
     }
   },
@@ -304,18 +306,16 @@
   {
     "context": "Files && Composer && !TextInput",
     "bindings": {
-      "space": "diff::ToggleCheck",
       "enter": "diff::WriteMessage"
     }
   },
-  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
   {
-    "context": "Tabs && !TextInput",
+    "context": "(Navigator || List) && !TextInput",
     "bindings": {
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious"
+      "g": "navigator::SelectFirst",
+      "shift-g": "navigator::SelectLast",
+      "home": "navigator::SelectFirst",
+      "end": "navigator::SelectLast"
     }
   },
   // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
@@ -325,12 +325,6 @@
   {
     "context": "List && !TextInput",
     "bindings": {
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious",
-      "g": "navigator::SelectFirst",
-      "shift-g": "navigator::SelectLast",
       "shift-l": "navigator::Expand",
       "shift-right": "navigator::Expand",
       "shift-h": "navigator::Collapse",
@@ -350,8 +344,7 @@
   {
     "context": "MessageTitle > TextInput",
     "bindings": {
-      "enter": "message_editor::ToBody",
-      "tab": "message_editor::ToBody"
+      "enter": "message_editor::ToBody"
     }
   },
   // A commit's title commits on Return, written or not, as a body is seldom wanted: Tab goes
@@ -370,8 +363,10 @@
   // A commit's title edited in its row saves on Return too, and Tab goes on to its body, in the
   // commit's header.
   {
-    "context": "Reword > TextInput",
-    "bindings": { "tab": "message_editor::ToBody" }
+    "context": "(MessageTitle || Reword) > TextInput",
+    "bindings": {
+      "tab": "message_editor::ToBody"
+    }
   },
   // After the text field's own keys, so these win inside the palette. ⌃P and ⌃N, as in the
   // TUI's jump.
@@ -387,22 +382,26 @@
   // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
   {
     "context": "Workspace && !TextInput",
-    "bindings": { "shift-f10": "app::ShowContextMenu" }
+    "bindings": { "shift-f10": "app::ShowContextMenu", "tab": "app::FocusNextPane", "secondary-shift-z": "app::Redo", "shift-tab": "app::FocusPreviousPane", "u": "app::Undo", "shift-u": "app::Redo", "secondary-shift-p": "remote::Push" }
+  },
+  // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
+  {
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu",
+    "bindings": {
+      "k": "navigator::SelectPrevious",
+      "j": "navigator::SelectNext"
+    }
   },
   // A right-click menu's items, as Settings' pages: Return runs the one the keys are on.
   {
     "context": "ContextMenu",
     "bindings": {
-      "up": "navigator::SelectPrevious",
-      "k": "navigator::SelectPrevious",
-      "down": "navigator::SelectNext",
-      "j": "navigator::SelectNext",
       "enter": "navigator::Confirm"
     }
   },
   // Settings' pages, from its search box too, as the palette's list is.
   {
-    "context": "SettingsPages > TextInput",
+    "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu || (SettingsPages > TextInput)",
     "bindings": {
       "up": "navigator::SelectPrevious",
       "down": "navigator::SelectNext"
@@ -420,15 +419,7 @@
   // Back to the search box from a page link or a control, as / goes to the navigator's filter.
   {
     "context": "Settings && !TextInput",
-    "bindings": { "/": "settings::FocusSearch" }
-  },
-  // After the text field's own keys, so these win in the search field.
-  {
-    "context": "WhatsNew > TextInput",
-    "bindings": {
-      "up": "whats_new::PreviousRelease",
-      "down": "whats_new::NextRelease"
-    }
+    "bindings": { "/": "settings::FocusSearch", "secondary-f": "settings::FocusSearch" }
   },
   // Moving a tile with the keys, from Arrange tiles: a step at a time, Return to leave it there
   // and Escape to put the tiles back, as moving a commit has them. After the text field's own
@@ -444,15 +435,16 @@
       "k": "tiling::MoveTileUp",
       "right": "tiling::MoveTileRight",
       "l": "tiling::MoveTileRight",
-      "enter": "tiling::FinishArranging",
-      "escape": "tiling::CancelArranging"
+      "enter": "tiling::FinishArranging"
     }
   },
   // Swapping a tile, from Swap tiles: the letters over the others are read as they're pressed,
   // and Escape leaves the tiles as they are.
   {
-    "context": "SwappingTiles",
-    "bindings": { "escape": "tiling::CancelArranging" }
+    "context": "ArrangingTiles || SwappingTiles",
+    "bindings": {
+      "escape": "tiling::CancelArranging"
+    }
   },
   // A description's image previewed: the one before or after it, and Space closes it, as in
   // Quick Look.
@@ -462,8 +454,10 @@
       "left": "image_preview::PreviousImage",
       "h": "image_preview::PreviousImage",
       "right": "image_preview::NextImage",
+      "escape": "app::Cancel",
       "l": "image_preview::NextImage",
-      "space": "app::Cancel"
+      "j": "image_preview::NextImage",
+      "k": "image_preview::PreviousImage"
     }
   },
   {
@@ -476,12 +470,62 @@
     "context": "Diff && Brief && !TextInput",
     "bindings": {
       "j": "brief::NextBlock",
-      "k": "brief::PreviousBlock",
       "enter": "brief::OpenBlock",
       "c": "brief::WriteNote",
       "escape": "brief::GoBack",
-      "n": "brief::NextBrief",
-      "shift-n": "brief::PreviousBrief"
+      "down": "brief::NextBlock",
+      "k": "brief::PreviousBlock",
+      "up": "brief::PreviousBlock"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "f6": "app::FocusNextPane",
+      "shift-f6": "app::FocusPreviousPane",
+      "ctrl-y": "app::Redo"
+    }
+  },
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "secondary-alt-backspace": "edits::UnapplyStack"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "edits::UnapplyStack"
+    }
+  },
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "secondary-alt-backspace": "edits::Uncommit"
+    }
+  },
+  {
+    "os": ["windows","linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "edits::Uncommit"
+    }
+  },
+  {
+    "context": "Navigator || Diff || FindBar",
+    "bindings": {
+      "secondary-f": "find::FindInDiff"
+    }
+  },
+  {
+    "context": "Diff || FindBar",
+    "bindings": {
+      "secondary-g": "find::FindNext",
+      "secondary-shift-g": "find::FindPrevious"
     }
   }
 ]

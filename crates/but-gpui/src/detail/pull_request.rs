@@ -111,15 +111,20 @@ impl Detail {
 
     /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
     /// beside its pull request, takes them back from the diff.
-    /// ⌃Tab: the next of the page's tabs, round to the first, when it has more than one.
-    pub(crate) fn switch_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// The next of the page's tabs, or `forward` false the one before, going round. Says whether
+    /// it had another, as a key with nothing to do here goes on to its next binding.
+    pub(crate) fn switch_tab(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let (tabs, at) = self.tabs_of_page(cx);
-        let next = tabs.iter().cycle().nth(at + 1).copied();
-        if tabs.len() > 1
-            && let Some(next) = next
-        {
-            self.set_page_tab(next, window, cx)
+        let next = tab_after(tabs.len(), at, forward).and_then(|ix| tabs.get(ix).copied());
+        if let Some(next) = next {
+            self.set_page_tab(next, window, cx);
         }
+        next.is_some()
     }
 
     /// Show one of the page's tabs. The tabs keep the keys when they have them; from anywhere
@@ -1498,4 +1503,42 @@ pub(super) fn tab(
                     }),
             )
         })
+}
+
+/// Which of `len` tabs comes after the one at `at`, going round, if there's another.
+fn tab_after(len: usize, at: usize, forward: bool) -> Option<usize> {
+    (len > 1).then(|| match forward {
+        true => (at + 1) % len,
+        false => (at + len - 1) % len,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tab_after;
+
+    #[test]
+    fn the_next_tab_is_the_one_after() {
+        assert_eq!(tab_after(3, 0, true), Some(1));
+    }
+
+    #[test]
+    fn the_next_tab_goes_round_to_the_first() {
+        assert_eq!(tab_after(3, 2, true), Some(0));
+    }
+
+    #[test]
+    fn the_previous_tab_is_the_one_before() {
+        assert_eq!(tab_after(3, 2, false), Some(1));
+    }
+
+    #[test]
+    fn the_previous_tab_goes_round_to_the_last() {
+        assert_eq!(tab_after(3, 0, false), Some(2));
+    }
+
+    #[test]
+    fn a_page_with_one_tab_has_no_other() {
+        assert_eq!(tab_after(1, 0, true), None);
+    }
 }

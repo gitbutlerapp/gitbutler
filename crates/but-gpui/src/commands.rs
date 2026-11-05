@@ -259,6 +259,7 @@ commands! {
     crate::detail::SwitchTab => "Switch tab" {
         aliases: &["Switch between Changes and Pull request"]
     },
+    crate::detail::PreviousTab => "Previous tab",
     crate::detail::ShowBrief => "Show brief" { listed: brief_here },
     crate::detail::ShowBranchesWithBriefs => "Show branches with a brief" {
         aliases: &["Find a brief"],
