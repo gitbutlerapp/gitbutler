@@ -660,7 +660,7 @@
         },
         "semibold": {
           "$type": "fontWeight",
-          "$value": 600,
+          "$value": 580,
           "$description": "Headings, labels and emphasis.",
           "$extensions": {
             "mode": {}
@@ -1204,7 +1204,10 @@
         "$value": "50%",
         "$description": "A disabled control or row, applied to the whole element. Keep its colors; the opacity alone says it is unavailable.",
         "$extensions": {
-          "mode": {}
+          "mode": {},
+          "figmaScopes": [
+            "OPACITY"
+          ]
         }
       },
       "bg-hover": {
@@ -1212,7 +1215,10 @@
         "$value": "5%",
         "$description": "How much fill/gray/bg to mix into a surface on hover: a list row, a field. Mix it with color-mix over the surface, not as an overlay.",
         "$extensions": {
-          "mode": {}
+          "mode": {},
+          "figmaScopes": [
+            "OPACITY"
+          ]
         }
       },
       "bg-selected-inactive": {
@@ -1220,7 +1226,10 @@
         "$value": "10%",
         "$description": "How much fill/gray/bg a selected row keeps while its list doesn't have focus, so the selection stays legible from elsewhere. Used by bg/selected-inactive.",
         "$extensions": {
-          "mode": {}
+          "mode": {},
+          "figmaScopes": [
+            "OPACITY"
+          ]
         }
       }
     },
@@ -1280,7 +1289,7 @@
           "core",
           "semantic"
         ],
-        "createdAt": "2026-10-18T15:16:12.088Z"
+        "createdAt": "2026-11-04T22:25:59.919Z"
       }
     }
   }

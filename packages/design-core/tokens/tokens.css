@@ -257,7 +257,7 @@
   /* Body text weight. */
   --font-weight-regular: 460;
   /* Headings, labels and emphasis. */
-  --font-weight-semibold: 600;
+  --font-weight-semibold: 580;
   /* Between buttons in a row: a modal footer, a form's actions, a settings row. The row is right-aligned, primary last. For small buttons or the toolbox, use gap/buttons-compact. */
   --gap-buttons: var(--space-lg);
   /* Between buttons in a compact row: a row of small buttons, and the toolbox's action and confirm rows. A modal footer or a form keeps gap/buttons. */
