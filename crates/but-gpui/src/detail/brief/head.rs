@@ -3,7 +3,9 @@
 //! CLI measured never reads like a sentence the agent could have made up. Colour goes only on
 //! what should change a decision.
 
-use gpui::{Context, Div, FontWeight, SharedString, div, prelude::*};
+use std::sync::Arc;
+
+use gpui::{AppContext as _, Context, Div, FontWeight, SharedString, div, prelude::*};
 
 use crate::backend::briefs::{self, Ask, BriefPage, Concern, Found, ReadBack, Standing, Thread};
 use crate::backend::{CheckState, FileDiff};
@@ -13,7 +15,7 @@ use crate::state::Selection;
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
 use crate::ui::{
-    ButtonStyle, Icon, ago, button, diff, dp, h_flex, icon, icon_button, plural, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, diff, dp, h_flex, icon, icon_button, plural, v_flex,
 };
 
 /// How wide the column of what's measured is, in design pixels.
@@ -606,6 +608,9 @@ impl Detail {
     /// a look away on hover and a click from its diff.
     fn brief_unnamed_facts(&self, state: &BriefState, cx: &Context<Self>) -> Vec<Div> {
         let theme = Theme::get(cx);
+        let Some(loaded) = self.shown_diff() else {
+            return Vec::new();
+        };
         (state.unnamed.iter().enumerate())
             .map(|(ix, path)| {
                 let clicked = path.clone();
@@ -633,6 +638,7 @@ impl Detail {
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.brief_open_file(&clicked, None, window, cx)
                             }))
+                            .tooltip(peek_of(&loaded.files, path))
                             .child(path.clone()),
                     )
             })
@@ -756,6 +762,18 @@ impl Detail {
                 measure(&label.name, why, theme)
             })
             .collect()
+    }
+}
+
+/// What goes on hover over file `path`: how it starts to change.
+fn peek_of(
+    files: &Arc<Vec<FileDiff>>,
+    path: &str,
+) -> impl Fn(&mut gpui::Window, &mut gpui::App) -> gpui::AnyView + 'static {
+    let (files, path) = (files.clone(), path.to_owned());
+    move |window, cx| match super::names::peek_of_file(&files, &path) {
+        Some(peek) => cx.new(|_| peek).into(),
+        None => Tooltip::text(path.clone())(window, cx),
     }
 }
 

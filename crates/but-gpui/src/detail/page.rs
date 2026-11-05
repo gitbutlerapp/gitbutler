@@ -337,7 +337,7 @@ pub(super) struct BriefState {
     /// Which tab it opens on has been settled. A brief that lands after that doesn't take the
     /// page from what's being read.
     pub(super) settled: bool,
-    /// The diff and version what's worked out from that diff was last worked out for.
+    /// The diff and version the names of code in what's shown were last joined up from.
     pub(super) linked: Option<(super::DiffKey, u32, Option<crate::backend::CommitId>)>,
     /// The branch's own diff was gone to from here, which the key back returns from.
     pub(super) left_for_code: bool,

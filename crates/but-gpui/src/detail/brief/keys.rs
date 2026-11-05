@@ -273,7 +273,24 @@ impl Detail {
                 cx.listener(|this, link: &markdown::FollowAnchor, window, cx| {
                     // So the key back works from here, which a click on words doesn't see to.
                     window.focus(&this.focus, cx);
-                    this.follow_brief_link(&link.0, cx);
+                    match link.0.strip_prefix("code:") {
+                        Some(place) => {
+                            let mut parts = place.splitn(3, ':');
+                            let hunk = parts.next().and_then(|it| it.parse().ok());
+                            let line = parts.next().and_then(|it| it.parse().ok());
+                            if let (Some(hunk), Some(line), Some(path)) = (hunk, line, parts.next())
+                            {
+                                this.brief_go_to_line(path, hunk, line, window, cx);
+                            }
+                        }
+                        None => match link.0.strip_prefix("nocode:") {
+                            Some(name) => {
+                                let says = format!("{name} isn't in what this branch changes");
+                                (this.store).update(cx, |store, cx| store.snack(says, cx));
+                            }
+                            None => this.follow_brief_link(&link.0, cx),
+                        },
+                    }
                 }),
             )
             .on_action(

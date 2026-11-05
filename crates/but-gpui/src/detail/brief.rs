@@ -15,6 +15,7 @@ mod bar;
 mod code;
 mod head;
 mod keys;
+mod names;
 mod notes;
 mod talk;
 pub(super) mod test_facts;
@@ -249,6 +250,7 @@ impl Detail {
         };
         let key = (diff.key.clone(), page.version, page.tip);
         if brief.linked.as_ref() != Some(&key) {
+            names::link_names(page, &diff.files);
             brief.tests = Some(test_facts::TestFacts::of(&diff.files));
             brief.unnamed = head::unnamed_files(page, &diff.files);
             brief.drifted = code::drifted_blocks(page, &diff.files);

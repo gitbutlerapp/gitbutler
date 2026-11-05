@@ -197,8 +197,10 @@ and the feature may go, so it stays separate.
   softened, and with no way to know, it says nothing.
 - Notes stay on this machine until they're sent, as a comment tells people. Nothing goes out, to
   Briefs or a terminal, without a key press or a click on what names where it goes.
-- Facts come from the branch's own diff where they can (`TestFacts`), so they hold whatever the agent
-  wrote. A fact that accuses has to be right nearly always.
+- Facts come from the branch's own diff where they can (`TestFacts`, the names of code in the words),
+  so they hold whatever the agent wrote. A fact that accuses has to be right nearly always: a name
+  the code doesn't have looks like any other code and only a click on it says so, as every one found
+  in real briefs was a fair thing to write.
 - A version never changes, so a commit landing only asks again how it stands. Reading it again would
   lose what's marked as new in it.
 - The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a

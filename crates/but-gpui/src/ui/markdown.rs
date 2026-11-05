@@ -21,15 +21,17 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, CursorStyle, DispatchPhase, Font, FontWeight, Hsla, InteractiveElement,
-    InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement,
-    Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout, TextRun,
-    UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
+    AnyElement, App, AppContext as _, CursorStyle, DispatchPhase, Font, FontWeight, Hsla,
+    InteractiveElement, InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent,
+    ParentElement, Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout,
+    TextRun, UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
 };
 use pulldown_cmark::{BlockQuoteKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use super::{TextPoint, Tooltip, dp, fixed, h_flex, selected_part, text_index, v_flex};
-use crate::backend::images;
+use super::{
+    TextPoint, Tooltip, diff, dp, fixed, h_flex, popover, selected_part, text_index, v_flex,
+};
+use crate::backend::{DiffLine, images};
 use crate::theme::Theme;
 
 mod figure;
@@ -71,6 +73,8 @@ pub struct Block {
     pub styles: Vec<(Range<usize>, Style)>,
     /// Where each link goes, by the text it covers; only addresses that are safe to open.
     pub links: Vec<(Range<usize>, String)>,
+    /// What links show on hover in place of where they go, by the text they cover.
+    pub peeks: Vec<(Range<usize>, Peek)>,
     /// Inside HTML that centres it.
     pub centered: bool,
     /// Its place in a table, which lays out its cells in columns.
@@ -420,6 +424,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         text: String::new(),
         styles: Vec::new(),
         links: Vec::new(),
+        peeks: Vec::new(),
         centered: centered.get(),
         cell: in_cell.get(),
     };
@@ -951,6 +956,42 @@ pub fn parse(markdown: &str) -> Vec<Block> {
 /// by [`FollowAnchor`], as nothing outside it could.
 pub const ANCHOR: &str = "anchor:";
 
+/// How a link to code on the branch starts, which is quieter than a link that leaves the page.
+pub const CODE_ANCHOR: &str = "anchor:code:";
+
+/// What code named in words links to when it isn't to be found: nothing to look at, and no look
+/// of a link, but a click gets an answer rather than none.
+pub const NO_CODE_ANCHOR: &str = "anchor:nocode:";
+
+/// The lines a link to code shows on hover, and the file they're from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Peek {
+    pub path: String,
+    pub lines: Arc<[DiffLine]>,
+}
+
+impl gpui::Render for Peek {
+    fn render(&mut self, _: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        popover(theme)
+            .mt(dp(4.))
+            .w(dp(620.))
+            .overflow_hidden()
+            .child(
+                div()
+                    .px(dp(10.))
+                    .py(dp(5.))
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .text_size(dp(11.))
+                    .text_color(theme.text_2)
+                    .font_family(theme.ui_font.clone())
+                    .child(self.path.clone()),
+            )
+            .child(diff::excerpt_flat(&self.lines, theme))
+    }
+}
+
 /// A link to part of the document was clicked, naming the part.
 #[derive(Clone, PartialEq, gpui::Action)]
 #[action(namespace = markdown, no_json)]
@@ -1172,6 +1213,7 @@ fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
         list: 0,
         styles: Vec::new(),
         links: vec![(0..words.len(), image.opens.clone())],
+        peeks: Vec::new(),
         text: words,
         centered: false,
         cell: None,
@@ -1231,7 +1273,11 @@ fn text(
                     mark: all.mark || style.mark,
                     fresh: all.fresh || style.fresh,
                 });
-            let linked = block.links.iter().any(|(range, _)| range.contains(&at));
+            let link = (block.links.iter())
+                .find(|(range, _)| range.contains(&at))
+                .filter(|(_, url)| !url.starts_with(NO_CODE_ANCHOR));
+            let linked = link.is_some();
+            let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
             let weight = match (style.bold || heading, style.italic) {
                 (true, _) => FontWeight::SEMIBOLD,
                 (false, true) => FontWeight::MEDIUM,
@@ -1243,7 +1289,7 @@ fn text(
                     weight,
                     ..font(style.code)
                 },
-                color: match linked {
+                color: match linked && !to_code {
                     true => theme.blue,
                     false => color,
                 },
@@ -1259,7 +1305,10 @@ fn text(
                 },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
-                    color: Some(theme.blue.opacity(0.4)),
+                    color: Some(match to_code {
+                        true => theme.text_3,
+                        false => theme.blue.opacity(0.4),
+                    }),
                     wavy: false,
                 }),
                 strikethrough: style.strike.then(|| StrikethroughStyle {
@@ -1283,6 +1332,7 @@ fn text(
             let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
             let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
             let tips = block.links.clone();
+            let peeks = block.peeks.clone();
             // A drag that selected text doesn't open the link it lets go on.
             let selected_any = range.is_some();
             InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
@@ -1298,7 +1348,13 @@ fn text(
                     }
                 })
                 .tooltip(move |at, window, cx| {
+                    if let Some((_, peek)) = peeks.iter().find(|(range, _)| range.contains(&at)) {
+                        return Some(cx.new(|_| peek.clone()).into());
+                    }
                     let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
+                    if url.starts_with(NO_CODE_ANCHOR) {
+                        return None;
+                    }
                     let words = match url.starts_with(ANCHOR) {
                         true => "Go to that part".to_owned(),
                         false => url.clone(),

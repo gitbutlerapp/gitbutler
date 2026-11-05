@@ -1330,7 +1330,7 @@ impl HunkKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DiffLine {
     pub kind: LineKind,
     pub old: Option<u32>,
