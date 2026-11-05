@@ -730,6 +730,123 @@ Outcome {
         Ok(())
     }
 
+    /// Regression: each merge used the merge-base of the previous base and the next tip, which
+    /// drifts to the oldest commit. The merge has all tips before the next one though, and what
+    /// any of them shares with it is the base.
+    #[test]
+    fn merge_base_accounts_for_all_merged_stacks() -> anyhow::Result<()> {
+        let (repo, mut meta, mut db) =
+            named_read_only_in_memory_scenario("various-heads-on-mixed-bases", "")?;
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+* 875d7a8 (adds-base) adds-base
+| * b9cb235 (HEAD -> adds-main) adds-main
+| | * a5bc985 (adds-other) adds-other
+| |/  
+|/|   
+| | * b4e743e (edits-main) edits-main
+| |/  
+| | * c532f89 (reverts-main) reverts-main
+| |/  
+| * 8eb5282 (main, gitbutler/workspace, empty-at-main) main
+|/  
+* ee25044 base
+
+"#]]
+        );
+
+        add_stacks(
+            &mut meta,
+            [
+                "adds-base",
+                "adds-other",
+                "adds-main",
+                "edits-main",
+                "reverts-main",
+                "empty-at-main",
+            ],
+        );
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            &mut db,
+            Options::limited(),
+        )?;
+
+        for (stacks, hero, expected_conflicting, expected_file, why) in [
+            (
+                &["adds-base", "edits-main", "adds-main"][..],
+                Some("refs/heads/adds-main"),
+                &[][..],
+                "four\n",
+                "`adds-main` shares `main` with `edits-main`, even if `adds-base` is older",
+            ),
+            (
+                &["adds-base", "edits-main", "empty-at-main", "adds-other"],
+                Some("refs/heads/adds-other"),
+                &[],
+                "four\n",
+                "`empty-at-main` shares `main` with `edits-main` as well",
+            ),
+            (
+                &["empty-at-main", "adds-base", "edits-main", "adds-other"],
+                Some("refs/heads/adds-other"),
+                &[],
+                "four\n",
+                "`edits-main` shares `main` with `empty-at-main`, even if `adds-base` is older",
+            ),
+            (
+                &["adds-base", "reverts-main", "edits-main"],
+                Some("refs/heads/edits-main"),
+                &["refs/heads/reverts-main"],
+                "four\n",
+                "`reverts-main` and `edits-main` both change `main`, which an older base would hide",
+            ),
+            (
+                &["empty-at-main", "adds-base", "reverts-main"],
+                None,
+                &[],
+                "one\n",
+                "the change of `main` that `reverts-main` undid must not stay",
+            ),
+            (
+                &["adds-base", "reverts-main", "empty-at-main", "edits-main"],
+                Some("refs/heads/edits-main"),
+                &["refs/heads/reverts-main"],
+                "four\n",
+                "the trial of `empty-at-main` with the hero finds `main` as base as well",
+            ),
+        ] {
+            let out = WorkspaceCommit::from_new_merge_with_metadata(
+                &to_stacks(stacks.iter().copied()),
+                None,
+                &graph,
+                &repo,
+                hero.map(|hero| hero.try_into()).transpose()?,
+            )?;
+            assert_eq!(
+                out.conflicting_stacks
+                    .iter()
+                    .filter_map(|stack| stack.ref_name.as_ref().map(ToString::to_string))
+                    .collect::<Vec<_>>(),
+                expected_conflicting,
+                "{why}"
+            );
+            let file = out
+                .workspace_commit_id
+                .attach(&repo)
+                .object()?
+                .peel_to_tree()?
+                .lookup_entry_by_path("file")?
+                .expect("all stacks have the file")
+                .object()?;
+            assert_eq!(file.data.as_bstr(), expected_file, "{why}");
+        }
+        Ok(())
+    }
+
     mod utils {
         use but_core::ref_metadata::{
             StackId, WorkspaceCommitRelation::Merged, WorkspaceStack, WorkspaceStackBranch,
