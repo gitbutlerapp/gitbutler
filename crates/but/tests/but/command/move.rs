@@ -4931,6 +4931,52 @@ Moved zqt to the tip of branch 'feature'
     );
 }
 
+#[test]
+fn move_onto_a_worktree_branch_marks_its_conflicting_uncommitted_changes() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees").join("wt-dirty");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            r#"
+        git checkout -q -b feature
+        echo feature >init && git commit -q -am "change init"
+        git worktree add -q -b wt-dirty "{wt}" main
+        echo dirty >"{wt}/init"
+        "#,
+            wt = wt.display()
+        ),
+        env.projects_root(),
+    );
+
+    env.but(format!(
+        "move {} -b wt-dirty",
+        env.invoke_git("rev-parse feature")
+    ))
+    .assert()
+    .success()
+    .stdout_eq(snapbox::str![[r#"
+Moved yxq to the tip of branch 'wt-dirty'
+
+⚠ A conflict occurred during checkout. Run `but status` for more information.
+
+"#]])
+    .stderr_eq(snapbox::str![]);
+
+    // The worktree's change survives as our side of the conflict with the moved commit.
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(wt.join("init")).unwrap(),
+        snapbox::str![[r#"
+<<<<<<< ours
+dirty
+=======
+feature
+>>>>>>> theirs
+
+"#]]
+    );
+}
+
 /// `--below` a worktree heading moves the commit to the tip of the branch that worktree has
 /// checked out, taking it out of the workspace.
 #[test]

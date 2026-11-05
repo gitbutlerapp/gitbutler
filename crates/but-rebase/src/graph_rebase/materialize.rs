@@ -43,7 +43,7 @@ struct LinkedCheckoutRepo {
 ///
 /// Callers downcast to it to tell a refused checkout there from one in the editor's own
 /// worktree, which is where the command usually runs.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LinkedWorktreeCheckout {
     name: BString,
     path: std::path::PathBuf,
@@ -297,7 +297,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
-                safe_checkout_from_head(
+                let outcome = safe_checkout_from_head(
                     linked_repo.target,
                     &linked_repo.repo,
                     Options {
@@ -307,7 +307,11 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )
-                .with_context(|| linked_repo.worktree)?;
+                .with_context(|| linked_repo.worktree.clone())?;
+                if outcome.conflict_occurred {
+                    let LinkedWorktreeCheckout { name, path } = linked_repo.worktree;
+                    conflicted_checkouts.push(ConflictedCheckout::Worktree { name, path });
+                }
             }
 
             if let Some(head) = &head {
