@@ -104,14 +104,26 @@ fn cached<T>(act: impl FnOnce(&mut Cache) -> rusqlite::Result<T>) -> Result<Opti
 /// asked for every few seconds and each read goes to the keychain.
 const CLIENT_KEPT: Duration = Duration::from_secs(10 * 60);
 
-static CLIENT: Mutex<Option<(Instant, Arc<Client>)>> = Mutex::new(None);
+static CLIENT: Mutex<Option<(Instant, Arc<SignedIn>)>> = Mutex::new(None);
+
+/// A client, and the account whose token it has.
+struct SignedIn {
+    account: String,
+    api: Client,
+}
 
 /// A client signed in as whoever's signed in to GitButler, if anyone is. Only this reads the
-/// keychain, so nothing that isn't asking Briefs anything does. A profile can outlive its token,
-/// as in a debug build, which reads it through `git credential`. That looks the same as having
-/// no briefs, so it says so at a level that reaches the log.
-fn client() -> Result<Option<Arc<Client>>> {
-    if let Some((_, client)) = (CLIENT.lock().as_ref()).filter(|(at, _)| at.elapsed() < CLIENT_KEPT)
+/// keychain, so nothing that isn't asking Briefs anything does. One kept is used only for the
+/// account it was made for, as someone can sign in from elsewhere, as the desktop app. A profile
+/// can outlive its token, as in a debug build, which reads it through `git credential`. That looks
+/// the same as having no briefs, so it says so at a level that reaches the log.
+fn client() -> Result<Option<Arc<SignedIn>>> {
+    let Some(account) = users::account_id()? else {
+        return Ok(None);
+    };
+    let account = account.to_string();
+    if let Some((_, client)) = (CLIENT.lock().as_ref())
+        .filter(|(at, client)| client.account == account && at.elapsed() < CLIENT_KEPT)
     {
         return Ok(Some(client.clone()));
     }
@@ -120,9 +132,21 @@ fn client() -> Result<Option<Arc<Client>>> {
         .inspect_err(|err| tracing::warn!("Can't read GitButler's token for Briefs: {err:#}"))?
         .map(Client::new)
         .transpose()?
-        .map(Arc::new);
+        .map(|api| Arc::new(SignedIn { account, api }));
     *CLIENT.lock() = client.clone().map(|client| (Instant::now(), client));
     Ok(client)
+}
+
+/// [`cached`], for what `client` brought back. Someone else signed in since would have what's
+/// private to whoever asked, or lose a note of theirs to a sent one with the same id.
+fn cached_from<T>(
+    client: &SignedIn,
+    act: impl FnOnce(&mut Cache) -> rusqlite::Result<T>,
+) -> Result<Option<T>> {
+    if users::account_id()?.map(|id| id.to_string()).as_ref() != Some(&client.account) {
+        bail!("Someone else signed in while Briefs was being asked");
+    }
+    cached(act)
 }
 
 /// Whoever's signed in changed, so the next ask reads who that is.
@@ -153,13 +177,13 @@ fn ask_about(path: &Path, asks: &[BranchAsk]) -> Result<Vec<Anchored>> {
     if let Some(client) = client()? {
         let runtime = runtime().handle();
         for chunk in but_briefs::chunks(asks) {
-            let asked = runtime.block_on(client.ask(&remote, chunk, |id, version| {
+            let asked = runtime.block_on(client.api.ask(&remote, chunk, |id, version| {
                 cached(|cache| cache.version_branch(id, version))
                     .ok()
                     .flatten()
                     .flatten()
             }))?;
-            cached(|cache| cache.took(&remote, &asked, now()))?;
+            cached_from(&client, |cache| cache.took(&remote, &asked, now()))?;
         }
     }
     known(path)
@@ -209,8 +233,8 @@ pub fn read(found: &Found, version: Option<u32>, anchor: &BriefAnchor) -> Result
             let Some(client) = client()? else {
                 bail!("Sign in to GitButler to read briefs");
             };
-            let read = (runtime().handle()).block_on(client.read(id, version))?;
-            cached(|cache| cache.put_version(&read))?;
+            let read = (runtime().handle()).block_on(client.api.read(id, version))?;
+            cached_from(&client, |cache| cache.put_version(&read))?;
             serde_json::from_value(read.body)?
         }
     };
@@ -357,8 +381,8 @@ pub fn ask_talk(id: &str, version: u32) -> Result<Activity> {
     let Some(client) = client()? else {
         bail!("Sign in to GitButler to read briefs");
     };
-    let raw = (runtime().handle()).block_on(client.activity(id, version))?;
-    cached(|cache| cache.put_activity(id, version, &raw))?;
+    let raw = (runtime().handle()).block_on(client.api.activity(id, version))?;
+    cached_from(&client, |cache| cache.put_activity(id, version, &raw))?;
     Ok(Activity::read(&raw))
 }
 
@@ -404,8 +428,8 @@ pub fn send_talk(id: &str, version: u32) -> Result<Talk> {
             body: note.body,
             to: note.to,
         };
-        runtime.block_on(client.post_comment(id, version, &comment))?;
-        cached(|cache| cache.remove_note(note.id))?;
+        runtime.block_on(client.api.post_comment(id, version, &comment))?;
+        cached_from(&client, |cache| cache.remove_note(note.id))?;
     }
     // It's sent by now, so not hearing back right away isn't a failure to send.
     if let Err(err) = ask_talk(id, version) {
@@ -424,7 +448,7 @@ pub fn media(url: &str) -> Result<Vec<u8>> {
     let Some(client) = client()? else {
         bail!("Sign in to GitButler to read briefs");
     };
-    let bytes = (runtime().handle()).block_on(client.media(url))?;
+    let bytes = (runtime().handle()).block_on(client.api.media(url))?;
     if let Some(path) = kept {
         keep_media(&path, &bytes);
     }
