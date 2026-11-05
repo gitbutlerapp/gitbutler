@@ -419,7 +419,7 @@ pub(super) fn stops<'a>(
             // a checkout's uncommitted changes, first under its heading.
             Row::Item(
                 Selection::Upstream(..)
-                | Selection::Section(_, Section::Upstream(Some(_)))
+                | Selection::Section(_, Section::Upstream(_))
                 | Selection::Uncommitted(..),
             )
             | Row::More(..)
@@ -517,7 +517,7 @@ pub(super) fn squash_stops<'a>(
             // What a branch lists beside its own commits, and a checkout's terminals.
             Row::Item(
                 Selection::Upstream(..)
-                | Selection::Section(_, Section::Upstream(Some(_)))
+                | Selection::Section(_, Section::Upstream(_))
                 | Selection::Terminal(..),
             )
             | Row::More(..)

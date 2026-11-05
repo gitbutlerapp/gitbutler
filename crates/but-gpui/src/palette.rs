@@ -594,12 +594,9 @@ fn section_choices(
     several: bool,
 ) -> Vec<Choice> {
     match kind {
-        SectionKind::Upstream => {
-            let target = upstream_choice(entry, workspace, several);
-            let branches = (workspace.all_branches())
-                .filter_map(|branch| remote_choice(store, entry, branch, several));
-            target.into_iter().chain(branches).collect()
-        }
+        SectionKind::Upstream => (workspace.all_branches())
+            .filter_map(|branch| remote_choice(store, entry, branch, several))
+            .collect(),
         SectionKind::Inactive => inactive_choice(store, entry, several).into_iter().collect(),
         SectionKind::Mesh => mesh_heading_choice(store, entry, workspace, several)
             .into_iter()
@@ -650,25 +647,6 @@ pub(crate) fn heading_choice(
     choice.icon(icon).goes_to(goes_to)
 }
 
-/// Go to anything's row for the heading over what's new on a loaded project's target, as the
-/// navigator names it, while there's anything.
-fn upstream_choice(entry: &ProjectEntry, workspace: &Workspace, several: bool) -> Option<Choice> {
-    if workspace.upstream(None).is_empty() {
-        return None;
-    }
-    let target = &workspace.target.as_ref()?.name;
-    let id = entry.id.clone();
-    let heads =
-        move |store: &Store| (store.workspace(&id)).is_some_and(|ws| !ws.upstream(None).is_empty());
-    let (label, gone) = (
-        format!("New on {target}"),
-        format!("Nothing new on {target} anymore"),
-    );
-    let section = Section::Upstream(None);
-    let choice = heading_choice(&entry.id, section, label, Icon::ArrowLineDown, gone, heads);
-    Some(choice.details(several.then_some(entry.project.name.as_str())))
-}
-
 /// Go to anything's row for the heading over the commits only `branch`'s remote has, as the
 /// navigator names it, the branch beside it, while there are any.
 fn remote_choice(
@@ -687,56 +665,42 @@ fn remote_choice(
     };
     let gone = format!("Nothing new on {}'s remote anymore", branch.name);
     let id = entry.id.clone();
-    let section = Section::Upstream(Some(ref_name.clone()));
+    let section = Section::Upstream(ref_name.clone());
     let heads = move |store: &Store| {
-        (store.workspace(&id)).is_some_and(|ws| !ws.upstream(Some(&ref_name)).is_empty())
+        (store.workspace(&id)).is_some_and(|ws| !ws.upstream(&ref_name).is_empty())
     };
     let choice = heading_choice(&entry.id, section, label, Icon::ArrowLineDown, gone, heads);
     let project = several.then_some(entry.project.name.as_str());
     Some(choice.details(std::iter::once(store.label_of(&entry.id, branch)).chain(project)))
 }
 
-/// Go to anything's rows for the commits only a remote has, as the navigator lists them under
-/// their headings: the target's new ones, then each branch's remote's. Not those a merge
-/// brought in, which load only as it opens.
+/// Go to anything's rows for the commits only a branch's remote has, as the navigator lists
+/// them under their headings. Not those a merge brought in, which load only as it opens.
 fn upstream_commit_choices(
     store: &Store,
     entry: &ProjectEntry,
     workspace: &Workspace,
     several: bool,
 ) -> Vec<Choice> {
-    let target = (workspace.target.as_ref()).map(|target| {
-        let place = format!("New on {}", target.name);
-        (None, place, workspace.upstream(None))
-    });
-    let branches = (workspace.all_branches())
-        .filter(|branch| {
-            (branch.ref_name.as_ref()).is_some_and(|r| !store.hides_branch(&entry.id, r))
+    (workspace.all_branches())
+        .filter_map(|branch| {
+            let ref_name = branch.ref_name.as_ref()?;
+            (!store.hides_branch(&entry.id, ref_name)).then_some((branch, ref_name))
         })
-        .map(|branch| {
-            let place = store.label_of(&entry.id, branch).to_owned();
-            (branch.ref_name.clone(), place, &branch.incoming[..])
-        });
-    let mut choices = Vec::new();
-    for (owner, place, commits) in target.into_iter().chain(branches) {
-        for commit in commits {
-            choices.push(upstream_commit_choice(
-                entry,
-                owner.clone(),
-                &place,
-                commit,
-                several,
-            ));
-        }
-    }
-    choices
+        .flat_map(|(branch, ref_name)| {
+            let place = store.label_of(&entry.id, branch);
+            (branch.incoming.iter()).map(move |commit| {
+                upstream_commit_choice(entry, ref_name.clone(), place, commit, several)
+            })
+        })
+        .collect()
 }
 
-/// Go to anything's row for a commit only a remote has, by its title, its short id and where
-/// it's new beside it, where typing either finds it.
+/// Go to anything's row for a commit only branch `owner`'s remote has, by its title, its short
+/// id and where it's new beside it, where typing either finds it.
 fn upstream_commit_choice(
     entry: &ProjectEntry,
-    owner: Option<FullName>,
+    owner: FullName,
     place: &str,
     commit: &RemoteCommit,
     several: bool,
@@ -748,11 +712,9 @@ fn upstream_commit_choice(
     let gone = format!("Commit {short} was taken in meanwhile");
     let choice = Choice::new(commit_title(&commit.title), move |this, window, cx| {
         // Pulled, or the workspace updated, since the picker opened.
-        if (this.store.read(cx).workspace(&id)).is_none_or(|ws| {
-            !ws.upstream(owner.as_ref())
-                .iter()
-                .any(|c| c.id == commit_id)
-        }) {
+        if (this.store.read(cx).workspace(&id))
+            .is_none_or(|ws| !ws.upstream(&owner).iter().any(|c| c.id == commit_id))
+        {
             return snack(&this.store, gone, cx);
         }
         this.select(selection, window, cx)

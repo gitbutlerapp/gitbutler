@@ -780,7 +780,7 @@ mod tests {
         );
         let section = Selection::Section(
             "project".into(),
-            Section::Upstream(Some("refs/heads/main".try_into().unwrap())),
+            Section::Upstream("refs/heads/main".try_into().unwrap()),
         );
         let tilings = Vec::from([
             (

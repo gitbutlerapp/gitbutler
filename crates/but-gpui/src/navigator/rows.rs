@@ -9,7 +9,7 @@ use std::time::Duration;
 use gpui::{App, SharedString};
 
 use super::moving::{landing_at, left_behind};
-use super::{BranchKey, ClickOpened, Navigator, STEP, upstream_chevrons};
+use super::{BranchKey, ClickOpened, MERGE_CHEVRON, Navigator, STEP, UPSTREAM_CHEVRON};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
@@ -70,8 +70,6 @@ pub(super) enum Row {
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
-    /// After the target's new commits listed, how many more its page lists.
-    UpstreamMore(ProjectId, usize),
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.
     RestsOn(Selection, Option<Checkout>),
@@ -176,7 +174,7 @@ impl Row {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::WorktreeDivider | Row::Between(_) => 12.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
-            Row::More(..) | Row::Fewer(..) | Row::UpstreamMore(..) | Row::RestsOn(..) => 24.,
+            Row::More(..) | Row::Fewer(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
             | Row::Note(..)
             | Row::Pending(..)
@@ -424,13 +422,6 @@ impl Navigator {
         };
         if let Some(err) = &entry.error {
             rows.push(Row::Note(err.clone(), true));
-        }
-        // The target's new commits are a section of their own, as Network worktrees is,
-        // ruled off from the worktrees.
-        let before = rows.rows.len();
-        self.upstream_rows(store, workspace, id, None, rows);
-        if rows.rows.len() > before {
-            rows.push(Row::WorktreeDivider);
         }
         // Nothing but the edit goes on while a commit is checked out, its files listed
         // where the uncommitted ones are.
@@ -692,9 +683,9 @@ impl Navigator {
         let at_top = |at: &Stop| matches!(at, Stop::In(Destination::Branch(top)) if branch.ref_name.as_ref() == Some(top));
         let inside = |rows: &mut Rows| {
             rows.open();
-            // `None` there is the target's: an unnamed branch has no remote of its own.
+            // An unnamed branch has no remote of its own.
             if let (Some(workspace), Some(ref_name)) = (store.workspace(id), &branch.ref_name) {
-                self.upstream_rows(store, workspace, id, Some(ref_name), rows);
+                self.upstream_rows(store, workspace, id, ref_name, rows);
             }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
                 (store.new_commit(id, at).into_iter()).map(|(title, slow, moved)| {
@@ -811,29 +802,28 @@ impl Navigator {
         rows.push(Row::WorktreeDivider);
     }
 
-    /// The heading over the commits only `ref_name`'s remote has, or with `None` the target's
-    /// new ones, and when it's open each of them, newest first, as `but status` lists them;
-    /// for the target, then how many more its page lists.
+    /// The heading over the commits only `ref_name`'s remote has, and when it's open each of
+    /// them, newest first, as `but status` lists them. The target's new ones are listed on
+    /// the project's page, not here.
     fn upstream_rows(
         &self,
         store: &Store,
         workspace: &Workspace,
         id: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         rows: &mut Rows,
     ) {
         let commits = workspace.upstream(ref_name);
         if commits.is_empty() {
             return;
         }
-        let owner = ref_name.cloned();
+        let owner = ref_name.clone();
         let section = Selection::Section(id.clone(), Section::Upstream(owner.clone()));
         rows.push(Row::Item(section.clone()));
         let open = self.upstream_open(store, id, ref_name);
         rows.fold(Fold::Under(section), open, &self.folds, |rows| {
             // Guides from the heading's chevron and an open merge's, as from a branch's.
-            let (heading, merge) = upstream_chevrons(ref_name);
-            rows.open_at(heading);
+            rows.open_at(UPSTREAM_CHEVRON);
             let selected = match &store.selection {
                 Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
                 _ => None,
@@ -853,18 +843,13 @@ impl Navigator {
                 let open = merged.is_some() && (self.open_merges.contains(&commit.id) || holds);
                 rows.fold(Fold::Under(item), open, &self.folds, |rows| {
                     if let Some(merged) = merged {
-                        rows.open_at(merge);
+                        rows.open_at(MERGE_CHEVRON);
                         rows.extend(merged.iter().map(|merged| {
                             Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
                         }));
                         rows.close();
                     }
                 });
-            }
-            let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
-            let more = behind.map_or(0, |target| target.behind.saturating_sub(commits.len()));
-            if more > 0 {
-                rows.push(Row::UpstreamMore(id.clone(), more));
             }
             rows.close();
         });
@@ -1143,32 +1128,22 @@ mod within_tests {
             push: PushState::NothingToPush,
             review: None,
         };
-        let upstream = |ref_name: Option<&str>| {
+        let upstream = |ref_name: &str| {
             let id = CommitId(gix::ObjectId::from([1; 20]));
-            Selection::Upstream("p".into(), ref_name.map(full), id)
+            Selection::Upstream("p".into(), full(ref_name), id)
         };
         assert!(
-            within(&upstream(Some("refs/heads/feature")), [&branch].into_iter()),
+            within(&upstream("refs/heads/feature"), [&branch].into_iter()),
             "folding the branch's worktree or stack must keep its selected remote commit"
         );
         assert!(
-            !within(&upstream(Some("refs/heads/other")), [&branch].into_iter()),
+            !within(&upstream("refs/heads/other"), [&branch].into_iter()),
             "another branch's remote commit is elsewhere"
         );
+        let heading = Selection::Section("p".into(), Section::Upstream(full("refs/heads/feature")));
         assert!(
-            !within(&upstream(None), [&branch].into_iter()),
-            "the target's new commits sit above every worktree"
-        );
-        let heading = |ref_name: Option<&str>| {
-            Selection::Section("p".into(), Section::Upstream(ref_name.map(full)))
-        };
-        assert!(
-            within(&heading(Some("refs/heads/feature")), [&branch].into_iter()),
+            within(&heading, [&branch].into_iter()),
             "and so must the heading over its remote's commits"
-        );
-        assert!(
-            !within(&heading(None), [&branch].into_iter()),
-            "the target's heading sits above every worktree"
         );
     }
 }

@@ -164,7 +164,7 @@ impl Store {
                 self.with_picks(project, *id).iter().copied().collect(),
                 true,
             ),
-            Selection::Upstream(_, Some(_), id) => ([*id].into(), true),
+            Selection::Upstream(_, _, id) => ([*id].into(), true),
             Selection::Branch(..) => {
                 let branch = self.branch_for(selection)?;
                 let incoming = branch.incoming.iter().map(|commit| commit.id);

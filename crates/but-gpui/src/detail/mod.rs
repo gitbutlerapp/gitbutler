@@ -210,10 +210,10 @@ enum ListStop {
 enum Messages {
     Commit(ProjectId, CommitId),
     Branch(ProjectId, Option<FullName>),
-    /// The commits only `ref_name`'s remote has, or with `None` the target's new ones.
-    Upstream(ProjectId, Option<FullName>),
-    /// One commit only `ref_name`'s remote has, or with `None` the target.
-    UpstreamCommit(ProjectId, Option<FullName>, CommitId),
+    /// The commits only `ref_name`'s remote has.
+    Upstream(ProjectId, FullName),
+    /// One commit only `ref_name`'s remote has.
+    UpstreamCommit(ProjectId, FullName, CommitId),
     /// The commit a list page shows over its diff: the project page's, or the one picked of
     /// the opened branch on the Branches page.
     TargetCommit(ProjectId),
@@ -1484,10 +1484,7 @@ impl Detail {
         if let Some(project) = self.on_tab(ProjectTab::Branches) {
             return (self.selected_other_branch(&project)?.review.as_ref()?.url).clone();
         }
-        match self.selection()? {
-            Selection::Section(project, Section::Upstream(_)) => self.target_pull_request(&project),
-            _ => None,
-        }
+        self.target_pull_request(&self.on_tab(ProjectTab::Overview)?)
     }
 
     /// The menu `items` makes from this view, open at `at` once the update running now is over.
@@ -1548,17 +1545,9 @@ impl Detail {
             // What a pull would bring in, each of the remote's commits in turn: those a local
             // commit matches are left out of them, so a range from the oldest could bring them
             // back.
-            Selection::Section(project, Section::Upstream(Some(ref_name))) => {
+            Selection::Section(project, Section::Upstream(ref_name)) => {
                 let branch = store.workspace(project)?.find_branch(Some(ref_name))?;
                 DiffSource::Commits(branch.incoming.iter().rev().map(|c| c.id).collect())
-            }
-            // What a pull would bring in from the target, at its newest commit.
-            Selection::Section(project, Section::Upstream(None)) => {
-                let target = store.workspace(project)?.target.as_ref()?;
-                DiffSource::Incoming {
-                    tip: target.incoming.first()?.id,
-                    behind: target.commits_behind,
-                }
             }
             Selection::Section(..) | Selection::Terminal(..) => return None,
             Selection::Branch(project, ref_name) => {
@@ -2230,8 +2219,8 @@ impl Detail {
     }
 
     /// What right-clicking what has the keys here offers, and where its row is while it shows:
-    /// the file under the cursor in the file list or the diff, else what the Branches,
-    /// Operations history or target's page has selected in its list.
+    /// the file under the cursor in the file list or the diff, else what a project page's
+    /// Overview, Branches or Operations history tab has selected in its list.
     pub(crate) fn selected_menu(
         &mut self,
         window: &Window,
@@ -2249,11 +2238,9 @@ impl Detail {
             Selection::Project(project) => match self.project_tab() {
                 ProjectTab::Branches => self.branches_page_menu(&project, cx),
                 ProjectTab::History => self.operation_page_menu(&project, cx),
-                ProjectTab::Overview | ProjectTab::Graph => None,
+                ProjectTab::Overview => self.target_page_menu(&project, cx),
+                ProjectTab::Graph => None,
             },
-            Selection::Section(project, Section::Upstream(_)) => {
-                self.target_page_menu(&project, cx)
-            }
             _ => None,
         }
     }
@@ -2382,10 +2369,9 @@ impl Detail {
             {
                 Some(Messages::OtherBranch(project.clone()))
             }
-            (
-                Selection::Section(project, Section::Upstream(ref_name)),
-                DiffSource::Incoming { .. } | DiffSource::Commits(_),
-            ) if !store.prefs.shows(Part::BranchHeader) => {
+            (Selection::Section(project, Section::Upstream(ref_name)), DiffSource::Commits(_))
+                if !store.prefs.shows(Part::BranchHeader) =>
+            {
                 Some(Messages::Upstream(project.clone(), ref_name.clone()))
             }
             _ => None,
@@ -4012,16 +3998,9 @@ impl Render for Detail {
                         Some(self.render_stack_header(project, bottom.as_ref(), &theme, cx))
                     }
                     Selection::Upstream(..) if !self.upstream_header_shown(cx) => None,
-                    Selection::Upstream(project, ref_name, id) => {
-                        Some(self.render_upstream_header(
-                            project,
-                            ref_name.as_ref(),
-                            *id,
-                            &theme,
-                            window,
-                            cx,
-                        ))
-                    }
+                    Selection::Upstream(project, ref_name, id) => Some(
+                        self.render_upstream_header(project, ref_name, *id, &theme, window, cx),
+                    ),
                     Selection::Project(_) => {
                         Some(self.render_project_header(selection, &theme, window, cx))
                     }

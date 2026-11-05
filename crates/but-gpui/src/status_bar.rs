@@ -17,7 +17,7 @@ use crate::detail::{NextFile, NextHunk};
 use crate::edits::Discard;
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Part, ProjectId, ProjectTab, SLOW, Section, Selection};
+use crate::state::{Part, ProjectId, ProjectTab, SLOW, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Op, Transfer};
 use crate::ui::{
@@ -229,9 +229,7 @@ impl AppView {
         // A target with no upstream stands where it is whatever a fetch brings. Not on the
         // project's page, whose header says it, with its own Fetch.
         let fetched = (store.selection.as_ref()).and_then(|selection| {
-            if let Selection::Project(_) | Selection::Section(_, Section::Upstream(None)) =
-                selection
-            {
+            if let Selection::Project(_) = selection {
                 return None;
             }
             let id = selection.project();
@@ -308,10 +306,7 @@ impl AppView {
         } else {
             // In the navigator, the keys for what's selected.
             let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
-                Some(
-                    Selection::Project(project)
-                    | Selection::Section(project, Section::Upstream(None)),
-                ) => {
+                Some(Selection::Project(project)) => {
                     let behind = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())
                         .is_some_and(|target| target.needs_update());
