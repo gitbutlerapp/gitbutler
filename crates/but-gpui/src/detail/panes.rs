@@ -17,7 +17,7 @@ use crate::app::{
 };
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{
-    self, Branch, Checkout, CommitId, CommitState, FileDiff, FullName, PushState, short_ref,
+    self, Branch, Checkout, CommitId, CommitState, FullName, PushState, short_ref,
 };
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
@@ -25,8 +25,6 @@ use crate::navigator::{SelectFirst, SelectLast, upstream_label};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Part, ProjectId, ProjectTab, Section, Selection, Side};
 use crate::theme::Theme;
-use crate::ui::diff;
-use crate::ui::file_icons::file_icon;
 use crate::ui::fold::{MOVING_ROWS, Moved, clipped};
 use crate::ui::illustration::Illustration;
 use crate::ui::message_editor::MessageEditor;
@@ -659,8 +657,7 @@ impl Detail {
 
     /// The messages the diff lists first among the files: the selected commit's, every
     /// commit's of the selected branch, or those only a remote has, newest first. `flat` fills
-    /// the pane, as the one entry the diff shows, with the files under it; else it's a card
-    /// above the files' cards.
+    /// the pane, as the one entry the diff shows; else it's a card above the files' cards.
     pub(super) fn render_message(
         &self,
         flat: bool,
@@ -670,7 +667,7 @@ impl Detail {
     ) -> AnyElement {
         let messages = match self.loaded_messages(cx) {
             Some(Messages::Commit(project, id)) => {
-                self.commit_message(&project, id, flat, entity.clone(), theme, cx)
+                self.commit_message(&project, id, flat, entity, theme, cx)
             }
             Some(Messages::Branch(project, ref_name)) => {
                 self.branch_messages(&project, ref_name.as_ref(), flat, theme, cx)
@@ -682,7 +679,7 @@ impl Detail {
                 self.target_commit_message(&project, flat, theme, cx)
             }
             Some(Messages::OtherBranch(project)) => {
-                self.other_branch_message(&project, entity.clone(), flat, theme, cx)
+                self.other_branch_message(&project, entity, flat, theme, cx)
             }
             Some(Messages::UpstreamCommit(project, ref_name, id)) => {
                 self.upstream_commit_message(&project, ref_name.as_ref(), id, flat, theme, cx)
@@ -700,7 +697,6 @@ impl Detail {
                 .pb(dp(32.))
                 .child(top)
                 .children(rest.map(|rest| rest.mt(dp(24.))))
-                .children(self.message_files(entity, theme, cx))
                 .into_any_element(),
             false => v_flex()
                 .id("messages")
@@ -1022,80 +1018,6 @@ impl Detail {
             .rounded(dp(4.))
             .hover(move |el| el.bg(hover))
             .child(label.into())
-    }
-
-    /// Under the commit's message filling the pane, the files it changes, as the file list
-    /// orders them, with how many lines each adds and removes: a click opens one.
-    fn message_files(&self, entity: WeakEntity<Detail>, theme: &Theme, cx: &App) -> Option<Div> {
-        let diff = self.diff.as_ref()?;
-        let listed: Vec<(usize, &FileDiff)> = (self.listed_files(cx).into_iter())
-            .filter_map(|ix| Some((ix, diff.files.get(ix)?)))
-            .collect();
-        if listed.is_empty() {
-            return None;
-        }
-        let (added, removed) = diff::total_stats(listed.iter().map(|(_, file)| *file));
-        let columns = diff::stats_columns(listed.iter().map(|(_, file)| file.stats()));
-        let heading = h_flex()
-            .gap(dp(8.))
-            .pb(dp(8.))
-            .mb(dp(4.))
-            .border_b_1()
-            .border_color(theme.border_3)
-            .child(
-                div()
-                    .text_size(dp(13.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(format!("{} changed", plural(listed.len(), "file"))),
-            )
-            .child(diff::stats(added, removed, false, theme));
-        let rows = listed.into_iter().map(|(ix, file)| {
-            let path = &file.file.path;
-            let (name, dir) = diff::split_path(path);
-            let (added, removed) = file.stats();
-            let entity = entity.clone();
-            list_row(("message-file", ix), false, theme)
-                .mx(dp(-8.))
-                .px(dp(8.))
-                .gap(dp(8.))
-                .text_size(dp(13.))
-                .aria_label(path.clone())
-                .child(file_icon(path, cx))
-                .child(
-                    h_flex()
-                        .flex_1()
-                        .min_w_0()
-                        .gap(dp(8.))
-                        .child(div().flex_shrink_0().child(name.to_owned()))
-                        .child(
-                            div()
-                                .min_w_0()
-                                .truncate()
-                                .text_color(theme.text_2)
-                                .child(dir.to_owned()),
-                        ),
-                )
-                .child(diff::column_stats(added, removed, columns, false, theme))
-                .child(
-                    div()
-                        .w(dp(14.))
-                        .flex_none()
-                        .text_size(dp(11.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(diff::change_color(file.file.kind, theme))
-                        .child(file.file.kind.letter()),
-                )
-                .on_click(move |_, _, cx| {
-                    (entity.update(cx, |this, cx| this.scroll_to_file(ix, true, cx))).ok();
-                })
-        });
-        Some(
-            v_flex()
-                .mt(dp(32.))
-                .max_w(dp(MESSAGE_WIDTH))
-                .child(heading)
-                .children(rows),
-        )
     }
 
     /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
