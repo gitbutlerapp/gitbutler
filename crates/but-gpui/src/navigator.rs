@@ -29,13 +29,14 @@ use crate::clock;
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
-    Axis, Cut, DividerDrag, Pane, Prefs, ProjectId, ProjectTab, Section, Selection, Store,
-    StoreEvent, Tile, WatchedOrder,
+    Axis, DividerDrag, Pane, Prefs, ProjectId, ProjectTab, Section, Selection, Store, StoreEvent,
+    Tile, WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
-    Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview, page_preview, row_preview,
+    Changes, Dragged, Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview,
+    page_preview, row_preview,
 };
 use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reordered, shifted};
@@ -151,22 +152,22 @@ enum ClickOpened {
     Elsewhere(crate::state::MeshBranch),
 }
 
-/// How an item row draws: `solid` is the selection while the navigator has focus, `cut` is
-/// the row waiting for ⌘V or being moved, `held` a copy of what's being moved, or a terminal
-/// going where it'd land itself, `mark` the colour cut or held rows are marked in, and `inset`
+/// How an item row draws: `solid` is the selection while the navigator has focus, `taken`
+/// is the row being moved, `held` a copy of what's being moved, or a terminal
+/// going where it'd land itself, `mark` the colour taken or held rows are marked in, and `inset`
 /// is how far in its section sets it.
 #[derive(Clone, Copy)]
 pub(crate) struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
-    cut: bool,
+    taken: bool,
     held: bool,
     mark: Hsla,
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
-    /// The rows above and below are outlined as it is, cut or moving with it, so a run of
+    /// The rows above and below are outlined as it is, moving with it, so a run of
     /// them is outlined as one, as a branch is with its commits.
     outlined_with: (bool, bool),
     /// A commit that just showed up, not selected: see [`crate::ui::glow_once`].
@@ -292,7 +293,7 @@ impl<'a> RowStyle<'a> {
             theme,
             selected: false,
             solid: false,
-            cut: false,
+            taken: false,
             held: false,
             mark: theme.pop,
             inset,
@@ -322,7 +323,7 @@ impl<'a> RowStyle<'a> {
             .when(self.solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
-            .when(self.cut, |el| {
+            .when(self.taken, |el| {
                 (el.opacity(0.5).border_1().border_dashed()).border_color(self.mark)
             })
             // As the copies of what's moving are drawn where it would land.
@@ -2255,22 +2256,13 @@ impl Navigator {
             true => (ix > 0 && lit_at(ix - 1), lit_at(ix + 1)),
             false => (false, false),
         };
-        let cut_of = |item: &Selection| {
-            let cut = match (&store.cut, item) {
-                (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
-                    p == project && ref_name.as_ref() == Some(r)
-                }
-                (Some(Cut::Commit(p, ids)), Selection::Commit(project, commit)) => {
-                    p == project && ids.contains(commit)
-                }
-                _ => false,
-            };
-            cut || matches!(
+        let taken_by = |item: &Selection| {
+            matches!(
                 moving::mark(store, item),
-                Some(Mark::Cut(_) | Mark::Copied(_))
+                Some(Mark::Taken(_) | Mark::Copied(_))
             )
         };
-        let cut = cut_of(item);
+        let taken = taken_by(item);
         // What a squash goes into is outlined over it, or where it started around the rows
         // held there, the outline sliding in from where it was before, its edges apart.
         let slid = (
@@ -2279,9 +2271,9 @@ impl Navigator {
         );
         let outlined = (self.squash_outline.as_ref()).filter(|outline| outline.row == *item);
         let held = matches!(marked, Some(Mark::Held(_)));
-        // Cut or moving together, next to each other, they're outlined as one.
+        // Moving together, next to each other, they're outlined as one.
         let outlined_at = |ix: usize| match rows.get(ix) {
-            Some(Row::Item(other)) if cut => cut_of(other),
+            Some(Row::Item(other)) if taken => taken_by(other),
             Some(Row::Item(other)) if held => {
                 matches!(moving::mark(store, other), Some(Mark::Held(_)))
             }
@@ -2297,11 +2289,11 @@ impl Navigator {
             theme,
             selected,
             solid,
-            cut,
+            taken,
             held,
             // In the colour of what's being done with it, as the TUI's modes have their own.
             mark: match marked {
-                Some(Mark::Cut(op) | Mark::Copied(op) | Mark::Held(op)) => op.colour(theme),
+                Some(Mark::Taken(op) | Mark::Copied(op) | Mark::Held(op)) => op.colour(theme),
                 None => theme.pop,
             },
             inset,
@@ -2353,7 +2345,7 @@ impl Navigator {
             return div().into_any_element();
         };
         let el = self.with_tiles(el, item, style, cx);
-        let el = self.drop_target(el, item.clone(), window, theme, cx);
+        let el = self.row_menu(el, item.clone(), cx);
         match outlined {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
@@ -3298,10 +3290,7 @@ impl Navigator {
             .on_click(double_click(toggle, cx));
         // A linked worktree drags itself, its changes going with it.
         let row = match checkout.linked() {
-            Some(name) => {
-                let payload = Cut::Worktree(id.clone(), name.to_owned());
-                self.worktree_drag(row, item, name, payload, name.to_string().into(), cx)
-            }
+            Some(name) => self.worktree_drag(row, item, name, name.to_string().into(), cx),
             // The main worktree drags its folder, for a terminal to paste.
             None => self.project_drag(row, item, label.into(), false, cx),
         };
@@ -3344,13 +3333,12 @@ impl Navigator {
                 [file] => file.file.path.clone().into(),
                 files => format!("{} files", files.len()).into(),
             };
-            let payload = Cut::Files {
-                project: id.clone(),
+            let changes = Changes {
                 from: None,
                 worktree: checkout,
                 files: files.into(),
             };
-            (payload, label)
+            (Dragged::from((id.clone(), changes)), label)
         });
         let row = match dragged.filter(|_| self.drags(cx)) {
             Some((payload, label)) => {
@@ -3591,7 +3579,10 @@ impl Navigator {
                 .when(folds, |el| el.on_click(click_opens(clicked, toggle, cx)))
                 .map(|el| match ref_name.filter(|_| self.drags(cx)) {
                     Some(ref_name) => {
-                        let payload = Cut::Branch(id.clone(), ref_name.clone());
+                        let payload = Dragged {
+                            project: id.clone(),
+                            what: crate::transfer::Moving::Branch(ref_name.clone()),
+                        };
                         let label = store.label_of(id, branch).to_owned();
                         let preview = drag_preview(self.store.clone(), SharedString::from(label));
                         el.on_drag(
@@ -3694,7 +3685,10 @@ impl Navigator {
             false => store.message_of(id, commit).0.to_owned().into(),
             true => format!("{} commits", moved.len()).into(),
         };
-        let payload = Cut::Commit(id.clone(), moved);
+        let payload = Dragged {
+            project: id.clone(),
+            what: crate::transfer::Moving::Commits(moved),
+        };
         Some(
             style
                 .commit(
@@ -4555,7 +4549,7 @@ impl Render for Navigator {
             .on_drag_move(cx.listener(Self::follow_worktree_drag))
             .on_drag_move(cx.listener(Self::follow_terminal_drag))
             .on_drag_move(cx.listener(Self::follow_dragged))
-            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, _, cx| {
+            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, _, cx| {
                 this.drag_moved(event.bounds.contains(&event.event.position), cx)
             }))
             .on_drag_move(
@@ -4707,7 +4701,7 @@ impl Render for Navigator {
                         // Ending level with the detail's cards, so what scrolls past is cut
                         // where they end.
                         .mb(dp(CARD_GAP))
-                        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, w, cx| {
+                        .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Dragged>, w, cx| {
                             this.scroll_near_edge(event.event.position, event.bounds, w, cx)
                         }))
                         .on_drag_move(cx.listener(

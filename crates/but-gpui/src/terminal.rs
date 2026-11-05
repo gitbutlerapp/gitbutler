@@ -22,8 +22,9 @@ use gpui::{
     TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
-use crate::state::{Cut, Store};
+use crate::state::Store;
 use crate::theme::Theme;
+use crate::transfer::Dragged;
 use crate::transfer::ProjectDrag;
 use crate::ui::{dp, fixed};
 
@@ -507,7 +508,7 @@ impl Terminal {
 
     /// A row dragged from the navigator is pasted as ⌘C copies it, and a file, hunk or lines
     /// dragged from the diff as their patch ([`Store::pasted`]).
-    fn dropped_row(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
+    fn dropped_row(&mut self, _: &Dragged, window: &mut Window, cx: &mut Context<Self>) {
         let text =
             (self.store.upgrade()).and_then(|store| Some(store.read(cx).pasted()?.into_owned()));
         if let Some(text) = text {

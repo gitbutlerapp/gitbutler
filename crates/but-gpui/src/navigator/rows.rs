@@ -14,9 +14,9 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
 use crate::edits::BranchEdits;
-use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::state::{NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
-use crate::transfer::Stop;
+use crate::transfer::{self, Dragged, Stop};
 use crate::ui::ROW_HEIGHT;
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
@@ -1052,13 +1052,18 @@ pub(super) fn within<'a>(
 /// Whether what's `dragging` can land apart from the rest of `project`'s `workspace`:
 /// commits in a new branch, and a branch that shares its stack in one of its own. Outside the
 /// workspace, landing there sets it up, as `but move` does.
-fn lands_apart(dragging: Option<&Cut>, project: &ProjectId, workspace: &Workspace) -> bool {
-    match dragging {
-        Some(Cut::Commit(from, _)) => from == project,
-        Some(Cut::Branch(from, branch)) => {
-            from == project && BranchEdits::of(workspace, branch).unstack
-        }
-        _ => false,
+fn lands_apart(dragging: Option<&Dragged>, project: &ProjectId, workspace: &Workspace) -> bool {
+    let Some(dragged) = dragging.filter(|dragged| dragged.project == *project) else {
+        return false;
+    };
+    match &dragged.what {
+        transfer::Moving::Commits(_) => true,
+        transfer::Moving::Branch(branch) => BranchEdits::of(workspace, branch).unstack,
+        transfer::Moving::Project(_)
+        | transfer::Moving::Worktree { .. }
+        | transfer::Moving::Terminal { .. }
+        | transfer::Moving::Files(_)
+        | transfer::Moving::Copies(_) => false,
     }
 }
 
@@ -1167,7 +1172,8 @@ mod lands_apart_tests {
     use super::lands_apart;
     use crate::backend::Workspace;
     use crate::backend::model::build::{branch, full, id, workspace, worktree};
-    use crate::state::{Cut, ProjectId};
+    use crate::state::ProjectId;
+    use crate::transfer::{Dragged, Moving};
 
     #[test]
     fn a_stacked_branch_lands_apart_and_a_lone_one_does_not() {
@@ -1187,8 +1193,10 @@ mod lands_apart_tests {
                 )],
             )
         };
-        let dragged =
-            |name: &str| Cut::Branch(project.clone(), full(&format!("refs/heads/{name}")));
+        let dragged = |name: &str| Dragged {
+            project: project.clone(),
+            what: Moving::Branch(full(&format!("refs/heads/{name}"))),
+        };
         assert!(
             lands_apart(Some(&dragged("ui")), &project, &ws),
             "the top of a stack can leave it"
@@ -1209,7 +1217,10 @@ mod lands_apart_tests {
             !lands_apart(Some(&dragged("ui")), &ProjectId::from("other"), &ws),
             "it lands only in its own project"
         );
-        let commit = Cut::Commit(project.clone(), [id(3)].into());
+        let commit = Dragged {
+            project: project.clone(),
+            what: Moving::Commits([id(3)].into()),
+        };
         assert!(
             lands_apart(Some(&commit), &project, &ws),
             "commits go in a branch of their own outside the workspace too, which sets it up"

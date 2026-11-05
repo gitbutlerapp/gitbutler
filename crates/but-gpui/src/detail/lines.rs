@@ -1,4 +1,4 @@
-//! Parts of hunks to cut, drag or take out of where they are, as files and hunks are: lines
+//! Parts of hunks to squash, drag or take out of where they are, as files and hunks are: lines
 //! picked by their numbers, and the run of changed lines a gutter grip takes.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -7,7 +7,8 @@ use gpui::{App, Context, Entity, Modifiers, Pixels, Point, SharedString, WeakEnt
 
 use super::Detail;
 use crate::backend::{FileDiff, Hunk, HunkKey, LineKind, Selected};
-use crate::state::Cut;
+use crate::state::ProjectId;
+use crate::transfer::{Changes, Dragged, Moving};
 use crate::transfer::{Chip, DragPreview};
 
 /// Lines picked in one file of the diff.
@@ -155,7 +156,8 @@ impl Detail {
         chip: impl Into<Chip>,
         carries_picks: bool,
         detail: WeakEntity<Detail>,
-    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    ) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static
+    {
         let preview = crate::transfer::drag_preview(self.store.clone(), chip);
         move |payload, offset, window, cx| {
             // Nor does it pick the lines whose numbers it passes over, nor keep the grip it
@@ -180,7 +182,8 @@ impl Detail {
         chip: impl Into<Chip>,
         carries_picks: bool,
         detail: WeakEntity<Detail>,
-    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    ) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static
+    {
         let preview = self.drag_preview(chip, carries_picks, detail.clone());
         let store = self.store.clone();
         move |payload, offset, window, cx| {
@@ -193,13 +196,13 @@ impl Detail {
         }
     }
 
-    /// What a terminal pastes of `cut` dragged from the diff: the patch of the file, hunks or
+    /// What a terminal pastes of `dragged` from the diff: the patch of the file, hunks or
     /// lines it carries, as copying takes them, or else the file's path, as for a binary file.
-    fn dragged_patch(&self, cut: &Cut) -> Option<String> {
-        let Cut::Files { files, .. } = cut else {
+    fn dragged_patch(&self, dragged: &Dragged) -> Option<String> {
+        let Moving::Files(changes) = &dragged.what else {
             return None;
         };
-        let [part] = &**files else {
+        let [part] = &*changes.files else {
             return None;
         };
         let diff = self.diff.as_ref()?;
@@ -285,19 +288,19 @@ impl Detail {
         (self.diff.as_ref()?.files.iter()).position(|file| file.file.path == picks.path)
     }
 
-    /// The picked lines, to cut, drag or take out.
-    pub(super) fn line_picks_cut(&self, cx: &App) -> Option<Cut> {
+    /// The picked lines, to squash, drag or take out.
+    pub(super) fn line_picks_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
         let file = self.line_picks_file()?;
-        self.lines_cut(file, self.picked_lines(file), cx)
+        self.lines_changes(file, self.picked_lines(file), cx)
     }
 
-    /// `lines` of the loaded diff's file at `file`, by hunk and line index, as they'd be cut.
-    pub(super) fn lines_cut(
+    /// `lines` of the loaded diff's file at `file`, by hunk and line index, as changes.
+    pub(super) fn lines_changes(
         &self,
         file: usize,
         lines: impl IntoIterator<Item = (usize, usize)>,
         cx: &App,
-    ) -> Option<Cut> {
+    ) -> Option<(ProjectId, Changes)> {
         let diff_file = self.diff.as_ref()?.files.get(file)?;
         let mut by_hunk: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
         for (hunk, line) in lines {
@@ -311,7 +314,7 @@ impl Detail {
         if keys.is_empty() {
             return None;
         }
-        self.owned_cut(vec![diff_file.part(Some(keys))], cx)
+        self.owned_changes(vec![diff_file.part(Some(keys))], cx)
     }
 
     /// The keys taking `lines` of `hunk` out of the loaded diff: the hunk itself when they're

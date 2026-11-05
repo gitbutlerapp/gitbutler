@@ -1,8 +1,8 @@
 //! App state shared by every view: the projects with their loaded workspaces, the
-//! selection, what's been cut, and each project's operation in flight.
+//! selection, what's being dragged, and each project's operation in flight.
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -12,8 +12,7 @@ use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task}
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, FullName, Project, Selected, SnapshotId, Workspace,
-    short_ref,
+    self, Branch, Checkout, Commit, CommitId, FullName, Project, SnapshotId, Workspace,
 };
 
 mod account;
@@ -192,111 +191,6 @@ impl Selection {
     }
 }
 
-/// What ⌘X picked up, waiting for ⌘V on a destination.
-#[derive(Debug, Clone)]
-pub enum Cut {
-    /// Commits to move, the picked ones together, in the order they're listed.
-    Commit(ProjectId, Arc<[CommitId]>),
-    /// A branch to stack on another, without the branches above it.
-    Branch(ProjectId, FullName),
-    /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
-    Files {
-        project: ProjectId,
-        from: Option<CommitId>,
-        /// The checkout uncommitted files are in, the main one for a commit's.
-        worktree: Checkout,
-        /// Shared, since every row a drag passes over works out what a drop would do.
-        files: Arc<[Selected]>,
-    },
-    /// A linked worktree to put elsewhere among the others, by name.
-    Worktree(ProjectId, bstr::BString),
-}
-
-impl Cut {
-    pub fn project(&self) -> &ProjectId {
-        match self {
-            Cut::Commit(project, _)
-            | Cut::Branch(project, _)
-            | Cut::Files { project, .. }
-            | Cut::Worktree(project, _) => project,
-        }
-    }
-
-    /// Without the files that can't land ([`Selected::movable`]), if any can.
-    pub fn movable(self) -> Option<Self> {
-        match self {
-            Cut::Files {
-                project,
-                from,
-                worktree,
-                files,
-            } => {
-                let files: Arc<[Selected]> = (files.iter().filter(|file| file.movable()))
-                    .cloned()
-                    .collect();
-                (!files.is_empty()).then_some(Cut::Files {
-                    project,
-                    from,
-                    worktree,
-                    files,
-                })
-            }
-            cut => Some(cut),
-        }
-    }
-
-    /// What's cut, a commit by its title where the workspace has one for it.
-    pub fn describe(&self, store: &Store) -> String {
-        match self {
-            Cut::Commit(project, ids) => match &**ids {
-                [id] => match store.find_commit(project, *id) {
-                    Some((_, commit)) if !commit.title.is_empty() => {
-                        format!("\"{}\"", commit.title)
-                    }
-                    _ => format!("commit {}", store.short_reference(project, *id)),
-                },
-                ids => format!("{} commits", ids.len()),
-            },
-            Cut::Branch(_, ref_name) => short_ref(ref_name).into_owned(),
-            Cut::Files { files, .. } => match &**files {
-                // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
-                [file] => match &file.hunks {
-                    Some(_) => format!("changes in {}", file.file.path),
-                    None => file.file.path.clone(),
-                },
-                files => format!("{} files", files.len()),
-            },
-            Cut::Worktree(_, name) => name.to_string(),
-        }
-    }
-
-    /// What a terminal pastes when it's dropped there, as ⌘C copies its row, from its
-    /// project's `workspace`, whose main checkout is `main`: each commit's
-    /// [`reference`](Commit::reference), a branch's name, or a worktree's folder. Nothing once
-    /// a commit or worktree it holds is gone.
-    pub fn pasted(&self, main: &Path, workspace: &Workspace) -> Option<Vec<String>> {
-        let folder = |checkout: &Checkout| {
-            let path = workspace.checkout_path(main, checkout)?;
-            Some(vec![path.display().to_string()])
-        };
-        match self {
-            Cut::Commit(_, ids) => (ids.iter())
-                .map(|id| Some(workspace.find_commit(*id)?.1.reference()))
-                .collect(),
-            Cut::Branch(_, ref_name) => Some(vec![short_ref(ref_name).into_owned()]),
-            Cut::Worktree(_, name) => folder(&Checkout::Linked(name.clone())),
-            // A worktree's row drags its files, which mean it here: a terminal covers the file
-            // list, the only other place they're dragged from.
-            Cut::Files {
-                from: None,
-                worktree,
-                ..
-            } => folder(worktree),
-            Cut::Files { from: Some(_), .. } => None,
-        }
-    }
-}
-
 /// A place in a branch's changes that a brief points to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodePlace {
@@ -443,7 +337,6 @@ pub struct Store {
     pub projects: Vec<ProjectEntry>,
     pub projects_loaded: bool,
     pub selection: Option<Selection>,
-    pub cut: Option<Cut>,
     /// Commits picked along with the selected one (⌘- or ⇧-click, ⇧-arrows) to squash or
     /// uncommit together: two or more, or none, all in the selected commit's project.
     pub picked: Picks<CommitId>,
@@ -463,7 +356,7 @@ pub struct Store {
     asked_author: bool,
     /// What the pointer is dragging, followed as agents rewrite it: GPUI's own copy stays as
     /// the drag began. Only meaningful while GPUI has a drag active.
-    pub dragging: Option<Cut>,
+    pub dragging: Option<crate::transfer::Dragged>,
     /// Whether a drag holds [`Self::moving`], the pointer stepping it rather than the keys.
     pub move_dragged: bool,
     /// What a terminal pastes of a drag from the diff, as it began: the patch of what it
@@ -659,7 +552,6 @@ impl Store {
             projects: Vec::new(),
             projects_loaded: false,
             selection: None,
-            cut: None,
             picked: Picks::default(),
             followed: None,
             made: None,
@@ -1470,16 +1362,6 @@ impl Store {
         current
     }
 
-    pub fn set_cut(&mut self, cut: Option<Cut>, cx: &mut Context<Self>) {
-        // The snackbar saying a cut is ready to paste is wrong once it's pasted or let go.
-        if cut.is_none() && self.cut.is_some() {
-            (self.toasts)
-                .retain(|toast| !matches!(toast.notice, Notice::Snackbar { undo: None, .. }));
-        }
-        self.cut = cut;
-        cx.notify();
-    }
-
     pub fn set_moving(&mut self, moving: Option<crate::transfer::Move>, cx: &mut Context<Self>) {
         self.moving = moving;
         self.move_dragged = false;
@@ -1489,9 +1371,12 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::backend::model::build::full;
     use crate::backend::{Lane, PushState, Worktree};
+    use crate::transfer::{Changes, Moving};
 
     #[test]
     fn a_tab_has_the_tab_on_either_side() {
@@ -1541,7 +1426,6 @@ mod tests {
 
     #[test]
     fn a_row_dropped_on_a_terminal_pastes_its_name_or_folder() {
-        let project = ProjectId::from("p");
         let [kept, gone] = [1, 2].map(|n| CommitId(gix::ObjectId::from([n; 20])));
         let feat = full("refs/heads/feat");
         let workspace = Workspace {
@@ -1572,36 +1456,41 @@ mod tests {
             }],
             ..Workspace::default()
         };
-        let pasted = |cut: Cut| cut.pasted(Path::new("/work/repo"), &workspace);
+        let pasted = |what: Moving| what.pasted(Path::new("/work/repo"), &workspace);
         let words = |words: &[&str]| Some(words.iter().map(|w| w.to_string()).collect::<Vec<_>>());
-        let files = |worktree| Cut::Files {
-            project: project.clone(),
-            from: None,
-            worktree,
-            files: Arc::from([]),
+        let files = |worktree| {
+            Moving::Files(Changes {
+                from: None,
+                worktree,
+                files: Arc::from([]),
+            })
+        };
+        let linked = |name: &str| Moving::Worktree {
+            name: name.into(),
+            order: Arc::from([]),
         };
         assert_eq!(
-            pasted(Cut::Commit(project.clone(), Arc::from([kept]))),
+            pasted(Moving::Commits(Arc::from([kept]))),
             words(&["vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk"]),
             "a commit by its change ID"
         );
         assert_eq!(
-            pasted(Cut::Commit(project.clone(), Arc::from([kept, gone]))),
+            pasted(Moving::Commits(Arc::from([kept, gone]))),
             None,
             "nothing once a commit it holds is gone, rather than a stale id"
         );
         assert_eq!(
-            pasted(Cut::Branch(project.clone(), feat)),
+            pasted(Moving::Branch(feat)),
             words(&["feat"]),
             "a branch by its short name"
         );
         assert_eq!(
-            pasted(Cut::Worktree(project.clone(), "agent".into())),
+            pasted(linked("agent")),
             words(&["/work/agent"]),
             "a linked worktree by its folder"
         );
         assert_eq!(
-            pasted(Cut::Worktree(project.clone(), "removed".into())),
+            pasted(linked("removed")),
             None,
             "nothing for a worktree that's gone"
         );

@@ -1,18 +1,18 @@
-//! What happens when something cut or dragged lands somewhere. Drag-and-drop and
-//! ⌘X/⌘V share this, so both always agree on what a drop means.
+//! What happens when something dragged or moved lands somewhere. Drag-and-drop and the modes
+//! share this, so both always agree on what a drop means.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Div, Entity, Hsla, Modifiers, Pixels, Point, SharedString, Window, anchored, div,
-    prelude::*,
+    App, Context, Div, Entity, Hsla, Pixels, Point, SharedString, Window, anchored, div, prelude::*,
 };
 
 use crate::backend::{
     self, Checkout, CommitId, CommitTo, Destination, FullName, Messages, Selected, Workspace,
     short_ref,
 };
-use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Side, Store, branch_moved};
+use crate::state::{Label, NewAt, Overlay, ProjectId, Selection, Side, Store, branch_moved};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::diff::split_path;
@@ -77,7 +77,7 @@ pub enum Transfer {
     },
 }
 
-/// Where on its target a drop or paste lands. Only a commit tells all three apart: above or
+/// Where on its target a drop lands. Only a commit tells all three apart: above or
 /// below it, or squashed into it. Anything else takes what lands on it, or with ⇧ a branch
 /// goes below another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,21 +85,6 @@ pub enum Place {
     Above,
     Into,
     Below,
-}
-
-impl Place {
-    /// Where a paste of `payload` with `held` lands on `target`: a commit goes above a commit,
-    /// below it with ⇧, or into it with ⌥, and files go into it; into anything else, or below a
-    /// branch with ⇧.
-    pub fn from_keys(held: Modifiers, payload: &Cut, target: &Selection) -> Self {
-        let commit = matches!(payload, Cut::Commit(..));
-        match target {
-            Selection::Commit(..) if held.alt || !commit => Place::Into,
-            Selection::Commit(..) if !held.shift => Place::Above,
-            _ if held.shift => Place::Below,
-            _ => Place::Into,
-        }
-    }
 }
 
 /// Something being moved with the keys, in `project`: the navigator steps through the places
@@ -150,6 +135,54 @@ impl Op {
     }
 }
 
+/// Changes on their way elsewhere: files, or some of their hunks, of commit `from`, or with
+/// `None` uncommitted in `worktree`, the main one for a commit's.
+#[derive(Debug, Clone)]
+pub struct Changes {
+    pub from: Option<CommitId>,
+    pub worktree: Checkout,
+    /// Shared, since every row a drag passes over works out what a drop would do.
+    pub files: Arc<[Selected]>,
+}
+
+impl Changes {
+    /// Without the files that can't land ([`Selected::movable`]), if any can.
+    pub fn movable(self) -> Option<Changes> {
+        let files: Arc<[Selected]> = (self.files.iter().filter(|file| file.movable()))
+            .cloned()
+            .collect();
+        (!files.is_empty()).then_some(Changes { files, ..self })
+    }
+
+    /// What they are, by the file's path while there's one.
+    pub fn describe(&self) -> String {
+        match &*self.files {
+            // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
+            [file] => match &file.hunks {
+                Some(_) => format!("changes in {}", file.file.path),
+                None => file.file.path.clone(),
+            },
+            files => format!("{} files", files.len()),
+        }
+    }
+}
+
+/// What the pointer carries, `what` of `project`: GPUI tells drags apart by their type.
+#[derive(Debug, Clone)]
+pub struct Dragged {
+    pub project: ProjectId,
+    pub what: Moving,
+}
+
+impl From<(ProjectId, Changes)> for Dragged {
+    fn from((project, changes): (ProjectId, Changes)) -> Dragged {
+        Dragged {
+            project,
+            what: Moving::Files(changes),
+        }
+    }
+}
+
 /// What a [`Move`] moves. Commits and branches show a copy where they'd land while they stay
 /// where they are, as landing them rewrites history. A project's card, a linked worktree and a
 /// terminal go where they'd land themselves, the others making room, as a drag shows them, as
@@ -176,15 +209,10 @@ pub enum Moving {
         id: TerminalId,
         lists: Arc<[(Checkout, Vec<TerminalId>)]>,
     },
-    /// Files, or some of their hunks, of commit `from`, or with `None` uncommitted in
-    /// `worktree`, as they were when the squash started, none of them while the composer's
-    /// checks say what goes in as it lands. They're only squashed: into a commit, or out of
-    /// theirs into uncommitted changes.
-    Files {
-        from: Option<CommitId>,
-        worktree: Checkout,
-        files: Arc<[Selected]>,
-    },
+    /// Changes as they were when the squash started, none of them while the composer's checks
+    /// say what goes in as it lands. They're only squashed: into a commit, or out of theirs into
+    /// uncommitted changes.
+    Files(Changes),
     /// Commits from outside the workspace, newest first, by their titles as they were when the
     /// cherry-pick started: a branch's remote's, the target's or another branch's. They're
     /// only cherry-picked, and show where they'd land as the copies they'd be.
@@ -192,26 +220,56 @@ pub enum Moving {
 }
 
 impl Moving {
-    /// What `cut` moves while it's dragged over the rows, in its project: commits, a branch and
-    /// files, which step through the stops under the pointer as the keys step through them.
-    pub fn dragged(cut: &Cut) -> Option<(ProjectId, Moving)> {
-        match cut {
-            Cut::Commit(project, ids) => Some((project.clone(), Moving::Commits(ids.clone()))),
-            Cut::Branch(project, branch) => Some((project.clone(), Moving::Branch(branch.clone()))),
-            Cut::Files {
-                project,
-                from,
-                worktree,
-                files,
-            } => Some((
-                project.clone(),
-                Moving::Files {
-                    from: *from,
-                    worktree: worktree.clone(),
-                    files: files.clone(),
+    /// What it is in `project`, a commit by its title where the workspace has one for it.
+    pub fn describe(&self, project: &ProjectId, store: &Store) -> String {
+        match self {
+            Moving::Commits(ids) => match &**ids {
+                [id] => match store.find_commit(project, *id) {
+                    Some((_, commit)) if !commit.title.is_empty() => {
+                        format!("\"{}\"", commit.title)
+                    }
+                    _ => format!("commit {}", store.short_reference(project, *id)),
                 },
-            )),
-            Cut::Worktree(..) => None,
+                ids => format!("{} commits", ids.len()),
+            },
+            Moving::Branch(ref_name) => short_ref(ref_name).into_owned(),
+            Moving::Files(changes) => changes.describe(),
+            Moving::Project(_) => project_name(store, project),
+            Moving::Worktree { name, .. } => name.to_string(),
+            Moving::Terminal { id, .. } => terminal_title(store, *id),
+            Moving::Copies(copies) => match &copies[..] {
+                [(_, title)] => format!("\"{title}\""),
+                copies => format!("{} commits", copies.len()),
+            },
+        }
+    }
+
+    /// What a terminal pastes when it's dropped there, as ⌘C copies its row, from its
+    /// project's `workspace`, whose main checkout is `main`: each commit's
+    /// [`reference`](Commit::reference), a branch's name, or a worktree's folder. Nothing once
+    /// a commit or worktree it holds is gone.
+    pub fn pasted(&self, main: &Path, workspace: &Workspace) -> Option<Vec<String>> {
+        let folder = |checkout: &Checkout| {
+            let path = workspace.checkout_path(main, checkout)?;
+            Some(vec![path.display().to_string()])
+        };
+        match self {
+            Moving::Commits(ids) => (ids.iter())
+                .map(|id| Some(workspace.find_commit(*id)?.1.reference()))
+                .collect(),
+            Moving::Branch(ref_name) => Some(vec![short_ref(ref_name).into_owned()]),
+            Moving::Worktree { name, .. } => folder(&Checkout::Linked(name.clone())),
+            // A worktree's row drags its files, which mean it here: a terminal covers the file
+            // list, the only other place they're dragged from.
+            Moving::Files(Changes {
+                from: None,
+                worktree,
+                ..
+            }) => folder(worktree),
+            Moving::Files(Changes { from: Some(_), .. })
+            | Moving::Project(_)
+            | Moving::Terminal { .. }
+            | Moving::Copies(_) => None,
         }
     }
 
@@ -236,17 +294,17 @@ impl Moving {
             }
             // The row the files are listed under: their commit's, or their worktree's.
             (
-                Moving::Files {
+                Moving::Files(Changes {
                     from: Some(from), ..
-                },
+                }),
                 Selection::Commit(on, id),
             ) => on == project && id == from,
             (
-                Moving::Files {
+                Moving::Files(Changes {
                     from: None,
                     worktree,
                     ..
-                },
+                }),
                 Selection::Uncommitted(on, checkout),
             ) => on == project && checkout == worktree,
             _ => false,
@@ -263,14 +321,14 @@ impl Moving {
         match self {
             Moving::Commits(ids) => ids.first().map(|id| Target::Commit(*id)),
             Moving::Branch(branch) => Some(Target::Branch(branch.clone())),
-            Moving::Files {
+            Moving::Files(Changes {
                 from: Some(from), ..
-            } => Some(Target::Commit(*from)),
-            Moving::Files {
+            }) => Some(Target::Commit(*from)),
+            Moving::Files(Changes {
                 from: None,
                 worktree,
                 ..
-            } => Some(Target::Uncommitted(worktree.clone())),
+            }) => Some(Target::Uncommitted(worktree.clone())),
             Moving::Project(_)
             | Moving::Worktree { .. }
             | Moving::Terminal { .. }
@@ -404,31 +462,6 @@ pub fn group_slots<K: Clone + PartialEq, T: Clone + PartialEq>(
 }
 
 impl Move {
-    /// What's moving, as what's cut or dragged. A project's card, a linked worktree, a
-    /// terminal and copies of commits from outside the workspace aren't cut.
-    fn cut(&self) -> Option<Cut> {
-        Some(match &self.what {
-            Moving::Commits(ids) => Cut::Commit(self.project.clone(), ids.clone()),
-            Moving::Branch(branch) => Cut::Branch(self.project.clone(), branch.clone()),
-            Moving::Files {
-                from,
-                worktree,
-                files,
-            } => Cut::Files {
-                project: self.project.clone(),
-                from: *from,
-                worktree: worktree.clone(),
-                files: files.clone(),
-            },
-            Moving::Project(_)
-            | Moving::Worktree { .. }
-            | Moving::Terminal { .. }
-            | Moving::Copies(_) => {
-                return None;
-            }
-        })
-    }
-
     /// The commits cherry-picked, newest first, from the workspace or outside it.
     pub fn picked(&self) -> Option<Arc<[CommitId]>> {
         match &self.what {
@@ -438,7 +471,7 @@ impl Move {
             | Moving::Project(_)
             | Moving::Worktree { .. }
             | Moving::Terminal { .. }
-            | Moving::Files { .. } => None,
+            | Moving::Files(_) => None,
         }
     }
 
@@ -448,18 +481,7 @@ impl Move {
         if self.op == Op::Commit {
             return (self.commit_title(store)).map_or_else(String::new, |t| format!("\"{t}\""));
         }
-        match &self.what {
-            Moving::Project(_) => project_name(store, &self.project),
-            Moving::Worktree { name, .. } => name.to_string(),
-            Moving::Terminal { id, .. } => terminal_title(store, *id),
-            Moving::Copies(copies) => match &copies[..] {
-                [(_, title)] => format!("\"{title}\""),
-                copies => format!("{} commits", copies.len()),
-            },
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } => {
-                (self.cut()).map_or_else(String::new, |cut| cut.describe(store))
-            }
-        }
+        self.what.describe(&self.project, store)
     }
 
     /// Whether a drag holds it, the pointer stepping it, rather than the keys, or held it till it
@@ -518,7 +540,7 @@ impl Move {
 
     /// Landing as a drop: what's moving as what's dropped, and the row and the place on it
     /// it's dropped at. `None` in a new branch or stack, which has no row yet.
-    pub fn drop(&self) -> Option<(Cut, Selection, Place)> {
+    pub fn drop(&self) -> Option<(Selection, Place)> {
         let project = self.project.clone();
         let (target, place) = match (&self.what, &self.at) {
             (Moving::Commits(_), Stop::In(to)) if self.op == Op::Move => match to {
@@ -536,7 +558,7 @@ impl Move {
             }
             _ => return None,
         };
-        Some((self.cut()?, target, place))
+        Some((target, place))
     }
 
     /// Whether landing moves anything, as it doesn't where it already is: a branch alone in
@@ -565,10 +587,10 @@ impl Move {
             Moving::Terminal { lists, .. } => {
                 return (self.terminal_order()).is_some_and(|shown| shown[..] != lists[..]);
             }
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {}
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files(_) | Moving::Copies(_) => {}
         }
-        self.drop().is_none_or(|(payload, target, place)| {
-            Transfer::resolve(&payload, &target, place, store).is_some()
+        self.drop().is_none_or(|(target, place)| {
+            Transfer::resolve(&self.what, &target, place, store).is_some()
         })
     }
 
@@ -630,7 +652,7 @@ impl Move {
         if on_target {
             return None;
         }
-        let (cut, emptied) = match &self.what {
+        let (what, emptied) = match &self.what {
             Moving::Commits(ids) => {
                 let ids = match ids.len() {
                     1 => ids.clone(),
@@ -639,7 +661,7 @@ impl Move {
                         .copied()
                         .collect(),
                 };
-                (Cut::Commit(project.clone(), ids), None)
+                (Moving::Commits(ids), None)
             }
             Moving::Branch(branch) => {
                 let commits = &workspace.find_branch(Some(branch))?.commits;
@@ -654,34 +676,33 @@ impl Move {
                 if emptied.is_some() && store.worktree_for(&row).is_some() {
                     return None;
                 }
-                (Cut::Commit(project.clone(), ids), emptied)
+                (Moving::Commits(ids), emptied)
             }
             // With none held, the composer's checks say what goes in as it lands: any of the
             // changes tells where they can go.
-            Moving::Files {
+            Moving::Files(Changes {
                 from: None,
                 worktree,
                 files,
-            } if files.is_empty() => {
+            }) if files.is_empty() => {
                 let any = workspace.uncommitted_in(worktree)?.first()?;
-                let cut = Cut::Files {
-                    project: project.clone(),
+                let what = Moving::Files(Changes {
                     from: None,
                     worktree: worktree.clone(),
                     files: Arc::from([Selected::whole(any)]),
-                };
-                (cut, None)
+                });
+                (what, None)
             }
-            Moving::Files { .. } => (self.cut()?, None),
+            Moving::Files(_) => (self.what.clone(), None),
             Moving::Project(_)
             | Moving::Worktree { .. }
             | Moving::Terminal { .. }
             | Moving::Copies(_) => return None,
         };
-        if matches!(&cut, Cut::Commit(_, ids) if ids.is_empty()) {
+        if matches!(&what, Moving::Commits(ids) if ids.is_empty()) {
             return None;
         }
-        Some(match Transfer::resolve(&cut, &into, Place::Into, store)? {
+        Some(match Transfer::resolve(&what, &into, Place::Into, store)? {
             Transfer::Squash { ids, into, .. } => Transfer::Squash {
                 ids,
                 into,
@@ -706,7 +727,7 @@ impl Move {
     /// The title written for the commit being made, if one is, as the composer's message is
     /// kept while it's written.
     pub fn commit_title<'a>(&self, store: &'a Store) -> Option<&'a str> {
-        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+        let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {
             return None;
         };
         let key = (self.project.clone(), worktree.clone());
@@ -725,7 +746,7 @@ impl Move {
 
     /// [`Self::commit_to`] in `workspace`.
     fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
-        let (Op::Commit, Moving::Files { worktree, .. }) = (self.op, &self.what) else {
+        let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {
             return None;
         };
         let takes = |branch: &FullName| {
@@ -788,7 +809,7 @@ impl Move {
     pub fn amending(&self) -> bool {
         matches!(
             (self.op, &self.what),
-            (Op::Squash(_), Moving::Files { from: None, .. })
+            (Op::Squash(_), Moving::Files(Changes { from: None, .. }))
         )
     }
 
@@ -936,7 +957,7 @@ impl Move {
 
 /// Commit `id` of `project` by its title, or by its short id when it has none.
 fn commit_name(store: &Store, project: &ProjectId, id: CommitId) -> String {
-    Cut::Commit(project.clone(), Arc::from([id])).describe(store)
+    Moving::Commits(Arc::from([id])).describe(project, store)
 }
 
 /// Project `id`'s name, or its id once it's gone.
@@ -953,12 +974,9 @@ impl Transfer {
     /// What `payload` does when it lands on `target` at `place`, if anything. A commit landing
     /// on another goes above or below it, or squashes into it. A branch landing on another
     /// stacks on it, or goes below it.
-    pub fn resolve(payload: &Cut, target: &Selection, place: Place, store: &Store) -> Option<Self> {
-        if payload.project() != target.project() {
-            return None;
-        }
+    pub fn resolve(what: &Moving, target: &Selection, place: Place, store: &Store) -> Option<Self> {
         // A folder with nothing in it that can move carries nothing.
-        if matches!(payload, Cut::Files { files, .. } if files.is_empty()) {
+        if matches!(what, Moving::Files(changes) if changes.files.is_empty()) {
             return None;
         }
         // An unnamed branch has no ref to put things on or stack onto.
@@ -968,7 +986,7 @@ impl Transfer {
         // Only a commit goes above or below another; the rest go into it.
         if matches!(target, Selection::Commit(..))
             && place != Place::Into
-            && !matches!(payload, Cut::Commit(..))
+            && !matches!(what, Moving::Commits(_))
         {
             return None;
         }
@@ -977,7 +995,8 @@ impl Transfer {
         // worktree's other branches from its heading. Not out of a worktree's lane when it's
         // the only branch there, which would leave the worktree detached, nor across lanes
         // with one branch checked out on its own, which the engine refuses.
-        if let Cut::Branch(project, branch) = payload {
+        let project = target.project();
+        if let Moving::Branch(branch) = what {
             let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
             let from = side(&Selection::Branch(project.clone(), Some(branch.clone())));
             let across = from != side(target);
@@ -996,9 +1015,9 @@ impl Transfer {
         }
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
-        Some(match (payload, target) {
+        Some(match (what, target) {
             // Into a checkout's uncommitted changes, or onto its heading, there with none.
-            (Cut::Commit(project, ids), Selection::Uncommitted(..) | Selection::Checkout(..))
+            (Moving::Commits(ids), Selection::Uncommitted(..) | Selection::Checkout(..))
                 if ids
                     .iter()
                     .all(|id| uncommits_into(store, project, *id, target) && !conflicted(*id)) =>
@@ -1008,7 +1027,7 @@ impl Transfer {
                     emptied: None,
                 }
             }
-            (Cut::Commit(_, ids), Selection::Branch(_, Some(branch))) => {
+            (Moving::Commits(ids), Selection::Branch(_, Some(branch))) => {
                 let to = Destination::Branch(branch.clone());
                 if already_at(workspace, ids, &to) {
                     return None;
@@ -1018,7 +1037,7 @@ impl Transfer {
                     to,
                 }
             }
-            (Cut::Commit(_, ids), Selection::Commit(_, target_id)) if !ids.contains(target_id) => {
+            (Moving::Commits(ids), Selection::Commit(_, target_id)) if !ids.contains(target_id) => {
                 let to = match place {
                     // Not with a conflicted commit on either side, whose change the squash
                     // would drop, or the engine refuses.
@@ -1042,7 +1061,7 @@ impl Transfer {
                     to,
                 }
             }
-            (Cut::Branch(_, branch), Selection::Branch(_, Some(above)))
+            (Moving::Branch(branch), Selection::Branch(_, Some(above)))
                 if place == Place::Below && branch != above =>
             {
                 let (lane, at) = workspace.lane_of(Some(above))?;
@@ -1059,13 +1078,13 @@ impl Transfer {
                     commit: lane.branches.get(at)?.commits.last()?.id,
                 }
             }
-            (Cut::Branch(_, branch), Selection::Checkout(_, Checkout::Linked(name))) => {
+            (Moving::Branch(branch), Selection::Checkout(_, Checkout::Linked(name))) => {
                 Transfer::BranchBelow {
                     branch: branch.clone(),
                     commit: workspace.worktree_lane(name.as_ref())?.end()?,
                 }
             }
-            (Cut::Branch(_, branch), Selection::Branch(_, Some(onto))) if branch != onto => {
+            (Moving::Branch(branch), Selection::Branch(_, Some(onto))) if branch != onto => {
                 // Already right on top of it.
                 let (lane, at) = workspace.lane_of(Some(branch))?;
                 if lane
@@ -1081,12 +1100,11 @@ impl Transfer {
                 }
             }
             (
-                Cut::Files {
-                    project,
+                Moving::Files(Changes {
                     from,
                     worktree,
                     files,
-                },
+                }),
                 target,
             ) => match (*from, target) {
                 // The engine won't amend a conflicted commit, nor move changes in or out of one.
@@ -1437,12 +1455,12 @@ impl From<SharedString> for Chip {
     }
 }
 
-/// Start a drag of a `Cut` shown as `chip`, letting the store know what's in flight so the
+/// Start a drag shown as `chip`, letting the store know what's in flight so the
 /// rows can say what a drop would do.
 pub fn drag_preview(
     store: Entity<Store>,
     chip: impl Into<Chip>,
-) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
     let chip = chip.into();
     move |payload, offset, _, cx| {
         store.update(cx, |store, cx| {
@@ -1479,7 +1497,7 @@ pub fn drag_preview(
 /// there does.
 pub struct DragPreview {
     pub chip: Chip,
-    pub payload: Cut,
+    pub payload: Dragged,
     store: Entity<Store>,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
     offset: Point<Pixels>,
@@ -1491,14 +1509,14 @@ impl Render for DragPreview {
         let store = self.store.read(cx);
         // A linked worktree dragged by its heading, with its files or without, moves where the
         // move of it shows it.
-        let dragged = match &self.payload {
-            Cut::Worktree(project, name) => Some((project, name)),
-            Cut::Files {
-                project,
+        let project = &self.payload.project;
+        let dragged = match &self.payload.what {
+            Moving::Worktree { name, .. } => Some((project, name)),
+            Moving::Files(Changes {
                 from: None,
                 worktree: Checkout::Linked(name),
                 ..
-            } => Some((project, name)),
+            }) => Some((project, name)),
             _ => None,
         };
         let moved = (store.moving.as_ref()).and_then(|moving| match &moving.what {
@@ -1523,11 +1541,11 @@ impl Render for DragPreview {
         let hint = tile_hint(store).or(hint);
         let glyph = |icon| small_icon(icon).text_color(theme.pop).into_any_element();
         let named = |name: SharedString| pill_label(name).into_any_element();
-        let (mark, label) = match (moved, &self.chip, &self.payload) {
+        let (mark, label) = match (moved, &self.chip, &self.payload.what) {
             (Some((name, _)), ..) => (glyph(Icon::FolderCopy), named(name.to_string().into())),
             (_, Chip::Folder(name), payload) => {
                 let files = match payload {
-                    Cut::Files { files, .. } => files.len(),
+                    Moving::Files(changes) => changes.files.len(),
                     _ => 0,
                 };
                 (
@@ -1535,14 +1553,14 @@ impl Render for DragPreview {
                     folder_label(name.clone(), files, theme).into_any_element(),
                 )
             }
-            (_, Chip::Row(label), Cut::Commit(..)) => (
+            (_, Chip::Row(label), Moving::Commits(_) | Moving::Copies(_)) => (
                 glyph(Icon::Commit),
                 pill_label(commit_title(label))
                     .when(label.is_empty(), |el| el.text_color(theme.text_2))
                     .into_any_element(),
             ),
-            (_, Chip::Row(label), Cut::Branch(..)) => (glyph(Icon::Branch), named(label.clone())),
-            (_, Chip::Row(label), Cut::Files { files, .. }) => match &**files {
+            (_, Chip::Row(label), Moving::Branch(_)) => (glyph(Icon::Branch), named(label.clone())),
+            (_, Chip::Row(label), Moving::Files(changes)) => match &*changes.files {
                 // All of a file goes by its name, as its folder says little while dragging.
                 [file] => (
                     file_icon(&file.file.path, cx).into_any_element(),
@@ -1553,12 +1571,14 @@ impl Render for DragPreview {
                 ),
                 _ => (glyph(Icon::File), named(label.clone())),
             },
-            (_, Chip::Row(label), Cut::Worktree(..)) => {
-                (glyph(Icon::FolderCopy), named(label.clone()))
-            }
+            (
+                _,
+                Chip::Row(label),
+                Moving::Worktree { .. } | Moving::Project(_) | Moving::Terminal { .. },
+            ) => (glyph(Icon::FolderCopy), named(label.clone())),
         };
-        let carried = match &self.payload {
-            Cut::Files { files, .. } => files.len(),
+        let carried = match &self.payload.what {
+            Moving::Files(changes) => changes.files.len(),
             _ => 1,
         };
         drag_pill(self.offset, mark, label, hint, carried, theme)
@@ -1611,7 +1631,7 @@ fn tile_hint(store: &Store) -> Option<&'static str> {
 pub struct PageDrag;
 
 /// Start a drag of a page's row shown as a pill with its `kind` and `label`, as
-/// [`drag_preview`] starts a cut's.
+/// [`drag_preview`] starts any other's.
 pub fn page_preview(
     store: Entity<Store>,
     kind: Icon,
@@ -1655,7 +1675,7 @@ pub struct ProjectDrag {
 }
 
 /// Start a drag of a project shown as a pill with its folder's `label`, as [`drag_preview`]
-/// starts a cut's.
+/// starts any other's.
 pub fn project_preview(
     store: Entity<Store>,
     label: SharedString,
@@ -1700,8 +1720,8 @@ pub struct TerminalDrag {
     pub left_zone_end: Option<Pixels>,
 }
 
-/// Start a drag of a terminal shown as a pill with its title, as [`drag_preview`] starts a
-/// cut's. Dragged by its tile's bar, `from_tile`, the tile shows it until a row in the navigator
+/// Start a drag of a terminal shown as a pill with its title, as [`drag_preview`] starts any
+/// other's. Dragged by its tile's bar, `from_tile`, the tile shows it until a row in the navigator
 /// does, and only then the pill.
 pub fn terminal_preview(
     store: Entity<Store>,
@@ -1829,32 +1849,8 @@ mod tests {
     use crate::backend::FileChange;
 
     #[test]
-    fn a_paste_on_a_commit_puts_files_into_it_and_commits_above_it() {
-        let (project, id) = (ProjectId::from("p"), CommitId(gix::ObjectId::from([1; 20])));
-        let commit = Selection::Commit(project.clone(), id);
-        let files = Cut::Files {
-            project: project.clone(),
-            from: None,
-            worktree: Checkout::Main,
-            files: Arc::from([]),
-        };
-        let held = Modifiers::default();
-        assert_eq!(
-            Place::from_keys(held, &files, &commit),
-            Place::Into,
-            "files amend the commit, as only commits go above or below one"
-        );
-        assert_eq!(
-            Place::from_keys(held, &Cut::Commit(project, Arc::from([id])), &commit),
-            Place::Above,
-            "a commit goes above it"
-        );
-    }
-
-    #[test]
-    fn what_cant_land_is_left_out_of_a_cut() {
-        let cut = |paths: &[(&str, bool)]| Cut::Files {
-            project: ProjectId::from("p"),
+    fn what_cant_land_is_left_out_of_changes() {
+        let changes = |paths: &[(&str, bool)]| Changes {
             from: None,
             worktree: Checkout::Main,
             files: (paths.iter())
@@ -1866,7 +1862,7 @@ mod tests {
                 })
                 .collect(),
         };
-        let Some(Cut::Files { files, .. }) = cut(&[("a", false), ("b", true)]).movable() else {
+        let Some(Changes { files, .. }) = changes(&[("a", false), ("b", true)]).movable() else {
             panic!("the clean file can land");
         };
         let kept: Vec<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
@@ -1876,7 +1872,7 @@ mod tests {
             "a commit would refuse them all for the conflicted one"
         );
         assert!(
-            cut(&[("b", true)]).movable().is_none(),
+            changes(&[("b", true)]).movable().is_none(),
             "with only conflicted files there's nothing to carry"
         );
     }
@@ -2039,11 +2035,11 @@ mod tests {
     fn squashing_files(from: Option<CommitId>, at: Stop) -> Move {
         Move {
             project: ProjectId::from("p"),
-            what: Moving::Files {
+            what: Moving::Files(Changes {
                 from,
                 worktree: Checkout::Main,
                 files: Arc::from([]),
-            },
+            }),
             at,
             op: Op::Squash(Messages::Both),
         }
@@ -2085,11 +2081,11 @@ mod tests {
         let committing = |from: Checkout, at: Stop| {
             Move {
                 project: ProjectId::from("p"),
-                what: Moving::Files {
+                what: Moving::Files(Changes {
                     from: None,
                     worktree: from,
                     files: Arc::from([]),
-                },
+                }),
                 at,
                 op: Op::Commit,
             }

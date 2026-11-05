@@ -21,11 +21,11 @@ use super::rows::{HEADING_MIDDLE, Row, last_active, listed_with, span_height};
 use crate::app::{AppView, MoveHere};
 use crate::backend::Checkout;
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
+use crate::state::{Prefs, ProjectEntry, ProjectId, Selection, Store, WatchedOrder};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
-    CardSlot, Move, Moving, Op, ProjectDrag, Slot, Stop, TerminalDrag, drag_preview,
+    CardSlot, Dragged, Move, Moving, Op, ProjectDrag, Slot, Stop, TerminalDrag, drag_preview,
     project_preview, row_preview, terminal_preview,
 };
 use crate::ui::{Icon, ROW_HEIGHT, icon_button};
@@ -337,13 +337,22 @@ impl Navigator {
         el: Stateful<Div>,
         item: &Selection,
         name: &BStr,
-        payload: Cut,
         chip: SharedString,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
         if !self.drags(cx) {
             return el;
         }
+        let Some(order) = listed_with(self.store.read(cx), item.project(), name) else {
+            return el;
+        };
+        let payload = Dragged {
+            project: item.project().clone(),
+            what: Moving::Worktree {
+                name: name.to_owned(),
+                order,
+            },
+        };
         let navigator = cx.entity().downgrade();
         let preview = drag_preview(self.store.clone(), chip);
         let preview = row_preview(self.store.clone(), item.clone(), preview);
@@ -378,7 +387,7 @@ impl Navigator {
     /// where it is, and away from its project's card, it stays where it is.
     pub(super) fn follow_worktree_drag(
         &mut self,
-        event: &DragMoveEvent<Cut>,
+        event: &DragMoveEvent<Dragged>,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -399,7 +408,12 @@ impl Navigator {
 
     /// Let go of the linked worktree dragged by its heading where it's shown, as Return lands
     /// it, if it's moving.
-    pub(super) fn drop_worktree(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn drop_worktree(
+        &mut self,
+        _: &Dragged,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if worktree_held(self.dragged_worktree.as_ref(), self.store.read(cx)) {
             self.move_here(&MoveHere, window, cx);
         }

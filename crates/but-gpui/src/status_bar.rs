@@ -1,4 +1,4 @@
-//! The strip along the bottom of the window: what's running, what's cut, and the keys
+//! The strip along the bottom of the window: what's running, what's moving, and the keys
 //! that matter right now.
 
 use gpui::{
@@ -7,9 +7,9 @@ use gpui::{
 };
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, Fetch, FinishArranging, FocusDiff, MoveHere,
-    MoveSelection, OpenPullRequest, PasteHere, Push, SquashSelection, StartAmend, StartCommit,
-    Undo, UpdateFromTarget, UseTargetMessage,
+    AppView, CommandPalette, Fetch, FinishArranging, FocusDiff, MoveHere, MoveSelection,
+    OpenPullRequest, Push, SquashSelection, StartAmend, StartCommit, Undo, UpdateFromTarget,
+    UseTargetMessage,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
@@ -17,7 +17,7 @@ use crate::detail::{NextFile, NextHunk};
 use crate::edits::Discard;
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
-use crate::state::{Cut, Part, ProjectId, ProjectTab, SLOW, Section, Selection};
+use crate::state::{Part, ProjectId, ProjectTab, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Op, Transfer};
 use crate::ui::{
@@ -180,39 +180,6 @@ impl AppView {
                 )])
                 .collect();
             (state.into_any_element(), keys)
-        } else if let Some(cut) = &store.cut {
-            // On another commit, a commit goes above it, below it with ⇧, or into it with ⌥.
-            let onto_commit = matches!((cut, &store.selection),
-                (Cut::Commit(_, ids), Some(Selection::Commit(_, id))) if !ids.contains(id));
-            let paste = match (shortcut(&PasteHere, cx), onto_commit) {
-                (None, _) => Vec::new(),
-                (Some(keys), false) => vec![(keys, "paste here")],
-                (Some(keys), true) => [
-                    (keys.clone(), "above"),
-                    (format!("⇧{keys}").into(), "below"),
-                ]
-                .into_iter()
-                .chain(
-                    matches!(cut, Cut::Commit(..)).then(|| (format!("⌥{keys}").into(), "squash")),
-                )
-                .collect(),
-            };
-            // What's cut gives way first, then its verb is cut short.
-            let what = h_flex()
-                .gap(dp(6.))
-                .min_w_0()
-                .overflow_hidden()
-                .child(div().flex_none().text_color(theme.pop).child("Cut"))
-                .child(div().min_w_0().truncate().child(cut.describe(store)));
-            // Not while typing, where ⌘V pastes text and esc leaves the field.
-            let keys = match typing {
-                true => Vec::new(),
-                false => paste
-                    .into_iter()
-                    .chain([("esc".into(), "cancel")])
-                    .collect(),
-            };
-            (what.into_any_element(), keys)
         } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
             (
@@ -322,8 +289,8 @@ impl AppView {
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
-            // ⌘X takes what's picked, or the hunk or file under the cursor; this hint is for the
-            // picked lines or the hunk, which on a file's header or the box above a hunk isn't.
+            // This hint is for the picked lines or the hunk, which on a file's header or the box
+            // above a hunk isn't.
             let discard = match detail.picked_line_count() {
                 0 => detail.on_hunk(cx).then_some("discard hunk"),
                 _ => Some("discard lines"),
@@ -332,17 +299,14 @@ impl AppView {
             // moves on and off a hunk.
             let discard = discard.map(|label| (&Discard as &dyn Action, label));
             (discard.into_iter())
-                .chain([
-                    (&NextHunk as &dyn Action, "next hunk"),
-                    (&CutSelection, "cut"),
-                ])
+                .chain([(&NextHunk as &dyn Action, "next hunk")])
                 .collect()
-        } else if detail_focused && detail.cursor_cut(cx).is_some() {
-            vec![(&NextHunk, "next hunk"), (&CutSelection, "cut")]
+        } else if detail_focused && detail.cursor_changes(cx).is_some() {
+            vec![(&NextHunk, "next hunk")]
         } else if detail_focused {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {
-            // In the navigator, the keys for what's selected; what's cut says its own.
+            // In the navigator, the keys for what's selected.
             let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
                 Some(
                     Selection::Project(project)
@@ -376,7 +340,7 @@ impl AppView {
                 }
                 Some(Selection::Commit(_, id)) => {
                     let conflicted = picks_conflicted || conflicted(id);
-                    [(&CutSelection as &dyn Action, "cut"), (&Reword, "reword")]
+                    [(&Reword as &dyn Action, "reword")]
                         .into_iter()
                         .chain((!conflicted).then_some((&Uncommit as &dyn Action, "uncommit")))
                         .collect()
@@ -430,7 +394,7 @@ impl AppView {
                 )
             })
             .child(div().flex_1().min_w_0().truncate().child(state))
-            // What's cut or picked first, as the hints line up from the right.
+            // What's picked first, as the hints line up from the right.
             .children((state_keys.iter()).map(|(keys, label)| hint(keys, label, &theme)))
             .children(hints.into_iter().filter_map(|(action, label)| {
                 // The keys that run it where the keys go now, so one a keymap binds only
@@ -454,7 +418,7 @@ impl AppView {
             .children((cx.has_global::<Rebuild>()).then(|| self.build_button(cx)))
     }
 
-    /// The bar's left while nothing is under way, picked or cut: what in the selected project
+    /// The bar's left while nothing is under way or picked: what in the selected project
     /// needs the user, where something is writing, the commits not read yet and what ⌘Z takes
     /// back, in that order, each a click from what it names. What doesn't fit goes whole,
     /// from the end.

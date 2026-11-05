@@ -23,14 +23,15 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Area, Axis, Cut, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane,
-    Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones,
-    snack, tile_beside, up_to_date,
+    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane, Prefs,
+    ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones, snack,
+    tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
 use crate::transfer::{
-    Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer, terminal_preview,
+    Changes, Dragged, Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer,
+    terminal_preview,
 };
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
@@ -95,8 +96,6 @@ actions!(
         Collapse,
         ToggleFold,
         Confirm,
-        CutSelection,
-        PasteHere,
         MoveSelection,
         MoveHere,
         SquashSelection,
@@ -1027,15 +1026,8 @@ impl AppView {
         .detach();
     }
 
-    fn cut_selection(&mut self, _: &CutSelection, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(cut) = self.selection_cut(window, cx) {
-            self.cut(cut, cx);
-        }
-    }
-
-    /// Squash what's picked in the diff or the file list, as ⌘X cuts it there, with the keys
-    /// in the navigator, from the selection's row, which holds it. The navigator squashes
-    /// what's selected there itself.
+    /// Squash what's picked in the diff or the file list, with the keys in the navigator, from
+    /// the selection's row, which holds it. The navigator squashes what's selected there itself.
     fn squash_from_detail(
         &mut self,
         _: &SquashSelection,
@@ -1045,80 +1037,42 @@ impl AppView {
         if !self.detail.read(cx).is_focused(window, cx) {
             return;
         }
-        let cut = self.selection_cut(window, cx).and_then(Cut::movable);
-        let Some(Cut::Files {
-            project,
-            from,
-            worktree,
-            files,
-        }) = cut
+        let Some((project, changes)) = (self.detail_changes(cx))
+            .and_then(|(project, changes)| Some((project, changes.movable()?)))
         else {
             return;
         };
         // The composer's checks say what goes in, as it amends with them.
-        if from.is_none() && self.detail.read(cx).composing() {
+        if changes.from.is_none() && self.detail.read(cx).composing() {
             return window.dispatch_action(Box::new(StartAmend), cx);
         }
-        let what = Moving::Files {
-            from,
-            worktree,
-            files,
-        };
         (self.navigator).update(cx, |navigator, cx| {
-            navigator.squash(project, what, None, window, cx);
+            navigator.squash(project, Moving::Files(changes), None, window, cx);
         });
     }
 
-    /// What ⌘X cuts where the keys are.
-    fn selection_cut(&self, window: &Window, cx: &App) -> Option<Cut> {
-        let in_diff = self.detail.read(cx).is_focused(window, cx);
+    /// What the detail, which has the keys, squashes: the lines, hunk or file under the cursor
+    /// of a diff, or what the composer has checked.
+    fn detail_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
+        let detail = self.detail.read(cx);
         match self.selection(cx) {
-            // From a commit's diff, its lines, hunk or file under the cursor.
-            Some(Selection::Commit(..)) if in_diff => self.detail.read(cx).cursor_cut(cx),
-            // The picked commits with it, when it's one of them.
-            Some(Selection::Commit(project, id)) => {
-                let ids = self.store.read(cx).with_picks(&project, id);
-                Some(Cut::Commit(project, ids))
-            }
-            Some(Selection::Branch(project, Some(ref_name))) => {
-                Some(Cut::Branch(project, ref_name))
-            }
-            // From the diff, the lines, hunk or file under the cursor; from the navigator or
-            // the composer, what's checked.
-            Some(Selection::Uncommitted(..)) if in_diff && !self.detail.read(cx).composing() => {
-                self.detail.read(cx).cursor_cut(cx)
-            }
+            Some(Selection::Commit(..)) => detail.cursor_changes(cx),
+            Some(Selection::Uncommitted(..)) if !detail.composing() => detail.cursor_changes(cx),
             Some(Selection::Uncommitted(..)) => {
-                let detail = self.detail.read(cx);
                 (detail.selected_checkout()).and_then(|(project, worktree)| {
                     let files = detail.files_to_move(&project, worktree.clone(), cx);
-                    (!files.is_empty()).then(|| Cut::Files {
-                        project,
-                        from: None,
-                        worktree,
-                        files: files.into(),
+                    (!files.is_empty()).then(|| {
+                        let changes = Changes {
+                            from: None,
+                            worktree,
+                            files: files.into(),
+                        };
+                        (project, changes)
                     })
                 })
             }
             _ => None,
         }
-    }
-
-    fn paste_here(&mut self, _: &PasteHere, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(cut), Some(target)) = (self.store.read(cx).cut.clone(), self.selection(cx))
-        else {
-            return;
-        };
-        if self.navigator.read(cx).folded_heading(&target) {
-            return snack(&self.store, "Open the worktree first", cx);
-        }
-        let place = Place::from_keys(window.modifiers(), &cut, &target);
-        // Pasting lets go of the cut, before it lands: letting go clears snackbars, and landing
-        // can show one. A drop leaves the cut alone.
-        if Transfer::resolve(&cut, &target, place, self.store.read(cx)).is_some() {
-            self.store.update(cx, |store, cx| store.set_cut(None, cx));
-        }
-        self.transfer(&cut, &target, place, window, cx);
     }
 
     /// Start cherry-picking `what` into `project` from a page of the detail: the navigator
@@ -1137,42 +1091,30 @@ impl AppView {
         });
     }
 
-    pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
-        let message = format!(
-            "Cut {}, ready to paste with {}",
-            cut.describe(self.store.read(cx)),
-            crate::ui::keys_text("⌘V")
-        );
-        self.store.update(cx, |store, cx| {
-            store.set_cut(Some(cut), cx);
-            store.snack(message, cx);
-        });
-    }
-
-    /// Land `payload` on `target`, from a drop or a paste.
+    /// Land `what` on `target`, from a drop.
     pub fn transfer(
         &mut self,
-        payload: &Cut,
+        what: &Moving,
         target: &Selection,
         place: Place,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.land(payload, target, place, None, window, cx)
+        self.land(what, target, place, None, window, cx)
     }
 
-    /// Do what `payload` landing on `target` at `place` does, as a drop does, and land the move
+    /// Do what `what` landing on `target` at `place` does, as a drop does, and land the move
     /// with the keys `lands` if that's what it is.
     pub fn land(
         &mut self,
-        payload: &Cut,
+        what: &Moving,
         target: &Selection,
         place: Place,
         lands: Option<crate::transfer::Move>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(transfer) = Transfer::resolve(payload, target, place, self.store.read(cx)) else {
+        let Some(transfer) = Transfer::resolve(what, target, place, self.store.read(cx)) else {
             snack(&self.store, "That can't go there", cx);
             return;
         };
@@ -1240,38 +1182,30 @@ impl AppView {
             if handled {
                 return cx.notify();
             }
-            // What's cut or picked goes next, below, as the status bar's esc says.
-            let store = self.store.read(cx);
-            if store.cut.is_none() && store.picked.is_empty() {
+            // What's picked goes next, below, as the status bar's esc says.
+            if self.store.read(cx).picked.is_empty() {
                 return self.focus_main(window, cx);
             }
         }
-        // With nothing cut or picked, the navigator ⌘1 brought out goes back, and with it the
-        // selection and the keys to where ⌘1 was pressed, while that's still there.
+        // With nothing picked, the navigator ⌘1 brought out goes back, and with it the selection
+        // and the keys to where ⌘1 was pressed, while that's still there.
         let store = self.store.read(cx);
         if self.peek.keyed
-            && store.cut.is_none()
             && store.picked.is_empty()
             && self.navigator.focus_handle(cx).contains_focused(window, cx)
         {
             return self.send_peek_back(window, cx);
         }
-        // With nothing cut or picked, the branch opened on the Branches page goes back to its
-        // table.
-        if store.cut.is_none()
-            && store.picked.is_empty()
+        // With nothing picked, the branch opened on the Branches page goes back to its table.
+        if store.picked.is_empty()
             && self.detail.update(cx, |detail, cx| {
                 detail.close_opened_branch(cx) || detail.close_opened_target(cx)
             })
         {
             return cx.notify();
         }
-        let store = self.store.read(cx);
-        let mut let_go = store.cut.is_some() || !store.picked.is_empty();
-        if store.cut.is_some() {
-            self.store.update(cx, |store, cx| store.set_cut(None, cx));
-        }
-        if !self.store.read(cx).picked.is_empty() {
+        let mut let_go = !self.store.read(cx).picked.is_empty();
+        if let_go {
             self.store.update(cx, |store, cx| {
                 store.picked.clear();
                 cx.notify()
@@ -1280,7 +1214,7 @@ impl AppView {
         let_go |= self.detail.update(cx, |detail, cx| {
             detail.clear_file_picks(cx) | detail.clear_line_picks(cx)
         });
-        // With nothing cut or picked, the newest card, as its Dismiss does.
+        // With nothing picked, the newest card, as its Dismiss does.
         let store = self.store.read(cx);
         let card = (store.toasts.iter().rev())
             .find(|toast| matches!(toast.notice, crate::state::Notice::Error { .. }));
@@ -4043,14 +3977,14 @@ impl AppView {
     fn paste_outline(&self, theme: &Theme) -> Div {
         let (store, color) = (self.store.clone(), theme.pop);
         card_edge(gpui::transparent_black())
-            .drag_over::<Cut>(move |style, _, _, _| style.border_1().border_color(color))
+            .drag_over::<Dragged>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_1().border_color(color))
             // Not once a commit or worktree the drag holds is gone, which pastes nothing, nor
             // where a row lands as a tile instead.
             .can_drop(move |dragged, _, cx| {
                 let store = store.read(cx);
-                store.tile_zone.is_none() && (!dragged.is::<Cut>() || store.pasted().is_some())
+                store.tile_zone.is_none() && (!dragged.is::<Dragged>() || store.pasted().is_some())
             })
     }
 
@@ -4830,11 +4764,7 @@ impl Render for AppView {
             .role(Role::Application)
             .aria_label("GitButler")
             .key_context("Workspace")
-            // Where ⌘V puts what's cut goes by ⌥ and ⇧.
             .on_modifiers_changed(cx.listener(|this, event: &ModifiersChangedEvent, _, cx| {
-                if this.store.read(cx).cut.is_some() {
-                    this.navigator.update(cx, |_, cx| cx.notify());
-                }
                 // In a build of its own, ⌥ shows where a tile dragged lands where, as the right
                 // button does.
                 if backend::settings::dev_build() {
@@ -4933,7 +4863,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::new_worktree))
             .on_action(cx.listener(Self::new_worktree_with_name))
             .on_action(cx.listener(Self::push_selected))
-            .on_action(cx.listener(Self::cut_selection))
             // Where the diff shows what's selected, which can squash.
             .when(
                 matches!(
@@ -4942,10 +4871,6 @@ impl Render for AppView {
                 ),
                 |el| el.on_action(cx.listener(Self::squash_from_detail)),
             )
-            // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.
-            .when(self.store.read(cx).cut.is_some(), |el| {
-                el.on_action(cx.listener(Self::paste_here))
-            })
             .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleRead, _, cx| {

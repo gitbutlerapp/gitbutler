@@ -22,7 +22,9 @@ use crate::backend::{
 use crate::state::{Overlay, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots};
+use crate::transfer::{
+    Changes, Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots,
+};
 use crate::ui::fold::{self, on_top};
 use crate::ui::{
     Icon, ROW_HEIGHT, blink_once, dp, fixed, fold_glyph, guide, h_flex, icon, small_icon,
@@ -38,7 +40,7 @@ fn shown<'a>(store: &'a Store, project: &ProjectId) -> Option<&'a Move> {
         moving.project == *project
             && matches!(
                 moving.what,
-                Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_)
+                Moving::Commits(_) | Moving::Branch(_) | Moving::Files(_) | Moving::Copies(_)
             )
     })
 }
@@ -74,13 +76,13 @@ fn shows_copy(moving: &Move, store: &Store) -> bool {
 /// How the move shown marks a row, in the colour of its op.
 #[derive(Clone, Copy)]
 pub(super) enum Mark {
-    /// What it's of, dimmed and dashed, as what's cut is: the commits, a branch with its
+    /// What it's of, dimmed and dashed: the commits, a branch with its
     /// commits, or the row files are listed under. It is, all of it, wherever the move is,
     /// where it started too, so nothing under what shows where it goes changes as that slides
     /// from row to row, and back over it: a copy of it, or the outline of what a squash goes
     /// into ([`squash_outline`]).
-    Cut(Op),
-    /// As [`Mark::Cut`], while the move is at where it is: its copy is drawn over it there,
+    Taken(Op),
+    /// As [`Mark::Taken`], while the move is at where it is: its copy is drawn over it there,
     /// which slides out to where it'd land and back over it.
     Copied(Op),
     /// A linked worktree's heading or a terminal being moved, which goes where it'd land
@@ -111,7 +113,7 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
     };
     Some(match holds && home {
         true => Mark::Copied(op),
-        false => Mark::Cut(op),
+        false => Mark::Taken(op),
     })
 }
 
@@ -162,7 +164,7 @@ impl SquashOutline {
     /// back where it started, around the selection's row and those squashed with it, as their
     /// dashed outline goes around them.
     pub(super) fn of(rows: &[Row], store: &Store, home: bool) -> Option<SquashOutline> {
-        let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Cut(_))));
+        let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Taken(_))));
         let (ix, first, last) = (rows.iter().enumerate()).find_map(|(ix, row)| match row {
             Row::Item(item) if squashed_into(store, item) => Some((ix, ix, ix)),
             Row::Item(item) if home && store.selection.as_ref() == Some(item) => {
@@ -317,7 +319,7 @@ impl Rows {
                 let item = Selection::Branch(project.clone(), Some(branch.clone()));
                 return self.push(Row::Ghost(item));
             }
-            Moving::Files { .. } if moving.op == Op::Commit => {
+            Moving::Files(_) if moving.op == Op::Commit => {
                 Vec::from([Row::NewCommit(project.clone())])
             }
             // A card, a worktree or a terminal goes where it'd land itself, and files squashed
@@ -325,7 +327,7 @@ impl Rows {
             Moving::Project(_)
             | Moving::Worktree { .. }
             | Moving::Terminal { .. }
-            | Moving::Files { .. } => return,
+            | Moving::Files(_) => return,
         };
         if !new_branch {
             return self.extend(copies);
@@ -656,10 +658,10 @@ impl Navigator {
             }
             // Files are only squashed, and committed, and only commits are cherry-picked, the
             // workspace's or copies of others.
-            Moving::Files { .. } if matches!(op, Op::Move | Op::CherryPick) => return None,
+            Moving::Files(_) if matches!(op, Op::Move | Op::CherryPick) => return None,
             Moving::Branch(_) if op == Op::CherryPick => return None,
             Moving::Copies(_) if op != Op::CherryPick => return None,
-            Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {}
+            Moving::Commits(_) | Moving::Branch(_) | Moving::Files(_) | Moving::Copies(_) => {}
         }
         let workspace = store.workspace(project)?;
         let open = |heading: &Selection| self.open_as_built(heading);
@@ -685,7 +687,7 @@ impl Navigator {
                     | Moving::Project(_)
                     | Moving::Worktree { .. }
                     | Moving::Terminal { .. }
-                    | Moving::Files { .. }
+                    | Moving::Files(_)
                     | Moving::Copies(_) => &[],
                 };
                 let all = stops(self.shown_rows(), project, commits, workspace, open);
@@ -732,12 +734,6 @@ impl Navigator {
     fn open_as_built(&self, heading: &Selection) -> bool {
         let fold = Fold::Under(heading.clone());
         self.folds_seen.get(&fold).copied().unwrap_or(true)
-    }
-
-    /// Whether `target` is the heading of a worktree folded away: nothing lands in what's out
-    /// of sight, as a move has no stops there, so neither a paste nor a drop does on its heading.
-    pub(crate) fn folded_heading(&self, target: &Selection) -> bool {
-        matches!(target, Selection::Checkout(..)) && !self.open_as_built(target)
     }
 
     /// The terminals of `project`'s worktrees for a move of one among them to start from: as
@@ -956,11 +952,11 @@ impl Navigator {
         cx: &mut Context<Self>,
     ) -> bool {
         let files = (self.detail.read(cx)).files_to_move(&project, worktree.clone(), cx);
-        let what = Moving::Files {
+        let what = Moving::Files(Changes {
             from: None,
             worktree: worktree.clone(),
             files: files.into(),
-        };
+        });
         let stops = (self.stops_for(&project, &what, Op::Commit, cx))
             .map(|(stops, _)| stops)
             .unwrap_or_default();
@@ -1053,11 +1049,11 @@ impl Navigator {
         };
         // The checks can change till it lands, and a file going from what's held would end it.
         let what = match composing {
-            true => Moving::Files {
+            true => Moving::Files(Changes {
                 from: None,
                 worktree,
                 files: Arc::from([]),
-            },
+            }),
             false => what,
         };
         self.reveal_selection = true;
@@ -1071,10 +1067,12 @@ impl Navigator {
             .detail
             .read(cx)
             .files_to_move(project, worktree.clone(), cx);
-        (!files.is_empty()).then(|| Moving::Files {
-            from: None,
-            worktree,
-            files: files.into(),
+        (!files.is_empty()).then(|| {
+            Moving::Files(Changes {
+                from: None,
+                worktree,
+                files: files.into(),
+            })
         })
     }
 
@@ -1093,7 +1091,7 @@ impl Navigator {
         // Uncommitted changes go first into what's on top of the branch below their row, as
         // a commit of them goes there first.
         let start = match what {
-            Moving::Files { from: None, .. } => (stops.iter().enumerate().skip(start + 1))
+            Moving::Files(Changes { from: None, .. }) => (stops.iter().enumerate().skip(start + 1))
                 .find(|(_, stop)| matches!(stop, Stop::Into(Target::Commit(_) | Target::Branch(_))))
                 .map_or(start, |(at, _)| at),
             Moving::Commits(_)
@@ -1101,7 +1099,7 @@ impl Navigator {
             | Moving::Project(_)
             | Moving::Worktree { .. }
             | Moving::Terminal { .. }
-            | Moving::Files { .. }
+            | Moving::Files(_)
             | Moving::Copies(_) => start,
         };
         let start = (at.as_ref())
@@ -1128,13 +1126,13 @@ impl Navigator {
     ) -> bool {
         let Some(moving) = self.squash_move(&project, &what, at, cx) else {
             let why = match what {
-                Moving::Files { from: None, .. } => "Nowhere to amend it",
+                Moving::Files(Changes { from: None, .. }) => "Nowhere to amend it",
                 Moving::Commits(_)
                 | Moving::Branch(_)
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. }
+                | Moving::Files(_)
                 | Moving::Copies(_) => "Nowhere to squash it",
             };
             snack(&self.store, why, cx);
@@ -1359,7 +1357,7 @@ impl Navigator {
             return;
         };
         let clicked = self.move_stops(cx).and_then(|(stops, at, start)| {
-            let own = matches!(mark(store, item), Some(Mark::Cut(_) | Mark::Copied(_)));
+            let own = matches!(mark(store, item), Some(Mark::Taken(_) | Mark::Copied(_)));
             let checkout = store.checkout_of(item);
             let ix = clicked_stop(&stops, (at, start), moving, item, own, checkout)?;
             Some((stops, ix))
@@ -1471,9 +1469,10 @@ impl Navigator {
         // and one coming now would leave its row to go only once it's there, so it lands as
         // anything dropped does, leaving where it was as it shows where it goes.
         let lands = (!dragged).then(|| moving.clone());
-        if let Some((payload, target, place)) = moving.drop() {
+        if let Some((target, place)) = moving.drop() {
+            let what = moving.what.clone();
             return self.app.update_later(window, cx, move |app, window, cx| {
-                app.land(&payload, &target, place, lands, window, cx)
+                app.land(&what, &target, place, lands, window, cx)
             });
         }
         // With no row to show them in till it's made, commits dragged to a new branch stay where
@@ -1518,7 +1517,7 @@ impl Navigator {
                 | Moving::Project(_)
                 | Moving::Worktree { .. }
                 | Moving::Terminal { .. }
-                | Moving::Files { .. }
+                | Moving::Files(_)
                 | Moving::Copies(_),
                 _,
             ) => {}
@@ -1632,7 +1631,7 @@ fn clicked_stop(
                 slot: Slot::End,
             }),
         },
-        Moving::Commits(_) | Moving::Branch(_) | Moving::Files { .. } | Moving::Copies(_) => {
+        Moving::Commits(_) | Moving::Branch(_) | Moving::Files(_) | Moving::Copies(_) => {
             if own {
                 return (moving.op != Op::Commit).then_some(start);
             }
@@ -1830,7 +1829,7 @@ pub(super) fn stand_in(
         ..
     } = stand_in;
     let style = RowStyle {
-        cut: true,
+        taken: true,
         mark: op.colour(theme),
         outlined_with: *outlined_with,
         ..RowStyle::plain(theme, *inset)

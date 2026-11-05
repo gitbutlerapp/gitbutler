@@ -27,8 +27,9 @@ use crate::backend::{
     PushState, Workspace,
 };
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, Part, Prefs, Selection};
+use crate::state::{Part, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
+use crate::transfer::{Changes, Dragged};
 use crate::ui::change_marks::{RAIL, change_marks};
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::fold::{MOVING_ROWS, clipped, curtain};
@@ -1249,7 +1250,7 @@ impl Detail {
         let solid = has_keys(&self.focus, window, cx);
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
-        let menu = |menu: Option<Cut>,
+        let menu = |menu: Option<(ProjectId, Changes)>,
                     file: &FileDiff,
                     hunk: Option<HunkKey>,
                     entity: WeakEntity<Detail>| {
@@ -1283,11 +1284,13 @@ impl Detail {
                 // What right-clicking the header offers, behind a ⋯ as well, for the file alone,
                 // which the cursor goes to and the diff takes the keys for, as the commands act
                 // there.
-                let cut = self.diff_cut(file, None, cx);
-                let carried = cut.clone();
+                let changes = self.diff_changes(file, None, cx);
+                let carried = changes.clone();
                 let open = {
-                    let (open, entity) =
-                        (menu(cut, file_diff, None, entity.clone()), entity.clone());
+                    let (open, entity) = (
+                        menu(changes, file_diff, None, entity.clone()),
+                        entity.clone(),
+                    );
                     move |position: Point<Pixels>, window: &mut Window, cx: &mut App| {
                         (entity.update(cx, |detail, cx| {
                             detail.right_click_on(Cursor::on_file(file), cx);
@@ -1367,7 +1370,8 @@ impl Detail {
                             .ok();
                     })
                     .when_some(carried, |el, carried| {
-                        let label: SharedString = carried.describe(store).into();
+                        let label: SharedString = carried.1.describe().into();
+                        let carried = Dragged::from(carried);
                         el.on_drag(carried, self.patch_drag_preview(label, false, dragged))
                     })
                     .into_any_element()
@@ -1419,7 +1423,7 @@ impl Detail {
                         ..Default::default()
                     },
                 );
-                let carried = self.diff_cut(file, Some(vec![key]), cx);
+                let carried = self.diff_changes(file, Some(vec![key]), cx);
                 let (whole, dragged) = (entity.clone(), entity.clone());
                 padded
                     .id(("hunk", ix))
@@ -1427,8 +1431,8 @@ impl Detail {
                     // The file's, as an unchanged line's is: the box sits between two hunks.
                     // The cursor goes to the box, off a hunk the menu doesn't act on.
                     .on_mouse_down(MouseButton::Right, {
-                        let cut = self.diff_cut(file, None, cx);
-                        let open = menu(cut, file_diff, None, entity.clone());
+                        let changes = self.diff_changes(file, None, cx);
+                        let open = menu(changes, file_diff, None, entity.clone());
                         move |event, _, cx| {
                             (entity.update(cx, |detail, cx| detail.right_click_on(at, cx))).ok();
                             open(event.position, cx)
@@ -1449,6 +1453,7 @@ impl Detail {
                     .when_some(carried, |el, carried| {
                         let lines: Vec<_> = (0..found.lines.len()).map(|l| (hunk, l)).collect();
                         let label = self.lines_label(file, &lines);
+                        let carried = Dragged::from(carried);
                         el.on_drag(carried, self.patch_drag_preview(label, false, dragged))
                     })
                     .into_any_element()
@@ -1826,8 +1831,8 @@ impl Detail {
         if !changed || self.composes() {
             return None;
         }
-        // Lines of a diff that can't be cut from have no grip, nor numbers to pick.
-        self.owned_cut(Vec::new(), cx)?;
+        // Lines of a diff nothing can be taken from have no grip, nor numbers to pick.
+        self.owned_changes(Vec::new(), cx)?;
         let picked = self.line_picked(&diff_file.file.path, key, line);
         // What a grip takes is worked out for the one under the pointer only, afresh as lines
         // get picked or the diff changes: it can be a whole file's lines, too many to work out
@@ -1839,8 +1844,8 @@ impl Detail {
         let drag = (over.is_some_and(|(at, _)| *at == place))
             .then(|| self.grip_takes(place))
             .and_then(|takes| {
-                let cut = self.lines_cut(file, takes.iter().copied(), cx)?;
-                Some((cut, self.lines_label(file, &takes)))
+                let changes = self.lines_changes(file, takes.iter().copied(), cx)?;
+                Some((changes, self.lines_label(file, &takes)))
             });
         let picking = entity.clone();
         let pick = Rc::new(
@@ -1851,7 +1856,7 @@ impl Detail {
                         detail.pick_line(place, Pick::Run, cx)
                     }
                     true => {}
-                    // With the diff's keys, so ⌘X cuts what's picked.
+                    // With the diff's keys, so they act on what's picked.
                     false => {
                         detail.picking_lines = true;
                         window.focus(&detail.focus, cx);
@@ -1903,8 +1908,12 @@ impl Detail {
                 }))
                 .ok();
             })
-            .when_some(drag, |el, (cut, label)| {
-                el.on_drag(cut, self.patch_drag_preview(label, picked, entity.clone()))
+            .when_some(drag, |el, (changes, label)| {
+                let dragged = Dragged::from(changes);
+                el.on_drag(
+                    dragged,
+                    self.patch_drag_preview(label, picked, entity.clone()),
+                )
             })
             .into_any_element();
         Some(diff::Gutter {
@@ -2050,8 +2059,8 @@ impl Detail {
                 self.line_picked(&file_diff.file.path, key, line)
             });
             let menu = match picked {
-                true => self.lines_cut(file, self.picked_lines(file), cx),
-                false => self.diff_cut(file, key.map(|key| vec![key]), cx),
+                true => self.lines_changes(file, self.picked_lines(file), cx),
+                false => self.diff_changes(file, key.map(|key| vec![key]), cx),
             };
             let added = (changed.and_then(line_of))
                 .filter(|line| line.kind == LineKind::Added)

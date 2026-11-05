@@ -141,15 +141,15 @@ impl Terminals {
 impl Store {
     /// What a terminal pastes of what's being dragged: a file, hunk or lines from the diff as
     /// their patch, as it was when the drag began ([`Store::dragged_patch`]), else the row
-    /// ([`Cut::pasted`](super::Cut::pasted)) as the store followed it, as an agent may have
-    /// rewritten it, quoted for the shell.
+    /// ([`Moving::pasted`](crate::transfer::Moving::pasted)) as the store followed it, as an
+    /// agent may have rewritten it, quoted for the shell.
     pub fn pasted(&self) -> Option<Cow<'_, str>> {
         if let Some(patch) = &self.dragged_patch {
             return Some(Cow::Borrowed(patch));
         }
-        let cut = self.dragging.as_ref()?;
-        let project = cut.project();
-        let words = cut.pasted(&self.path(project)?, self.workspace(project)?)?;
+        let dragged = self.dragging.as_ref()?;
+        let project = &dragged.project;
+        let words = (dragged.what).pasted(&self.path(project)?, self.workspace(project)?)?;
         Some(Cow::Owned(shell_quoted(words)))
     }
 

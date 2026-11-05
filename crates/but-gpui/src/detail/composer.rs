@@ -14,9 +14,9 @@ use crate::backend::{
     FullName, Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
+use crate::state::{NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Op, Stop};
+use crate::transfer::{Changes, Move, Moving, Op, Stop};
 use crate::ui::message_editor::{COMMIT_PLACEHOLDERS, MessageEditor, MessageSize};
 use crate::ui::text_input::InputEvent;
 use crate::ui::{
@@ -651,7 +651,7 @@ impl Detail {
     /// came out for it: what's shown stays as it is. Not conflicted files, nor a repository
     /// cloned inside, which the composer leaves out too.
     pub fn commit_now(&mut self, moving: Move, cx: &mut Context<Self>) {
-        let Moving::Files { worktree, .. } = &moving.what else {
+        let Moving::Files(Changes { worktree, .. }) = &moving.what else {
             return;
         };
         let (project, worktree) = (moving.project.clone(), worktree.clone());
@@ -783,21 +783,23 @@ impl Detail {
             let picks = if !picks {
                 None
             } else if self.page.line_picks().is_some() {
-                self.line_picks_cut(cx)
+                self.line_picks_changes(cx)
             } else if self.page.has_file_picks() {
-                self.owned_cut(self.picked_changes(), cx)
+                self.owned_changes(self.picked_changes(), cx)
             } else if !self.filter_terms(cx).is_empty() {
                 // A filter narrowing the list commits what it shows, as picking those would.
-                self.owned_cut(self.shown_changes(), cx)
+                self.owned_changes(self.shown_changes(), cx)
             } else {
                 None
             };
-            if let Some(Cut::Files {
+            if let Some((
                 project,
-                from: None,
-                worktree,
-                files,
-            }) = picks
+                Changes {
+                    from: None,
+                    worktree,
+                    files,
+                },
+            )) = picks
                 && (Some(&project), &worktree)
                     == (self.checks_project.as_ref(), &self.checks_worktree)
             {
@@ -912,8 +914,8 @@ impl Detail {
                         if picked.contains(&hunk.key) {
                             continue;
                         }
-                        // Of a hunk only some of whose lines were taken, as lines dragged or
-                        // cut from the diff, those lines.
+                        // Of a hunk only some of whose lines were taken, as lines dragged from
+                        // the diff, those lines.
                         let taken: BTreeSet<usize> = (hunk.lines.iter().enumerate())
                             .filter(|(_, line)| picked.iter().any(|key| key.takes(hunk, line)))
                             .map(|(ix, _)| ix)
@@ -1833,7 +1835,7 @@ fn amends(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bo
 /// Whether `moving` is of `project`'s checkout `worktree`'s changes.
 fn changes_of(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bool {
     Some(&moving.project) == project
-        && matches!(&moving.what, Moving::Files { worktree: of, .. } if of == worktree)
+        && matches!(&moving.what, Moving::Files(Changes { worktree: of, .. }) if of == worktree)
 }
 
 /// Whether the composer commits to `branch`. Not to the default branch, as new work goes on a

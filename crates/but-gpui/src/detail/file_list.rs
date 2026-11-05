@@ -60,9 +60,9 @@ use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, 
 use crate::detail::Stop;
 use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Cut, FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
+use crate::state::{FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::{Chip, DragPreview};
+use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
 use crate::ui::diff;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
@@ -99,7 +99,7 @@ struct FileRow {
     /// Shown while composing a commit.
     checkbox: Option<Toggled>,
     /// The changes right-clicking or dragging the row takes: see [`Detail::changes_menu`].
-    menu: Option<Cut>,
+    menu: Option<(ProjectId, Changes)>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
     /// Picked with other files, which its menu and a drag take along.
@@ -526,7 +526,7 @@ impl Detail {
         let picks = self.picked_paths();
         // A picked file's menu is all the picks'.
         let picked = (!picks.is_empty())
-            .then(|| self.owned_cut(self.picked_changes(), cx))
+            .then(|| self.owned_changes(self.picked_changes(), cx))
             .flatten();
         let lit: Vec<bool> = match picks.is_empty() {
             true => Vec::new(),
@@ -628,12 +628,12 @@ impl Detail {
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
                     menu: row.menu.or_else(|| {
-                        Some(Cut::Files {
-                            project: project.clone(),
+                        let changes = Changes {
                             from: None,
                             worktree: worktree.clone(),
                             files: vec![whole].into(),
-                        })
+                        };
+                        Some((project.clone(), changes))
                     }),
                     ..row
                 };
@@ -644,7 +644,7 @@ impl Detail {
                 let file = diff.files.get(pos)?;
                 let extras = FileRow {
                     diff_ix: Some(pos),
-                    menu: row.menu.or_else(|| self.diff_cut(pos, None, cx)),
+                    menu: row.menu.or_else(|| self.diff_changes(pos, None, cx)),
                     ..row
                 };
                 Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
@@ -660,11 +660,14 @@ impl Detail {
         store: &'a Store,
         cx: &App,
     ) -> HashSet<&'a str> {
-        let Some(Cut::Files {
+        let Some(Dragged {
             project,
-            from,
-            worktree,
-            files,
+            what:
+                Moving::Files(Changes {
+                    from,
+                    worktree,
+                    files,
+                }),
         }) = &store.dragging
         else {
             return HashSet::new();
@@ -672,8 +675,8 @@ impl Detail {
         let here = match source {
             FileSource::Uncommitted(p, w) => from.is_none() && (p, w) == (project, worktree),
             FileSource::Diff => matches!(
-                self.owned_cut(Vec::new(), cx),
-                Some(Cut::Files { project: p, from: f, worktree: w, .. })
+                self.owned_changes(Vec::new(), cx),
+                Some((p, Changes { from: f, worktree: w, .. }))
                     if (&p, &f, &w) == (project, from, worktree)
             ),
         };
@@ -683,11 +686,15 @@ impl Detail {
             .collect()
     }
 
-    /// `files` of the loaded diff as they'd be cut, to move or take out of where they are:
+    /// `files` of the loaded diff as changes, to move or take out of where they are:
     /// a commit listed in the navigator, or a checkout's uncommitted changes. A branch's diff
     /// spans commits, and a commit of the target's history, on the project page, isn't the
-    /// workspace's to change: their files aren't cut.
-    pub(super) fn owned_cut(&self, files: Vec<Selected>, cx: &App) -> Option<Cut> {
+    /// workspace's to change: their files aren't.
+    pub(super) fn owned_changes(
+        &self,
+        files: Vec<Selected>,
+        cx: &App,
+    ) -> Option<(ProjectId, Changes)> {
         let key = &self.diff.as_ref()?.key;
         let (from, worktree) = match &key.source {
             DiffSource::Worktree => (None, Checkout::Main),
@@ -703,17 +710,17 @@ impl Detail {
             }
             _ => return None,
         };
-        Some(Cut::Files {
-            project: key.project.clone(),
+        let changes = Changes {
             from,
             worktree,
             files: files.into(),
-        })
+        };
+        Some((key.project.clone(), changes))
     }
 
-    /// What ⌘X in the diff cuts: the picked lines, or the picked files, or else the hunk under
-    /// the cursor, or its file.
-    pub fn cursor_cut(&self, cx: &App) -> Option<Cut> {
+    /// What the keys in the diff act on: the picked lines, or the picked files, or else the hunk
+    /// under the cursor, or its file.
+    pub fn cursor_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
         // Right after selecting something else, the diff can still be the last one, another
         // project's.
         let project = self.selected_project();
@@ -721,10 +728,10 @@ impl Detail {
             return None;
         }
         if self.page.line_picks().is_some() {
-            return self.line_picks_cut(cx);
+            return self.line_picks_changes(cx);
         }
         if self.page.has_file_picks() {
-            return self.owned_cut(self.picked_changes(), cx);
+            return self.owned_changes(self.picked_changes(), cx);
         }
         let at = self.cursor.in_file()?;
         if !self.shown_files().contains(&at) {
@@ -732,19 +739,23 @@ impl Detail {
         }
         let file = self.diff.as_ref()?.files.get(at)?;
         let hunk = (self.cursor.at.hunk()).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
-        self.diff_cut(at, hunk.map(|key| vec![key]), cx)
+        self.diff_changes(at, hunk.map(|key| vec![key]), cx)
     }
 
     /// What Discard takes where the keys are, in the diff or the file list: what's picked, else
     /// as [`discard_part`] says. `None` with the keys anywhere else, or nothing to take.
-    pub(crate) fn discard_cut(&self, window: &Window, cx: &App) -> Option<Cut> {
+    pub(crate) fn discard_changes(
+        &self,
+        window: &Window,
+        cx: &App,
+    ) -> Option<(ProjectId, Changes)> {
         let in_list = self.files_focus.is_focused(window);
         if !in_list && !self.focus.is_focused(window) {
             return None;
         }
-        let cut = self.cursor_cut(cx)?;
+        let changes = self.cursor_changes(cx)?;
         if self.page.line_picks().is_some() || self.page.has_file_picks() {
-            return Some(cut);
+            return Some(changes);
         }
         let file = self.current_file()?;
         let at = self.cursor.in_file()?;
@@ -752,7 +763,7 @@ impl Detail {
         // A header stays drawn over its file, so the file being looked at says that one.
         let in_sight = match self.cursor.at {
             Stop::Hunk(hunk) => {
-                // Never widen a hunk discard to the whole file, as a cut would.
+                // Never widen a hunk discard to the whole file.
                 cursor_file.hunks().get(hunk)?;
                 self.cursor_in_sight(cx)
             }
@@ -760,22 +771,24 @@ impl Detail {
         };
         let conflicted = cursor_file.file.conflicted;
         match discard_part(in_list, self.cursor.at, in_sight, conflicted)? {
-            DiscardPart::Hunk => Some(cut),
+            DiscardPart::Hunk => Some(changes),
             DiscardPart::File if self.shown_files().contains(&file) => {
-                self.diff_cut(file, None, cx)
+                self.diff_changes(file, None, cx)
             }
             DiscardPart::File => None,
         }
     }
 
-    /// Discard what [`Self::discard_cut`] takes, from its commit or its checkout.
+    /// Discard what [`Self::discard_changes`] takes, from its commit or its checkout.
     pub(super) fn discard_here(&mut self, window: &mut Window, cx: &mut Context<Detail>) {
-        let Some(Cut::Files {
+        let Some((
             project,
-            from,
-            worktree,
-            files,
-        }) = self.discard_cut(window, cx)
+            Changes {
+                from,
+                worktree,
+                files,
+            },
+        )) = self.discard_changes(window, cx)
         else {
             return;
         };
@@ -787,11 +800,9 @@ impl Detail {
     }
 
     /// What Discard throws away with the keys here, in the words a menu has for it: what
-    /// [`Self::discard_cut`] takes.
+    /// [`Self::discard_changes`] takes.
     pub(crate) fn discard_phrase(&self, window: &Window, cx: &App) -> Option<String> {
-        let Cut::Files { from, files, .. } = self.discard_cut(window, cx)? else {
-            return None;
-        };
+        let (_, Changes { from, files, .. }) = self.discard_changes(window, cx)?;
         let kind = change_kind(self.takes_lines(&files), &files);
         Some(match from {
             Some(_) => format!("Discard {kind} from commit"),
@@ -799,15 +810,15 @@ impl Detail {
         })
     }
 
-    /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
-    pub(super) fn diff_cut(
+    /// The loaded diff's file at `file`, or `hunks` of it, to drag or squash.
+    pub(super) fn diff_changes(
         &self,
         file: usize,
         hunks: Option<Vec<HunkKey>>,
         cx: &App,
-    ) -> Option<Cut> {
+    ) -> Option<(ProjectId, Changes)> {
         let part = self.diff.as_ref()?.files.get(file)?.part(hunks);
-        self.owned_cut(vec![part], cx)
+        self.owned_changes(vec![part], cx)
     }
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
@@ -926,12 +937,12 @@ impl Detail {
     /// Pick the files of `folder`, as a right-click on it does, so the commands of its menu
     /// act on them: the cursor alone on one. Picks that hold them all stay, as a picked
     /// file's right-click keeps them.
-    fn right_click_folder(&mut self, folder: Option<&Cut>, cx: &mut Context<Self>) {
+    fn right_click_folder(&mut self, folder: Option<&Changes>, cx: &mut Context<Self>) {
         self.clear_line_picks(cx);
-        let Some(Cut::Files { files, .. }) = folder else {
+        let Some(folder) = folder else {
             return;
         };
-        let paths: Vec<String> = files.iter().map(|f| f.file.path.clone()).collect();
+        let paths: Vec<String> = (folder.files.iter()).map(|f| f.file.path.clone()).collect();
         let Some(state) = self.page.files_mut() else {
             return;
         };
@@ -958,22 +969,29 @@ impl Detail {
     }
 
     /// The files under the folder `dir` in `source`, to act on together.
-    fn folder_payload(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Cut> {
+    fn folder_payload(
+        &self,
+        source: &FileSource,
+        dir: &str,
+        cx: &App,
+    ) -> Option<(ProjectId, Changes)> {
         let prefix = format!("{dir}/");
         // Only what the folder shows: not files the filter or a pending operation hides.
         let terms = self.filter_terms(cx);
         let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
         let store = self.store.read(cx);
-        let cut = match source {
-            FileSource::Uncommitted(project, worktree) => Cut::Files {
-                project: project.clone(),
-                from: None,
-                worktree: worktree.clone(),
-                files: (store.workspace(project)?.uncommitted_in(worktree)?.iter())
-                    .filter(|f| under(&f.path) && !store.hides_file(project, worktree, &f.path))
-                    .map(Selected::whole)
-                    .collect(),
-            },
+        let (project, changes) = match source {
+            FileSource::Uncommitted(project, worktree) => {
+                let changes = Changes {
+                    from: None,
+                    worktree: worktree.clone(),
+                    files: (store.workspace(project)?.uncommitted_in(worktree)?.iter())
+                        .filter(|f| under(&f.path) && !store.hides_file(project, worktree, &f.path))
+                        .map(Selected::whole)
+                        .collect(),
+                };
+                (project.clone(), changes)
+            }
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
                 let leaving = diff.key.leaving(store);
@@ -982,24 +1000,21 @@ impl Detail {
                     .filter(|f| under(&f.path) && !leaving(&f.path))
                     .map(Selected::whole)
                     .collect();
-                self.owned_cut(files, cx)?
+                self.owned_changes(files, cx)?
             }
         };
-        matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
+        (!changes.files.is_empty()).then_some((project, changes))
     }
 
     /// What dragging the folder `dir` in `source` carries: its [`Selected::movable`] files,
     /// each as its row would drag it. Not at all while what's checked of one is unknown.
-    fn folder_drag(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Cut> {
-        let Cut::Files {
-            project,
+    fn folder_drag(&self, source: &FileSource, dir: &str, cx: &App) -> Option<Dragged> {
+        let (project, changes) = self.folder_payload(source, dir, cx)?;
+        let Changes {
             from,
             worktree,
             files,
-        } = self.folder_payload(source, dir, cx)?.movable()?
-        else {
-            return None;
-        };
+        } = changes.movable()?;
         let checked = self.composing && matches!(source, FileSource::Uncommitted(..));
         let files = (files.iter())
             .map(|whole| {
@@ -1010,24 +1025,31 @@ impl Detail {
                 }
             })
             .collect::<Option<_>>()?;
-        Some(Cut::Files {
-            project,
+        let changes = Changes {
             from,
             worktree,
             files,
-        })
+        };
+        Some(Dragged::from((project, changes)))
     }
 
-    /// `files` of `source` as they'd be cut, if they're the workspace's to change.
-    fn cut_from(&self, source: &FileSource, files: Vec<Selected>, cx: &App) -> Option<Cut> {
+    /// `files` of `source` as changes, if they're the workspace's to change.
+    fn changes_from(
+        &self,
+        source: &FileSource,
+        files: Vec<Selected>,
+        cx: &App,
+    ) -> Option<(ProjectId, Changes)> {
         match source {
-            FileSource::Uncommitted(project, worktree) => Some(Cut::Files {
-                project: project.clone(),
-                from: None,
-                worktree: worktree.clone(),
-                files: files.into(),
-            }),
-            FileSource::Diff => self.owned_cut(files, cx),
+            FileSource::Uncommitted(project, worktree) => {
+                let changes = Changes {
+                    from: None,
+                    worktree: worktree.clone(),
+                    files: files.into(),
+                };
+                Some((project.clone(), changes))
+            }
+            FileSource::Diff => self.owned_changes(files, cx),
         }
     }
 
@@ -1040,7 +1062,8 @@ impl Detail {
         dir: &str,
         chip: Chip,
         cx: &Context<Self>,
-    ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
+    ) -> impl Fn(&Dragged, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static
+    {
         let detail = cx.entity().downgrade();
         let preview = self.drag_preview(chip, false, detail.clone());
         let (source, dir) = (source.clone(), dir.to_owned());
@@ -1141,7 +1164,8 @@ impl Detail {
             )
         })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
-        .when_some(self.cut_from(source, Vec::new(), cx), |el, nothing| {
+        .when_some(self.changes_from(source, Vec::new(), cx), |el, nothing| {
+            let nothing = Dragged::from(nothing);
             el.on_drag(nothing, self.folder_preview(source, &path, chip, cx))
         })
         .on_mouse_down(
@@ -1150,7 +1174,7 @@ impl Detail {
                 let (source, path) = (source.clone(), path.clone());
                 move |this, event: &MouseDownEvent, _, cx| {
                     let payload = this.folder_payload(&source, &path, cx);
-                    this.right_click_folder(payload.as_ref(), cx);
+                    this.right_click_folder(payload.as_ref().map(|(_, changes)| changes), cx);
                     let at = At::Folder(path.clone());
                     this.changes_menu(payload, at, None, true, event.position, cx)
                 }
@@ -1447,26 +1471,22 @@ impl Detail {
         // A file partly checked drags as its checked hunks and lines. Not at all while
         // they're unknown, rather than as all of it.
         let dragged = match &extras.menu {
-            Some(Cut::Files {
-                project,
-                from,
-                worktree,
-                ..
-            }) if !picked && extras.checkbox == Some(Toggled::Mixed) => {
+            Some((project, changes)) if !picked && extras.checkbox == Some(Toggled::Mixed) => {
                 let loaded = self.loaded_file(&file.path);
-                (self.selected_change(file, loaded)).map(|change| Cut::Files {
-                    project: project.clone(),
-                    from: *from,
-                    worktree: worktree.clone(),
-                    files: vec![change].into(),
+                (self.selected_change(file, loaded)).map(|change| {
+                    let changes = Changes {
+                        files: vec![change].into(),
+                        ..changes.clone()
+                    };
+                    (project.clone(), changes)
                 })
             }
             menu => menu.clone(),
         };
         if let Some(dragged) = dragged {
-            let label: SharedString = dragged.describe(self.store.read(cx)).into();
+            let label: SharedString = dragged.1.describe().into();
             row = row.on_drag(
-                dragged,
+                Dragged::from(dragged),
                 self.drag_preview(label, false, cx.entity().downgrade()),
             );
         }
@@ -1498,7 +1518,7 @@ impl Detail {
     /// list, whose file it copies whole.
     pub(super) fn changes_menu(
         &mut self,
-        payload: Option<Cut>,
+        payload: Option<(ProjectId, Changes)>,
         at: At,
         blamed: Option<Blamed>,
         in_list: bool,
@@ -1526,8 +1546,8 @@ impl Detail {
         // A picked file's menu is all the picks', as on its row.
         let picked = (self.page.files()).is_some_and(|files| files.file_picks.contains(&path));
         let payload = match picked {
-            true => self.owned_cut(self.picked_changes(), cx),
-            false => self.diff_cut(self.current_file()?, None, cx),
+            true => self.owned_changes(self.picked_changes(), cx),
+            false => self.diff_changes(self.current_file()?, None, cx),
         };
         let at = At::File(path, None);
         let in_list = self.files_focus.is_focused(window);
@@ -1570,22 +1590,21 @@ impl Detail {
 
     fn changes_items(
         &mut self,
-        payload: Option<Cut>,
+        payload: Option<(ProjectId, Changes)>,
         at: At,
         blamed: Option<Blamed>,
         in_list: bool,
         cx: &mut Context<Self>,
     ) -> Vec<MenuItem> {
         let (project, worktree) = match &payload {
-            Some(Cut::Files {
-                project, worktree, ..
-            }) => (project.clone(), worktree.clone()),
-            _ => match &self.diff {
+            Some((project, changes)) => (project.clone(), changes.worktree.clone()),
+            None => match &self.diff {
                 Some(diff) => (diff.key.project.clone(), diff.key.files_checkout()),
                 None => return Vec::new(),
             },
         };
-        let mut items = payload.map_or_else(Vec::new, |payload| self.change_items(payload, cx));
+        let mut items =
+            payload.map_or_else(Vec::new, |(_, changes)| self.change_items(changes, cx));
         if let (Some(blamed), At::File(path, _)) = (blamed, &at) {
             items.extend(self.last_commit_item(path, blamed, cx));
         }
@@ -1602,18 +1621,16 @@ impl Detail {
     }
 
     /// What the changes the keys are on are called: picked lines, a hunk, a file or files, as
-    /// [`Self::cursor_cut`] takes them. What a menu calls its commands for them.
-    pub(crate) fn cut_kind(&self, cx: &App) -> Option<&'static str> {
-        let Some(Cut::Files { files, .. }) = self.cursor_cut(cx) else {
-            return None;
-        };
+    /// [`Self::cursor_changes`] takes them. What a menu calls its commands for them.
+    pub(crate) fn changes_kind(&self, cx: &App) -> Option<&'static str> {
+        let (_, Changes { files, .. }) = self.cursor_changes(cx)?;
         Some(change_kind(self.takes_lines(&files), &files))
     }
 
     /// Register what's done to the changes the keys are on, as their menu offers it: marking
     /// the conflicted ones of a checkout resolved, and taking a commit's out of it.
     pub(super) fn change_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
-        let Some(Cut::Files { from, files, .. }) = self.cursor_cut(cx) else {
+        let Some((_, Changes { from, files, .. })) = self.cursor_changes(cx) else {
             return el;
         };
         match from {
@@ -1635,12 +1652,14 @@ impl Detail {
 
     /// Mark the conflicted ones of the uncommitted changes the keys are on resolved.
     fn mark_resolved(&mut self, cx: &mut Context<Self>) {
-        let Some(Cut::Files {
+        let Some((
             project,
-            from: None,
-            worktree,
-            files,
-        }) = self.cursor_cut(cx)
+            Changes {
+                from: None,
+                worktree,
+                files,
+            },
+        )) = self.cursor_changes(cx)
         else {
             return;
         };
@@ -1675,19 +1694,14 @@ impl Detail {
     /// Take the changes the keys are on out of their commit: into the uncommitted changes, or
     /// a new commit of their own.
     fn take_from_commit(&mut self, taken: Taken, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(payload @ Cut::Files { .. }) = self.cursor_cut(cx) else {
+        let Some((project, changes)) = self.cursor_changes(cx) else {
             return;
         };
-        let Cut::Files {
-            ref project,
-            from: Some(commit),
-            ref files,
-            ..
-        } = payload
-        else {
+        let Some(commit) = changes.from else {
             return;
         };
-        let (project, files) = (project.clone(), files.clone());
+        let files = changes.files.clone();
+        let what = Moving::Files(changes);
         self.app
             .update_later(window, cx, move |app, window, cx| match taken {
                 Taken::Uncommit => {
@@ -1702,7 +1716,7 @@ impl Detail {
                             None => Selection::Uncommitted(project.clone(), Checkout::Main),
                         };
                     app.transfer(
-                        &payload,
+                        &what,
                         &uncommitted,
                         crate::transfer::Place::Into,
                         window,
@@ -1713,15 +1727,17 @@ impl Detail {
             })
     }
 
-    /// What can be done to the changes in `payload` from a menu: cutting them, and moving,
+    /// What can be done to the changes in `payload` from a menu: squashing them, and moving,
     /// taking out or discarding them, as the keys do to the picked ones or the ones under the
-    /// cursor, which a right-click makes them.
-    fn change_items(&self, payload: Cut, cx: &mut Context<Self>) -> Vec<MenuItem> {
-        let Cut::Files { from, .. } = payload.clone() else {
-            return Vec::new();
-        };
-        let mut items: Vec<MenuItem> = (payload.movable().into_iter())
-            .map(|_| MenuItem::command(&crate::app::CutSelection, cx))
+    /// cursor, which a right-click makes them. Squashing what's uncommitted amends, so it says
+    /// that here, as ⌘K leaves the command out for it.
+    fn change_items(&self, changes: Changes, cx: &mut Context<Self>) -> Vec<MenuItem> {
+        let from = changes.from;
+        let mut items: Vec<MenuItem> = (changes.movable().into_iter())
+            .map(|_| match from {
+                Some(_) => MenuItem::command(&crate::app::SquashSelection, cx),
+                None => MenuItem::action("Amend", &crate::app::SquashSelection, cx),
+            })
             .collect();
         match from {
             None => {

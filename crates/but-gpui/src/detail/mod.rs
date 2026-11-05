@@ -2053,7 +2053,7 @@ impl Detail {
         }
     }
 
-    /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
+    /// What dragging the uncommitted changes of `project`'s checkout `worktree`
     /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
     /// only what's [`Selected::movable`].
     pub fn files_to_move(

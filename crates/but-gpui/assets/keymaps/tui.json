@@ -141,8 +141,8 @@
       "enter": "navigator::ToggleFold"
     }
   },
-  // s squashes the selected commit, branch or changes, or in the diff the files or lines ⌘X
-  // would cut, as the TUI's r does: r is reword's here, below. p cherry-picks the selected
+  // s squashes the selected commit, branch or changes, or in the diff the picked files or lines,
+  // or the hunk or file under the cursor, as the TUI's r does: r is reword's here, below. p cherry-picks the selected
   // commit, a remote's, or one picked on the Branches or target page, as the TUI's p does.
   {
     "context": "(Navigator || Diff) && !TextInput",
