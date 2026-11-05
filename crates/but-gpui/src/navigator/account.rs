@@ -1,13 +1,13 @@
 //! The top of the navigator's right end: New version, while the update card is put off, and
-//! the GitButler account's picture and menu, or Sign in.
+//! the menu of Settings and the GitButler account.
 
-use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::*};
+use gpui::{AnyElement, App, ClickEvent, Context, div, prelude::*};
 
 use super::Navigator;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
-use crate::ui::person::person_avatar;
-use crate::ui::{ButtonStyle, button, dp};
+use crate::ui::person::account_avatar;
+use crate::ui::{ButtonStyle, Icon, button, dp, icon_button, picture_button};
 
 impl Navigator {
     /// New version, standing in for the update card while Later puts it off, and how far
@@ -51,56 +51,39 @@ impl Navigator {
         )
     }
 
-    pub(super) fn account(&self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    /// Settings and the GitButler account in one menu, there signed in or out on every
+    /// platform, as only macOS has a menu bar. Signed in, it shows who as its picture.
+    pub(super) fn settings_button(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let account = &self.store.read(cx).account;
-        let Some(user) = account.user.clone() else {
-            return button("sign-in", "Sign in")
-                .small()
-                .style(ButtonStyle::Ghost)
-                .tooltip("Sign in to GitButler, for its AI key")
-                .on_click(cx.listener(|this, _, window, cx| {
-                    this.app
-                        .update_later(window, cx, move |app, window, cx| app.sign_in(window, cx));
-                }))
-                .into_any_element();
+        let button = match &account.user {
+            Some(user) => picture_button(
+                "settings-menu",
+                account_avatar(user, account.avatar.clone(), 18., theme),
+            ),
+            None => icon_button("settings-menu", Icon::Settings),
         };
-        // Without a picture, the person's pattern stands in, as in GitButler's other apps.
-        let face = match account.avatar.clone() {
-            Some(picture) => img(picture).size(dp(20.)).rounded_full().into_any_element(),
-            None => {
-                let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
-                person_avatar(seed, 20., theme).into_any_element()
-            }
-        };
-        div()
-            .id("account")
-            .p(dp(2.))
-            .rounded_full()
-            .hover(|el| el.bg(theme.hover()))
-            .child(face)
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    let who = user.login.clone().unwrap_or_else(|| user.name.clone());
-                    // Who it is, leading to the account's settings.
-                    let identity = match &user.email {
-                        Some(email) => format!("{} · {email}", user.name),
-                        None => user.name.clone(),
-                    };
-                    let items = move |_: &mut Self, _: &mut Context<Self>| {
-                        vec![
-                            MenuItem::new(identity, |app, window, cx| {
-                                app.open_settings(&crate::settings::OpenSettings, window, cx)
-                            }),
-                            MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
-                                app.store.update(cx, |store, cx| store.sign_out(cx))
-                            })
-                            .separated(),
-                        ]
-                    };
-                    this.open_menu(event.position, items, cx);
-                }),
-            )
+        button
+            .small()
+            .tooltip("Settings")
+            .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                this.open_menu(event.position(), |this, cx| this.settings_menu(cx), cx)
+            }))
             .into_any_element()
+    }
+
+    fn settings_menu(&self, cx: &App) -> Vec<MenuItem> {
+        let account = match &self.store.read(cx).account.user {
+            Some(user) => {
+                let who = user.login.as_ref().unwrap_or(&user.name);
+                MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
+                    app.store.update(cx, |store, cx| store.sign_out(cx))
+                })
+            }
+            None => MenuItem::new("Sign in…", |app, window, cx| app.sign_in(window, cx)),
+        };
+        Vec::from([
+            MenuItem::action("Settings", &crate::settings::OpenSettings, cx),
+            account.separated(),
+        ])
     }
 }

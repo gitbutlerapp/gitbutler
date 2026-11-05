@@ -2,19 +2,21 @@
 //! requests and CI go through, with ways to add one: GitHub's browser sign-in, or a token,
 //! for GitHub Enterprise and self-hosted GitLab with the server's URL.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, ClickEvent, ClipboardItem, Context, Entity, Focusable as _, SharedString, Window,
-    prelude::*,
+    AnyElement, ClickEvent, ClipboardItem, Context, Div, Entity, Focusable as _, Image,
+    SharedString, Window, div, prelude::*,
 };
 
 use super::{Card, Row, SettingsView};
 use crate::backend::Forge;
-use crate::backend::accounts::{self, Account};
+use crate::backend::accounts::{self, Account, GitButlerUser};
 use crate::backend::run;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::person::account_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, button, dp, field, h_flex, v_flex};
 
@@ -298,7 +300,8 @@ impl SettingsView {
     /// The GitButler account, which General leads with, as Lite's does.
     pub(super) fn gitbutler_row(&self, window: &Window, cx: &Context<Self>) -> Row {
         let theme = Theme::get(cx);
-        let user = self.store.read(cx).account.user.as_ref();
+        let account = &self.store.read(cx).account;
+        let user = account.user.as_ref();
         let gitbutler: AnyElement = match (user, &self.accounts.login) {
             (_, Some(input)) => token_field(input, None, "Sign in", window, theme, cx),
             (Some(_), None) => button("log-out", "Sign out")
@@ -320,12 +323,14 @@ impl SettingsView {
             (_, Some(_)) => {
                 "Sign in on the page that opened, then paste the token it shows.".into()
             }
-            (Some(user), None) => {
-                format!("Signed in as {}. AI can use GitButler's key.", user.name).into()
-            }
+            (Some(_), None) => "AI can use GitButler's key.".into(),
             (None, None) => "Sign in to use GitButler's AI key, with no key of your own.".into(),
         };
-        Row::new("GitButler", description, gitbutler)
+        let row = Row::new("GitButler", description, gitbutler);
+        match user.filter(|_| self.accounts.login.is_none()) {
+            Some(user) => row.with_below(identity(user, account.avatar.clone(), theme)),
+            None => row,
+        }
     }
 
     /// Integrations: the forge accounts connected, then a way to add one.
@@ -437,6 +442,32 @@ impl SettingsView {
         }
         vec![Card::new(None, connected), Card::new(None, rows)]
     }
+}
+
+/// Who is signed in: their picture, by their name and email.
+fn identity(user: &GitButlerUser, avatar: Option<Arc<Image>>, theme: &Theme) -> Div {
+    // With no name or login, the name is the email already.
+    let email = (user.email.clone()).filter(|email| *email != user.name);
+    h_flex()
+        .gap(dp(10.))
+        .child(account_avatar(user, avatar, 32., theme))
+        .child(
+            v_flex()
+                .min_w_0()
+                .gap(dp(2.))
+                .child(
+                    div()
+                        .text_size(dp(13.))
+                        .text_color(theme.text_1)
+                        .child(user.name.clone()),
+                )
+                .children(email.map(|email| {
+                    div()
+                        .text_size(dp(12.))
+                        .text_color(theme.text_2)
+                        .child(email)
+                })),
+        )
 }
 
 /// A masked token field, with another field (a URL or an email) before it when given, and

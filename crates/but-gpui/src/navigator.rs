@@ -4478,7 +4478,7 @@ impl Render for Navigator {
             )
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
-            .child(above_drag(div().child(self.account(&theme, cx))));
+            .child(above_drag(div().child(self.settings_button(&theme, cx))));
         let store = self.store.read(cx);
         let moving = store.moving.is_some();
         let squashing =
