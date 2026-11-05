@@ -253,6 +253,7 @@ commands! {
         aliases: &["Find a brief"],
         listed: briefs_on,
     },
+    crate::detail::ChangesBeside => "Show changes beside the brief" { listed: changes_can_go_beside },
     crate::detail::WriteNote => "Write a note on this brief" { listed: brief_shown },
     crate::detail::SendNotes => "Send notes on this brief" { listed: brief_shown },
     crate::detail::Approve => "Approve this brief" { listed: brief_shown },
@@ -433,6 +434,11 @@ fn brief_here(app: &AppView, cx: &App) -> bool {
 
 fn brief_shown(app: &AppView, cx: &App) -> bool {
     app.detail.read(cx).showing_brief()
+}
+
+fn changes_can_go_beside(app: &AppView, cx: &App) -> bool {
+    let detail = app.detail.read(cx);
+    detail.showing_brief() && detail.can_show_changes_beside(cx)
 }
 
 fn briefs_off(app: &AppView, cx: &App) -> bool {

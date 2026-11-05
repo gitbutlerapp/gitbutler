@@ -411,7 +411,9 @@ impl AppView {
                     keys.as_ref().is_none_or(|keys| keys.contains(key.as_str()))
                 }
                 RowKey::Commit(of, _) => store.project(of).is_some(),
-                RowKey::Row(selection) => store.project(selection.project()).is_some(),
+                RowKey::Row(selection) | RowKey::Changes(selection) => {
+                    store.project(selection.project()).is_some()
+                }
                 RowKey::Tab(of, _) => store.project(of).is_some(),
             });
         });
@@ -4240,6 +4242,10 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
     if let RowKey::Tab(_, tab) = row {
         return tab_label(*tab);
     }
+    if let RowKey::Changes(selection) = row {
+        let (_, name) = tile_label(store, &RowKey::Row(selection.clone()));
+        return (Icon::Plus, format!("Changes of {name}").into());
+    }
     let Some(selection) = store.selection_of(row) else {
         return (Icon::Commit, "Gone".into());
     };
@@ -5041,6 +5047,7 @@ impl Render for AppView {
                         .update(cx, |detail, cx| detail.show_brief(window, cx))
                 }),
             )
+            .on_action(cx.listener(Self::brief_command::<crate::detail::ChangesBeside>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::WriteNote>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::SendNotes>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::Approve>))

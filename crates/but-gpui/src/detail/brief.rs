@@ -21,7 +21,7 @@ mod talk;
 pub(super) mod test_facts;
 
 pub(crate) use keys::{
-    Approve, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+    Approve, ChangesBeside, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
 };
 
 use super::Detail;
@@ -29,7 +29,7 @@ use super::page::{BriefFold, PageTab};
 use super::pull_request::COLUMN_MAX_WIDTH;
 use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPicture, Pictures};
 use crate::backend::run;
-use crate::state::{ProjectTab, Selection, Side};
+use crate::state::{ProjectTab, RowKey, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{Icon, dp, fixed, fold_row, h_flex, markdown, plural, v_flex};
@@ -415,7 +415,9 @@ impl Detail {
 
     /// Whether the page has a brief to show.
     pub(crate) fn has_brief(&self) -> bool {
-        self.page.brief().is_some_and(|brief| brief.found.is_some())
+        // A tile of a row's changes is there beside its brief, not to show that again.
+        !matches!(self.pinned, Some((_, RowKey::Changes(_))))
+            && self.page.brief().is_some_and(|brief| brief.found.is_some())
     }
 
     /// Whether the tab shows a brief, in place of the changes.

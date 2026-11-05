@@ -1,7 +1,7 @@
 //! Code a brief shows: what git knows about it over its lines, how sure it is to be real, and the
 //! way from it to the branch's own diff of that file.
 
-use gpui::{AnyElement, Context, Div, Hsla, SharedString, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
 use std::collections::HashSet;
 
@@ -10,6 +10,7 @@ use crate::backend::{FileDiff, LineKind};
 use crate::detail::Detail;
 use crate::detail::find::Spot;
 use crate::detail::page::{BriefFold, PageTab};
+use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
 use crate::ui::diff::{DiffRow, split_path};
 use crate::ui::file_icons::file_icon;
@@ -300,8 +301,7 @@ impl Detail {
     }
 
     /// Show the branch's own diff of `path`, at the hunk with `line` of its new side if it has
-    /// one, the brief a tab away where it was left. A file the branch doesn't change now says so,
-    /// as that's worth knowing about a brief.
+    /// one. A file the branch doesn't change now says so, as that's worth knowing about a brief.
     pub(super) fn brief_open_file(
         &mut self,
         path: &str,
@@ -309,35 +309,8 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let found = (self.shown_diff()).and_then(|loaded| {
-            let (file_ix, file) =
-                (loaded.files.iter().enumerate()).find(|(_, file)| file.file.path == path)?;
-            let hunk = line.and_then(|line| {
-                (file.hunks().iter())
-                    .position(|hunk| hunk.lines.iter().any(|at| at.new == Some(line)))
-            });
-            Some((file_ix, hunk))
-        });
-        let Some((file_ix, hunk)) = found else {
-            return (self.store).update(cx, |store, cx| {
-                store.snack("The branch doesn't change that file now", cx)
-            });
-        };
-        self.leave_brief_for_code(window, cx);
-        self.scroll_to_file(file_ix, false, cx);
-        if let Some(hunk) = hunk {
-            self.show_hunk(file_ix, hunk, cx);
-        }
-        self.focus_files(window, cx);
-        cx.notify();
-    }
-
-    /// Go to the branch's own diff, with the key back to here on it.
-    fn leave_brief_for_code(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.set_page_tab(PageTab::Changes, window, cx);
-        if let Some(brief) = self.page.brief_mut() {
-            brief.left_for_code = true;
-        }
+        let path = path.to_owned();
+        self.go_to_code(CodePlace::File { path, line }, window, cx);
     }
 
     /// Go to line `line` of hunk `hunk` of file `path` in the branch's own diff.
@@ -349,14 +322,91 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(file_ix) = (self.shown_diff())
-            .and_then(|loaded| loaded.files.iter().position(|file| file.file.path == path))
-        else {
+        let path = path.to_owned();
+        self.go_to_code(CodePlace::Line { path, hunk, line }, window, cx);
+    }
+
+    /// Show `place`: in the tile of the changes beside the brief, if there's one, where reading
+    /// goes on with the keys here, or else in the Changes tab, the brief a tab away where it was
+    /// left.
+    fn go_to_code(&mut self, place: CodePlace, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(found) = self.find_code_place(&place) else {
+            return (self.store).update(cx, |store, cx| {
+                store.snack("The branch doesn't change that file now", cx)
+            });
+        };
+        if let Some(row) = self.changes_beside(cx) {
+            return (self.store).update(cx, |_, cx| cx.emit(StoreEvent::CodeAsked(row, place)));
+        }
+        self.leave_brief_for_code(window, cx);
+        self.reveal_code_place(found, cx);
+        self.focus_files(window, cx);
+        cx.notify();
+    }
+
+    /// To the Changes tab, from where the key back comes back to the brief.
+    fn leave_brief_for_code(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_page_tab(PageTab::Changes, window, cx);
+        if let Some(brief) = self.page.brief_mut() {
+            brief.left_for_code = true;
+        }
+    }
+
+    /// This tile being the changes `row`, show `place`, as the brief beside it asked.
+    pub(in crate::detail) fn code_asked(
+        &mut self,
+        row: &RowKey,
+        place: &CodePlace,
+        cx: &mut Context<Self>,
+    ) {
+        if self.pinned.as_ref().is_none_or(|(_, pinned)| pinned != row) {
+            return;
+        }
+        if let Some(review) = self.page.review_mut() {
+            review.tab = PageTab::Changes;
+        }
+        match self.find_code_place(place) {
+            Some(found) => self.reveal_code_place(found, cx),
+            // Its diff is still on its way.
+            None => {
+                let (CodePlace::File { path, .. } | CodePlace::Line { path, .. }) = place;
+                self.pending_file = Some(path.clone());
+            }
+        }
+        cx.notify();
+    }
+
+    /// `place`'s file, hunk and line in the diff shown, as far as it says and that has them.
+    fn find_code_place(&self, place: &CodePlace) -> Option<(usize, Option<usize>, Option<usize>)> {
+        let loaded = self.shown_diff()?;
+        let (CodePlace::File { path, .. } | CodePlace::Line { path, .. }) = place;
+        let (file_ix, file) =
+            (loaded.files.iter().enumerate()).find(|(_, file)| file.file.path == *path)?;
+        Some(match place {
+            CodePlace::File { line, .. } => {
+                let hunk = line.and_then(|line| {
+                    (file.hunks().iter())
+                        .position(|hunk| hunk.lines.iter().any(|at| at.new == Some(line)))
+                });
+                (file_ix, hunk, None)
+            }
+            CodePlace::Line { hunk, line, .. } => (file_ix, Some(*hunk), Some(*line)),
+        })
+    }
+
+    fn reveal_code_place(
+        &mut self,
+        (file_ix, hunk, line): (usize, Option<usize>, Option<usize>),
+        cx: &mut Context<Self>,
+    ) {
+        self.scroll_to_file(file_ix, false, cx);
+        let Some(hunk) = hunk else {
             return;
         };
-        self.leave_brief_for_code(window, cx);
-        self.scroll_to_file(file_ix, false, cx);
         self.show_hunk(file_ix, hunk, cx);
+        let Some(line) = line else {
+            return;
+        };
         let row = self.row_of(|row| match *row {
             DiffRow::Line {
                 file,
@@ -375,7 +425,40 @@ impl Detail {
             // With a few lines above it, for what it's in.
             self.scroll_to_row(row.saturating_sub(4), false);
         }
-        self.focus_files(window, cx);
-        cx.notify();
+    }
+
+    /// The tile of this row's changes, if it's beside the brief.
+    pub(super) fn changes_beside(&self, cx: &App) -> Option<RowKey> {
+        let row = RowKey::Changes(self.selection()?);
+        let tile = Tile::Pinned(row.clone());
+        // A tile zoomed over the others leaves nothing beside it to see the code in.
+        let store = self.store.read(cx);
+        let tiling = store.tiling().filter(|_| !store.tile_zoomed())?;
+        tiling
+            .areas()
+            .iter()
+            .any(|(there, _)| *there == tile)
+            .then_some(row)
+    }
+
+    /// Whether this row's changes can go in a tile beside the brief: a branch's row, as a project's
+    /// page shows a brief of a branch that isn't the page's own, and they aren't there yet.
+    pub(crate) fn can_show_changes_beside(&self, cx: &App) -> bool {
+        matches!(self.selection(), Some(Selection::Branch(..))) && self.changes_beside(cx).is_none()
+    }
+
+    /// Put this row's changes in a tile beside the brief, with the keys left on the brief.
+    pub(super) fn show_changes_beside(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(selection) = self
+            .selection()
+            .filter(|_| self.can_show_changes_beside(cx))
+        else {
+            return;
+        };
+        let at = (self.pinned.as_ref()).map_or(Tile::Home, |(_, row)| Tile::Pinned(row.clone()));
+        (self.store).update(cx, |store, cx| {
+            store.pin(at, Axis::Across, RowKey::Changes(selection), cx)
+        });
+        cx.defer_in(window, |this, window, cx| window.focus(&this.focus, cx));
     }
 }

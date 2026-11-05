@@ -297,6 +297,19 @@ impl Cut {
     }
 }
 
+/// A place in a branch's changes that a brief points to.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodePlace {
+    /// A file, at the hunk with this line of its new side if it has one.
+    File { path: String, line: Option<u32> },
+    /// A line of a hunk of a file.
+    Line {
+        path: String,
+        hunk: usize,
+        line: usize,
+    },
+}
+
 #[derive(Debug)]
 pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
@@ -322,6 +335,8 @@ pub enum StoreEvent {
     TerminalOpened,
     /// A tile was pinned beside the selected page, to use.
     TilePinned(RowKey),
+    /// The tile of these changes was asked to show a place in them, by the brief beside it.
+    CodeAsked(RowKey, CodePlace),
     /// `tile` was taken away from the selected row's tiling, which was `before`, so the app
     /// view can draw it going: with the terminal it showed, which went with it, if it did.
     TileClosed {

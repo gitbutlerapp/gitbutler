@@ -721,7 +721,7 @@ pub(super) fn tab_to_show(
     let left = key.and_then(|(row, tile, _)| kept.read(cx).tabs.get(&(row, tile)).copied());
     let pinned_on = pinned.and_then(|(_, row)| match row {
         RowKey::Tab(_, tab) => Some(*tab),
-        RowKey::Commit(..) | RowKey::Row(_) => None,
+        RowKey::Commit(..) | RowKey::Row(_) | RowKey::Changes(_) => None,
     });
     left.or(pinned_on).unwrap_or_default()
 }
@@ -734,8 +734,16 @@ pub(super) fn open_page(
     cx: &mut App,
 ) -> PageState {
     let tab = key.map_or(ProjectTab::default(), |key| key.2);
-    (key.and_then(|key| kept.update(cx, |kept, _| kept.take(key))))
-        .unwrap_or_else(|| PageState::of(shows, tab))
+    (key.and_then(|key| kept.update(cx, |kept, _| kept.take(key)))).unwrap_or_else(|| {
+        let mut page = PageState::of(shows, tab);
+        // Changes beside a brief need the width for the diff, and have the brief to go by.
+        if let (Some((_, Tile::Pinned(RowKey::Changes(_)), _)), Some(files)) =
+            (key, page.files_mut())
+        {
+            files.files_hidden = true;
+        }
+        page
+    })
 }
 
 /// The pages nothing draws now, as they were left, for when they're shown again. A page being

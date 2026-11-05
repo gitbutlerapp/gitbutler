@@ -17,6 +17,7 @@ actions!(
         PreviousBlock,
         OpenBlock,
         WriteNote,
+        ChangesBeside,
         Approve,
         Hold,
         SendNotes,
@@ -380,6 +381,9 @@ impl Detail {
             .on_action(
                 cx.listener(|this, _: &OpenBlock, window, cx| this.open_brief_block(window, cx)),
             )
+            .on_action(cx.listener(|this, _: &ChangesBeside, window, cx| {
+                this.show_changes_beside(window, cx)
+            }))
             .on_action(cx.listener(|this, _: &WriteNote, window, cx| {
                 let to = this.brief_note_target();
                 this.write_brief_note(to, window, cx)

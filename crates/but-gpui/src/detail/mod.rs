@@ -6,7 +6,7 @@ mod blame;
 mod branches;
 mod brief;
 pub(crate) use brief::{
-    Approve, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+    Approve, ChangesBeside, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
 };
 mod composer;
 mod conversation;
@@ -696,6 +696,7 @@ impl Detail {
                 }
                 // The page draws in the home tile's room.
                 StoreEvent::TilingChanged => cx.notify(),
+                StoreEvent::CodeAsked(row, place) => this.code_asked(row, place, cx),
                 // The app view asks for it, and gives a terminal opened the keys.
                 StoreEvent::AuthorMissing(_)
                 | StoreEvent::TerminalOpened

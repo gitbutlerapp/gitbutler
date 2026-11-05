@@ -620,7 +620,7 @@ fn surviving(
 fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
     match row {
         RowKey::Row(Selection::Terminal(_, id)) => open(*id),
-        RowKey::Row(_) | RowKey::Commit(..) | RowKey::Tab(..) => true,
+        RowKey::Row(_) | RowKey::Commit(..) | RowKey::Tab(..) | RowKey::Changes(_) => true,
     }
 }
 

@@ -102,12 +102,23 @@ impl Detail {
                     .child(self.brief_versions(version, latest, cx))
                     .child(
                         // In a narrow tile these go under, rather than crushing the rest.
-                        h_flex().ml_auto().child(
-                            icon_button("brief-web", Icon::Globe)
-                                .small()
-                                .tooltip("Open on the web")
-                                .on_click(move |_, _, cx| cx.open_url(&url)),
-                        ),
+                        h_flex()
+                            .ml_auto()
+                            .children(self.can_show_changes_beside(cx).then(|| {
+                                button("brief-beside", "Changes beside")
+                                    .icon(Icon::SplitRight)
+                                    .style(ButtonStyle::Ghost)
+                                    .small()
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.show_changes_beside(window, cx)
+                                    }))
+                            }))
+                            .child(
+                                icon_button("brief-web", Icon::Globe)
+                                    .small()
+                                    .tooltip("Open on the web")
+                                    .on_click(move |_, _, cx| cx.open_url(&url)),
+                            ),
                     ),
             )
             .children(status.map(|status| super::small_line(&status, theme.text_3)))
