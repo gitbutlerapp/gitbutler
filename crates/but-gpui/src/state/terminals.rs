@@ -57,8 +57,8 @@ struct Open {
     /// The name the user gave it, if they did.
     named: Option<SharedString>,
     status: Status,
-    /// It was opened in a tile, which it lives in alone: the navigator doesn't list it, and it
-    /// closes with the tile.
+    /// It was opened in a tile or dragged into one, which it lives in alone: the navigator
+    /// doesn't list it, and it closes with the tile.
     tiled: bool,
     _events: Subscription,
 }
@@ -91,8 +91,8 @@ impl Terminals {
             .map(|open| &open.status)
     }
 
-    /// Those open on `project`'s `checkout`, in the order they opened, but for those opened in
-    /// a tile, which live there alone.
+    /// Those open on `project`'s `checkout`, in the order they opened, but for those living in
+    /// a tile alone.
     pub fn on<'a>(
         &'a self,
         project: &'a ProjectId,
@@ -104,7 +104,7 @@ impl Terminals {
             .map(|open| (open.id, &open.terminal))
     }
 
-    /// Whether terminal `id` was opened in a tile, which it lives in alone.
+    /// Whether terminal `id` lives in a tile alone.
     pub fn tiled(&self, id: TerminalId) -> bool {
         self.open.iter().any(|open| open.id == id && open.tiled)
     }
@@ -386,6 +386,43 @@ impl Store {
         }
     }
 
+    /// Have the terminal in tile `pinned` of the selected row's tiling, dragged there from the
+    /// navigator, live there alone: the navigator stops listing it, and it leaves any other
+    /// tiling it's in. Not one with tiles of its own, which only its row shows.
+    pub(super) fn tile_terminal(&mut self, pinned: &RowKey, cx: &mut Context<Self>) {
+        let RowKey::Row(Selection::Terminal(_, id)) = pinned else {
+            return;
+        };
+        let Some(selection) = &self.selection else {
+            return;
+        };
+        if self.tilings.contains_key(pinned) {
+            return;
+        }
+        let row = self.row_key(selection);
+        let before = self.tilings.clone();
+        leave_other_tilings(&mut self.tilings, &row, pinned);
+        self.set_tiled(*id, true);
+        if self.tilings != before {
+            cx.emit(StoreEvent::TilingChanged);
+        }
+        cx.notify();
+    }
+
+    /// Take tile `pinned` away from the selected row's tiling, as [`Self::close_tile`] does, its
+    /// terminal, dragged to the navigator, staying open and listed where its move shows it.
+    pub fn list_tiled_terminal(&mut self, pinned: &RowKey, cx: &mut Context<Self>) {
+        if let RowKey::Row(Selection::Terminal(_, id)) = pinned {
+            self.set_tiled(*id, false);
+        }
+        if let Some(moving) = self.moving.take()
+            && let Some(order) = moving.terminal_order()
+        {
+            self.order_terminals(&moving.project, &order, cx);
+        }
+        self.close_tile(pinned, cx);
+    }
+
     /// Tells each terminal whether it's on screen: the one selected and those pinned beside it,
     /// while the window shows. Those out of sight read and answer their shells but don't draw.
     pub(super) fn show_terminals(&mut self, cx: &mut Context<Self>) {
@@ -533,6 +570,17 @@ impl Store {
     }
 }
 
+/// Take `pinned` out of `tilings` but for `row`'s: a tiling goes with the last tile beside its
+/// home one.
+fn leave_other_tilings(tilings: &mut HashMap<RowKey, Tiling>, row: &RowKey, pinned: &RowKey) {
+    tilings.retain(|other, tiling| {
+        if other != row {
+            tiling.retain(&|tile| tile != pinned);
+        }
+        !tiling.is_home_only()
+    });
+}
+
 /// `tilings` as they stand with only the terminals `open` says are: a tiling goes with its
 /// row's terminal, and with the last tile beside its home one.
 #[cfg(unix)]
@@ -560,7 +608,9 @@ fn row_open(row: &RowKey, open: &impl Fn(TerminalId) -> bool) -> bool {
 
 #[cfg(all(test, unix))]
 mod tests {
-    use super::{Handed, HandedTilings, surviving};
+    use std::collections::HashMap;
+
+    use super::{Handed, HandedTilings, leave_other_tilings, surviving};
     use crate::backend::Checkout;
     use crate::state::{Axis, MeshPick, ProjectTab, RowKey, Section, Selection, Tile, Tiling};
     use crate::terminal::TerminalId;
@@ -589,6 +639,46 @@ mod tests {
             tiling.pin(&Tile::Home, Axis::Across, row);
         }
         tiling
+    }
+
+    #[test]
+    fn a_terminal_dragged_into_a_tile_leaves_the_other_tilings_it_is_in() {
+        let other = RowKey::Commit("project".into(), "other".to_owned());
+        let mut tilings = HashMap::from([
+            (commit(), tiled([terminal(1)])),
+            (other.clone(), tiled([terminal(1), terminal(2)])),
+        ]);
+        leave_other_tilings(&mut tilings, &commit(), &terminal(1));
+        assert_eq!(
+            tilings.get(&other),
+            Some(&tiled([terminal(2)])),
+            "it lives only in the tile it was dragged to"
+        );
+    }
+
+    #[test]
+    fn a_terminal_dragged_into_a_tile_stays_in_the_tiling_it_landed_in() {
+        let mut tilings = HashMap::from([(commit(), tiled([terminal(1)]))]);
+        leave_other_tilings(&mut tilings, &commit(), &terminal(1));
+        assert_eq!(
+            tilings.get(&commit()),
+            Some(&tiled([terminal(1)])),
+            "the tile it landed as is its home now"
+        );
+    }
+
+    #[test]
+    fn a_tiling_goes_with_the_last_tile_a_dragged_terminal_leaves() {
+        let other = RowKey::Commit("project".into(), "other".to_owned());
+        let mut tilings = HashMap::from([
+            (commit(), tiled([terminal(1)])),
+            (other.clone(), tiled([terminal(1)])),
+        ]);
+        leave_other_tilings(&mut tilings, &commit(), &terminal(1));
+        assert!(
+            !tilings.contains_key(&other),
+            "only the home tile was left beside it"
+        );
     }
 
     #[test]

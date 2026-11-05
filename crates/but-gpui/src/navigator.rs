@@ -81,6 +81,9 @@ const MARK_PAD: f32 = 3.;
 /// How far apart the cards are, as the detail's are.
 pub(super) const CARD_GAP: f32 = 8.;
 
+/// How round a card's corners are.
+const CARD_CORNER: f32 = 6.;
+
 /// How wide and tall the map of a row's tiles is, and the gap between them there.
 const TILE_MAP: (f32, f32) = (20., 14.);
 const TILE_MAP_GAP: f32 = 1.5;
@@ -2068,9 +2071,18 @@ impl Navigator {
         // would cover it, past its top or bottom, and never covers the card beside it as cards
         // trade places. While rows slide, what's in every row is drawn over all that, so no
         // stretch covers it, on the card's ground so the rows it passes don't show through,
-        // the copies of commits being moved over the rest, inside the list.
+        // the copies of commits being moved over the rest, inside the list. A card's last row
+        // carries its bottom edge, so as rows of the card trade places, the edge stays where the
+        // card ends, on a stretch of its own.
         let slid = slid_at(ix);
         let below = match last {
+            true if self.reorder.any() => {
+                let card = (0..ix).rev().map_while(|above| match self.rows.get(above) {
+                    Some(Row::Gap) | None => None,
+                    Some(_) => Some(slid_at(above)),
+                });
+                past_last_row(card, slid)
+            }
             true => 0.,
             false => {
                 let room = card_beyond(&self.rows, ix, true, -slid);
@@ -2083,12 +2095,15 @@ impl Navigator {
         };
         // What's in the card being dragged goes over everything, as it goes over the cards it
         // passes (see below), and so do the rows of a linked worktree being moved, over those of
-        // the others it passes; the copies of what's moving over the rest, and the selected row,
-        // which moves, over the rows it passes. The new branch the copies would land in shows
-        // from under what slides off it, rather than over what's about to.
-        let selection = self.store.read(cx).selection.as_ref();
+        // the others it passes, and a terminal being moved, selected or not; the copies of
+        // what's moving over the rest, and the selected row, which moves, over the rows it
+        // passes. The new branch the copies would land in shows from under what slides off it,
+        // rather than over what's about to.
+        let store = self.store.read(cx);
+        let selection = store.selection.as_ref();
         let over_rank = match self.rows.get(ix) {
             _ if held || held_worktree => 3,
+            Some(Row::Item(item)) if matches!(moving::mark(store, item), Some(Mark::Held(_))) => 3,
             Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
             _ => 0,
@@ -2140,10 +2155,14 @@ impl Navigator {
             .border_l_1()
             .border_r_1()
             .when(first, |el| {
-                el.border_t_1().rounded_t(dp(6.)).pt(dp(CARD_PADDING))
+                el.border_t_1()
+                    .rounded_t(dp(CARD_CORNER))
+                    .pt(dp(CARD_PADDING))
             })
             .when(last, |el| {
-                el.border_b_1().rounded_b(dp(6.)).pb(dp(CARD_PADDING))
+                el.border_b_1()
+                    .rounded_b(dp(CARD_CORNER))
+                    .pb(dp(CARD_PADDING))
             })
             .map(|card| match folding {
                 Some((height, closing)) => card.child(clipped(
@@ -2176,7 +2195,14 @@ impl Navigator {
                 .border_r_1()
                 .children(guides())
         };
-        let below = (below > 0.).then(|| stretched(below).top(relative(1.)));
+        let below = (below > 0.).then(|| match last {
+            // Over the last row's own edge and corners, which are no longer the card's.
+            true => stretched(below + CARD_CORNER)
+                .bottom(dp(-below))
+                .border_b_1()
+                .rounded_b(dp(CARD_CORNER)),
+            false => stretched(below).top(relative(1.)),
+        });
         let above = (above > 0.).then(|| stretched(above).top(dp(-above)));
         // Padded, not margined: a list lays its rows out from their left edge.
         let row = div()
@@ -4019,6 +4045,17 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> Option<Range
     })
 }
 
+/// How far a card goes on below its last row, drawn `slid` from where it's laid out, given how
+/// far the rows `above` it are: down to where the card ends, while that row's above its place
+/// and another's below its own, as rows trading places leave the card as long as it was. Else
+/// nothing, as a card moving whole or a row coming in moves the edge with the last row.
+fn past_last_row(mut above: impl Iterator<Item = f32>, slid: f32) -> f32 {
+    match slid < 0. && above.any(|above| above > 0.) {
+        true => -slid,
+        false => 0.,
+    }
+}
+
 /// How far the rest of row `ix`'s card goes on from it, down or else up, up to `room`, short of
 /// the card's last or first row: a stretch over those would show its square corners outside
 /// their round ones, which they're drawn with anyway, by the list or by [`Navigator::slid_in`].
@@ -4671,7 +4708,7 @@ impl Render for Navigator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, Step, headings_reordered, step_to};
+    use super::{Row, Step, headings_reordered, past_last_row, step_to};
     use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
 
@@ -4782,6 +4819,51 @@ mod tests {
             "and forward, at the top"
         );
         assert_eq!(step_to(None, 3, None, false, 1), Some(Step::Item(0)));
+    }
+
+    #[test]
+    fn a_card_moving_whole_keeps_its_edge_on_its_last_row() {
+        assert_eq!(
+            past_last_row([-60., -60.].into_iter(), -60.),
+            0.,
+            "every row slides as far, so the edge goes with them"
+        );
+    }
+
+    #[test]
+    fn a_row_landing_last_leaves_the_edge_where_the_card_ends() {
+        assert_eq!(
+            past_last_row([28., 28.].into_iter(), -56.),
+            56.,
+            "the rows trade places, so the card stays as long as it was"
+        );
+    }
+
+    #[test]
+    fn a_row_rising_from_last_leaves_the_edge_where_the_card_ends() {
+        assert_eq!(
+            past_last_row([-28., 56.].into_iter(), -28.),
+            28.,
+            "the row on its way up is two rows over the last"
+        );
+    }
+
+    #[test]
+    fn a_row_coming_in_moves_the_edge_with_the_last_row() {
+        assert_eq!(
+            past_last_row([0., 0.].into_iter(), -28.),
+            0.,
+            "the card grows as the rows below it make room"
+        );
+    }
+
+    #[test]
+    fn a_row_taken_away_moves_the_edge_with_the_last_row() {
+        assert_eq!(
+            past_last_row([28., 0.].into_iter(), 28.),
+            0.,
+            "the card shrinks as the rows close up"
+        );
     }
 
     #[test]

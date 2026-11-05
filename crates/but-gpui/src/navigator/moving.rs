@@ -2761,6 +2761,34 @@ last on empty
     }
 
     #[test]
+    fn a_terminal_from_a_tile_shows_among_those_listed_where_it_is_held() {
+        let wt = Checkout::Linked("wt".into());
+        let moving = Move {
+            project: ProjectId::from("p"),
+            what: Moving::Terminal {
+                id: TerminalId(3),
+                lists: Arc::from([
+                    (Checkout::Main, vec![TerminalId(1)]),
+                    (wt.clone(), vec![TerminalId(2)]),
+                ]),
+            },
+            at: Stop::Terminal {
+                checkout: wt.clone(),
+                slot: Slot::Before(TerminalId(2)),
+            },
+            op: Op::Move,
+        };
+        assert_eq!(
+            moving.terminal_order(),
+            Some(vec![
+                (Checkout::Main, vec![TerminalId(1)]),
+                (wt, vec![TerminalId(3), TerminalId(2)]),
+            ]),
+            "it's listed nowhere yet, so it only joins the worktree it's held over"
+        );
+    }
+
+    #[test]
     fn a_click_on_the_next_terminal_puts_the_terminal_moving_after_it() {
         let project = ProjectId::from("p");
         let lists = [(Checkout::Main, vec![TerminalId(1), TerminalId(2)])];

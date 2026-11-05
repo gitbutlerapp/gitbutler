@@ -1648,8 +1648,9 @@ impl Store {
         cx.notify();
     }
 
-    /// The tile a row dragged in was let go as is there to stay, to use.
+    /// The tile a row dragged in was let go as is there to stay, to use, a terminal's alone.
     pub fn row_landed(&mut self, pinned: RowKey, cx: &mut Context<Self>) {
+        self.tile_terminal(&pinned, cx);
         cx.emit(StoreEvent::TilePinned(pinned));
     }
 
@@ -1785,7 +1786,7 @@ impl Store {
 
     /// Take the tile showing `pinned` away from the selected row's tiling, the tiles beside it
     /// growing into its room. What it showed stays open, as a terminal does in the navigator,
-    /// but for a terminal opened in the tile, which closes with it.
+    /// but for a terminal living in the tile alone, which closes with it.
     pub fn close_tile(&mut self, pinned: &RowKey, cx: &mut Context<Self>) {
         if let RowKey::Row(Selection::Terminal(_, id)) = pinned
             && self.terminals.tiled(*id)

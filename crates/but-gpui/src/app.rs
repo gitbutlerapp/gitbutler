@@ -27,9 +27,11 @@ use crate::state::{
     Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones,
     snack, tile_beside, up_to_date,
 };
-use crate::terminal::NewTerminal;
+use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
-use crate::transfer::{Move, Moving, Op, Place, ProjectDrag, Transfer};
+use crate::transfer::{
+    Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer, terminal_preview,
+};
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
     Button, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
@@ -488,10 +490,15 @@ impl AppView {
                     tile,
                     terminal,
                 } => {
+                    // Before the tiling changing forgets the drag.
+                    let listed = (this.tile_drag.as_ref()).is_some_and(|drag| {
+                        drag.over_navigator && drag.tile == Tile::Pinned(tile.clone())
+                    });
                     let going = Going {
                         before: before.clone(),
                         terminal: terminal.clone(),
                         page: this.pages.remove(tile),
+                        listed,
                     };
                     this.slide_tile(tile.clone(), Some(going), cx);
                 }
@@ -2301,6 +2308,9 @@ impl AppView {
             let on_top_of_others = lifted.as_ref() == Some(&tile);
             let el = match tile {
                 Tile::Home => return None,
+                Tile::Pinned(pinned) if self.going(&pinned).is_some_and(|going| going.listed) => {
+                    return None;
+                }
                 Tile::Pinned(pinned) if sliding.as_ref() == Some(&pinned) => {
                     let rest = (resting.iter().flat_map(Tiling::areas))
                         .find(|(tile, _)| *tile == Tile::Pinned(pinned.clone()))?;
@@ -2322,9 +2332,10 @@ impl AppView {
             .relative()
             // Escape puts a tile dragged by its bar back, before the terminal with the keys,
             // the dragged one's, would send it to its shell.
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 if this.tile_dragged() && event.keystroke.key == "escape" {
                     this.let_go_tile(true, cx);
+                    cx.stop_active_drag(window);
                     cx.stop_propagation();
                 }
             }))
@@ -2490,6 +2501,8 @@ impl AppView {
         let focus = self.tile_focus(&Tile::Pinned(pinned.clone()), cx);
         let grab = self.grab_tile(Tile::Pinned(pinned.clone()), cx);
         let tile_buttons = self.tile_buttons(&Tile::Pinned(pinned.clone()), cx);
+        let tile = Tile::Pinned(pinned.clone());
+        let bar_id = SharedString::from(format!("bar-{pinned:?}"));
         let id = SharedString::from(format!("close-{pinned:?}"));
         let close = {
             let store = self.store.clone();
@@ -2501,7 +2514,19 @@ impl AppView {
             .tooltip_for("Close", &CloseTile)
             .on_click(move |_, _, cx| on_click(cx));
         let buttons = tile_buttons.into_iter().chain(Some(close));
-        let bar = tile_bar(kind, title, buttons, focus, grab, theme).flex_none();
+        let bar = tile_bar(kind, title, buttons, focus, grab, theme)
+            .flex_none()
+            .id(bar_id);
+        // Dragged as its row is, so the navigator takes it in as it does a row. Not while
+        // something else moves, which that would end.
+        let bar = match terminal_of(&tile).filter(|_| self.store.read(cx).moving.is_none()) {
+            Some((project, id)) => {
+                let project = project.clone();
+                let preview = terminal_preview(self.store.clone(), true);
+                bar.on_drag(TerminalDrag { project, id }, preview)
+            }
+            None => bar,
+        };
         Some(
             placed(area)
                 // Over the home tile's detail, which spans the room under it, gaps and all.
@@ -3313,12 +3338,15 @@ impl AppView {
             reflow: Slide::default(),
             resize: Slide::default(),
             released: false,
+            over_navigator: false,
         });
     }
 
     /// Follow the pointer with the tile pressed by its bar, past the lift: what lands it
     /// where, and the other tiles make room there once it's rested over it. Whether the move
-    /// was the drag's, so nothing under the pointer sees it.
+    /// was the drag's, so nothing under the pointer sees it. A terminal's bar drags it as its
+    /// row does too, so that once the navigator shows it where it'd go, a row takes the place
+    /// of its tile; another tile over the navigator lands along the left of the room.
     fn drag_tile(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) -> bool {
         if self.tile_drag.as_ref().is_none_or(|drag| drag.released) {
             return false;
@@ -3337,9 +3365,11 @@ impl AppView {
             f32::from(theme.scaled(feel.right_edge)),
             f32::from(theme.scaled(feel.bar)),
         );
+        let moving = self.store.read(cx).moving.as_ref();
         let Some(drag) = self.tile_drag.as_mut() else {
             return false;
         };
+        let terminal = terminal_of(&drag.tile).map(|(_, id)| id);
         let at = event.position - room.origin;
         if !drag.lifted {
             let moved = at - drag.pressed;
@@ -3350,7 +3380,13 @@ impl AppView {
             self.tile_slide = None;
         }
         drag.pointer = at;
-        let over = drag.landing_under((at.x.into(), at.y.into()), room.size, sizes);
+        drag.over_navigator =
+            terminal.is_some_and(|id| moving.is_some_and(|moving| moving.of_terminal(id)));
+        // Shown in the navigator, the tiles go back to how they were, as it's left them.
+        let over = match drag.over_navigator {
+            true => Some(Landing::Stay),
+            false => drag.landing_under((at.x.into(), at.y.into()), room.size, sizes),
+        };
         match over {
             None => drag.pending = None,
             Some(landing) => {
@@ -3362,11 +3398,13 @@ impl AppView {
             }
         }
         self.move_tiles(cx);
-        true
+        // GPUI starts a terminal's drag from a move it sees.
+        terminal.is_none() || cx.has_active_drag()
     }
 
     /// Let go of the tile dragged by its bar, or put it back where it was `back`, as Escape
-    /// does: it settles into its place, and the row's tiling is as it lands.
+    /// does: it settles into its place, and the row's tiling is as it lands. A terminal shown
+    /// in the navigator leaves the tiles for where it shows.
     fn let_go_tile(&mut self, back: bool, cx: &mut Context<Self>) {
         let reflow = self.store.read(cx).tile_drag_feel.reflow;
         let room = self.tile_room.get().size;
@@ -3377,6 +3415,16 @@ impl AppView {
         if !drag.lifted {
             self.tile_drag = None;
             return;
+        }
+        if let (false, true, Tile::Pinned(pinned)) = (back, drag.over_navigator, &drag.tile) {
+            let pinned = pinned.clone();
+            drag.released = true;
+            self.store
+                .update(cx, |store, cx| store.list_tiled_terminal(&pinned, cx));
+            return;
+        }
+        if std::mem::take(&mut drag.over_navigator) {
+            (self.store).update(cx, |store, cx| store.set_moving(None, cx));
         }
         let now = clock::now();
         drag.from = drag.areas(now, room);
@@ -4086,6 +4134,14 @@ impl AppView {
     }
 }
 
+/// The project and id of the terminal `tile` shows, if it's a pinned terminal.
+fn terminal_of(tile: &Tile) -> Option<(&ProjectId, TerminalId)> {
+    match tile {
+        Tile::Pinned(RowKey::Row(Selection::Terminal(project, id))) => Some((project, *id)),
+        Tile::Pinned(_) | Tile::Home => None,
+    }
+}
+
 /// A line over the edge of a tile's card, in `color`: the tile with the keys', in gray, or one
 /// a drag would paste into or the keys are moving, in pop.
 fn card_edge(color: gpui::Hsla) -> Div {
@@ -4322,6 +4378,8 @@ struct Going {
     before: Tiling,
     terminal: Option<Entity<crate::terminal::Terminal>>,
     page: Option<Page>,
+    /// Whether it was let go over the navigator, which it's gone to: only the others move.
+    listed: bool,
 }
 
 /// A tile pressed by its bar, from then until it's let go and has settled where it lands.
@@ -4359,6 +4417,8 @@ struct TileDrag {
     resize: Slide,
     /// Whether it's been let go, and settles into its place.
     released: bool,
+    /// Whether it's a terminal the navigator shows as a row, where letting go lists it.
+    over_navigator: bool,
 }
 
 /// A tile of the selected row grown over the others to take all their room, or on its way
@@ -4441,6 +4501,9 @@ struct DropZone {
     right: f32,
     bottom: f32,
 }
+
+/// Where a tile is drawn out of sight, in shares of the room from its left.
+const OUT_OF_SIGHT: f32 = -100.;
 
 /// How finely [`TileDrag::zones`] looks where the pointer lands the tile, in pixels.
 const ZONE_STEP: f32 = 6.;
@@ -4564,7 +4627,11 @@ impl TileDrag {
                 );
                 let down = self.grab.1.clamp(0., height * room_height);
                 Area {
-                    left: f32::from(self.pointer.x) / room_width - self.grab.0 * width,
+                    // A row shows it, and it stays drawn, for the keys it has.
+                    left: match self.over_navigator {
+                        true => OUT_OF_SIGHT,
+                        false => f32::from(self.pointer.x) / room_width - self.grab.0 * width,
+                    },
                     top: (f32::from(self.pointer.y) - down) / room_height,
                     width,
                     height,

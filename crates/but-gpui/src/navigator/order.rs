@@ -419,7 +419,7 @@ impl Navigator {
             return el;
         }
         let navigator = cx.entity().downgrade();
-        let preview = terminal_preview(self.store.clone());
+        let preview = terminal_preview(self.store.clone(), false);
         let preview = row_preview(self.store.clone(), item.clone(), preview);
         let drag = TerminalDrag {
             project: item.project().clone(),
@@ -947,6 +947,22 @@ mod tests {
             (Checkout::Main, vec![TerminalId(1), TerminalId(2)]),
             (Checkout::Linked("w".into()), vec![TerminalId(3)]),
         ]
+    }
+
+    #[test]
+    fn a_terminal_from_a_tile_goes_where_its_row_would_be_nearest() {
+        let (p, rows) = terminals(&[1, 2], &[3]);
+        let lists = lists();
+        let middle = |ix: usize| super::span_height(&rows, 0..ix) + ROW_HEIGHT / 2.;
+        let goes = |depth| terminal_slot(&rows, &p, TerminalId(4), &lists, depth);
+        assert!(
+            goes(middle(4)) == Some((Checkout::Main, Slot::Before(TerminalId(2)))),
+            "unlisted, it has no row of its own to leave out, so it goes before the row it's over"
+        );
+        assert!(
+            goes(-10.).is_none(),
+            "off its project's card it goes nowhere, and stays a tile"
+        );
     }
 
     #[test]
