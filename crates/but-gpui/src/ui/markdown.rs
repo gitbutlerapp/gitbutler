@@ -21,15 +21,17 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, CursorStyle, DispatchPhase, Font, FontWeight, Hsla, InteractiveElement,
-    InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement,
-    Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout, TextRun,
-    UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
+    AnyElement, App, AppContext as _, CursorStyle, DispatchPhase, Font, FontWeight, Hsla,
+    InteractiveElement, InteractiveText, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent,
+    ParentElement, Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout,
+    TextRun, UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
 };
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{BlockQuoteKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use super::{TextPoint, Tooltip, dp, fixed, h_flex, selected_part, text_index, v_flex};
-use crate::backend::images;
+use super::{
+    TextPoint, Tooltip, diff, dp, fixed, h_flex, popover, selected_part, text_index, v_flex,
+};
+use crate::backend::{DiffLine, images};
 use crate::theme::Theme;
 
 mod figure;
@@ -71,10 +73,19 @@ pub struct Block {
     pub styles: Vec<(Range<usize>, Style)>,
     /// Where each link goes, by the text it covers; only addresses that are safe to open.
     pub links: Vec<(Range<usize>, String)>,
+    /// What links show on hover in place of where they go, by the text they cover.
+    pub peeks: Vec<(Range<usize>, Peek)>,
     /// Inside HTML that centres it.
     pub centered: bool,
     /// Its place in a table, which lays out its cells in columns.
     pub cell: Option<TableCell>,
+}
+
+impl Block {
+    /// Whether any of its words have `tint` behind them.
+    pub fn has_tint(&self, tint: Tint) -> bool {
+        (self.styles.iter()).any(|(_, style)| style.tint == Some(tint))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,8 +139,40 @@ pub struct Style {
     pub italic: bool,
     pub strike: bool,
     pub code: bool,
-    /// Matches a search, tinted as the diff's find tints its matches.
-    pub mark: bool,
+    pub tint: Option<Tint>,
+}
+
+/// What the ground behind some words says, the later over the earlier where they overlap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tint {
+    /// New since what was read before.
+    Fresh,
+    /// Someone's comment is about it.
+    Said,
+    /// A comment not sent yet is about it.
+    Draft,
+    /// The comment pointed at is about it.
+    Saying,
+    /// The comment not sent yet that's pointed at or being written is about it.
+    SayingDraft,
+    /// Matches a search, as the diff's find tints its matches.
+    Found,
+    /// The match a search is on.
+    FoundHere,
+}
+
+impl Tint {
+    fn ground(self, theme: &Theme) -> Hsla {
+        match self {
+            Tint::Fresh => theme.pop.opacity(0.2),
+            Tint::Said => theme.warn.opacity(0.14),
+            Tint::Draft => theme.blue.opacity(0.12),
+            Tint::Saying => theme.warn.opacity(0.34),
+            Tint::SayingDraft => theme.blue.opacity(0.24),
+            Tint::Found => theme.warn.opacity(0.28),
+            Tint::FoundHere => theme.warn.opacity(0.6),
+        }
+    }
 }
 
 /// What the pointer does to a description's text, and what of it is selected, at points by
@@ -148,6 +191,9 @@ pub struct Select {
 
 pub type OnTextDown = Rc<dyn Fn(TextPoint, &str, &MouseDownEvent, &mut Window, &mut App)>;
 pub type OnTextDrag = Rc<dyn Fn(TextPoint, &mut Window, &mut App)>;
+/// What goes around a block as it's drawn, given which of the blocks it draws. It sets the text
+/// cursor on the block.
+pub type Beside<'a> = &'a dyn Fn(std::ops::Range<usize>, AnyElement) -> AnyElement;
 
 /// A block's text as it's laid out, by the block's index.
 type Laid = (usize, TextLayout, SharedString);
@@ -378,9 +424,21 @@ fn collapse_spaces(text: &str) -> String {
 
 /// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, false)
+}
+
+/// [`parse`], for a document of parts: its `#part` links go to them, which whatever shows it
+/// follows by [`FollowAnchor`].
+pub fn parse_with_anchors(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, true)
+}
+
+fn parse_links(markdown: &str, anchors: bool) -> Vec<Block> {
     let end = markdown.floor_char_boundary(MAX_BYTES);
-    let options =
-        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_TABLES;
+    let options = Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_TABLES
+        | Options::ENABLE_GFM;
     let mut blocks = Vec::new();
     let mut current: Option<Block> = None;
     let mut style = Style::default();
@@ -416,6 +474,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         text: String::new(),
         styles: Vec::new(),
         links: Vec::new(),
+        peeks: Vec::new(),
         centered: centered.get(),
         cell: in_cell.get(),
     };
@@ -485,13 +544,18 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         }
     }
     /// A link from where `current` has got to, to `url` if that's safe to open.
-    fn open_link(current: &Option<Block>, url: &str) -> (usize, Option<String>) {
+    fn open_link(current: &Option<Block>, url: &str, anchors: bool) -> (usize, Option<String>) {
         // After images, its words start a block of their own.
         let words = current
             .as_ref()
             .filter(|block| !matches!(block.kind, Kind::Images(_)));
         let at = words.map_or(0, |block| block.text.len());
-        (at, safe_link(url).then(|| url.trim().to_owned()))
+        let url = url.trim();
+        let goes = match url.strip_prefix('#').filter(|_| anchors) {
+            Some(part) => Some(format!("{ANCHOR}{part}")),
+            None => safe_link(url).then(|| url.to_owned()),
+        };
+        (at, goes)
     }
     /// Mark the text `link` covers, up to where `current` has got to.
     fn close_link(link: Option<(usize, Option<String>)>, current: &mut Option<Block>) {
@@ -628,9 +692,29 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 close(&mut blocks, &mut current);
                 current = Some(open(Kind::Code, &lists, quotes, outermost));
             }
-            Event::Start(Tag::BlockQuote(_)) => {
+            Event::Start(Tag::BlockQuote(alert)) => {
                 close(&mut blocks, &mut current);
                 quotes += 1;
+                // An alert says what kind it is above its words, as GitHub draws it.
+                if let Some(alert) = alert {
+                    let word = match alert {
+                        BlockQuoteKind::Note => "Note",
+                        BlockQuoteKind::Tip => "Tip",
+                        BlockQuoteKind::Important => "Important",
+                        BlockQuoteKind::Warning => "Warning",
+                        BlockQuoteKind::Caution => "Caution",
+                    };
+                    let mut label = open(Kind::Paragraph, &lists, quotes, outermost);
+                    label.text.push_str(word);
+                    label.styles.push((
+                        0..word.len(),
+                        Style {
+                            bold: true,
+                            ..Default::default()
+                        },
+                    ));
+                    blocks.push(label);
+                }
             }
             Event::End(TagEnd::BlockQuote(_)) => {
                 close(&mut blocks, &mut current);
@@ -742,7 +826,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             Event::Start(Tag::Strikethrough) => style.strike = true,
             Event::End(TagEnd::Strikethrough) => style.strike = false,
             Event::Start(Tag::Link { dest_url, .. }) => {
-                link = Some(open_link(&current, &dest_url));
+                link = Some(open_link(&current, &dest_url, anchors));
             }
             Event::End(TagEnd::Link) => close_link(link.take(), &mut current),
             Event::Start(Tag::Image { dest_url, .. }) => {
@@ -840,7 +924,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             "s" | "del" | "strike" => style.strike = true,
                             "a" => {
                                 let href = attribute(&attributes, "href").unwrap_or("");
-                                link = Some(open_link(&current, href));
+                                link = Some(open_link(&current, href, anchors));
                             }
                             "img" => {
                                 let src = attribute(&attributes, "src").unwrap_or("").trim();
@@ -923,6 +1007,53 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     blocks
 }
 
+/// How a link to a part of the same document starts, which whatever shows the document follows
+/// by [`FollowAnchor`], as nothing outside it could.
+pub const ANCHOR: &str = "anchor:";
+
+/// How a link to code on the branch starts, which is quieter than a link that leaves the page.
+pub const CODE_ANCHOR: &str = "anchor:code:";
+
+/// The lines a link to code shows on hover, and the file they're from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Peek {
+    pub path: String,
+    pub lines: Arc<[DiffLine]>,
+}
+
+impl gpui::Render for Peek {
+    fn render(&mut self, _: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let theme = Theme::get(cx);
+        popover(theme)
+            .mt(dp(4.))
+            .w(dp(620.))
+            .overflow_hidden()
+            .child(
+                div()
+                    .px(dp(10.))
+                    .py(dp(5.))
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .text_size(dp(11.))
+                    .text_color(theme.text_2)
+                    .font_family(theme.ui_font.clone())
+                    .child(self.path.clone()),
+            )
+            .child(diff::excerpt_flat(&self.lines, theme))
+    }
+}
+
+/// A link to part of the document was clicked, naming the part.
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = markdown, no_json)]
+pub struct FollowAnchor(pub String);
+
+/// Image `at` of `gallery`, filling the width of what it's in, which a click previews with the
+/// rest a key away.
+pub fn figure(id: impl Into<SharedString>, gallery: Arc<[Image]>, at: usize) -> impl IntoElement {
+    figure::Figure::new(id, gallery, at).fill()
+}
+
 /// The images a description draws, in order, and where each block's first is among them, so a
 /// preview pages through all of them.
 struct Gallery {
@@ -949,6 +1080,17 @@ impl Gallery {
 /// `blocks` drawn as text, `id` telling apart the links of one description from another's,
 /// its text selectable as `select` says.
 pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme) -> AnyElement {
+    render_beside(id, blocks, select, None, theme)
+}
+
+/// [`render`], with `beside` drawing around each block, while a selection still runs across them.
+pub fn render_beside(
+    id: &str,
+    blocks: &[Block],
+    select: Option<Select>,
+    beside: Option<Beside<'_>>,
+    theme: &Theme,
+) -> AnyElement {
     let gallery = Gallery::of(blocks);
     let range = select.as_ref().and_then(|select| select.range);
     let mut texts = Vec::new();
@@ -982,8 +1124,16 @@ pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme)
                 1,
             ),
         };
-        column = column.child(placed(block, space, el, theme));
-        ix += drawn.max(1);
+        let drawn = drawn.max(1);
+        column = column.child(match beside {
+            // The space goes outside, so what's beside it starts level with its text.
+            Some(beside) => div()
+                .mt(dp(space))
+                .child(beside(ix..ix + drawn, placed(block, 0., el, theme)))
+                .into_any_element(),
+            None => placed(block, space, el, theme),
+        });
+        ix += drawn;
     }
     let Some(select) = select else {
         return column.into_any_element();
@@ -991,7 +1141,8 @@ pub fn render(id: &str, blocks: &[Block], select: Option<Select>, theme: &Theme)
     let texts: Rc<[Laid]> = texts.into();
     let (pressed, down) = (texts.clone(), select.down);
     column
-        .cursor(CursorStyle::IBeam)
+        // What's drawn around the blocks can be more than text, so it says where the text is.
+        .when(beside.is_none(), |el| el.cursor(CursorStyle::IBeam))
         // Only a press on text selects: one on an image, a centred block or between blocks
         // doesn't reach into the text beside it.
         .on_mouse_down(MouseButton::Left, move |event, window, cx| {
@@ -1133,6 +1284,7 @@ fn words(id: &str, image: &Image, theme: &Theme) -> AnyElement {
         list: 0,
         styles: Vec::new(),
         links: vec![(0..words.len(), image.opens.clone())],
+        peeks: Vec::new(),
         text: words,
         centered: false,
         cell: None,
@@ -1189,9 +1341,11 @@ fn text(
                     italic: all.italic || style.italic,
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
-                    mark: all.mark || style.mark,
+                    tint: all.tint.max(style.tint),
                 });
-            let linked = block.links.iter().any(|(range, _)| range.contains(&at));
+            let link = (block.links.iter()).find(|(range, _)| range.contains(&at));
+            let linked = link.is_some();
+            let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
             let weight = match (style.bold || heading, style.italic) {
                 (true, _) => FontWeight::SEMIBOLD,
                 (false, true) => FontWeight::MEDIUM,
@@ -1203,22 +1357,25 @@ fn text(
                     weight,
                     ..font(style.code)
                 },
-                color: match linked {
+                color: match linked && !to_code {
                     true => theme.blue,
                     false => color,
                 },
                 // The selection blue like the diff's, over a search's tint and code's grey.
-                background_color: match (style.mark, style.code) {
+                background_color: match style.tint {
                     _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
                         Some(theme.blue.opacity(0.3))
                     }
-                    (true, _) => Some(theme.warn.opacity(0.28)),
-                    (false, true) => Some(theme.fill_gray.opacity(0.12)),
-                    (false, false) => None,
+                    Some(tint) => Some(tint.ground(theme)),
+                    None if style.code => Some(theme.fill_gray.opacity(0.12)),
+                    None => None,
                 },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
-                    color: Some(theme.blue.opacity(0.4)),
+                    color: Some(match to_code {
+                        true => theme.text_3,
+                        false => theme.blue.opacity(0.4),
+                    }),
                     wavy: false,
                 }),
                 strikethrough: style.strike.then(|| StrikethroughStyle {
@@ -1242,17 +1399,31 @@ fn text(
             let ranges: Vec<_> = block.links.iter().map(|(range, _)| range.clone()).collect();
             let urls: Vec<_> = block.links.iter().map(|(_, url)| url.clone()).collect();
             let tips = block.links.clone();
+            let peeks = block.peeks.clone();
             // A drag that selected text doesn't open the link it lets go on.
             let selected_any = range.is_some();
             InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
-                .on_click(ranges, move |link, _, cx: &mut App| {
-                    if let Some(url) = urls.get(link).filter(|_| !selected_any) {
-                        cx.open_url(url)
+                .on_click(ranges, move |link, window, cx: &mut App| {
+                    let Some(url) = urls.get(link).filter(|_| !selected_any) else {
+                        return;
+                    };
+                    match url.strip_prefix(ANCHOR) {
+                        Some(part) => {
+                            window.dispatch_action(Box::new(FollowAnchor(part.to_owned())), cx)
+                        }
+                        None => cx.open_url(url),
                     }
                 })
                 .tooltip(move |at, window, cx| {
+                    if let Some((_, peek)) = peeks.iter().find(|(range, _)| range.contains(&at)) {
+                        return Some(cx.new(|_| peek.clone()).into());
+                    }
                     let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
-                    Some(Tooltip::text(url.clone())(window, cx))
+                    let words = match url.starts_with(ANCHOR) {
+                        true => "Go to that part".to_owned(),
+                        false => url.clone(),
+                    };
+                    Some(Tooltip::text(words)(window, cx))
                 })
                 .into_any_element()
         }
@@ -1262,6 +1433,40 @@ fn text(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_document_of_parts_takes_links_to_its_parts() {
+        let links = |blocks: Vec<Block>| -> Vec<String> {
+            let block = blocks.into_iter().next().expect("there are words");
+            block.links.into_iter().map(|(_, url)| url).collect()
+        };
+        let words = "[a](#p2) [b](anchor:code:0:0:x) `[c](#p3)`";
+        assert!(
+            links(parse(words)).is_empty(),
+            "a pull request's body can't send a click anywhere in the app"
+        );
+        assert_eq!(
+            links(parse_with_anchors(words)),
+            ["anchor:p2"],
+            "only a link to a part, and not one spelled like the app's own or in code"
+        );
+    }
+
+    #[test]
+    fn an_alert_says_what_kind_it_is() {
+        let blocks = parse("> [!IMPORTANT]\n> Teams decide.");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, "Important"),
+                (&Kind::Paragraph, "Teams decide.")
+            ]
+        );
+        assert!(
+            blocks.iter().all(|block| block.quoted),
+            "both are in the quote"
+        );
+    }
 
     fn texts(blocks: &[Block]) -> Vec<(&Kind, &str)> {
         blocks

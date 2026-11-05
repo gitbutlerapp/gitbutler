@@ -621,5 +621,23 @@
   {
     "context": "Diff && !TextInput",
     "bindings": { "e": "open_in::OpenInEditor" }
+  },
+  {
+    "context": "Diff && BriefBack && !TextInput",
+    "bindings": {
+      "escape": "brief::GoBack"
+    }
+  },
+  {
+    "context": "Diff && Brief && !TextInput",
+    "bindings": {
+      "j": "brief::NextBlock",
+      "k": "brief::PreviousBlock",
+      "enter": "brief::OpenBlock",
+      "c": "brief::WriteNote",
+      "escape": "brief::GoBack",
+      "n": "brief::NextBrief",
+      "shift-n": "brief::PreviousBrief"
+    }
   }
 ]

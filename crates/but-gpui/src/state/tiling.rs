@@ -19,6 +19,8 @@ pub enum RowKey {
     /// A project's page pinned on a tab, so it can sit beside its own row. It's what the tile
     /// opened on: its tabs go on working there.
     Tab(ProjectId, ProjectTab),
+    /// A row's changes on their own, so they can sit beside its brief.
+    Changes(Selection),
 }
 
 /// Which way a division lays out its parts.
@@ -1463,7 +1465,7 @@ impl Store {
     /// it, while the workspace has it.
     pub fn selection_of(&self, row: &RowKey) -> Option<Selection> {
         match row {
-            RowKey::Row(selection) => Some(selection.clone()),
+            RowKey::Row(selection) | RowKey::Changes(selection) => Some(selection.clone()),
             RowKey::Tab(project, _) => Some(Selection::Project(project.clone())),
             RowKey::Commit(project, key) => {
                 let workspace = self.workspace(project)?;
@@ -1538,6 +1540,11 @@ impl Store {
             Some(drawn) => Some(&drawn.rest),
             None => self.tiling(),
         }
+    }
+
+    /// Whether a tile is zoomed over the others.
+    pub fn tile_zoomed(&self) -> bool {
+        self.drawn.as_ref().is_some_and(|drawn| drawn.zoomed)
     }
 
     /// Where `tile`'s page lays out: where it's at rest, which it keeps as it slides, but as

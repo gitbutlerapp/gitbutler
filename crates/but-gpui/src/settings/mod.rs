@@ -35,7 +35,15 @@ use crate::ui::{
 
 pub use cli::welcome_card;
 
-actions!(settings, [OpenSettings, OpenKeyboardShortcuts, FocusSearch]);
+actions!(
+    settings,
+    [
+        OpenSettings,
+        OpenKeyboardShortcuts,
+        OpenBriefsSettings,
+        FocusSearch
+    ]
+);
 
 /// " ⌥Z in a diff turns it on and off.", with the keys bound to `action`, or nothing when no key
 /// is, as the user's keymap can leave it.
@@ -69,16 +77,10 @@ impl AppPage {
     ];
 
     /// The pages this build has: Developer only in a build of its own, not a nightly or a
-    /// release, and Experimental only inside the desktop app's binary, the only place it has
-    /// anything.
-    fn shown(cx: &App) -> impl Iterator<Item = AppPage> + use<> {
+    /// release.
+    fn shown() -> impl Iterator<Item = AppPage> + use<> {
         let dev = backend::dev_build();
-        let embedded = cx.has_global::<crate::Embedded>();
-        (AppPage::ALL.into_iter()).filter(move |page| match page {
-            AppPage::Developer => dev,
-            AppPage::Experimental => embedded,
-            _ => true,
-        })
+        (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
     }
 }
 
@@ -383,7 +385,7 @@ impl SettingsView {
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
-            app_links: (AppPage::shown(cx))
+            app_links: (AppPage::shown())
                 .map(|page| Link::new(Page::App(page), cx))
                 .collect(),
             project_focus: HashMap::new(),
@@ -938,6 +940,36 @@ impl SettingsView {
         ))
     }
 
+    fn briefs_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).briefs;
+        let flip = cx.listener(move |this, _, _, cx| {
+            this.store.update(cx, |store, cx| {
+                store.briefs = !on;
+                cx.notify();
+            });
+            this.apply(
+                "Couldn't change briefs",
+                move || backend::set_briefs(!on),
+                // What was saved, which a failure leaves as it was.
+                |this, cx| {
+                    let on = backend::briefs();
+                    this.store.update(cx, |store, cx| {
+                        store.briefs = on;
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
+        Row::new(
+            "Briefs",
+            "Show the brief about a branch on a tab of its page. Every few minutes, open projects \
+             ask GitButler's server about their newest branches, by the repository's address and \
+             the branches' names and commits.",
+            switch("briefs", on, Theme::get(cx)).on_click(flip),
+        )
+    }
+
     fn single_file_row(&self, cx: &Context<Self>) -> Row {
         let on = self.store.read(cx).single_file_diff;
         let flip = cx.listener(move |this, _, _, cx| {
@@ -1220,7 +1252,10 @@ impl SettingsView {
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx))
                     .flatten();
-                vec![Card::new(None, start.into_iter().collect())]
+                vec![Card::new(
+                    None,
+                    start.into_iter().chain([self.briefs_row(cx)]).collect(),
+                )]
             }
             Page::App(AppPage::Developer) => vec![
                 Card::new(None, vec![self.fps_row(cx)]),
@@ -1756,6 +1791,16 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         self.open_settings_at(Page::App(AppPage::Keyboard), window, cx);
+    }
+
+    /// Experimental, where briefs are turned on.
+    pub fn open_briefs_settings(
+        &mut self,
+        _: &OpenBriefsSettings,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_settings_at(Page::App(AppPage::Experimental), window, cx);
     }
 
     /// Settings, at `page`. Already open, it shows `page` there: built again, it would draw

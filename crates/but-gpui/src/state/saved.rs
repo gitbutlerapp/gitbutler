@@ -488,6 +488,8 @@ pub struct Prefs {
     pub worktree_order: HashMap<String, Vec<String>>,
     /// The Branches page leaves out the branches only a remote has.
     pub branches_local_only: bool,
+    /// The common notes a click leaves on a brief, the stock ones if never changed.
+    pub brief_shortcuts: Option<Vec<String>>,
     /// Which branches the Branches page lists by their pull request.
     pub branches_status: BranchStatus,
     /// The navigator's branches start with their commits listed, rather than folded to a

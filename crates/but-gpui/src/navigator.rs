@@ -26,7 +26,7 @@ use crate::backend::{
     ReviewState, Target, Workspace,
 };
 use crate::clock;
-use crate::detail::{ChecksChanged, Detail, oldest_conflict};
+use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
     Axis, Cut, DividerDrag, Pane, Prefs, ProjectId, ProjectTab, Section, Selection, Store,
@@ -3522,10 +3522,38 @@ impl Navigator {
                                 this.select(shown.clone(), window, cx);
                                 (this.detail).update(cx, |detail, cx| {
                                     detail.follow_selection(window, cx);
-                                    detail.set_review_tab(true, window, cx)
+                                    detail.set_page_tab(PageTab::Review, window, cx)
                                 });
                                 (this.store)
                                     .update(cx, |store, _| store.refresh_forge(shown.project()))
+                            }),
+                        ))
+                    },
+                )
+                // That someone wrote a brief for it, quietly. Pressed, it's up to read.
+                .when(
+                    store.briefs
+                        && store
+                            .brief_at(id, &branch.name)
+                            .is_some_and(|known| known.found.is_some()),
+                    |el| {
+                        let color = style.meta(style.muted());
+                        let shown = Selection::Branch(id.clone(), ref_name.cloned());
+                        let mark = div()
+                            .id(ElementId::Name(format!("brief-{row_id}").into()))
+                            .child(small_icon(Icon::Docs).text_color(color))
+                            .aria_label("Read the brief")
+                            .tooltip(Tooltip::text("Read the brief"));
+                        el.child(pressable(
+                            mark,
+                            color,
+                            moving,
+                            cx.listener(move |this, _, window, cx| {
+                                this.select(shown.clone(), window, cx);
+                                (this.detail).update(cx, |detail, cx| {
+                                    detail.follow_selection(window, cx);
+                                    detail.set_page_tab(PageTab::Brief, window, cx)
+                                });
                             }),
                         ))
                     },

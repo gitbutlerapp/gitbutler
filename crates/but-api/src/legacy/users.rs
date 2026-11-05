@@ -141,6 +141,20 @@ pub fn get_user() -> Result<Option<User>> {
     }
 }
 
+/// The signed-in account's GitButler token, or `None`, for what asks GitButler's services
+/// about them from this process. Unlike [`get_user`], a keychain that can't answer signs no
+/// one out.
+pub fn access_token() -> Result<Option<but_secret::Sensitive<String>>> {
+    (gitbutler_user::get_user()?)
+        .map(|user| user.access_token())
+        .transpose()
+}
+
+/// Who's signed in to GitButler, by their id, or `None`. It reads no secret.
+pub fn account_id() -> Result<Option<u64>> {
+    Ok(gitbutler_user::get_user()?.map(|user| user.id))
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_user(user: User) -> Result<()> {

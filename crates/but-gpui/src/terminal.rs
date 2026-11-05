@@ -537,7 +537,7 @@ impl Terminal {
     }
 
     /// Paste `text` as it is and take the keys.
-    fn paste(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn paste(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
         self.tty.paste(text);
         self.typed(cx);

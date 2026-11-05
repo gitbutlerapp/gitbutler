@@ -516,6 +516,7 @@ impl Sandbox {
                 tui_file_browser: false,
                 gpui: false,
                 gpui_single_file_diff: false,
+                gpui_briefs: false,
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],

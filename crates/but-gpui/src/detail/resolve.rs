@@ -127,6 +127,8 @@ impl Detail {
             (None, _) if self.composing => "Diff Composer",
             (None, _) if placing => "Diff Committing",
             (None, _) if amending => "Diff Amending",
+            (None, _) if self.showing_brief() => "Diff Brief",
+            (None, _) if self.back_to_brief() => "Diff BriefBack",
             (None, _) => "Diff",
             (Some(_), true) => "Diff Conflicts",
             (Some(_), false) => "Diff Conflicts Picked",

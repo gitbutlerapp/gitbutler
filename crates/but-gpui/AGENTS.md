@@ -176,6 +176,54 @@ anything else.
 - Background failures log at debug, keep the last good read and are tried again. Only what the
   user asked for, signing in or out and Apply here, shows an error.
 
+## Briefs
+
+Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,
+and the feature may go, so it stays separate.
+
+- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
+  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState`, `BriefView` and
+  `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
+  filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
+- What Briefs sent and comments not sent yet are kept in a file of their own under the app's data
+  folder, never in `but-db`, and pictures under its cache folder.
+  It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
+  is dropped and asked for again, and a bump of its `SCHEMA` empties it but for those comments.
+- Pages read only what's kept, so the tab is there at once and nothing marks a row. The poll
+  beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
+  while the window is hidden and asks nothing while the flag is off or no one's signed in.
+- Background failures log at debug and keep what's known. Signing out deletes the file.
+- What the agent wrote and what's known apart from it never look alike: the facts panel shows only
+  what the repository or the CLI says, and colour in it goes only on what should change a decision.
+  A fact worked out here (`Standing`, `ReadBack`, a card that differs from the branch) is stated, not
+  softened, and with no way to know, it says nothing.
+- Notes stay on this machine until they're sent, as a comment tells people. Nothing goes out, to
+  Briefs or a terminal, without a key press or a click on what names where it goes.
+- Facts come from the branch's own diff where they can (`TestFacts`, the names of code in the words),
+  so they hold whatever the agent wrote. A fact that accuses has to be right nearly always: a name
+  the code doesn't have looks like any other code and only a click on it says so, as every one found
+  in real briefs was a fair thing to write.
+- `RowKey::Changes` is a row's changes in a tile of their own, beside its brief. While it's there a
+  name or file in the brief goes to it by `StoreEvent::CodeAsked`, and the brief keeps the keys and
+  its place. Without it a click goes to the Changes tab and Esc comes back.
+- A version never changes, so a commit landing only asks again how it stands. Reading it again would
+  lose what's marked as new in it.
+- The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a
+  row needs from it is worked out before the list is drawn, as `measure_brief_room` does.
+- What's said goes in the margin, beside the paragraph it's about, or under it where the tab's too
+  narrow. A paragraph's margin takes no height while it can run on past the words without meeting
+  anything, so writing, sending and replying move nothing.
+- While the margin shows, everything keeps one measure, wide blocks too, so comments stay in one
+  column and writing beside a block moves nothing. Under the margin's width, blocks go full width.
+- What a paragraph shows on hover goes by `brief_hovered`, the words last pointed at, not a hover
+  group: it has to last the way over the gap to it and over a card from the paragraph before. A
+  scripted `click` jumps there and can't catch that going wrong: walk there with `move`s and look.
+- Not sent yet is blue, as what's not pushed is, and pop stays for the one primary action.
+- The page's tab row says where a brief stands: what's asked, comments not sent and the answers.
+  It has no bar of its own, as one would sit on top of the status bar.
+- A debug build can be pointed at a stand-in server with `GITBUTLER_BRIEFS_BASE`, to try what writes
+  without touching anyone's briefs.
+
 ## Sizes
 
 - Give every size in `ui::dp(n)`: `n` pixels as designed, so ui-react's numbers go in as they

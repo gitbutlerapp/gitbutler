@@ -535,7 +535,7 @@ impl Detail {
     /// Whether the window leaves the diff out, as a pull request and what merged take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx)
+        self.over_changes(cx)
             || self.showing_shipped(cx)
             || self.showing_branches_overview()
             || self.choosing_target(cx)
@@ -557,7 +557,7 @@ impl Detail {
             .is_some_and(|project| self.showing_target_commit(&project, cx))
             || (project_on(ProjectTab::Branches))
                 .is_some_and(|project| self.selected_other_branch(&project).is_some());
-        shows && !self.showing_review(cx)
+        shows && !self.over_changes(cx)
     }
 
     /// Whether a list page shows the files beside its list: it has some, and they aren't
@@ -616,11 +616,12 @@ impl Detail {
         window: &gpui::Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let below = match self.showing_review(cx) {
-            true => self.render_review_tab(project, theme, cx),
-            false => self.render_files_beside(theme, window, cx),
+        let below = match (self.showing_review(cx), self.showing_brief()) {
+            (true, _) => self.render_review_tab(project, theme, cx),
+            (false, true) => self.render_brief_tab(theme, window, cx),
+            (false, false) => self.render_files_beside(theme, window, cx),
         };
-        let tabs = self.selected_review(cx).map(|review| {
+        let tabs = self.page_tabs(theme, window, cx).map(|tabs| {
             h_flex()
                 .flex_none()
                 .h(dp(TABS_HEIGHT))
@@ -628,7 +629,7 @@ impl Detail {
                 .items_end()
                 .border_b_1()
                 .border_color(theme.border_3)
-                .child(self.review_tabs(review, theme, window, cx))
+                .child(tabs)
         });
         // How wide it is, for whether the files fit beside the diff.
         let width = measured(&self.beside_width, &self.app, |bounds| {

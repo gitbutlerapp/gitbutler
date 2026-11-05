@@ -1180,8 +1180,7 @@ impl Detail {
         let meta = self.remote_meta(id, &commit, theme);
         let message = self.message(title, commit.body.to_owned(), theme);
         let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
-        let tabs =
-            (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, window, cx));
+        let tabs = self.page_tabs(theme, window, cx);
         self.page_header(message, meta, target, None, tabs, theme)
     }
 
@@ -1318,8 +1317,7 @@ impl Detail {
             None => self.branch_title(project, ref_name, branch, name, theme, cx),
         };
         let title = page_title(Icon::Branch, theme).child(name);
-        let tabs =
-            (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, window, cx));
+        let tabs = self.page_tabs(theme, window, cx);
         self.page_header(title, meta, target, None, tabs, theme)
     }
 

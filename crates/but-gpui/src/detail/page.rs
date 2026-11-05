@@ -1,6 +1,7 @@
 //! What each kind of page keeps of how it's being looked at, apart from the detail drawing it,
 //! and the pages kept while nothing draws them.
 
+use super::brief::state::BriefState;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 
@@ -252,11 +253,21 @@ impl Place {
     }
 }
 
-/// How a pull request is being looked at, on the pages that can show one.
+/// One of a page's tabs, each showing in place of the others.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum PageTab {
+    #[default]
+    Changes,
+    Review,
+    Brief,
+}
+
+/// How a pull request or a brief is being looked at, on the pages that can show one.
 #[derive(Default)]
 pub(super) struct ReviewState {
-    /// A branch with a pull request shows it in place of its changes.
-    pub(super) tab: bool,
+    /// The tab picked. Without what it shows, a page shows its changes.
+    pub(super) tab: PageTab,
+    pub(super) brief: BriefState,
     /// Whether each pull request's checks are listed, by project and number, as the reader left
     /// them or as they opened by themselves on a failure. Others are folded. Rendering records
     /// the opening, so it's a cell.
@@ -315,7 +326,7 @@ pub(super) enum PageState {
         files: FilesState,
     },
     /// A commit, a branch, a stack, or what a pull would bring in, by its diff. A branch and a
-    /// commit only a remote has can show a pull request.
+    /// commit only a remote has can show a pull request, and a branch a brief.
     Diff {
         files: FilesState,
         review: Option<ReviewState>,
@@ -450,6 +461,16 @@ impl PageState {
         }
     }
 
+    /// How its brief is being looked at, on a page that can show one.
+    pub(super) fn brief(&self) -> Option<&BriefState> {
+        Some(&self.review()?.brief)
+    }
+
+    /// As [`PageState::brief`], to change it.
+    pub(super) fn brief_mut(&mut self) -> Option<&mut BriefState> {
+        Some(&mut self.review_mut()?.brief)
+    }
+
     /// How its list is being looked at, on a list page.
     pub(super) fn side(&self) -> Option<&SideState> {
         match self {
@@ -536,7 +557,14 @@ impl PageState {
 
     /// Whether it shows its pull request in place of its changes.
     pub(super) fn review_tab(&self) -> bool {
-        self.review().is_some_and(|review| review.tab)
+        self.review()
+            .is_some_and(|review| review.tab == PageTab::Review)
+    }
+
+    /// Whether it shows its brief in place of its changes.
+    pub(super) fn brief_tab(&self) -> bool {
+        self.review()
+            .is_some_and(|review| review.tab == PageTab::Brief)
     }
 
     /// Whether the message of what it shows is open, on a page with files.
@@ -602,7 +630,7 @@ pub(super) fn tab_to_show(
     let left = key.and_then(|(row, tile, _)| kept.read(cx).tabs.get(&(row, tile)).copied());
     let pinned_on = pinned.and_then(|(_, row)| match row {
         RowKey::Tab(_, tab) => Some(*tab),
-        RowKey::Commit(..) | RowKey::Row(_) => None,
+        RowKey::Commit(..) | RowKey::Row(_) | RowKey::Changes(_) => None,
     });
     left.or(pinned_on).unwrap_or_default()
 }
@@ -615,8 +643,16 @@ pub(super) fn open_page(
     cx: &mut App,
 ) -> PageState {
     let tab = key.map_or(ProjectTab::default(), |key| key.2);
-    (key.and_then(|key| kept.update(cx, |kept, _| kept.take(key))))
-        .unwrap_or_else(|| PageState::of(shows, tab))
+    (key.and_then(|key| kept.update(cx, |kept, _| kept.take(key)))).unwrap_or_else(|| {
+        let mut page = PageState::of(shows, tab);
+        // Changes beside a brief need the width for the diff, and have the brief to go by.
+        if let (Some((_, Tile::Pinned(RowKey::Changes(_)), _)), Some(files)) =
+            (key, page.files_mut())
+        {
+            files.files_hidden = true;
+        }
+        page
+    })
 }
 
 /// The pages nothing draws now, as they were left, for when they're shown again. A page being

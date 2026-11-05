@@ -411,7 +411,9 @@ impl AppView {
                     keys.as_ref().is_none_or(|keys| keys.contains(key.as_str()))
                 }
                 RowKey::Commit(of, _) => store.project(of).is_some(),
-                RowKey::Row(selection) => store.project(selection.project()).is_some(),
+                RowKey::Row(selection) | RowKey::Changes(selection) => {
+                    store.project(selection.project()).is_some()
+                }
                 RowKey::Tab(of, _) => store.project(of).is_some(),
             });
         });
@@ -1570,6 +1572,22 @@ impl AppView {
         }
     }
 
+    /// A brief's command from the palette with the keys elsewhere, as in the navigator: the page
+    /// handles it, so it goes there.
+    fn brief_command<A: gpui::Action + Clone>(
+        &mut self,
+        action: &A,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.detail.read(cx).is_focused(window, cx) {
+            return;
+        }
+        let focus = self.detail.read(cx).focus_handle(cx);
+        window.focus(&focus, cx);
+        window.dispatch_action(Box::new(action.clone()), cx);
+    }
+
     /// Go to `tab` of `project`'s page.
     pub(crate) fn open_project_tab(
         &mut self,
@@ -1819,8 +1837,10 @@ impl AppView {
     /// it, a commit's id, a branch's name or a project's or worktree's directory, as dropping its
     /// row on a terminal pastes it. What it copied blinks, as the TUI highlights it.
     fn copy_selection(&mut self, _: &CopySelection, window: &mut Window, cx: &mut Context<Self>) {
-        let file = (self.detail.read(cx).is_focused(window, cx))
-            .then(|| self.detail.update(cx, |detail, cx| detail.copy(window, cx)))
+        let tile = self.focused_tile(window, cx);
+        let detail = self.tile_detail(&tile, cx).unwrap_or(self.detail.clone());
+        let file = (detail.read(cx).is_focused(window, cx))
+            .then(|| detail.update(cx, |detail, cx| detail.copy(window, cx)))
             .flatten();
         let selected = file.is_none();
         let text = file.or_else(|| match self.selection(cx)? {
@@ -4222,6 +4242,10 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
     if let RowKey::Tab(_, tab) = row {
         return tab_label(*tab);
     }
+    if let RowKey::Changes(selection) = row {
+        let (_, name) = tile_label(store, &RowKey::Row(selection.clone()));
+        return (Icon::Plus, format!("Changes of {name}").into());
+    }
     let Some(selection) = store.selection_of(row) else {
         return (Icon::Commit, "Gone".into());
     };
@@ -4844,6 +4868,7 @@ impl Render for AppView {
             })
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::open_keyboard_shortcuts))
+            .on_action(cx.listener(Self::open_briefs_settings))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
@@ -5016,6 +5041,37 @@ impl Render for AppView {
                         .update(cx, |detail, cx| detail.switch_tab(window, cx))
                 }),
             )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::ShowBrief, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.show_brief(window, cx))
+                }),
+            )
+            .on_action(cx.listener(Self::brief_command::<crate::detail::ChangesBeside>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::WriteNote>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::SendNotes>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::NextBrief>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::PreviousBrief>))
+            .on_action(cx.listener(
+                |this, _: &crate::detail::ShowBranchesWithBriefs, window, cx| {
+                    let project = this
+                        .store
+                        .read(cx)
+                        .selection
+                        .as_ref()
+                        .map(|s| s.project().clone());
+                    if let Some(project) = project {
+                        this.open_project_tab(
+                            project.clone(),
+                            crate::state::ProjectTab::Branches,
+                            window,
+                            cx,
+                        );
+                        this.detail
+                            .update(cx, |detail, cx| detail.filter_with_brief(Some(project), cx));
+                    }
+                },
+            ))
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
             }))

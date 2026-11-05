@@ -19,6 +19,7 @@ use crate::backend::{
 mod account;
 mod activity;
 mod background;
+mod briefs;
 mod checkout;
 mod cli;
 mod load;
@@ -296,6 +297,19 @@ impl Cut {
     }
 }
 
+/// A place in a branch's changes that a brief points to.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodePlace {
+    /// A file, at the hunk with this line of its new side if it has one.
+    File { path: String, line: Option<u32> },
+    /// A line of a hunk of a file.
+    Line {
+        path: String,
+        hunk: usize,
+        line: usize,
+    },
+}
+
 #[derive(Debug)]
 pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
@@ -321,6 +335,8 @@ pub enum StoreEvent {
     TerminalOpened,
     /// A tile was pinned beside the selected page, to use.
     TilePinned(RowKey),
+    /// The tile of these changes was asked to show a place in them, by the brief beside it.
+    CodeAsked(RowKey, CodePlace),
     /// `tile` was taken away from the selected row's tiling, which was `before`, so the app
     /// view can draw it going: with the terminal it showed, which went with it, if it did.
     TileClosed {
@@ -473,6 +489,8 @@ pub struct Store {
     /// Diffs show only the cursor's file rather than every file one after another, as
     /// GitButler's experimental `gpuiSingleFileDiff` says.
     pub single_file_diff: bool,
+    /// Whether Briefs is asked about the projects' branches.
+    pub briefs: bool,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
     pub account: account::Account,
@@ -568,6 +586,9 @@ pub struct Store {
     changes: mpsc::UnboundedSender<Change>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
+    _brief_poll: Task<()>,
+    /// What Briefs says about the projects' branches: see [`Store::brief_at`].
+    brief_answers: briefs::BriefAnswers,
     /// When each project was last fetched, in the background or when asked, by the wall
     /// clock, which counts the time the Mac slept.
     fetched: HashMap<ProjectId, SystemTime>,
@@ -693,6 +714,7 @@ impl Store {
             prefs: saved.prefs,
             // Read with the saved state, so the diff doesn't start in the other layout.
             single_file_diff: backend::settings::single_file_diff(),
+            briefs: backend::settings::briefs(),
             window: saved.window,
             restored: Restored {
                 expanded: saved.expanded,
@@ -731,6 +753,8 @@ impl Store {
                 })
                 .collect(),
             _forge_poll: Self::poll_forge(cx),
+            _brief_poll: Self::poll_briefs(cx),
+            brief_answers: briefs::BriefAnswers::default(),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
             last_merged: HashMap::new(),

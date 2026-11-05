@@ -151,7 +151,7 @@ fn still_picked(
 /// and the text is lowered the same way, which keeps every byte where it was.
 fn matches(release: &Release, query: &str) -> Vec<Block> {
     let mark = Style {
-        mark: true,
+        tint: Some(markdown::Tint::Found),
         ..Style::default()
     };
     (release.sections.iter().flat_map(|section| &section.blocks))
@@ -782,7 +782,7 @@ mod tests {
         };
         let found = matches(&release, "conflict");
         let marked: Vec<_> = (found.iter().flat_map(|block| &block.styles))
-            .filter(|(_, style)| style.mark)
+            .filter(|(_, style)| style.tint.is_some())
             .map(|(range, _)| range.clone())
             .collect();
         assert_eq!(found.len(), 1, "only the block that mentions it");

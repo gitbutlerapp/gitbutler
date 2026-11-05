@@ -1,6 +1,7 @@
-//! Finding text in the diff (⌘F): every match marked in the lines, the current one more
-//! strongly, and Enter and ⇧Enter stepping through them.
+//! Finding text in the diff, or in the words and code of a brief (⌘F): every match marked, the
+//! current one more strongly, and Enter and ⇧Enter stepping through them.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -10,9 +11,11 @@ use gpui::{
 };
 
 use super::Detail;
+use crate::backend::briefs::{BriefBlock, BriefBody};
 use crate::backend::{self, DiffLine, LineKind};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
+use crate::ui::markdown;
 use crate::ui::{Icon, dp, field, h_flex, icon_button, muted, popover};
 
 actions!(find, [FindInDiff, FindNext, FindPrevious]);
@@ -26,6 +29,10 @@ pub(super) type LineId = (usize, usize, usize);
 pub(super) enum Spot {
     Line(LineId),
     Unchanged(usize, u32),
+    /// A paragraph of a brief's words, by its block and its place among the block's.
+    BriefWords(usize, usize),
+    /// A line of a brief's code card, by its block, its run of lines and its place in that.
+    BriefCode(usize, usize, usize),
 }
 
 impl Spot {
@@ -37,10 +44,11 @@ impl Spot {
         }
     }
 
-    fn row(self) -> DiffRow {
+    fn row(self) -> Option<DiffRow> {
         match self {
-            Spot::Line((file, hunk, line)) => DiffRow::Line { file, hunk, line },
-            Spot::Unchanged(file, new) => DiffRow::Context { file, old: 0, new },
+            Spot::Line((file, hunk, line)) => Some(DiffRow::Line { file, hunk, line }),
+            Spot::Unchanged(file, new) => Some(DiffRow::Context { file, old: 0, new }),
+            Spot::BriefWords(..) | Spot::BriefCode(..) => None,
         }
     }
 }
@@ -82,6 +90,37 @@ fn search<'a>(
         // ASCII lowering keeps byte offsets where they were.
         let text = line.text.to_ascii_lowercase();
         found.extend((text.match_indices(&query)).map(|(at, _)| (spot, at..at + query.len())));
+    }
+    found
+}
+
+/// Where `query` appears in a brief's words and code, ignoring case for ASCII.
+fn search_brief(blocks: &[BriefBlock], query: &str) -> Vec<(Spot, Range<usize>)> {
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let query = query.to_ascii_lowercase();
+    let mut found = Vec::new();
+    let mut look = |spot, text: &str| {
+        let text = text.to_ascii_lowercase();
+        found.extend((text.match_indices(&query)).map(|(at, _)| (spot, at..at + query.len())));
+    };
+    for (at, block) in blocks.iter().enumerate() {
+        match &block.body {
+            BriefBody::Text(paragraphs) => {
+                for (ix, paragraph) in paragraphs.iter().enumerate() {
+                    look(Spot::BriefWords(at, ix), &paragraph.text);
+                }
+            }
+            BriefBody::Code(code) => {
+                for (run, lines) in code.parts.iter().enumerate() {
+                    for (ix, line) in lines.iter().enumerate() {
+                        look(Spot::BriefCode(at, run, ix), &line.text);
+                    }
+                }
+            }
+            BriefBody::Files { .. } | BriefBody::Pictures(_) | BriefBody::OnTheWeb(_) => {}
+        }
     }
     found
 }
@@ -132,14 +171,24 @@ impl Detail {
     /// Search the diff again, as when the query or the diff changed; with `reveal`, go to
     /// the first match.
     pub(super) fn run_find(&mut self, reveal: bool, cx: &mut Context<Self>) {
-        let (Some(_), Some(diff)) = (&self.find, &self.diff) else {
+        if self.find.is_none() {
             return;
-        };
+        }
         let query = self.find_input.read(cx).text().to_owned();
-        // What the diff shows, unchanged lines and all, with folded files open: not what a
-        // filter or an operation under way hides.
-        let (rows, ..) = self.build_rows(&diff.key, &diff.files, true, cx);
-        let matches = search(&rows, |row| self.line_of(row), &query);
+        let matches = match self.showing_brief() {
+            true => (self.page.brief())
+                .and_then(|brief| brief.page())
+                .map_or_else(Vec::new, |page| search_brief(&page.blocks, &query)),
+            false => {
+                let Some(diff) = &self.diff else {
+                    return;
+                };
+                // What the diff shows, unchanged lines and all, with folded files open: not what
+                // a filter or an operation under way hides.
+                let (rows, ..) = self.build_rows(&diff.key, &diff.files, true, cx);
+                search(&rows, |row| self.line_of(row), &query)
+            }
+        };
         let mut on: HashMap<Spot, Vec<usize>> = HashMap::new();
         for (ix, (spot, _)) in matches.iter().enumerate() {
             on.entry(*spot).or_default().push(ix);
@@ -180,7 +229,9 @@ impl Detail {
         else {
             return;
         };
-        let row = spot.row();
+        let Some(row) = spot.row() else {
+            return self.reveal_match_in_brief(spot, cx);
+        };
         let Some(file) = row.file() else {
             return;
         };
@@ -237,7 +288,58 @@ impl Detail {
             .collect()
     }
 
-    /// The find bar, floating at the top right of the diff.
+    /// Bring a match in the brief into view, by its place among what its block has.
+    fn reveal_match_in_brief(&mut self, spot: Spot, cx: &mut Context<Self>) {
+        let place = match spot {
+            Spot::BriefWords(at, paragraph) => Some((at, paragraph, 0)),
+            Spot::BriefCode(at, run, line) => (self.page.brief())
+                .and_then(|brief| brief.page())
+                .and_then(|page| page.blocks.get(at))
+                .and_then(|block| match &block.body {
+                    BriefBody::Code(code) => {
+                        let lines = |runs: &[Vec<DiffLine>]| runs.iter().map(Vec::len).sum();
+                        let before = code.parts.get(..run).map_or(0, lines);
+                        Some((at, before + line, lines(&code.parts)))
+                    }
+                    _ => None,
+                }),
+            Spot::Line(_) | Spot::Unchanged(..) => None,
+        };
+        if let Some((at, part, parts)) = place {
+            self.reveal_in_brief(at, part, parts, cx);
+        }
+    }
+
+    /// `words`, the block `at`'s from paragraph `from`, with what's found in them marked.
+    pub(super) fn found_in_words<'a>(
+        &self,
+        at: usize,
+        from: usize,
+        words: &'a [markdown::Block],
+    ) -> Cow<'a, [markdown::Block]> {
+        if self.find.is_none() {
+            return Cow::Borrowed(words);
+        }
+        let mut marked = words.to_vec();
+        for (ix, paragraph) in marked.iter_mut().enumerate() {
+            let found = self.found_on(Spot::BriefWords(at, from + ix));
+            paragraph
+                .styles
+                .extend(found.into_iter().map(|(range, current)| {
+                    let style = markdown::Style {
+                        tint: Some(match current {
+                            true => markdown::Tint::FoundHere,
+                            false => markdown::Tint::Found,
+                        }),
+                        ..Default::default()
+                    };
+                    (range, style)
+                }));
+        }
+        Cow::Owned(marked)
+    }
+
+    /// The find bar, floating at the top right of what it finds in.
     pub(super) fn render_find(
         &self,
         window: &Window,
@@ -301,9 +403,47 @@ impl Detail {
 
 #[cfg(test)]
 mod tests {
-    use super::{Spot, search};
+    use super::{Spot, search, search_brief};
+    use crate::backend::briefs::{BriefBlock, BriefBody, BriefCode, CodeSource};
     use crate::backend::{DiffLine, LineKind};
     use crate::ui::diff::DiffRow;
+    use crate::ui::markdown;
+
+    #[test]
+    fn a_brief_is_searched_in_its_words_and_code_in_order() {
+        let block = |body| BriefBlock {
+            positions: 1..=1,
+            fresh: false,
+            detail: None,
+            body,
+        };
+        let line = |text: &str| DiffLine::new(LineKind::Added, None, Some(1), text);
+        let blocks = [
+            block(BriefBody::Text(markdown::parse(
+                "Nothing here\n\nA Purge runs",
+            ))),
+            block(BriefBody::Code(BriefCode {
+                path: "a.rs".into(),
+                source: CodeSource::Committed,
+                status: None,
+                stats: None,
+                parts: vec![vec![line("other")], vec![line("no"), line("fn purge()")]],
+                omitted: Vec::new(),
+            })),
+        ];
+        assert_eq!(
+            search_brief(&blocks, "purge"),
+            [
+                (Spot::BriefWords(0, 1), 2..7),
+                (Spot::BriefCode(1, 1, 1), 3..8)
+            ],
+            "the paragraph with it, then the code line with it, ignoring case"
+        );
+        assert!(
+            search_brief(&blocks, "").is_empty(),
+            "no query finds nothing"
+        );
+    }
 
     #[test]
     fn unchanged_lines_are_searched_in_the_order_shown() {

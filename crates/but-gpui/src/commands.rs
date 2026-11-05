@@ -234,6 +234,7 @@ commands! {
     AddProject => "Add project",
     crate::projects::CloneRepository => "Clone a repository",
     crate::settings::OpenSettings => "Settings",
+    crate::settings::OpenBriefsSettings => "Briefs settings" { listed: briefs_off },
     crate::settings::OpenKeyboardShortcuts => "Keyboard shortcuts",
     crate::app::OperationsHistory => "Operations history",
     crate::app::NextProjectPage => "Next project tab" { aliases: &["Next project page"] },
@@ -244,11 +245,23 @@ commands! {
     crate::app::FocusPreviousPane => "Previous pane",
     crate::app::FocusPaneRight => "Pane to the right",
     crate::app::FocusPaneLeft => "Pane to the left",
-    crate::detail::SwitchTab => "Switch between Changes and Pull request",
+    crate::detail::SwitchTab => "Switch tab" {
+        aliases: &["Switch between Changes and Pull request"]
+    },
+    crate::detail::ShowBrief => "Show brief" { listed: brief_here },
+    crate::detail::ShowBranchesWithBriefs => "Show branches with a brief" {
+        aliases: &["Find a brief"],
+        listed: briefs_on,
+    },
+    crate::detail::ChangesBeside => "Show changes beside the brief" { listed: changes_can_go_beside },
+    crate::detail::WriteNote => "Write a comment on this brief" { listed: brief_shown },
+    crate::detail::SendNotes => "Send comments on this brief" { listed: brief_shown },
+    crate::detail::NextBrief => "Next brief" { listed: brief_shown },
+    crate::detail::PreviousBrief => "Previous brief" { listed: brief_shown },
     crate::app::CloseWindow => "Close window",
     GoTo => "Go to anything",
     GoToTerminal => "Go to a terminal",
-    crate::detail::FindInDiff => "Find in diff",
+    crate::detail::FindInDiff => "Find" { aliases: &["Find in diff", "Find in the brief"] },
     crate::detail::FilterFiles => "Filter files",
     crate::detail::ToggleWrap => "Wrap long lines",
     crate::detail::TogglePlainLines => "Toggle diff backgrounds",
@@ -405,6 +418,29 @@ fn pushable(app: &AppView, cx: &App) -> bool {
     };
     (app.store.read(cx).workspace(&project))
         .is_none_or(|ws| ws.push_blocked(ref_name.as_ref()).is_none())
+}
+
+/// Everywhere while they're on, not only where the page has one: on a page without one, what
+/// it says is where they are, which nothing else tells a newcomer.
+fn briefs_on(app: &AppView, cx: &App) -> bool {
+    app.store.read(cx).briefs
+}
+
+fn brief_here(app: &AppView, cx: &App) -> bool {
+    app.detail.read(cx).has_brief()
+}
+
+fn brief_shown(app: &AppView, cx: &App) -> bool {
+    app.detail.read(cx).showing_brief()
+}
+
+fn changes_can_go_beside(app: &AppView, cx: &App) -> bool {
+    let detail = app.detail.read(cx);
+    detail.showing_brief() && detail.can_show_changes_beside(cx)
+}
+
+fn briefs_off(app: &AppView, cx: &App) -> bool {
+    !briefs_on(app, cx)
 }
 
 fn has_pull_request(app: &AppView, cx: &App) -> bool {

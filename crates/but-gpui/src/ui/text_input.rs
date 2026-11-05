@@ -164,6 +164,8 @@ pub struct TextInput {
     content: String,
     placeholder: SharedString,
     multiline: bool,
+    /// Enter submits though the text wraps, for what's short but may not fit on a line.
+    enter_submits: bool,
     /// Draw `*` instead of the text, for passwords.
     masked: bool,
     /// Type a dash for a space, as in a branch name.
@@ -204,6 +206,7 @@ impl TextInput {
             content: String::new(),
             placeholder: placeholder.into(),
             multiline,
+            enter_submits: false,
             masked: false,
             dashes: false,
             selected_range: 0..0,
@@ -223,6 +226,11 @@ impl TextInput {
             cursor_visible: true,
             blink: Task::ready(()),
         }
+    }
+
+    pub fn enter_submits(mut self) -> Self {
+        self.enter_submits = true;
+        self
     }
 
     pub fn masked(mut self) -> Self {
@@ -535,7 +543,7 @@ impl TextInput {
     }
 
     fn newline(&mut self, _: &Newline, window: &mut Window, cx: &mut Context<Self>) {
-        if self.multiline {
+        if self.multiline && !self.enter_submits {
             self.insert("\n", window, cx);
         } else {
             cx.emit(InputEvent::Submit);

@@ -1439,6 +1439,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-briefs"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-secret",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "but-clap"
 version = "0.1.0"
 dependencies = [
@@ -1698,6 +1712,7 @@ dependencies = [
  "but-askpass",
  "but-bitbucket",
  "but-branches",
+ "but-briefs",
  "but-core",
  "but-ctx",
  "but-error",

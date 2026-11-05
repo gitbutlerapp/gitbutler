@@ -29,6 +29,7 @@ impl Store {
                 let changed = store.account.user != user;
                 if changed {
                     store.account = Account { user, avatar: None };
+                    store.briefs_account_changed(cx);
                     cx.notify();
                 }
                 changed || store.account.avatar.is_none()

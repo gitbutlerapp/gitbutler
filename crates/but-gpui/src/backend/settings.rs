@@ -101,6 +101,20 @@ pub fn set_single_file_diff(on: bool) -> Result<()> {
     })
 }
 
+/// Whether open projects ask Briefs about their branches, as the experimental `gpuiBriefs` says.
+/// Off by default, as asking tells GitButler's server a repository's address, its newest
+/// branches' names and its commits' ids.
+pub fn briefs() -> bool {
+    feature_flags().is_some_and(|flags| flags.gpui_briefs)
+}
+
+pub fn set_briefs(on: bool) -> Result<()> {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui_briefs: Some(on),
+        ..Default::default()
+    })
+}
+
 /// What the Project section of the settings shows.
 #[derive(Debug, Clone)]
 pub struct ProjectSettings {
