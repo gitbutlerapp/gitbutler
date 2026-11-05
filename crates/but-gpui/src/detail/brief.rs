@@ -542,7 +542,11 @@ impl Detail {
                 Row::Text { at, from, to } => {
                     (page.blocks.get(at)).is_some_and(|block| match &block.body {
                         BriefBody::Text(words) => (words.get(from..to).unwrap_or_default().iter())
-                            .any(|word| word.styles.iter().any(|(_, style)| style.fresh)),
+                            .any(|word| {
+                                word.styles
+                                    .iter()
+                                    .any(|(_, style)| style.tint == Some(markdown::Tint::Fresh))
+                            }),
                         _ => block.fresh,
                     })
                 }

@@ -54,7 +54,7 @@ pub(super) fn mark_what_is_new(blocks: &mut [markdown::Block], old: &[String]) {
             block.styles.push((
                 all,
                 markdown::Style {
-                    fresh: true,
+                    tint: Some(markdown::Tint::Fresh),
                     ..Default::default()
                 },
             ));
@@ -84,7 +84,7 @@ pub(super) fn mark_what_is_new(blocks: &mut [markdown::Block], old: &[String]) {
             block.styles.push((
                 range,
                 markdown::Style {
-                    fresh: true,
+                    tint: Some(markdown::Tint::Fresh),
                     ..Default::default()
                 },
             ));
@@ -101,7 +101,11 @@ pub(super) fn what_is_new(blocks: &[markdown::Block]) -> Vec<markdown::Block> {
         if matches!(block.kind, markdown::Kind::Heading(_)) {
             heading = Some(block);
         }
-        if block.styles.iter().any(|(_, style)| style.fresh) {
+        if block
+            .styles
+            .iter()
+            .any(|(_, style)| style.tint == Some(markdown::Tint::Fresh))
+        {
             new.extend(heading.take().filter(|heading| *heading != block).cloned());
             let before = ix.checked_sub(1).and_then(|before| blocks.get(before));
             new.extend(
@@ -196,7 +200,7 @@ mod tests {
         (blocks.iter())
             .flat_map(|block| {
                 (block.styles.iter())
-                    .filter(|(_, style)| style.fresh)
+                    .filter(|(_, style)| style.tint == Some(markdown::Tint::Fresh))
                     .map(|(range, _)| block.text[range.clone()].to_owned())
             })
             .collect()

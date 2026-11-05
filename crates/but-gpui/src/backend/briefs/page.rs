@@ -436,7 +436,7 @@ fn in_a_few_words(text: &str) -> String {
 
 /// A text block as it reads. A link to a block of the same brief goes there rather than out.
 fn text_blocks(text: &str) -> Vec<markdown::Block> {
-    markdown::parse(&without_diagrams(text).replace("](#", &format!("]({}", markdown::ANCHOR)))
+    markdown::parse_with_anchors(&without_diagrams(text))
 }
 
 fn body(id: &str, kind: BlockKind, gallery: &mut Vec<markdown::Image>) -> BriefBody {

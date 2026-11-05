@@ -132,18 +132,40 @@ pub struct Style {
     pub italic: bool,
     pub strike: bool,
     pub code: bool,
-    /// Matches a search, tinted as the diff's find tints its matches.
-    pub mark: bool,
-    /// The match a search is on, tinted more strongly.
-    pub current: bool,
+    pub tint: Option<Tint>,
+}
+
+/// What the ground behind some words says, the later over the earlier where they overlap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tint {
     /// New since what was read before.
-    pub fresh: bool,
+    Fresh,
     /// Someone's comment is about it.
-    pub said: bool,
+    Said,
     /// A comment not sent yet is about it.
-    pub draft: bool,
-    /// The comment being written, or pointed at, is about it, tinted more strongly.
-    pub saying: bool,
+    Draft,
+    /// The comment pointed at is about it.
+    Saying,
+    /// The comment not sent yet that's pointed at or being written is about it.
+    SayingDraft,
+    /// Matches a search, as the diff's find tints its matches.
+    Found,
+    /// The match a search is on.
+    FoundHere,
+}
+
+impl Tint {
+    fn ground(self, theme: &Theme) -> Hsla {
+        match self {
+            Tint::Fresh => theme.pop.opacity(0.2),
+            Tint::Said => theme.warn.opacity(0.14),
+            Tint::Draft => theme.blue.opacity(0.12),
+            Tint::Saying => theme.warn.opacity(0.34),
+            Tint::SayingDraft => theme.blue.opacity(0.24),
+            Tint::Found => theme.warn.opacity(0.28),
+            Tint::FoundHere => theme.warn.opacity(0.6),
+        }
+    }
 }
 
 /// What the pointer does to a description's text, and what of it is selected, at points by
@@ -234,7 +256,7 @@ pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String 
 /// app's address or script, or a path the forge resolves against the repository, stays text.
 fn safe_link(url: &str) -> bool {
     let lower = url.trim().to_ascii_lowercase();
-    ["https://", "http://", "mailto:", ANCHOR]
+    ["https://", "http://", "mailto:"]
         .iter()
         .any(|scheme| lower.starts_with(scheme))
 }
@@ -395,6 +417,16 @@ fn collapse_spaces(text: &str) -> String {
 
 /// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, false)
+}
+
+/// [`parse`], for a document of parts: its `#part` links go to them, which whatever shows it
+/// follows by [`FollowAnchor`].
+pub fn parse_with_anchors(markdown: &str) -> Vec<Block> {
+    parse_links(markdown, true)
+}
+
+fn parse_links(markdown: &str, anchors: bool) -> Vec<Block> {
     let end = markdown.floor_char_boundary(MAX_BYTES);
     let options = Options::ENABLE_STRIKETHROUGH
         | Options::ENABLE_TASKLISTS
@@ -505,13 +537,18 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         }
     }
     /// A link from where `current` has got to, to `url` if that's safe to open.
-    fn open_link(current: &Option<Block>, url: &str) -> (usize, Option<String>) {
+    fn open_link(current: &Option<Block>, url: &str, anchors: bool) -> (usize, Option<String>) {
         // After images, its words start a block of their own.
         let words = current
             .as_ref()
             .filter(|block| !matches!(block.kind, Kind::Images(_)));
         let at = words.map_or(0, |block| block.text.len());
-        (at, safe_link(url).then(|| url.trim().to_owned()))
+        let url = url.trim();
+        let goes = match url.strip_prefix('#').filter(|_| anchors) {
+            Some(part) => Some(format!("{ANCHOR}{part}")),
+            None => safe_link(url).then(|| url.to_owned()),
+        };
+        (at, goes)
     }
     /// Mark the text `link` covers, up to where `current` has got to.
     fn close_link(link: Option<(usize, Option<String>)>, current: &mut Option<Block>) {
@@ -782,7 +819,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             Event::Start(Tag::Strikethrough) => style.strike = true,
             Event::End(TagEnd::Strikethrough) => style.strike = false,
             Event::Start(Tag::Link { dest_url, .. }) => {
-                link = Some(open_link(&current, &dest_url));
+                link = Some(open_link(&current, &dest_url, anchors));
             }
             Event::End(TagEnd::Link) => close_link(link.take(), &mut current),
             Event::Start(Tag::Image { dest_url, .. }) => {
@@ -880,7 +917,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             "s" | "del" | "strike" => style.strike = true,
                             "a" => {
                                 let href = attribute(&attributes, "href").unwrap_or("");
-                                link = Some(open_link(&current, href));
+                                link = Some(open_link(&current, href, anchors));
                             }
                             "img" => {
                                 let src = attribute(&attributes, "src").unwrap_or("").trim();
@@ -969,10 +1006,6 @@ pub const ANCHOR: &str = "anchor:";
 
 /// How a link to code on the branch starts, which is quieter than a link that leaves the page.
 pub const CODE_ANCHOR: &str = "anchor:code:";
-
-/// What code named in words links to when it isn't to be found: nothing to look at, and no look
-/// of a link, but a click gets an answer rather than none.
-pub const NO_CODE_ANCHOR: &str = "anchor:nocode:";
 
 /// The lines a link to code shows on hover, and the file they're from.
 #[derive(Debug, Clone, PartialEq)]
@@ -1301,16 +1334,9 @@ fn text(
                     italic: all.italic || style.italic,
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
-                    mark: all.mark || style.mark,
-                    current: all.current || style.current,
-                    fresh: all.fresh || style.fresh,
-                    said: all.said || style.said,
-                    draft: all.draft || style.draft,
-                    saying: all.saying || style.saying,
+                    tint: all.tint.max(style.tint),
                 });
-            let link = (block.links.iter())
-                .find(|(range, _)| range.contains(&at))
-                .filter(|(_, url)| !url.starts_with(NO_CODE_ANCHOR));
+            let link = (block.links.iter()).find(|(range, _)| range.contains(&at));
             let linked = link.is_some();
             let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
             let weight = match (style.bold || heading, style.italic) {
@@ -1329,19 +1355,13 @@ fn text(
                     false => color,
                 },
                 // The selection blue like the diff's, over a search's tint and code's grey.
-                background_color: match (style.mark, style.code) {
+                background_color: match style.tint {
                     _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
                         Some(theme.blue.opacity(0.3))
                     }
-                    _ if style.current => Some(theme.warn.opacity(0.6)),
-                    (true, _) => Some(theme.warn.opacity(0.28)),
-                    _ if style.saying && style.draft => Some(theme.blue.opacity(0.24)),
-                    _ if style.saying => Some(theme.warn.opacity(0.34)),
-                    _ if style.draft => Some(theme.blue.opacity(0.12)),
-                    _ if style.said => Some(theme.warn.opacity(0.14)),
-                    _ if style.fresh => Some(theme.pop.opacity(0.2)),
-                    (false, true) => Some(theme.fill_gray.opacity(0.12)),
-                    (false, false) => None,
+                    Some(tint) => Some(tint.ground(theme)),
+                    None if style.code => Some(theme.fill_gray.opacity(0.12)),
+                    None => None,
                 },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
@@ -1392,9 +1412,6 @@ fn text(
                         return Some(cx.new(|_| peek.clone()).into());
                     }
                     let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
-                    if url.starts_with(NO_CODE_ANCHOR) {
-                        return None;
-                    }
                     let words = match url.starts_with(ANCHOR) {
                         true => "Go to that part".to_owned(),
                         false => url.clone(),
@@ -1409,6 +1426,24 @@ fn text(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_document_of_parts_takes_links_to_its_parts() {
+        let links = |blocks: Vec<Block>| -> Vec<String> {
+            let block = blocks.into_iter().next().expect("there are words");
+            block.links.into_iter().map(|(_, url)| url).collect()
+        };
+        let words = "[a](#p2) [b](anchor:code:0:0:x) `[c](#p3)`";
+        assert!(
+            links(parse(words)).is_empty(),
+            "a pull request's body can't send a click anywhere in the app"
+        );
+        assert_eq!(
+            links(parse_with_anchors(words)),
+            ["anchor:p2"],
+            "only a link to a part, and not one spelled like the app's own or in code"
+        );
+    }
 
     #[test]
     fn an_alert_says_what_kind_it_is() {

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use crate::backend::briefs::{BriefBody, BriefPage};
 use crate::backend::{DiffLine, FileDiff, LineKind};
-use crate::ui::markdown::{ANCHOR, Block, CODE_ANCHOR, NO_CODE_ANCHOR, Peek};
+use crate::ui::markdown::{ANCHOR, Block, CODE_ANCHOR, Peek};
 
 /// How many lines a hover shows above the line that has the name.
 const PEEK_ABOVE: usize = 2;
@@ -197,9 +197,7 @@ pub(super) fn link_names(page: &mut BriefPage, files: &[FileDiff]) {
 fn link_blocks(mut blocks: Vec<&mut Block>, files: &[FileDiff]) {
     let mut wanted: HashSet<String> = HashSet::new();
     for block in blocks.iter_mut() {
-        block
-            .links
-            .retain(|(_, url)| !url.starts_with(CODE_ANCHOR) && !url.starts_with(NO_CODE_ANCHOR));
+        block.links.retain(|(_, url)| !url.starts_with(CODE_ANCHOR));
         block.peeks.clear();
         for (_, span, _) in code_spans(block) {
             if let Some(Name::Word(word)) = name_of(span) {
@@ -232,10 +230,7 @@ fn link_blocks(mut blocks: Vec<&mut Block>, files: &[FileDiff]) {
                         })
                     }
                 };
-                let Some((file, hunk, line, lines)) = place else {
-                    let url = format!("{NO_CODE_ANCHOR}{span}");
-                    return (!linked).then_some((range, Some(url), None));
-                };
+                let (file, hunk, line, lines) = place?;
                 let path = files.get(file)?.file.path.clone();
                 // By path, as the order of the diff's files changes with how they're sorted.
                 let url = format!("{CODE_ANCHOR}{hunk}:{line}:{path}");

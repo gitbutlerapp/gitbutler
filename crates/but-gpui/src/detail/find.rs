@@ -327,8 +327,10 @@ impl Detail {
                 .styles
                 .extend(found.into_iter().map(|(range, current)| {
                     let style = markdown::Style {
-                        mark: true,
-                        current,
+                        tint: Some(match current {
+                            true => markdown::Tint::FoundHere,
+                            false => markdown::Tint::Found,
+                        }),
                         ..Default::default()
                     };
                     (range, style)

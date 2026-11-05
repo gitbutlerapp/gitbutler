@@ -18,6 +18,7 @@ use crate::detail::Detail;
 use crate::detail::page::{BriefState, Writing};
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
+use crate::ui::markdown::Tint;
 use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button, markdown, v_flex};
 
 /// The notes a click leaves until someone changes them, as what's said most about generated text.
@@ -616,10 +617,8 @@ impl Detail {
         words: Cow<'a, [markdown::Block]>,
     ) -> Cow<'a, [markdown::Block]> {
         let version = state.page().map_or(0, |page| page.version);
-        let style = |said: bool, draft: bool, saying: bool| markdown::Style {
-            said,
-            draft,
-            saying,
+        let style = |tint| markdown::Style {
+            tint: Some(tint),
             ..Default::default()
         };
         let on_block = |position: usize| block.positions.contains(&position);
@@ -629,17 +628,31 @@ impl Detail {
             .filter(|thread| thread.version.is_none_or(|said_on| said_on == version))
             .filter(|thread| thread.anchor.block().is_some_and(on_block))
             .filter_map(quote_of)
-            .map(|quote| (quote, style(true, false, hovered == Some(quote))));
+            .map(|quote| {
+                (
+                    quote,
+                    style(match hovered == Some(quote) {
+                        true => Tint::Saying,
+                        false => Tint::Said,
+                    }),
+                )
+            });
         let notes = (state.notes.iter()).filter_map(|note| match &note.to {
             CommentTo::Passage { block, quote } if on_block(*block) => {
                 let quote = quote.as_str();
-                Some((quote, style(false, true, hovered == Some(quote))))
+                Some((
+                    quote,
+                    style(match hovered == Some(quote) {
+                        true => Tint::SayingDraft,
+                        false => Tint::Draft,
+                    }),
+                ))
             }
             _ => None,
         });
         let writing = self.brief_writing().and_then(|writing| match writing {
             Writing::Note(CommentTo::Passage { block, quote }) if on_block(*block) => {
-                Some((quote.as_str(), style(false, true, true)))
+                Some((quote.as_str(), style(Tint::SayingDraft)))
             }
             _ => None,
         });

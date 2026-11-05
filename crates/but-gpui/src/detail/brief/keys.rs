@@ -350,13 +350,7 @@ impl Detail {
                                 this.brief_go_to_line(path, hunk, line, window, cx);
                             }
                         }
-                        None => match link.0.strip_prefix("nocode:") {
-                            Some(name) => {
-                                let says = format!("{name} isn't in what this branch changes");
-                                (this.store).update(cx, |store, cx| store.snack(says, cx));
-                            }
-                            None => this.follow_brief_link(&link.0, cx),
-                        },
+                        None => this.follow_brief_link(&link.0, cx),
                     }
                 }),
             )
