@@ -24,8 +24,8 @@ use gpui::{
     DispatchPhase, Entity, Font, FontWeight, Hitbox, HitboxBehavior, Hsla, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, PinchEvent, Pixels, Point,
     ScrollDelta, ScrollWheelEvent, SharedString, Size, Subscription, Task, TextAlign, TextRun,
-    TransformationMatrix, WeakEntity, Window, canvas, div, fill, font, point, prelude::*, quad,
-    size,
+    Toggled, TransformationMatrix, WeakEntity, Window, canvas, div, fill, font, point, prelude::*,
+    quad, size,
 };
 
 use crate::backend::{
@@ -37,8 +37,8 @@ use crate::state::{ProjectId, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
-    ButtonStyle, Icon, ago, button, commit_title, dp, empty_state, fixed, h_flex, icon_button,
-    popover, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, checkbox, commit_title, dp, empty_state, fixed,
+    h_flex, icon_button, popover, small_icon, v_flex,
 };
 
 use layout::{Input, Line, Route, Side, Track, reach};
@@ -70,6 +70,8 @@ const NO_COMMITS: &str = "No commits yet";
 const HISTORY: usize = 400;
 /// How far it zooms out and in.
 const ZOOM: (f32, f32) = (0.02, 3.);
+/// What the checkbox that keeps the workspace in view says it does.
+const FOLLOW_TIP: &str = "Keep your lanes in view until you pan";
 /// How long commits take to move where a reload puts them, the camera to move where a button
 /// sends it, and a new commit's ripple to fade.
 const MOVE: Duration = Duration::from_millis(380);
@@ -468,6 +470,9 @@ pub struct GraphView {
     seen: bool,
     /// The camera on its way from one place to another, since when.
     glide: Option<(Instant, Camera, Camera)>,
+    /// The camera goes to the workspace each time a load changes what's shown, or the canvas
+    /// changes size, as the navigator or a tile comes or goes. Panning by hand stops it.
+    following: bool,
     /// What the loads still settling moved, oldest first.
     moved: Vec<Move>,
     /// How far the edges those loads moved are from how they're laid out, by their places.
@@ -506,11 +511,13 @@ pub struct GraphView {
     _subscriptions: Vec<Subscription>,
 }
 
-/// How a Graph page was left: where the camera was, and the commit whose lineage it had pinned.
+/// How a Graph page was left: where the camera was, the commit whose lineage it had pinned, and
+/// whether it was following the workspace.
 #[derive(Default, Clone)]
 pub(super) struct GraphState {
     camera: Option<Camera>,
     pinned: Option<SharedString>,
+    following: bool,
 }
 
 impl GraphView {
@@ -519,6 +526,7 @@ impl GraphView {
         GraphState {
             camera: self.seen.then_some(self.camera),
             pinned: self.pinned.clone(),
+            following: self.following,
         }
     }
 
@@ -567,6 +575,7 @@ impl GraphView {
             left: GraphState::default(),
             seen: false,
             glide: None,
+            following: false,
             moved: Vec::new(),
             bends: Rc::default(),
             tag_slides: Rc::default(),
@@ -603,6 +612,30 @@ impl GraphView {
         }
     }
 
+    /// Glide to where the Workspace button goes.
+    fn go_to_workspace(&mut self, cx: &mut Context<Self>) {
+        if let Some(scene) = self.scene.clone() {
+            let to = self.on_workspace(&scene);
+            self.glide_to(to, cx);
+        }
+    }
+
+    /// Back to the workspace if following it, unless the canvas is pressed, as a pan may start.
+    fn keep_following(&mut self, cx: &mut Context<Self>) {
+        if self.following && self.placed && self.drag.is_none() {
+            self.go_to_workspace(cx);
+        }
+    }
+
+    /// Follow the workspace, from here on and starting now, or stop.
+    fn toggle_following(&mut self, cx: &mut Context<Self>) {
+        self.following = !self.following;
+        if self.following {
+            self.go_to_workspace(cx);
+        }
+        cx.notify();
+    }
+
     /// Show the graph shown, reading it again when the workspace has something new.
     fn follow(&mut self, cx: &mut Context<Self>) {
         let Some(project) = self.shown.clone() else {
@@ -625,6 +658,7 @@ impl GraphView {
             self.unhover();
             self.pinned = None;
             self.lineage = Rc::default();
+            self.following = false;
             cx.notify();
         }
         self.load(cx);
@@ -665,7 +699,15 @@ impl GraphView {
                 this.loading = false;
                 if this.project.as_ref() == Some(&project) {
                     match result {
-                        Ok(scene) => this.show(Arc::new(scene)),
+                        Ok(scene) => {
+                            // Reading further back changes nothing of the workspace.
+                            let deeper = (this.scene.as_ref())
+                                .is_some_and(|old| old.history != scene.history);
+                            this.show(Arc::new(scene));
+                            if !deeper {
+                                this.keep_following(cx);
+                            }
+                        }
                         Err(err) => this.failed = Some(format!("{err:#}").into()),
                     }
                 }
@@ -819,9 +861,11 @@ impl GraphView {
         self.scene = Some(scene);
     }
 
-    /// The canvas grew by `grown` pixels: what was in its middle stays there.
-    fn resized(&mut self, grown: Point<f32>) {
+    /// The canvas grew by `grown` pixels: what was in its middle stays there, or following the
+    /// workspace, it's framed anew from there.
+    fn resized(&mut self, grown: Point<f32>, cx: &mut Context<Self>) {
         self.pan(point(grown.x / 2., grown.y / 2.));
+        self.keep_following(cx);
     }
 
     /// Move what's shown `by` pixels, and where a glide or a pan is taking it.
@@ -1067,6 +1111,7 @@ impl GraphView {
                 if drag.moved || x.hypot(y) > 3. {
                     drag.moved = true;
                     self.camera.offset = point(drag.offset.x + x, drag.offset.y + y);
+                    self.following = false;
                     self.unhover();
                     cx.notify();
                     return;
@@ -1106,20 +1151,26 @@ impl GraphView {
         let zooms = event.modifiers.platform || event.modifiers.control;
         match event.delta {
             ScrollDelta::Pixels(by) if !zooms => {
-                let (x, y) = (f32::from(by.x), f32::from(by.y));
-                self.camera.offset = point(self.camera.offset.x + x, self.camera.offset.y + y);
-                self.glide = None;
+                self.pan_by_hand(point(f32::from(by.x), f32::from(by.y)));
             }
             ScrollDelta::Pixels(by) => self.zoom_at(at, (f32::from(by.y) * 0.01).exp()),
             ScrollDelta::Lines(by) if event.modifiers.shift => {
-                let x = (by.y + by.x) * 48.;
-                self.camera.offset = point(self.camera.offset.x + x, self.camera.offset.y);
-                self.glide = None;
+                self.pan_by_hand(point((by.y + by.x) * 48., 0.));
             }
             ScrollDelta::Lines(by) => self.zoom_at(at, 1.15f32.powf(by.y)),
         }
         self.unhover();
         cx.notify();
+    }
+
+    /// Move what's shown `by` pixels as the wheel or a trackpad says, which ends a glide and,
+    /// unless it's a trackpad's touch that moved nothing, following the workspace.
+    fn pan_by_hand(&mut self, by: Point<f32>) {
+        self.camera = self.camera.panned(by);
+        self.glide = None;
+        if by != point(0., 0.) {
+            self.following = false;
+        }
     }
 
     fn pinched(&mut self, event: &PinchEvent, cx: &mut Context<Self>) {
@@ -2759,8 +2810,13 @@ impl Render for GraphView {
         let measured = self.bounds.get().size.width > fixed(0.);
         if !self.placed && measured {
             let left = std::mem::take(&mut self.left);
-            self.camera = left.camera.unwrap_or_else(|| self.opening(&scene));
+            self.camera = match (left.following, left.camera) {
+                (true, _) => self.on_workspace(&scene),
+                (false, Some(camera)) => camera,
+                (false, None) => self.opening(&scene),
+            };
             self.pinned = left.pinned;
+            self.following = left.following;
             self.placed = true;
             self.seen = true;
         }
@@ -2836,7 +2892,7 @@ impl Render for GraphView {
                     paint.camera = paint.camera.panned(point(grown.x / 2., grown.y / 2.));
                     // The cards were placed before it knew, so they go again.
                     view.update(cx, |this, cx| {
-                        this.resized(grown);
+                        this.resized(grown, cx);
                         cx.notify();
                     })
                     .ok();
@@ -2874,6 +2930,10 @@ impl Render for GraphView {
                 Some(card(node, centre, node_box, view, fade, pinned, &theme))
             });
         let zoom = self.camera.zoom;
+        let following = match self.following {
+            true => Toggled::True,
+            false => Toggled::False,
+        };
         let target = (scene.nodes.iter())
             .flat_map(|node| &node.labels)
             .find(|label| label.look == Look::Target)
@@ -2896,12 +2956,7 @@ impl Render for GraphView {
                     .style(ButtonStyle::Ghost)
                     .small()
                     .tooltip("Your lanes and what they start from")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                        if let Some(scene) = this.scene.clone() {
-                            let to = this.on_workspace(&scene);
-                            this.glide_to(to, cx);
-                        }
-                    })),
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_to_workspace(cx))),
             )
             .child(
                 button(
@@ -2918,6 +2973,36 @@ impl Render for GraphView {
                         this.glide_to(to, cx);
                     }
                 })),
+            )
+            .child(div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2))
+            .child(
+                h_flex()
+                    .pl(dp(6.))
+                    .child(
+                        checkbox("graph-follow", following, &theme)
+                            .aria_label("Follow workspace")
+                            .tooltip(Tooltip::text(FOLLOW_TIP))
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.toggle_following(cx)
+                                }),
+                            ),
+                    )
+                    // No gap, so a click between the two isn't lost.
+                    .child(
+                        div()
+                            .id("graph-follow-label")
+                            .pl(dp(6.))
+                            .pr(dp(6.))
+                            .text_size(dp(12.))
+                            .child("Follow")
+                            .tooltip(Tooltip::text(FOLLOW_TIP))
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.toggle_following(cx)
+                                }),
+                            ),
+                    ),
             )
             .child(div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2))
             .child(
