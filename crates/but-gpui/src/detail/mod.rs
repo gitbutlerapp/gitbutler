@@ -43,7 +43,6 @@ pub(crate) use page::{PageTab, has_tabs, shows_its_diff};
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::PathBuf;
@@ -3204,15 +3203,15 @@ impl Detail {
     /// commits: the project's own or a linked worktree's.
     /// The order the diff has its files in, as the list shows them: in the order picked, and in
     /// a tree, folder by folder.
-    fn diff_file_order(&self, cx: &App) -> impl Fn(&FileDiff, &FileDiff) -> Ordering + use<> {
+    fn diff_file_order(
+        &self,
+        cx: &App,
+    ) -> impl Fn(&FileDiff, &FileDiff) -> std::cmp::Ordering + use<> {
         let prefs = &self.store.read(cx).prefs;
         let (tree, sort) = (prefs.file_view == FileView::Tree, prefs.file_sort);
-        move |a: &FileDiff, b: &FileDiff| {
-            let folders = match tree {
-                true => file_tree::folder_order(&a.file.path, &b.file.path),
-                false => Ordering::Equal,
-            };
-            folders.then_with(|| file_tree::file_order(sort, &a.file, &b.file))
+        move |a: &FileDiff, b: &FileDiff| match tree {
+            true => file_tree::tree_order(sort, &a.file, &b.file),
+            false => file_tree::file_order(sort, &a.file, &b.file),
         }
     }
 

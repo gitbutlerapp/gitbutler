@@ -456,7 +456,11 @@ impl Detail {
                         .map(|opened| (files.len(), opened)),
                 );
                 // In the order picked, as the diff beside it has them.
-                kept.sort_by(|(_, a), (_, b)| file_tree::file_order(store.prefs.file_sort, a, b));
+                let sort = store.prefs.file_sort;
+                kept.sort_by(|(_, a), (_, b)| match tree {
+                    true => file_tree::tree_order(sort, a, b),
+                    false => file_tree::file_order(sort, a, b),
+                });
                 (kept.into_iter())
                     .map(|(pos, f)| (pos, f.path.as_str()))
                     .collect()
@@ -1470,8 +1474,9 @@ impl Detail {
             )
     }
 
-    /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree, by name or
-    /// the last written first. Files with no write time, as a commit's, go by name either way.
+    /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree, by name, with
+    /// docs first, or the last written first. By the last written, files with no write time,
+    /// as a commit's, go after those with one, by name.
     fn view_items(&self, cx: &App) -> Vec<MenuItem> {
         let prefs = &self.store.read(cx).prefs;
         let (view, sort) = (prefs.file_view, prefs.file_sort);
@@ -1505,6 +1510,7 @@ impl Detail {
                 show("As list", FileView::List).under("View"),
                 show("As tree", FileView::Tree),
                 by("Name", FileSort::Name).separated().under("Sort by"),
+                by("Docs first", FileSort::DocsFirst),
                 by("Last modified", FileSort::Modified),
             ])
             .collect()
