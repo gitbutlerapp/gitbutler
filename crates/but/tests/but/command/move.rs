@@ -4958,7 +4958,7 @@ fn move_onto_a_worktree_branch_marks_its_conflicting_uncommitted_changes() {
     .stdout_eq(snapbox::str![[r#"
 Moved yxq to the tip of branch 'wt-dirty'
 
-⚠ A conflict occurred during checkout. Run `but status` for more information.
+⚠ A conflict occurred during checkout of worktree 'wt-dirty' at [..]wt-dirty. Run `but status` there for more information.
 
 "#]])
     .stderr_eq(snapbox::str![]);

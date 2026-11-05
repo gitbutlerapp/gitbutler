@@ -1820,7 +1820,10 @@ async fn dispatch_subcommand(
     #[cfg(feature = "legacy")]
     if let Some(ws) = ws {
         if !ws.conflicted_checkouts.is_empty() {
-            command::legacy::conflict_notice::report_checkout_conflict(out);
+            command::legacy::conflict_notice::report_checkout_conflicts(
+                out,
+                &ws.conflicted_checkouts,
+            );
         }
         if let Some(conflicts_before) = newly_conflicted_data {
             command::legacy::conflict_notice::report_newly_conflicted(

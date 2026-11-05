@@ -1085,6 +1085,8 @@ pub enum UpdateOutcome {
         conflicted: Vec<(Option<super::FullName>, usize)>,
         /// Branches (full refs) that merged into the target, which the update removed.
         merged: Vec<super::FullName>,
+        /// Checkouts whose uncommitted changes got conflict markers.
+        marked: Vec<super::Checkout>,
     },
 }
 
@@ -1185,6 +1187,7 @@ impl Update {
                 merged: (names(&info).into_iter())
                     .filter(|name| !remaining.contains(name))
                     .collect(),
+                marked: marked(&updated.workspace_state.conflicted_checkouts),
             })
         })
     }
@@ -1277,7 +1280,7 @@ impl Intent for MergeIntoTarget {
             Ok(MergedIntoTarget {
                 update_needed: merged.reconcile_skipped,
                 conflicted: newly_conflicted(&info, &merged.workspace.conflicted_commits),
-                marked: !merged.workspace.conflicted_checkouts.is_empty(),
+                marked: marked(&merged.workspace.conflicted_checkouts),
             })
         })
     }
@@ -1290,8 +1293,19 @@ pub struct MergedIntoTarget {
     /// Branches (full refs) the update after it left with conflicted commits they didn't
     /// have, each with how many.
     pub conflicted: Vec<(Option<super::FullName>, usize)>,
-    /// The update gave uncommitted changes conflict markers.
-    pub marked: bool,
+    /// Checkouts whose uncommitted changes the update gave conflict markers.
+    pub marked: Vec<super::Checkout>,
+}
+
+fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<super::Checkout> {
+    (checkouts.iter())
+        .map(|checkout| match checkout {
+            but_rebase::graph_rebase::ConflictedCheckout::Head => super::Checkout::Main,
+            but_rebase::graph_rebase::ConflictedCheckout::Worktree { name, .. } => {
+                super::Checkout::Linked(name.clone())
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

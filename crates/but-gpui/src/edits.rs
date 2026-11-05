@@ -1439,9 +1439,7 @@ impl AppView {
                     let mut said =
                         vec![format!("Merged into {target}{}", store.in_project(&merged))];
                     said.extend(crate::state::conflicted_parts(&left.conflicted));
-                    if left.marked {
-                        said.push("uncommitted changes got conflict markers".to_owned());
-                    }
+                    said.extend(crate::state::marked_parts(&left.marked));
                     if left.update_needed {
                         said.push("the other branches need an Update".to_owned());
                     }
