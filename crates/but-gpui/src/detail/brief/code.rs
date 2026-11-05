@@ -3,11 +3,9 @@
 
 use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
 
-use std::collections::HashSet;
-
 use super::state::BriefFold;
-use crate::backend::briefs::{BriefBody, BriefCode, BriefPage, CodeSource, Standing};
-use crate::backend::{FileDiff, LineKind};
+use crate::backend::LineKind;
+use crate::backend::briefs::{BriefCode, BriefPage, CodeSource, Standing};
 use crate::detail::Detail;
 use crate::detail::find::Spot;
 use crate::detail::page::PageTab;
@@ -33,28 +31,6 @@ fn chip(words: &str, color: Hsla, theme: &Theme) -> Div {
         .text_color(color)
         .bg(theme.bg_1)
         .child(words.to_owned())
-}
-
-/// The code cards of `page` that show being added what `files` no longer have, by their blocks. What
-/// a brief shows is checked against what's there, so it needn't be taken on trust.
-pub(super) fn drifted_blocks(page: &BriefPage, files: &[FileDiff]) -> HashSet<usize> {
-    (page.blocks.iter().enumerate())
-        .filter_map(|(at, block)| match &block.body {
-            BriefBody::Code(code) if code.source != CodeSource::Proposal => {
-                let file = files.iter().find(|file| file.file.path == code.path)?;
-                let there: HashSet<&str> = (file.hunks().iter())
-                    .flat_map(|hunk| hunk.lines.iter())
-                    .filter(|line| line.kind != LineKind::Removed)
-                    .map(|line| line.text.as_ref())
-                    .collect();
-                (code.parts.iter().flatten())
-                    .filter(|line| line.kind == LineKind::Added && !line.text.trim().is_empty())
-                    .any(|line| !there.contains(line.text.as_ref()))
-                    .then_some(at)
-            }
-            _ => None,
-        })
-        .collect()
 }
 
 /// The foot of a card, for what it leaves out.
@@ -114,9 +90,8 @@ impl Detail {
             )
             .children(changed_since(page, &path).then(|| chip("changed since", theme.warn, theme)))
             .children(
-                (self.page.brief())
-                    .filter(|brief| brief.drifted.contains(&at))
-                    .map(|_| chip("differs from the branch now", theme.warn, theme)),
+                (page.drifted.contains(&at))
+                    .then(|| chip("differs from the branch now", theme.warn, theme)),
             );
         v_flex()
             .rounded(dp(6.))

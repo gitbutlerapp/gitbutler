@@ -150,8 +150,6 @@ pub(in crate::detail) struct BriefState {
     pub(in crate::detail) tests: Option<TestFacts>,
     /// The files that diff changes which tend to matter and the brief neither shows nor names.
     pub(in crate::detail) unnamed: Vec<String>,
-    /// The code cards that show what that diff no longer has, by their blocks.
-    pub(in crate::detail) drifted: HashSet<usize>,
     /// How far the tab was scrolled as the page was left, for when its rows are next drawn.
     pub(in crate::detail) top: Cell<Option<ListOffset>>,
 }

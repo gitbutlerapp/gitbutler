@@ -37,6 +37,8 @@ pub struct BriefPage {
     /// The agent that wrote it, in its own words.
     pub agent: Option<String>,
     pub standing: Standing,
+    /// The code cards, by their blocks, that show being added what the branch doesn't have now.
+    pub drifted: HashSet<usize>,
     /// It had uncommitted changes on top of the commit it was written at.
     pub uncommitted: bool,
     /// What's different from the version read before this one, if one was.
@@ -363,6 +365,7 @@ pub(super) fn page(
         labels: review.labels,
         agent: review.generator.and_then(|generator| generator.agent),
         standing,
+        drifted: HashSet::new(),
         uncommitted,
         since_read,
         tip,

@@ -275,7 +275,6 @@ impl Detail {
             names::link_names(page, &diff.files);
             brief.tests = Some(test_facts::TestFacts::of(&diff.files));
             brief.unnamed = head::unnamed_files(page, &diff.files);
-            brief.drifted = code::drifted_blocks(page, &diff.files);
             brief.linked = Some(key);
             self.brief.list.remeasure();
         }
@@ -304,18 +303,22 @@ impl Detail {
         if current || reading {
             return;
         }
-        let task = match shown.map(|page| page.written_at.clone()) {
-            Some(head) => cx.spawn(async move |this, cx| {
-                let standing =
-                    run(move || Ok(briefs::standing_now(head.as_deref(), &anchor))).await;
+        let task = match shown.map(|page| (page.written_at.clone(), page.blocks.clone())) {
+            Some((head, blocks)) => cx.spawn(async move |this, cx| {
+                let standing = run(move || {
+                    let standing = briefs::standing_now(head.as_deref(), &anchor);
+                    Ok((standing, briefs::drifted(&blocks, &anchor)))
+                })
+                .await;
                 this.update(cx, |this, cx| {
-                    if let (Ok(standing), Some(page)) = (
+                    if let (Ok((standing, drifted)), Some(page)) = (
                         standing,
                         this.page.brief_mut().and_then(|brief| brief.page_mut()),
                     ) && page.id == found.id
                         && version.is_none_or(|it| it == page.version)
                     {
                         page.standing = standing;
+                        page.drifted = drifted;
                         page.tip = tip;
                         this.brief_list_changed(cx);
                     }
@@ -389,7 +392,6 @@ impl Detail {
         // Of the diff and the version that's going, until they're linked again.
         brief.tests = None;
         brief.unnamed = Default::default();
-        brief.drifted = Default::default();
         brief.shown = Some(read.map_err(|err| format!("{err:#}")));
         // Places in words that may be others now, and the rows they're in with them.
         self.note_selection = None;
@@ -641,9 +643,9 @@ impl Detail {
                             BriefBody::Code(code) => Some((page, code)),
                             _ => None,
                         });
-                        state.drifted.contains(&next)
-                            && code
-                                .is_some_and(|(page, code)| code::changed_since(page, &code.path))
+                        code.is_some_and(|(page, code)| {
+                            page.drifted.contains(&next) && code::changed_since(page, &code.path)
+                        })
                     });
                 let words = v_flex().child(words).children(moved_on.then(|| {
                     div()

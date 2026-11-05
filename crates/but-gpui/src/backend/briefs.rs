@@ -2,7 +2,7 @@
 //! one to draw. Asking goes over the network and reading the cache touches the disk, so all of
 //! it runs off the UI thread like the rest. `but-briefs` keeps the file, and this says who for.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -12,7 +12,7 @@ use but_api::legacy::{forge, users};
 use but_briefs::{BranchAsk, Cache, Client};
 use parking_lot::Mutex;
 
-use super::{CommitId, open, runtime};
+use super::{CommitId, LineKind, open, runtime};
 
 mod page;
 mod since;
@@ -266,7 +266,52 @@ pub fn read(found: &Found, version: Option<u32>, anchor: &BriefAnchor) -> Result
         earlier,
     );
     page.written_at = head;
+    page.drifted = drifted(&page.blocks, anchor);
     Ok(page)
+}
+
+/// The code cards of `blocks` that show being added what the branch of `anchor` doesn't have now,
+/// which, as how it stands, is all that a branch moving changes about a page.
+pub fn drifted(blocks: &[BriefBlock], anchor: &BriefAnchor) -> HashSet<usize> {
+    drifted_of(blocks, anchor).unwrap_or_else(|err| {
+        tracing::debug!("couldn't tell if a brief's code is still there: {err:#}");
+        HashSet::new()
+    })
+}
+
+fn drifted_of(blocks: &[BriefBlock], anchor: &BriefAnchor) -> Result<HashSet<usize>> {
+    let Some(tip) = anchor.tip() else {
+        return Ok(HashSet::new());
+    };
+    let ctx = open(&anchor.path)?;
+    let repo = ctx.repo.get()?;
+    let tree = repo.find_commit(tip.0)?.tree()?;
+    Ok(drifted_from(blocks, |path| {
+        let entry = tree.lookup_entry_by_path(path).ok()??;
+        let blob = repo.find_blob(entry.object_id()).ok()?;
+        Some(String::from_utf8_lossy(&blob.data).into_owned())
+    }))
+}
+
+/// The code cards of `blocks`, by their blocks, that show being added what `file` no longer has. It
+/// goes by the whole file, as a diff doesn't show lines that a rebase took into the target or that
+/// are far from what changed, and those are still there. A file it can't read may only have moved,
+/// and a line cut to fit can't be compared, so those say nothing.
+fn drifted_from(blocks: &[BriefBlock], file: impl Fn(&str) -> Option<String>) -> HashSet<usize> {
+    (blocks.iter().enumerate())
+        .filter_map(|(at, block)| match &block.body {
+            BriefBody::Code(code) if code.source != CodeSource::Proposal => {
+                let file = file(&code.path)?;
+                let there: HashSet<String> = file.lines().map(super::diff::display_text).collect();
+                (code.parts.iter().flatten())
+                    .filter(|line| line.kind == LineKind::Added && !line.text.trim().is_empty())
+                    .filter(|line| !line.text.contains('…'))
+                    .any(|line| !there.contains(line.text.as_ref()))
+                    .then_some(at)
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// What `version` of brief `id` compares against: the version last read before it, `seen` if
@@ -501,4 +546,48 @@ pub fn forget() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::DiffLine;
+
+    #[test]
+    fn a_card_has_drifted_only_when_the_file_has_lost_what_it_adds() {
+        let card = |path: &str, added: &str, source| BriefBlock {
+            positions: 0..=0,
+            fresh: false,
+            detail: None,
+            body: BriefBody::Code(BriefCode {
+                path: path.to_owned(),
+                source,
+                status: None,
+                stats: None,
+                parts: vec![vec![DiffLine::new(LineKind::Added, None, Some(1), added)]],
+                omitted: Vec::new(),
+            }),
+        };
+        let blocks = [
+            card("landed.rs", "    fn kept() {}", CodeSource::Committed),
+            card("changed.rs", "fn gone() {}", CodeSource::Committed),
+            card("moved.rs", "fn moved() {}", CodeSource::Committed),
+            card("planned.rs", "fn planned() {}", CodeSource::Proposal),
+            card("long.rs", "fn cut_to_fit…", CodeSource::Committed),
+        ];
+        let drifted = drifted_from(&blocks, |path| {
+            match path {
+                // Tabs, as cards show them spaced out, and no diff of this file need show the line.
+                "landed.rs" => Some("fn other() {}\n\tfn kept() {}\r\n"),
+                "changed.rs" | "planned.rs" | "long.rs" => Some("fn other() {}\n"),
+                _ => None,
+            }
+            .map(str::to_owned)
+        });
+        assert_eq!(
+            drifted,
+            HashSet::from([1]),
+            "only a line a readable file really lacks counts against a brief"
+        );
+    }
 }
