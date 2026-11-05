@@ -4,6 +4,22 @@ interface KeybindDefinitions {
 	[combo: string]: (event: KeyboardEvent) => void;
 }
 
+/**
+ * Whether `event` is `platform`'s "select all" chord.
+ *
+ * macOS selects all with ⌘ and leaves Ctrl+A as "move to the start of the line", the emacs
+ * binding its text fields carry everywhere else, so accepting either modifier there takes an
+ * editing key away rather than adding a shortcut. Everywhere else Ctrl is the one that selects.
+ *
+ * `platform` is a `Backend["platformName"]`, which the desktop app gets from the OS rather
+ * than from the user agent.
+ */
+export function isSelectAllChord(event: KeyboardEvent, platform: string): boolean {
+	if (event.key !== "a") return false;
+
+	return platform === "macos" ? event.metaKey : event.ctrlKey;
+}
+
 export const shortcuts = {
 	global: {
 		open_repository: {
