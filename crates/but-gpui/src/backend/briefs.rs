@@ -70,8 +70,14 @@ fn ask_of(branch: String, commits: impl Iterator<Item = CommitId>) -> BranchAsk 
     }
 }
 
+/// What can be fetched again, as pictures.
 fn cache_dir() -> Option<PathBuf> {
     but_path::app_cache_dir().ok().map(|dir| dir.join("briefs"))
+}
+
+/// Where the file goes that holds comments not sent yet, which the cache folder is free to lose.
+fn data_dir() -> Option<PathBuf> {
+    but_path::app_data_dir().ok().map(|dir| dir.join("briefs"))
 }
 
 /// `act` on the cache of whoever's signed in. Nothing for no one. The lock is only for `act`, so
@@ -86,7 +92,7 @@ fn cached<T>(act: impl FnOnce(&mut Cache) -> rusqlite::Result<T>) -> Result<Opti
         .as_ref()
         .is_none_or(|cache| cache.account() != account)
     {
-        *cache = Some(Cache::open(cache_dir().as_deref(), &account)?);
+        *cache = Some(Cache::open(data_dir().as_deref(), &account)?);
     }
     let Some(cache) = cache.as_mut() else {
         return Ok(None);
@@ -204,7 +210,7 @@ pub fn read(found: &Found, version: Option<u32>, anchor: &BriefAnchor) -> Result
                 bail!("Sign in to GitButler to read briefs");
             };
             let read = (runtime().handle()).block_on(client.read(id, version))?;
-            cached(|cache| cache.put_version(&read, now()))?;
+            cached(|cache| cache.put_version(&read))?;
             serde_json::from_value(read.body)?
         }
     };
@@ -352,7 +358,7 @@ pub fn ask_talk(id: &str, version: u32) -> Result<Activity> {
         bail!("Sign in to GitButler to read briefs");
     };
     let raw = (runtime().handle()).block_on(client.activity(id, version))?;
-    cached(|cache| cache.put_activity(id, version, &raw, now()))?;
+    cached(|cache| cache.put_activity(id, version, &raw))?;
     Ok(Activity::read(&raw))
 }
 
@@ -455,8 +461,10 @@ fn keep_media(path: &Path, bytes: &[u8]) {
 /// Leave nothing of what Briefs said on disk, as someone signs out.
 pub fn forget() -> Result<()> {
     *CACHE.lock() = None;
-    if let Some(dir) = cache_dir().filter(|dir| dir.exists()) {
-        std::fs::remove_dir_all(dir)?;
+    for dir in [cache_dir(), data_dir()].into_iter().flatten() {
+        if dir.exists() {
+            std::fs::remove_dir_all(dir)?;
+        }
     }
     Ok(())
 }

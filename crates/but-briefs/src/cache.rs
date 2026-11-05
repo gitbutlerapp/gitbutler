@@ -1,12 +1,14 @@
-//! What Briefs last said, in a SQLite file of its own, so a page can draw without asking, and
-//! removing Briefs leaves nothing behind in any other database.
+//! What Briefs last said and what's written back and not sent, in a SQLite file of its own, so a
+//! page can draw without asking, and removing Briefs leaves nothing behind in any other database.
 //!
 //! It keeps the server's JSON as it came and reads it as it's used, leniently, so what the server
 //! changes takes no migration: a new field or kind of block reads as it does from the server, and
 //! a row that can't be read any more is dropped and asked for again. Only [`SCHEMA`] says what
-//! the tables here look like, and another number drops what the file holds. It's a cache, so
-//! opening it doesn't fail on what's in the file: one SQLite can't read is replaced, and with none
-//! that opens, it lives in memory until the app quits.
+//! the tables here look like, and another number drops what the file holds, but for what's written
+//! and not sent, which is someone's own words and nowhere else, and whose it is. Changing `note`
+//! takes a migration.
+//! The rest is a cache, so opening it doesn't fail on what's in the file: one SQLite can't read is
+//! replaced, and with none that opens, it lives in memory until the app quits.
 
 use std::path::Path;
 use std::time::Duration;
@@ -18,21 +20,17 @@ use crate::{Asked, Brief, CommentTo, FetchedVersion, Found, RawActivity};
 
 const FILE: &str = "briefs.sqlite";
 
-/// What the tables look like. There are no migrations: another number drops them.
-const SCHEMA: i32 = 4;
+/// What the tables look like. There are no migrations: another number drops them, but for `note`.
+const SCHEMA: i32 = 5;
 
 const TABLES: &str = "
     DROP TABLE IF EXISTS version;
     DROP TABLE IF EXISTS anchor;
-    DROP TABLE IF EXISTS account;
     DROP TABLE IF EXISTS activity;
-    DROP TABLE IF EXISTS note;
     DROP TABLE IF EXISTS seen;
     CREATE TABLE version (
         brief_id     TEXT NOT NULL,
         version      INTEGER NOT NULL,
-        published_at TEXT,
-        fetched_at   INTEGER NOT NULL,
         json         TEXT NOT NULL,
         PRIMARY KEY (brief_id, version)
     );
@@ -43,19 +41,18 @@ const TABLES: &str = "
         found    TEXT NOT NULL,
         PRIMARY KEY (remote, branch)
     );
-    CREATE TABLE account (id TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS account (id TEXT NOT NULL);
     CREATE TABLE activity (
-        brief_id   TEXT NOT NULL,
-        version    INTEGER NOT NULL,
-        fetched_at INTEGER NOT NULL,
-        json       TEXT NOT NULL,
+        brief_id TEXT NOT NULL,
+        version  INTEGER NOT NULL,
+        json     TEXT NOT NULL,
         PRIMARY KEY (brief_id, version)
     );
     CREATE TABLE seen (
         brief_id TEXT PRIMARY KEY,
         version  INTEGER NOT NULL
     );
-    CREATE TABLE note (
+    CREATE TABLE IF NOT EXISTS note (
         id       INTEGER PRIMARY KEY,
         brief_id TEXT NOT NULL,
         version  INTEGER NOT NULL,
@@ -189,19 +186,17 @@ impl Cache {
         Ok(json.and_then(|json| serde_json::from_str(&json).ok()))
     }
 
-    /// Keep what's been said about `version` of brief `id`, at `now`.
+    /// Keep what's been said about `version` of brief `id`.
     pub fn put_activity(
         &self,
         id: &str,
         version: u32,
         activity: &RawActivity,
-        now: i64,
     ) -> rusqlite::Result<()> {
         let json = serde_json::to_string(activity).unwrap_or_default();
         self.conn.execute(
-            "INSERT OR REPLACE INTO activity (brief_id, version, fetched_at, json)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![id, version, now, json],
+            "INSERT OR REPLACE INTO activity (brief_id, version, json) VALUES (?1, ?2, ?3)",
+            params![id, version, json],
         )?;
         Ok(())
     }
@@ -284,8 +279,8 @@ impl Cache {
     }
 
     /// Keep a version read on its own, at `now`, in seconds since the epoch.
-    pub fn put_version(&self, version: &FetchedVersion, now: i64) -> rusqlite::Result<()> {
-        put_version(&self.conn, version, now)
+    pub fn put_version(&self, version: &FetchedVersion) -> rusqlite::Result<()> {
+        put_version(&self.conn, version)
     }
 
     /// Keep what `asked` found about the repository at `remote`, at `now`, in seconds since the
@@ -296,7 +291,7 @@ impl Cache {
         // to take the lock later fails at once.
         let write = (self.conn).transaction_with_behavior(TransactionBehavior::Immediate)?;
         for version in &asked.versions {
-            put_version(&write, version, now)?;
+            put_version(&write, version)?;
         }
         for (branch, found) in &asked.anchors {
             write.execute(
@@ -320,17 +315,10 @@ impl Cache {
     }
 }
 
-fn put_version(conn: &Connection, version: &FetchedVersion, now: i64) -> rusqlite::Result<()> {
+fn put_version(conn: &Connection, version: &FetchedVersion) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO version (brief_id, version, published_at, fetched_at, json)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![
-            version.id,
-            version.version,
-            version.body.get("createdAt").and_then(Value::as_str),
-            now,
-            version.body.to_string(),
-        ],
+        "INSERT OR REPLACE INTO version (brief_id, version, json) VALUES (?1, ?2, ?3)",
+        params![version.id, version.version, version.body.to_string()],
     )?;
     Ok(())
 }
@@ -620,6 +608,23 @@ mod tests {
         assert!(
             cache.anchors(REMOTE).unwrap().is_empty(),
             "it's a cache, so it fills again"
+        );
+    }
+
+    #[test]
+    fn another_schema_keeps_what_was_written_and_not_sent() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::open(Some(dir.path()), "me").unwrap();
+        cache.add_note("b1", 1, &CommentTo::Brief, "Why?").unwrap();
+        (cache.conn)
+            .pragma_update(None, "user_version", SCHEMA + 1)
+            .unwrap();
+        drop(cache);
+        let cache = Cache::open(Some(dir.path()), "me").unwrap();
+        assert_eq!(
+            cache.notes("b1", 1).unwrap().len(),
+            1,
+            "someone's own words are nowhere else"
         );
     }
 

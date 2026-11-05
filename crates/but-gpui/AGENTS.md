@@ -185,9 +185,10 @@ and the feature may go, so it stays separate.
   Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState` and
   `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
   filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
-- What Briefs sent is kept in a file of its own under the app's cache folder, never in `but-db`.
+- What Briefs sent and comments not sent yet are kept in a file of their own under the app's data
+  folder, never in `but-db`, and pictures under its cache folder.
   It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
-  is dropped and asked for again, and a bump of its `SCHEMA` empties it.
+  is dropped and asked for again, and a bump of its `SCHEMA` empties it but for those comments.
 - Pages read only what's kept, so the tab is there at once and nothing marks a row. The poll
   beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
   while the window is hidden and asks nothing while the flag is off or no one's signed in.
