@@ -455,8 +455,9 @@ impl Navigator {
     }
 
     /// Show the terminal dragged by its row where letting go puts it, as [`terminal_slot`]
-    /// says, the terminals around it sliding to make room; away from the cards, or still in
-    /// the zone along the left of the tiles, it stays where it is.
+    /// says, the terminals around it sliding to make room. Where it can't go, between cards or
+    /// over a folded one, it stays where it's shown, so passing there doesn't send it back and
+    /// forth; off the navigator, or still in the zone along the left of the tiles, it goes back.
     pub(super) fn follow_terminal_drag(
         &mut self,
         event: &DragMoveEvent<TerminalDrag>,
@@ -466,14 +467,16 @@ impl Navigator {
         let at = event.event.position;
         let drag = event.drag(cx);
         let (project, id) = (drag.project.clone(), drag.id);
-        let depth = takes_terminal(event.bounds, at, drag.left_zone_end)
-            .then(|| self.depth_at(at, Theme::get(cx)))
-            .flatten();
-        let stop = depth.and_then(|depth| {
+        if !takes_terminal(event.bounds, at, drag.left_zone_end) {
+            return self.hold_terminal(&project, id, None, cx);
+        }
+        let stop = self.depth_at(at, Theme::get(cx)).and_then(|depth| {
             let lists = self.listed_terminals(self.store.read(cx));
             terminal_slot(&self.rows, id, &lists, depth)
         });
-        self.hold_terminal(&project, id, stop, cx);
+        if stop.is_some() {
+            self.hold_terminal(&project, id, stop, cx);
+        }
     }
 
     /// Let go of the terminal dragged by its row where it's shown, as Return lands it.
@@ -735,7 +738,9 @@ fn terminal_slot(
     let mut places: Vec<(f32, (ProjectCheckout, Slot<TerminalId>))> = Vec::new();
     // The worktree whose terminals are listed from here, while it's one of those `lists` has.
     let mut under: Option<(&ProjectCheckout, &Vec<TerminalId>)> = None;
-    let mut at = top;
+    let own = |row: &&Row| matches!(row, Row::Item(Selection::Terminal(_, other)) if *other == id);
+    let above = rows.get(..card.start).unwrap_or_default().iter();
+    let mut at = top - above.filter(own).map(Row::height).sum::<f32>();
     for row in rows.get(card)? {
         match row {
             Row::Item(Selection::Terminal(p, terminal)) if p == project => {
@@ -1070,6 +1075,34 @@ mod tests {
     }
 
     #[test]
+    fn a_dragged_terminal_goes_to_the_same_place_on_a_card_from_wherever_it_shows() {
+        let two_cards = |p: &[u64], q: &[u64]| {
+            let (_, mut rows) = card("p", p, &[]);
+            rows.push(Row::Gap);
+            rows.extend(card("q", q, &[]).1);
+            rows
+        };
+        let lists = [
+            (on("p", Checkout::Main), vec![TerminalId(1), TerminalId(2)]),
+            (on("q", Checkout::Main), vec![TerminalId(3)]),
+        ];
+        let (still_above, there) = (two_cards(&[1, 2], &[3]), two_cards(&[1], &[3, 2]));
+        let own_row = (there.iter())
+            .position(|row| matches!(row, Row::Item(Selection::Terminal(_, id)) if id.0 == 2))
+            .expect("it's listed on q");
+        let depth = super::span_height(&there, 0..own_row) + ROW_HEIGHT / 2.;
+        let goes = |rows| terminal_slot(rows, TerminalId(2), &lists, depth);
+        assert!(
+            goes(&there) == Some((on("q", Checkout::Main), Slot::End)),
+            "over its own row, after 3, it stays there"
+        );
+        assert!(
+            goes(&still_above) == goes(&there),
+            "its row leaves the card above as it lands, so that row counts for nothing"
+        );
+    }
+
+    #[test]
     fn a_dragged_terminal_goes_among_another_projects_terminals_on_its_card() {
         let (_, mut rows) = terminals(&[1, 2], &[3]);
         rows.push(Row::Gap);
@@ -1086,12 +1119,17 @@ mod tests {
         let goes = |depth| terminal_slot(&rows, TerminalId(2), &lists, depth);
         let q_main = on("q", Checkout::Main);
         assert!(
-            goes(middle(q_start + 3)) == Some((q_main.clone(), Slot::Before(TerminalId(4)))),
-            "over q's terminal 4 it goes before it, in q's main worktree"
+            goes(middle(q_start + 2)) == Some((q_main.clone(), Slot::Before(TerminalId(4)))),
+            "over the row above q's terminal 4 it goes before it, in q's main worktree, as 4 \
+             moves up a row once it's gone from p"
         );
         assert!(
-            goes(middle(q_start + 5)) == Some((q_main, Slot::End)),
-            "over q's branches it goes after q's terminals"
+            goes(middle(q_start + 3)) == Some((q_main.clone(), Slot::End)),
+            "over terminal 4 it goes after it, for the same reason"
+        );
+        assert!(
+            goes(middle(q_start + 4)) == Some((q_main, Slot::End)),
+            "over q's first branch it goes after q's terminals"
         );
         assert!(
             goes(middle(gap)).is_none(),

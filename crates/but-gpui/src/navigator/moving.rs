@@ -287,6 +287,7 @@ fn taken_away(
             Some(key @ RowKey::Commit(..)) => ended && !kept.contains(key),
             Some(
                 RowKey::Item(_)
+                | RowKey::Terminal(_)
                 | RowKey::RestsOn(_)
                 | RowKey::Fold(..)
                 | RowKey::NewBranch(_)

@@ -83,6 +83,8 @@ pub(super) enum RowKey {
     Item(Selection),
     /// A commit by its key, which outlives the rewrites that move it.
     Commit(ProjectId, String),
+    /// A terminal by its id alone, which outlives moving it to another project.
+    Terminal(TerminalId),
     RestsOn(Selection),
     /// A branch's commits folded away or unfolded, whichever it shows.
     Fold(ProjectId, Option<FullName>),
@@ -111,14 +113,7 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         .flat_map(|workspace| workspace.commits())
         .map(|commit| (commit.id, commit.key.as_str()))
         .collect();
-    // An item's row, and a copy of it, by the item.
-    let item_key = |item: &Selection| match item {
-        Selection::Commit(project, id) => match commits.get(id) {
-            Some(key) => RowKey::Commit(project.clone(), key.to_string()),
-            None => RowKey::Item(item.clone()),
-        },
-        _ => RowKey::Item(item.clone()),
-    };
+    let item_key = |item: &Selection| item_key(item, &commits);
     let mut keys: Vec<Option<RowKey>> = Vec::with_capacity(rows.len());
     // The key of the last row that isn't a copy of what's moving, which the rows of no other
     // kind after it go by, as they make room for the copies rather than show up in place.
@@ -148,6 +143,18 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
         keys.push(key);
     }
     keys
+}
+
+/// An item's row, and a copy of it, by the item, with the keys of the `commits` there are.
+fn item_key(item: &Selection, commits: &HashMap<CommitId, &str>) -> RowKey {
+    match item {
+        Selection::Commit(project, id) => match commits.get(id) {
+            Some(key) => RowKey::Commit(project.clone(), key.to_string()),
+            None => RowKey::Item(item.clone()),
+        },
+        Selection::Terminal(_, id) => RowKey::Terminal(*id),
+        _ => RowKey::Item(item.clone()),
+    }
 }
 
 /// How tall rows `span` of `rows` are together, as [`Row::height`] counts them.
@@ -1235,6 +1242,36 @@ mod lands_apart_tests {
         assert!(
             lands_apart(Some(&commit), &project, &untargeted),
             "but commits still go in a new branch, on top of the one checked out"
+        );
+    }
+}
+
+#[cfg(test)]
+mod row_key_tests {
+    use std::collections::HashMap;
+
+    use super::item_key;
+    use crate::state::Selection;
+    use crate::terminal::TerminalId;
+    use crate::ui::fold::reordered;
+
+    #[test]
+    fn a_terminal_moving_to_another_project_slides_there() {
+        let terminal = |project: &str, id| {
+            let key = item_key(
+                &Selection::Terminal(project.into(), TerminalId(id)),
+                &HashMap::new(),
+            );
+            (Some(key), 28.)
+        };
+        let old = [terminal("alpha", 1), terminal("beta", 2)];
+        let new = [terminal("beta", 2), terminal("beta", 1)];
+        let (moved, _) = terminal("beta", 1);
+        let slides = reordered(&old, &new);
+        assert_eq!(
+            moved.and_then(|key| slides.get(&key).copied()),
+            Some(-28.),
+            "it starts from where it was listed under the other project"
         );
     }
 }
