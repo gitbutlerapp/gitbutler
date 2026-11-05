@@ -1159,6 +1159,16 @@ pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
 
 /// An [`excerpt`] with no edge of its own, for inside a card.
 pub fn excerpt_flat(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
+    excerpt_found(lines, |_| Vec::new(), theme)
+}
+
+/// As [`excerpt_flat`], with what a search found on each line marked, each match with whether
+/// it's the current one.
+pub fn excerpt_found(
+    lines: &[DiffLine],
+    found: impl Fn(usize) -> Vec<(Range<usize>, bool)>,
+    theme: &Theme,
+) -> gpui::Div {
     let widest = (lines.iter())
         .filter_map(|line| line.new.or(line.old))
         .max();
@@ -1193,7 +1203,7 @@ pub fn excerpt_flat(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
                         .min_w_0()
                         .px(dp(8.))
                         .text_color(theme.text_1)
-                        .child(line_text(line, look.emph, Vec::new(), None, theme)),
+                        .child(line_text(line, look.emph, found(ix), None, theme)),
                 )
         }))
 }

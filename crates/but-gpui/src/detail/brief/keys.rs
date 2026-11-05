@@ -156,6 +156,81 @@ impl Detail {
         .detach();
     }
 
+    /// Bring part `part` of block `at` into view, its paragraph or its line of `parts` in a code
+    /// card, opening what folds it away. A section can run longer than the window, so the place
+    /// goes by how far down its row the part comes.
+    pub(in crate::detail) fn reveal_in_brief(
+        &mut self,
+        at: usize,
+        part: usize,
+        parts: usize,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(brief) = self.page.brief_mut() {
+            brief.open.insert(BriefFold::Unchanged);
+            // What the card shows then isn't what's searched.
+            if brief.open.remove(&BriefFold::WholeFile(at)) {
+                self.brief_list.remeasure();
+            }
+        }
+        let folded = self.brief_rows().iter().find_map(|row| match *row {
+            Row::Fold { first, count } if (first..first + count).contains(&at) => Some(first),
+            _ => None,
+        });
+        if let (Some(first), Some(brief)) = (folded, self.page.brief_mut()) {
+            brief.open.insert(BriefFold::Part(first));
+        }
+        let rows = self.brief_rows();
+        let found = rows.iter().enumerate().find_map(|(ix, row)| match *row {
+            Row::Text {
+                at: there,
+                from,
+                to,
+            } if there == at && (from..to).contains(&part) => {
+                Some((ix, (part - from) as f32 / (to - from) as f32))
+            }
+            Row::Block(there) if there == at => Some((ix, part as f32 / parts.max(1) as f32)),
+            _ => None,
+        });
+        let (Some((row, share)), Some(brief)) = (found, self.page.brief_mut()) else {
+            return;
+        };
+        let top = ListOffset {
+            item_ix: row,
+            offset_in_item: Default::default(),
+        };
+        if self.brief_list.item_count() != rows.len() {
+            // Rows came, so where the list and the keys were means something else now.
+            self.brief_list.reset(rows.len());
+            brief.cursor = None;
+            brief.top.set(Some(top));
+        } else if self.brief_list.bounds_for_item(row).is_none() {
+            brief.top.set(Some(top));
+        }
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(ROW_MEASURED).await;
+            this.update(cx, |this, cx| {
+                let Some(bounds) = this.brief_list.bounds_for_item(row) else {
+                    return;
+                };
+                let view = this.brief_list.viewport_bounds();
+                let there = bounds.size.height * share;
+                let margin = view.size.height / 6.;
+                let y = bounds.top() + there;
+                if y < view.top() + margin || y > view.bottom() - margin {
+                    this.brief_list.scroll_to(ListOffset {
+                        item_ix: row,
+                        offset_in_item: (there - view.size.height / 3.).max(Default::default()),
+                    });
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     /// Go back to where a link was followed from, if one was.
     pub(super) fn go_back_in_brief(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.page.brief().is_some_and(|brief| brief.left_for_code) {
@@ -174,6 +249,10 @@ impl Detail {
     /// Go on to the applied branch with a brief after this one, or before it, to keep reading: a
     /// morning's worth, one after another, without going back to the list.
     pub(super) fn hop_to_brief(&mut self, forward: bool, cx: &mut Context<Self>) {
+        // The key that steps through matches, while there are matches to step through.
+        if self.find.is_some() {
+            return self.step_find(if forward { 1 } else { -1 }, cx);
+        }
         let Some(project) = self.selected_project() else {
             return;
         };

@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use crate::backend::briefs::{BriefBody, BriefCode, BriefPage, CodeSource, Standing};
 use crate::backend::{FileDiff, LineKind};
 use crate::detail::Detail;
+use crate::detail::find::Spot;
 use crate::detail::page::{BriefFold, PageTab};
 use crate::theme::Theme;
 use crate::ui::diff::{DiffRow, split_path};
@@ -140,7 +141,11 @@ impl Detail {
                     .map(|(ix, lines)| {
                         div()
                             .when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
-                            .child(diff::excerpt_flat(lines, theme))
+                            .child(diff::excerpt_found(
+                                lines,
+                                |line| self.found_on(Spot::BriefCode(at, ix, line)),
+                                theme,
+                            ))
                             .into_any_element()
                     })
                     .collect::<Vec<_>>(),

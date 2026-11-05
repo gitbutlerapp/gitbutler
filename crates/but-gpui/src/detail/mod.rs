@@ -631,7 +631,7 @@ impl Detail {
         let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
-        let find_input = cx.new(|cx| TextInput::new("Find in the diff", false, cx));
+        let find_input = cx.new(|cx| TextInput::new("Find", false, cx));
         let tab = page::tab_to_show(&kept, store.read(cx), pinned.as_ref(), shows.as_ref(), cx);
         let page_key = page::page_key(store.read(cx), pinned.as_ref(), shows.as_ref(), tab);
         let page = page::open_page(&kept, page_key.as_ref(), shows.as_ref(), cx);
@@ -2047,7 +2047,8 @@ impl Detail {
             self.restore_files(&left_at, cx);
             self.reopening = (!left_at.whole.is_empty()).then_some(left_at);
         }
-        self.run_find(from_first, cx);
+        // A brief's matches are in its words, whatever diff lands.
+        self.run_find(from_first && !self.showing_brief(), cx);
         self.diff_error = None;
         self.open_pending_file(cx);
         self.link_brief_names();
@@ -4030,7 +4031,7 @@ impl Render for Detail {
                         self.render_review_tab(project, &theme, cx)
                     }
                     Selection::Branch(..) if self.showing_brief() => {
-                        self.render_brief_tab(&theme, cx)
+                        self.render_brief_tab(&theme, window, cx)
                     }
                     _ => h_flex()
                         .w_full()

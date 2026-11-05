@@ -134,6 +134,8 @@ pub struct Style {
     pub code: bool,
     /// Matches a search, tinted as the diff's find tints its matches.
     pub mark: bool,
+    /// The match a search is on, tinted more strongly.
+    pub current: bool,
     /// New since what was read before.
     pub fresh: bool,
 }
@@ -1271,6 +1273,7 @@ fn text(
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
                     mark: all.mark || style.mark,
+                    current: all.current || style.current,
                     fresh: all.fresh || style.fresh,
                 });
             let link = (block.links.iter())
@@ -1298,8 +1301,9 @@ fn text(
                     _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
                         Some(theme.blue.opacity(0.3))
                     }
-                    _ if style.fresh => Some(theme.pop.opacity(0.2)),
+                    _ if style.current => Some(theme.warn.opacity(0.6)),
                     (true, _) => Some(theme.warn.opacity(0.28)),
+                    _ if style.fresh => Some(theme.pop.opacity(0.2)),
                     (false, true) => Some(theme.fill_gray.opacity(0.12)),
                     (false, false) => None,
                 },

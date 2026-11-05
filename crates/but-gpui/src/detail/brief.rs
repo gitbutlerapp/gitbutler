@@ -358,6 +358,7 @@ impl Detail {
         self.link_brief_names();
         self.brief_list.reset(self.brief_rows().len());
         self.keep_talk_current(cx);
+        self.run_find(false, cx);
         cx.notify();
     }
 
@@ -422,7 +423,12 @@ impl Detail {
         self.page.brief_tab() && self.has_brief()
     }
 
-    pub(super) fn render_brief_tab(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn render_brief_tab(
+        &self,
+        theme: &Theme,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let Some(state) = self.page.brief() else {
             return div().into_any_element();
         };
@@ -461,7 +467,14 @@ impl Detail {
             .child(
                 v_flex()
                     .size_full()
-                    .child(div().relative().flex_1().min_h_0().child(column.h_full()))
+                    .child(
+                        div()
+                            .relative()
+                            .flex_1()
+                            .min_h_0()
+                            .child(column.h_full())
+                            .children(self.render_find(window, theme, cx)),
+                    )
                     .children(bar),
             )
             .into_any_element()
@@ -698,7 +711,8 @@ impl Detail {
         let id = block_id(&page.id, at, from);
         let select = self.note_select(&id, cx);
         let words = paragraphs.get(from..to).unwrap_or_default();
-        let body = markdown::render(&id, words, Some(select), Theme::get(cx));
+        let marked = self.found_in_words(at, from, words);
+        let body = markdown::render(&id, &marked, Some(select), Theme::get(cx));
         Some(
             self.brief_block(ix, block, state, body, Some(words), cx)
                 .into_any_element(),

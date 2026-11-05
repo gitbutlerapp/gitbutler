@@ -618,7 +618,7 @@ impl Detail {
     ) -> AnyElement {
         let below = match (self.showing_review(cx), self.showing_brief()) {
             (true, _) => self.render_review_tab(project, theme, cx),
-            (false, true) => self.render_brief_tab(theme, cx),
+            (false, true) => self.render_brief_tab(theme, window, cx),
             (false, false) => self.render_files_beside(theme, window, cx),
         };
         let tabs = self.page_tabs(theme, window, cx).map(|tabs| {

@@ -133,6 +133,8 @@ impl Detail {
         if self.has_brief() {
             self.brief_first = tab == PageTab::Brief;
         }
+        // What it found is in the tab it was opened on.
+        self.find = None;
         if let Some(review) = self.page.review_mut() {
             review.tab = tab;
         }

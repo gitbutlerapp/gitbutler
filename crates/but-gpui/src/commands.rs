@@ -262,7 +262,7 @@ commands! {
     crate::app::CloseWindow => "Close window",
     GoTo => "Go to anything",
     GoToTerminal => "Go to a terminal",
-    crate::detail::FindInDiff => "Find in diff",
+    crate::detail::FindInDiff => "Find" { aliases: &["Find in diff", "Find in the brief"] },
     crate::detail::FilterFiles => "Filter files",
     crate::detail::ToggleWrap => "Wrap long lines",
     crate::detail::TogglePlainLines => "Toggle diff backgrounds",
