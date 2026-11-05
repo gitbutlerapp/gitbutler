@@ -7,11 +7,13 @@ use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
 
 use gpui::{
-    App, Asset, Div, ImageCacheError, ImageSource, SharedString, Window, div, img, prelude::*, svg,
+    AnyElement, App, Asset, Div, Image, ImageCacheError, ImageSource, SharedString, Window, div,
+    img, prelude::*, svg,
 };
 
 use super::dp;
 use crate::backend::Agent;
+use crate::backend::accounts::GitButlerUser;
 use crate::theme::Theme;
 
 /// The pattern's grid, in blocks across.
@@ -19,6 +21,25 @@ const SIZE: usize = 8;
 
 /// Where a pattern is served from, by the number it's drawn from, for [`gpui::svg`].
 const PREFIX: &str = "person/";
+
+/// `user`'s `picture`, or without one their pattern, as in GitButler's other apps.
+pub fn account_avatar(
+    user: &GitButlerUser,
+    picture: Option<Arc<Image>>,
+    size: f32,
+    theme: &Theme,
+) -> AnyElement {
+    match picture {
+        Some(picture) => img(picture)
+            .size(dp(size))
+            .rounded_full()
+            .into_any_element(),
+        None => {
+            let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
+            person_avatar(seed, size, theme).into_any_element()
+        }
+    }
+}
 
 /// `seed`'s picture: their pattern on their colour, in a circle `size` across.
 pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {

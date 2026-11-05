@@ -1027,6 +1027,8 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// Sized by the caller, as a person's picture, in place of an icon. It shows no hover.
+    picture: Option<AnyElement>,
     style: ButtonStyle,
     /// Why it can't be pressed now, shown in place of its tooltip.
     disabled: Option<SharedString>,
@@ -1061,6 +1063,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         id: id.into(),
         label: Some(label.into()),
         icon: None,
+        picture: None,
         style: ButtonStyle::Outline,
         disabled: None,
         small: false,
@@ -1080,6 +1083,16 @@ pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
     Button {
         label: None,
         icon: Some(icon),
+        style: ButtonStyle::Ghost,
+        ..button(id, "")
+    }
+}
+
+/// A button showing `picture` alone. As with an icon, its tooltip names it.
+pub fn picture_button(id: impl Into<ElementId>, picture: impl IntoElement) -> Button {
+    Button {
+        label: None,
+        picture: Some(picture.into_any_element()),
         style: ButtonStyle::Ghost,
         ..button(id, "")
     }
@@ -1225,6 +1238,7 @@ impl RenderOnce for Button {
             false => (dp(28.), dp(28.), dp(16.)),
         };
         let has_label = self.label.is_some();
+        let pictured = self.picture.is_some();
         let shrinks = self.shrinks;
         // What a screen reader calls it: its text, or for an icon its tooltip.
         let name = self.label.clone().or_else(|| self.tooltip.clone());
@@ -1256,7 +1270,8 @@ impl RenderOnce for Button {
                     .border_color(border.unwrap_or(fg.opacity(0.3))),
             })
             .when(self.disabled.is_none(), |el| {
-                el.hover(move |el| el.bg(hover))
+                // A round picture in a square of hover would show the square's corners.
+                el.when(!pictured, |el| el.hover(move |el| el.bg(hover)))
                     // Gives under the pointer while pressed.
                     .active(|el| el.opacity(0.8))
             })
@@ -1265,6 +1280,7 @@ impl RenderOnce for Button {
                 let opacity = if has_label { 0.7 } else { 0.8 };
                 el.child(icon(kind).size(icon_size).text_color(fg.opacity(opacity)))
             })
+            .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
                 true => el.child(div().min_w_0().truncate().child(label)),
                 false => el.child(label),
