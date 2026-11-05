@@ -1,6 +1,7 @@
 import { stories } from "../docs/stories.ts";
 import { Button, type ButtonProps } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
+import { Kbd } from "./Kbd.tsx";
 import React from "react";
 
 const meta = stories({
@@ -112,6 +113,31 @@ export const WithIconStartAndEnd = meta.story({
 				New Branch
 				<Icon name="branch" />
 			</Button>
+		</div>
+	),
+});
+
+const kbdExamples = [
+	{ variant: "pop", label: "Commit", hotkey: "Mod+Enter" },
+	{ variant: "gray", label: "Undo", hotkey: "Mod+Z" },
+	{ variant: "outline", label: "Toggle files", hotkey: "F" },
+	{ variant: "ghost", label: "Amend", hotkey: "Shift+A" },
+	{ variant: "danger", label: "Delete", hotkey: "Mod+Backspace" },
+] as const;
+
+export const WithKbd = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			{(["regular", "small"] as const).map((size) => (
+				<div key={size} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+					{kbdExamples.map(({ variant, label, hotkey }) => (
+						<Button key={variant} variant={variant} size={size}>
+							{label}
+							<Kbd hotkey={hotkey} variant="button" />
+						</Button>
+					))}
+				</div>
+			))}
 		</div>
 	),
 });
