@@ -1,5 +1,6 @@
 import { mergeProps, useRender } from "@base-ui/react";
 import type { ComponentProps, FC, PointerEvent, ReactNode } from "react";
+import { Avatar } from "./Avatar.tsx";
 import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
@@ -381,13 +382,22 @@ export const BranchItem: FC<
  * open, the marks on its commits say it.
  *
  * Under a {@link TargetItem}, a `merge` takes the merge glyph and, with `folded`, opens to the
- * commits it brought in, one level deeper.
+ * commits it brought in, one level deeper. There each commit comes from someone else, so give its
+ * `author`: their {@link Avatar} takes the glyph's place. A merge keeps its glyph, which is what
+ * says the row opens to commits; its own commits carry the faces. Name the author in the
+ * `tooltip`; the picture is decorative.
  *
  * @import import { CommitItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const CommitItem: FC<
-	{ message: string; pushed?: boolean; merge?: boolean; conflicted?: boolean } & RowProps
-> = ({ message, pushed = true, merge = false, conflicted = false, tooltip, ...props }) => (
+	{
+		message: string;
+		pushed?: boolean;
+		merge?: boolean;
+		conflicted?: boolean;
+		author?: CommitAuthor;
+	} & RowProps
+> = ({ message, pushed = true, merge = false, conflicted = false, author, tooltip, ...props }) => (
 	<Row
 		{...props}
 		name={message}
@@ -397,6 +407,8 @@ export const CommitItem: FC<
 				<span role="img" aria-label="Conflicted" className={styles.conflicted}>
 					<Icon name="warning" />
 				</span>
+			) : author && !merge ? (
+				<Avatar src={author.src} seed={author.seed} size={14} />
 			) : (
 				<Icon name={merge ? "branch-merge" : pushed ? "commit-fill" : "commit"} />
 			)
@@ -417,15 +429,15 @@ export const CommitItem: FC<
  * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
  *
+ * `authors`, the people the commits come from, each once, show as overlapping pictures before the
+ * count, so who is coming in reads with the list folded. It draws the first three; name them all
+ * in the `tooltip`.
+ *
  * @import import { TargetItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
-export const TargetItem: FC<{ target: string; count: number } & Omit<RowProps, "meta">> = ({
-	target,
-	count,
-	actions,
-	tooltip,
-	...props
-}) => (
+export const TargetItem: FC<
+	{ target: string; count: number; authors?: ReadonlyArray<CommitAuthor> } & Omit<RowProps, "meta">
+> = ({ target, count, authors = [], actions, tooltip, ...props }) => (
 	<Row
 		{...props}
 		name={`New on ${target}`}
@@ -438,12 +450,23 @@ export const TargetItem: FC<{ target: string; count: number } & Omit<RowProps, "
 		}
 		meta={
 			<>
+				{authors.length > 0 && (
+					<span className={styles.authors}>
+						{authors.slice(0, 3).map((a) => (
+							<Avatar key={a.seed} src={a.src} seed={a.seed} size={14} />
+						))}
+					</span>
+				)}
 				<MetaCount type="behind">{count}</MetaCount>
 				{filled(actions)}
 			</>
 		}
 	/>
 );
+
+/** Who a commit is from: their picture's `src` if the host has one, and `seed`, their email, which
+ * finds their Gravatar and picks their colour without one. */
+export type CommitAuthor = { src?: string | null; seed: string };
 
 /**
  * A worktree's uncommitted changes, as a row of its own, with how many files it has changed

@@ -230,6 +230,17 @@
 	column-gap: var(--space-lg);
 }
 
+/* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
+   than ringed in a ground colour: the row's ground changes under the pointer and on selection. */
+.authors {
+	display: flex;
+
+	& > * + * {
+		margin-left: -4px;
+		mask-image: radial-gradient(circle at -3px 50%, transparent 8.5px, #000 8.5px);
+	}
+}
+
 /* compact: the name takes the line and the state sits at the end, where it stays: the menu follows
    it under the pointer, on keyboard focus and on a selected row, and the name gives way. The
    actions, a next step for what the state counts (Update for ↓, Push for ↑), take the state's
