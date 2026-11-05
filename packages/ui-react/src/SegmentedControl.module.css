@@ -9,7 +9,8 @@
 	align-items: center;
 	/* The picked segment fills the track's height, so the two share a corner. */
 	border-radius: var(--radius-control);
-	background-color: var(--bg-2);
+	/* A faint tint of the ground it sits on, so the track reads on any panel. */
+	background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 
 	/* The raised ground under the picked segment: one per control, placed by the component from
 	   the segment's box, so it can slide to the next. */
