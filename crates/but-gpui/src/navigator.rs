@@ -480,6 +480,9 @@ pub struct Navigator {
     row_keys: Vec<Option<RowKey>>,
     /// Rows a move just took away, drawn where they were while the rows close over them.
     stand_ins: Vec<moving::StandIn>,
+    /// The terminal sliding from one card to another, which floats over the cards on its way
+    /// rather than taking a slice of the card it's going to with it.
+    crossing: Option<RowKey>,
     /// Whether each fold the rows were last built through showed what it holds, to tell
     /// which opened or shut since.
     folds_seen: HashMap<Fold, bool>,
@@ -708,6 +711,7 @@ impl Navigator {
             reorder: Reorder::default(),
             row_keys: Vec::new(),
             stand_ins: Vec::new(),
+            crossing: None,
             folds_seen: HashMap::new(),
             // Its last item, after the rows, is the drawer: see `drawer_footer`.
             list: ListState::new(1, ListAlignment::Top, fixed(56.)),
@@ -1609,6 +1613,9 @@ impl Navigator {
                 landing,
             );
             self.reorder.start(offsets, cx);
+            if let Some(id) = crossed_cards(&self.rows, &rows) {
+                self.crossing = Some(RowKey::Terminal(id));
+            }
             self.row_keys = keys;
         }
         self.rows = rows;
@@ -2059,10 +2066,26 @@ impl Navigator {
         };
         // How far row `ix` is drawn from where it's laid out: as far as a reorder slid it, but
         // not while a fold moves it, which draws it as far as the fold's open.
-        let slid_at = |ix: usize| match self.moving.get(ix).and_then(Option::as_ref) {
+        let drawn_at = |ix: usize| match self.moving.get(ix).and_then(Option::as_ref) {
             Some(m) if self.folds.openness(&m.fold).is_some() => 0.,
             _ => (self.row_keys.get(ix).and_then(Option::as_ref))
                 .map_or(0., |key| self.reorder.offset(key)),
+        };
+        // How far the card after row `ix`, its card's last, is drawn from where it's laid out.
+        let next_card_at = |ix: usize| match self.rows.get(ix + 1) {
+            Some(Row::Gap) => Some(drawn_at(ix + 2)),
+            _ => None,
+        };
+        let crossing_at = |ix: usize| {
+            self.crossing.is_some()
+                && self.row_keys.get(ix).and_then(Option::as_ref) == self.crossing.as_ref()
+        };
+        // A terminal crossing to another card leaves its slice where it's laid out, the card it's
+        // going to closing around that, and floats over the cards. Last in its card, the slice
+        // carries the card's bottom edge, so it keeps its distance from the card after it.
+        let slid_at = |ix: usize| match crossing_at(ix) {
+            true => next_card_at(ix).unwrap_or_default(),
+            false => drawn_at(ix),
         };
         // A row slides with its slice of the card, so the card's edges follow its rows. Its
         // slice also stretches over the room between it and where it's laid out, as far as its
@@ -2075,7 +2098,12 @@ impl Navigator {
         // carries its bottom edge, so as rows of the card trade places, the edge stays where the
         // card ends, on a stretch of its own.
         let slid = slid_at(ix);
+        let crossing = crossing_at(ix);
         let below = match last {
+            // The room a terminal leaves closes as the card after it, or the list's end, comes.
+            true if self.crossing.is_some() => {
+                (next_card_at(ix).unwrap_or_default() - slid).max(0.)
+            }
             true if self.reorder.any() => {
                 let card = (0..ix).rev().map_while(|above| match self.rows.get(above) {
                     Some(Row::Gap) | None => None,
@@ -2102,7 +2130,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref();
         let over_rank = match self.rows.get(ix) {
-            _ if held || held_worktree => 3,
+            _ if held || held_worktree || crossing => 3,
             Some(Row::Item(item)) if matches!(moving::mark(store, item), Some(Mark::Held(_))) => 3,
             Some(Row::Ghost(..) | Row::NewCommit(_)) => 2,
             Some(Row::Item(item)) if selection == Some(item) => 1,
@@ -2175,7 +2203,8 @@ impl Navigator {
                     // sliver of until the rows stop.
                     let over = (div().relative().bg(theme.bg_1).child(el))
                         .when(first, |el| el.rounded_t(dp(2.)))
-                        .when(last, |el| el.rounded_b(dp(2.)));
+                        .when(last, |el| el.rounded_b(dp(2.)))
+                        .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
                     let over = on_top(over.children(guides())).priority(over_rank);
                     card.children(guides()).child(over)
                 }
@@ -2196,8 +2225,9 @@ impl Navigator {
                 .children(guides())
         };
         let below = (below > 0.).then(|| match last {
-            // Over the last row's own edge and corners, which are no longer the card's.
-            true => stretched(below + CARD_CORNER)
+            // Over the last row's own edge and corners, which are no longer the card's, and tall
+            // enough for its own corners to stay as round as it comes to nothing.
+            true => stretched(below + 2. * CARD_CORNER)
                 .bottom(dp(-below))
                 .border_b_1()
                 .rounded_b(dp(CARD_CORNER)),
@@ -4099,6 +4129,22 @@ fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32) -> f32 {
     }
 }
 
+/// The terminal `new` lists under another project than `old` does, if one is.
+fn crossed_cards(old: &[Row], new: &[Row]) -> Option<TerminalId> {
+    let terminals = |rows: &'_ [Row]| -> HashMap<TerminalId, ProjectId> {
+        (rows.iter())
+            .filter_map(|row| match row {
+                Row::Item(Selection::Terminal(project, id)) => Some((*id, project.clone())),
+                _ => None,
+            })
+            .collect()
+    };
+    let was = terminals(old);
+    (terminals(new).into_iter())
+        .find(|(id, project)| was.get(id).is_some_and(|from| from != project))
+        .map(|(id, _)| id)
+}
+
 /// Whether `old` and `new` list the same cards, and the same linked worktrees in them, in
 /// another order.
 fn headings_reordered(old: &[Row], new: &[Row]) -> bool {
@@ -4429,6 +4475,9 @@ impl Render for Navigator {
         self.guides = guides;
         self.held_card = self.held_card(self.store.read(cx));
         self.held_worktree = self.held_worktree(self.store.read(cx));
+        if !self.reorder.any() {
+            self.crossing = None;
+        }
         self.slide_edges = self.reorder.any().then(|| {
             let first = self.list.logical_scroll_top().item_ix;
             let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
