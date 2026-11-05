@@ -473,8 +473,6 @@
       "k": "brief::PreviousBlock",
       "enter": "brief::OpenBlock",
       "c": "brief::WriteNote",
-      "shift-a": "brief::Approve",
-      "shift-h": "brief::Hold",
       "secondary-enter": "brief::SendNotes",
       "escape": "brief::GoBack",
       "n": "brief::NextBrief",

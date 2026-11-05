@@ -256,8 +256,6 @@ commands! {
     crate::detail::ChangesBeside => "Show changes beside the brief" { listed: changes_can_go_beside },
     crate::detail::WriteNote => "Write a comment on this brief" { listed: brief_shown },
     crate::detail::SendNotes => "Send comments on this brief" { listed: brief_shown },
-    crate::detail::Approve => "Approve this brief" { listed: brief_shown },
-    crate::detail::Hold => "Hold this brief" { listed: brief_shown },
     crate::detail::NextBrief => "Next brief" { listed: brief_shown },
     crate::detail::PreviousBrief => "Previous brief" { listed: brief_shown },
     crate::app::CloseWindow => "Close window",

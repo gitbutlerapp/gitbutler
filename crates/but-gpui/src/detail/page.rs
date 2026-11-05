@@ -292,8 +292,6 @@ pub(super) enum Writing {
         editing: Option<usize>,
         to: CommentTo,
     },
-    /// Why this version is being held, which goes as it's held.
-    WhyHold,
 }
 
 /// What can be opened on a Brief tab.
@@ -327,8 +325,6 @@ pub(super) struct BriefState {
     pub(super) activity: Activity,
     /// What's written about it and not sent.
     pub(super) notes: Vec<Note>,
-    /// The last answer given to it from here, with the version it was on.
-    pub(super) answered: Option<(u32, String)>,
     /// What's being written in the tab's bar.
     pub(super) writing: Option<Writing>,
     /// Where the tab was as a link in it was followed, to go back to.

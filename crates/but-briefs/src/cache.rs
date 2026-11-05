@@ -28,7 +28,6 @@ const TABLES: &str = "
     DROP TABLE IF EXISTS activity;
     DROP TABLE IF EXISTS note;
     DROP TABLE IF EXISTS seen;
-    DROP TABLE IF EXISTS answered;
     CREATE TABLE version (
         brief_id     TEXT NOT NULL,
         version      INTEGER NOT NULL,
@@ -55,11 +54,6 @@ const TABLES: &str = "
     CREATE TABLE seen (
         brief_id TEXT PRIMARY KEY,
         version  INTEGER NOT NULL
-    );
-    CREATE TABLE answered (
-        brief_id TEXT PRIMARY KEY,
-        version  INTEGER NOT NULL,
-        answer   TEXT NOT NULL
     );
     CREATE TABLE note (
         id       INTEGER PRIMARY KEY,
@@ -233,29 +227,6 @@ impl Cache {
         Ok(())
     }
 
-    /// The last answer given from here to what brief `id` asks, with the version it was on.
-    pub fn answered(&self, id: &str) -> rusqlite::Result<Option<(u32, String)>> {
-        (self.conn)
-            .query_row(
-                "SELECT version, answer FROM answered WHERE brief_id = ?1",
-                [id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()
-    }
-
-    /// Remember the answer given to `version` of brief `id`, or that it was taken back.
-    pub fn answer(&self, id: &str, version: u32, answer: Option<&str>) -> rusqlite::Result<()> {
-        match answer {
-            Some(answer) => self.conn.execute(
-                "INSERT OR REPLACE INTO answered (brief_id, version, answer) VALUES (?1, ?2, ?3)",
-                params![id, version, answer],
-            )?,
-            None => (self.conn).execute("DELETE FROM answered WHERE brief_id = ?1", [id])?,
-        };
-        Ok(())
-    }
-
     /// What's written about `version` of brief `id` and not sent, the oldest first.
     pub fn notes(&self, id: &str, version: u32) -> rusqlite::Result<Vec<Note>> {
         let mut rows = self.conn.prepare(
@@ -406,7 +377,7 @@ fn ready(mut conn: Connection, account: &str) -> rusqlite::Result<Connection> {
     if owner.as_deref() != Some(account) {
         write.execute_batch(
             "DELETE FROM version; DELETE FROM anchor; DELETE FROM account;
-             DELETE FROM activity; DELETE FROM note; DELETE FROM seen; DELETE FROM answered;",
+             DELETE FROM activity; DELETE FROM note; DELETE FROM seen;",
         )?;
         write.execute("INSERT INTO account (id) VALUES (?1)", [account])?;
     }

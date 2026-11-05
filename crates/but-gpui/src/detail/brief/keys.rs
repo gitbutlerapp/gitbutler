@@ -5,7 +5,7 @@ use gpui::{Context, Div, ListOffset, Window, actions, prelude::*};
 
 use super::talk::ROW_MEASURED;
 use super::{Row, markdown};
-use crate::backend::briefs::{self, BriefBody};
+use crate::backend::briefs::BriefBody;
 use crate::detail::Detail;
 use crate::detail::page::{BriefFold, PageTab};
 use crate::state::Selection;
@@ -18,8 +18,6 @@ actions!(
         OpenBlock,
         WriteNote,
         ChangesBeside,
-        Approve,
-        Hold,
         SendNotes,
         GoBack,
         NextBrief,
@@ -39,17 +37,6 @@ impl Detail {
     /// Whether the diff shows from following something in a brief, which Esc goes back to.
     pub fn back_to_brief(&self) -> bool {
         !self.showing_brief() && (self.page.brief()).is_some_and(|brief| brief.left_for_code)
-    }
-
-    /// Whether the version shown asks this person to sign it off, which the keys answer.
-    pub fn brief_can_sign_off(&self) -> bool {
-        let Some(brief) = self.page.brief() else {
-            return false;
-        };
-        let asks =
-            (brief.page()).is_some_and(|page| matches!(page.ask, Some(briefs::Ask::SignOff)));
-        let answers = &brief.activity.answers;
-        asks && answers.can_answer && answers.mine.is_none()
     }
 
     /// Where j and k go from, and a note without a passage goes: the row they last went to, or
@@ -388,16 +375,6 @@ impl Detail {
                 let to = this.brief_note_target();
                 this.write_brief_note(to, window, cx)
             }))
-            .on_action(cx.listener(|this, _: &Approve, _, cx| {
-                if this.brief_can_sign_off() {
-                    this.send_brief_talk(Some(Some("approve".into())), cx)
-                }
-            }))
-            .on_action(cx.listener(|this, _: &Hold, window, cx| {
-                if this.brief_can_sign_off() {
-                    this.ask_why_hold(window, cx)
-                }
-            }))
-            .on_action(cx.listener(|this, _: &SendNotes, _, cx| this.send_brief_talk(None, cx)))
+            .on_action(cx.listener(|this, _: &SendNotes, _, cx| this.send_brief_talk(cx)))
     }
 }

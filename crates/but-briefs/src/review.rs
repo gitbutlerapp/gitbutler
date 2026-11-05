@@ -4,7 +4,7 @@
 //! The server's shapes aren't settled, so these read leniently too: what can't be read is left
 //! out, rather than costing the rest.
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -240,23 +240,6 @@ impl Client {
             .await
             .context("Couldn't reach Briefs")?;
         succeeded(posted)?;
-        Ok(())
-    }
-
-    /// Answer what `version` of brief `id` asks, `approve`, `hold`, `acknowledge` or `option:N`,
-    /// or take an answer back with `None`.
-    pub async fn answer(&self, id: &str, version: u32, answer: Option<&str>) -> Result<()> {
-        let url = format!("{}/api/briefs/{id}/answers?version={version}", base());
-        let answered = (self.http.put(url))
-            .header("X-Auth-Token", &self.token.0)
-            .json(&json!({ "answer": answer }))
-            .send()
-            .await
-            .context("Couldn't reach Briefs")?;
-        if answered.status() == reqwest::StatusCode::FORBIDDEN {
-            bail!("Briefs takes this answer only in a browser");
-        }
-        succeeded(answered)?;
         Ok(())
     }
 }

@@ -334,7 +334,6 @@ pub fn kept_talk(id: &str, version: u32) -> Result<Talk> {
                 .map(Activity::read)
                 .unwrap_or_default(),
             notes: cache.notes(id, version)?,
-            answered: cache.answered(id)?,
         })
     })?;
     Ok(kept.unwrap_or_default())
@@ -345,8 +344,6 @@ pub fn kept_talk(id: &str, version: u32) -> Result<Talk> {
 pub struct Talk {
     pub activity: Activity,
     pub notes: Vec<Note>,
-    /// The last answer given from here, with the version it was on.
-    pub answered: Option<(u32, String)>,
 }
 
 /// What's been said about `version` of brief `id`, as Briefs says now. Asking tells no one.
@@ -380,9 +377,9 @@ pub fn remove_note(id: &str, version: u32, note: i64) -> Result<Vec<Note>> {
 /// Send what's written about `version` of brief `id`, then `answer`, if that's being changed, and
 /// give back what's left and what's been said now. What was sent before a failure stays sent and
 /// isn't sent again.
-pub fn send_talk(id: &str, version: u32, answer: Option<Option<String>>) -> Result<Talk> {
+pub fn send_talk(id: &str, version: u32) -> Result<Talk> {
     let Some(client) = client()? else {
-        bail!("Sign in to GitButler to answer briefs");
+        bail!("Sign in to GitButler to comment on briefs");
     };
     let runtime = runtime().handle();
     let notes = cached(|cache| cache.notes(id, version))?.unwrap_or_default();
@@ -393,10 +390,6 @@ pub fn send_talk(id: &str, version: u32, answer: Option<Option<String>>) -> Resu
         };
         runtime.block_on(client.post_comment(id, version, &comment))?;
         cached(|cache| cache.remove_note(note.id))?;
-    }
-    if let Some(answer) = answer {
-        runtime.block_on(client.answer(id, version, answer.as_deref()))?;
-        cached(|cache| cache.answer(id, version, answer.as_deref()))?;
     }
     // It's sent by now, so not hearing back right away isn't a failure to send.
     if let Err(err) = ask_talk(id, version) {

@@ -22,7 +22,7 @@ mod talk;
 pub(super) mod test_facts;
 
 pub(crate) use keys::{
-    Approve, ChangesBeside, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+    ChangesBeside, GoBack, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
 };
 
 use super::Detail;
@@ -482,8 +482,7 @@ impl Detail {
                             }
                         }))
                         .child(column.h_full())
-                        .children(self.render_find(window, theme, cx))
-                        .children(self.brief_hold_card(cx)),
+                        .children(self.render_find(window, theme, cx)),
                 ),
             )
             .into_any_element()

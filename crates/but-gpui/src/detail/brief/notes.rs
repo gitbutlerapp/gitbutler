@@ -8,7 +8,7 @@
 use gpui::{AnyElement, Context, Div, Focusable as _, Window, div, prelude::*};
 
 use super::keys::NextBrief;
-use super::{Row, block_place, briefs, run};
+use super::{Row, block_place, briefs};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
 use crate::detail::page::{BriefFold, BriefState, Writing};
@@ -137,11 +137,6 @@ impl Detail {
         }
     }
 
-    /// Ask why this version is being held, as a hold no one explains leaves an agent guessing.
-    pub(super) fn ask_why_hold(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.start_writing(Writing::WhyHold, "What should change?", window, cx);
-    }
-
     pub(super) fn start_writing(
         &mut self,
         writing: Writing,
@@ -202,8 +197,8 @@ impl Detail {
         cx.notify();
     }
 
-    /// Finish what's being written: `None` drops it. An empty note is no note, and an empty
-    /// reason holds without one. The keys go back to the brief.
+    /// Finish what's being written: `None` drops it. An empty note is no note. The keys go back
+    /// to the brief.
     pub(super) fn finish_writing(
         &mut self,
         body: Option<String>,
@@ -223,38 +218,6 @@ impl Detail {
             Writing::Note(_) if body.is_empty() => {}
             Writing::Note(to) => self.keep_brief_note(id, version, to, body, cx),
             Writing::Shortcut { editing, .. } => self.save_brief_shortcut(editing, body, cx),
-            Writing::WhyHold => {
-                let key = (id.clone(), version);
-                cx.spawn(async move |this, cx| {
-                    let kept = match body.is_empty() {
-                        true => Ok(Vec::new()),
-                        false => {
-                            run(move || briefs::add_note(&id, version, &CommentTo::Brief, &body))
-                                .await
-                        }
-                    };
-                    this.update(cx, |this, cx| {
-                        let notes = match kept {
-                            Ok(notes) => notes,
-                            // A hold without the why that was written says less than was meant.
-                            Err(err) => {
-                                return (this.store).update(cx, |store, cx| {
-                                    store.snack(format!("Couldn't keep that: {err:#}"), cx)
-                                });
-                            }
-                        };
-                        if this.shown_version().as_ref() != Some(&key) {
-                            return;
-                        }
-                        if !notes.is_empty() {
-                            this.took_brief_notes(notes, cx);
-                        }
-                        this.send_brief_talk(Some(Some("hold".to_owned())), cx);
-                    })
-                    .ok();
-                })
-                .detach()
-            }
         }
     }
 

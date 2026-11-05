@@ -169,7 +169,7 @@ impl Detail {
     /// change is, what it leaves out, and what the CLI measured.
     fn brief_facts(&self, page: &BriefPage, state: &BriefState, cx: &Context<Self>) -> Div {
         let theme = Theme::get(cx);
-        // Where it can be answered, the bar says what's asked, beside the answers.
+        // Where it can be answered, the row of the tabs says what's asked.
         let ask = (page.ask.as_ref()).filter(|_| !state.activity.answers.can_answer);
         let ask = ask.and_then(ask_words).map(|words| {
             fact(
@@ -504,16 +504,6 @@ impl Detail {
                     .child(format!("{names} failed on PR #{}", review.number)),
             ),
         )
-    }
-
-    /// Whether the panel flags anything that should give someone approving pause.
-    pub(super) fn brief_has_alerts(&self, state: &BriefState, cx: &Context<Self>) -> bool {
-        let failed = self
-            .selected_review(cx)
-            .and_then(|review| review.checks)
-            .is_some_and(|checks| checks.failed > 0);
-        let turned_off = (state.tests.as_ref()).is_some_and(|tests| !tests.turned_off.is_empty());
-        failed || turned_off || !state.unnamed.is_empty()
     }
 
     /// Which of the files the branch changes now the brief shows no code of: what it leaves out.

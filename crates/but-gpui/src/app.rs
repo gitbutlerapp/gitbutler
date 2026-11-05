@@ -5050,8 +5050,6 @@ impl Render for AppView {
             .on_action(cx.listener(Self::brief_command::<crate::detail::ChangesBeside>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::WriteNote>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::SendNotes>))
-            .on_action(cx.listener(Self::brief_command::<crate::detail::Approve>))
-            .on_action(cx.listener(Self::brief_command::<crate::detail::Hold>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::NextBrief>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::PreviousBrief>))
             .on_action(cx.listener(

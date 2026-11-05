@@ -281,7 +281,6 @@ impl Detail {
                     Writing::Note(to) | Writing::Shortcut { to, .. } => {
                         place_of(to).is_some_and(|(block, quote)| spot.takes(block, quote))
                     }
-                    Writing::WhyHold => false,
                 })
             })
         };
@@ -323,7 +322,6 @@ impl Detail {
                     let (block, quote) = place_of(to)?;
                     spot.takes(block, quote).then_some(writing)
                 }
-                Writing::WhyHold => None,
             })
             .and_then(|writing| self.talk_composer(writing, false, cx))
             .map(IntoElement::into_any_element);

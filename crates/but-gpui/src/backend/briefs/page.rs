@@ -125,11 +125,6 @@ pub struct SinceRead {
 }
 
 impl BriefPage {
-    /// Whether the branch has moved on from what this describes, or never had it.
-    pub fn out_of_date(&self) -> bool {
-        self.uncommitted || matches!(self.standing, Standing::Since { .. } | Standing::Rewritten)
-    }
-
     /// The files it shows code of, in any way a reader sees lines of them.
     pub fn code_paths(&self) -> HashSet<&str> {
         (self.blocks.iter())

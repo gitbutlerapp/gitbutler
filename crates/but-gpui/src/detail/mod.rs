@@ -6,7 +6,7 @@ mod blame;
 mod branches;
 mod brief;
 pub(crate) use brief::{
-    Approve, ChangesBeside, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+    ChangesBeside, GoBack, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
 };
 mod composer;
 mod conversation;

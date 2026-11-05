@@ -44,7 +44,6 @@ impl Detail {
                 if let (Ok(talk), Some(brief)) = (kept, this.page.brief_mut()) {
                     brief.activity = talk.activity;
                     brief.notes = talk.notes;
-                    brief.answered = talk.answered;
                     this.brief_list_changed(cx);
                 }
             })
@@ -143,13 +142,9 @@ impl Detail {
         .detach();
     }
 
-    /// Send what's written, with `answer` if that's being changed: `Some(None)` takes one back.
+    /// Send what's written.
     /// A failure says so and keeps what wasn't sent.
-    pub(super) fn send_brief_talk(
-        &mut self,
-        answer: Option<Option<String>>,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn send_brief_talk(&mut self, cx: &mut Context<Self>) {
         let Some((id, version)) = self.shown_version() else {
             return;
         };
@@ -168,11 +163,10 @@ impl Detail {
         });
         self.brief_sending = Some((id.clone(), version));
         cx.notify();
-        let answered = answer.clone();
         let key = (id.clone(), version);
         cx.spawn(async move |this, cx| {
             let (keep_id, keep_version) = (id.clone(), version);
-            let talk = run(move || briefs::send_talk(&id, version, answer)).await;
+            let talk = run(move || briefs::send_talk(&id, version)).await;
             let kept = match &talk {
                 Ok(_) => None,
                 Err(_) => Some(run(move || briefs::kept_talk(&keep_id, keep_version)).await),
@@ -187,9 +181,8 @@ impl Detail {
                             brief.unheard = sent > 0 && talk.activity.listeners.is_empty();
                             brief.activity = talk.activity;
                             brief.notes = talk.notes;
-                            brief.answered = talk.answered;
                         }
-                        sent_words(sent, answered.as_ref(), waiting.as_deref())
+                        sent_words(sent, waiting.as_deref())
                     }
                     Err(err) => {
                         tracing::warn!("couldn't send what's written on a brief: {err:#}");
@@ -211,20 +204,10 @@ impl Detail {
 }
 
 /// What to say once it's sent, naming who it reaches when someone's waiting.
-fn sent_words(notes: usize, answer: Option<&Option<String>>, waiting: Option<&str>) -> String {
-    let answer = answer.map(|answer| match answer.as_deref() {
-        Some("approve") => "Approved",
-        Some("hold") => "Holding",
-        Some("acknowledge") => "Marked as seen",
-        Some(_) => "Answered",
-        None => "Took back your answer",
-    });
-    let sent = (notes > 0).then(|| plural(notes, "comment"));
-    let done = match (answer, sent) {
-        (Some(answer), Some(sent)) => format!("{answer} and sent {sent}"),
-        (Some(answer), None) => answer.to_owned(),
-        (None, Some(sent)) => format!("Sent {sent}"),
-        (None, None) => "Nothing to send".to_owned(),
+fn sent_words(notes: usize, waiting: Option<&str>) -> String {
+    let done = match notes {
+        0 => "Nothing to send".to_owned(),
+        notes => format!("Sent {}", plural(notes, "comment")),
     };
     match waiting {
         Some(waiting) => format!("{done}, {waiting} is waiting on it"),

@@ -298,21 +298,12 @@ impl AppView {
                 }
             }
         } else if !typing && detail_focused && detail.showing_brief() {
-            let answer: Vec<(&dyn Action, &str)> = match detail.brief_can_sign_off() {
-                true => vec![
-                    (&crate::detail::Hold, "hold"),
-                    (&crate::detail::Approve, "approve"),
-                ],
-                false => Vec::new(),
-            };
             [
                 (&crate::detail::NextBlock as &dyn Action, "next part"),
                 (&crate::detail::WriteNote, "write a comment"),
+                (&crate::detail::NextBrief, "next brief"),
             ]
-            .into_iter()
-            .chain(answer)
-            .chain([(&crate::detail::NextBrief as &dyn Action, "next brief")])
-            .collect()
+            .into()
         } else if !typing && !detail_focused && detail.showing_brief() {
             vec![(&crate::app::FocusPaneRight, "read the brief")]
         } else if !typing && detail.back_to_brief() {
