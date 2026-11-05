@@ -100,8 +100,27 @@ pub fn drags_window(el: Div) -> Div {
 thread_local! {
     /// The click that brought the window in front landed on a header (`drags_window`).
     static FIRST_CLICK_ON_HEADER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    /// The window wasn't active when last drawn (`holds_back_first_click`).
-    static DRAWN_INACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// The window that was active when last drawn (`holds_back_first_click`).
+    static DRAWN_ACTIVE: std::cell::Cell<Option<gpui::WindowId>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Whether `window` is active. A dev script's never are, so it says which counts as active.
+fn is_active(window: &Window) -> bool {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::scripted() {
+        return crate::dev::is_active(window);
+    }
+    window.is_window_active()
+}
+
+/// Bring `window` in front, but for a dev script's, which AppKit would show.
+pub fn activate(window: &mut Window) {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::scripted() {
+        return crate::dev::activate(window);
+    }
+    window.activate_window();
 }
 
 /// Whether `event` is the press that brings the window in front, on macOS, which
@@ -109,8 +128,10 @@ thread_local! {
 /// leaves that on a later press too when a ctrl-click brought the window in front, so it counts
 /// only while the window was last drawn inactive: GPUI hears that the window is active only after
 /// handling the press that made it so.
-pub fn brings_window_in_front(event: &MouseDownEvent) -> bool {
-    cfg!(target_os = "macos") && event.first_mouse && DRAWN_INACTIVE.get()
+pub fn brings_window_in_front(event: &MouseDownEvent, window: &Window) -> bool {
+    cfg!(target_os = "macos")
+        && event.first_mouse
+        && DRAWN_ACTIVE.get() != Some(window.window_handle().window_id())
 }
 
 /// Holds back the click that brings the window in front, as macOS apps do, so it doesn't also
@@ -124,11 +145,16 @@ pub fn holds_back_first_click() -> impl IntoElement {
         gpui::canvas(
             |_, _, _| {},
             |_, (), window, _| {
-                DRAWN_INACTIVE.set(!window.is_window_active());
-                window.on_mouse_event(|event: &MouseDownEvent, phase, _, cx| {
+                let id = window.window_handle().window_id();
+                if is_active(window) {
+                    DRAWN_ACTIVE.set(Some(id));
+                } else if DRAWN_ACTIVE.get() == Some(id) {
+                    DRAWN_ACTIVE.set(None);
+                }
+                window.on_mouse_event(|event: &MouseDownEvent, phase, window, cx| {
                     if phase == DispatchPhase::Capture && event.first_mouse {
                         let on_header = FIRST_CLICK_ON_HEADER.take();
-                        if brings_window_in_front(event) && !on_header {
+                        if brings_window_in_front(event, window) && !on_header {
                             cx.stop_propagation();
                         }
                     }
@@ -150,6 +176,10 @@ pub fn above_drag<E: InteractiveElement>(el: E) -> E {
 /// Whether the app draws the window's minimize, maximize and close buttons: on Windows, and on
 /// Linux where the desktop leaves the window's frame to the app, as GNOME does on Wayland.
 pub fn draws_window_controls(window: &Window) -> bool {
+    #[cfg(feature = "dev-script")]
+    if crate::dev::linux_controls() {
+        return true;
+    }
     cfg!(target_os = "windows")
         || matches!(
             window.window_decorations(),
@@ -292,6 +322,8 @@ icons! {
     SplitBelow => "split-below",
     TileZoom => "tile-zoom",
     TileUnzoom => "tile-unzoom",
+    // A window coming off another, for what opens in a window of its own.
+    PopOutWindow => "pop-out-window",
     // ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
     // ui-react's folders with their top right corner cut away, for a dot there while a

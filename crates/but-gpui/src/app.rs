@@ -420,6 +420,7 @@ impl AppView {
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(theme_for(store.read(cx), window));
+        let window_id = window.window_handle().window_id();
         #[cfg(target_os = "macos")]
         place_traffic_lights(false, window, cx);
         #[cfg(target_os = "macos")]
@@ -535,10 +536,10 @@ impl AppView {
                         .update(cx, |store, cx| store.save_window_place(window, cx));
                 }
             }),
-            cx.observe_window_visibility(window, |this, visibility, _, cx| {
+            cx.observe_window_visibility(window, move |this, visibility, _, cx| {
                 if !scripted() {
                     this.store.update(cx, |store, cx| {
-                        store.set_visible(visibility.is_visible(), cx)
+                        store.set_visible(window_id, visibility.is_visible(), cx)
                     });
                 }
             }),
@@ -578,18 +579,15 @@ impl AppView {
                 },
             ),
         ];
-        // Closing the window quits, so it asks the same as ⌘Q.
         let this = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
-            this.update(cx, |this, cx| this.can_quit(window, cx))
+            this.update(cx, |this, cx| this.should_close(window, cx))
                 .unwrap_or(true)
         });
         Self::listen_for_credential_prompts(window, cx);
         // Visibility arrives only as it changes, so a window that opens hidden says so here.
-        if !scripted() {
-            let visible = window.is_visible();
-            store.update(cx, |store, cx| store.set_visible(visible, cx));
-        }
+        let visible = scripted() || window.is_visible();
+        store.update(cx, |store, cx| store.set_visible(window_id, visible, cx));
         Self {
             store,
             detail,
@@ -753,6 +751,16 @@ impl AppView {
         }
     }
 
+    /// Whether the window's close button closes it. Closing quits, so it asks the same as ⌘Q,
+    /// and says so itself, as a graph in a window of its own would otherwise keep the app open.
+    pub(crate) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let quits = self.can_quit(window, cx);
+        if quits {
+            cx.quit();
+        }
+        quits
+    }
+
     /// Whether to quit right away. While an operation hasn't finished or a terminal is open,
     /// ask instead, and quit on a yes: quitting would stop the operation partway and end what
     /// runs in the terminal.
@@ -788,6 +796,8 @@ impl AppView {
                 (message, format!("{operations} {terminals}"))
             }
         };
+        // It's on this window, which the graph's own window may have been asked from.
+        crate::ui::activate(window);
         self.confirm_then(None, message, &detail, "Quit", window, cx, |_, cx| {
             cx.quit()
         });
@@ -5144,7 +5154,7 @@ impl Render for AppView {
 /// the header, however tall the scale draws it. While `away`, they're past the window's left
 /// edge, where AppKit doesn't draw them.
 #[cfg(target_os = "macos")]
-fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
+pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
     use crate::ui::fixed;
     use gpui::point;
 

@@ -34,6 +34,8 @@ mod upstream;
 mod worktree;
 
 pub use diff_view::DiffPane;
+#[cfg(feature = "dev-script")]
+pub(crate) use graph::GraphWindow;
 pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
 pub(crate) use page::PageTab;

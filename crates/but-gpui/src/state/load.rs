@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{Context, SharedString, Task};
+use gpui::{Context, SharedString, Task, WindowId};
 
 use super::{ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
@@ -136,13 +136,18 @@ impl Store {
         })
     }
 
-    /// Follow whether any of the window shows. Hidden, watchers' changes and the forge poll
-    /// wait, so an agent writing while the app is behind an editor costs a file watcher and
-    /// no more; shown again, each project changed meanwhile loads once.
-    pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
-        tracing::debug!(visible, unseen = self.unseen.len(), "window visibility");
-        let shown = self.hidden && visible;
-        self.hidden = !visible;
+    /// Follow whether any of `window` shows. With no window showing, watchers' changes and the
+    /// forge poll wait, so an agent writing while the app is behind an editor costs a file
+    /// watcher and no more; shown again, each project changed meanwhile loads once.
+    pub fn set_visible(&mut self, window: WindowId, visible: bool, cx: &mut Context<Self>) {
+        match visible {
+            true => self.shown_windows.insert(window),
+            false => self.shown_windows.remove(&window),
+        };
+        let hidden = self.shown_windows.is_empty();
+        tracing::debug!(hidden, unseen = self.unseen.len(), "window visibility");
+        let shown = self.hidden && !hidden;
+        self.hidden = hidden;
         self.show_terminals(cx);
         if self.hidden {
             // Drawn once more, for what moves on screen to stop.

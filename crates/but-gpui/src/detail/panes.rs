@@ -1933,7 +1933,7 @@ pub(super) fn back_to_list(
 ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
     let focus = focus.clone();
     cx.listener(move |this, event, window, cx| {
-        if focus.is_focused(window) && !crate::ui::brings_window_in_front(event) {
+        if focus.is_focused(window) && !crate::ui::brings_window_in_front(event, window) {
             window.focus(&this.side_focus, cx);
         }
     })
