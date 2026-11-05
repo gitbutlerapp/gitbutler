@@ -18,6 +18,7 @@ mod keys;
 mod margin;
 mod names;
 mod notes;
+pub(super) use notes::BriefInput;
 mod talk;
 pub(super) mod test_facts;
 
@@ -337,9 +338,19 @@ impl Detail {
         read: anyhow::Result<briefs::BriefPage>,
         cx: &mut Context<Self>,
     ) {
-        let Some(brief) = self.page.brief_mut().filter(|brief| {
+        if !(self.page.brief()).is_some_and(|brief| {
             brief.version == version && brief.found.as_ref().is_some_and(|now| now.id == id)
-        }) else {
+        }) {
+            return;
+        }
+        // What's being written is about the version that's going, should this be another.
+        let same = |page: &briefs::BriefPage| {
+            (self.brief_input.as_ref()).is_some_and(|input| input.is_about(&page.id, page.version))
+        };
+        if !read.as_ref().is_ok_and(same) {
+            self.keep_brief_writing();
+        }
+        let Some(brief) = self.page.brief_mut() else {
             return;
         };
         if let Ok(page) = &read {
@@ -357,6 +368,10 @@ impl Detail {
         brief.cursor = None;
         brief.unheard = false;
         brief.linked = None;
+        // Of the diff and the version that's going, until they're linked again.
+        brief.tests = None;
+        brief.unnamed = Default::default();
+        brief.drifted = Default::default();
         brief.shown = Some(read.map_err(|err| format!("{err:#}")));
         self.link_brief_names();
         self.brief_list.reset(self.brief_rows().len());

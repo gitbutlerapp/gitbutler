@@ -5,7 +5,9 @@
 //! comments, anchored as the web anchors them, so whoever acts on them needs nothing new: an agent
 //! told to check the comments finds them there.
 
-use gpui::{AnyElement, Context, Div, Focusable as _, Window, div, prelude::*};
+use gpui::{
+    AnyElement, Context, Div, Entity, Focusable as _, Subscription, Window, div, prelude::*,
+};
 
 use super::keys::NextBrief;
 use super::{Row, block_place, briefs};
@@ -47,6 +49,23 @@ fn row_target(row: Row, blocks: &[BriefBlock]) -> CommentTo {
         Row::Block(at) => whole(at),
         Row::Fold { first, .. } => whole(first),
         Row::Head | Row::End | Row::Since | Row::Unchanged(_) => CommentTo::Brief,
+    }
+}
+
+/// A comment or a shortcut being written, with its field.
+pub(in crate::detail) struct BriefInput {
+    pub(super) field: Entity<TextInput>,
+    pub(super) writing: Writing,
+    /// What it's about, which can stop being what shows.
+    version: (String, u32),
+    /// What's in the field so far, for keeping it where the field can't be asked.
+    pub(super) written: String,
+    _listen: Subscription,
+}
+
+impl BriefInput {
+    pub(super) fn is_about(&self, id: &str, version: u32) -> bool {
+        self.version.0 == id && self.version.1 == version
     }
 }
 
@@ -144,35 +163,73 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let input = cx.new(|cx| TextInput::new(placeholder, true, cx).enter_submits());
+        let Some(version) = self.shown_version() else {
+            return;
+        };
+        self.keep_brief_writing();
+        let field = cx.new(|cx| TextInput::new(placeholder, true, cx).enter_submits());
         let listen = cx.subscribe_in(
-            &input,
+            &field,
             window,
-            |this, input, event, window, cx| match event {
-                InputEvent::Submit => {
-                    let body = input.read(cx).text().trim().to_owned();
-                    this.finish_writing(Some(body), window, cx);
-                }
+            |this, field, event, window, cx| match event {
+                InputEvent::Submit => this.submit_writing(window, cx),
                 InputEvent::Cancel => this.finish_writing(None, window, cx),
-                // It wraps, so its row can grow as it's written.
                 InputEvent::Changed => {
+                    if let Some(input) = &mut this.brief_input {
+                        input.written = field.read(cx).text().to_owned();
+                    }
+                    // It wraps, so its row can grow as it's written.
                     this.brief_list.remeasure();
                     cx.notify();
                 }
             },
         );
-        window.focus(&input.focus_handle(cx), cx);
-        self.brief_input = Some((input, listen));
-        if let Some(brief) = self.page.brief_mut() {
-            brief.writing = Some(writing);
-        }
+        window.focus(&field.focus_handle(cx), cx);
+        self.brief_input = Some(BriefInput {
+            field,
+            writing,
+            version,
+            written: String::new(),
+            _listen: listen,
+        });
         self.brief_list_changed(cx);
+    }
+
+    /// What's being written, if anything is.
+    pub(super) fn brief_writing(&self) -> Option<&Writing> {
+        self.brief_input.as_ref().map(|input| &input.writing)
+    }
+
+    /// Keep a comment being written as one not sent, as its field is going away without it being
+    /// finished: whoever wrote it went elsewhere, and their words shouldn't go with it.
+    pub(in crate::detail) fn keep_brief_writing(&mut self) {
+        let Some(input) = self.brief_input.take() else {
+            return;
+        };
+        let Writing::Note(to) = &input.writing else {
+            return;
+        };
+        let body = input.written.trim();
+        if body.is_empty() {
+            return;
+        }
+        let (id, version) = &input.version;
+        match briefs::add_note(id, *version, to, body) {
+            Ok(notes) => {
+                let here = |page: &BriefPage| page.id == *id && page.version == *version;
+                if let Some(brief) =
+                    (self.page.brief_mut()).filter(|brief| brief.page().is_some_and(here))
+                {
+                    brief.notes = notes;
+                }
+            }
+            Err(err) => tracing::warn!("couldn't keep the comment being written: {err:#}"),
+        }
     }
 
     /// Finish what's being written, as Enter does.
     pub(super) fn submit_writing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let body =
-            (self.brief_input.as_ref()).map(|(input, _)| input.read(cx).text().trim().to_owned());
+        let body = (self.brief_input.as_ref()).map(|input| input.written.trim().to_owned());
         self.finish_writing(body, window, cx);
     }
 
@@ -183,8 +240,8 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some((input, _)) = &self.brief_input {
-            input.update(cx, |input, cx| {
+        if let Some(input) = &self.brief_input {
+            input.field.update(cx, |input, cx| {
                 let joined = match input.text().trim() {
                     "" => said.to_owned(),
                     written => format!("{written} {said}"),
@@ -192,7 +249,7 @@ impl Detail {
                 input.set_text(joined, cx);
             });
             // The button pressed goes once what it says is in, and the keys would go with it.
-            window.focus(&input.focus_handle(cx), cx);
+            window.focus(&input.field.focus_handle(cx), cx);
         }
         cx.notify();
     }
@@ -205,15 +262,14 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.brief_input = None;
-        let writing = self.page.brief_mut().and_then(|brief| brief.writing.take());
+        let input = self.brief_input.take();
         window.focus(&self.focus, cx);
         self.brief_list_changed(cx);
-        let (Some(writing), Some(body), Some((id, version))) =
-            (writing, body, self.shown_version())
-        else {
+        let (Some(input), Some(body)) = (input, body) else {
             return;
         };
+        let (id, version) = input.version;
+        let writing = input.writing;
         match writing {
             Writing::Note(_) if body.is_empty() => {}
             Writing::Note(to) => self.keep_brief_note(id, version, to, body, cx),
@@ -303,7 +359,7 @@ impl Detail {
         let gone = quote.clone().filter(|quote| {
             (thread.anchor.block()).is_some_and(|at| super::margin::quote_is_gone(state, at, quote))
         });
-        let replying = (state.writing.as_ref())
+        let replying = (self.brief_writing())
             .filter(|writing| {
                 matches!(writing, Writing::Note(CommentTo::Thread(to)) if *to == thread.id)
             })

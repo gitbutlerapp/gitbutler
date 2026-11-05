@@ -325,8 +325,6 @@ pub(super) struct BriefState {
     pub(super) activity: Activity,
     /// What's written about it and not sent.
     pub(super) notes: Vec<Note>,
-    /// What's being written in the tab's bar.
-    pub(super) writing: Option<Writing>,
     /// Where the tab was as a link in it was followed, to go back to.
     pub(super) back: Option<ListOffset>,
     /// The row ↓ and ↑ don't, j and k do: where a note goes without a passage selected.

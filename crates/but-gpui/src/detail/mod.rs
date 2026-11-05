@@ -508,7 +508,7 @@ pub struct Detail {
     /// reading one brief after another stays reading.
     brief_first: bool,
     /// The field a note is written in, and its events.
-    brief_input: Option<(Entity<TextInput>, Subscription)>,
+    brief_input: Option<brief::BriefInput>,
     brief_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
@@ -1626,7 +1626,7 @@ impl Detail {
         self.review_side_scroll.set_offset(Default::default());
         self.brief_list.reset(0);
         self.brief_reading = None;
-        self.brief_input = None;
+        self.keep_brief_writing();
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.

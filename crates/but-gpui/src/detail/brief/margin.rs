@@ -179,7 +179,7 @@ impl Detail {
             floats,
         } = beside;
         let theme = Theme::get(cx);
-        let writing = state.writing.is_some();
+        let writing = self.brief_writing().is_some();
         let pointed = self.brief_hovered == Some(key) && !writing;
         let shows_controls = !writing && (pointed || held);
         let cards = self.talk_cards(&spot, state, cx);
@@ -277,7 +277,7 @@ impl Detail {
                         && spot.takes(thread.anchor.block(), quote_of(thread))
                 }) || (state.notes.iter()).any(|note| {
                     place_of(&note.to).is_some_and(|(block, quote)| spot.takes(block, quote))
-                }) || (state.writing.as_ref()).is_some_and(|writing| match writing {
+                }) || self.brief_writing().is_some_and(|writing| match writing {
                     Writing::Note(to) | Writing::Shortcut { to, .. } => {
                         place_of(to).is_some_and(|(block, quote)| spot.takes(block, quote))
                     }
@@ -314,9 +314,8 @@ impl Detail {
                 place_of(&note.to).is_some_and(|(block, quote)| spot.takes(block, quote))
             })
             .map(|note| self.brief_note(note, false, state, cx).into_any_element());
-        let writing = state
-            .writing
-            .as_ref()
+        let writing = self
+            .brief_writing()
             .and_then(|writing| match writing {
                 Writing::Note(to) | Writing::Shortcut { to, .. } => {
                     let (block, quote) = place_of(to)?;
@@ -337,8 +336,8 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<Div> {
         let theme = Theme::get(cx);
-        let (input, _) = self.brief_input.as_ref()?;
-        let written = !input.read(cx).text().trim().is_empty();
+        let input = self.brief_input.as_ref()?;
+        let written = !input.written.trim().is_empty();
         let title = match writing {
             Writing::Shortcut { editing: None, .. } => Some("New shortcut"),
             Writing::Shortcut { .. } => Some("Edit shortcut"),
@@ -426,7 +425,7 @@ impl Detail {
                         .text_color(theme.text_2)
                         .child(title)
                 }))
-                .child(div().text_size(dp(13.)).child(input.clone()))
+                .child(div().text_size(dp(13.)).child(input.field.clone()))
                 .children(shortcuts)
                 .child(actions),
         )
@@ -540,8 +539,8 @@ impl Detail {
             window,
             cx,
         );
-        if let (Some(said), Some((input, _))) = (said, &self.brief_input) {
-            input.update(cx, |input, cx| input.set_text(said, cx));
+        if let (Some(said), Some(input)) = (said, &self.brief_input) {
+            input.field.update(cx, |input, cx| input.set_text(said, cx));
         }
     }
 
@@ -549,16 +548,14 @@ impl Detail {
     /// write one here.
     fn add_shortcut_from_writing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let written = (self.brief_input.as_ref())
-            .map(|(input, _)| input.read(cx).text().trim().to_owned())
+            .map(|input| input.written.trim().to_owned())
             .unwrap_or_default();
         if !written.is_empty() {
             return self.save_brief_shortcut(None, written, cx);
         }
-        let to = (self.page.brief().and_then(|brief| brief.writing.as_ref())).and_then(|writing| {
-            match writing {
-                Writing::Note(to) => Some(to.clone()),
-                _ => None,
-            }
+        let to = self.brief_writing().and_then(|writing| match writing {
+            Writing::Note(to) => Some(to.clone()),
+            _ => None,
         });
         if let Some(to) = to {
             self.write_shortcut(None, to, window, cx);
@@ -640,7 +637,7 @@ impl Detail {
             }
             _ => None,
         });
-        let writing = state.writing.as_ref().and_then(|writing| match writing {
+        let writing = self.brief_writing().and_then(|writing| match writing {
             Writing::Note(CommentTo::Passage { block, quote }) if on_block(*block) => {
                 Some((quote.as_str(), style(false, true, true)))
             }
