@@ -85,6 +85,53 @@ pub const INSTALL_UPDATE: &str = "GITBUTLER_INSTALL_UPDATE";
 const LEAST_WINDOW_WIDTH: f32 = 900.;
 const LEAST_WINDOW_HEIGHT: f32 = 500.;
 
+/// Where a dev script's windows open: never shown, and should anything show one anyway, off to
+/// the side, where AppKit leaves only an edge on screen.
+fn off_screen(size: gpui::Size<gpui::Pixels>) -> gpui::WindowBounds {
+    use crate::ui::fixed;
+
+    gpui::WindowBounds::Windowed(gpui::Bounds::new(
+        gpui::point(fixed(-10000.), fixed(-10000.)),
+        size,
+    ))
+}
+
+/// How a window of the app opens, its headers standing in for a title bar.
+fn window_options(
+    title: gpui::SharedString,
+    bounds: gpui::WindowBounds,
+    display_id: Option<gpui::DisplayId>,
+    least: gpui::Size<gpui::Pixels>,
+) -> gpui::WindowOptions {
+    use crate::ui::fixed;
+
+    let scripted = app::scripted();
+    gpui::WindowOptions {
+        window_bounds: Some(bounds),
+        display_id,
+        titlebar: Some(gpui::TitlebarOptions {
+            title: Some(title),
+            appears_transparent: true,
+            traffic_light_position: Some(gpui::point(fixed(14.), fixed(15.))),
+        }),
+        window_min_size: Some(least),
+        focus: !scripted,
+        show: !scripted,
+        // macOS only. The headers drag the window and take its title bar's double
+        // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
+        // doesn't hold each click there back to see whether a second one follows.
+        app_owns_titlebar_drag: true,
+        // Linux only. The app draws the frame itself, as it has no title bar
+        // elsewhere either, and the window goes with the desktop app's launcher,
+        // which names the executable as its window class.
+        window_decorations: Some(gpui::WindowDecorations::Client),
+        app_id: std::env::current_exe()
+            .ok()
+            .and_then(|exe| Some(exe.file_name()?.to_str()?.to_owned())),
+        ..Default::default()
+    }
+}
+
 /// The desktop app's binary, to start again. On Linux an AppImage's own file: this one is
 /// inside it, from a mount that goes once this process ends.
 fn this_app() -> std::io::Result<std::path::PathBuf> {
@@ -181,8 +228,7 @@ pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
     use gpui::{
-        App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, TitlebarOptions, WindowBounds,
-        WindowDecorations, WindowOptions, point, prelude::*, size,
+        App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, WindowBounds, prelude::*, size,
     };
 
     use crate::app::AppView;
@@ -310,15 +356,7 @@ pub fn run(embedded: Option<Embedded>) {
             keymap::bind(&store, set_menus, cx);
             let default_size = size(fixed(1360.), fixed(860.));
             let (display_id, bounds) = match store.read(cx).window_place(cx) {
-                // Never shown (`show` below), and should anything show it anyway, off to the
-                // side, where AppKit leaves only an edge on screen.
-                _ if scripted => (
-                    None,
-                    WindowBounds::Windowed(Bounds::new(
-                        point(fixed(-10000.), fixed(-10000.)),
-                        default_size,
-                    )),
-                ),
+                _ if scripted => (None, off_screen(default_size)),
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
@@ -326,33 +364,12 @@ pub fn run(embedded: Option<Embedded>) {
                 ),
             };
             let window = cx.open_window(
-                WindowOptions {
-                    window_bounds: Some(bounds),
+                window_options(
+                    "GitButler".into(),
+                    bounds,
                     display_id,
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("GitButler".into()),
-                        appears_transparent: true,
-                        traffic_light_position: Some(point(fixed(14.), fixed(15.))),
-                    }),
-                    window_min_size: Some(size(
-                        fixed(LEAST_WINDOW_WIDTH),
-                        fixed(LEAST_WINDOW_HEIGHT),
-                    )),
-                    focus: !scripted,
-                    show: !scripted,
-                    // macOS only. The headers drag the window and take its title bar's double
-                    // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
-                    // doesn't hold each click there back to see whether a second one follows.
-                    app_owns_titlebar_drag: true,
-                    // Linux only. The app draws the frame itself, as it has no title bar
-                    // elsewhere either, and the window goes with the desktop app's launcher,
-                    // which names the executable as its window class.
-                    window_decorations: Some(WindowDecorations::Client),
-                    app_id: std::env::current_exe()
-                        .ok()
-                        .and_then(|exe| Some(exe.file_name()?.to_str()?.to_owned())),
-                    ..Default::default()
-                },
+                    size(fixed(LEAST_WINDOW_WIDTH), fixed(LEAST_WINDOW_HEIGHT)),
+                ),
                 |window, cx| cx.new(|cx| AppView::new(store, window, cx)),
             );
             let window = match window {

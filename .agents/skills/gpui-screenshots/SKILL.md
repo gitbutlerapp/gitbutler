@@ -135,6 +135,30 @@ origin plus half its pixel offset. `size W H` resizes the window.
 - The window starts shown, though macOS reports it hidden. `hide` and `show` steps set it, as
   covering the window and bringing it back would.
 
+## More than one window
+
+A graph opened in a window of its own is a second window to drive. `window graph` sends the
+steps after it there and `window main` back, each printing `WINDOWS n`, how many are open. Its
+coordinates are its own, and it's 1000×720. After a window closes, name one again.
+
+- `hide` and `show` act on the window the steps go to. The app counts as hidden only once no
+  window shows, so to check a reload, hide them all, and zoom out first: a new commit lands above
+  what's in view, where a shot can't tell it arrived.
+- No script's window is ever active, so all count as inactive. `activate` counts the one the
+  steps go to as active, and it then draws after the others, as a window under the pointer does.
+  `fclick` in another window then acts as it would on screen. Run the same steps without
+  `activate` as a control: the two must differ.
+- Code that brings a window in front calls `ui::activate`, never `window.activate_window()`: for
+  real it would order a window the script keeps off screen in front. It prints `ACTIVATED main`.
+- `close` presses the window's close button, asking first as AppKit does. `QUIT` says the app
+  quit before the script ended, so what comes after it never ran. A step after `close` that
+  fails with `window not found` means the app kept running without that window.
+- `controls linux` draws GNOME's window buttons and handles their clicks on any platform, at the
+  top right of each window: the graph window's close is at 976 20. Their layout is otherwise
+  macOS's, as the header still leaves room for the traffic lights.
+- A second display can't be tried: a script's windows open off every screen, and its bounds never
+  reach the code that picks a display.
+
 ## Animations
 
 Folds, slides and rows moving to a new order are drawn at a clock a script can stop, so any
@@ -267,7 +291,7 @@ what it covers.
   clicking through Settings.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
   performance.
-- The window is never key, so `on_focus` and `on_blur` listeners never fire, a rename doesn't
+- The window is never key, even with `activate`, so `on_focus` and `on_blur` listeners never fire, a rename doesn't
   end on a click elsewhere, and carets don't blink. `on_focus_lost` fires as usual. Check those
   by hand.
 - Copy writes the real clipboard, and Settings › AI, or searching settings, reads the keychain.

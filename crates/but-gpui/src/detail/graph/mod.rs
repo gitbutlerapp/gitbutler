@@ -9,6 +9,7 @@
 //! now, while the new ones grow out of their parents.
 
 mod layout;
+mod window;
 
 use std::cell::{Cell, RefCell};
 use std::cmp::Reverse;
@@ -21,11 +22,11 @@ use std::time::{Duration, Instant};
 use bstr::BStr;
 use gpui::{
     AnyElement, App, Bounds, BoxShadow, ClickEvent, ContentMask, Context, Corners, CursorStyle,
-    DispatchPhase, Entity, Font, FontWeight, Hitbox, HitboxBehavior, Hsla, MouseButton,
+    DispatchPhase, Div, Entity, Font, FontWeight, Hitbox, HitboxBehavior, Hsla, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, PinchEvent, Pixels, Point,
-    ScrollDelta, ScrollWheelEvent, SharedString, Size, Subscription, Task, TextAlign, TextRun,
-    Toggled, TransformationMatrix, WeakEntity, Window, canvas, div, fill, font, point, prelude::*,
-    quad, size,
+    ScrollDelta, ScrollWheelEvent, SharedString, Size, Stateful, Subscription, Task, TextAlign,
+    TextRun, Toggled, TransformationMatrix, WeakEntity, Window, canvas, div, fill, font, point,
+    prelude::*, quad, size,
 };
 
 use crate::backend::{
@@ -42,6 +43,8 @@ use crate::ui::{
 };
 
 use layout::{Input, Line, Route, Side, Track, reach};
+#[cfg(feature = "dev-script")]
+pub(crate) use window::GraphWindow;
 
 /// How far apart rows are, in pixels at 100%.
 const ROW: f32 = 72.;
@@ -507,6 +510,8 @@ pub struct GraphView {
     tags: Rc<RefCell<HashMap<usize, Bounds<f32>>>>,
     /// The interface scale as last drawn.
     scale: f32,
+    /// In a window of its own, so with nowhere further to pop out to.
+    own_window: bool,
     _load: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -593,6 +598,7 @@ impl GraphView {
             titles: Rc::default(),
             tags: Rc::default(),
             scale: 1.,
+            own_window: false,
             _load: Task::ready(()),
             _subscriptions: subscriptions,
         }
@@ -617,6 +623,14 @@ impl GraphView {
         if let Some(scene) = self.scene.clone() {
             let to = self.on_workspace(&scene);
             self.glide_to(to, cx);
+        }
+    }
+
+    /// Open the graph shown in a window of its own, looking at what this looks at.
+    fn pop_out(&mut self, window: &Window, cx: &mut Context<Self>) {
+        if let Some(project) = self.project.clone() {
+            let display = window.display(cx).map(|display| display.id());
+            window::open(self.store.clone(), project, self.state(), display, cx);
         }
     }
 
@@ -849,16 +863,21 @@ impl GraphView {
         // then moves from the right places.
         self.drawn = Rc::new(scene.nodes.iter().map(|node| node.at).collect());
         self.titles = Rc::default();
+        self.light_lineage(&scene);
+        self.scene = Some(scene);
+    }
+
+    /// Light what the pinned commit came from in `scene`, or unpin it if it's gone from there.
+    fn light_lineage(&mut self, scene: &Scene) {
         self.lineage = Rc::new(
             (self.pinned.as_ref())
                 .and_then(|key| scene.keys.get(key))
-                .map(|pinned| lineage(&scene, *pinned))
+                .map(|pinned| lineage(scene, *pinned))
                 .unwrap_or_default(),
         );
         if self.lineage.is_empty() {
             self.pinned = None;
         }
-        self.scene = Some(scene);
     }
 
     /// The canvas grew by `grown` pixels: what was in its middle stays there, or following the
@@ -2816,6 +2835,7 @@ impl Render for GraphView {
                 (false, None) => self.opening(&scene),
             };
             self.pinned = left.pinned;
+            self.light_lineage(&scene);
             self.following = left.following;
             self.placed = true;
             self.seen = true;
@@ -2939,92 +2959,102 @@ impl Render for GraphView {
             .find(|label| label.look == Look::Target)
             .map(|label| label.text.clone());
         let controls = h_flex()
-            .id("graph-controls")
             .absolute()
             .right(dp(12.))
             .bottom(dp(12.))
-            .occlude()
-            .gap(dp(2.))
-            .p(dp(2.))
-            .rounded(dp(8.))
-            .bg(theme.bg_1)
-            .border_1()
-            .border_color(theme.border_2)
-            .shadow_sm()
+            .items_stretch()
+            .gap(dp(6.))
             .child(
-                button("graph-workspace", "Workspace")
-                    .style(ButtonStyle::Ghost)
-                    .small()
-                    .tooltip("Your lanes and what they start from")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.go_to_workspace(cx))),
-            )
-            .child(
-                button(
-                    "graph-target",
-                    target.clone().unwrap_or_else(|| "Target".into()),
-                )
-                .style(ButtonStyle::Ghost)
-                .small()
-                .tooltip("The target's newest commit")
-                .disabled_because(target.is_none().then_some("There's no target"))
-                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                    if let Some(to) = (this.scene.clone()).and_then(|scene| this.on_target(&scene))
-                    {
-                        this.glide_to(to, cx);
-                    }
-                })),
-            )
-            .child(div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2))
-            .child(
-                h_flex()
-                    .pl(dp(6.))
+                controls_pill("graph-controls", &theme)
                     .child(
-                        checkbox("graph-follow", following, &theme)
-                            .aria_label("Follow workspace")
-                            .tooltip(Tooltip::text(FOLLOW_TIP))
+                        button("graph-workspace", "Workspace")
+                            .style(ButtonStyle::Ghost)
+                            .small()
+                            .tooltip("Your lanes and what they start from")
                             .on_click(
-                                cx.listener(|this, _: &ClickEvent, _, cx| {
-                                    this.toggle_following(cx)
-                                }),
+                                cx.listener(|this, _: &ClickEvent, _, cx| this.go_to_workspace(cx)),
                             ),
                     )
-                    // No gap, so a click between the two isn't lost.
                     .child(
-                        div()
-                            .id("graph-follow-label")
+                        button(
+                            "graph-target",
+                            target.clone().unwrap_or_else(|| "Target".into()),
+                        )
+                        .style(ButtonStyle::Ghost)
+                        .small()
+                        .tooltip("The target's newest commit")
+                        .disabled_because(target.is_none().then_some("There's no target"))
+                        .on_click(cx.listener(
+                            |this, _: &ClickEvent, _, cx| {
+                                if let Some(to) =
+                                    (this.scene.clone()).and_then(|scene| this.on_target(&scene))
+                                {
+                                    this.glide_to(to, cx);
+                                }
+                            },
+                        )),
+                    )
+                    .child(controls_divider(&theme))
+                    .child(
+                        h_flex()
                             .pl(dp(6.))
-                            .pr(dp(6.))
-                            .text_size(dp(12.))
-                            .child("Follow")
-                            .tooltip(Tooltip::text(FOLLOW_TIP))
-                            .on_click(
-                                cx.listener(|this, _: &ClickEvent, _, cx| {
-                                    this.toggle_following(cx)
-                                }),
+                            .child(
+                                checkbox("graph-follow", following, &theme)
+                                    .aria_label("Follow workspace")
+                                    .tooltip(Tooltip::text(FOLLOW_TIP))
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.toggle_following(cx)
+                                    })),
+                            )
+                            // No gap, so a click between the two isn't lost.
+                            .child(
+                                div()
+                                    .id("graph-follow-label")
+                                    .pl(dp(6.))
+                                    .pr(dp(6.))
+                                    .text_size(dp(12.))
+                                    .child("Follow")
+                                    .tooltip(Tooltip::text(FOLLOW_TIP))
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.toggle_following(cx)
+                                    })),
                             ),
                     ),
             )
-            .child(div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2))
             .child(
-                icon_button("graph-zoom-out", Icon::Minus)
-                    .tooltip("Zoom out")
-                    .on_click(
-                        cx.listener(|this, _: &ClickEvent, _, cx| this.zoom_by(1. / 1.4, cx)),
-                    ),
-            )
-            .child(
-                button("graph-zoom-reset", format!("{}%", (zoom * 100.).round()))
-                    .style(ButtonStyle::Ghost)
-                    .small()
-                    .tooltip("Back to 100%")
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.zoom_by(1. / this.camera.zoom, cx)
-                    })),
-            )
-            .child(
-                icon_button("graph-zoom-in", Icon::Plus)
-                    .tooltip("Zoom in")
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.zoom_by(1.4, cx))),
+                controls_pill("graph-view-controls", &theme)
+                    .child(
+                        icon_button("graph-zoom-out", Icon::Minus)
+                            .tooltip("Zoom out")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.zoom_by(1. / 1.4, cx)
+                            })),
+                    )
+                    .child(
+                        button("graph-zoom-reset", format!("{}%", (zoom * 100.).round()))
+                            .style(ButtonStyle::Ghost)
+                            .small()
+                            .tooltip("Back to 100%")
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.zoom_by(1. / this.camera.zoom, cx)
+                            })),
+                    )
+                    .child(
+                        icon_button("graph-zoom-in", Icon::Plus)
+                            .tooltip("Zoom in")
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| this.zoom_by(1.4, cx)),
+                            ),
+                    )
+                    .when(!self.own_window, |el| {
+                        el.child(controls_divider(&theme)).child(
+                            icon_button("graph-pop-out", Icon::PopOutWindow)
+                                .tooltip("Open in new window")
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.pop_out(window, cx)
+                                })),
+                        )
+                    }),
             );
         div()
             .relative()
@@ -3036,6 +3066,24 @@ impl Render for GraphView {
             .child(controls)
             .into_any_element()
     }
+}
+
+/// A floating group of the graph's controls.
+fn controls_pill(id: &'static str, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .occlude()
+        .gap(dp(2.))
+        .p(dp(2.))
+        .rounded(dp(8.))
+        .bg(theme.bg_1)
+        .border_1()
+        .border_color(theme.border_2)
+        .shadow_sm()
+}
+
+fn controls_divider(theme: &Theme) -> Div {
+    div().w(fixed(1.)).h(dp(16.)).mx(dp(2.)).bg(theme.border_2)
 }
 
 /// The pointer's events on the canvas, `hitbox`, to `view`: presses, pans and zooms over it,

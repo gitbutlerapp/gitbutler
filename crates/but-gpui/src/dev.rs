@@ -42,6 +42,14 @@
 //!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
 //! size 900 500           # resize the window, in logical pixels
+//! window graph            # send what follows to a graph's own window, or back with `window
+//!                         # main`; prints `WINDOWS 2`, how many are open
+//! activate                # count the window as the active one, as no script's window ever
+//!                         # is; it then draws after any other, as it does with the pointer
+//!                         # over it, so `fclick` in another acts as it would on screen
+//! close                   # the window's close button, as AppKit presses it: `QUIT` says
+//!                         # when that ends the app
+//! controls linux          # draw and handle GNOME's window buttons, on any platform
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
 //!                         # a point read off it is one `click` takes
 //! shot /tmp/a.png 0 0 400 300  # only that region, in logical pixels, at the display's scale
@@ -75,6 +83,7 @@ mod control;
 #[cfg(unix)]
 pub(crate) use control::listen as listen_for_layout;
 
+use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -91,6 +100,7 @@ use parking_lot::Mutex;
 
 use crate::app::AppView;
 use crate::clock;
+use crate::detail::GraphWindow;
 use crate::keymap::Keymap;
 use crate::state::Prefs;
 
@@ -116,6 +126,37 @@ const GAP_COLOR: image::Rgba<u8> = image::Rgba([128, 128, 128, 255]);
 
 /// Whether the left button is down between commands, after `press` or `drag … hold`.
 static PRESSED: AtomicBool = AtomicBool::new(false);
+/// The script is over, so the app quitting says nothing about what it did.
+static ENDED: AtomicBool = AtomicBool::new(false);
+/// `controls linux` was asked for.
+static LINUX_CONTROLS: AtomicBool = AtomicBool::new(false);
+
+thread_local! {
+    /// The window counted as active, as no script's window really is: see [`is_active`].
+    static ACTIVE: Cell<Option<AnyWindowHandle>> = const { Cell::new(None) };
+}
+
+/// Whether the script counts `window` as the active one.
+pub fn is_active(window: &Window) -> bool {
+    ACTIVE.get() == Some(window.window_handle())
+}
+
+/// What `window.activate_window()` would do: count it as active. For real AppKit would show it
+/// and could take the user's keys.
+pub fn activate(window: &mut Window) {
+    let name = match window.root::<AppView>().flatten() {
+        Some(_) => "main",
+        None => "graph",
+    };
+    ACTIVE.set(Some(window.window_handle()));
+    window.refresh();
+    eprintln!("ACTIVATED {name}");
+}
+
+/// Whether to draw and handle GNOME's window buttons here, whatever the platform.
+pub fn linux_controls() -> bool {
+    LINUX_CONTROLS.load(Ordering::Relaxed)
+}
 
 /// Since when the UI thread's longest busy stretch is being kept, and how long it was. Nothing
 /// can be drawn while that thread is busy, so at 120Hz no stretch should pass 8.3ms.
@@ -183,6 +224,12 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         ),
     );
     watch_stalls(cx);
+    cx.on_app_quit(|_| async {
+        if !ENDED.load(Ordering::Relaxed) {
+            eprintln!("QUIT");
+        }
+    })
+    .detach();
     // In the window, where a script sees and clicks them, not in a native alert, and in the
     // log, where it reads what the narrow dialog cuts off.
     cx.set_prompt_builder(|level, message, detail, actions, handle, window, cx| {
@@ -191,6 +238,8 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     });
     cx.spawn(async move |cx| {
         use futures::StreamExt as _;
+        let main = window;
+        let mut window = window;
         let mut line_no = 0;
         while let Some(line) = script.next().await {
             line_no += 1;
@@ -214,7 +263,21 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         Ok(())
                     }
                     "quit" => {
+                        ENDED.store(true, Ordering::Relaxed);
                         cx.update(|cx| cx.quit());
+                        Ok(())
+                    }
+                    "window" => {
+                        let windows = cx.update(|cx| cx.windows());
+                        window = match rest {
+                            "main" => main,
+                            "graph" => (windows.iter())
+                                .copied()
+                                .find(|window| window.downcast::<GraphWindow>().is_some())
+                                .context("no graph window is open")?,
+                            _ => anyhow::bail!("window takes main or graph"),
+                        };
+                        eprintln!("WINDOWS {}", windows.len());
                         Ok(())
                     }
                     "hold" => {
@@ -294,12 +357,18 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         );
                         Ok(())
                     }
-                    _ => cx.update_window(window, |_, window, cx| {
+                    _ => {
                         // macOS stops drawing windows that aren't on screen; draw now so
                         // hit-testing and screenshots see the current state.
-                        frame(window, cx);
-                        dispatch(command, rest, window, cx)
-                    })?,
+                        cx.update_window(window, |_, window, cx| frame(window, cx))?;
+                        if let Some(active) = ACTIVE.get().filter(|active| *active != window) {
+                            cx.update_window(active, |_, window, cx| frame(window, cx))
+                                .ok();
+                        }
+                        cx.update_window(window, |_, window, cx| {
+                            dispatch(command, rest, window, cx)
+                        })?
+                    }
                 }
             }
             .await;
@@ -316,6 +385,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         }
         // No one sees the window, so it has nothing left to do once the script ends: at the
         // end of the file, or when the last writer closes the pipe.
+        ENDED.store(true, Ordering::Relaxed);
         cx.update(|cx| cx.quit());
     })
     .detach();
@@ -1110,10 +1180,15 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         }
         // The window as if another app's covered it, or shown again.
         "hide" | "show" => {
-            let app = window.root::<AppView>().flatten().context("no app view")?;
-            app.update(cx, |app, cx| {
-                (app.store).update(cx, |store, cx| store.set_visible(command == "show", cx))
-            });
+            let id = window.window_handle().window_id();
+            let store = match window.root::<AppView>().flatten() {
+                Some(app) => app.read(cx).store.clone(),
+                None => {
+                    let graph = window.root::<GraphWindow>().flatten();
+                    graph.context("no app view")?.read(cx).store.clone()
+                }
+            };
+            store.update(cx, |store, cx| store.set_visible(id, command == "show", cx));
         }
         // What an agent, another app or the user does outside the app meanwhile.
         "sh" => {
@@ -1151,6 +1226,21 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             anyhow::ensure!(clock::tick(by), "the clock runs: `clock stop` first");
         }
         // The key contexts from the window down to what's focused, by their names.
+        "activate" => activate(window),
+        "close" => {
+            let closes = match window.root::<AppView>().flatten() {
+                Some(app) => app.update(cx, |app, cx| app.should_close(window, cx)),
+                None => true,
+            };
+            if closes {
+                window.remove_window();
+            }
+        }
+        "controls" => {
+            anyhow::ensure!(rest == "linux", "controls takes linux");
+            LINUX_CONTROLS.store(true, Ordering::Relaxed);
+            cx.refresh_windows();
+        }
         "keys" => {
             let contexts: Vec<String> = (window.context_stack().iter())
                 .filter_map(|context| Some(context.primary()?.key.to_string()))

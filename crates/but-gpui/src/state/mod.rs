@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use futures::channel::mpsc;
-use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
+use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task, WindowId};
 
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
@@ -508,6 +508,8 @@ pub struct Store {
     /// Nobody sees the projects change then, so what watchers saw waits in `unseen`, read
     /// once the window shows again.
     hidden: bool,
+    /// The windows any of which shows.
+    shown_windows: HashSet<WindowId>,
     unseen: HashMap<ProjectId, Reload>,
     /// Minute forge polls skipped while hidden since the forge was last asked: see
     /// [`Store::poll_forge`].
@@ -630,6 +632,7 @@ impl Store {
             forge_queued: HashSet::new(),
             forge_failed: HashMap::new(),
             hidden: false,
+            shown_windows: HashSet::new(),
             unseen: HashMap::new(),
             forge_skipped: 0,
             forge_checking: None,
