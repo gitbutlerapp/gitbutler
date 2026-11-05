@@ -9,6 +9,7 @@ pub(crate) mod file_write_locks;
 pub(crate) mod forge_reviews;
 pub(crate) mod gerrit_metadata;
 pub(crate) mod hunk_assignments;
+pub(crate) mod obs_markers;
 pub(crate) mod virtual_branches;
 pub(crate) mod worktree_meta;
 

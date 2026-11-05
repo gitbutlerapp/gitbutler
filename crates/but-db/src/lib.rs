@@ -78,6 +78,7 @@ pub use table::{
     file_write_locks::FileWriteLock,
     fetch_status::FetchStatus,
     gerrit_metadata::{GerritMeta, GerritMetadataHandle},
+    obs_markers::{ObsMarker, ObsMarkersHandle, ObsMarkersHandleMut},
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
     virtual_branches::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
@@ -141,6 +142,7 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::ci_checks::M,
     table::virtual_branches::M,
     table::worktree_meta::M,
+    table::obs_markers::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
