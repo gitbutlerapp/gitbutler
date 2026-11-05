@@ -744,6 +744,9 @@ impl Detail {
             };
             return ground().child(message).into_any_element();
         };
+        if let Some(dir) = self.cursor_folder(cx) {
+            return self.render_folder_summary(dir, theme, cx);
+        }
         let message = diff.rows.first() == Some(&DiffRow::Message);
         if diff.files.is_empty() && !message {
             // A clean worktree is good news, as but.dev greets it; a commit with nothing in
@@ -1073,6 +1076,10 @@ impl Detail {
     /// files beside it, when it has any; else it has only the count and the list on hover.
     /// Files pinned beside the diff go without the toggle.
     fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
+        // A folder's summary has no file to show the controls of.
+        if self.cursor_folder(cx).is_some() {
+            return None;
+        }
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
         let (added, removed) = diff::total_stats(diff.files.iter());

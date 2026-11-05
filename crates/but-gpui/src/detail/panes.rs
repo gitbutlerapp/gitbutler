@@ -243,11 +243,12 @@ impl Detail {
                 }
             }
         }
-        // Then the file under the diff's cursor, while the diff of what's selected shows.
+        // Then the file under the diff's cursor, or the folder the file list's keys are on,
+        // while the diff of what's selected shows.
         let shown = (self.diff.as_ref())
             .is_some_and(|diff| Some(diff.key.clone()) == self.key_for_selection(cx));
-        if let Some(path) = self
-            .cursor_path()
+        if let Some(path) = (self.cursor_folder(cx).map(str::to_owned))
+            .or_else(|| self.cursor_path())
             .filter(|_| shown && !self.diff_hidden(cx))
         {
             let name = path.rsplit('/').next().unwrap_or(&path).to_owned();

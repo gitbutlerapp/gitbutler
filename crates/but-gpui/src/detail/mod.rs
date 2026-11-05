@@ -197,6 +197,13 @@ enum Entry {
     File(usize),
 }
 
+/// Where the file list's keys stop: an entry, or in a tree a folder, by its path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ListStop {
+    Entry(Entry),
+    Folder(String),
+}
+
 /// Whose messages the diff lists first, ahead of its files.
 enum Messages {
     Commit(ProjectId, CommitId),
@@ -412,6 +419,10 @@ pub struct Detail {
     /// The cursor's file the file list last scrolled to show, so it follows the cursor's
     /// moves but not its own scrolling.
     listed_cursor: std::cell::RefCell<Option<String>>,
+    /// The rows of the summary the diff's pane shows for the folder the file list's keys are
+    /// on, and which folder they were last drawn for, so another starts at its top.
+    folder_rows: ListState,
+    summarized: std::cell::RefCell<Option<String>>,
     /// The file list's row holding the cursor's file as last drawn, and the list: where ⇧F10
     /// opens its menu.
     listed_cursor_row: std::cell::RefCell<Option<(ListState, usize)>>,
@@ -830,6 +841,8 @@ impl Detail {
             uncommitted_files: panes::side_list_state(),
             diff_files: panes::side_list_state(),
             listed_cursor: Default::default(),
+            folder_rows: panes::side_list_state(),
+            summarized: Default::default(),
             listed_cursor_row: Default::default(),
             message,
             commit_target: None,
@@ -2394,6 +2407,7 @@ impl Detail {
 
     /// Put the cursor on the commit's message and scroll to it, gliding there with `glide`.
     pub(super) fn scroll_to_message(&mut self, glide: bool, cx: &mut Context<Self>) {
+        self.leave_folder();
         self.cursor = Cursor::on_message();
         self.follow_alone(cx);
         if let Some(row) = self.row_of(|row| *row == DiffRow::Message) {
@@ -2755,52 +2769,133 @@ impl Detail {
         self.diff.as_ref()?.rows.iter().position(wanted)
     }
 
-    /// Step `delta` entries through the ones shown, the commit's message and the files,
-    /// letting picks go.
-    fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(entry) = self.file_step(delta, cx) else {
+    /// Step `delta` entries through the ones shown, the commit's message and the files, and
+    /// with `folders` a tree's folders too, letting picks go.
+    fn move_file(&mut self, delta: isize, folders: bool, cx: &mut Context<Self>) {
+        let Some(stop) = self.file_step(delta, folders, cx) else {
             return;
         };
+        let cursor = self.cursor;
         if let Some(files) = self.page.files_mut() {
             files.file_picks.clear();
         }
-        match entry {
-            Entry::File(file) => self.scroll_to_file(file, true, cx),
-            Entry::Message => self.scroll_to_message(true, cx),
+        match stop {
+            ListStop::Entry(Entry::File(file)) => self.scroll_to_file(file, true, cx),
+            ListStop::Entry(Entry::Message) => self.scroll_to_message(true, cx),
+            ListStop::Folder(dir) => {
+                if let Some(files) = self.page.files_mut() {
+                    files.cursor_dir = Some((dir, cursor));
+                }
+                cx.notify();
+            }
         }
     }
 
-    /// The entry `delta` entries from the current one, through the ones the file list shows:
-    /// the commit's message where it's listed, then the files.
-    fn file_step(&self, delta: isize, cx: &App) -> Option<Entry> {
-        let message = self.message_listed(cx).then_some(Entry::Message);
-        let shown: Vec<Entry> = (message.into_iter())
-            .chain(self.listed_files(cx).into_iter().map(Entry::File))
+    /// The stop `delta` stops from the current one, through the ones the file list shows: the
+    /// commit's message where it's listed, then the files, and with `folders` a tree's folders.
+    fn file_step(&self, delta: isize, folders: bool, cx: &App) -> Option<ListStop> {
+        let none = HashSet::new();
+        let collapsed = (self.page.files()).map_or(&none, |files| &files.collapsed_dirs);
+        let message = self
+            .message_listed(cx)
+            .then_some(ListStop::Entry(Entry::Message));
+        let shown: Vec<ListStop> = (message.into_iter())
+            .chain(self.list_stops(collapsed, folders, cx))
             .collect();
         if shown.is_empty() {
             return None;
         }
         // Found by place, as the filter's ranking can list the files out of the diff's order.
         // From a file that isn't shown, the next shown one counts as a step.
-        let current = self.current_entry();
-        let at = match shown.iter().position(|file| *file == current) {
+        let current = self.current_stop(folders, cx);
+        let at = match shown.iter().position(|stop| *stop == current) {
             Some(at) => at as isize,
             None => {
-                let at = shown.partition_point(|file| *file < current) as isize;
+                let entry = self.current_entry();
+                let at = (shown.iter())
+                    .position(|stop| matches!(stop, ListStop::Entry(e) if *e >= entry))
+                    .unwrap_or(shown.len()) as isize;
                 at - isize::from(delta >= 0)
             }
         };
-        (shown.get((at + delta).clamp(0, shown.len() as isize - 1) as usize)).copied()
+        (shown.get((at + delta).clamp(0, shown.len() as isize - 1) as usize)).cloned()
     }
 
-    /// Whether the current entry is the first the file list shows, with none over it to step to.
-    fn on_first_entry(&self, cx: &App) -> bool {
-        (self.file_step(-1, cx)).is_none_or(|entry| entry == self.current_entry())
+    /// What the file list's keys are on: the folder they stepped onto, else the current entry.
+    fn current_stop(&self, folders: bool, cx: &App) -> ListStop {
+        match self.cursor_folder(cx).filter(|_| folders) {
+            Some(dir) => ListStop::Folder(dir.to_owned()),
+            None => ListStop::Entry(self.current_entry()),
+        }
     }
 
-    /// Whether the current entry is the last the file list shows, with none under it to step to.
-    fn on_last_entry(&self, cx: &App) -> bool {
-        (self.file_step(1, cx)).is_none_or(|entry| entry == self.current_entry())
+    /// Whether the current stop is the first the file list shows, with none over it to step to.
+    fn on_first_entry(&self, folders: bool, cx: &App) -> bool {
+        let current = self.current_stop(folders, cx);
+        (self.file_step(-1, folders, cx)).is_none_or(|stop| stop == current)
+    }
+
+    /// Whether the current stop is the last the file list shows, with none under it to step to.
+    fn on_last_entry(&self, folders: bool, cx: &App) -> bool {
+        let current = self.current_stop(folders, cx);
+        (self.file_step(1, folders, cx)).is_none_or(|stop| stop == current)
+    }
+
+    /// Whether the file list's keys stop on its folders: it has them, shows a tree, and
+    /// Settings asks for it.
+    fn folder_stops(&self, window: &Window, cx: &App) -> bool {
+        let prefs = &self.store.read(cx).prefs;
+        prefs.folder_stops
+            && prefs.file_view == FileView::Tree
+            && self.files_focus.is_focused(window)
+    }
+
+    /// The tree's folder the file list's keys stepped onto, while it's the current one: the
+    /// diff's cursor hasn't moved since, and the diff still has a file in it.
+    pub(super) fn cursor_folder(&self, cx: &App) -> Option<&str> {
+        let prefs = &self.store.read(cx).prefs;
+        if !prefs.folder_stops || prefs.file_view != FileView::Tree {
+            return None;
+        }
+        let (dir, at) = self.page.files()?.cursor_dir.as_ref()?;
+        let holds = (self.diff.as_ref()?.files.iter()).any(|file| in_dir(&file.file.path, dir));
+        (*at == self.cursor && holds).then_some(dir.as_str())
+    }
+
+    /// The files the diff shows in folder `dir`, at any depth, in the file list's order.
+    pub(super) fn folder_files(&self, dir: &str, cx: &App) -> Vec<usize> {
+        let Some(diff) = &self.diff else {
+            return Vec::new();
+        };
+        (self.files_in_list_order(&HashSet::new(), cx).into_iter())
+            .filter(|ix| (diff.files.get(*ix)).is_some_and(|file| in_dir(&file.file.path, dir)))
+            .collect()
+    }
+
+    /// Fold the tree's folder `dir` shut, open it, or with `None` the other of the two.
+    pub(super) fn fold_dir(&mut self, dir: String, fold: Option<bool>, cx: &mut Context<Self>) {
+        let Some(files) = self.page.files_mut() else {
+            return;
+        };
+        let shut = files.collapsed_dirs.contains(&dir);
+        let close = fold.unwrap_or(!shut);
+        if close == shut {
+            return;
+        }
+        match close {
+            true => files.collapsed_dirs.insert(dir.clone()),
+            false => files.collapsed_dirs.remove(&dir),
+        };
+        self.page_folds.start(PageFold::Dir(dir), !close, cx);
+        cx.notify();
+    }
+
+    /// Let go of the folder the file list's keys stepped onto, as the keys or a click go to
+    /// an entry.
+    fn leave_folder(&mut self) {
+        if let Some(files) = self.page.files_mut() {
+            files.cursor_dir = None;
+        }
     }
 
     /// The files the file list shows, in its order: not those a filter or a pending
@@ -2815,9 +2910,25 @@ impl Detail {
     /// The files the diff shows, in the file list's order, with the directories in
     /// `collapsed` folded shut in a tree.
     fn files_in_list_order(&self, collapsed: &HashSet<String>, cx: &App) -> Vec<usize> {
+        (self.list_stops(collapsed, false, cx).into_iter())
+            .filter_map(|stop| match stop {
+                ListStop::Entry(Entry::File(file)) => Some(file),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The files the diff shows, in the file list's order, with the directories in
+    /// `collapsed` folded shut in a tree, and with `folders` the tree's folders among them.
+    fn list_stops(&self, collapsed: &HashSet<String>, folders: bool, cx: &App) -> Vec<ListStop> {
+        let files = |shown: Vec<usize>| -> Vec<ListStop> {
+            (shown.into_iter())
+                .map(|file| ListStop::Entry(Entry::File(file)))
+                .collect()
+        };
         let shown = self.shown_files();
         let Some(diff) = &self.diff else {
-            return shown;
+            return files(shown);
         };
         let shown: Vec<(usize, &str)> = (shown.into_iter())
             .filter_map(|ix| Some((ix, diff.files.get(ix)?.file.path.as_str())))
@@ -2827,10 +2938,15 @@ impl Detail {
                 .map(|(file, _)| file)
                 .unzip();
         if self.store.read(cx).prefs.file_view == FileView::List {
-            return shown;
+            return files(shown);
         }
-        (unfolded(&paths, collapsed).into_iter())
-            .filter_map(|pos| shown.get(pos).copied())
+        (tree_stops(&paths, collapsed, folders).into_iter())
+            .filter_map(|stop| match stop {
+                ListStop::Entry(Entry::File(pos)) => {
+                    Some(ListStop::Entry(Entry::File(*shown.get(pos)?)))
+                }
+                stop => Some(stop),
+            })
             .collect()
     }
 
@@ -3142,6 +3258,9 @@ impl Detail {
     /// current file among the ones shown, as the file list orders them, and the cursor's hunk
     /// while it's in it. The sticky header names the file.
     pub fn cursor_place(&self, cx: &App) -> Option<String> {
+        if self.cursor_folder(cx).is_some() {
+            return None;
+        }
         let diff = self.shown_diff()?;
         let file = diff.files.get(self.current_file()?)?;
         // The list's order is worked out only while the filter ranks the files, as this is drawn
@@ -3170,9 +3289,10 @@ impl Detail {
     }
 
     /// The path of the current file, unless the diff it's in is hidden under a pull
-    /// request's tab, which draws no files.
+    /// request's tab, which draws no files, or under the summary of the folder the file
+    /// list's keys are on.
     pub fn shown_cursor_path(&self, cx: &App) -> Option<String> {
-        if self.over_changes(cx) {
+        if self.over_changes(cx) || self.cursor_folder(cx).is_some() {
             return None;
         }
         self.cursor_path()
@@ -3334,6 +3454,14 @@ impl Detail {
 
     /// ⇧← folds the current file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
     /// isn't drawn.
+    /// Fold the folder the file list's keys are on, else the current file, shut or open.
+    fn fold_cursor(&mut self, fold: bool, cx: &mut Context<Self>) {
+        match self.cursor_folder(cx) {
+            Some(dir) => self.fold_dir(dir.to_owned(), Some(fold), cx),
+            None => self.fold_cursor_file(fold, cx),
+        }
+    }
+
     fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
         let Some(file) = self.current_file() else {
             return;
@@ -3514,6 +3642,7 @@ impl Detail {
     /// `glide`, as a key or a click goes from file to file. A diff that's just loaded, or a
     /// filter being typed, goes there at once.
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
+        self.leave_folder();
         self.cursor = Cursor::on_file(file_ix);
         self.follow_alone(cx);
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
@@ -4021,26 +4150,32 @@ impl Render for Detail {
             )
             .when(self.shows_conflicts(), |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
-            .on_action(cx.listener(
-                |this, _: &NextFile, window, cx| match this.on_last_entry(cx) {
+            .on_action(cx.listener(|this, _: &NextFile, window, cx| {
+                let folders = this.folder_stops(window, cx);
+                match this.on_last_entry(folders, cx) {
                     true => this.leave(Side::Bottom, window, cx),
-                    false => this.move_file(1, cx),
-                },
-            ))
+                    false => this.move_file(1, folders, cx),
+                }
+            }))
             // With none over it, the file list's keys go on from it, and the diff's as ↑ does, up
             // its hunks and out of its top.
             .on_action(cx.listener(|this, _: &PreviousFile, window, cx| {
-                let first = this.on_first_entry(cx);
+                let folders = this.folder_stops(window, cx);
+                let first = this.on_first_entry(folders, cx);
                 if first && this.files_focus.is_focused(window) {
                     this.leave(Side::Top, window, cx)
                 } else if first && this.focus.is_focused(window) {
                     this.move_hunk(false, window, cx)
                 } else {
-                    this.move_file(-1, cx)
+                    this.move_file(-1, folders, cx)
                 }
             }))
-            .on_action(cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, cx)))
-            .on_action(cx.listener(|this, _: &LastFile, _, cx| this.move_file(isize::MAX / 2, cx)))
+            .on_action(
+                cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, false, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &LastFile, _, cx| this.move_file(isize::MAX / 2, false, cx)),
+            )
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
@@ -4050,11 +4185,14 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &PreviousHunk, window, cx| this.move_hunk(false, window, cx)),
             )
-            .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
-            .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
+            .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor(true, cx)))
+            .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor(false, cx)))
             // On its header, or its row in the file list, or scrolled to past the cursor, not
             // from inside one of its hunks.
             .on_action(cx.listener(|this, _: &ToggleFileFold, window, cx| {
+                if let Some(dir) = this.cursor_folder(cx) {
+                    return this.fold_dir(dir.to_owned(), None, cx);
+                }
                 let in_hunk = this.cursor.at != Stop::File && this.reading.is_none();
                 if in_hunk && !this.files_focused(window) {
                     return;
@@ -4092,12 +4230,16 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &find::FindPrevious, _, cx| this.step_find(-1, cx)))
             .on_action(
                 cx.listener(|this, _: &crate::open_in::OpenInEditor, window, cx| {
-                    this.open_in_editor(window, cx)
+                    if this.cursor_folder(cx).is_none() {
+                        this.open_in_editor(window, cx)
+                    }
                 }),
             )
             .when(self.composing, |el| {
                 el.on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
-                    this.toggle_cursor_check(window, cx)
+                    if this.cursor_folder(cx).is_none() {
+                        this.toggle_cursor_check(window, cx)
+                    }
                 }))
                 .on_action(cx.listener(|this, _: &CheckAll, _, cx| this.set_all_checked(true, cx)))
                 .on_action(
@@ -4152,15 +4294,22 @@ impl Render for Detail {
     }
 }
 
-/// Which of `paths`, by position, a tree of them lists with the directories in `collapsed`
-/// folded shut, in its order. A row the tree merges, as `src/backend`, folds by its own path.
-fn unfolded(paths: &[&str], collapsed: &HashSet<String>) -> Vec<usize> {
+/// Where the file list's keys stop in a tree of `paths` with the directories in `collapsed`
+/// folded shut, in its order: the files it lists, by their position in `paths`, and with
+/// `folders` its folders. A row the tree merges, as `src/backend`, is one folder, and folds
+/// by its own path.
+fn tree_stops(paths: &[&str], collapsed: &HashSet<String>, folders: bool) -> Vec<ListStop> {
     (file_tree::tree_rows(paths, collapsed).into_iter())
         .filter_map(|row| match row {
-            file_tree::TreeRow::File { pos, .. } => Some(pos),
-            file_tree::TreeRow::Dir { .. } => None,
+            file_tree::TreeRow::File { pos, .. } => Some(ListStop::Entry(Entry::File(pos))),
+            file_tree::TreeRow::Dir { path, .. } => folders.then_some(ListStop::Folder(path)),
         })
         .collect()
+}
+
+/// Whether `path` is in folder `dir`, at any depth.
+fn in_dir(path: &str, dir: &str) -> bool {
+    (path.strip_prefix(dir)).is_some_and(|rest| rest.starts_with('/'))
 }
 
 /// Whether `path` has the letters of every one of `terms` in it, in order, as the palette
@@ -4474,8 +4623,8 @@ mod tests {
     use gpui::Pixels;
 
     use super::{
-        Cursor, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked, reveal_by,
-        same_files, unfolded,
+        Cursor, Entry, ListStop, Stop, follow_hunk, keeps_path, next_stop, path_match, ranked,
+        reveal_by, same_files, tree_stops,
     };
     use crate::backend::FileChange;
     use crate::ui::diff::DiffRow;
@@ -4613,23 +4762,55 @@ mod tests {
     fn the_keys_skip_only_files_the_tree_folds_away() {
         let collapsed =
             |dirs: &[&str]| -> HashSet<String> { dirs.iter().map(|dir| dir.to_string()).collect() };
+        let file = |pos| ListStop::Entry(Entry::File(pos));
         assert_eq!(
-            unfolded(&["src/backend/x.rs"], &collapsed(&["src"])),
-            [0],
+            tree_stops(&["src/backend/x.rs"], &collapsed(&["src"]), false),
+            [file(0)],
             "`src` holds only `backend`, so the tree has one `src/backend` row, not folded"
         );
         assert_eq!(
-            unfolded(&["src/backend/x.rs"], &collapsed(&["src/backend"])),
-            [] as [usize; 0],
+            tree_stops(&["src/backend/x.rs"], &collapsed(&["src/backend"]), false),
+            [],
             "the merged row folds by its own path"
         );
         assert_eq!(
-            unfolded(
+            tree_stops(
                 &["src/backend/x.rs", "src/y.rs", "z.rs"],
-                &collapsed(&["src"])
+                &collapsed(&["src"]),
+                false
             ),
-            [2],
+            [file(2)],
             "`src` has a file of its own here, so it's a row of its own, folding all under it"
+        );
+    }
+
+    #[test]
+    fn the_keys_stop_on_folders_when_asked() {
+        let none = HashSet::new();
+        let paths = ["src/backend/x.rs", "src/y.rs", "z.rs"];
+        let file = |pos| ListStop::Entry(Entry::File(pos));
+        let folder = |path: &str| ListStop::Folder(path.to_owned());
+        assert_eq!(
+            tree_stops(&paths, &none, true),
+            [
+                folder("src"),
+                folder("src/backend"),
+                file(0),
+                file(1),
+                file(2)
+            ],
+            "each folder comes before what's in it, as the tree lists them"
+        );
+        let shut = HashSet::from(["src".to_owned()]);
+        assert_eq!(
+            tree_stops(&paths, &shut, true),
+            [folder("src"), file(2)],
+            "a folded folder is still a stop, though what's in it isn't"
+        );
+        assert_eq!(
+            tree_stops(&["src/backend/x.rs"], &none, true),
+            [folder("src/backend"), file(0)],
+            "a merged row is one stop"
         );
     }
 

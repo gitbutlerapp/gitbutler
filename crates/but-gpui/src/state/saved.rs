@@ -419,6 +419,9 @@ pub struct Prefs {
     /// A file tree's folders always show the lines their files add and remove, rather than
     /// only under the pointer.
     pub folder_line_counts: bool,
+    /// The file list's keys stop on a file tree's folders too, rather than going from file to
+    /// file.
+    pub folder_stops: bool,
     /// Long diff lines wrap instead of running off the edge.
     pub wrap: bool,
     /// Diffs show the old side beside the new rather than one above the other.

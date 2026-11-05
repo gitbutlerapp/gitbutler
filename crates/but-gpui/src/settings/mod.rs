@@ -822,6 +822,19 @@ impl SettingsView {
                 cx,
             ),
         );
+        let folder_stops = Row::new(
+            "Step through folders",
+            crate::ui::keys_text(
+                "↑ and ↓, or j and k, stop on a file tree's folders too, showing what changed in \
+                 each, and the fold keys fold and unfold them. Off, they go from file to file.",
+            ),
+            self.pref_switch(
+                "folder-stops",
+                prefs.folder_stops,
+                |p| p.folder_stops ^= true,
+                cx,
+            ),
+        );
         let text_label = |size: Option<u8>| match size {
             Some(size) => format!("{size} pt"),
             None => "As Ghostty's".to_owned(),
@@ -857,7 +870,7 @@ impl SettingsView {
         vec![
             Card::new(None, vec![scheme, appearance, size, status_bar]),
             Card::new(Some("Navigator"), navigator),
-            Card::new(Some("File list"), vec![folder_counts]),
+            Card::new(Some("File list"), vec![folder_counts, folder_stops]),
             Card::new(Some("Diff"), diff),
             Card::new(Some("Terminal"), vec![terminal_font, terminal_text]),
         ]

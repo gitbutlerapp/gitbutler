@@ -239,7 +239,8 @@
     "bindings": { "/": "diff::FilterFiles" }
   },
   // The file list, inside the diff's context, steps through its files rather than going on to
-  // the diff's hunks, which would take the keys there.
+  // the diff's hunks, which would take the keys there, and through a tree's folders too when
+  // Settings › Appearance asks for it.
   {
     "context": "Files && !TextInput",
     "bindings": {

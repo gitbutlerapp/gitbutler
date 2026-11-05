@@ -578,7 +578,7 @@ pub(super) fn card(el: gpui::Div, flat: bool, theme: &Theme) -> gpui::Div {
 
 /// Five squares split between green and red as a file's changed lines are, as ui-react's
 /// ChangeScale does: a side that changed anything keeps a square.
-fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
+pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
     let total = added + removed;
     if total == 0 {
         return None;
