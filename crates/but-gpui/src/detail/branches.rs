@@ -353,6 +353,11 @@ impl Detail {
     }
 
     /// The branches of the Branches page selected.
+    /// Whether a commit of the Branches page's branch is what's picked, rather than all of it.
+    pub(super) fn branch_commit_picked(&self) -> bool {
+        (self.page_branches()).is_some_and(|branches| branches.commit.is_some())
+    }
+
     fn page_branches(&self) -> Option<&Branches> {
         match self.on_tab(ProjectTab::Branches) {
             Some(project) => self.branches_for(&project),

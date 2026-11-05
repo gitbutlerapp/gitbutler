@@ -391,6 +391,10 @@ impl Detail {
         brief.unnamed = Default::default();
         brief.drifted = Default::default();
         brief.shown = Some(read.map_err(|err| format!("{err:#}")));
+        // Places in words that may be others now, and the rows they're in with them.
+        self.note_selection = None;
+        self.brief.hovered = None;
+        self.brief.said_hovered = None;
         self.link_brief_names();
         self.brief.list.reset(self.brief_rows().len());
         self.keep_talk_current(cx);
@@ -454,6 +458,8 @@ impl Detail {
         // A tile of a row's changes is there beside its brief, not to show that again.
         !matches!(self.pinned, Some((_, RowKey::Changes(_))))
             && self.page.brief().is_some_and(|brief| brief.found.is_some())
+            // A commit of the branch picked, its diff says nothing of the branch as a whole.
+            && !self.branch_commit_picked()
     }
 
     /// Whether the tab shows a brief, in place of the changes.
@@ -533,7 +539,10 @@ impl Detail {
                         .is_some_and(|since| since.changed > 0);
                 let mut rows = rows(&page.blocks, &state.open, only_changed);
                 // With the rest open too, what changed still heads it, and the way back's there.
-                if !only_changed && page.since_read.as_ref().is_some_and(|it| it.changed > 0) {
+                if !only_changed
+                    && (page.since_read.as_ref())
+                        .is_some_and(|it| it.changed > 0 || !it.removed.is_empty())
+                {
                     rows.insert(1, Row::Since);
                 }
                 rows

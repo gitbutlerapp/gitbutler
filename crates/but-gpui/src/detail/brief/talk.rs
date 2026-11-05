@@ -20,6 +20,8 @@ impl Detail {
     /// What the version whose tab shows is, by its id and number.
     pub(super) fn shown_version(&self) -> Option<(String, u32)> {
         let brief = (self.page.brief()).filter(|_| self.page.brief_tab())?;
+        // Briefs turned off leaves the page it read, with no brief to it.
+        brief.found.as_ref()?;
         let page = brief.page()?;
         Some((page.id.clone(), page.version))
     }
@@ -49,9 +51,12 @@ impl Detail {
             })
             .ok();
             loop {
-                let hidden =
-                    (this.update(cx, |this, cx| this.store.read(cx).hidden())).unwrap_or(true);
-                if !hidden {
+                let idle = this.update(cx, |this, cx| {
+                    let shown = this.shown_version();
+                    this.store.read(cx).hidden()
+                        || shown.is_none_or(|(id_now, now)| id_now != id || now != version)
+                });
+                if !idle.unwrap_or(true) {
                     let asked = {
                         let id = id.clone();
                         run(move || briefs::ask_talk(&id, version)).await

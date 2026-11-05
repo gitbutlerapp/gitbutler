@@ -923,6 +923,13 @@ impl Detail {
             }))
             .ok();
         });
+        // Words being written outlast the tile that closes or the app that quits around them.
+        cx.on_release(|this, _| this.keep_brief_writing()).detach();
+        cx.on_app_quit(|this, _| {
+            this.keep_brief_writing();
+            async {}
+        })
+        .detach();
         // So is one of a brief, and the keys aren't where it's being read any more.
         let this = cx.weak_entity();
         detail.brief.list.set_scroll_handler(move |_, _, cx| {
