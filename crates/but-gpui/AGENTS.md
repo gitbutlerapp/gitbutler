@@ -181,9 +181,9 @@ anything else.
 Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,
 and the feature may go, so it stays separate.
 
-- Its code stays in `crates/but-briefs`, `backend/briefs.rs`, `state/briefs.rs` and
-  `detail/brief.rs`. Everything else reaches it through `Store::brief_at`, `Detail::has_brief`,
-  `BriefState` and `PageTab::Brief`, with at most a dispatch arm.
+- Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
+  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState` and
+  `PageTab::Brief`, with at most a dispatch arm.
 - What Briefs sent is kept in a file of its own under the app's cache folder, never in `but-db`.
   It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
   is dropped and asked for again, and a bump of its `SCHEMA` empties it.
@@ -191,6 +191,20 @@ and the feature may go, so it stays separate.
   beside the forge's fills it, and a page asks only about a branch the poll leaves out. It waits
   while the window is hidden and asks nothing while the flag is off or no one's signed in.
 - Background failures log at debug and keep what's known. Signing out deletes the file.
+- What the agent wrote and what's known apart from it never look alike: the facts panel shows only
+  what the repository or the CLI says, and colour in it goes only on what should change a decision.
+  A fact worked out here (`Standing`, `ReadBack`, a card that differs from the branch) is stated, not
+  softened, and with no way to know, it says nothing.
+- Notes stay on this machine until they're sent, as a comment tells people. Nothing goes out, to
+  Briefs or a terminal, without a key press or a click on what names where it goes.
+- Facts come from the branch's own diff where they can, so they hold whatever the agent wrote. A fact
+  that accuses has to be right nearly always.
+- A version never changes, so a commit landing only asks again how it stands. Reading it again would
+  lose what's marked as new in it.
+- The list's state can't be asked anything while it draws a row: it's borrowed, and it panics. What a
+  row needs from it is worked out before the list is drawn.
+- A debug build can be pointed at a stand-in server with `GITBUTLER_BRIEFS_BASE`, to try what writes
+  without touching anyone's briefs.
 
 ## Sizes
 

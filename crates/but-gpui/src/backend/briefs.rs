@@ -2,19 +2,33 @@
 //! one to draw. Asking goes over the network and reading the cache touches the disk, so all of
 //! it runs off the UI thread like the rest. `but-briefs` keeps the file, and this says who for.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Result, bail};
 use but_api::legacy::{forge, users};
-use but_briefs::{Block, BlockKind, BranchAsk, Brief, Cache, Client, How};
-use but_core::unified_diff::DiffHunk;
+use but_briefs::{BranchAsk, Cache, Client};
 use parking_lot::Mutex;
 
-use super::diff::{highlight_lines, parse_hunk};
-use super::{CommitId, DiffLine, LineKind, open, runtime};
-use crate::ui::{markdown, plural};
+use super::{CommitId, open, runtime};
 
-pub use but_briefs::{Anchored, Changed, Found, web_url};
+mod page;
+mod since;
+
+pub use page::*;
+
+pub use but_briefs::{
+    Activity, Anchor, Anchored, Ask, Changed, CommentTo, Concern, Found, Label, NewComment, Note,
+    Thread, web_url,
+};
+
+/// How much of briefs' pictures stays on disk, the oldest going first.
+const MOST_MEDIA_BYTES: u64 = 256 << 20;
+
+/// The most commits since a brief it lists, as more say only that there are many.
+const MOST_SINCE: usize = 30;
 
 /// How many of a project's other branches a poll asks about, the newest first. What it leaves
 /// out is asked about when its page opens.
@@ -33,6 +47,11 @@ pub struct BriefAnchor {
 }
 
 impl BriefAnchor {
+    /// The commit the branch is at, if it has any.
+    pub fn tip(&self) -> Option<CommitId> {
+        self.commits.first().copied()
+    }
+
     pub fn new(path: PathBuf, branch: &str, commits: impl Iterator<Item = CommitId>) -> Self {
         Self {
             path,
@@ -75,15 +94,34 @@ fn cached<T>(act: impl FnOnce(&mut Cache) -> rusqlite::Result<T>) -> Result<Opti
     Ok(Some(act(cache)?))
 }
 
+/// How long a client is used before the token is read again, as the talk of a brief that shows is
+/// asked for every few seconds and each read goes to the keychain.
+const CLIENT_KEPT: Duration = Duration::from_secs(10 * 60);
+
+static CLIENT: Mutex<Option<(Instant, Arc<Client>)>> = Mutex::new(None);
+
 /// A client signed in as whoever's signed in to GitButler, if anyone is. Only this reads the
 /// keychain, so nothing that isn't asking Briefs anything does. A profile can outlive its token,
 /// as in a debug build, which reads it through `git credential`. That looks the same as having
 /// no briefs, so it says so at a level that reaches the log.
-fn client() -> Result<Option<Client>> {
-    users::access_token()
+fn client() -> Result<Option<Arc<Client>>> {
+    if let Some((_, client)) = (CLIENT.lock().as_ref()).filter(|(at, _)| at.elapsed() < CLIENT_KEPT)
+    {
+        return Ok(Some(client.clone()));
+    }
+    // Not holding the lock, as the keychain can take a while and the UI thread may want it.
+    let client = users::access_token()
         .inspect_err(|err| tracing::warn!("Can't read GitButler's token for Briefs: {err:#}"))?
         .map(Client::new)
-        .transpose()
+        .transpose()?
+        .map(Arc::new);
+    *CLIENT.lock() = client.clone().map(|client| (Instant::now(), client));
+    Ok(client)
+}
+
+/// Whoever's signed in changed, so the next ask reads who that is.
+pub fn account_changed() {
+    *CLIENT.lock() = None;
 }
 
 fn remote_of(path: &Path) -> Result<String> {
@@ -146,26 +184,279 @@ pub fn refresh_branch(anchor: &BriefAnchor) -> Result<Vec<Anchored>> {
     ask_about(&anchor.path, &[ask])
 }
 
-/// The version of `found` that matched, ready to draw: as it's kept, else as Briefs says.
-pub fn read(found: &Found) -> Result<BriefPage> {
-    let (id, version) = (&found.id, found.matched.version);
-    if let Some(brief) = cached(|cache| cache.version(id, version))?.flatten() {
-        return Ok(page(id, version, brief));
+/// `version` of `found` ready to draw, as it's kept else as Briefs says, how it stands against the
+/// branch of `anchor` as that is now, and what's different from the version last read.
+pub fn read(found: &Found, version: Option<u32>, anchor: &BriefAnchor) -> Result<BriefPage> {
+    let id = &found.id;
+    // Left to here, what's been read counts, so a newer version read stays what's shown.
+    let version = match version {
+        Some(version) => version,
+        None => {
+            let seen = cached(|cache| cache.seen(id))?.flatten().unwrap_or(0);
+            let default = version_to_show(found);
+            default.max(seen.min(found.latest.max(default)))
+        }
+    };
+    let brief = match cached(|cache| cache.version(id, version))?.flatten() {
+        Some(brief) => brief,
+        None => {
+            let Some(client) = client()? else {
+                bail!("Sign in to GitButler to read briefs");
+            };
+            let read = (runtime().handle()).block_on(client.read(id, version))?;
+            cached(|cache| cache.put_version(&read, now()))?;
+            serde_json::from_value(read.body)?
+        }
+    };
+    let comparison = brief.review.comparison.as_ref();
+    // What Briefs matched it by is the most it knows, for the version it matched.
+    let (head, uncommitted) = match found.matched.version == version {
+        true => (found.matched.head.clone(), found.matched.uncommitted),
+        false => (
+            comparison.and_then(|it| it.head.clone()),
+            comparison.is_some_and(|it| it.uncommitted),
+        ),
+    };
+    let standing = standing_now(head.as_deref(), anchor);
+    let earlier = cached(|cache| {
+        let seen = compared_with(id, version, cache.seen(id)?.filter(|seen| *seen < version));
+        match seen {
+            Some(seen) => Ok(cache.version(id, seen)?.map(|brief| (seen, brief))),
+            None => Ok(None),
+        }
+    })?
+    .flatten();
+    let mut page = page(
+        id,
+        version,
+        brief,
+        standing,
+        uncommitted,
+        anchor.tip(),
+        earlier,
+    );
+    page.written_at = head;
+    Ok(page)
+}
+
+/// What `version` of brief `id` compares against: the version last read before it, `seen` if
+/// that's still so, else the one it was first compared with since the app started. Reading it
+/// moves what's been read on, and going elsewhere and back shouldn't lose what changed.
+fn compared_with(id: &str, version: u32, seen: Option<u32>) -> Option<u32> {
+    static COMPARED: Mutex<Option<HashMap<(String, u32), u32>>> = Mutex::new(None);
+    let mut compared = COMPARED.lock();
+    let compared = compared.get_or_insert_default();
+    let key = (id.to_owned(), version);
+    match seen {
+        Some(seen) => {
+            compared.insert(key, seen);
+            Some(seen)
+        }
+        None => compared.get(&key).copied(),
+    }
+}
+
+/// `version` of brief `id` has been shown, so the next version compares against it.
+pub fn saw(id: &str, version: u32) -> Result<()> {
+    cached(|cache| cache.saw(id, version)).map(|_| ())
+}
+
+/// How a brief written at commit `head` stands with the branch as it is, which is all that a
+/// branch moving changes about a page.
+pub fn standing_now(head: Option<&str>, anchor: &BriefAnchor) -> Standing {
+    standing_of(head, anchor).unwrap_or_else(|err| {
+        tracing::debug!("couldn't tell how a brief stands: {err:#}");
+        Standing::Unknown
+    })
+}
+
+/// How the commit a brief was written at relates to the branch's tip, by the repository alone.
+fn standing_of(head: Option<&str>, anchor: &BriefAnchor) -> Result<Standing> {
+    let (Some(head), Some(tip)) = (
+        head.and_then(|head| gix::ObjectId::from_hex(head.as_bytes()).ok()),
+        anchor.commits.first(),
+    ) else {
+        return Ok(Standing::Unknown);
+    };
+    let ctx = open(&anchor.path)?;
+    let repo = ctx.repo.get()?;
+    if head == tip.0 {
+        return Ok(Standing::Current);
+    }
+    // Commit ids die in a rebase, so one that isn't here is most likely one rewritten away.
+    if repo.find_commit(head).is_err() {
+        return Ok(Standing::Rewritten);
+    }
+    if repo
+        .merge_base(head, tip.0)
+        .ok()
+        .flatten()
+        .map(|base| base.detach())
+        != Some(head)
+    {
+        return Ok(Standing::Rewritten);
+    }
+    let commits = (repo.rev_walk([tip.0]).with_hidden([head]).all()?)
+        .filter_map(Result::ok)
+        .take(MOST_SINCE)
+        .filter_map(|info| {
+            let commit = repo.find_commit(info.id).ok()?;
+            let title = commit.message().ok()?.title.to_string();
+            Some(SinceCommit {
+                id: CommitId(info.id),
+                title: title.trim().to_owned(),
+            })
+        })
+        .collect();
+    let files = but_core::diff::tree_changes(&repo, Some(head), tip.0)?
+        .into_iter()
+        .map(|change| change.path.to_string())
+        .collect();
+    Ok(Standing::Since { commits, files })
+}
+
+/// The version of `found` to show: the one written at this commit if it's that exact, else the
+/// newest, as a name matching says nothing about which is right, and whoever opens it wants the
+/// latest word.
+pub fn version_to_show(found: &Found) -> u32 {
+    match found.matched.how {
+        but_briefs::How::Head => found.matched.version,
+        _ => found.latest.max(found.matched.version),
+    }
+}
+
+/// What's kept about `version` of brief `id`: what's been said as it was last asked, what's
+/// written and not sent, and the last answer given from here.
+pub fn kept_talk(id: &str, version: u32) -> Result<Talk> {
+    let kept = cached(|cache| {
+        Ok(Talk {
+            activity: (cache.activity(id, version)?.as_ref())
+                .map(Activity::read)
+                .unwrap_or_default(),
+            notes: cache.notes(id, version)?,
+            answered: cache.answered(id)?,
+        })
+    })?;
+    Ok(kept.unwrap_or_default())
+}
+
+/// What's kept about a brief's conversation.
+#[derive(Debug, Clone, Default)]
+pub struct Talk {
+    pub activity: Activity,
+    pub notes: Vec<Note>,
+    /// The last answer given from here, with the version it was on.
+    pub answered: Option<(u32, String)>,
+}
+
+/// What's been said about `version` of brief `id`, as Briefs says now. Asking tells no one.
+pub fn ask_talk(id: &str, version: u32) -> Result<Activity> {
+    let Some(client) = client()? else {
+        bail!("Sign in to GitButler to read briefs");
+    };
+    let raw = (runtime().handle()).block_on(client.activity(id, version))?;
+    cached(|cache| cache.put_activity(id, version, &raw, now()))?;
+    Ok(Activity::read(&raw))
+}
+
+/// Keep a note until it's sent, and give back all there are.
+pub fn add_note(id: &str, version: u32, to: &CommentTo, body: &str) -> Result<Vec<Note>> {
+    let notes = cached(|cache| {
+        cache.add_note(id, version, to, body)?;
+        cache.notes(id, version)
+    })?;
+    Ok(notes.unwrap_or_default())
+}
+
+/// Throw a note away, and give back those left.
+pub fn remove_note(id: &str, version: u32, note: i64) -> Result<Vec<Note>> {
+    let notes = cached(|cache| {
+        cache.remove_note(note)?;
+        cache.notes(id, version)
+    })?;
+    Ok(notes.unwrap_or_default())
+}
+
+/// Send what's written about `version` of brief `id`, then `answer`, if that's being changed, and
+/// give back what's left and what's been said now. What was sent before a failure stays sent and
+/// isn't sent again.
+pub fn send_talk(id: &str, version: u32, answer: Option<Option<String>>) -> Result<Talk> {
+    let Some(client) = client()? else {
+        bail!("Sign in to GitButler to answer briefs");
+    };
+    let runtime = runtime().handle();
+    let notes = cached(|cache| cache.notes(id, version))?.unwrap_or_default();
+    for note in notes {
+        let comment = NewComment {
+            body: note.body,
+            to: note.to,
+        };
+        runtime.block_on(client.post_comment(id, version, &comment))?;
+        cached(|cache| cache.remove_note(note.id))?;
+    }
+    if let Some(answer) = answer {
+        runtime.block_on(client.answer(id, version, answer.as_deref()))?;
+        cached(|cache| cache.answer(id, version, answer.as_deref()))?;
+    }
+    // It's sent by now, so not hearing back right away isn't a failure to send.
+    if let Err(err) = ask_talk(id, version) {
+        tracing::debug!("couldn't ask what's said after sending: {err:#}");
+    }
+    kept_talk(id, version)
+}
+
+/// What `url`, a brief's media file, serves. A media file never changes, as it goes by what's in
+/// it, so one read before comes from the disk, at once and offline too.
+pub fn media(url: &str) -> Result<Vec<u8>> {
+    let kept = kept_media_path(url);
+    if let Some(bytes) = (kept.as_ref()).and_then(|path| std::fs::read(path).ok()) {
+        return Ok(bytes);
     }
     let Some(client) = client()? else {
         bail!("Sign in to GitButler to read briefs");
     };
-    let read = (runtime().handle()).block_on(client.read(id, version))?;
-    cached(|cache| cache.put_version(&read, now()))?;
-    Ok(page(id, version, serde_json::from_value(read.body)?))
+    let bytes = (runtime().handle()).block_on(client.media(url))?;
+    if let Some(path) = kept {
+        keep_media(&path, &bytes);
+    }
+    Ok(bytes)
 }
 
-/// What `url`, a brief's media file, serves.
-pub fn media(url: &str) -> Result<Vec<u8>> {
-    let Some(client) = client()? else {
-        bail!("Sign in to GitButler to read briefs");
+/// Where the media file at `url` is kept, by what's in it.
+fn kept_media_path(url: &str) -> Option<PathBuf> {
+    let sha = url.rsplit('/').next()?;
+    (!sha.is_empty() && sha.chars().all(|c| c.is_ascii_hexdigit()))
+        .then(|| cache_dir().map(|dir| dir.join("media").join(sha)))
+        .flatten()
+}
+
+/// Keep `bytes` at `path`, making room if there's little. It's a cache, so not managing to is
+/// only a slower picture next time.
+fn keep_media(path: &Path, bytes: &[u8]) {
+    let Some(dir) = path.parent() else {
+        return;
     };
-    (runtime().handle()).block_on(client.media(url))
+    std::fs::create_dir_all(dir).ok();
+    std::fs::write(path, bytes).ok();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut kept: Vec<_> = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let meta = entry.metadata().ok()?;
+            Some((meta.modified().ok()?, meta.len(), entry.path()))
+        })
+        .collect();
+    kept.sort();
+    let mut total: u64 = kept.iter().map(|(_, len, _)| len).sum();
+    for (_, len, oldest) in kept {
+        if total <= MOST_MEDIA_BYTES {
+            break;
+        }
+        std::fs::remove_file(oldest).ok();
+        total = total.saturating_sub(len);
+    }
 }
 
 /// Leave nothing of what Briefs said on disk, as someone signs out.
@@ -175,248 +466,4 @@ pub fn forget() -> Result<()> {
         std::fs::remove_dir_all(dir)?;
     }
     Ok(())
-}
-
-/// A version of a brief, ready to draw.
-#[derive(Debug, Clone)]
-pub struct BriefPage {
-    pub id: String,
-    pub version: u32,
-    pub title: String,
-    /// Seconds since the epoch.
-    pub published: Option<i64>,
-    pub changed: Option<Changed>,
-    pub blocks: Vec<BriefBlock>,
-}
-
-#[derive(Debug, Clone)]
-pub struct BriefBlock {
-    /// The line it folds away under at first, if it does.
-    pub detail: Option<String>,
-    pub body: BriefBody,
-}
-
-#[derive(Debug, Clone)]
-pub enum BriefBody {
-    /// Words, or a picture, which draws as Markdown does.
-    Text(Vec<markdown::Block>),
-    /// Runs of lines of a file, numbered and highlighted.
-    Code {
-        path: String,
-        parts: Vec<Vec<DiffLine>>,
-    },
-    /// A picture as Markdown draws one, with the words over it that say which it is, and what
-    /// it shows under it.
-    Picture {
-        title: Option<String>,
-        image: Vec<markdown::Block>,
-        caption: String,
-    },
-    /// What only the web shows, in a few words.
-    OnTheWeb(String),
-}
-
-fn page(id: &str, version: u32, brief: Brief) -> BriefPage {
-    let published = (brief.created_at.as_deref())
-        .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
-        .map(|at| at.timestamp());
-    let review = brief.review;
-    let blocks = (review.blocks.into_iter())
-        .map(|Block { detail, kind }| BriefBlock {
-            detail,
-            body: body(id, kind),
-        })
-        .collect();
-    BriefPage {
-        id: id.to_owned(),
-        version,
-        title: review.title,
-        published,
-        changed: review.changed,
-        blocks,
-    }
-}
-
-/// Where `found` was written, against a branch's `commits`, newest first. Worked out as it's
-/// drawn, so it stays right as the branch moves without asking again.
-pub fn standing(found: &Found, commits: &[CommitId]) -> String {
-    let below = (found.matched.head.as_deref())
-        .and_then(|head| gix::ObjectId::from_hex(head.as_bytes()).ok())
-        .and_then(|head| commits.iter().position(|commit| commit.0 == head));
-    let words = match (found.matched.how, below) {
-        (How::Head, Some(0)) => "Written at this branch's latest commit".to_owned(),
-        (How::Head, Some(below)) => format!("Written {} ago", plural(below, "commit")),
-        (How::Branch, _) => "Written on a branch of this name".to_owned(),
-        _ => "Related to this branch".to_owned(),
-    };
-    match found.matched.uncommitted {
-        true => format!("{words}, with uncommitted changes"),
-        false => words,
-    }
-}
-
-fn body(id: &str, kind: BlockKind) -> BriefBody {
-    match kind {
-        BlockKind::Text { markdown } => BriefBody::Text(markdown::parse(&markdown)),
-        BlockKind::Excerpt { path, range, lines } => {
-            let lines = (lines.iter().zip(range.start..))
-                .map(|(text, n)| DiffLine::new(LineKind::Context, Some(n), Some(n), text))
-                .collect();
-            code(path, vec![lines])
-        }
-        BlockKind::Diff { path, hunks } => {
-            let parts = (hunks.into_iter())
-                .map(|hunk| {
-                    parse_hunk(&DiffHunk {
-                        old_start: hunk.old_start,
-                        old_lines: 0,
-                        new_start: hunk.new_start,
-                        new_lines: 0,
-                        diff: hunk.body.into(),
-                    })
-                    .lines
-                })
-                .collect();
-            code(path, parts)
-        }
-        BlockKind::Media {
-            media,
-            media_type,
-            title,
-            width,
-            height,
-            alt,
-        } => match media_type.starts_with("image/") {
-            true => BriefBody::Picture {
-                title,
-                image: vec![picture(id, &media, width, height, alt.clone())],
-                caption: alt,
-            },
-            false => BriefBody::OnTheWeb(format!("A video: {alt}")),
-        },
-        BlockKind::Unknown(kind) => BriefBody::OnTheWeb(format!("A {kind} block")),
-    }
-}
-
-fn code(path: String, mut parts: Vec<Vec<DiffLine>>) -> BriefBody {
-    for lines in &mut parts {
-        highlight_lines(&path, lines.iter_mut());
-    }
-    BriefBody::Code { path, parts }
-}
-
-/// A picture of the brief as Markdown draws one, which fetches it, keeps it and previews it.
-fn picture(id: &str, sha: &str, width: u32, height: u32, alt: String) -> markdown::Block {
-    let src = but_briefs::media_url(id, sha);
-    markdown::Block {
-        kind: markdown::Kind::Images(vec![markdown::Image {
-            opens: src.clone(),
-            src,
-            alt: alt.clone(),
-            width: Some(width as f32),
-            height: Some(height as f32),
-        }]),
-        depth: 0,
-        quoted: false,
-        list: 0,
-        text: alt,
-        styles: Vec::new(),
-        links: Vec::new(),
-        centered: false,
-        cell: None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use but_briefs::{Author, Match};
-
-    use super::*;
-
-    fn id(n: u8) -> CommitId {
-        CommitId(gix::ObjectId::from_hex(format!("{n:040x}").as_bytes()).unwrap())
-    }
-
-    fn found(how: How, head: Option<CommitId>) -> Found {
-        Found {
-            id: "b1".into(),
-            title: "t".into(),
-            author: Author { name: "Ada".into() },
-            latest: 1,
-            matched: Match {
-                how,
-                version: 1,
-                head: head.map(|id| id.0.to_string()),
-                uncommitted: false,
-            },
-        }
-    }
-
-    #[test]
-    fn a_brief_stands_by_where_it_was_written_on_the_branch() {
-        let commits = [id(3), id(2), id(1)];
-        for (found, expected) in [
-            (
-                found(How::Head, Some(id(3))),
-                "Written at this branch's latest commit",
-            ),
-            (found(How::Head, Some(id(1))), "Written 2 commits ago"),
-            (
-                found(How::Branch, Some(id(9))),
-                "Written on a branch of this name",
-            ),
-            (found(How::Other, None), "Related to this branch"),
-        ] {
-            assert_eq!(
-                standing(&found, &commits),
-                expected,
-                "{:?} on commits newest first",
-                found.matched.how
-            );
-        }
-    }
-
-    #[test]
-    fn a_diff_block_numbers_each_hunk_from_its_own_start() {
-        let body = body(
-            "b1",
-            BlockKind::Diff {
-                path: "a.rs".into(),
-                hunks: vec![
-                    but_briefs::DiffHunk {
-                        old_start: 10,
-                        new_start: 12,
-                        body: " keep\n-gone\n+new\n".into(),
-                    },
-                    but_briefs::DiffHunk {
-                        old_start: 50,
-                        new_start: 52,
-                        body: " other\n".into(),
-                    },
-                ],
-            },
-        );
-        let BriefBody::Code { parts, .. } = body else {
-            panic!("a diff draws as code");
-        };
-        let numbers = |lines: &[DiffLine]| -> Vec<_> {
-            (lines.iter())
-                .map(|line| (line.kind, line.old, line.new))
-                .collect()
-        };
-        assert_eq!(
-            numbers(&parts[0]),
-            [
-                (LineKind::Context, Some(10), Some(12)),
-                (LineKind::Removed, Some(11), None),
-                (LineKind::Added, None, Some(13)),
-            ],
-            "the first hunk counts each side from its own start"
-        );
-        assert_eq!(
-            numbers(&parts[1]),
-            [(LineKind::Context, Some(50), Some(52))],
-            "the next hunk starts over from its own"
-        );
-    }
 }

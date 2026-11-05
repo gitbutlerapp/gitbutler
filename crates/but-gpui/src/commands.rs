@@ -248,7 +248,13 @@ commands! {
     crate::detail::SwitchTab => "Switch tab" {
         aliases: &["Switch between Changes and Pull request"]
     },
-    crate::detail::ShowBrief => "Show brief" { listed: briefs_on },
+    crate::detail::ShowBrief => "Show brief" { listed: brief_here },
+    crate::detail::WriteNote => "Write a note on this brief" { listed: brief_shown },
+    crate::detail::SendNotes => "Send notes on this brief" { listed: brief_shown },
+    crate::detail::Approve => "Approve this brief" { listed: brief_shown },
+    crate::detail::Hold => "Hold this brief" { listed: brief_shown },
+    crate::detail::NextBrief => "Next brief" { listed: brief_shown },
+    crate::detail::PreviousBrief => "Previous brief" { listed: brief_shown },
     crate::app::CloseWindow => "Close window",
     GoTo => "Go to anything",
     GoToTerminal => "Go to a terminal",
@@ -415,6 +421,14 @@ fn pushable(app: &AppView, cx: &App) -> bool {
 /// it says is where they are, which nothing else tells a newcomer.
 fn briefs_on(app: &AppView, cx: &App) -> bool {
     app.store.read(cx).briefs
+}
+
+fn brief_here(app: &AppView, cx: &App) -> bool {
+    app.detail.read(cx).has_brief()
+}
+
+fn brief_shown(app: &AppView, cx: &App) -> bool {
+    app.detail.read(cx).showing_brief()
 }
 
 fn briefs_off(app: &AppView, cx: &App) -> bool {

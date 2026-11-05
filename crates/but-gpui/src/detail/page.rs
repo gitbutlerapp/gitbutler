@@ -16,7 +16,7 @@ use super::review_edit::EditLeft;
 use super::slots::SlotPick;
 use super::upstream::Upstream;
 use super::{Cursor, KeyPane, LoadedDiff, Stop, follow_hunk, hunk_keys};
-use crate::backend::briefs::{BriefPage, Found};
+use crate::backend::briefs::{Activity, BriefPage, CommentTo, Found, Note};
 use crate::backend::{FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
@@ -282,6 +282,30 @@ pub(super) struct ReviewState {
     pub(super) edit: Option<EditLeft>,
 }
 
+/// What's being written in a Brief tab's bar.
+#[derive(Clone, PartialEq, Eq)]
+pub(super) enum Writing {
+    /// A note, kept until it's sent.
+    Note(CommentTo),
+    /// Why this version is being held, which goes as it's held.
+    WhyHold,
+}
+
+/// What can be opened on a Brief tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum BriefFold {
+    /// A fold of blocks, by its first.
+    Part(usize),
+    /// The files it shows no code of, listed.
+    Unshown,
+    /// What's gone since the version last read, listed.
+    Removed,
+    /// What hasn't changed since the version last read, shown too.
+    Unchanged,
+    /// All the branch changes in the file of a code card, by its block.
+    WholeFile(usize),
+}
+
 /// The brief of a page's branch and how it's being looked at.
 #[derive(Default)]
 pub(super) struct BriefState {
@@ -290,10 +314,61 @@ pub(super) struct BriefState {
     /// Its version, read as its tab first shows, or why it couldn't be. It stays while a newer
     /// version is read.
     pub(super) shown: Option<Result<BriefPage, String>>,
-    /// The folds open, by their first block.
-    pub(super) open: HashSet<usize>,
+    /// What's open of what folds.
+    pub(super) open: HashSet<BriefFold>,
+    /// The version picked over the one that matched the branch.
+    pub(super) version: Option<u32>,
+    /// What's been said about it, as last asked.
+    pub(super) activity: Activity,
+    /// What's written about it and not sent.
+    pub(super) notes: Vec<Note>,
+    /// The last answer given to it from here, with the version it was on.
+    pub(super) answered: Option<(u32, String)>,
+    /// What's being written in the tab's bar.
+    pub(super) writing: Option<Writing>,
+    /// Where the tab was as a link in it was followed, to go back to.
+    pub(super) back: Option<ListOffset>,
+    /// The row ↓ and ↑ don't, j and k do: where a note goes without a passage selected.
+    pub(super) cursor: Option<usize>,
+    /// It was the keys that put it there, so it's marked.
+    pub(super) cursor_shown: bool,
+    /// Notes went out with no agent waiting on them, so one has to be told.
+    pub(super) unheard: bool,
+    /// Which tab it opens on has been settled. A brief that lands after that doesn't take the
+    /// page from what's being read.
+    pub(super) settled: bool,
+    /// The diff and version what's worked out from that diff was last worked out for.
+    pub(super) linked: Option<(super::DiffKey, u32, Option<crate::backend::CommitId>)>,
+    /// The branch's own diff was gone to from here, which the key back returns from.
+    pub(super) left_for_code: bool,
+    /// The files that diff changes which tend to matter and the brief neither shows nor names.
+    pub(super) unnamed: Vec<String>,
+    /// The code cards that show what that diff no longer has, by their blocks.
+    pub(super) drifted: HashSet<usize>,
     /// How far the tab was scrolled as the page was left, for when its rows are next drawn.
     pub(super) top: Cell<Option<ListOffset>>,
+}
+
+impl BriefState {
+    /// The version read, unless it's not in yet or couldn't be read.
+    pub(super) fn page(&self) -> Option<&BriefPage> {
+        self.shown.as_ref()?.as_ref().ok()
+    }
+
+    pub(super) fn page_mut(&mut self) -> Option<&mut BriefPage> {
+        self.shown.as_mut()?.as_mut().ok()
+    }
+
+    pub(super) fn is_open(&self, fold: BriefFold) -> bool {
+        self.open.contains(&fold)
+    }
+
+    /// Open `fold`, or shut it if it was open.
+    pub(super) fn toggle(&mut self, fold: BriefFold) {
+        if !self.open.remove(&fold) {
+            self.open.insert(fold);
+        }
+    }
 }
 
 /// How a list page's list is being looked at.

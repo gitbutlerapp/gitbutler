@@ -243,9 +243,13 @@ impl AppView {
                 )
                 .children(how);
             (selected.into_any_element(), vec![("esc".into(), "cancel")])
-        } else if let Some(place) = (detail.is_focused(window, cx) && !detail.diff_hidden(cx))
-            .then(|| detail.cursor_place(cx))
-            .flatten()
+        } else if let Some(place) = (detail.is_focused(window, cx)
+            && (detail.showing_brief() || !detail.diff_hidden(cx)))
+        .then(|| match detail.showing_brief() {
+            true => detail.brief_place(),
+            false => detail.cursor_place(cx),
+        })
+        .flatten()
         {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
             // bar says the line.
@@ -293,6 +297,26 @@ impl AppView {
                     Vec::from([commit, amend])
                 }
             }
+        } else if !typing && detail_focused && detail.showing_brief() {
+            let answer: Vec<(&dyn Action, &str)> = match detail.brief_can_sign_off() {
+                true => vec![
+                    (&crate::detail::Hold, "hold"),
+                    (&crate::detail::Approve, "approve"),
+                ],
+                false => Vec::new(),
+            };
+            [
+                (&crate::detail::NextBlock as &dyn Action, "next part"),
+                (&crate::detail::WriteNote, "write a note"),
+            ]
+            .into_iter()
+            .chain(answer)
+            .chain([(&crate::detail::NextBrief as &dyn Action, "next brief")])
+            .collect()
+        } else if !typing && !detail_focused && detail.showing_brief() {
+            vec![(&crate::app::FocusPaneRight, "read the brief")]
+        } else if !typing && detail.back_to_brief() {
+            vec![(&crate::detail::GoBack, "back to the brief")]
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusDiff, "pick conflicts")]

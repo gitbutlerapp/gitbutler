@@ -5,6 +5,9 @@
 mod blame;
 mod branches;
 mod brief;
+pub(crate) use brief::{
+    Approve, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+};
 mod composer;
 mod conversation;
 mod diff_view;
@@ -487,7 +490,16 @@ pub struct Detail {
     brief_asked: Option<backend::briefs::BriefAnchor>,
     _brief_ask: Task<()>,
     /// The version of a brief being read for the tab, and the reading.
-    brief_reading: Option<((String, u32), Task<()>)>,
+    brief_reading: Option<(brief::ReadKey, Task<()>)>,
+    /// The version whose talk is on its way out. It's here as a page outlives a send to it.
+    brief_sending: Option<(String, u32)>,
+    /// The version whose talk is kept current while its tab shows, and that keeping.
+    brief_talk: Option<((String, u32), Task<()>)>,
+    /// A page with a brief opens on it, until a tab with its changes is picked over it: whoever's
+    /// reading one brief after another stays reading.
+    brief_first: bool,
+    /// The field a note is written in, and its events.
+    brief_input: Option<(Entity<TextInput>, Subscription)>,
     brief_list: ListState,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
@@ -863,6 +875,10 @@ impl Detail {
             brief_asked: None,
             _brief_ask: Task::ready(()),
             brief_reading: None,
+            brief_sending: None,
+            brief_talk: None,
+            brief_first: true,
+            brief_input: None,
             brief_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
@@ -919,6 +935,18 @@ impl Detail {
             (this.update(cx, |detail, _| {
                 detail.glide = None;
                 detail.reopening = None;
+            }))
+            .ok();
+        });
+        // So is one of a brief, and the keys aren't where it's being read any more.
+        let this = cx.weak_entity();
+        detail.brief_list.set_scroll_handler(move |_, _, cx| {
+            (this.update(cx, |detail, cx| {
+                if let Some(brief) = detail.page.brief_mut()
+                    && brief.cursor.take().is_some()
+                {
+                    cx.notify();
+                }
             }))
             .ok();
         });
@@ -1584,6 +1612,7 @@ impl Detail {
         self.review_side_scroll.set_offset(Default::default());
         self.brief_list.reset(0);
         self.brief_reading = None;
+        self.brief_input = None;
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
@@ -2017,6 +2046,7 @@ impl Detail {
         self.run_find(from_first, cx);
         self.diff_error = None;
         self.open_pending_file(cx);
+        self.link_brief_names();
     }
 
     /// Open the diff shown at the file asked for, if it has it, and stop asking.
@@ -3558,6 +3588,13 @@ impl Detail {
     /// Put the cursor on file `file_ix`'s header and scroll it to the top, gliding there with
     /// `glide`, as a key or a click goes from file to file. A diff that's just loaded, or a
     /// filter being typed, goes there at once.
+    /// Put the cursor on hunk `hunk` of file `file_ix`, in view.
+    fn show_hunk(&mut self, file_ix: usize, hunk: usize, cx: &mut Context<Self>) {
+        self.cursor = Cursor::on_hunk(file_ix, hunk);
+        self.reveal_cursor(cx);
+        cx.notify();
+    }
+
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
         self.cursor = Cursor::on_file(file_ix);
         self.follow_alone(cx);
@@ -4049,6 +4086,7 @@ impl Render for Detail {
             .map(|el| self.history_actions(el, cx))
             .map(|el| self.upstream_page_actions(el, cx))
             .map(|el| self.change_actions(el, cx))
+            .map(|el| self.brief_actions(el, cx))
             // The file under the cursor, while the file list or the diff has the keys.
             .when_some(
                 self.focused_file_paths(window, cx),

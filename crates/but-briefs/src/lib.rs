@@ -15,10 +15,23 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 mod cache;
-pub use cache::{Anchored, Cache};
+pub use cache::{Anchored, Cache, Note};
+mod review;
+pub use review::{
+    Activity, Actor, Anchor, Answered, Answers, CommentTo, Listener, NewComment, RawActivity,
+    Reply, Thread,
+};
 
-/// Where Briefs is, and the only place the token goes.
-const BASE: &str = "https://gitbutler.com/briefs";
+/// Where Briefs is, and the only place the token goes. A debug build can be pointed at a stand-in
+/// with `GITBUTLER_BRIEFS_BASE`, to try what writes without touching anyone's briefs.
+fn base() -> String {
+    const BASE: &str = "https://gitbutler.com/briefs";
+    #[cfg(debug_assertions)]
+    if let Ok(base) = std::env::var("GITBUTLER_BRIEFS_BASE") {
+        return base;
+    }
+    BASE.to_owned()
+}
 
 /// The most commits one `find` may name.
 pub const MOST_COMMITS: usize = 100;
@@ -28,17 +41,17 @@ const MOST_BRANCHES: usize = 10;
 
 /// The page of `version` of brief `id`, for a browser.
 pub fn web_url(id: &str, version: u32) -> String {
-    format!("{BASE}/b/{id}/v/{version}")
+    format!("{}/b/{id}/v/{version}", base())
 }
 
 /// Where a media file of brief `id` is, for [`Client::media`].
 pub fn media_url(id: &str, sha: &str) -> String {
-    format!("{BASE}/b/{id}/media/{sha}")
+    format!("{}/b/{id}/media/{sha}", base())
 }
 
 /// Whether `url` is one [`media_url`] made.
 pub fn is_media_url(url: &str) -> bool {
-    url.strip_prefix(BASE)
+    url.strip_prefix(&base())
         .is_some_and(|path| path.starts_with("/b/") && path.contains("/media/"))
 }
 
@@ -66,12 +79,7 @@ impl Client {
     /// The briefs of the repository at `remote`, in any form git gives it, about `branches` and
     /// `commits`, which take full ids, as the server sent them. Each brief comes once, by its
     /// version that matches best, the strongest matches first.
-    async fn find(
-        &self,
-        remote: &str,
-        branches: &[&str],
-        commits: &[&str],
-    ) -> Result<Vec<Value>> {
+    async fn find(&self, remote: &str, branches: &[&str], commits: &[&str]) -> Result<Vec<Value>> {
         #[derive(Deserialize)]
         struct Answer {
             briefs: Vec<Value>,
@@ -80,14 +88,14 @@ impl Client {
             .chain(branches.iter().map(|branch| ("branch", *branch)))
             .chain(commits.iter().map(|commit| ("commit", *commit)))
             .collect::<Vec<_>>();
-        let url = format!("{BASE}/api/briefs");
+        let url = format!("{}/api/briefs", base());
         let answer: Answer = read_json(self.get(&url).query(&query).send().await?).await?;
         Ok(answer.briefs)
     }
 
     /// `version` of brief `id`, as the server sent it. A published version never changes.
     pub async fn read(&self, id: &str, version: u32) -> Result<FetchedVersion> {
-        let url = format!("{BASE}/api/briefs/{id}/v/{version}");
+        let url = format!("{}/api/briefs/{id}/v/{version}", base());
         Ok(FetchedVersion {
             id: id.to_owned(),
             version,
@@ -121,13 +129,19 @@ impl Client {
             let version = found.matched.version;
             let written_on = match known_branch(&found.id, version) {
                 Some(branch) => Some(branch),
-                None => {
-                    let read = self.read(&found.id, version).await?;
-                    let branch = read.body.pointer("/review/repo/branch");
-                    let branch = branch.and_then(Value::as_str).map(str::to_owned);
-                    versions.push(read);
-                    branch
-                }
+                // One that can't be read leaves the rest to be told about.
+                None => match self.read(&found.id, version).await {
+                    Ok(read) => {
+                        let branch = read.body.pointer("/review/repo/branch");
+                        let branch = branch.and_then(Value::as_str).map(str::to_owned);
+                        versions.push(read);
+                        branch
+                    }
+                    Err(err) => {
+                        tracing::debug!("couldn't read {}: {err:#}", found.id);
+                        None
+                    }
+                },
             };
             matches.push(Matched {
                 found: value,
@@ -222,7 +236,10 @@ fn anchors_of(chunk: &[BranchAsk], matches: &[Matched]) -> Vec<(String, Vec<Valu
         .map(|ask| {
             let found = (matches.iter())
                 .filter(|found| {
-                    found.head.as_ref().is_some_and(|head| ask.commits.contains(head))
+                    found
+                        .head
+                        .as_ref()
+                        .is_some_and(|head| ask.commits.contains(head))
                         || found.written_on.as_ref() == Some(&ask.branch)
                 })
                 .map(|found| found.found.clone())
@@ -306,10 +323,75 @@ pub struct Brief {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Review {
     pub title: String,
-    /// What its comparison changes in all.
+    /// What its CLI compared.
+    #[serde(default, deserialize_with = "lenient")]
+    pub comparison: Option<Comparison>,
+    /// What its comparison changes in all, which its CLI measured.
+    #[serde(default, deserialize_with = "lenient")]
     pub changed: Option<Changed>,
+    /// What its author wants of who reads it. None asks for nothing in particular.
+    #[serde(default, deserialize_with = "lenient")]
+    pub ask: Option<Ask>,
+    /// What its CLI measured about the change, none of it written by the agent.
+    #[serde(default, deserialize_with = "lenient_list")]
+    pub labels: Vec<Label>,
+    #[serde(default, deserialize_with = "lenient")]
+    pub generator: Option<Generator>,
     #[serde(deserialize_with = "blocks")]
     pub blocks: Vec<Block>,
+}
+
+/// What a version of a brief compares.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Comparison {
+    /// The commit its code was committed up to, when that's known.
+    #[serde(default)]
+    pub head: Option<String>,
+    /// It had uncommitted changes on top of `head` too.
+    #[serde(default)]
+    pub uncommitted: bool,
+}
+
+/// What an author wants of who reads a brief.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum Ask {
+    SignOff,
+    HeadsUp,
+    Decision {
+        #[serde(default)]
+        options: Vec<String>,
+    },
+    /// A kind this client doesn't know yet.
+    #[serde(other)]
+    Other,
+}
+
+/// One thing a brief's CLI measured about the change.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Label {
+    pub name: String,
+    pub why: String,
+    pub concern: Concern,
+}
+
+/// How much a [`Label`] asks of a reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Concern {
+    None,
+    Notable,
+    Serious,
+    /// A kind this client doesn't know yet.
+    #[serde(other)]
+    Other,
+}
+
+/// What made a brief.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Generator {
+    /// The agent that wrote it, in its own words.
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -335,13 +417,35 @@ pub enum BlockKind {
         markdown: String,
     },
     Excerpt {
+        /// The commit it's read at, or `worktree`.
+        #[serde(default)]
+        at: String,
         path: String,
         range: LineSpan,
         lines: Vec<String>,
     },
     Diff {
+        #[serde(default, deserialize_with = "lenient")]
+        comparison: Option<BlockComparison>,
         path: String,
+        /// `modified`, `added`, `deleted` or `renamed`. None: the file didn't change, and all of
+        /// it is context.
+        #[serde(default)]
+        status: Option<String>,
+        /// The whole file's, not what the hunks show.
+        #[serde(default, deserialize_with = "lenient")]
+        stats: Option<LineStats>,
         hunks: Vec<DiffHunk>,
+        /// What isn't shown, in the words that follow "Not shown:".
+        #[serde(default, deserialize_with = "lenient_list")]
+        omitted: Vec<String>,
+    },
+    /// The files of a comparison, each as git says.
+    Files {
+        #[serde(default, deserialize_with = "lenient_list")]
+        files: Vec<ChangedFile>,
+        #[serde(default, deserialize_with = "lenient_list")]
+        omitted: Vec<String>,
     },
     Media {
         media: String,
@@ -349,6 +453,8 @@ pub enum BlockKind {
         media_type: String,
         /// A few words over it that say which it is, as "Before".
         title: Option<String>,
+        /// Set on neighbours meant to be seen together, as a before and an after.
+        group: Option<String>,
         width: u32,
         height: u32,
         alt: String,
@@ -356,6 +462,33 @@ pub enum BlockKind {
     /// A kind this client can't read, by its name: the web shows it.
     #[serde(skip)]
     Unknown(String),
+}
+
+/// What a block compares. `head` is a commit, `worktree`, or `proposal`, whose added lines the
+/// agent wrote and which exist nowhere yet.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct BlockComparison {
+    #[serde(default)]
+    pub head: Option<String>,
+}
+
+/// A file's lines added and removed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+pub struct LineStats {
+    #[serde(default)]
+    pub additions: u32,
+    #[serde(default)]
+    pub deletions: u32,
+}
+
+/// A file of a comparison.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ChangedFile {
+    #[serde(default)]
+    pub status: Option<String>,
+    pub path: String,
+    #[serde(default, deserialize_with = "lenient")]
+    pub stats: Option<LineStats>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -370,6 +503,23 @@ pub struct DiffHunk {
     pub new_start: u32,
     /// Git's hunk lines, each after a space, `+` or `-`, with no `@@` header.
     pub body: String,
+}
+
+/// What's there if it can be read, so a field that changed shape costs only itself.
+fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
+}
+
+/// Each of a list that can be read.
+fn lenient_list<'de, D: Deserializer<'de>, T: DeserializeOwned>(
+    deserializer: D,
+) -> Result<Vec<T>, D::Error> {
+    let list = Option::<Vec<Value>>::deserialize(deserializer).unwrap_or_default();
+    Ok((list.into_iter().flatten())
+        .filter_map(|value| serde_json::from_value(value).ok())
+        .collect())
 }
 
 /// Each block one at a time, so one that can't be read costs only itself.
@@ -461,7 +611,11 @@ mod tests {
 
     #[test]
     fn each_branch_of_a_batch_gets_only_the_briefs_about_it() {
-        let chunk = [ask("a", &["a2", "a1"]), ask("b", &["b1"]), ask("c", &["c1"])];
+        let chunk = [
+            ask("a", &["a2", "a1"]),
+            ask("b", &["b1"]),
+            ask("c", &["c1"]),
+        ];
         let anchors = anchors_of(
             &chunk,
             &[
@@ -485,14 +639,20 @@ mod tests {
     fn a_batch_is_as_much_as_one_request_may_name() {
         let many: Vec<_> = (0..23).map(|n| ask(&n.to_string(), &["tip"])).collect();
         assert_eq!(
-            chunks(&many).iter().map(|chunk| chunk.len()).collect::<Vec<_>>(),
+            chunks(&many)
+                .iter()
+                .map(|chunk| chunk.len())
+                .collect::<Vec<_>>(),
             [10, 10, 3],
             "at most 10 branches"
         );
         let commits = vec!["c"; 60];
         let long = [ask("a", &commits), ask("b", &commits), ask("c", &["tip"])];
         assert_eq!(
-            chunks(&long).iter().map(|chunk| chunk.len()).collect::<Vec<_>>(),
+            chunks(&long)
+                .iter()
+                .map(|chunk| chunk.len())
+                .collect::<Vec<_>>(),
             [1, 2],
             "at most 100 commits"
         );

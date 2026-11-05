@@ -14,17 +14,21 @@ use std::time::Duration;
 use rusqlite::{Connection, ErrorCode, OptionalExtension, TransactionBehavior, params};
 use serde_json::Value;
 
-use crate::{Asked, Brief, FetchedVersion, Found};
+use crate::{Asked, Brief, CommentTo, FetchedVersion, Found, RawActivity};
 
 const FILE: &str = "briefs.sqlite";
 
 /// What the tables look like. There are no migrations: another number drops them.
-const SCHEMA: i32 = 1;
+const SCHEMA: i32 = 4;
 
 const TABLES: &str = "
     DROP TABLE IF EXISTS version;
     DROP TABLE IF EXISTS anchor;
     DROP TABLE IF EXISTS account;
+    DROP TABLE IF EXISTS activity;
+    DROP TABLE IF EXISTS note;
+    DROP TABLE IF EXISTS seen;
+    DROP TABLE IF EXISTS answered;
     CREATE TABLE version (
         brief_id     TEXT NOT NULL,
         version      INTEGER NOT NULL,
@@ -41,6 +45,31 @@ const TABLES: &str = "
         PRIMARY KEY (remote, branch)
     );
     CREATE TABLE account (id TEXT NOT NULL);
+    CREATE TABLE activity (
+        brief_id   TEXT NOT NULL,
+        version    INTEGER NOT NULL,
+        fetched_at INTEGER NOT NULL,
+        json       TEXT NOT NULL,
+        PRIMARY KEY (brief_id, version)
+    );
+    CREATE TABLE seen (
+        brief_id TEXT PRIMARY KEY,
+        version  INTEGER NOT NULL
+    );
+    CREATE TABLE answered (
+        brief_id TEXT PRIMARY KEY,
+        version  INTEGER NOT NULL,
+        answer   TEXT NOT NULL
+    );
+    CREATE TABLE note (
+        id       INTEGER PRIMARY KEY,
+        brief_id TEXT NOT NULL,
+        version  INTEGER NOT NULL,
+        block    INTEGER,
+        quote    TEXT,
+        parent   TEXT,
+        body     TEXT NOT NULL
+    );
 ";
 
 /// How long what was said about a branch stays once nothing asks about it, in seconds.
@@ -54,6 +83,14 @@ pub struct Anchored {
     pub asked_at: i64,
     /// The brief that fits it best.
     pub found: Option<Found>,
+}
+
+/// What someone wrote about a version of a brief and hasn't sent yet, which only they have.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Note {
+    pub id: i64,
+    pub body: String,
+    pub to: CommentTo,
 }
 
 /// The cache of what Briefs said to one account.
@@ -146,6 +183,135 @@ impl Cache {
         Ok(branch.flatten())
     }
 
+    /// What's been said about `version` of brief `id`, as it was last asked, if it was.
+    pub fn activity(&self, id: &str, version: u32) -> rusqlite::Result<Option<RawActivity>> {
+        let json: Option<String> = (self.conn)
+            .query_row(
+                "SELECT json FROM activity WHERE brief_id = ?1 AND version = ?2",
+                params![id, version],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(json.and_then(|json| serde_json::from_str(&json).ok()))
+    }
+
+    /// Keep what's been said about `version` of brief `id`, at `now`.
+    pub fn put_activity(
+        &self,
+        id: &str,
+        version: u32,
+        activity: &RawActivity,
+        now: i64,
+    ) -> rusqlite::Result<()> {
+        let json = serde_json::to_string(activity).unwrap_or_default();
+        self.conn.execute(
+            "INSERT OR REPLACE INTO activity (brief_id, version, fetched_at, json)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![id, version, now, json],
+        )?;
+        Ok(())
+    }
+
+    /// The newest version of brief `id` this account has read here, if any.
+    pub fn seen(&self, id: &str) -> rusqlite::Result<Option<u32>> {
+        (self.conn)
+            .query_row(
+                "SELECT version FROM seen WHERE brief_id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+    }
+
+    /// Remember `version` of brief `id` was read, unless a newer one was.
+    pub fn saw(&self, id: &str, version: u32) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO seen (brief_id, version) VALUES (?1, ?2)
+             ON CONFLICT (brief_id) DO UPDATE SET version = max(version, excluded.version)",
+            params![id, version],
+        )?;
+        Ok(())
+    }
+
+    /// The last answer given from here to what brief `id` asks, with the version it was on.
+    pub fn answered(&self, id: &str) -> rusqlite::Result<Option<(u32, String)>> {
+        (self.conn)
+            .query_row(
+                "SELECT version, answer FROM answered WHERE brief_id = ?1",
+                [id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+    }
+
+    /// Remember the answer given to `version` of brief `id`, or that it was taken back.
+    pub fn answer(&self, id: &str, version: u32, answer: Option<&str>) -> rusqlite::Result<()> {
+        match answer {
+            Some(answer) => self.conn.execute(
+                "INSERT OR REPLACE INTO answered (brief_id, version, answer) VALUES (?1, ?2, ?3)",
+                params![id, version, answer],
+            )?,
+            None => (self.conn).execute("DELETE FROM answered WHERE brief_id = ?1", [id])?,
+        };
+        Ok(())
+    }
+
+    /// What's written about `version` of brief `id` and not sent, the oldest first.
+    pub fn notes(&self, id: &str, version: u32) -> rusqlite::Result<Vec<Note>> {
+        let mut rows = self.conn.prepare(
+            "SELECT id, block, quote, parent, body FROM note
+             WHERE brief_id = ?1 AND version = ?2 ORDER BY id",
+        )?;
+        rows.query_map(params![id, version], |row| {
+            let block: Option<i64> = row.get(1)?;
+            let block = block.map(|block| block as usize);
+            let quote: Option<String> = row.get(2)?;
+            let parent: Option<String> = row.get(3)?;
+            Ok(Note {
+                id: row.get(0)?,
+                body: row.get(4)?,
+                to: match (parent, block, quote) {
+                    (Some(parent), _, _) => CommentTo::Thread(parent),
+                    (None, Some(block), Some(quote)) => CommentTo::Passage { block, quote },
+                    (None, Some(block), None) => CommentTo::Block(block),
+                    (None, None, _) => CommentTo::Brief,
+                },
+            })
+        })?
+        .collect()
+    }
+
+    /// Keep `body`, written about `to` in `version` of brief `id`, until it's sent.
+    pub fn add_note(
+        &self,
+        id: &str,
+        version: u32,
+        to: &CommentTo,
+        body: &str,
+    ) -> rusqlite::Result<()> {
+        let (block, quote, parent) = match to {
+            CommentTo::Brief => (None, None, None),
+            CommentTo::Block(block) => (Some(*block as i64), None, None),
+            CommentTo::Passage { block, quote } => {
+                (Some(*block as i64), Some(quote.as_str()), None)
+            }
+            CommentTo::Thread(parent) => (None, None, Some(parent.as_str())),
+        };
+        self.conn.execute(
+            "INSERT INTO note (brief_id, version, block, quote, parent, body)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![id, version, block, quote, parent, body],
+        )?;
+        Ok(())
+    }
+
+    /// Forget a note, once it's sent or thrown away.
+    pub fn remove_note(&self, note: i64) -> rusqlite::Result<()> {
+        self.conn
+            .execute("DELETE FROM note WHERE id = ?1", [note])?;
+        Ok(())
+    }
+
     /// Keep a version read on its own, at `now`, in seconds since the epoch.
     pub fn put_version(&self, version: &FetchedVersion, now: i64) -> rusqlite::Result<()> {
         put_version(&self.conn, version, now)
@@ -169,11 +335,16 @@ impl Cache {
             )?;
         }
         write.execute("DELETE FROM anchor WHERE asked_at < ?1", [now - KEEP])?;
-        write.execute(
-            "DELETE FROM version WHERE brief_id NOT IN
-             (SELECT json_extract(value, '$.id') FROM anchor, json_each(anchor.found))",
-            [],
-        )?;
+        // Notes stay, as what someone wrote is worth more than a tidy file.
+        for table in ["version", "activity"] {
+            write.execute(
+                &format!(
+                    "DELETE FROM {table} WHERE brief_id NOT IN
+                     (SELECT json_extract(value, '$.id') FROM anchor, json_each(anchor.found))"
+                ),
+                [],
+            )?;
+        }
         write.commit()
     }
 }
@@ -233,7 +404,10 @@ fn ready(mut conn: Connection, account: &str) -> rusqlite::Result<Connection> {
     let owner: Option<String> =
         (write.query_row("SELECT id FROM account", [], |row| row.get(0))).optional()?;
     if owner.as_deref() != Some(account) {
-        write.execute_batch("DELETE FROM version; DELETE FROM anchor; DELETE FROM account;")?;
+        write.execute_batch(
+            "DELETE FROM version; DELETE FROM anchor; DELETE FROM account;
+             DELETE FROM activity; DELETE FROM note; DELETE FROM seen; DELETE FROM answered;",
+        )?;
         write.execute("INSERT INTO account (id) VALUES (?1)", [account])?;
     }
     write.commit()?;
@@ -397,6 +571,58 @@ mod tests {
         drop(holding_a_brief(Some(dir.path())));
         let cache = Cache::open(Some(dir.path()), "me").unwrap();
         assert_eq!(cache.anchors(REMOTE).unwrap().len(), 1, "that's the point");
+    }
+
+    #[test]
+    fn what_someone_wrote_stays_until_they_send_it() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let cache = Cache::open(Some(dir.path()), "me").unwrap();
+            cache
+                .add_note("b1", 2, &CommentTo::Block(3), "Cut this")
+                .unwrap();
+            let passage = CommentTo::Passage {
+                block: 4,
+                quote: "the words".into(),
+            };
+            cache.add_note("b1", 2, &passage, "Why?").unwrap();
+            cache.add_note("b1", 1, &CommentTo::Brief, "older").unwrap();
+        }
+        let cache = Cache::open(Some(dir.path()), "me").unwrap();
+        let notes = cache.notes("b1", 2).unwrap();
+        assert_eq!(
+            notes
+                .iter()
+                .map(|note| note.body.as_str())
+                .collect::<Vec<_>>(),
+            ["Cut this", "Why?"],
+            "a restart keeps them, in the order written, for that version alone"
+        );
+        cache.remove_note(notes[0].id).unwrap();
+        assert_eq!(cache.notes("b1", 2).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn the_newest_version_read_is_remembered() {
+        let cache = Cache::open(None, "me").unwrap();
+        assert_eq!(cache.seen("b1").unwrap(), None);
+        cache.saw("b1", 3).unwrap();
+        cache.saw("b1", 2).unwrap();
+        assert_eq!(
+            cache.seen("b1").unwrap(),
+            Some(3),
+            "looking at an older one doesn't take back having read the newer"
+        );
+    }
+
+    #[test]
+    fn another_account_never_sees_what_someone_wrote() {
+        let dir = tempfile::tempdir().unwrap();
+        (Cache::open(Some(dir.path()), "me").unwrap())
+            .add_note("b1", 2, &CommentTo::Brief, "private")
+            .unwrap();
+        let cache = Cache::open(Some(dir.path()), "someone else").unwrap();
+        assert!(cache.notes("b1", 2).unwrap().is_empty());
     }
 
     #[test]

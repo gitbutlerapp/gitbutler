@@ -130,8 +130,14 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.has_brief() {
+            self.brief_first = tab == PageTab::Brief;
+        }
         if let Some(review) = self.page.review_mut() {
             review.tab = tab;
+        }
+        if let Some(brief) = self.page.brief_mut() {
+            brief.left_for_code = false;
         }
         match self.tabs_focus.is_focused(window) {
             true => cx.notify(),

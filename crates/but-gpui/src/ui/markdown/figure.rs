@@ -31,6 +31,7 @@ pub(super) struct Figure {
     id: SharedString,
     gallery: Arc<[Image]>,
     at: usize,
+    fill: bool,
 }
 
 impl Figure {
@@ -39,7 +40,14 @@ impl Figure {
             id: id.into(),
             gallery,
             at,
+            fill: false,
         }
+    }
+
+    /// Fill the width of what it's in, its height following, rather than taking its own size.
+    pub(super) fn fill(mut self) -> Self {
+        self.fill = true;
+        self
     }
 }
 
@@ -56,7 +64,12 @@ pub(super) fn fetched(src: &str, window: &mut Window, cx: &mut App) -> Option<Op
 
 impl RenderOnce for Figure {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let Figure { id, gallery, at } = self;
+        let Figure {
+            id,
+            gallery,
+            at,
+            fill,
+        } = self;
         let Some(image) = gallery.get(at).cloned() else {
             return div().into_any_element();
         };
@@ -95,6 +108,7 @@ impl RenderOnce for Figure {
             _ => None,
         };
         let place = match sized {
+            Some((_, ratio)) if fill => place.w_full().aspect_ratio(ratio),
             Some((width, ratio)) => place.w(dp(width)).aspect_ratio(ratio),
             None => place
                 .w(image.width.map_or(relative(1.), |width| dp(width).into()))

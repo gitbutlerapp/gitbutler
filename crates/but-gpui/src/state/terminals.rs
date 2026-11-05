@@ -104,6 +104,24 @@ impl Terminals {
             .map(|open| (open.id, &open.terminal))
     }
 
+    /// Those open on `project`, on any of its checkouts, with what each is called, and whether
+    /// it lives in a tile of its own.
+    pub fn of_project<'a>(
+        &'a self,
+        project: &'a ProjectId,
+    ) -> impl Iterator<Item = (TerminalId, &'a Entity<Terminal>, &'a SharedString, bool)> + 'a {
+        (self.open.iter())
+            .filter(move |open| open.project == *project)
+            .map(|open| {
+                (
+                    open.id,
+                    &open.terminal,
+                    open.named.as_ref().unwrap_or(&open.title),
+                    open.tiled,
+                )
+            })
+    }
+
     /// Whether terminal `id` lives in a tile alone.
     pub fn tiled(&self, id: TerminalId) -> bool {
         self.open.iter().any(|open| open.id == id && open.tiled)

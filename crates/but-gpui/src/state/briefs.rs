@@ -115,6 +115,7 @@ impl Store {
     /// leaves the disk too, as a brief can be private to who read it.
     pub(super) fn briefs_account_changed(&mut self, cx: &mut Context<Self>) {
         self.brief_answers = BriefAnswers::default();
+        briefs::account_changed();
         if self.account.user.is_none() {
             cx.spawn(async move |_, _| {
                 if let Err(err) = run(briefs::forget).await {

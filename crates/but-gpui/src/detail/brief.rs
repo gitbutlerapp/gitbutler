@@ -3,6 +3,7 @@
 //! the store knows, and its version is read as it opens.
 
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
@@ -10,24 +11,42 @@ use gpui::{
     prelude::*,
 };
 
+mod bar;
+mod code;
+mod head;
+mod keys;
+mod notes;
+mod talk;
+
+pub(crate) use keys::{
+    Approve, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
+};
+
 use super::Detail;
-use super::page::PageTab;
+use super::page::{BriefFold, PageTab};
 use super::pull_request::COLUMN_MAX_WIDTH;
-use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPage, Found};
-use crate::backend::{CommitId, run};
+use crate::backend::briefs::{self, BriefAnchor, BriefBlock, BriefBody, BriefPicture, Pictures};
+use crate::backend::run;
 use crate::state::{ProjectTab, Selection, Side};
 use crate::theme::Theme;
-use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
-use crate::ui::{
-    ButtonStyle, Icon, ago, button, diff, dp, fold_row, h_flex, markdown, plural, v_flex,
-};
+use crate::ui::{Icon, dp, fixed, fold_row, h_flex, markdown, plural, v_flex};
+
+/// What a read of a brief is of: its id, the version, and the branch's tip as that was.
+pub(super) type ReadKey = (String, Option<u32>, Option<crate::backend::CommitId>);
 
 /// How long a branch stays shown before Briefs is asked, as a held arrow key passes many.
 const SETTLE: Duration = Duration::from_millis(100);
 
 /// How long what's known of a branch counts, in seconds, before opening it asks again.
 const KNOWN_FOR: i64 = 5 * 60;
+
+/// How long after failing to read a version it's tried again.
+const READ_AGAIN: Duration = Duration::from_secs(30);
+
+/// How wide words get, in design pixels, as lines much longer read badly. Code and pictures take
+/// the column.
+pub(super) const MOST_WORDS_WIDE: f32 = 680.;
 
 /// How far ↓ and ↑ read on through a brief, in design pixels.
 const STEP: f32 = 80.;
@@ -37,6 +56,19 @@ const STEP: f32 = 80.;
 enum Row {
     Head,
     Block(usize),
+    /// One heading's worth of block `at`'s words: its paragraphs `from..to`. A row each, so a long
+    /// block's words are drawn as they show, and j and k stop at each.
+    Text {
+        at: usize,
+        from: usize,
+        to: usize,
+    },
+    /// What's said about the whole brief, and that it ends.
+    End,
+    /// What's different since the version read, over what's different.
+    Since,
+    /// Blocks not changed since the version last read, left out for whoever read that.
+    Unchanged(usize),
     /// The line neighbouring blocks with the same teaser fold away under, from block `first`.
     Fold {
         first: usize,
@@ -44,24 +76,78 @@ enum Row {
     },
 }
 
+impl Row {
+    /// The block it draws of, if it does.
+    fn block(self) -> Option<usize> {
+        match self {
+            Row::Block(at) | Row::Text { at, .. } => Some(at),
+            Row::Head | Row::End | Row::Since | Row::Unchanged(_) | Row::Fold { .. } => None,
+        }
+    }
+}
+
+/// Block `at`'s rows.
+fn block_rows(at: usize, block: &BriefBlock) -> Vec<Row> {
+    let BriefBody::Text(paragraphs) = &block.body else {
+        return vec![Row::Block(at)];
+    };
+    let starts: Vec<usize> = (paragraphs.iter().enumerate())
+        .filter(|(ix, paragraph)| *ix == 0 || matches!(paragraph.kind, markdown::Kind::Heading(_)))
+        .map(|(ix, _)| ix)
+        .collect();
+    let ends = starts.iter().skip(1).copied().chain([paragraphs.len()]);
+    (starts.iter().zip(ends))
+        .map(|(from, to)| Row::Text {
+            at,
+            from: *from,
+            to,
+        })
+        .collect()
+}
+
 /// The column's rows: the head, then each block, those with a teaser under it while it's open.
-fn rows(blocks: &[BriefBlock], open: &HashSet<usize>) -> Vec<Row> {
+/// With `only_changed`, for who read the version before, what hasn't changed folds away instead.
+fn rows(blocks: &[BriefBlock], open: &HashSet<BriefFold>, only_changed: bool) -> Vec<Row> {
+    if only_changed {
+        let mut rows = vec![Row::Head, Row::Since];
+        let mut same = 0;
+        for (at, block) in blocks.iter().enumerate() {
+            if block.fresh {
+                if same > 0 {
+                    rows.push(Row::Unchanged(same));
+                    same = 0;
+                }
+                rows.push(Row::Block(at));
+            } else {
+                same += 1;
+            }
+        }
+        if same > 0 {
+            rows.push(Row::Unchanged(same));
+        }
+        rows.push(Row::End);
+        return rows;
+    }
     let mut rows = vec![Row::Head];
     let mut first = 0;
     while let Some(block) = blocks.get(first) {
         if block.detail.is_none() {
-            rows.push(Row::Block(first));
+            rows.extend(block_rows(first, block));
             first += 1;
             continue;
         }
         let same = (blocks.iter().skip(first)).take_while(|next| next.detail == block.detail);
         let count = same.count();
         rows.push(Row::Fold { first, count });
-        if open.contains(&first) {
-            rows.extend((first..first + count).map(Row::Block));
+        if open.contains(&BriefFold::Part(first)) {
+            rows.extend(
+                (blocks.iter().enumerate().skip(first).take(count))
+                    .flat_map(|(at, block)| block_rows(at, block)),
+            );
         }
         first += count;
     }
+    rows.push(Row::End);
     rows
 }
 
@@ -100,11 +186,33 @@ impl Detail {
         let known = (anchor.as_ref().zip(project.as_ref()))
             .and_then(|(anchor, project)| store.brief_at(project, &anchor.branch));
         let stale = known.is_none_or(|known| briefs::now() - known.asked_at >= KNOWN_FOR);
+        let known_at_all = known.is_some();
         let found = known.and_then(|known| known.found.clone());
-        if let Some(brief) = self.page.brief_mut()
-            && brief.found != found
+        let brief_first = self.brief_first;
+        // Once what's known of the branch is in: a page opened on one the poll leaves out stays
+        // open to its brief for the moment it takes to ask.
+        let settled_now = known_at_all && (self.page.brief()).is_some_and(|brief| !brief.settled);
+        if let Some(brief) = self.page.brief_mut() {
+            if brief.found != found {
+                // Which version shows is settled by the read, once, so a newer one is offered
+                // rather than swapped in under whoever's reading. One picked was of the brief that
+                // was here.
+                let id_of = |found: &Option<briefs::Found>| found.as_ref().map(|it| it.id.clone());
+                if id_of(&brief.found) != id_of(&found) {
+                    brief.version = None;
+                }
+                brief.found = found;
+            }
+            if settled_now {
+                brief.settled = true;
+            }
+        }
+        if settled_now
+            && brief_first
+            && self.has_brief()
+            && let Some(review) = self.page.review_mut()
         {
-            brief.found = found;
+            review.tab = PageTab::Brief;
         }
         if anchor != self.brief_asked {
             self.brief_asked = anchor.clone();
@@ -121,43 +229,132 @@ impl Detail {
             };
         }
         self.read_shown_brief(cx);
+        self.link_brief_names();
+        self.keep_talk_current(cx);
     }
 
-    /// Read the brief the tab shows, unless that's what it has or is reading.
-    fn read_shown_brief(&mut self, cx: &mut Context<Self>) {
-        let Some(found) = (self.page.brief())
-            .filter(|_| self.page.brief_tab())
-            .and_then(|brief| brief.found.clone())
+    /// Join the code the shown brief names to the branch's diff, once for each of either.
+    pub(super) fn link_brief_names(&mut self) {
+        let Some(diff) = (self.diff.as_ref())
+            .filter(|diff| self.loading.as_ref().is_none_or(|key| *key == diff.key))
         else {
             return;
         };
-        let key = (found.id.clone(), found.matched.version);
-        let has_it = (self.page.brief())
-            .and_then(|brief| brief.shown.as_ref())
-            .and_then(|shown| shown.as_ref().ok())
-            .is_some_and(|page| (&page.id, page.version) == (&key.0, key.1));
+        let Some(brief) = self.page.brief_mut() else {
+            return;
+        };
+        let Some(page) = (brief.shown.as_mut()).and_then(|shown| shown.as_mut().ok()) else {
+            return;
+        };
+        let key = (diff.key.clone(), page.version, page.tip);
+        if brief.linked.as_ref() != Some(&key) {
+            brief.unnamed = head::unnamed_files(page, &diff.files);
+            brief.drifted = code::drifted_blocks(page, &diff.files);
+            brief.linked = Some(key);
+            self.brief_list.remeasure();
+        }
+    }
+
+    /// Read the version the tab shows, unless that's what it has or is reading. A version never
+    /// changes, so the branch moving only asks again how it stands, and what's marked as new in
+    /// it, the folds and the place stay. One that couldn't be read is tried again in a while.
+    fn read_shown_brief(&mut self, cx: &mut Context<Self>) {
+        let (Some(found), Some(anchor)) = (
+            (self.page.brief())
+                .filter(|_| self.page.brief_tab())
+                .and_then(|brief| brief.found.clone()),
+            self.brief_asked.clone(),
+        ) else {
+            return;
+        };
+        let version = self.page.brief().and_then(|brief| brief.version);
+        let tip = anchor.tip();
+        let key = (found.id.clone(), version, tip);
+        let shown = (self.page.brief())
+            .and_then(|brief| brief.page())
+            .filter(|page| page.id == found.id && version.is_none_or(|it| it == page.version));
+        let current = shown.is_some_and(|page| page.tip == tip);
         let reading = (self.brief_reading.as_ref()).is_some_and(|(reading, _)| *reading == key);
-        if has_it || reading {
+        if current || reading {
             return;
         }
-        let task = cx.spawn(async move |this, cx| {
-            let read = {
-                let found = found.clone();
-                run(move || briefs::read(&found)).await
-            };
-            this.update(cx, |this, cx| {
-                if let Some(brief) = (this.page.brief_mut()).filter(|brief| {
-                    brief.found.as_ref().is_some_and(|now| {
-                        (&now.id, now.matched.version) == (&found.id, found.matched.version)
+        let task = match shown.map(|page| page.written_at.clone()) {
+            Some(head) => cx.spawn(async move |this, cx| {
+                let standing =
+                    run(move || Ok(briefs::standing_now(head.as_deref(), &anchor))).await;
+                this.update(cx, |this, cx| {
+                    if let (Ok(standing), Some(page)) = (
+                        standing,
+                        this.page.brief_mut().and_then(|brief| brief.page_mut()),
+                    ) && page.id == found.id
+                        && version.is_none_or(|it| it == page.version)
+                    {
+                        page.standing = standing;
+                        page.tip = tip;
+                        this.brief_list_changed(cx);
+                    }
+                })
+                .ok();
+            }),
+            None => cx.spawn(async move |this, cx| {
+                // As a held arrow key passes many, and what's passed hasn't been read.
+                cx.background_executor().timer(SETTLE).await;
+                let read = {
+                    let found = found.clone();
+                    run(move || briefs::read(&found, version, &anchor)).await
+                };
+                let failed = read.is_err();
+                this.update(cx, |this, cx| {
+                    this.took_brief_page(&found.id, version, read, cx)
+                })
+                .ok();
+                if failed {
+                    cx.background_executor().timer(READ_AGAIN).await;
+                    this.update(cx, |this, cx| {
+                        this.brief_reading = None;
+                        this.ask_briefs(cx);
                     })
-                }) {
-                    brief.shown = Some(read.map_err(|err| format!("{err:#}")));
-                    cx.notify();
+                    .ok();
+                }
+            }),
+        };
+        self.brief_reading = Some((key, task));
+    }
+
+    /// Show `read`, a version of brief `id`, if that's still what the tab is to show. Anything
+    /// that was showing was another version, so what was open in it goes.
+    fn took_brief_page(
+        &mut self,
+        id: &str,
+        version: Option<u32>,
+        read: anyhow::Result<briefs::BriefPage>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(brief) = self.page.brief_mut().filter(|brief| {
+            brief.version == version && brief.found.as_ref().is_some_and(|now| now.id == id)
+        }) else {
+            return;
+        };
+        if let Ok(page) = &read {
+            brief.version = Some(page.version);
+            let (id, version) = (page.id.clone(), page.version);
+            cx.spawn(async move |_, _| {
+                if let Err(err) = run(move || briefs::saw(&id, version)).await {
+                    tracing::debug!("couldn't note a brief as read: {err:#}");
                 }
             })
-            .ok();
-        });
-        self.brief_reading = Some((key, task));
+            .detach();
+        }
+        brief.open.clear();
+        brief.back = None;
+        brief.cursor = None;
+        brief.unheard = false;
+        brief.linked = None;
+        brief.shown = Some(read.map_err(|err| format!("{err:#}")));
+        self.link_brief_names();
+        self.brief_list.reset(self.brief_rows().len());
+        self.keep_talk_current(cx);
+        cx.notify();
     }
 
     /// ↓ or ↑ on the tab: on through the brief, or from its top up to the tabs.
@@ -176,15 +373,12 @@ impl Detail {
         cx.notify();
     }
 
-    /// ⌘K's Show brief: the brief, or where they are, so asking on a page without one teaches
-    /// that.
+    /// ⌘K's Show brief: the brief, or on the Branches page, the branches that have one.
     pub(crate) fn show_brief(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.has_brief() {
-            true => self.set_page_tab(PageTab::Brief, window, cx),
-            false => (self.store).update(cx, |store, cx| {
-                store.snack("No brief here, they show on a branch's page", cx)
-            }),
+        if self.has_brief() {
+            return self.set_page_tab(PageTab::Brief, window, cx);
         }
+        (self.store).update(cx, |store, cx| store.snack("No brief here", cx))
     }
 
     /// The text selected in the brief.
@@ -192,16 +386,22 @@ impl Detail {
         let (id, range) = self.note_range()?;
         let page = self.page.brief()?.shown.as_ref()?.as_ref().ok()?;
         let text = (page.blocks.iter().enumerate()).find_map(|(at, block)| match &block.body {
-            BriefBody::Text(blocks) if block_id(&page.id, at) == id => {
-                Some(markdown::selected_text(blocks, range))
-            }
+            BriefBody::Text(paragraphs) => block_rows(at, block).into_iter().find_map(|row| {
+                let Row::Text { from, to, .. } = row else {
+                    return None;
+                };
+                (block_id(&page.id, at, from) == id)
+                    .then(|| markdown::selected_text(paragraphs.get(from..to)?, range).into())
+                    .flatten()
+            }),
             _ => None,
         })?;
+        let text: String = text;
         (!text.is_empty()).then_some(text)
     }
 
     /// Whether the page has a brief to show.
-    pub(super) fn has_brief(&self) -> bool {
+    pub(crate) fn has_brief(&self) -> bool {
         self.page.brief().is_some_and(|brief| brief.found.is_some())
     }
 
@@ -214,10 +414,7 @@ impl Detail {
         let Some(state) = self.page.brief() else {
             return div().into_any_element();
         };
-        let rows = match &state.shown {
-            Some(Ok(page)) => rows(&page.blocks, &state.open),
-            _ => vec![Row::Head],
-        };
+        let rows = self.brief_rows();
         if self.brief_list.item_count() != rows.len() {
             self.brief_list.reset(rows.len());
         }
@@ -238,9 +435,45 @@ impl Detail {
             Scroll::List(self.brief_list.clone()),
             theme,
         );
+        let bar = self.brief_bar(cx);
         (self.text_tab_ground(cx))
-            .child(column.h_full())
+            // Clicking in it gives it the keys, for its own to work from there on.
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _, window, cx| {
+                    if this.brief_input.is_none() {
+                        window.focus(&this.focus, cx);
+                    }
+                }),
+            )
+            .child(
+                v_flex()
+                    .size_full()
+                    .child(div().relative().flex_1().min_h_0().child(column.h_full()))
+                    .children(bar),
+            )
             .into_any_element()
+    }
+
+    /// The tab's rows as it's drawn now.
+    fn brief_rows(&self) -> Vec<Row> {
+        let state = self.page.brief();
+        match state.and_then(|state| Some((state, state.page()?))) {
+            Some((state, page)) => {
+                let only_changed = !state.is_open(BriefFold::Unchanged)
+                    && page
+                        .since_read
+                        .as_ref()
+                        .is_some_and(|since| since.changed > 0);
+                let mut rows = rows(&page.blocks, &state.open, only_changed);
+                // With the rest open too, what changed still heads it, and the way back's there.
+                if !only_changed && page.since_read.as_ref().is_some_and(|it| it.changed > 0) {
+                    rows.insert(1, Row::Since);
+                }
+                rows
+            }
+            None => vec![Row::Head],
+        }
     }
 
     fn brief_row(&self, rows: &[Row], ix: usize, cx: &Context<Self>) -> AnyElement {
@@ -251,17 +484,48 @@ impl Detail {
         let Some(found) = &state.found else {
             return div().into_any_element();
         };
-        let page = state.shown.as_ref().and_then(|shown| shown.as_ref().ok());
-        let commits = (self.brief_asked.as_ref()).map_or(&[][..], |asked| &asked.commits);
+        let page = state.page();
+        let cursor = state.cursor == Some(ix) && state.cursor_shown;
+        // With only what changed showing, that all of it did goes without saying.
+        let only_changed = !state.is_open(BriefFold::Unchanged)
+            && page.is_some_and(|page| page.since_read.is_some());
+        let fresh = !only_changed
+            && page.is_some_and(|page| match row {
+                Row::Text { at, from, to } => {
+                    (page.blocks.get(at)).is_some_and(|block| match &block.body {
+                        BriefBody::Text(words) => (words.get(from..to).unwrap_or_default().iter())
+                            .any(|word| word.styles.iter().any(|(_, style)| style.fresh)),
+                        _ => block.fresh,
+                    })
+                }
+                Row::Block(at) => page.blocks.get(at).is_some_and(|block| block.fresh),
+                Row::Fold { first, count } => {
+                    (page.blocks.iter().skip(first).take(count)).any(|block| block.fresh)
+                }
+                Row::Head | Row::End | Row::Since | Row::Unchanged(_) => false,
+            });
         let (above, content) = match row {
-            Row::Head => {
-                let head = brief_head(found, state.shown.as_ref(), commits, theme);
-                (16., head.into_any_element())
+            Row::Head => (16., self.brief_head(found, state, cx).into_any_element()),
+            Row::End => (24., self.brief_end(state, cx).into_any_element()),
+            Row::Since => (
+                14.,
+                page.and_then(|page| self.brief_since_row(page, state, cx))
+                    .map_or_else(|| div().into_any_element(), IntoElement::into_any_element),
+            ),
+            Row::Unchanged(count) => {
+                let row = fold_row(("brief-unchanged", ix), Icon::ChevronRight, 0., 18., theme)
+                    .role(gpui::Role::Button)
+                    .aria_label(SharedString::from("Show what hasn't changed"))
+                    .child(format!("{} unchanged", plural(count, "part")))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.toggle_brief_fold(BriefFold::Unchanged, cx)
+                    }));
+                (10., row.into_any_element())
             }
             Row::Fold { first, count } => {
                 let block = page.and_then(|page| page.blocks.get(first));
                 let teaser = block.and_then(|block| block.detail.clone());
-                let glyph = match state.open.contains(&first) {
+                let glyph = match state.is_open(BriefFold::Part(first)) {
                     true => Icon::ChevronDown,
                     false => Icon::ChevronRight,
                 };
@@ -269,117 +533,185 @@ impl Detail {
                     .role(gpui::Role::Button)
                     .aria_label(SharedString::from(teaser.clone().unwrap_or_default()))
                     .child(teaser.unwrap_or_default())
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.toggle_brief_fold(ix, first, count, cx)
-                    }));
+                    .when(count > 1, |el| {
+                        el.child(
+                            div()
+                                .ml(dp(6.))
+                                .text_color(theme.text_3)
+                                .child(format!("{count} parts")),
+                        )
+                    })
+                    .on_click(
+                        cx.listener(move |this, _, _, cx| this.toggle_brief_part(ix, first, cx)),
+                    );
                 (14., row.into_any_element())
+            }
+            Row::Text { at, from, to } => {
+                let Some(words) = self.brief_words(ix, at, from, to, cx) else {
+                    return div().into_any_element();
+                };
+                let after_code = (ix.checked_sub(1).and_then(|before| rows.get(before)))
+                    .and_then(|before| before.block())
+                    .and_then(|before| page?.blocks.get(before))
+                    .is_some_and(|before| matches!(before.body, BriefBody::Code(_)));
+                // A sentence is what's wrong when the code it leads into has moved on, so it says
+                // so where it's read rather than only over the code.
+                let moved_on =
+                    (rows.get(ix + 1).and_then(|next| next.block())).is_some_and(|next| {
+                        let code = page.and_then(|page| match &page.blocks.get(next)?.body {
+                            BriefBody::Code(code) => Some((page, code)),
+                            _ => None,
+                        });
+                        state.drifted.contains(&next)
+                            && code
+                                .is_some_and(|(page, code)| code::changed_since(page, &code.path))
+                    });
+                let words = v_flex().child(words).children(moved_on.then(|| {
+                    div()
+                        .mt(dp(4.))
+                        .text_size(dp(12.))
+                        .text_color(theme.warn)
+                        .child("The code under this changed after it was written")
+                }));
+                (if after_code { 22. } else { 12. }, words.into_any_element())
             }
             Row::Block(at) => {
                 let Some((page, block)) = page.and_then(|page| Some((page, page.blocks.get(at)?)))
                 else {
                     return div().into_any_element();
                 };
-                let id = block_id(&page.id, at);
-                let select = self.note_select(&id, cx);
-                (12., render_block(&id, &block.body, select, theme))
+                let id = block_id(&page.id, at, 0);
+                let body = match &block.body {
+                    BriefBody::Text(_) => markdown::render(
+                        &format!("{id}-new"),
+                        block.only_new.as_deref().unwrap_or_default(),
+                        None,
+                        theme,
+                    ),
+                    BriefBody::Code(code) => self.brief_code(at, code, page, cx),
+                    BriefBody::Files { files, omitted } => self.brief_files(at, files, omitted, cx),
+                    BriefBody::Pictures(row) => {
+                        render_pictures(&id, row, page.gallery.clone(), theme)
+                    }
+                    BriefBody::OnTheWeb(what) => div()
+                        .text_size(dp(12.))
+                        .text_color(theme.text_3)
+                        .child(format!("{what}, which shows on the web"))
+                        .into_any_element(),
+                };
+                (
+                    12.,
+                    self.brief_block(ix, block, state, body, None, cx)
+                        .into_any_element(),
+                )
             }
         };
-        (div().px(dp(24.)).pt(dp(above)))
+        (div().id(("brief-row", ix)).px(dp(24.)).pt(dp(above)))
+            .group(row_group(ix))
+            // A note without a passage goes on what was last clicked in.
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(move |this, _, _, cx| {
+                    if let Some(brief) = this.page.brief_mut() {
+                        brief.cursor = Some(ix);
+                        brief.cursor_shown = false;
+                        cx.notify();
+                    }
+                }),
+            )
             .when(ix + 1 == rows.len(), |el| el.pb(dp(24.)))
-            .child(div().max_w(dp(COLUMN_MAX_WIDTH)).child(content))
+            .child(
+                div()
+                    .relative()
+                    .max_w(dp(match row {
+                        // Code and pictures take all there is, and all else one measure.
+                        Row::Block(at)
+                            if page
+                                .and_then(|page| page.blocks.get(at))
+                                .is_some_and(|block| !matches!(block.body, BriefBody::Text(_))) =>
+                        {
+                            COLUMN_MAX_WIDTH
+                        }
+                        _ => MOST_WORDS_WIDE,
+                    }))
+                    .when(cursor || fresh, |el| {
+                        el.child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .bottom_0()
+                                .left(dp(-10.))
+                                .map(|el| match cursor {
+                                    true => el.w(dp(2.)),
+                                    false => el.w(fixed(1.)),
+                                })
+                                .bg(theme.pop),
+                        )
+                    })
+                    .child(content),
+            )
             .into_any_element()
     }
 
     /// Open or shut the fold at row `ix`, moving the list as little as it can.
-    fn toggle_brief_fold(&mut self, ix: usize, first: usize, count: usize, cx: &mut Context<Self>) {
-        let Some(brief) = self.page.brief_mut() else {
-            return;
-        };
-        let under = ix + 1;
-        match brief.open.insert(first) {
-            true => self.brief_list.splice(under..under, count),
-            false => {
-                brief.open.remove(&first);
-                self.brief_list.splice(under..under + count, 0);
-            }
+    pub(super) fn toggle_brief_part(&mut self, ix: usize, first: usize, cx: &mut Context<Self>) {
+        let before = self.brief_rows().len();
+        if let Some(brief) = self.page.brief_mut() {
+            brief.toggle(BriefFold::Part(first));
         }
+        let after = self.brief_rows().len();
+        let under = ix + 1;
+        self.brief_list.splice(
+            under..under + before.saturating_sub(after),
+            after.saturating_sub(before),
+        );
         cx.notify();
     }
-}
 
-/// What the brief is, who wrote it and how it stands, with the way to the web, which often shows
-/// more than this does. What `found` says shows at once, and the rest as the version's read.
-fn brief_head(
-    found: &Found,
-    shown: Option<&Result<BriefPage, String>>,
-    commits: &[CommitId],
-    theme: &Theme,
-) -> Div {
-    let page = shown.and_then(|shown| shown.as_ref().ok());
-    let version = found.matched.version;
-    let mut meta: Vec<String> = Vec::new();
-    meta.extend(page.and_then(|page| page.published).map(ago));
-    meta.push(match found.latest > version {
-        true => format!("Version {version} of {}", found.latest),
-        false => format!("Version {version}, the latest"),
-    });
-    meta.push(briefs::standing(found, commits));
-    // A brief can explain code at one commit, which compares nothing.
-    if let Some(changed) = (page.and_then(|page| page.changed)).filter(|c| c.files > 0) {
-        meta.push(format!(
-            "Covers {} +{} -{}",
-            plural(changed.files as usize, "file"),
-            changed.additions,
-            changed.deletions
-        ));
+    /// One heading's worth of block `at`'s words, ready for row `ix`.
+    fn brief_words(
+        &self,
+        ix: usize,
+        at: usize,
+        from: usize,
+        to: usize,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let state = self.page.brief()?;
+        let page = state.page()?;
+        let block = page.blocks.get(at)?;
+        let BriefBody::Text(paragraphs) = &block.body else {
+            return None;
+        };
+        let id = block_id(&page.id, at, from);
+        let select = self.note_select(&id, cx);
+        let words = paragraphs.get(from..to).unwrap_or_default();
+        let body = markdown::render(&id, words, Some(select), Theme::get(cx));
+        Some(
+            self.brief_block(ix, block, state, body, Some(words), cx)
+                .into_any_element(),
+        )
     }
-    let title = page.map_or(found.title.as_str(), |page| page.title.as_str());
-    let url = briefs::web_url(&found.id, version);
-    let status = match shown {
-        None => Some("Loading…".to_owned()),
-        Some(Err(err)) => Some(format!("Couldn't read this brief: {err}")),
-        Some(Ok(_)) => None,
-    };
-    v_flex()
-        .gap(dp(10.))
-        .child(
-            h_flex()
-                .items_start()
-                .flex_wrap()
-                .gap(dp(12.))
-                .child(
-                    // In a narrow tile the button goes under, rather than crushing this.
-                    div()
-                        .flex_1()
-                        .min_w(dp(200.))
-                        .text_size(dp(18.))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(theme.text_1)
-                        .child(title.to_owned()),
-                )
-                .child(
-                    button("brief-web", "Open on the web")
-                        .icon(Icon::Globe)
-                        .style(ButtonStyle::Outline)
-                        .on_click(move |_, _, cx| cx.open_url(&url)),
-                ),
-        )
-        .child(
-            h_flex()
-                .flex_wrap()
-                .gap(dp(8.))
-                .text_size(dp(12.))
-                .text_color(theme.text_2)
-                .child(person_avatar(&found.author.name, 18., theme))
-                .child(found.author.name.clone())
-                .children(meta.into_iter().map(|part| div().min_w_0().child(part))),
-        )
-        .children(status.map(|status| small_line(&status, theme.text_3)))
 }
 
-/// What block `at` of brief `brief` draws its text as, which selecting it goes by.
-fn block_id(brief: &str, at: usize) -> String {
-    format!("brief-{brief}-{at}")
+/// What hovering row `ix` lights up beside its words. The row is the list's whole width, so what
+/// shows in the margin is still there when the pointer gets to it.
+pub(super) fn row_group(ix: usize) -> SharedString {
+    format!("brief-row-{ix}").into()
+}
+
+/// What the paragraphs from `from` of block `at` of brief `brief` draw as, which selecting goes
+/// by.
+fn block_id(brief: &str, at: usize, from: usize) -> String {
+    format!("brief-{brief}-{at}-{from}")
+}
+
+/// The block and paragraph a [`block_id`] of brief `brief` is of.
+fn block_place(id: &str, brief: &str) -> Option<(usize, usize)> {
+    let (at, from) = id
+        .strip_prefix(&format!("brief-{brief}-"))?
+        .split_once('-')?;
+    Some((at.parse().ok()?, from.parse().ok()?))
 }
 
 /// A small line of words around a block.
@@ -387,34 +719,47 @@ fn small_line(words: &str, color: Hsla) -> Div {
     (div().text_size(dp(12.)).text_color(color)).child(words.to_owned())
 }
 
-fn render_block(id: &str, body: &BriefBody, select: markdown::Select, theme: &Theme) -> AnyElement {
-    match body {
-        BriefBody::Text(blocks) => markdown::render(id, blocks, Some(select), theme),
-        BriefBody::Code { path, parts } => v_flex()
+/// Pictures to see together, across at one height, with the words that say which is which over
+/// them. Each takes its share by how wide it is for how tall, which gives them all one height.
+fn render_pictures(
+    id: &str,
+    row: &Pictures,
+    gallery: Arc<[markdown::Image]>,
+    theme: &Theme,
+) -> AnyElement {
+    let cell = |picture: &BriefPicture| {
+        v_flex()
             .gap(dp(6.))
-            .child(small_line(path, theme.text_2))
-            .children(parts.iter().map(|lines| diff::excerpt(lines, theme)))
-            .into_any_element(),
-        BriefBody::Picture {
-            title,
-            image,
-            caption,
-        } => v_flex()
-            .gap(dp(6.))
+            .min_w_0()
             .children(
-                title
-                    .as_deref()
+                (picture.title.as_deref())
                     .map(|title| small_line(title, theme.text_1).font_weight(FontWeight::SEMIBOLD)),
             )
-            .child(markdown::render(id, image, None, theme))
-            .when(!caption.is_empty(), |el| {
-                el.child(small_line(caption, theme.text_3))
+            .child(markdown::figure(
+                format!("{id}-{}", picture.at),
+                gallery.clone(),
+                picture.at,
+            ))
+            .when(!picture.caption.is_empty(), |el| {
+                el.child(small_line(&picture.caption, theme.text_3))
             })
+    };
+    let holder = div().w_full().max_w(dp(row.widest()));
+    match row.stacked {
+        true => holder
+            .child(
+                v_flex()
+                    .gap(dp(12.))
+                    .children(row.pictures.iter().map(cell)),
+            )
             .into_any_element(),
-        BriefBody::OnTheWeb(what) => div()
-            .text_size(dp(12.))
-            .text_color(theme.text_3)
-            .child(format!("{what}, which shows on the web"))
+        false => holder
+            .child(
+                h_flex().items_start().gap(dp(10.)).children(
+                    (row.pictures.iter())
+                        .map(|picture| cell(picture).flex_grow(picture.ratio).flex_basis(dp(0.))),
+                ),
+            )
             .into_any_element(),
     }
 }
@@ -426,6 +771,9 @@ mod tests {
     fn blocks(details: &[Option<&str>]) -> Vec<BriefBlock> {
         (details.iter())
             .map(|detail| BriefBlock {
+                positions: 1..=1,
+                fresh: false,
+                only_new: None,
                 detail: detail.map(str::to_owned),
                 body: BriefBody::OnTheWeb(String::new()),
             })
@@ -437,18 +785,19 @@ mod tests {
         let blocks = blocks(&[None, Some("How"), Some("How"), Some("Why"), None]);
         let shut = HashSet::new();
         assert_eq!(
-            rows(&blocks, &shut),
+            rows(&blocks, &shut, false),
             [
                 Row::Head,
                 Row::Block(0),
                 Row::Fold { first: 1, count: 2 },
                 Row::Fold { first: 3, count: 1 },
                 Row::Block(4),
+                Row::End,
             ],
             "a fold is shut at first, each teaser its own"
         );
         assert_eq!(
-            rows(&blocks, &HashSet::from([1])),
+            rows(&blocks, &HashSet::from([BriefFold::Part(1)]), false),
             [
                 Row::Head,
                 Row::Block(0),
@@ -457,8 +806,55 @@ mod tests {
                 Row::Block(2),
                 Row::Fold { first: 3, count: 1 },
                 Row::Block(4),
+                Row::End,
             ],
             "an open fold lists its blocks under it"
+        );
+    }
+
+    #[test]
+    fn words_get_a_row_for_each_heading() {
+        let mut blocks = blocks(&[None]);
+        blocks[0].body = BriefBody::Text(markdown::parse("Opening\n\n## One\n\nA\n\n## Two\n\nB"));
+        assert_eq!(
+            rows(&blocks, &HashSet::new(), false),
+            [
+                Row::Head,
+                Row::Text {
+                    at: 0,
+                    from: 0,
+                    to: 1
+                },
+                Row::Text {
+                    at: 0,
+                    from: 1,
+                    to: 3
+                },
+                Row::Text {
+                    at: 0,
+                    from: 3,
+                    to: 5
+                },
+                Row::End,
+            ],
+        );
+    }
+
+    #[test]
+    fn who_read_the_last_version_sees_only_what_changed() {
+        let mut blocks = blocks(&[None, None, Some("Why"), None]);
+        blocks[1].fresh = true;
+        assert_eq!(
+            rows(&blocks, &HashSet::new(), true),
+            [
+                Row::Head,
+                Row::Since,
+                Row::Unchanged(1),
+                Row::Block(1),
+                Row::Unchanged(2),
+                Row::End,
+            ],
+            "what hasn't changed folds away in runs, whatever else folds it"
         );
     }
 }

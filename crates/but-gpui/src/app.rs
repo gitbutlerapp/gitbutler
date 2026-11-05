@@ -1571,6 +1571,22 @@ impl AppView {
     }
 
     /// Go to `tab` of `project`'s page.
+    /// A brief's command from the palette with the keys elsewhere, as in the navigator: the page
+    /// handles it, so it goes there.
+    fn brief_command<A: gpui::Action + Clone>(
+        &mut self,
+        action: &A,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.detail.read(cx).is_focused(window, cx) {
+            return;
+        }
+        let focus = self.detail.read(cx).focus_handle(cx);
+        window.focus(&focus, cx);
+        window.dispatch_action(Box::new(action.clone()), cx);
+    }
+
     pub(crate) fn open_project_tab(
         &mut self,
         project: ProjectId,
@@ -5025,6 +5041,12 @@ impl Render for AppView {
                         .update(cx, |detail, cx| detail.show_brief(window, cx))
                 }),
             )
+            .on_action(cx.listener(Self::brief_command::<crate::detail::WriteNote>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::SendNotes>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::Approve>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::Hold>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::NextBrief>))
+            .on_action(cx.listener(Self::brief_command::<crate::detail::PreviousBrief>))
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
             }))

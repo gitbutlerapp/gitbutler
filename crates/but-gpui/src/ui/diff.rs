@@ -1150,15 +1150,20 @@ pub(super) fn line_card(
 /// A few lines of a diff quoted where they're talked about, as a pull request's thread quotes
 /// them: numbered and tinted as the diff draws them, long ones wrapping.
 pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
+    excerpt_flat(lines, theme)
+        .rounded(dp(6.))
+        .border_1()
+        .border_color(theme.border_3)
+        .overflow_hidden()
+}
+
+/// An [`excerpt`] with no edge of its own, for inside a card.
+pub fn excerpt_flat(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
     let widest = (lines.iter())
         .filter_map(|line| line.new.or(line.old))
         .max();
     let digits = widest.map_or(1, |n| n.to_string().len());
     v_flex()
-        .rounded(dp(6.))
-        .border_1()
-        .border_color(theme.border_3)
-        .overflow_hidden()
         .font_family(theme.diff_font.clone())
         .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))

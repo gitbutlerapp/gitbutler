@@ -26,7 +26,7 @@ use gpui::{
     Pixels, Point, SharedString, StrikethroughStyle, Styled, StyledText, TextLayout, TextRun,
     UnderlineStyle, Window, canvas, div, prelude::FluentBuilder,
 };
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{BlockQuoteKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
 use super::{TextPoint, Tooltip, dp, fixed, h_flex, selected_part, text_index, v_flex};
 use crate::backend::images;
@@ -130,6 +130,8 @@ pub struct Style {
     pub code: bool,
     /// Matches a search, tinted as the diff's find tints its matches.
     pub mark: bool,
+    /// New since what was read before.
+    pub fresh: bool,
 }
 
 /// What the pointer does to a description's text, and what of it is selected, at points by
@@ -217,7 +219,7 @@ pub fn selected_text(blocks: &[Block], range: (TextPoint, TextPoint)) -> String 
 /// app's address or script, or a path the forge resolves against the repository, stays text.
 fn safe_link(url: &str) -> bool {
     let lower = url.trim().to_ascii_lowercase();
-    ["https://", "http://", "mailto:"]
+    ["https://", "http://", "mailto:", ANCHOR]
         .iter()
         .any(|scheme| lower.starts_with(scheme))
 }
@@ -630,9 +632,29 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 close(&mut blocks, &mut current);
                 current = Some(open(Kind::Code, &lists, quotes, outermost));
             }
-            Event::Start(Tag::BlockQuote(_)) => {
+            Event::Start(Tag::BlockQuote(alert)) => {
                 close(&mut blocks, &mut current);
                 quotes += 1;
+                // An alert says what kind it is above its words, as GitHub draws it.
+                if let Some(alert) = alert {
+                    let word = match alert {
+                        BlockQuoteKind::Note => "Note",
+                        BlockQuoteKind::Tip => "Tip",
+                        BlockQuoteKind::Important => "Important",
+                        BlockQuoteKind::Warning => "Warning",
+                        BlockQuoteKind::Caution => "Caution",
+                    };
+                    let mut label = open(Kind::Paragraph, &lists, quotes, outermost);
+                    label.text.push_str(word);
+                    label.styles.push((
+                        0..word.len(),
+                        Style {
+                            bold: true,
+                            ..Default::default()
+                        },
+                    ));
+                    blocks.push(label);
+                }
             }
             Event::End(TagEnd::BlockQuote(_)) => {
                 close(&mut blocks, &mut current);
@@ -925,6 +947,21 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     blocks
 }
 
+/// How a link to a part of the same document starts, which whatever shows the document follows
+/// by [`FollowAnchor`], as nothing outside it could.
+pub const ANCHOR: &str = "anchor:";
+
+/// A link to part of the document was clicked, naming the part.
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = markdown, no_json)]
+pub struct FollowAnchor(pub String);
+
+/// Image `at` of `gallery`, filling the width of what it's in, which a click previews with the
+/// rest a key away.
+pub fn figure(id: impl Into<SharedString>, gallery: Arc<[Image]>, at: usize) -> impl IntoElement {
+    figure::Figure::new(id, gallery, at).fill()
+}
+
 /// The images a description draws, in order, and where each block's first is among them, so a
 /// preview pages through all of them.
 struct Gallery {
@@ -1192,6 +1229,7 @@ fn text(
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
                     mark: all.mark || style.mark,
+                    fresh: all.fresh || style.fresh,
                 });
             let linked = block.links.iter().any(|(range, _)| range.contains(&at));
             let weight = match (style.bold || heading, style.italic) {
@@ -1214,6 +1252,7 @@ fn text(
                     _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
                         Some(theme.blue.opacity(0.3))
                     }
+                    _ if style.fresh => Some(theme.pop.opacity(0.2)),
                     (true, _) => Some(theme.warn.opacity(0.28)),
                     (false, true) => Some(theme.fill_gray.opacity(0.12)),
                     (false, false) => None,
@@ -1247,14 +1286,24 @@ fn text(
             // A drag that selected text doesn't open the link it lets go on.
             let selected_any = range.is_some();
             InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
-                .on_click(ranges, move |link, _, cx: &mut App| {
-                    if let Some(url) = urls.get(link).filter(|_| !selected_any) {
-                        cx.open_url(url)
+                .on_click(ranges, move |link, window, cx: &mut App| {
+                    let Some(url) = urls.get(link).filter(|_| !selected_any) else {
+                        return;
+                    };
+                    match url.strip_prefix(ANCHOR) {
+                        Some(part) => {
+                            window.dispatch_action(Box::new(FollowAnchor(part.to_owned())), cx)
+                        }
+                        None => cx.open_url(url),
                     }
                 })
                 .tooltip(move |at, window, cx| {
                     let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;
-                    Some(Tooltip::text(url.clone())(window, cx))
+                    let words = match url.starts_with(ANCHOR) {
+                        true => "Go to that part".to_owned(),
+                        false => url.clone(),
+                    };
+                    Some(Tooltip::text(words)(window, cx))
                 })
                 .into_any_element()
         }
@@ -1264,6 +1313,22 @@ fn text(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_alert_says_what_kind_it_is() {
+        let blocks = parse("> [!IMPORTANT]\n> Teams decide.");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, "Important"),
+                (&Kind::Paragraph, "Teams decide.")
+            ]
+        );
+        assert!(
+            blocks.iter().all(|block| block.quoted),
+            "both are in the quote"
+        );
+    }
 
     fn texts(blocks: &[Block]) -> Vec<(&Kind, &str)> {
         blocks
@@ -1275,14 +1340,6 @@ mod tests {
     /// Where `block`'s links go.
     fn urls(block: &Block) -> Vec<&str> {
         block.links.iter().map(|(_, url)| url.as_str()).collect()
-    }
-
-    #[test]
-    fn a_github_alert_reads_as_a_quote_without_its_marker() {
-        let blocks = parse("> [!NOTE]\n> Mind the gap");
-        assert_eq!(blocks.len(), 1, "the marker is no block of its own");
-        assert_eq!(blocks[0].text, "Mind the gap", "GitHub doesn't show it");
-        assert!(blocks[0].quoted, "it still sets the passage apart");
     }
 
     #[test]
