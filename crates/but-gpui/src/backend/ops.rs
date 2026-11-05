@@ -2918,6 +2918,55 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn an_amend_of_nothing_with_a_message_only_rewords() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Work"]);
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let into = head(path);
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let amend = Amend {
+                message: Some("Better".into()),
+                ..amend_main(into, Vec::new())
+            };
+            let (amended, ran) = crate::backend::apply(path, amend).unwrap();
+
+            assert_eq!(
+                amended.rewritten.get(&into),
+                Some(&head(path)),
+                "what it became is the commit at the head"
+            );
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]).trim(),
+                "Better",
+                "the commit has the new message"
+            );
+            assert_eq!(
+                git(path, &["show", "HEAD:file"]),
+                "one\n",
+                "and none of the changes"
+            );
+            assert_eq!(uncommitted(path).len(), 1, "which stay uncommitted");
+            assert_eq!(
+                entries_since(path, before).trim().lines().count(),
+                1,
+                "it's one undo step"
+            );
+
+            undo(path, ran.recorded.unwrap(), None).unwrap();
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%B"]).trim(),
+                "Work",
+                "undo brings the message back"
+            );
+        })
+    }
+
+    #[test]
     fn an_amend_can_empty_the_message() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");

@@ -507,6 +507,9 @@ pub struct Prefs {
     /// A click on a navigator branch lists its commits too, folding the ones a click listed
     /// before. Off unless picked, as with several branches it keeps moving the rows.
     pub open_branch_on_click: bool,
+    /// The commit composer opens with every file left out, for what goes in to be checked,
+    /// rather than with them all in.
+    pub composer_starts_unchecked: bool,
     /// The window's top right corner shows the frames drawn in the last second. Only Settings'
     /// Developer page, in a build of its own, turns it on.
     pub show_fps: bool,
