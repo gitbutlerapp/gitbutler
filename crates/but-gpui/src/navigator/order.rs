@@ -9,7 +9,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
     Stateful, Window, actions, prelude::*,
 };
 
@@ -424,6 +424,7 @@ impl Navigator {
         let drag = TerminalDrag {
             project: item.project().clone(),
             id,
+            left_zone_end: None,
         };
         el.on_drag(drag, move |drag, offset, window, cx| {
             let pill = preview(drag, offset, window, cx);
@@ -438,8 +439,8 @@ impl Navigator {
     }
 
     /// Show the terminal dragged by its row where letting go puts it, as [`terminal_slot`]
-    /// says, the terminals around it sliding to make room; away from its project's card, it
-    /// stays where it is.
+    /// says, the terminals around it sliding to make room; away from its project's card, or
+    /// still in the zone along the left of the tiles, it stays where it is.
     pub(super) fn follow_terminal_drag(
         &mut self,
         event: &DragMoveEvent<TerminalDrag>,
@@ -449,7 +450,7 @@ impl Navigator {
         let at = event.event.position;
         let drag = event.drag(cx);
         let (project, id) = (drag.project.clone(), drag.id);
-        let depth = (event.bounds.contains(&at))
+        let depth = takes_terminal(event.bounds, at, drag.left_zone_end)
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
         let stop = depth.and_then(|depth| {
@@ -682,6 +683,16 @@ fn worktree_slot(
     })
 }
 
+/// Whether the navigator, in `bounds`, takes a terminal dragged with the pointer `at`: only
+/// left of `left_zone_end`, as up to there the zone along the left of the tiles has it.
+fn takes_terminal(
+    bounds: Bounds<Pixels>,
+    at: Point<Pixels>,
+    left_zone_end: Option<Pixels>,
+) -> bool {
+    bounds.contains(&at) && left_zone_end.is_none_or(|end| at.x < end)
+}
+
 /// Where terminal `id` of `project`, dragged by its row, goes among the terminals of the
 /// worktrees `lists` has, as `rows` show them, from a pointer `depth` down the rows
 /// ([`span_height`]): the place, before one of the others or after them all under a worktree's
@@ -739,13 +750,14 @@ fn terminal_slot(
 #[cfg(test)]
 mod tests {
     use bstr::BString;
+    use gpui::{Bounds, point, size};
 
-    use super::{CardSlot, Row, cards, nearest_slot, terminal_slot, worktree_slot};
+    use super::{CardSlot, Row, cards, nearest_slot, takes_terminal, terminal_slot, worktree_slot};
     use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
     use crate::terminal::TerminalId;
     use crate::transfer::Slot;
-    use crate::ui::ROW_HEIGHT;
+    use crate::ui::{ROW_HEIGHT, fixed};
 
     /// Project `p`'s card with linked worktrees `a`, `b` and `c` listed in `order`, each its
     /// heading, `b` open on two more rows, and a divider below; and its rows, with how far down
@@ -947,6 +959,29 @@ mod tests {
             (Checkout::Main, vec![TerminalId(1), TerminalId(2)]),
             (Checkout::Linked("w".into()), vec![TerminalId(3)]),
         ]
+    }
+
+    #[test]
+    fn the_navigator_takes_a_terminal_only_past_the_zone_along_the_left_of_the_tiles() {
+        let bounds = Bounds::new(point(fixed(0.), fixed(0.)), size(fixed(340.), fixed(800.)));
+        let at = |x| point(fixed(x), fixed(100.));
+        let end = Some(fixed(288.));
+        assert!(
+            !takes_terminal(bounds, at(300.), end),
+            "over the navigator but in the zone, the zone has it"
+        );
+        assert!(
+            takes_terminal(bounds, at(287.), end),
+            "past the zone, the navigator takes it"
+        );
+        assert!(
+            takes_terminal(bounds, at(300.), None),
+            "with no zone, as for a row, all of the navigator takes it"
+        );
+        assert!(
+            !takes_terminal(bounds, at(400.), None),
+            "outside the navigator it stays where it is"
+        );
     }
 
     #[test]
