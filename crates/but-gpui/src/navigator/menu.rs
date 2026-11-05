@@ -312,13 +312,11 @@ impl Navigator {
                 command(&MoveSelection),
                 MenuItem::discard_row(target, cx),
             ],
-            // A remote's commit can be copied into a branch here, or its ID copied, and a
-            // branch's marked read or unread.
+            // A remote's commit can be copied into a branch here, its ID copied, and it can be
+            // marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
-                let commit = (ref_name.as_ref()).and_then(|ref_name| {
-                    let commits = store.workspace(project)?.upstream(Some(ref_name));
-                    commits.iter().find(|commit| commit.id == *id)
-                });
+                let commit = (store.workspace(project))
+                    .and_then(|ws| ws.upstream(ref_name).iter().find(|commit| commit.id == *id));
                 let marks = read_marks(store, project, commit, cx);
                 let mut items = vec![
                     command(&CherryPick),

@@ -27,7 +27,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person,
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{Pane, Part, ProjectId, ProjectTab, Section, Selection};
+use crate::state::{Pane, Part, ProjectId, ProjectTab, Selection};
 use crate::theme::Theme;
 use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
@@ -1404,14 +1404,14 @@ impl Detail {
         (id == commit.id).then(|| commit.review.as_ref()?.url.clone())?
     }
 
-    /// Register what's done to the target's commit picked, from the list or its header:
-    /// copying its ID, and copying one coming in into the workspace.
+    /// Register what's done to the target's commit picked on the project's page, from the
+    /// list or its header: copying its ID, and copying one coming in into the workspace.
     pub(super) fn upstream_page_actions(
         &self,
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let Some(Selection::Section(project, Section::Upstream(_))) = self.selection() else {
+        let Some(project) = self.on_tab(ProjectTab::Overview) else {
             return el;
         };
         let Some((commit, id)) = self.picked_target_commit(&project) else {

@@ -339,7 +339,7 @@ impl Detail {
             }
             Messages::Upstream(project, ref_name) => {
                 let workspace = store.workspace(&project);
-                let (label, count, _) = upstream_label(workspace, ref_name.as_ref());
+                let (label, count, _) = upstream_label(workspace, &ref_name);
                 (Icon::ArrowDown, label.into(), Some(count))
             }
             Messages::TargetCommit(project) => {
@@ -352,14 +352,9 @@ impl Detail {
             }
             Messages::UpstreamCommit(project, ref_name, id) => {
                 let ws = store.workspace(&project)?;
-                let title = match ws.upstream(ref_name.as_ref()).iter().find(|c| c.id == id) {
+                let title = match ws.upstream(&ref_name).iter().find(|c| c.id == id) {
                     Some(c) => &c.title,
-                    None => {
-                        &store
-                            .merged_upstream(&project, ref_name.as_ref(), id)?
-                            .1
-                            .title
-                    }
+                    None => &store.merged_upstream(&project, &ref_name, id)?.1.title,
                 };
                 (Icon::ArrowDown, commit_title(title), None)
             }

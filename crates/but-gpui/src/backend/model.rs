@@ -273,15 +273,9 @@ impl Workspace {
         }
     }
 
-    /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
-    /// target's that the workspace doesn't have yet, newest first.
-    pub fn upstream(&self, ref_name: Option<&FullName>) -> &[RemoteCommit] {
-        match ref_name {
-            Some(ref_name) => self
-                .find_branch(Some(ref_name))
-                .map_or(&[], |b| &b.incoming),
-            None => self.target.as_ref().map_or(&[], |t| &t.incoming),
-        }
+    /// The commits only branch `ref_name`'s remote has, newest first.
+    pub fn upstream(&self, ref_name: &FullName) -> &[RemoteCommit] {
+        (self.find_branch(Some(ref_name))).map_or(&[], |b| &b.incoming)
     }
 
     pub fn find_branch(&self, ref_name: Option<&FullName>) -> Option<&Branch> {

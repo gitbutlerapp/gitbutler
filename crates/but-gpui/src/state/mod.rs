@@ -84,9 +84,9 @@ pub enum Selection {
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, Option<FullName>),
     Commit(ProjectId, CommitId),
-    /// A commit only a remote has: one of a branch's (by its full ref) its remote has, or
-    /// with `None` one of the target's the workspace doesn't have yet.
-    Upstream(ProjectId, Option<FullName>, CommitId),
+    /// A commit only a branch's remote has, by the branch's full ref. The target's new
+    /// commits are listed on the project's page.
+    Upstream(ProjectId, FullName, CommitId),
     /// A checkout of the project on one of the user's other machines, by the mesh's id for
     /// it, or a branch or commit in it.
     Mesh(ProjectId, Arc<str>, MeshPick),
@@ -146,9 +146,8 @@ impl ProjectTab {
 )]
 #[strum_discriminants(name(SectionKind), derive(strum::EnumIter))]
 pub enum Section {
-    /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
-    /// target's new ones.
-    Upstream(Option<FullName>),
+    /// The commits only a branch's remote has, by the branch's full ref.
+    Upstream(FullName),
     /// The linked worktrees with nothing going on lately.
     Inactive,
     /// The checkouts on the user's other machines.
@@ -182,8 +181,8 @@ impl Selection {
     pub fn under(&self, branch: &Branch) -> bool {
         match self {
             Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
-            Selection::Upstream(_, Some(ref_name), _)
-            | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
+            Selection::Upstream(_, ref_name, _)
+            | Selection::Section(_, Section::Upstream(ref_name)) => {
                 branch.ref_name.as_ref() == Some(ref_name)
             }
             _ => false,
@@ -719,12 +718,12 @@ impl Store {
         .detach();
     }
 
-    /// Commit `id` of those the merges only `ref_name`'s remote has (the target's with
-    /// `None`) brought in, as read so far, and the merge that brought it.
+    /// Commit `id` of those the merges only `ref_name`'s remote has brought in, as read so
+    /// far, and the merge that brought it.
     pub fn merged_upstream(
         &self,
         project: &str,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         id: CommitId,
     ) -> Option<(CommitId, &TargetCommit)> {
         let merges = self.workspace(project)?.upstream(ref_name).iter();
@@ -869,19 +868,17 @@ impl Store {
             return;
         };
         if !self.still_there(&selection) {
-            // A remote's commit, pulled or brought in by an update, goes up to its branch, or
-            // the target's to the project's page, as does a section emptied.
+            // A remote's commit, pulled or brought in by an update, goes up to its branch while
+            // it's there, else to the project's page, as does a section emptied.
             let project = selection.project().clone();
             let home = match selection {
-                Selection::Upstream(_, Some(ref_name), _)
-                | Selection::Section(_, Section::Upstream(Some(ref_name)))
+                Selection::Upstream(_, ref_name, _)
+                | Selection::Section(_, Section::Upstream(ref_name))
                     if workspace.find_branch(Some(&ref_name)).is_some() =>
                 {
                     Selection::Branch(project, Some(ref_name))
                 }
-                Selection::Upstream(_, None, _) | Selection::Section(..) => {
-                    Selection::Project(project)
-                }
+                Selection::Upstream(..) | Selection::Section(..) => Selection::Project(project),
                 // Changes all committed or discarded go up to their worktree's heading, if it's
                 // still there.
                 Selection::Uncommitted(_, checkout)
@@ -923,17 +920,15 @@ impl Store {
             // The mesh's reads keep it current.
             Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
             Selection::Section(_, Section::Upstream(ref_name)) => {
-                !workspace.upstream(ref_name.as_ref()).is_empty()
+                !workspace.upstream(ref_name).is_empty()
             }
             Selection::Section(_, Section::Inactive) => {
                 let after = self.prefs.inactive_after;
                 workspace.worktrees.iter().any(|wt| wt.is_inactive(after))
             }
             Selection::Upstream(project, ref_name, id) => {
-                (workspace.upstream(ref_name.as_ref()).iter()).any(|c| c.id == *id)
-                    || self
-                        .merged_upstream(project, ref_name.as_ref(), *id)
-                        .is_some()
+                (workspace.upstream(ref_name).iter()).any(|c| c.id == *id)
+                    || self.merged_upstream(project, ref_name, *id).is_some()
             }
         }
     }
@@ -968,7 +963,7 @@ impl Store {
         }
         // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
         // one only its branch's remote had.
-        if let Some(Selection::Commit(project, id) | Selection::Upstream(project, Some(_), id)) =
+        if let Some(Selection::Commit(project, id) | Selection::Upstream(project, _, id)) =
             &selection
         {
             self.mark_read(project, [*id], true, cx);

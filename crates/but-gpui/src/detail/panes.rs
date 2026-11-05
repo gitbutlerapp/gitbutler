@@ -174,52 +174,33 @@ impl Detail {
                     let label = match section {
                         Section::Inactive => "Inactive worktrees".to_owned(),
                         Section::Mesh => "Network worktrees".to_owned(),
-                        // After the branch, as its commits have it; the target's after the
-                        // project.
-                        Section::Upstream(ref_name) => match ref_name
-                            .as_ref()
-                            .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
-                        {
-                            Some((ref_name, branch)) => {
+                        // After the branch, as its commits have it.
+                        Section::Upstream(ref_name) => {
+                            let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
+                            if let Some(branch) = branch {
                                 let branch_selection =
                                     Selection::Branch(project.clone(), Some(ref_name.clone()));
                                 crumbs.push(heading(&branch_selection));
                                 let name = store.name_of(project, branch).to_owned();
                                 crumbs.push((name.into(), Some(branch_selection.into())));
-                                (branch.remote.as_ref())
-                                    .map_or("On the remote".to_owned(), |r| format!("On {r}"))
                             }
-                            None => {
-                                let target = workspace.and_then(|ws| ws.target_name());
-                                format!("New on {}", target.unwrap_or("the target".into()))
-                            }
-                        },
+                            (branch.and_then(|b| b.remote.as_ref()))
+                                .map_or("On the remote".to_owned(), |r| format!("On {r}"))
+                        }
                     };
                     crumbs.push((label.into(), None));
                 }
-                // After what has it, the branch or the target, which go to their pages.
+                // After the branch that has it, which goes to its page.
                 Selection::Upstream(project, ref_name, id) => {
-                    match ref_name
-                        .as_ref()
-                        .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
-                    {
-                        Some((ref_name, branch)) => {
-                            let branch_selection =
-                                Selection::Branch(project.clone(), Some(ref_name.clone()));
-                            crumbs.push(heading(&branch_selection));
-                            let name = store.name_of(project, branch).to_owned();
-                            crumbs.push((name.into(), Some(branch_selection.into())));
-                        }
-                        None => {
-                            let name = workspace.and_then(|ws| ws.target_name());
-                            let page = CrumbTo::Tab(project.clone(), ProjectTab::Overview);
-                            let name = name.unwrap_or("Target".into()).into_owned();
-                            crumbs.push((name.into(), Some(page)));
-                        }
+                    if let Some(branch) = workspace.and_then(|ws| ws.find_branch(Some(ref_name))) {
+                        let branch_selection =
+                            Selection::Branch(project.clone(), Some(ref_name.clone()));
+                        crumbs.push(heading(&branch_selection));
+                        let name = store.name_of(project, branch).to_owned();
+                        crumbs.push((name.into(), Some(branch_selection.into())));
                     }
                     // A commit a merge brought in, after the merge, as the project's page has it.
-                    if let Some((merge, _)) = store.merged_upstream(project, ref_name.as_ref(), *id)
-                    {
+                    if let Some((merge, _)) = store.merged_upstream(project, ref_name, *id) {
                         let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
                         crumbs.push((merge.short().into(), Some(up.into())));
                     }
@@ -311,18 +292,6 @@ impl Detail {
                                                         cx,
                                                         move |app, window, cx| {
                                                             app.select(selection, window, cx)
-                                                        },
-                                                    )
-                                                }
-                                                CrumbTo::Tab(project, tab) => {
-                                                    let (project, tab) = (project.clone(), *tab);
-                                                    this.app.update_later(
-                                                        window,
-                                                        cx,
-                                                        move |app, window, cx| {
-                                                            app.open_project_tab(
-                                                                project, tab, window, cx,
-                                                            )
                                                         },
                                                     )
                                                 }
@@ -674,7 +643,7 @@ impl Detail {
                 self.branch_messages(&project, ref_name.as_ref(), flat, theme, cx)
             }
             Some(Messages::Upstream(project, ref_name)) => {
-                self.upstream_messages(&project, ref_name.as_ref(), flat, theme, cx)
+                self.upstream_messages(&project, &ref_name, flat, theme, cx)
             }
             Some(Messages::TargetCommit(project)) => {
                 self.target_commit_message(&project, flat, theme, cx)
@@ -683,7 +652,7 @@ impl Detail {
                 self.other_branch_message(&project, entity, flat, theme, cx)
             }
             Some(Messages::UpstreamCommit(project, ref_name, id)) => {
-                self.upstream_commit_message(&project, ref_name.as_ref(), id, flat, theme, cx)
+                self.upstream_commit_message(&project, &ref_name, id, flat, theme, cx)
             }
             None => None,
         };
@@ -764,7 +733,7 @@ impl Detail {
     fn upstream_commit_message(
         &self,
         project: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         id: CommitId,
         flat: bool,
         theme: &Theme,
@@ -774,7 +743,7 @@ impl Detail {
         let title = title_text(commit_title(commit.title))
             .when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
         let body = (!commit.body.is_empty()).then(|| message_body(commit.body.to_owned(), theme));
-        let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
+        let target = Selection::Upstream(project.clone(), ref_name.clone(), id);
         let top = h_flex()
             .items_start()
             .gap(dp(16.))
@@ -790,21 +759,17 @@ impl Detail {
         Some((top, body))
     }
 
-    /// Commit `id` only `ref_name`'s remote has, or with `None` the target's: listed, or
-    /// brought in by a merge that is.
+    /// Commit `id` only `ref_name`'s remote has: listed, or brought in by a merge that is.
     fn remote_message<'a>(
         &self,
         project: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         id: CommitId,
         cx: &'a App,
     ) -> Option<RemoteMessage<'a>> {
         let store = self.store.read(cx);
         let ws = store.workspace(project)?;
-        let remote = match ref_name {
-            Some(ref_name) => (ws.find_branch(Some(ref_name))).and_then(|b| b.remote.as_deref()),
-            None => ws.target.as_ref().map(|target| target.name.as_str()),
-        };
+        let remote = (ws.find_branch(Some(ref_name))).and_then(|b| b.remote.as_deref());
         if let Some(c) = ws.upstream(ref_name).iter().find(|c| c.id == id) {
             return Some(RemoteMessage {
                 title: &c.title,
@@ -889,14 +854,13 @@ impl Detail {
         Some((top, Some(commits)))
     }
 
-    /// The commits only `ref_name`'s remote has, or with `None` the target's new ones: where
-    /// they are and how many, as the navigator's heading says it, then each, newest first, as
-    /// its header would say it, with its whole message. A click on a commit's title opens it.
-    /// The target's lists the newest only, and then how many more its page lists.
+    /// The commits only `ref_name`'s remote has: where they are and how many, as the
+    /// navigator's heading says it, then each, newest first, as its header would say it, with
+    /// its whole message. A click on a commit's title opens it.
     fn upstream_messages(
         &self,
         project: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         flat: bool,
         theme: &Theme,
         cx: &App,
@@ -905,7 +869,7 @@ impl Detail {
         let ws = store.workspace(project)?;
         let (label, _, count) = upstream_label(Some(ws), ref_name);
         let name = title_text(label).when(flat, |el| el.text_size(dp(18.)).line_height(dp(26.)));
-        let target = Selection::Section(project.clone(), Section::Upstream(ref_name.cloned()));
+        let target = Selection::Section(project.clone(), Section::Upstream(ref_name.clone()));
         let top = h_flex()
             .items_start()
             .gap(dp(16.))
@@ -918,40 +882,28 @@ impl Detail {
                     .child(meta_row(theme).child(count)),
             )
             .child(h_flex().h(dp(22.)).child(self.page_menu(target)));
-        let listed = ws.upstream(ref_name);
-        let commits = listed.iter().enumerate().map(|(ix, commit)| {
-            let at = Selection::Upstream(project.clone(), ref_name.cloned(), commit.id);
-            let agent = commit.agent.as_ref();
-            let meta = meta_row(theme)
-                .child(byline(
-                    &commit.author,
-                    &commit.email,
-                    agent,
-                    commit.time,
-                    theme,
-                ))
-                .child(self.sha_chip(commit.id, theme));
-            self.listed_commit(ix, &commit.title, at, meta, &commit.body, theme)
-        });
-        let behind = ws.target.as_ref().filter(|_| ref_name.is_none());
-        let more = behind.map_or(0, |target| target.behind.saturating_sub(listed.len()));
-        let more = (more > 0).then(|| {
-            let (app, project) = (self.app.clone(), project.clone());
-            self.link("upstream-more", format!("{more} more on its page"), theme)
-                .on_click(move |_, window, cx| {
-                    let project = project.clone();
-                    app.update_later(window, cx, move |app, window, cx| {
-                        app.open_project_tab(project, ProjectTab::Overview, window, cx)
-                    });
-                })
-                .text_size(dp(13.))
-                .text_color(theme.text_2)
-        });
+        let commits = ws
+            .upstream(ref_name)
+            .iter()
+            .enumerate()
+            .map(|(ix, commit)| {
+                let at = Selection::Upstream(project.clone(), ref_name.clone(), commit.id);
+                let agent = commit.agent.as_ref();
+                let meta = meta_row(theme)
+                    .child(byline(
+                        &commit.author,
+                        &commit.email,
+                        agent,
+                        commit.time,
+                        theme,
+                    ))
+                    .child(self.sha_chip(commit.id, theme));
+                self.listed_commit(ix, &commit.title, at, meta, &commit.body, theme)
+            });
         let commits = v_flex()
             .max_w(dp(MESSAGE_WIDTH))
             .gap(dp(20.))
-            .children(commits)
-            .children(more.map(|more| h_flex().child(more)));
+            .children(commits);
         Some((top, Some(commits)))
     }
 
@@ -1161,12 +1113,12 @@ impl Detail {
             })
     }
 
-    /// The header of a commit only a remote has, branch `ref_name`'s or with `None` the
-    /// target's: its title, who wrote it and when, its ID, and which remote has it.
+    /// The header of a commit only branch `ref_name`'s remote has: its title, who wrote it and
+    /// when, its ID, and which remote has it.
     pub(super) fn render_upstream_header(
         &self,
         project: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         id: backend::CommitId,
         theme: &Theme,
         window: &Window,
@@ -1180,7 +1132,7 @@ impl Detail {
             page_title(Icon::ArrowDown, theme).child(self.message_title(name, commit.body, cx));
         let meta = self.remote_meta(id, &commit, theme);
         let message = self.message(title, commit.body.to_owned(), theme);
-        let target = Selection::Upstream(project.clone(), ref_name.cloned(), id);
+        let target = Selection::Upstream(project.clone(), ref_name.clone(), id);
         let tabs = self.page_tabs(theme, window, cx);
         self.page_header(message, meta, target, None, tabs, theme)
     }
@@ -1464,8 +1416,6 @@ pub(super) type Crumb = (SharedString, Option<CrumbTo>);
 /// Where clicking a crumb goes: what it names, selected, or picked on the page shown.
 pub(super) enum CrumbTo {
     Select(Selection),
-    /// A project's page, on that tab.
-    Tab(ProjectId, ProjectTab),
     /// Back to how the tab shown opens.
     OpeningOfTab,
     /// On the Branches page, the branch over the commit of it picked.

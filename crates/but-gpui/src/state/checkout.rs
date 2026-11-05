@@ -15,8 +15,8 @@ impl Store {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
                 workspace.lane_of(ref_name.as_ref())
             }
-            Selection::Upstream(_, Some(ref_name), _)
-            | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
+            Selection::Upstream(_, ref_name, _)
+            | Selection::Section(_, Section::Upstream(ref_name)) => {
                 workspace.lane_of(Some(ref_name))
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
@@ -25,7 +25,6 @@ impl Store {
             | Selection::Uncommitted(_, Checkout::Main)
             | Selection::Uncommitted(_, Checkout::Linked(_))
             | Selection::Mesh(..)
-            | Selection::Upstream(_, None, _)
             | Selection::Section(..)
             | Selection::Terminal(..) => None,
         }

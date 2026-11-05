@@ -30,8 +30,8 @@ use crate::clock;
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
 use crate::state::{
-    Axis, DividerDrag, Pane, Prefs, ProjectId, ProjectTab, Section, Selection, Store, StoreEvent,
-    Tile, WatchedOrder,
+    Axis, DividerDrag, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
+    WatchedOrder,
 };
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -45,10 +45,10 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, TILE_MARGIN, Tooltip,
-    WINDOW_CONTROLS_WIDTH, above_drag, ago, blink_once, button, commit_title, dot, dp, faint,
-    field, fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex, icon,
-    icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, relative_time,
-    review, section_label, small_icon, spinning, unread_line, v_flex,
+    WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, dot, dp, faint, field,
+    fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex, icon,
+    icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, review,
+    section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -70,9 +70,8 @@ pub(crate) use rows::{lists_changes, worktrees_listed};
 
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, GUIDE_AT, HEADING_HEIGHT, Moving,
-    ROW_LEFT, Row, RowKey, Rows, in_checkout, in_inactive, inactive_open, last_active, row_keys,
-    span_height,
+    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
+    RowKey, Rows, in_checkout, in_inactive, inactive_open, row_keys, span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -230,23 +229,16 @@ fn step_to(
     })
 }
 
-/// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
-/// step in from their heading, which is under the branch's commit glyphs.
-fn upstream_indent(ref_name: Option<&FullName>) -> f32 {
-    COMMIT_INDENT + if ref_name.is_some() { STEP } else { 0. }
-}
+/// How far a branch's remote's commits sit in: a step in from their heading, which is under
+/// the branch's commit glyphs.
+const UPSTREAM_INDENT: f32 = COMMIT_INDENT + STEP;
 
-/// Where the middles of a remote's heading's chevron and of its merges' chevrons sit: the
-/// target's as the worktree sections' headings have theirs, a branch's under its commit glyphs.
-fn upstream_chevrons(ref_name: Option<&FullName>) -> (f32, f32) {
-    // The middle of a 12-point glyph set in by `indent`, as a commit's is.
-    let glyph = |indent: f32| ROW_LEFT + indent + 6.;
-    let heading = match ref_name {
-        Some(_) => glyph(COMMIT_INDENT),
-        None => GUIDE_AT,
-    };
-    (heading, glyph(upstream_indent(ref_name)))
-}
+/// Where the middle of a branch's remote's heading's chevron sits: that of a 12-point glyph
+/// under the branch's commit glyphs, as a commit's is.
+const UPSTREAM_CHEVRON: f32 = ROW_LEFT + COMMIT_INDENT + 6.;
+
+/// Where the middle of a remote merge's chevron sits, a step in from its heading's.
+const MERGE_CHEVRON: f32 = UPSTREAM_CHEVRON + STEP;
 
 /// A foldable row's click handler: a double-click runs `toggle`, folding or unfolding the
 /// row as its chevron does (see [`Navigator::double_clicked`]), unless the filter lists what
@@ -525,9 +517,9 @@ pub struct Navigator {
     folded_worktrees: HashSet<(ProjectId, Checkout)>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
-    /// The commits only a remote has listed under their heading, a branch's (by its full
-    /// ref) or with `None` the target's. They start folded to the heading.
-    open_upstream: HashSet<(ProjectId, Option<FullName>)>,
+    /// The commits only a branch's remote has listed under their heading, by the branch's
+    /// full ref. They start folded to the heading.
+    open_upstream: HashSet<(ProjectId, FullName)>,
     /// The branch a click on its row opened, which a click on another's folds again; one
     /// opened or folded by hand since stays as it's left.
     click_opened: Option<ClickOpened>,
@@ -678,8 +670,7 @@ impl Navigator {
                     if this.flipped.remove(&here(from)) {
                         this.flipped.insert(here(&to));
                     }
-                    // `None` there is the target's, which no rename is of.
-                    if from.is_some()
+                    if let (Some(from), Some(to)) = (from, &to)
                         && (this.open_upstream).remove(&(project.clone(), from.clone()))
                     {
                         (this.open_upstream).insert((project.clone(), to.clone()));
@@ -1175,11 +1166,9 @@ impl Navigator {
         }
     }
 
-    /// Whether one of the commits only `ref_name`'s remote has, or with `None` the target's
-    /// new ones, is selected.
-    fn upstream_selected(store: &Store, id: &ProjectId, ref_name: Option<&FullName>) -> bool {
-        matches!(&store.selection, Some(Selection::Upstream(p, r, _))
-            if p == id && r.as_ref() == ref_name)
+    /// Whether one of the commits only `ref_name`'s remote has is selected.
+    fn upstream_selected(store: &Store, id: &ProjectId, ref_name: &FullName) -> bool {
+        matches!(&store.selection, Some(Selection::Upstream(p, r, _)) if p == id && r == ref_name)
     }
 
     /// Show the commits remote merge `id` brought in, which load as they open, or fold them,
@@ -1187,7 +1176,7 @@ impl Navigator {
     fn toggle_merge(
         &mut self,
         project: &ProjectId,
-        ref_name: Option<FullName>,
+        ref_name: FullName,
         id: CommitId,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -1199,7 +1188,7 @@ impl Navigator {
         self.open_merges.remove(&id);
         let store = self.store.read(cx);
         let inside = matches!(&store.selection, Some(Selection::Upstream(p, r, c))
-            if p == project && store.merged_upstream(p, r.as_ref(), *c).is_some_and(|(m, _)| m == id));
+            if p == project && store.merged_upstream(p, r, *c).is_some_and(|(m, _)| m == id));
         match inside {
             true => self.select(
                 Selection::Upstream(project.clone(), ref_name, id),
@@ -1210,11 +1199,10 @@ impl Navigator {
         }
     }
 
-    /// Whether the commits only `ref_name`'s remote has, or with `None` the target's new
-    /// ones, are listed under their heading: once it's opened, and while one is selected.
-    fn upstream_open(&self, store: &Store, id: &ProjectId, ref_name: Option<&FullName>) -> bool {
-        self.open_upstream
-            .contains(&(id.clone(), ref_name.cloned()))
+    /// Whether the commits only `ref_name`'s remote has are listed under their heading: once
+    /// it's opened, and while one is selected.
+    fn upstream_open(&self, store: &Store, id: &ProjectId, ref_name: &FullName) -> bool {
+        self.open_upstream.contains(&(id.clone(), ref_name.clone()))
             || Self::upstream_selected(store, id, ref_name)
     }
 
@@ -1250,7 +1238,7 @@ impl Navigator {
             Some(Selection::Upstream(project, ref_name, id))
                 if !self.open_merges.contains(&id)
                     && (store.workspace(&project))
-                        .and_then(|ws| ws.upstream(ref_name.as_ref()).iter().find(|c| c.id == id))
+                        .and_then(|ws| ws.upstream(&ref_name).iter().find(|c| c.id == id))
                         .is_some_and(|commit| commit.merge) =>
             {
                 self.toggle_merge(&project, ref_name, id, window, cx)
@@ -1271,7 +1259,7 @@ impl Navigator {
         let selection = store.selection.clone();
         // A commit a remote's merge brought in goes up to the merge.
         if let Some(Selection::Upstream(project, ref_name, id)) = &selection
-            && let Some((merge, _)) = store.merged_upstream(project, ref_name.as_ref(), *id)
+            && let Some((merge, _)) = store.merged_upstream(project, ref_name, *id)
         {
             let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
             return self.select(up, window, cx);
@@ -1306,7 +1294,7 @@ impl Navigator {
                     self.select(Selection::Branch(project, Some(ref_name)), window, cx);
                 }
             }
-            // An open merge folds; the target's new commits go up to the project, below.
+            // An open merge folds; a remote's commits go up to their heading.
             Some(Selection::Upstream(project, ref_name, id)) if self.open_merges.contains(&id) => {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
@@ -1333,10 +1321,10 @@ impl Navigator {
                     true => self.toggle_heading(project, section, true, window, cx),
                     false => {
                         let up = match section {
-                            Section::Upstream(Some(ref_name)) => {
+                            Section::Upstream(ref_name) => {
                                 Selection::Branch(project, Some(ref_name))
                             }
-                            _ => Selection::Project(project),
+                            Section::Inactive | Section::Mesh => Selection::Project(project),
                         };
                         self.select(up, window, cx)
                     }
@@ -1989,18 +1977,6 @@ impl Navigator {
                 let blink = self.blinking(Blink::Move);
                 moving::new_commit_row(project, inset, blink, self.store.read(cx), theme)
             }
-            Some(Row::UpstreamMore(project, more)) => {
-                let project = project.clone();
-                under_commits("upstream-more", Icon::Kebab)
-                    .child(format!("{more} more on its page"))
-                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                        let project = project.clone();
-                        (this.app).update_later(window, cx, move |app, window, cx| {
-                            app.open_project_tab(project, ProjectTab::Overview, window, cx)
-                        })
-                    }))
-                    .into_any_element()
-            }
             Some(Row::RestsOn(item, checkout)) => {
                 match self.rests_on_label(item, checkout.as_ref(), cx) {
                     Some(label) => {
@@ -2362,10 +2338,10 @@ impl Navigator {
             Selection::Stack(..) => None,
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
-                self.upstream_row(item, id, ref_name.as_ref(), commit, style, cx)
+                self.upstream_row(item, id, ref_name, commit, style, cx)
             }
             Selection::Section(id, Section::Upstream(ref_name)) => {
-                self.upstream_heading(ix, id, ref_name.as_ref(), style, cx)
+                self.upstream_heading(ix, id, ref_name, style, cx)
             }
             Selection::Section(id, Section::Inactive) => {
                 Some(self.inactive_heading(ix, id, style, cx))
@@ -2945,13 +2921,9 @@ impl Navigator {
         let card_folded = expanded && store.project_folded(id) && !filtering;
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
         let hovered = self.watch_hovered.as_ref() == Some(id);
-        // Its target's New on … row, when listed, counts the new commits and has Update.
-        let new_on = (self.rows.iter()).any(|row| {
-            matches!(row, Row::Item(Selection::Section(project, Section::Upstream(None)))
-                if project == id)
-        });
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
-        // say: their uncommitted files and unpushed commits.
+        // say: their uncommitted files and unpushed commits. How far behind the target it is
+        // shows either way, even while a commit is being edited.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
             let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
             let shown = |checkout, files| store.uncommitted_shown(id, &checkout, files).len();
@@ -2960,23 +2932,16 @@ impl Navigator {
             (
                 folded(shown(Checkout::Main, &ws.uncommitted) + in_worktrees.sum::<usize>()),
                 folded(ws.unpushed_commits()),
-                ws.target.as_ref().filter(|_| !new_on),
             )
         });
+        let target = workspace.and_then(|ws| ws.target.as_ref());
         let unread = workspace.is_some_and(|ws| {
             ws.commits().any(|commit| store.is_unread(id, commit))
                 || ws
                     .remote_commits()
                     .any(|commit| store.is_unread(id, commit))
         });
-        // An open project's from what it loaded; a closed one's from what Git last recorded,
-        // as nothing's loaded or watched for it.
-        let activity = match expanded {
-            true => workspace.and_then(|ws| ws.last_activity()),
-            false => last_active(entry),
-        };
-        let needs_update =
-            (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| t.needs_update());
+        let needs_update = target.is_some_and(|t| t.needs_update());
         // The eye and the card's chevron, whose clicks don't select the row. While something is
         // being moved, the eye is only part of the row, which a press puts the move at; the
         // chevron folds the card still.
@@ -3081,8 +3046,8 @@ impl Navigator {
                         ),
                 )
                 // However narrow the navigator, the name stays: what the row sums up gives way
-                // first, a whole item at a time from its end, the age before the counts. Each
-                // item that doesn't fit wraps to a second line, which is cut off.
+                // first, a whole item at a time from its end. Each item that doesn't fit wraps to
+                // a second line, which is cut off.
                 .child(
                     div()
                         .flex_grow(1.)
@@ -3098,34 +3063,22 @@ impl Navigator {
                         .flex_wrap()
                         .overflow_hidden()
                         .gap(dp(8.))
-                        .when_some(summary, |el, (files, unpushed, target)| {
-                            let warn = style.meta(theme.warn);
+                        .when_some(summary, |el, (files, unpushed)| {
                             el.children(style.files(files))
                                 .children(style.unpushed(unpushed))
-                                .children(target.and_then(|t| {
-                                    let behind = plural(t.behind, "commit");
-                                    let tip =
-                                        format!("{behind} behind {}{}", t.name, with_merged(t));
-                                    meta_count(Icon::ArrowDown, t.behind, warn, tip)
-                                }))
                         })
+                        .children(target.and_then(|t| {
+                            let behind = plural(t.behind, "commit");
+                            let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
+                            meta_count(Icon::ArrowDown, t.behind, style.meta(theme.warn), tip)
+                        }))
                         .when(entry.is_loading(), |el| {
                             el.child(small_icon(Icon::Clock).text_color(theme.text_3))
-                        })
-                        .when_some(activity, |el, at| {
-                            el.child(
-                                div()
-                                    .id(ElementId::Name(format!("age-{id}").into()))
-                                    .text_size(dp(11.))
-                                    .text_color(style.muted())
-                                    .tooltip(Tooltip::text(format!("Last active {}", ago(at))))
-                                    .child(relative_time(at)),
-                            )
                         }),
                 )
                 // Only a watched project's: an unwatched one updates from its page or its menu,
                 // which keeps the list of the others quiet.
-                .when(expanded && needs_update && !new_on, |el| {
+                .when(expanded && needs_update, |el| {
                     el.child(self.target_update_button(id, style.solid, cx))
                 })
                 // A watched project's card folds to this row, still watched.
@@ -3758,14 +3711,13 @@ impl Navigator {
         )
     }
 
-    /// A commit only a remote has, among its branch's commits or under the project: a ↓
-    /// where a commit has its glyph, and a hairline while it's unread, as only a branch's get.
-    /// It isn't dragged or edited here.
+    /// A commit only a branch's remote has, among the branch's commits: a ↓ where a commit has
+    /// its glyph, and a hairline while it's unread. It isn't dragged or edited here.
     fn upstream_row(
         &self,
         item: &Selection,
         id: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         commit_id: &CommitId,
         style: RowStyle,
         cx: &Context<Self>,
@@ -3782,12 +3734,12 @@ impl Navigator {
             }
         };
         let title: SharedString = title.into();
-        let unread = listed.is_some_and(|commit| ref_name.is_some() && store.is_unread(id, commit));
+        let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
         let warn = style.meta(style.theme.warn);
         // A merge folds the commits it brought in on a double-click, or by a chevron in its
         // ↓'s place, as wide as the ↓ in the row's flow so its title lines up with theirs.
         let toggle = merge.then(|| {
-            let (project, owner, merge_id) = (id.clone(), ref_name.cloned(), *commit_id);
+            let (project, owner, merge_id) = (id.clone(), ref_name.clone(), *commit_id);
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
@@ -3811,7 +3763,7 @@ impl Navigator {
                 // Under its heading's words, as a branch's commits are under its name.
                 .commit_line(
                     format!("upstream-{id}-{}", commit_id.0),
-                    upstream_indent(ref_name) + if nested { STEP } else { 0. },
+                    UPSTREAM_INDENT + if nested { STEP } else { 0. },
                     glyph,
                     title,
                     unread,
@@ -3850,7 +3802,7 @@ impl Navigator {
     fn heading_open(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
         let store = self.store.read(cx);
         match section {
-            Section::Upstream(ref_name) => self.upstream_open(store, project, ref_name.as_ref()),
+            Section::Upstream(ref_name) => self.upstream_open(store, project, ref_name),
             Section::Inactive => inactive_open(store, project, &store.inactive_worktrees(project)),
             Section::Mesh => self.mesh_open(project, cx),
         }
@@ -3872,9 +3824,7 @@ impl Navigator {
         }
         let store = self.store.read(cx);
         let inside = match &section {
-            Section::Upstream(ref_name) => {
-                Self::upstream_selected(store, &project, ref_name.as_ref())
-            }
+            Section::Upstream(ref_name) => Self::upstream_selected(store, &project, ref_name),
             Section::Inactive => in_inactive(store, &project, &store.inactive_worktrees(&project)),
             Section::Mesh => {
                 matches!(&store.selection, Some(Selection::Mesh(p, ..)) if *p == project)
@@ -3978,34 +3928,29 @@ impl Navigator {
             })
     }
 
-    /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
-    /// ones, a section heading as Network worktrees has: where they are, how many while
-    /// folded, and for a branch, Pull. The branch's own row says when any is unread.
+    /// Over the commits only branch `ref_name`'s remote has, a section heading as Network
+    /// worktrees has: where they are, how many while folded, and Pull. The branch's own row
+    /// says when any is unread.
     fn upstream_heading(
         &self,
         ix: usize,
         project: &ProjectId,
-        ref_name: Option<&FullName>,
+        ref_name: &FullName,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let workspace = store.workspace(project);
+        let can_pull = workspace.is_some_and(|ws| ws.can_pull(ref_name));
         let open = self.upstream_open(store, project, ref_name);
-        let target = workspace.and_then(|ws| ws.target.as_ref());
         let (label, count, tip) = upstream_label(workspace, ref_name);
-        let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update());
-        let can_pull = (ref_name.zip(workspace)).is_some_and(|(r, ws)| ws.can_pull(r));
-        let section = Section::Upstream(ref_name.cloned());
+        let section = Section::Upstream(ref_name.clone());
         let row = self.section_heading(ix, project, &section, label, style, cx);
         let row = row
             .pr(dp(8.))
             // Folded, how many. While they can be pulled it shows open too, as what pulls them.
             .when(!open || can_pull, |el| {
-                el.children(self.pull_count(project, ref_name, count, tip, style, cx))
-            })
-            .when(update, |el| {
-                el.child(self.target_update_button(project, style.solid, cx))
+                el.children(self.pull_count(project, Some(ref_name), count, tip, style, cx))
             });
         Some(row.into_any_element())
     }
@@ -4024,11 +3969,8 @@ impl Navigator {
     ) -> Stateful<Div> {
         let label = label.into();
         let (indent, glyph) = match section {
-            // A branch's under its commit glyphs, the target's as Network worktrees has its own.
-            Section::Upstream(ref_name) => (
-                upstream_chevrons(ref_name.as_ref()).0 - 7. - ROW_LEFT,
-                ref_name.is_none().then_some(Icon::ArrowLineDown),
-            ),
+            // A branch's remote's under its commit glyphs.
+            Section::Upstream(_) => (UPSTREAM_CHEVRON - 7. - ROW_LEFT, None),
             Section::Inactive => (6., Some(Icon::Clock)),
             Section::Mesh => (6., Some(Icon::Globe)),
         };
@@ -4392,33 +4334,19 @@ fn worktree_icon(linked: bool, changed: bool, style: RowStyle) -> Div {
         })
 }
 
-/// What the heading over the commits only `ref_name`'s remote has, or with `None` the
-/// target's new ones, says: where they are, how many, and that count in words.
+/// What the heading over the commits only `ref_name`'s remote has says: where they are, how
+/// many, and that count in words.
 pub(crate) fn upstream_label(
     workspace: Option<&Workspace>,
-    ref_name: Option<&FullName>,
+    ref_name: &FullName,
 ) -> (String, usize, String) {
-    match ref_name {
-        Some(ref_name) => {
-            let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
-            let count = branch.map_or(0, |b| b.incoming.len());
-            let label = match branch.and_then(|b| b.remote.as_ref()) {
-                Some(remote) => format!("On {remote}"),
-                None => "On the remote".to_owned(),
-            };
-            (label, count, plural(count, "commit"))
-        }
-        None => {
-            let target = workspace.and_then(|ws| ws.target.as_ref());
-            let count = target.map_or(0, |t| t.behind);
-            let label = match target {
-                Some(target) => format!("New on {}", target.name),
-                None => "New on the target".to_owned(),
-            };
-            let tip = plural(count, "commit") + &target.map(with_merged).unwrap_or_default();
-            (label, count, tip)
-        }
-    }
+    let branch = workspace.and_then(|ws| ws.find_branch(Some(ref_name)));
+    let count = branch.map_or(0, |b| b.incoming.len());
+    let label = match branch.and_then(|b| b.remote.as_ref()) {
+        Some(remote) => format!("On {remote}"),
+        None => "On the remote".to_owned(),
+    };
+    (label, count, plural(count, "commit"))
 }
 
 /// How many commits the target's merges brought in besides, as " (N counting merged

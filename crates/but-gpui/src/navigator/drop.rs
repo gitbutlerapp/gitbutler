@@ -792,7 +792,7 @@ mod tests {
     fn a_divider_at_the_top_of_a_branch_is_above_its_first_commit() {
         let upstream = Row::Item(Selection::Upstream(
             project(),
-            Some(full("refs/remotes/origin/ui")),
+            full("refs/remotes/origin/ui"),
             id(8),
         ));
         let rows = Vec::from([branch("ui"), upstream, commit(3)]);

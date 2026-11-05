@@ -61,7 +61,7 @@ impl Detail {
                 ProjectTab::Overview | ProjectTab::History | ProjectTab::Graph => None,
             },
             Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
-                .upstream(ref_name.as_ref())
+                .upstream(ref_name)
                 .iter()
                 .find(|commit| commit.id == *id)?
                 .review

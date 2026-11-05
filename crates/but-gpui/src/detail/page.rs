@@ -731,6 +731,7 @@ mod tests {
     use super::{
         CursorPlace, FilePlace, Group, KeptPages, PageKey, PageState, RowPlace, offset_in,
     };
+    use crate::backend::model::build::full;
     use crate::backend::{Checkout, DiffBody, FileChange, FileDiff, FullName, Hunk, HunkKey};
     use crate::detail::{Cursor, Stop};
     use crate::state::{ProjectTab, RowKey, Section, Selection, Tile};
@@ -972,7 +973,7 @@ mod tests {
         let mut page = PageState::of(
             Some(&Selection::Section(
                 "project".into(),
-                Section::Upstream(None),
+                Section::Upstream(full("refs/heads/feature")),
             )),
             ProjectTab::default(),
         );
@@ -1013,7 +1014,7 @@ mod tests {
 
     #[test]
     fn what_a_pull_brings_in_is_a_diff() {
-        let section = Section::Upstream(None);
+        let section = Section::Upstream(full("refs/heads/feature"));
         let selection = Selection::Section("project".into(), section);
         assert!(
             matches!(
