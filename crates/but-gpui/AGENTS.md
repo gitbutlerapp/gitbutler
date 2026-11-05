@@ -247,7 +247,7 @@ and tests it.
   `--features gpui_platform/runtime_shaders` to `cargo check`, `build`, `test` and `clippy`.
 - Keys live in `assets/keymaps`, in Zed's keymap format, written with `secondary-`, which is ⌘ on
   macOS and Ctrl elsewhere. `base.json` holds only the keys macOS gives every app; everything the
-  app gives a meaning to, even ⌘C or ⌘Z, goes in the file of each `keymap::Keymap`. The last
+  app gives a meaning to, even ⌘C or ⌘Z, goes in `standard.json`. The last
   binding for an action is the key menus and tooltips show.
   A dev build binds them from the checkout, and the Edit commands window (`command_editor`)
   writes them there as text edits that keep their comments and order.

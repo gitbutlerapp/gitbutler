@@ -292,9 +292,6 @@ what it covers.
   `nix develop --command crates/but-gpui/scripts/drive.sh …` (needed for `run` and `start`;
   `step` and `stop` don't build).
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) before the command picks the theme.
-- Each run and session starts with app data of its own, so on the GitButler keymap. A
-  `keymap tui` step right after `add` picks the TUI's, as Settings › Keyboard would, without
-  clicking through Settings.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
   performance.
 - The window is never key, even with `activate`, so `on_focus` and `on_blur` listeners never fire, a rename doesn't

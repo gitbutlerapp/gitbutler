@@ -48,24 +48,15 @@ pub enum Place {
     In(Option<String>),
 }
 
-/// How a command's keys in the two keymaps compare.
-#[derive(Clone, Copy, PartialEq)]
-pub enum Coverage {
-    NoKeys,
-    OneKeymap,
-    Differ,
-    Same,
-}
-
 pub struct Row {
     /// The heading it goes under.
     pub group: String,
     pub action: String,
     pub title: String,
     pub place: Place,
-    pub gitbutler: Vec<Key>,
-    pub tui: Vec<Key>,
-    pub coverage: Coverage,
+    pub keys: Vec<Key>,
+    /// Its command has no keys, here or in any other place.
+    pub unbound: bool,
     /// All typing finds it by, in lowercase.
     pub words: String,
     /// What says its command has been audited: every row of a command has the same.
@@ -74,20 +65,13 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn keys(&self, keymap: Keymap) -> &[Key] {
-        match keymap {
-            Keymap::GitButler => &self.gitbutler,
-            Keymap::Tui => &self.tui,
-        }
-    }
-
     /// Whether it's a text field's, which the editor can't change.
     pub fn locked(&self) -> bool {
         self.group == TEXT_FIELDS
     }
 
     fn conflicted(&self) -> bool {
-        (self.gitbutler.iter().chain(&self.tui)).any(|key| !key.conflicts.is_empty())
+        self.keys.iter().any(|key| !key.conflicts.is_empty())
     }
 
     /// Whether every word of `query`, in lowercase, finds it.
@@ -101,26 +85,16 @@ impl Row {
 pub enum Filter {
     All,
     NoKeys,
-    OneKeymap,
-    Differ,
     Conflicts,
 }
 
 impl Filter {
-    pub const ALL: [Filter; 5] = [
-        Filter::All,
-        Filter::NoKeys,
-        Filter::OneKeymap,
-        Filter::Differ,
-        Filter::Conflicts,
-    ];
+    pub const ALL: [Filter; 3] = [Filter::All, Filter::NoKeys, Filter::Conflicts];
 
     pub fn label(self) -> &'static str {
         match self {
             Filter::All => "All",
             Filter::NoKeys => "No keys",
-            Filter::OneKeymap => "One keymap",
-            Filter::Differ => "Keys differ",
             Filter::Conflicts => "Conflicts",
         }
     }
@@ -128,9 +102,7 @@ impl Filter {
     pub fn keeps(self, row: &Row) -> bool {
         match self {
             Filter::All => true,
-            Filter::NoKeys => row.coverage == Coverage::NoKeys,
-            Filter::OneKeymap => row.coverage == Coverage::OneKeymap,
-            Filter::Differ => row.coverage == Coverage::Differ,
+            Filter::NoKeys => row.unbound,
             Filter::Conflicts => row.conflicted(),
         }
     }
@@ -140,9 +112,7 @@ impl Filter {
     pub fn count(self, rows: &[Row]) -> usize {
         match self {
             Filter::Conflicts => rows.iter().filter(|row| self.keeps(row)).count(),
-            Filter::All | Filter::NoKeys | Filter::OneKeymap | Filter::Differ => {
-                commands_in(rows.iter().filter(|row| self.keeps(row)))
-            }
+            Filter::All | Filter::NoKeys => commands_in(rows.iter().filter(|row| self.keeps(row))),
         }
     }
 }
@@ -207,7 +177,8 @@ pub struct Sources<'a> {
 pub fn rows(sources: &Sources<'_>) -> Vec<Row> {
     let mut commands: Vec<&Command> = sources.commands.iter().collect();
     commands.sort_by_key(|command| (group_of(&command.name), command.title.to_lowercase()));
-    let shown = [Keymap::GitButler, Keymap::Tui].map(|keymap| shown_keys(sources, keymap));
+    let keymap = Keymap::default();
+    let shown = shown_keys(sources, keymap);
     let mut rows = Vec::new();
     for command in commands {
         let bound: Vec<&Binding> = (sources.bindings.iter())
@@ -222,24 +193,21 @@ pub fn rows(sources: &Sources<'_>) -> Vec<Row> {
                 places.push(context.clone());
             }
         }
-        let coverage = coverage(&bound);
+        let unbound = bound.is_empty();
         let places = match places.is_empty() {
             true => Vec::from([Place::Unbound]),
             false => places.into_iter().map(Place::In).collect(),
         };
         for place in places {
-            let [in_gitbutler, in_tui] = &shown;
-            let gitbutler = keys_in(&bound, &place, Keymap::GitButler, in_gitbutler, sources);
-            let tui = keys_in(&bound, &place, Keymap::Tui, in_tui, sources);
-            let words = words(command, &place, gitbutler.iter().chain(&tui));
+            let keys = keys_in(&bound, &place, keymap, &shown, sources);
+            let words = words(command, &place, keys.iter());
             rows.push(Row {
                 group: group_of(&command.name).to_owned(),
                 action: command.name.clone(),
                 title: command.title.clone(),
                 place,
-                gitbutler,
-                tui,
-                coverage,
+                keys,
+                unbound,
                 words,
                 audit_key: command.name.clone(),
                 audited: sources.audited.contains(&command.name),
@@ -253,22 +221,6 @@ pub fn rows(sources: &Sources<'_>) -> Vec<Row> {
 /// The start of an action's name.
 fn group_of(name: &str) -> &str {
     name.split("::").next().unwrap_or(name)
-}
-
-fn coverage(bound: &[&Binding]) -> Coverage {
-    let keys_in = |keymap: Keymap| -> BTreeSet<&str> {
-        (bound.iter())
-            .filter(|binding| keymap.files().contains(&binding.file))
-            .map(|binding| binding.keys.as_str())
-            .collect()
-    };
-    let (gitbutler, tui) = (keys_in(Keymap::GitButler), keys_in(Keymap::Tui));
-    match (gitbutler.is_empty(), tui.is_empty()) {
-        (true, true) => Coverage::NoKeys,
-        (true, false) | (false, true) => Coverage::OneKeymap,
-        (false, false) if gitbutler == tui => Coverage::Same,
-        (false, false) => Coverage::Differ,
-    }
 }
 
 /// Each action's last binding in `keymap` on this platform: the one it shows.
@@ -398,9 +350,8 @@ fn text_rows(keys: &[BoundKey], audited: &HashSet<String>) -> Vec<Row> {
                 action: action.to_owned(),
                 title: title.to_owned(),
                 place: Place::In(Some("TextInput".to_owned())),
-                gitbutler: cell.clone(),
-                tui: cell,
-                coverage: Coverage::Same,
+                keys: cell,
+                unbound: false,
                 words: words.to_lowercase(),
                 audited: audited.contains(&audit_key),
                 audit_key,
@@ -415,9 +366,7 @@ mod tests {
 
     use gpui::SharedString;
 
-    use super::{
-        AuditFilter, BoundKey, Command, Coverage, Filter, Place, Row, Sources, TEXT_FIELDS, rows,
-    };
+    use super::{AuditFilter, BoundKey, Command, Filter, Place, Row, Sources, TEXT_FIELDS, rows};
     use crate::keymap::{Binding, KeymapFile};
 
     fn binding(file: KeymapFile, keys: &str, action: &str, context: Option<&str>) -> Binding {
@@ -458,16 +407,14 @@ mod tests {
     fn a_command_has_a_row_for_each_place_its_bound() {
         let commands = [command("a::Run", "Run")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "x", "a::Run", Some("Files")),
-            binding(KeymapFile::Tui, "t", "a::Run", Some("Files")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "x", "a::Run", Some("Files")),
         ];
         let rows = table(&commands, &bindings);
         let places: Vec<&Place> = rows.iter().map(|row| &row.place).collect();
         assert_eq!(rows.len(), 2);
         assert!(places[0] == &Place::In(Some("Diff".to_owned())));
-        assert_eq!(labels(&rows[1].gitbutler), ["X"]);
-        assert_eq!(labels(&rows[1].tui), ["T"]);
+        assert_eq!(labels(&rows[1].keys), ["X"]);
     }
 
     #[test]
@@ -475,7 +422,7 @@ mod tests {
         let rows = table(&[command("a::Run", "Run")], &[]);
         assert_eq!(rows.len(), 1);
         assert!(rows[0].place == Place::Unbound);
-        assert!(rows[0].coverage == Coverage::NoKeys);
+        assert!(rows[0].unbound);
     }
 
     #[test]
@@ -495,58 +442,39 @@ mod tests {
     }
 
     #[test]
-    fn the_shared_keys_show_in_both_keymaps() {
+    fn the_shared_keys_show() {
         let commands = [command("a::Run", "Run")];
         let bindings = [binding(KeymapFile::Base, "r", "a::Run", None)];
         let rows = table(&commands, &bindings);
-        assert_eq!(labels(&rows[0].gitbutler), ["R"]);
-        assert_eq!(labels(&rows[0].tui), ["R"]);
-        assert!(rows[0].gitbutler[0].shared());
-        assert!(rows[0].coverage == Coverage::Same);
+        assert_eq!(labels(&rows[0].keys), ["R"]);
+        assert!(rows[0].keys[0].shared());
     }
 
     #[test]
     fn the_last_binding_on_this_platform_is_the_one_shown() {
         let commands = [command("a::Run", "Run")];
-        let mut elsewhere = binding(KeymapFile::GitButler, "w", "a::Run", None);
+        let mut elsewhere = binding(KeymapFile::Standard, "w", "a::Run", None);
         elsewhere.os = Some(Vec::from(["windows".to_owned()]));
         let bindings = [
-            binding(KeymapFile::GitButler, "a", "a::Run", None),
-            binding(KeymapFile::GitButler, "b", "a::Run", None),
+            binding(KeymapFile::Standard, "a", "a::Run", None),
+            binding(KeymapFile::Standard, "b", "a::Run", None),
             elsewhere,
         ];
         let rows = table(&commands, &bindings);
-        let shown: Vec<bool> = rows[0].gitbutler.iter().map(|key| key.shown).collect();
+        let shown: Vec<bool> = rows[0].keys.iter().map(|key| key.shown).collect();
         assert_eq!(shown, [false, true, false]);
-        assert_eq!(rows[0].gitbutler[2].platforms.as_deref(), Some("Windows"));
-    }
-
-    #[test]
-    fn different_keys_in_the_keymaps_differ() {
-        let commands = [command("a::Run", "Run")];
-        let bindings = [
-            binding(KeymapFile::GitButler, "a", "a::Run", None),
-            binding(KeymapFile::Tui, "b", "a::Run", None),
-        ];
-        assert!(table(&commands, &bindings)[0].coverage == Coverage::Differ);
-    }
-
-    #[test]
-    fn keys_in_only_one_keymap_are_one_keymap() {
-        let commands = [command("a::Run", "Run")];
-        let bindings = [binding(KeymapFile::Tui, "b", "a::Run", None)];
-        assert!(table(&commands, &bindings)[0].coverage == Coverage::OneKeymap);
+        assert_eq!(rows[0].keys[2].platforms.as_deref(), Some("Windows"));
     }
 
     #[test]
     fn the_same_keys_in_the_same_place_conflict() {
         let commands = [command("a::Run", "Run"), command("a::Walk", "Walk")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "r", "a::Walk", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Walk", Some("Diff")),
         ];
         let rows = table(&commands, &bindings);
-        assert_eq!(rows[0].gitbutler[0].conflicts, ["Walk"]);
+        assert_eq!(rows[0].keys[0].conflicts, ["Walk"]);
         assert_eq!(Filter::Conflicts.count(&rows), 2);
     }
 
@@ -554,39 +482,21 @@ mod tests {
     fn the_same_keys_in_another_place_dont_conflict() {
         let commands = [command("a::Run", "Run"), command("a::Walk", "Walk")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "r", "a::Walk", Some("Files")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Walk", Some("Files")),
         ];
-        assert!(
-            table(&commands, &bindings)[0].gitbutler[0]
-                .conflicts
-                .is_empty()
-        );
-    }
-
-    #[test]
-    fn the_same_keys_in_the_other_keymap_dont_conflict() {
-        let commands = [command("a::Run", "Run"), command("a::Walk", "Walk")];
-        let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::Tui, "r", "a::Walk", Some("Diff")),
-        ];
-        assert!(
-            table(&commands, &bindings)[0].gitbutler[0]
-                .conflicts
-                .is_empty()
-        );
+        assert!(table(&commands, &bindings)[0].keys[0].conflicts.is_empty());
     }
 
     #[test]
     fn keys_on_different_platforms_dont_conflict() {
         let commands = [command("a::Run", "Run"), command("a::Walk", "Walk")];
-        let mut mac = binding(KeymapFile::GitButler, "r", "a::Run", None);
+        let mut mac = binding(KeymapFile::Standard, "r", "a::Run", None);
         mac.os = Some(Vec::from(["macos".to_owned()]));
-        let mut windows = binding(KeymapFile::GitButler, "r", "a::Walk", None);
+        let mut windows = binding(KeymapFile::Standard, "r", "a::Walk", None);
         windows.os = Some(Vec::from(["windows".to_owned()]));
         assert!(
-            table(&commands, &[mac, windows])[0].gitbutler[0]
+            table(&commands, &[mac, windows])[0].keys[0]
                 .conflicts
                 .is_empty()
         );
@@ -595,12 +505,7 @@ mod tests {
     #[test]
     fn a_key_for_the_whole_window_conflicts_with_a_text_fields_own() {
         let commands = [command("a::Run", "Run")];
-        let bindings = [binding(
-            KeymapFile::GitButler,
-            "secondary-a",
-            "a::Run",
-            None,
-        )];
+        let bindings = [binding(KeymapFile::Standard, "secondary-a", "a::Run", None)];
         let text_keys = [BoundKey {
             title: "Select all".to_owned(),
             action: "text_input::SelectAll",
@@ -615,16 +520,13 @@ mod tests {
             audited: &HashSet::new(),
             os: "macos",
         });
-        assert_eq!(
-            rows[0].gitbutler[0].conflicts,
-            ["Select all in a text field"]
-        );
+        assert_eq!(rows[0].keys[0].conflicts, ["Select all in a text field"]);
     }
 
     #[test]
     fn a_key_for_another_platform_doesnt_conflict_with_this_ones_text_fields() {
         let commands = [command("a::Run", "Run")];
-        let mut linux = binding(KeymapFile::GitButler, "ctrl-shift-e", "a::Run", None);
+        let mut linux = binding(KeymapFile::Standard, "ctrl-shift-e", "a::Run", None);
         linux.os = Some(Vec::from(["linux".to_owned()]));
         let text_keys = [BoundKey {
             title: "Select to line end".to_owned(),
@@ -639,14 +541,14 @@ mod tests {
             audited: &HashSet::new(),
             os: "macos",
         });
-        assert!(rows[0].gitbutler[0].conflicts.is_empty());
+        assert!(rows[0].keys[0].conflicts.is_empty());
     }
 
     #[test]
     fn a_key_kept_out_of_text_fields_doesnt_conflict_with_theirs() {
         let commands = [command("a::Run", "Run")];
         let bindings = [binding(
-            KeymapFile::GitButler,
+            KeymapFile::Standard,
             "secondary-a",
             "a::Run",
             Some("Diff && !TextInput"),
@@ -664,7 +566,7 @@ mod tests {
             audited: &HashSet::new(),
             os: "macos",
         });
-        assert!(rows[0].gitbutler[0].conflicts.is_empty());
+        assert!(rows[0].keys[0].conflicts.is_empty());
     }
 
     #[test]
@@ -692,7 +594,7 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert!(rows[0].locked());
         assert_eq!(rows[0].group, TEXT_FIELDS);
-        assert_eq!(labels(&rows[0].tui), ["⌘→", "⌃E"]);
+        assert_eq!(labels(&rows[0].keys), ["⌘→", "⌃E"]);
     }
 
     #[test]
@@ -715,7 +617,7 @@ mod tests {
             aliases: Vec::from(["Sprint".to_owned()]),
         }];
         let bindings = [binding(
-            KeymapFile::GitButler,
+            KeymapFile::Standard,
             "secondary-r",
             "a::Run",
             Some("Diff"),
@@ -746,8 +648,8 @@ mod tests {
     fn every_row_of_an_audited_command_is_audited() {
         let commands = [command("a::Run", "Run")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Files")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Files")),
         ];
         let rows = audited_table(&commands, &bindings, &["a::Run"]);
         assert!(rows.iter().all(|row| row.audited));
@@ -767,8 +669,8 @@ mod tests {
     fn the_audit_counts_are_of_commands() {
         let commands = [command("a::Run", "Run"), command("a::Walk", "Walk")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Files")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Files")),
         ];
         let rows = audited_table(&commands, &bindings, &["a::Run"]);
         assert_eq!(AuditFilter::Audited.count(&rows), 1);
@@ -806,12 +708,11 @@ mod tests {
     fn counts_are_of_commands_not_places() {
         let commands = [command("a::Run", "Run")];
         let bindings = [
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Diff")),
-            binding(KeymapFile::GitButler, "r", "a::Run", Some("Files")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Diff")),
+            binding(KeymapFile::Standard, "r", "a::Run", Some("Files")),
         ];
         let rows = table(&commands, &bindings);
         assert_eq!(rows.len(), 2);
         assert_eq!(Filter::All.count(&rows), 1);
-        assert_eq!(Filter::OneKeymap.count(&rows), 1);
     }
 }

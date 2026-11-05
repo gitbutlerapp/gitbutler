@@ -1,8 +1,7 @@
 //! The app's keys, written in Zed's keymap format: a list of sections, each binding keys to
 //! actions by name in a key context. A section with `os` binds only on the platforms it names.
-//! `assets/keymaps/base.json` holds the few keys every keymap shares, those macOS gives every
-//! app, as ⌘Q. Each [`Keymap`] has a file of its own for the rest, which Settings › Keyboard
-//! picks.
+//! `assets/keymaps/base.json` holds the few keys macOS gives every app, as ⌘Q, and a [`Keymap`]
+//! has a file of its own for the rest.
 //!
 //! The files ship in the binary. A dev build binds them from the checkout it was built from
 //! instead ([`source_dir`]), and reads them again as a window comes in front, so the command
@@ -39,19 +38,17 @@ pub fn platform_name(os: &str) -> &str {
 /// A file of keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeymapFile {
-    GitButler,
-    Tui,
+    Standard,
     /// The keys every keymap shares.
     Base,
 }
 
 impl KeymapFile {
-    pub const ALL: [KeymapFile; 3] = [KeymapFile::GitButler, KeymapFile::Tui, KeymapFile::Base];
+    pub const ALL: [KeymapFile; 2] = [KeymapFile::Standard, KeymapFile::Base];
 
     fn name(self) -> &'static str {
         match self {
-            KeymapFile::GitButler => "gitbutler.json",
-            KeymapFile::Tui => "tui.json",
+            KeymapFile::Standard => "standard.json",
             KeymapFile::Base => "base.json",
         }
     }
@@ -59,8 +56,7 @@ impl KeymapFile {
     /// The text that shipped in the binary.
     fn embedded(self) -> &'static str {
         match self {
-            KeymapFile::GitButler => include_str!("../assets/keymaps/gitbutler.json"),
-            KeymapFile::Tui => include_str!("../assets/keymaps/tui.json"),
+            KeymapFile::Standard => include_str!("../assets/keymaps/standard.json"),
             KeymapFile::Base => include_str!("../assets/keymaps/base.json"),
         }
     }
@@ -69,30 +65,16 @@ impl KeymapFile {
 /// A set of keys the app binds, beside the keys every keymap shares.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Keymap {
-    /// GitButler's own, after macOS's and vim's.
+    /// Like the `but` TUI's, and the only one. Prefs saved with the keymaps there used to be
+    /// read as it, so everyone comes here.
     #[default]
-    GitButler,
-    /// Like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
-    /// moving, squashing and cherry-picking commits and adding an empty commit, Return to fold
-    /// and unfold, f to
-    /// show and hide the files, ⌘B and ⌥⌘B the navigator and the details, / to filter or find,
-    /// ⌘K for the command palette, ⌘P to go to anything and ⌘J to a terminal, ⌘T to open a
-    /// terminal, ⌘⌫ to discard, ⌘R and ⇧⌘R to fetch and pull, ⌘D, ⇧⌘D, ⌘] and ⌘[ to split and
-    /// go between tiles, or Ghostty's keys for them on Linux, and ⇧⌘M and ⌥⌘M to move and swap
-    /// a tile.
-    Tui,
+    #[serde(alias = "GitButler", alias = "Tui")]
+    Standard,
 }
 
 impl Keymap {
-    /// Every keymap, in the order Settings › Keyboard lists them.
-    pub const ALL: [Keymap; 2] = [Keymap::GitButler, Keymap::Tui];
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Keymap::GitButler => "GitButler",
-            Keymap::Tui => "TUI",
-        }
-    }
+    #[cfg(test)]
+    const ALL: [Keymap; 1] = [Keymap::Standard];
 
     /// The files it binds, in their order: its own, then the shared keys, last so it can't take
     /// one of them.
@@ -103,8 +85,7 @@ impl Keymap {
     /// The file of the keys only it binds.
     pub fn own_file(self) -> KeymapFile {
         match self {
-            Keymap::GitButler => KeymapFile::GitButler,
-            Keymap::Tui => KeymapFile::Tui,
+            Keymap::Standard => KeymapFile::Standard,
         }
     }
 }
@@ -520,19 +501,43 @@ mod tests {
     }
 
     #[test]
-    fn the_drawer_bars_keys_are_the_navigators_in_the_gitbutler_keymap() {
+    fn the_drawer_bars_keys_are_the_navigators() {
         assert!(
-            drawer_bar_keys_are_the_navigators(Keymap::GitButler),
+            drawer_bar_keys_are_the_navigators(Keymap::Standard),
             "a key means the same on the bar as on a row"
         );
     }
 
     #[test]
-    fn the_drawer_bars_keys_are_the_navigators_in_the_tui_keymap() {
-        assert!(
-            drawer_bar_keys_are_the_navigators(Keymap::Tui),
-            "a key means the same on the bar as on a row"
+    fn a_saved_gitbutler_keymap_comes_to_the_standard_one() {
+        assert_eq!(
+            serde_json::from_str::<Keymap>("\"GitButler\"").ok(),
+            Some(Keymap::Standard)
         );
+    }
+
+    #[test]
+    fn a_saved_tui_keymap_comes_to_the_standard_one() {
+        assert_eq!(
+            serde_json::from_str::<Keymap>("\"Tui\"").ok(),
+            Some(Keymap::Standard)
+        );
+    }
+
+    #[test]
+    fn the_keymap_saves_as_the_standard_one() {
+        assert_eq!(
+            serde_json::to_string(&Keymap::Standard).ok().as_deref(),
+            Some("\"Standard\"")
+        );
+    }
+
+    #[test]
+    fn prefs_with_a_saved_gitbutler_keymap_keep_the_rest_of_what_they_say() {
+        let prefs: Option<crate::state::Prefs> =
+            serde_json::from_str(r#"{"keymap":"GitButler","audited_commands":["a::Run"]}"#).ok();
+        let prefs = prefs.map(|prefs| (prefs.keymap, prefs.audited_commands.len()));
+        assert_eq!(prefs, Some((Keymap::Standard, 1)));
     }
 
     /// The keys `keymap` binds to Discard on `os`.
@@ -544,32 +549,27 @@ mod tests {
     }
 
     #[test]
-    fn discard_has_one_key_in_the_gitbutler_keymap_on_macos() {
+    fn discard_has_one_key_on_macos() {
         assert_eq!(
-            discard_keys(Keymap::GitButler, "macos"),
+            discard_keys(Keymap::Standard, "macos"),
             ["secondary-backspace"]
         );
     }
 
     #[test]
-    fn discard_has_one_key_in_the_gitbutler_keymap_on_windows() {
+    fn discard_has_one_key_on_windows() {
         assert_eq!(
-            discard_keys(Keymap::GitButler, "windows"),
+            discard_keys(Keymap::Standard, "windows"),
             ["secondary-backspace"]
         );
     }
 
     #[test]
-    fn discard_has_one_key_in_the_gitbutler_keymap_on_linux() {
+    fn discard_has_one_key_on_linux() {
         assert_eq!(
-            discard_keys(Keymap::GitButler, "linux"),
+            discard_keys(Keymap::Standard, "linux"),
             ["secondary-backspace"]
         );
-    }
-
-    #[test]
-    fn discard_has_one_key_in_the_tui_keymap() {
-        assert_eq!(discard_keys(Keymap::Tui, "macos"), ["secondary-backspace"]);
     }
 
     #[test]
@@ -637,36 +637,22 @@ mod tests {
         // Menus, tooltips and the status bar show an action's last binding, so a key added
         // after the one meant to show takes its place everywhere.
         for keymap in Keymap::ALL {
-            let shown: &[(&str, &str)] = match keymap {
-                Keymap::GitButler => &[
-                    ("app::CommandPalette", "secondary-k"),
-                    ("app::ToggleNavigator", "secondary-b"),
-                    ("palette::GoTo", "secondary-p"),
-                    ("edits::Reword", "r"),
-                    ("edits::RenameBranch", "r"),
-                    ("edits::RenameTerminal", "r"),
-                    ("navigator::CopySelection", "secondary-c"),
-                    ("palette::CopyMore", "secondary-shift-c"),
-                    ("diff::NextHunk", "down"),
-                    ("find::FindNext", "secondary-g"),
-                ],
-                // The TUI's letters, which come after the arrows.
-                Keymap::Tui => &[
-                    ("app::CommandPalette", "secondary-k"),
-                    // ⌘ chords, as a terminal takes the letters.
-                    ("palette::GoTo", "secondary-p"),
-                    ("palette::GoToTerminal", "secondary-j"),
-                    ("terminal::NewTerminal", "secondary-t"),
-                    ("app::ToggleNavigator", "secondary-b"),
-                    ("app::ToggleDetail", "secondary-alt-b"),
-                    ("navigator::CopySelection", "y"),
-                    ("navigator::SelectNext", "j"),
-                    ("navigator::SelectPrevious", "k"),
-                    ("diff::NextHunk", "j"),
-                    ("diff::PreviousHunk", "k"),
-                    ("diff::NextFile", "j"),
-                ],
-            };
+            // The letters, which come after the arrows.
+            let shown: &[(&str, &str)] = &[
+                ("app::CommandPalette", "secondary-k"),
+                // ⌘ chords, as a terminal takes the letters.
+                ("palette::GoTo", "secondary-p"),
+                ("palette::GoToTerminal", "secondary-j"),
+                ("terminal::NewTerminal", "secondary-t"),
+                ("app::ToggleNavigator", "secondary-b"),
+                ("app::ToggleDetail", "secondary-alt-b"),
+                ("navigator::CopySelection", "y"),
+                ("navigator::SelectNext", "j"),
+                ("navigator::SelectPrevious", "k"),
+                ("diff::NextHunk", "j"),
+                ("diff::PreviousHunk", "k"),
+                ("diff::NextFile", "j"),
+            ];
             for os in PLATFORMS {
                 let entries = bound(keymap, os);
                 for (action, keys) in shown {

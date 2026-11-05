@@ -1,4 +1,4 @@
-//! Settings › Keyboard: the keymap, then every command and the keys that run it.
+//! Settings › Keyboard: every command and the keys that run it.
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -6,7 +6,6 @@ use gpui::prelude::*;
 use gpui::{Action, App, Context, SharedString};
 
 use super::{Card, Row, SettingsView};
-use crate::keymap::Keymap;
 use crate::ui::{self, dp, h_flex};
 
 /// Commands by the area their name starts with, in the order the page lists them.
@@ -34,20 +33,6 @@ const UNLISTED: [&str; 5] = [
 impl SettingsView {
     pub(super) fn keyboard_cards(&self, cx: &Context<Self>) -> Vec<Card> {
         let theme = cx.global::<crate::theme::Theme>().clone();
-        let keymap = self.choice(
-            "keymap",
-            self.store.read(cx).prefs.keymap.name(),
-            Keymap::ALL.map(|keymap| (keymap, keymap.name().to_owned())),
-            |this, keymap, _, cx| {
-                (this.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx));
-            },
-            cx,
-        );
-        let keymap = Row::new(
-            "Keymap",
-            "The set of keys the app uses, listed below.",
-            keymap,
-        );
         let mut groups: BTreeMap<usize, Vec<Row>> = BTreeMap::new();
         for (title, action) in commands(cx) {
             let name = action.name();
@@ -61,10 +46,8 @@ impl SettingsView {
                 .or_default()
                 .push(command_row(title, action, &theme, cx));
         }
-        std::iter::once(Card::new(None, vec![keymap]))
-            .chain((groups.into_iter()).map(|(group, rows)| {
-                Card::new(GROUPS.get(group).map(|(_, heading)| *heading), rows)
-            }))
+        (groups.into_iter())
+            .map(|(group, rows)| Card::new(GROUPS.get(group).map(|(_, heading)| *heading), rows))
             .collect()
     }
 }

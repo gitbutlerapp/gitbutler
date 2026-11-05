@@ -1,4 +1,4 @@
-//! A window of every command and its keys in each keymap, for a dev build. A key changed here is
+//! A window of every command and its keys, for a dev build. A key changed here is
 //! written to the keymap's file in the checkout and bound at once, so the files stay the one place
 //! keys are kept (`keymap::source_dir`).
 
@@ -18,7 +18,6 @@ use gpui::{
     Subscription, Task, TextLayout, TitlebarOptions, Toggled, Window, WindowBounds, WindowHandle,
     WindowOptions, actions, canvas, div, list, point, size,
 };
-use gpui::{Point, anchored, deferred};
 
 use crate::app::CloseWindow;
 use crate::commands::{COMMANDS, title_of};
@@ -31,7 +30,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{self, InputEvent, TextInput};
 use crate::ui::{
     self, ButtonStyle, Icon, Tooltip, dp, field, fixed, h_flex, icon, icon_button, list_row,
-    popover, segmented, v_flex,
+    segmented, v_flex,
 };
 use rows::{AuditFilter, Command, Filter, Key, Place, Row, Sources};
 
@@ -49,7 +48,7 @@ const COMMAND_WIDTH: f32 = 270.;
 const ACTION_WIDTH: f32 = 270.;
 const PLACE_WIDTH: f32 = 270.;
 const SIDE_PAD: f32 = 12.;
-/// What a keymap's column keeps as the window narrows: the columns of text give way first.
+/// What the keys' column keeps as the window narrows: the columns of text give way first.
 const KEYS_MIN_WIDTH: f32 = 190.;
 /// The table's small text: what's mono, and the notes beside a key.
 const SMALL_TEXT: f32 = 13.;
@@ -103,11 +102,10 @@ pub fn open(store: Entity<Store>, cx: &mut App) {
 enum Target {
     /// In place of these.
     Change(Binding),
-    /// Beside any others, in `keymap`'s own file.
+    /// Beside any others, in the keymap's own file.
     Add {
         action: String,
         context: Option<String>,
-        keymap: Keymap,
     },
 }
 
@@ -121,11 +119,11 @@ struct Recording {
     _pause: Task<()>,
 }
 
-/// Which place a command is getting, and the keymap to go on to record for, if any.
+/// Which place a command is getting, and whether to go on to record keys for it.
 struct Picking {
     action: String,
     title: String,
-    keymap: Option<Keymap>,
+    record: bool,
 }
 
 enum Notice {
@@ -145,14 +143,6 @@ struct ActionSelection {
     head: usize,
     /// The button that started it is still down.
     held: bool,
-}
-
-/// What a right click on keys offers: them in the other keymaps.
-struct KeyMenu {
-    position: Point<Pixels>,
-    binding: Binding,
-    /// The keymaps they aren't from, and whether each has them already.
-    keymaps: Vec<(Keymap, bool)>,
 }
 
 /// What's between two points of a selection, whichever way round they are.
@@ -187,7 +177,6 @@ pub struct CommandEditor {
     picking: Option<Picking>,
     notice: Option<Notice>,
     selection: Option<ActionSelection>,
-    key_menu: Option<KeyMenu>,
     /// Where the platforms to record a new key for are drawn, where a press doesn't end it.
     platforms_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     _subscriptions: Vec<Subscription>,
@@ -235,7 +224,6 @@ impl CommandEditor {
             picking: None,
             notice: None,
             selection: None,
-            key_menu: None,
             platforms_at: Rc::default(),
             _subscriptions: subscriptions,
         };
@@ -246,7 +234,6 @@ impl CommandEditor {
     /// Make the rows from what the files say now, and stay where the table is.
     fn load_rows(&mut self, cx: &mut Context<CommandEditor>) {
         self.selection = None;
-        self.key_menu = None;
         let bindings = keymap::bindings(cx);
         let commands = commands(&bindings, cx);
         let text_keys = text_input::bound_keys(cx);
@@ -423,11 +410,7 @@ impl CommandEditor {
         }
         let (action, context, file) = match &target {
             Target::Change(binding) => (&binding.action, &binding.context, binding.file),
-            Target::Add {
-                action,
-                context,
-                keymap,
-            } => (action, context, keymap.own_file()),
+            Target::Add { action, context } => (action, context, Keymap::default().own_file()),
         };
         let bindings = keymap::bindings(cx);
         if already_bound(&bindings, file, action, context, &keys, os.as_deref()) {
@@ -451,12 +434,8 @@ impl CommandEditor {
                 },
                 cx,
             ),
-            Target::Add {
-                action,
-                context,
-                keymap,
-            } => keymap::edit(
-                keymap.own_file(),
+            Target::Add { action, context } => keymap::edit(
+                Keymap::default().own_file(),
                 |text| edit::add(text, &keys, action, context.as_deref(), os.as_deref()),
                 cx,
             ),
@@ -474,7 +453,7 @@ impl CommandEditor {
         let row = (self.rows.iter()).find(|row| row.action == action);
         let conflicts: Vec<&str> = (self.rows.iter())
             .filter(|row| row.action == action)
-            .flat_map(|row| row.gitbutler.iter().chain(&row.tui))
+            .flat_map(|row| row.keys.iter())
             .filter(|key| (key.binding.as_ref()).is_some_and(|binding| binding.keys == keys))
             .flat_map(|key| key.conflicts.iter().map(String::as_str))
             .collect();
@@ -517,11 +496,10 @@ impl CommandEditor {
             self.places.push(place);
         }
         self.load_rows(cx);
-        if let Some(keymap) = picking.keymap {
+        if picking.record {
             let target = Target::Add {
                 action: picking.action,
                 context,
-                keymap,
             };
             self.start_recording(target, window, cx);
         }
@@ -590,8 +568,7 @@ impl CommandEditor {
             .child(text_column(COMMAND_WIDTH).child(table_heading("Command")))
             .child(text_column(ACTION_WIDTH).child(table_heading("Action")))
             .child(text_column(PLACE_WIDTH).child(table_heading("Where")))
-            .child(keys_column().child(table_heading("GitButler")))
-            .child(keys_column().child(table_heading("TUI")))
+            .child(keys_column().child(table_heading("Keys")))
     }
 
     fn render_line(&self, ix: usize, cx: &mut Context<CommandEditor>) -> AnyElement {
@@ -660,77 +637,6 @@ impl CommandEditor {
             selection.held = false;
             cx.notify();
         }
-    }
-
-    /// Offer `binding` to the other keymaps. A shared key is in them all.
-    fn open_key_menu(
-        &mut self,
-        binding: Binding,
-        position: Point<Pixels>,
-        cx: &mut Context<CommandEditor>,
-    ) {
-        let bindings = keymap::bindings(cx);
-        let keymaps: Vec<(Keymap, bool)> = (other_keymaps(binding.file).into_iter())
-            .map(|keymap| {
-                let has = already_bound(
-                    &bindings,
-                    keymap.own_file(),
-                    &binding.action,
-                    &binding.context,
-                    &binding.keys,
-                    binding.os.as_deref(),
-                );
-                (keymap, has)
-            })
-            .collect();
-        self.key_menu = (!keymaps.is_empty()).then_some(KeyMenu {
-            position,
-            binding,
-            keymaps,
-        });
-        cx.notify();
-    }
-
-    fn close_key_menu(&mut self, cx: &mut Context<CommandEditor>) {
-        if self.key_menu.take().is_some() {
-            cx.notify();
-        }
-    }
-
-    /// Bind `binding` in `keymap` too, in the same place on the same platforms.
-    fn copy_to(&mut self, binding: Binding, keymap: Keymap, cx: &mut Context<CommandEditor>) {
-        let saved = keymap::edit(
-            keymap.own_file(),
-            |text| {
-                edit::add(
-                    text,
-                    &binding.keys,
-                    &binding.action,
-                    binding.context.as_deref(),
-                    binding.os.as_deref(),
-                )
-            },
-            cx,
-        );
-        self.load_rows(cx);
-        let label = ui::keys_written(&binding.keys);
-        self.notice = Some(match saved {
-            Err(err) => Notice::Warning(format!("Couldn't save: {err:#}")),
-            Ok(()) => match self.saved_notice(&binding.action, &binding.keys, &label) {
-                Notice::Done(_) => {
-                    Notice::Done(format!("{label} copied to the {} keymap", keymap.name()))
-                }
-                warning @ Notice::Warning(_) => warning,
-            },
-        });
-        cx.notify();
-    }
-
-    fn key_down(&mut self, event: &KeyDownEvent, cx: &mut Context<CommandEditor>) {
-        if event.keystroke.key == "escape" {
-            self.close_key_menu(cx);
-        }
-        self.copy_action(event, cx);
     }
 
     /// Copy what's selected, on ⌘C. A text field that has the keys takes its own ⌘C first, but a
@@ -836,7 +742,7 @@ impl CommandEditor {
                             this.picking = Some(Picking {
                                 action: action.clone(),
                                 title: title.clone(),
-                                keymap: None,
+                                record: false,
                             });
                             cx.notify();
                         })),
@@ -889,20 +795,18 @@ impl CommandEditor {
             .child(command)
             .child(action)
             .child(place)
-            .child(self.render_cell(row, Keymap::GitButler, theme, cx))
-            .child(self.render_cell(row, Keymap::Tui, theme, cx))
+            .child(self.render_cell(row, theme, cx))
             .into_any_element()
     }
 
     fn render_cell(
         &self,
         row: &Row,
-        keymap: Keymap,
         theme: &Theme,
         cx: &mut Context<CommandEditor>,
     ) -> impl IntoElement + use<> {
-        let keys: Vec<AnyElement> = (row.keys(keymap).iter().enumerate())
-            .map(|(ix, key)| self.render_key(key, keymap, ix, theme, cx))
+        let keys: Vec<AnyElement> = (row.keys.iter().enumerate())
+            .map(|(ix, key)| self.render_key(key, ix, theme, cx))
             .collect();
         let empty = keys.is_empty();
         let adding = match &row.place {
@@ -911,33 +815,27 @@ impl CommandEditor {
                     == Target::Add {
                         action: row.action.clone(),
                         context: context.clone(),
-                        keymap,
                     }
             }),
             Place::Unbound => None,
         };
         let add = (!row.locked() && adding.is_none()).then(|| {
             let (action, title, place) = (row.action.clone(), row.title.clone(), row.place.clone());
-            let id = match keymap {
-                Keymap::GitButler => "add-gitbutler",
-                Keymap::Tui => "add-tui",
-            };
             div()
                 .flex_none()
                 .when(!empty, |el| {
                     el.invisible().group_hover("row", |el| el.visible())
                 })
                 .child(
-                    icon_button(id, Icon::Plus)
+                    icon_button("add-key", Icon::Plus)
                         .small()
                         .style(ButtonStyle::Ghost)
-                        .tooltip(format!("Add a key in {}", keymap.name()))
+                        .tooltip("Add a key")
                         .on_click(cx.listener(move |this, _, window, cx| match &place {
                             Place::In(context) => this.start_recording(
                                 Target::Add {
                                     action: action.clone(),
                                     context: context.clone(),
-                                    keymap,
                                 },
                                 window,
                                 cx,
@@ -946,7 +844,7 @@ impl CommandEditor {
                                 this.picking = Some(Picking {
                                     action: action.clone(),
                                     title: title.clone(),
-                                    keymap: Some(keymap),
+                                    record: true,
                                 });
                                 cx.notify();
                             }
@@ -974,7 +872,6 @@ impl CommandEditor {
     fn render_key(
         &self,
         key: &Key,
-        keymap: Keymap,
         ix: usize,
         theme: &Theme,
         cx: &mut Context<CommandEditor>,
@@ -994,17 +891,13 @@ impl CommandEditor {
         {
             return recording_cap(recording, theme).into_any_element();
         }
-        let id = match keymap {
-            Keymap::GitButler => ix,
-            Keymap::Tui => ix + 1000,
-        };
         let conflicted = !key.conflicts.is_empty();
         let tooltip = match conflicted {
             true => format!("Also runs {}", key.conflicts.join(", ")),
             false => "Change these keys".to_owned(),
         };
         let cap = h_flex()
-            .id(("key", id))
+            .id(("key", ix))
             .role(Role::Button)
             .aria_label(format!("Change {}", key.label))
             .h(dp(28.))
@@ -1022,18 +915,12 @@ impl CommandEditor {
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.start_recording(target.clone(), window, cx)
             }))
-            .on_mouse_down(MouseButton::Right, {
-                let binding = binding.clone();
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    this.open_key_menu(binding.clone(), event.position, cx)
-                })
-            })
             .child(ui::keycap_large(&key.label, theme))
             .when(key.shown, |el| el.child(ui::dot(theme.pop)))
             .when(key.shared(), |el| el.child("shared"))
             .when_some(key.platforms.clone(), |el, platforms| el.child(platforms));
         let remove = div()
-            .id(("remove", id))
+            .id(("remove", ix))
             .role(Role::Button)
             .aria_label(format!("Remove {}", key.label))
             .flex_none()
@@ -1136,43 +1023,6 @@ impl CommandEditor {
             .children(folder.map(|folder| div().flex_none().child(folder)))
     }
 
-    fn render_key_menu(
-        &self,
-        theme: &Theme,
-        cx: &mut Context<CommandEditor>,
-    ) -> Option<impl IntoElement + use<>> {
-        let menu = self.key_menu.as_ref()?;
-        let rows = (menu.keymaps.iter().enumerate()).map(|(ix, (keymap, has))| {
-            let row = list_row(("key-menu", ix), false, theme)
-                .h(dp(28.))
-                .text_size(dp(SMALL_TEXT));
-            match has {
-                true => row.child(format!("Already in the {} keymap", keymap.name())),
-                false => {
-                    let (binding, keymap) = (menu.binding.clone(), *keymap);
-                    row.child(format!("Copy to the {} keymap", keymap.name()))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.copy_to(binding.clone(), keymap, cx)
-                        }))
-                }
-            }
-        });
-        let card = popover(theme)
-            .id("key-menu")
-            .min_w(dp(200.))
-            .py(dp(4.))
-            .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_key_menu(cx)))
-            .children(rows.collect::<Vec<_>>());
-        Some(deferred(
-            div().absolute().inset_0().occlude().child(
-                anchored()
-                    .position(menu.position)
-                    .snap_to_window_with_margin(fixed(8.))
-                    .child(card),
-            ),
-        ))
-    }
-
     fn render_picker(
         &self,
         theme: &Theme,
@@ -1264,7 +1114,7 @@ fn text_column(width: f32) -> gpui::Div {
     div().w(dp(width)).min_w_0().pr(dp(8.))
 }
 
-/// One keymap's column, of the header or a row.
+/// The keys' column, of the header or a row.
 fn keys_column() -> gpui::Div {
     div().flex_1().min_w(dp(KEYS_MIN_WIDTH))
 }
@@ -1275,13 +1125,6 @@ fn table_heading(text: impl IntoElement) -> gpui::Div {
         .text_size(dp(SMALL_TEXT))
         .font_weight(FontWeight::SEMIBOLD)
         .child(text)
-}
-
-/// The keymaps keys in `file` aren't in yet. The shared file is in them all.
-fn other_keymaps(file: KeymapFile) -> Vec<Keymap> {
-    (Keymap::ALL.into_iter())
-        .filter(|keymap| !keymap.files().contains(&file))
-        .collect()
 }
 
 /// `on` with platform `ix` switched, unless that'd leave none for the key to bind on.
@@ -1367,8 +1210,7 @@ impl Render for CommandEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<CommandEditor>) -> impl IntoElement {
         // Every `dp` size is in rems, so this scales the whole window, as the app's does.
         window.set_rem_size(Theme::get(cx).scaled(ui::BASE_REM));
-        let covered = self.picking.is_some() || self.key_menu.is_some();
-        ui::Covered::note(covered, window, cx);
+        ui::Covered::note(self.picking.is_some(), window, cx);
         let theme = Theme::get(cx).clone();
         let table = list(
             self.list.clone(),
@@ -1397,7 +1239,7 @@ impl Render for CommandEditor {
                 MouseButton::Left,
                 cx.listener(|this, _, _, cx| this.release_action(cx)),
             )
-            .on_key_down(cx.listener(|this, event, _, cx| this.key_down(event, cx)))
+            .on_key_down(cx.listener(|this, event, _, cx| this.copy_action(event, cx)))
             .child(self.render_toolbar(&theme, window, cx))
             .child(self.render_header(&theme))
             .child(scrolled(
@@ -1408,7 +1250,6 @@ impl Render for CommandEditor {
             ))
             .child(self.render_footer(&theme, cx))
             .children(self.render_picker(&theme, cx))
-            .children(self.render_key_menu(&theme, cx))
             .when(client_frame, |el| {
                 el.child(ui::window_controls::window_controls(window, cx))
             })
@@ -1422,8 +1263,7 @@ impl Render for CommandEditor {
 #[cfg(test)]
 mod tests {
     use super::{
-        Binding, Keymap, KeymapFile, already_bound, between, chosen_platforms, other_keymaps,
-        share_a_platform, toggled,
+        Binding, KeymapFile, already_bound, between, chosen_platforms, share_a_platform, toggled,
     };
 
     fn names(os: &[&str]) -> Vec<String> {
@@ -1432,28 +1272,13 @@ mod tests {
 
     fn bound_on(os: Option<&[&str]>) -> Vec<Binding> {
         Vec::from([Binding {
-            file: KeymapFile::Tui,
+            file: KeymapFile::Standard,
             section: 0,
             keys: "f6".to_owned(),
             action: "a::Next".to_owned(),
             context: None,
             os: os.map(names),
         }])
-    }
-
-    #[test]
-    fn a_tui_key_can_go_to_the_gitbutler_keymap() {
-        assert_eq!(other_keymaps(KeymapFile::Tui), [Keymap::GitButler]);
-    }
-
-    #[test]
-    fn a_gitbutler_key_can_go_to_the_tui_keymap() {
-        assert_eq!(other_keymaps(KeymapFile::GitButler), [Keymap::Tui]);
-    }
-
-    #[test]
-    fn a_shared_key_has_nowhere_to_go() {
-        assert_eq!(other_keymaps(KeymapFile::Base), []);
     }
 
     #[test]
@@ -1511,7 +1336,7 @@ mod tests {
         let bindings = bound_on(Some(&["windows", "linux"]));
         assert!(already_bound(
             &bindings,
-            KeymapFile::Tui,
+            KeymapFile::Standard,
             "a::Next",
             &None,
             "f6",
@@ -1525,7 +1350,7 @@ mod tests {
         let bindings = bound_on(Some(&["windows", "linux"]));
         assert!(!already_bound(
             &bindings,
-            KeymapFile::Tui,
+            KeymapFile::Standard,
             "a::Next",
             &None,
             "f6",

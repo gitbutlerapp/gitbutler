@@ -503,13 +503,8 @@ mod tests {
     }
 
     #[test]
-    fn the_scanner_reads_the_gitbutler_keymap_as_the_parser_does() {
-        scans_as_parsed(KeymapFile::GitButler.embedded());
-    }
-
-    #[test]
-    fn the_scanner_reads_the_tui_keymap_as_the_parser_does() {
-        scans_as_parsed(KeymapFile::Tui.embedded());
+    fn the_scanner_reads_the_standard_keymap_as_the_parser_does() {
+        scans_as_parsed(KeymapFile::Standard.embedded());
     }
 
     #[test]
@@ -696,17 +691,8 @@ mod tests {
     }
 
     #[test]
-    fn every_edit_of_the_gitbutler_keymap_keeps_its_comments() {
-        let text = KeymapFile::GitButler.embedded();
-        let new = add(text, "f13", "app::Undo", None, None).expect("it adds");
-        let new = change(&new, 0, "ctrl-y", "ctrl-shift-y").expect("it's there");
-        assert_eq!(comments(&new), comments(text));
-        assert!(sections(&new).is_ok());
-    }
-
-    #[test]
-    fn every_edit_of_the_tui_keymap_keeps_its_comments() {
-        let text = KeymapFile::Tui.embedded();
+    fn every_edit_of_the_standard_keymap_keeps_its_comments() {
+        let text = KeymapFile::Standard.embedded();
         let new = add(text, "f13", "app::Undo", None, None).expect("it adds");
         let new = remove(&new, 1, "y").expect("it's there");
         assert_eq!(comments(&new), comments(text));

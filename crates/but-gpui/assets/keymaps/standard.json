@@ -1,18 +1,17 @@
-// A keymap like the `but` TUI's. So far its keys for moving around, copying, undoing, renaming,
+// The keymap, like the `but` TUI's. Its keys for moving around, copying, undoing, renaming,
 // committing, moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
 // tabs and ⇧⌘H to its Operations history, ⌘B and ⌥⌘B to show and hide the navigator and the
 // details, ⌘D and ⇧⌘D to split a tile, ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on
-// Linux), ⇧⌘M and ⌥⌘M to move and swap one, and the keys the app's lists and overlays need, as
-// GitButler's keymap has them.
+// Linux), ⇧⌘M and ⌥⌘M to move and swap one, and the keys the app's lists and overlays need.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
 // show, so the TUI's letters come after the arrows.
 [
-  // ⌘K opens the command palette too, as in GitButler's keymap, first so : is the key shown.
+  // ⌘K opens the command palette.
   {
     "bindings": { "secondary-k": "app::CommandPalette" }
   },
@@ -34,7 +33,7 @@
       "h": "app::FocusPaneLeft"
     }
   },
-  // ⌘R fetches, as in GitButler's keymap, and ⇧⌘R pulls: fetches, then updates the workspace
+  // ⌘R fetches, and ⇧⌘R pulls: fetches, then updates the workspace
   // and the worktrees, as `but pull` does.
   {
     "bindings": {
@@ -44,7 +43,7 @@
   },
   // ⌘P goes to anything, the TUI's branch picker for more than branches, ⌘1, ⌘2 and ⌘3 go to the
   // navigator, the files and the diff, and ⌘B and ⌥⌘B show or hide the navigator and the
-  // details, as in GitButler's keymap. ⌘J goes to a terminal, as VS Code's and Zed's open the
+  // details. ⌘J goes to a terminal, as VS Code's and Zed's open the
   // panel theirs are in, and ⌘T opens one, as a terminal app opens a tab. From a terminal too,
   // which takes the TUI's letters.
   {
@@ -284,7 +283,7 @@
   },
   // c commits the uncommitted changes, as the TUI's c does: the keys above step through where
   // the commit goes, and Return writes its message, or commits once it's written. ⌘↩ does too,
-  // as in GitButler's keymap, from the file filter and a terminal as well. After Return's,
+  // from the file filter and a terminal as well. After Return's,
   // above, so c is the key shown.
   {
     "context": "(Workspace && !TextInput) || (Files && !Composer > TextInput) || Terminal",
@@ -318,8 +317,8 @@
       "end": "navigator::SelectLast"
     }
   },
-  // The History and Branches lists step and jump as the navigator does, and fold as GitButler's
-  // keymap folds them, the arrows last so menus show them. Return folds or unfolds as in the
+  // The History and Branches lists step and jump as the navigator does, and fold, the arrows
+  // last so menus show them. Return folds or unfolds as in the
   // navigator, the People card under a list too; on Operations history, where nothing folds,
   // it restores to before the operation, after asking.
   {
