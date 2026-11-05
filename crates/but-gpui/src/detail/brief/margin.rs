@@ -714,7 +714,6 @@ mod tests {
         BriefBlock {
             positions: 3..=3,
             fresh: false,
-            only_new: None,
             detail: None,
             body: BriefBody::Text(markdown::parse(words)),
         }

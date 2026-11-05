@@ -150,20 +150,14 @@ fn code_spans(block: &Block) -> Vec<(std::ops::Range<usize>, &str, bool)> {
         .collect()
 }
 
-/// Every text block of `page`, with its words for who read the version before.
+/// Every text block of `page`.
 fn text_blocks(page: &mut BriefPage) -> impl Iterator<Item = &mut Block> {
-    page.blocks.iter_mut().flat_map(|block| {
-        let body = match &mut block.body {
+    page.blocks
+        .iter_mut()
+        .flat_map(|block| match &mut block.body {
             BriefBody::Text(blocks) => blocks.as_mut_slice(),
             _ => &mut [],
-        };
-        body.iter_mut().chain(
-            block
-                .only_new
-                .iter_mut()
-                .flat_map(|blocks| blocks.iter_mut()),
-        )
-    })
+        })
 }
 
 /// Which of `files` a name in words is: the one it names whole, else the only one it ends.

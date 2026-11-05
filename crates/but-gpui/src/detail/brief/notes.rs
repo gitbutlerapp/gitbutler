@@ -535,7 +535,6 @@ mod tests {
         let blocks = [BriefBlock {
             positions: 3..=3,
             fresh: false,
-            only_new: None,
             detail: None,
             body: BriefBody::Text(markdown::parse("The opening\n\n## Why 30 days\n\nBecause")),
         }];

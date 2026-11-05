@@ -7,7 +7,7 @@ use std::sync::Arc;
 use but_briefs::{Block, BlockKind, Brief};
 use but_core::unified_diff::DiffHunk;
 
-use super::since::{mark_what_is_new, still_there, what_is_new};
+use super::since::{mark_what_is_new, still_there};
 use super::*;
 use crate::backend::diff::{highlight_lines, parse_hunk};
 use crate::backend::{CommitId, DiffLine, LineKind};
@@ -203,8 +203,6 @@ pub struct BriefBlock {
     pub positions: std::ops::RangeInclusive<usize>,
     /// The version last read didn't have it like this.
     pub fresh: bool,
-    /// Of words, only what's new, under the headings they come under, for whoever read that.
-    pub only_new: Option<Vec<markdown::Block>>,
     /// The line it folds away under at first, if it does.
     pub detail: Option<String>,
     pub body: BriefBody,
@@ -317,14 +315,11 @@ pub(super) fn page(
                 diagram.links.push((0..diagram.text.len(), place));
             }
         }
-        let mut only_new = None;
         let mut fresh = fresh;
         if let (true, BriefBody::Text(blocks), Some(old)) = (fresh, &mut body, &earlier_words) {
             mark_what_is_new(blocks, old);
-            let new = what_is_new(blocks);
             // Only its formatting changed, which there's nothing to show of.
-            fresh = !new.is_empty();
-            only_new = Some(new);
+            fresh = (blocks.iter()).any(|block| block.has_tint(markdown::Tint::Fresh));
         }
         if group.is_some()
             && group == last_group
@@ -351,7 +346,6 @@ pub(super) fn page(
         blocks.push(BriefBlock {
             positions: position..=position,
             fresh,
-            only_new,
             detail,
             body,
         });
@@ -664,9 +658,14 @@ mod tests {
         );
         let fresh: Vec<bool> = page.blocks.iter().map(|block| block.fresh).collect();
         assert_eq!(fresh, [false, true], "only what wasn't there as it is");
+        let BriefBody::Text(words) = &page.blocks[1].body else {
+            panic!("words draw as words");
+        };
         assert_eq!(
-            page.blocks[1].only_new.as_ref().map(Vec::len),
-            Some(1),
+            (words.iter())
+                .filter(|word| word.has_tint(markdown::Tint::Fresh))
+                .count(),
+            1,
             "and of its words, what's new"
         );
         let edited = page_of(

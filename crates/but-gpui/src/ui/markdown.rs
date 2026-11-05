@@ -81,6 +81,13 @@ pub struct Block {
     pub cell: Option<TableCell>,
 }
 
+impl Block {
+    /// Whether any of its words have `tint` behind them.
+    pub fn has_tint(&self, tint: Tint) -> bool {
+        (self.styles.iter()).any(|(_, style)| style.tint == Some(tint))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Paragraph,

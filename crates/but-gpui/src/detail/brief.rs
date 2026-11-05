@@ -83,6 +83,22 @@ enum Row {
 }
 
 impl Row {
+    /// Whether it draws anything new since the version last read.
+    fn is_fresh(self, blocks: &[BriefBlock]) -> bool {
+        match self {
+            Row::Text { at, from, to } => (blocks.get(at)).is_some_and(|block| match &block.body {
+                BriefBody::Text(words) => (words.get(from..to).unwrap_or_default().iter())
+                    .any(|word| word.has_tint(markdown::Tint::Fresh)),
+                _ => block.fresh,
+            }),
+            Row::Block(at) => blocks.get(at).is_some_and(|block| block.fresh),
+            Row::Fold { first, count } => {
+                (blocks.iter().skip(first).take(count)).any(|block| block.fresh)
+            }
+            Row::Head | Row::End | Row::Since | Row::Unchanged(_) => false,
+        }
+    }
+
     /// The block it draws of, if it does.
     fn block(self) -> Option<usize> {
         match self {
@@ -117,13 +133,13 @@ fn rows(blocks: &[BriefBlock], open: &HashSet<BriefFold>, only_changed: bool) ->
     if only_changed {
         let mut rows = vec![Row::Head, Row::Since];
         let mut same = 0;
-        for (at, block) in blocks.iter().enumerate() {
-            if block.fresh {
+        for row in (blocks.iter().enumerate()).flat_map(|(at, block)| block_rows(at, block)) {
+            if row.is_fresh(blocks) {
                 if same > 0 {
                     rows.push(Row::Unchanged(same));
                     same = 0;
                 }
-                rows.push(Row::Block(at));
+                rows.push(row);
             } else {
                 same += 1;
             }
@@ -537,25 +553,7 @@ impl Detail {
         // With only what changed showing, that all of it did goes without saying.
         let only_changed = !state.is_open(BriefFold::Unchanged)
             && page.is_some_and(|page| page.since_read.is_some());
-        let fresh = !only_changed
-            && page.is_some_and(|page| match row {
-                Row::Text { at, from, to } => {
-                    (page.blocks.get(at)).is_some_and(|block| match &block.body {
-                        BriefBody::Text(words) => (words.get(from..to).unwrap_or_default().iter())
-                            .any(|word| {
-                                word.styles
-                                    .iter()
-                                    .any(|(_, style)| style.tint == Some(markdown::Tint::Fresh))
-                            }),
-                        _ => block.fresh,
-                    })
-                }
-                Row::Block(at) => page.blocks.get(at).is_some_and(|block| block.fresh),
-                Row::Fold { first, count } => {
-                    (page.blocks.iter().skip(first).take(count)).any(|block| block.fresh)
-                }
-                Row::Head | Row::End | Row::Since | Row::Unchanged(_) => false,
-            });
+        let fresh = !only_changed && page.is_some_and(|page| row.is_fresh(&page.blocks));
         let (above, content) = match row {
             Row::Head => {
                 let head = self.brief_head(found, state, cx).into_any_element();
@@ -653,12 +651,8 @@ impl Detail {
                 };
                 let id = block_id(&page.id, at, 0);
                 let body = match &block.body {
-                    BriefBody::Text(_) => markdown::render(
-                        &format!("{id}-new"),
-                        block.only_new.as_deref().unwrap_or_default(),
-                        None,
-                        theme,
-                    ),
+                    // Words have rows of their own.
+                    BriefBody::Text(_) => div().into_any_element(),
                     BriefBody::Code(code) => self.brief_code(at, code, page, cx),
                     BriefBody::Files { files, omitted } => self.brief_files(at, files, omitted, cx),
                     BriefBody::Pictures(row) => {
@@ -670,17 +664,13 @@ impl Detail {
                         .child(format!("{what}, which shows on the web"))
                         .into_any_element(),
                 };
-                let wide = match &block.body {
-                    BriefBody::Text(_) => MOST_WORDS_WIDE,
-                    _ => COLUMN_MAX_WIDTH,
-                };
                 (
                     12.,
                     self.with_talk(
                         body,
                         margin::Beside {
                             key: ix * 1000,
-                            wide,
+                            wide: COLUMN_MAX_WIDTH,
                             spot: margin::Spot::Block(block),
                             to: CommentTo::Block(*block.positions.start()),
                             held: false,
@@ -694,13 +684,7 @@ impl Detail {
         };
         // Code and pictures take all there is, and all else one measure.
         let wide = match row {
-            Row::Block(at)
-                if page
-                    .and_then(|page| page.blocks.get(at))
-                    .is_some_and(|block| !matches!(block.body, BriefBody::Text(_))) =>
-            {
-                COLUMN_MAX_WIDTH
-            }
+            Row::Block(_) => COLUMN_MAX_WIDTH,
             _ => MOST_WORDS_WIDE,
         };
         // What has a margin beside it sets its own width, as the row takes in the margin too.
@@ -895,7 +879,6 @@ mod tests {
             .map(|detail| BriefBlock {
                 positions: 1..=1,
                 fresh: false,
-                only_new: None,
                 detail: detail.map(str::to_owned),
                 body: BriefBody::OnTheWeb(String::new()),
             })
@@ -977,6 +960,37 @@ mod tests {
                 Row::End,
             ],
             "what hasn't changed folds away in runs, whatever else folds it"
+        );
+    }
+
+    #[test]
+    fn who_read_the_last_version_sees_the_sections_that_changed_of_one_block() {
+        let mut words = markdown::parse("The opening\n\n## Why\n\nBecause");
+        let fresh = markdown::Style {
+            tint: Some(markdown::Tint::Fresh),
+            ..Default::default()
+        };
+        words[2].styles.push((0..7, fresh));
+        let blocks = [BriefBlock {
+            positions: 1..=1,
+            fresh: true,
+            detail: None,
+            body: BriefBody::Text(words),
+        }];
+        assert_eq!(
+            rows(&blocks, &HashSet::new(), true),
+            [
+                Row::Head,
+                Row::Since,
+                Row::Unchanged(1),
+                Row::Text {
+                    at: 0,
+                    from: 1,
+                    to: 3
+                },
+                Row::End,
+            ],
+            "one block can be the whole brief, and its other sections still fold"
         );
     }
 }

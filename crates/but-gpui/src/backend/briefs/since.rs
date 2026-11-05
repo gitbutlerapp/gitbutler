@@ -92,33 +92,6 @@ pub(super) fn mark_what_is_new(blocks: &mut [markdown::Block], old: &[String]) {
     }
 }
 
-/// Of `blocks`, those with anything new, each under the heading it comes under, and in a quote
-/// with what the quote starts with, as that can say what kind of quote it is.
-pub(super) fn what_is_new(blocks: &[markdown::Block]) -> Vec<markdown::Block> {
-    let mut heading = None;
-    let mut new = Vec::new();
-    for (ix, block) in blocks.iter().enumerate() {
-        if matches!(block.kind, markdown::Kind::Heading(_)) {
-            heading = Some(block);
-        }
-        if block
-            .styles
-            .iter()
-            .any(|(_, style)| style.tint == Some(markdown::Tint::Fresh))
-        {
-            new.extend(heading.take().filter(|heading| *heading != block).cloned());
-            let before = ix.checked_sub(1).and_then(|before| blocks.get(before));
-            new.extend(
-                before
-                    .filter(|before| block.quoted && before.quoted && !new.contains(*before))
-                    .cloned(),
-            );
-            new.push(block.clone());
-        }
-    }
-    new
-}
-
 /// Where the words of `text` are.
 fn word_spans(text: &str) -> Vec<std::ops::Range<usize>> {
     let mut spans = Vec::new();

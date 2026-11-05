@@ -414,7 +414,6 @@ mod tests {
         let block = |body| BriefBlock {
             positions: 1..=1,
             fresh: false,
-            only_new: None,
             detail: None,
             body,
         };
