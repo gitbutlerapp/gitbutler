@@ -1277,7 +1277,7 @@ impl Intent for MergeIntoTarget {
             Ok(MergedIntoTarget {
                 update_needed: merged.reconcile_skipped,
                 conflicted: newly_conflicted(&info, &merged.workspace.conflicted_commits),
-                marked: merged.workspace.checkout_conflict_occurred,
+                marked: !merged.workspace.conflicted_checkouts.is_empty(),
             })
         })
     }

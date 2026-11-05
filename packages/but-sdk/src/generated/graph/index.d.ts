@@ -718,6 +718,19 @@ export type ConflictHunk = {
   contextAfter: string;
 };
 
+/** A checkout whose uncommitted changes conflicted with the commit it moved to. */
+export type ConflictedCheckout = {
+  type: "head";
+} | {
+  type: "worktree";
+  subject: {
+    /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
+    name: string;
+    /** The worktree checkout directory. */
+    path: string;
+  };
+};
+
 /** One conflicted file and its conflicts, in file order. */
 export type ConflictedFile = {
   /** The repo-relative path of the file. */
@@ -2816,11 +2829,8 @@ export type WorkspaceState = {
    * rendered graph projection.
    */
   graphWorkspace: DetailedGraphWorkspace;
-  /**
-   * True if a checkout occurred, and a conflict occurred during that
-   * checkout.
-   */
-  checkoutConflictOccurred: boolean;
+  /** The checkouts whose uncommitted changes now carry conflict markers. */
+  conflictedCheckouts: Array<ConflictedCheckout>;
 };
 
 /** A non-archived linked worktree along with the segments it owns exclusively. */

@@ -12,7 +12,9 @@ use gix::{
     },
 };
 
-use crate::graph_rebase::{Checkout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase};
+use crate::graph_rebase::{
+    Checkout, ConflictedCheckout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase,
+};
 
 struct LinkedCheckoutSpec {
     name: BString,
@@ -274,7 +276,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 workspace: self.workspace,
                 meta: self.meta,
                 db: self.db,
-                checkout_conflict_occurred: false,
+                conflicted_checkouts: Vec::new(),
             });
         }
 
@@ -291,7 +293,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         ref_edits.extend(worktree_head_edits(&specs)?);
 
-        let checkout_conflict_occurred = if !materialize_options.without_checkout {
+        let mut conflicted_checkouts = Vec::new();
+        if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
                 safe_checkout_from_head(
@@ -318,13 +321,11 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
-                outcome.conflict_occurred
-            } else {
-                false
+                if outcome.conflict_occurred {
+                    conflicted_checkouts.push(ConflictedCheckout::Head);
+                }
             }
-        } else {
-            false
-        };
+        }
 
         if let Some(head) = head {
             let target = head_target(head.target, head.ref_name);
@@ -352,7 +353,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,
-            checkout_conflict_occurred,
+            conflicted_checkouts,
         })
     }
 

@@ -176,13 +176,50 @@ pub struct WorkspaceState {
     /// rendered graph projection.
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
-    /// True if a checkout occurred, and a conflict occurred during that
-    /// checkout.
-    pub checkout_conflict_occurred: bool,
+    /// The checkouts whose uncommitted changes now carry conflict markers.
+    pub conflicted_checkouts: Vec<ConflictedCheckout>,
 }
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(WorkspaceState);
+
+/// A checkout whose uncommitted changes conflicted with the commit it moved to.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum ConflictedCheckout {
+    /// The main worktree of the project.
+    Head,
+    /// A linked worktree.
+    #[serde(rename_all = "camelCase")]
+    Worktree {
+        /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+        #[serde(with = "but_serde::bstring_lossy")]
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::bstring_lossy")
+        )]
+        name: gix::bstr::BString,
+        /// The worktree checkout directory.
+        #[serde(with = "but_serde::path_lossy")]
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        path: std::path::PathBuf,
+    },
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictedCheckout);
+
+impl From<but_rebase::graph_rebase::ConflictedCheckout> for ConflictedCheckout {
+    fn from(value: but_rebase::graph_rebase::ConflictedCheckout) -> Self {
+        match value {
+            but_rebase::graph_rebase::ConflictedCheckout::Head => Self::Head,
+            but_rebase::graph_rebase::ConflictedCheckout::Worktree { name, path } => {
+                Self::Worktree { name, path }
+            }
+        }
+    }
+}
 
 impl TryFrom<crate::WorkspaceState> for WorkspaceState {
     type Error = anyhow::Error;
@@ -198,7 +235,11 @@ impl TryFrom<crate::WorkspaceState> for WorkspaceState {
             head_info: value.head_info.try_into()?,
             #[cfg(feature = "graph-workspace")]
             graph_workspace: value.graph_workspace,
-            checkout_conflict_occurred: value.checkout_conflict_occurred,
+            conflicted_checkouts: value
+                .conflicted_checkouts
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         })
     }
 }

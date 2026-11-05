@@ -704,10 +704,22 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub meta: &'meta mut M,
     /// The database handle the editor was created with.
     pub db: &'meta mut but_db::DbHandle,
-    /// True if a conflict occurred during checkout. This is always false if
-    /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
-    /// struct passed to the materialize call is false.
-    pub checkout_conflict_occurred: bool,
+    /// The checkouts whose uncommitted changes now carry conflict markers.
+    pub conflicted_checkouts: Vec<ConflictedCheckout>,
+}
+
+/// A checkout whose uncommitted changes conflicted with the commit it moved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConflictedCheckout {
+    /// The editor's own worktree.
+    Head,
+    /// The linked worktree `name`, checked out at `path`.
+    Worktree {
+        /// The directory name under `$GIT_COMMON_DIR/worktrees/`.
+        name: gix::bstr::BString,
+        /// The worktree checkout directory.
+        path: std::path::PathBuf,
+    },
 }
 
 /// Provides lookup for different steps that a selector might point to.
