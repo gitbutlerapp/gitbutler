@@ -176,12 +176,11 @@ impl Detail {
         (unmodified, named)
     }
 
-    /// Whether hunk `hunk` of `file` goes without a box, as when it runs on from the one
-    /// above it in a scope shown whole: nothing before it is left out and the lines show
-    /// every scope it's in. Not in the composer, where the box holds its checkbox.
+    /// Whether hunk `hunk` of `file` goes without a box: nothing before it is left out, so the
+    /// row above runs straight on into its lines, as in a file shown whole. Not in the
+    /// composer, where the box holds its checkbox.
     pub(super) fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
-        let named = (file.hunks().get(hunk)).is_some_and(|hunk| !hunk.scope.is_empty());
-        named && !self.composes() && matches!(self.hunk_title(file, hunk), (0, []))
+        !self.composes() && self.hunk_title(file, hunk).0 == 0
     }
 
     /// The file and hunk whose changes `row` shows part of: the lines from the hunk's first
