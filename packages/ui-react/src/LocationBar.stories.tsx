@@ -17,15 +17,8 @@ const meta = stories({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3382-53021",
 		},
+		layout: "bar",
 	},
-	decorators: [
-		// The top of the details pane, at the width it usually has.
-		(Story) => (
-			<div style={{ width: 820 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 /** Mesh, machine, repo; the machine's ⌃⌄ jumps to the mesh's other machines. */
@@ -128,13 +121,7 @@ export const SidebarHidden = meta.story({
 
 /** In a narrow pane the state keeps its size and the trail folds into "…". */
 export const Narrow = meta.story({
-	decorators: [
-		(Story) => (
-			<div style={{ width: 420 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { width: 420 },
 	args: {
 		leading: <SidebarToggle />,
 		children: <Trail below={[{ label: "Main worktree", href: "#worktree" }]} />,
@@ -147,13 +134,7 @@ export const Narrow = meta.story({
  * leads, the way out of the view.
  */
 export const Phone = meta.story({
-	decorators: [
-		(Story) => (
-			<div style={{ width: 375 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { width: 375 },
 	args: {
 		leading: <Back />,
 		children: <Trail />,

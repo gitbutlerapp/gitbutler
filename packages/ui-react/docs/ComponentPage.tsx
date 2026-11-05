@@ -36,26 +36,43 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 	);
 };
 
-const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) => (
-	<section className="docs-page-example">
-		<h2 className="docs-page-example-title">{entry.name}</h2>
-		{entry.description !== undefined && <Prose text={entry.description} />}
-		<RowGroup>
-			{framed ? (
-				<iframe
-					className="docs-page-frame"
-					title={entry.name}
-					src={`?story=${entry.id}`}
-					loading="lazy"
-				/>
+const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) => {
+	const { layout, width, height } = entry.story.parameters;
+	// The card is the story's size plus the card's border, or the ground's padding, centred on the
+	// column: a narrower one in it, a wider one reaching past both its edges.
+	const card = width === undefined ? undefined : width + (framed || layout === "bar" ? 2 : 48);
+	const sized = card === undefined ? undefined : { width: card, alignSelf: "center" };
+	return (
+		<section className="docs-page-example">
+			<h2 className="docs-page-example-title">{entry.name}</h2>
+			{entry.description !== undefined && <Prose text={entry.description} />}
+			{framed || layout === "bar" ? (
+				// A window or a bar the width of one: a bordered card, the window's edge.
+				<RowGroup style={sized}>
+					{framed ? (
+						<iframe
+							className="docs-page-frame"
+							title={entry.name}
+							src={`?story=${entry.id}`}
+							loading="lazy"
+							style={height === undefined ? undefined : { height }}
+						/>
+					) : (
+						<div className="docs-page-canvas-bar">
+							<entry.story.Component />
+						</div>
+					)}
+				</RowGroup>
 			) : (
-				<div className="docs-page-canvas">
+				// Anything else stands on a tinted ground with no border, so a component with a card of
+				// its own, as a RowGroup, isn't drawn as a card within a card.
+				<div className="docs-page-canvas" style={sized}>
 					<entry.story.Component />
 				</div>
 			)}
-		</RowGroup>
-	</section>
-);
+		</section>
+	);
+};
 
 const Neighbours: FC<{ page: Page }> = ({ page }) => {
 	const components = pages.filter((other) => !isDesignPage(other));

@@ -220,6 +220,34 @@ directly under the component's own section, on its group's page, one
 instance per story, named as the story is; an example story links its
 instance through the `design` parameter.
 
+### How a story stands on its page
+
+The docs site gives each story a place under its words. Pick it with the
+`layout` parameter, never with a wrapper the story draws itself:
+
+- **The ground (default):** the story stands on a muted ground with no
+  border and 24px of room, so a component with its own card (`RowGroup`,
+  `DescriptionList`, `DiffFile`) isn't framed by a second card that looks the
+  same. Don't add a border, a card or a background around the component.
+- **`bar`:** a bar that runs the width of a window or a pane (`StatusBar`,
+  `LocationBar`, `ViewHeader`): edge to edge in a bordered card, with no
+  padding and no scrolling. The card's border is the bar's edge, the bar's
+  own top and bottom lines are dropped so they don't double it, and the card
+  is the size container the bar's container queries ask.
+- **`fullscreen`:** a whole window or view (`Details view`), and every
+  overlay: its own frame, so it opens inside its card rather than over the
+  page.
+
+Size a story with the `width` and `height` parameters, not a `<div style={{
+width }}>`: the card follows the story's size, centred on the column whether
+it is narrower or wider, so a narrow bar has no gap beside it and a full view
+is never cropped or scrolled. Give a size only when the size is the point (a
+narrow pane, a phone, a window); a part that fills its pane in the app, as a
+diff card or a file list, fills its ground here too, rather than a width
+copied from an old pane. Pick a story's content to fit the column, about
+740px, rather than making the page scroll sideways: the bar's own drop and
+ellipsis rules are what a narrower width shows.
+
 ### Looking up a component
 
 Before using a component, read its source and JSDoc in `src/` and its stories

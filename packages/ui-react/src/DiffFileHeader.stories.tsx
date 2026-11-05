@@ -23,13 +23,6 @@ const meta = stories({
 		onReviewedChange: () => {},
 		onMenu: () => {},
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 546 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 export const Default = meta.story({});
@@ -77,11 +70,5 @@ export const LongPath = meta.story({
 		added: 1204,
 		removed: 3,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 420 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { width: 420 },
 });

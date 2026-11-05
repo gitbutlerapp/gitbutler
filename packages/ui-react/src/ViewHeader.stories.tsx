@@ -21,15 +21,8 @@ const meta = stories({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2800-14127",
 		},
+		layout: "bar",
 	},
-	decorators: [
-		// The details pane the header tops, at the width it usually has.
-		(Story) => (
-			<div style={{ width: 820, backgroundColor: "var(--bg-1)" }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 const BranchTabs: FC<{ tab?: "diff" | "pr"; prDisabled?: boolean }> = ({
