@@ -185,15 +185,19 @@
     "context": "Navigator && Squashing && !TextInput",
     "bindings": { "u": "navigator::UseTargetMessage" }
   },
-  // Renaming, deleting and taking out do what fits the selection, so each key is bound once for
-  // each of those, a section apiece, and runs the one the selection has. F2 is the rename key on
-  // Windows and Linux, and Lite's; r is the one shown. A commit's:
+  // Discarding, one command for whatever has the keys, says what it takes as a menu offers it.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "secondary-backspace": "edits::Discard" }
+  },
+  // Renaming and taking out do what fits the selection, so each key is bound once for each of
+  // those, a section apiece, and runs the one the selection has. F2 is the rename key on Windows
+  // and Linux, and Lite's; r is the one shown. A commit's:
   {
     "context": "Navigator && !TextInput",
     "bindings": {
       "f2": "edits::Reword",
-      "r": "edits::Reword",
-      "secondary-backspace": "edits::DiscardCommit"
+      "r": "edits::Reword"
     }
   },
   // A branch's:
@@ -201,8 +205,7 @@
     "context": "Navigator && !TextInput",
     "bindings": {
       "f2": "edits::RenameBranch",
-      "r": "edits::RenameBranch",
-      "secondary-backspace": "edits::DeleteBranch"
+      "r": "edits::RenameBranch"
     }
   },
   // The unnamed branch's, which gets a name at its newest commit:
@@ -221,11 +224,6 @@
       "r": "edits::RenameTerminal"
     }
   },
-  // Uncommitted changes':
-  {
-    "context": "Navigator && !TextInput",
-    "bindings": { "secondary-backspace": "edits::DiscardChanges" }
-  },
   // A commit comes out of its branch, and a branch's stack out of the workspace.
   {
     "os": ["macos"],
@@ -238,27 +236,16 @@
     "bindings": { "secondary-alt-backspace": "edits::UnapplyStack" }
   },
   // Ctrl+Alt+Backspace kills the X server where that's still on, and Ctrl+Alt is AltGr on
-  // many European layouts. Delete deletes as Explorer and Files do, last so it's shown.
+  // many European layouts.
   {
     "os": ["windows", "linux"],
     "context": "Navigator && !TextInput",
-    "bindings": {
-      "ctrl-shift-backspace": "edits::Uncommit",
-      "delete": "edits::DiscardCommit"
-    }
+    "bindings": { "ctrl-shift-backspace": "edits::Uncommit" }
   },
   {
     "os": ["windows", "linux"],
     "context": "Navigator && !TextInput",
-    "bindings": {
-      "ctrl-shift-backspace": "edits::UnapplyStack",
-      "delete": "edits::DeleteBranch"
-    }
-  },
-  {
-    "os": ["windows", "linux"],
-    "context": "Navigator && !TextInput",
-    "bindings": { "delete": "edits::DiscardChanges" }
+    "bindings": { "ctrl-shift-backspace": "edits::UnapplyStack" }
   },
   // Jumps through the tree: to either end, and between branches and projects. ⇧ with an
   // arrow picks commits, as ⇧-click does.
@@ -322,8 +309,7 @@
     }
   },
   // Moving between files and hunks follows Lite, and to the first and last file the navigator.
-  // Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. The file list
-  // takes these too.
+  // The file list takes these too.
   {
     "context": "Diff && !TextInput",
     "bindings": {
@@ -338,8 +324,6 @@
       "[ c": "diff::PreviousHunk",
       "down": "diff::NextHunk",
       "up": "diff::PreviousHunk",
-      "secondary-alt-z": "diff::DiscardHunk",
-      "secondary-backspace": "diff::DiscardFile",
       // As the navigator folds, the arrows last so menus show them.
       "shift-h": "diff::FoldFile",
       "shift-left": "diff::FoldFile",
@@ -358,11 +342,6 @@
       "f": "diff::ToggleFiles",
       "/": "diff::FilterFiles"
     }
-  },
-  {
-    "os": ["windows", "linux"],
-    "context": "Diff && !TextInput",
-    "bindings": { "delete": "diff::DiscardFile" }
   },
   // While committing, as a click on the checkbox does: space a file in the list, as in Lite,
   // and space or x the hunk under the diff's cursor, each going on to the next, rather than

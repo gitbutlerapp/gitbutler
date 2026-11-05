@@ -197,6 +197,11 @@
       "enter": "diff::ToggleFileFold"
     }
   },
+  // Discarding, one command for whatever has the keys, says what it takes as a menu offers it.
+  {
+    "context": "(Navigator || Diff) && !TextInput",
+    "bindings": { "secondary-backspace": "edits::Discard" }
+  },
   // f shows or hides the file list, or the files beside a History or Branches list, as f shows
   // a commit's files in the TUI. From the navigator too, which the app passes it on from.
   {

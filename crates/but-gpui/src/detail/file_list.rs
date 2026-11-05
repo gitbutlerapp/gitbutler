@@ -17,22 +17,34 @@ use super::{
     CheckAll, Copied, Detail, FilterFiles, LoadedDiff, Messages, PageFold, UncheckAll, keeps_path,
     merged, ranked,
 };
-actions!(
-    changes,
-    [
-        MarkResolved,
-        UncommitChanges,
-        SplitIntoNewCommit,
-        DiscardFromCommit
-    ]
-);
+actions!(changes, [MarkResolved, UncommitChanges, SplitIntoNewCommit]);
 
 /// Where [`Detail::take_from_commit`] takes the changes.
 #[derive(Clone, Copy)]
 enum Taken {
     Uncommit,
     Split,
-    Discard,
+}
+
+/// What of a file Discard takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DiscardPart {
+    File,
+    Hunk,
+}
+
+/// What of the file with the keys Discard takes, with nothing picked: all of it from its row in
+/// the list, `in_list`, whatever the diff's cursor says. In the diff, the hunk the cursor is on,
+/// unless the file is `conflicted`, whose hunks don't go alone; all of it only from its header.
+/// Either only while it's `in_sight`, not scrolled away from what's being looked at. The box
+/// above a hunk stands for lines that didn't change, so nothing goes from there.
+fn discard_part(in_list: bool, at: Stop, in_sight: bool, conflicted: bool) -> Option<DiscardPart> {
+    match (in_list, at) {
+        (true, _) => Some(DiscardPart::File),
+        (false, Stop::File) => in_sight.then_some(DiscardPart::File),
+        (false, Stop::Hunk(_)) => (in_sight && !conflicted).then_some(DiscardPart::Hunk),
+        (false, Stop::Gap(_) | Stop::Message) => None,
+    }
 }
 
 /// What `files` are called, as picked lines when `lines`: lines, a hunk, a file or files.
@@ -45,6 +57,7 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
     }
 }
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::detail::Stop;
 use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Cut, FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
@@ -720,6 +733,70 @@ impl Detail {
         let file = self.diff.as_ref()?.files.get(at)?;
         let hunk = (self.cursor.at.hunk()).and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         self.diff_cut(at, hunk.map(|key| vec![key]), cx)
+    }
+
+    /// What Discard takes where the keys are, in the diff or the file list: what's picked, else
+    /// as [`discard_part`] says. `None` with the keys anywhere else, or nothing to take.
+    pub(crate) fn discard_cut(&self, window: &Window, cx: &App) -> Option<Cut> {
+        let in_list = self.files_focus.is_focused(window);
+        if !in_list && !self.focus.is_focused(window) {
+            return None;
+        }
+        let cut = self.cursor_cut(cx)?;
+        if self.page.line_picks().is_some() || self.page.has_file_picks() {
+            return Some(cut);
+        }
+        let file = self.current_file()?;
+        let at = self.cursor.in_file()?;
+        let cursor_file = self.diff.as_ref()?.files.get(at)?;
+        // A header stays drawn over its file, so the file being looked at says that one.
+        let in_sight = match self.cursor.at {
+            Stop::Hunk(hunk) => {
+                // Never widen a hunk discard to the whole file, as a cut would.
+                cursor_file.hunks().get(hunk)?;
+                self.cursor_in_sight(cx)
+            }
+            Stop::Message | Stop::File | Stop::Gap(_) => file == at,
+        };
+        let conflicted = cursor_file.file.conflicted;
+        match discard_part(in_list, self.cursor.at, in_sight, conflicted)? {
+            DiscardPart::Hunk => Some(cut),
+            DiscardPart::File if self.shown_files().contains(&file) => {
+                self.diff_cut(file, None, cx)
+            }
+            DiscardPart::File => None,
+        }
+    }
+
+    /// Discard what [`Self::discard_cut`] takes, from its commit or its checkout.
+    pub(super) fn discard_here(&mut self, window: &mut Window, cx: &mut Context<Detail>) {
+        let Some(Cut::Files {
+            project,
+            from,
+            worktree,
+            files,
+        }) = self.discard_cut(window, cx)
+        else {
+            return;
+        };
+        self.app
+            .update_later(window, cx, move |app, window, cx| match from {
+                Some(commit) => app.discard_from_commit(project, commit, files, window, cx),
+                None => app.discard(project, worktree, files.to_vec(), window, cx),
+            });
+    }
+
+    /// What Discard throws away with the keys here, in the words a menu has for it: what
+    /// [`Self::discard_cut`] takes.
+    pub(crate) fn discard_phrase(&self, window: &Window, cx: &App) -> Option<String> {
+        let Cut::Files { from, files, .. } = self.discard_cut(window, cx)? else {
+            return None;
+        };
+        let kind = change_kind(self.takes_lines(&files), &files);
+        Some(match from {
+            Some(_) => format!("Discard {kind} from commit"),
+            None => format!("Discard {kind}"),
+        })
     }
 
     /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
@@ -1552,10 +1629,7 @@ impl Detail {
                     el.on_action(cx.listener(|this, _: &SplitIntoNewCommit, window, cx| {
                         this.take_from_commit(Taken::Split, window, cx)
                     }))
-                })
-                .on_action(cx.listener(|this, _: &DiscardFromCommit, window, cx| {
-                    this.take_from_commit(Taken::Discard, window, cx)
-                })),
+                }),
         }
     }
 
@@ -1598,8 +1672,8 @@ impl Detail {
         })
     }
 
-    /// Take the changes the keys are on out of their commit: into the uncommitted changes, a
-    /// new commit of their own, or away.
+    /// Take the changes the keys are on out of their commit: into the uncommitted changes, or
+    /// a new commit of their own.
     fn take_from_commit(&mut self, taken: Taken, window: &mut Window, cx: &mut Context<Self>) {
         let Some(payload @ Cut::Files { .. }) = self.cursor_cut(cx) else {
             return;
@@ -1636,7 +1710,6 @@ impl Detail {
                     )
                 }
                 Taken::Split => app.split_off(project, commit, files, cx),
-                Taken::Discard => app.discard_from_commit(project, commit, files, window, cx),
             })
     }
 
@@ -1644,7 +1717,7 @@ impl Detail {
     /// taking out or discarding them, as the keys do to the picked ones or the ones under the
     /// cursor, which a right-click makes them.
     fn change_items(&self, payload: Cut, cx: &mut Context<Self>) -> Vec<MenuItem> {
-        let Cut::Files { from, files, .. } = payload.clone() else {
+        let Cut::Files { from, .. } = payload.clone() else {
             return Vec::new();
         };
         let mut items: Vec<MenuItem> = (payload.movable().into_iter())
@@ -1653,18 +1726,12 @@ impl Detail {
         match from {
             None => {
                 items.insert(0, MenuItem::command(&MarkResolved, cx));
-                // A hunk alone, or the whole file, or the lines or files picked.
-                let hunk = !self.takes_lines(&files) && files.iter().any(|f| f.hunks.is_some());
-                let discard: &'static dyn crate::commands::Command = match hunk {
-                    true => &super::DiscardHunk,
-                    false => &super::DiscardFile,
-                };
-                items.push(MenuItem::command(discard, cx).danger());
+                items.push(MenuItem::discard_here(cx));
             }
             Some(_) => items.extend([
                 MenuItem::command(&UncommitChanges, cx),
                 MenuItem::command(&SplitIntoNewCommit, cx),
-                MenuItem::command(&DiscardFromCommit, cx).danger(),
+                MenuItem::discard_here(cx),
             ]),
         }
         items
@@ -1758,9 +1825,76 @@ impl Detail {
 mod tests {
     use std::collections::HashSet;
 
-    use super::underlined;
+    use super::{DiscardPart, discard_part, underlined};
+    use crate::detail::Stop;
     use crate::detail::file_tree::{TreeRow, tree_rows};
     use crate::detail::path_match;
+
+    #[test]
+    fn discard_takes_the_hunk_the_cursor_is_on() {
+        assert_eq!(
+            discard_part(false, Stop::Hunk(1), true, false),
+            Some(DiscardPart::Hunk)
+        );
+    }
+
+    #[test]
+    fn discard_takes_the_file_from_its_header() {
+        assert_eq!(
+            discard_part(false, Stop::File, true, false),
+            Some(DiscardPart::File)
+        );
+    }
+
+    #[test]
+    fn discard_takes_nothing_from_the_box_above_a_hunk() {
+        assert_eq!(
+            discard_part(false, Stop::Gap(0), true, false),
+            None,
+            "it stands for lines that didn't change, so it's neither the hunk nor the file"
+        );
+    }
+
+    #[test]
+    fn discard_takes_nothing_from_a_header_scrolled_away() {
+        assert_eq!(
+            discard_part(false, Stop::File, false, false),
+            None,
+            "the file on screen isn't the one the cursor is on"
+        );
+    }
+
+    #[test]
+    fn discard_takes_nothing_from_a_hunk_scrolled_away() {
+        assert_eq!(
+            discard_part(false, Stop::Hunk(0), false, false),
+            None,
+            "what's on screen isn't what the cursor is on"
+        );
+    }
+
+    #[test]
+    fn discard_takes_nothing_from_a_conflicted_files_hunk() {
+        assert_eq!(
+            discard_part(false, Stop::Hunk(0), true, true),
+            None,
+            "a conflicted file goes whole or not at all"
+        );
+    }
+
+    #[test]
+    fn discard_takes_nothing_from_the_commit_message() {
+        assert_eq!(discard_part(false, Stop::Message, true, false), None);
+    }
+
+    #[test]
+    fn discard_takes_the_file_from_its_row_though_the_cursor_is_on_a_hunk() {
+        assert_eq!(
+            discard_part(true, Stop::Hunk(2), true, false),
+            Some(DiscardPart::File),
+            "the row is what's selected, and its hunk shows faint"
+        );
+    }
 
     #[test]
     fn a_folder_underlines_what_the_filter_found_in_its_name() {

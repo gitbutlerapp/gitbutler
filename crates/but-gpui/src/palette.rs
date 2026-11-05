@@ -17,6 +17,7 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree, short_ref,
 };
 use crate::commands::{COMMANDS, Command};
+use crate::edits::Discard;
 use crate::navigator::{
     RowStyle, lists_changes, mesh_choices, mesh_heading_choice, status_mark, worktrees_listed,
 };
@@ -1015,7 +1016,12 @@ impl AppView {
         let mut commands: Vec<&'static dyn Command> = (COMMANDS.iter().copied())
             .filter(|&command| {
                 let ty = type_of(command);
-                available.contains(&ty) && !in_menu.contains(&ty) && command.listed(self, cx)
+                // Only as the selection's menu words it, for what it takes: alone, typing what
+                // another row's Discard is called would land on this one's.
+                ty != type_of(&Discard)
+                    && available.contains(&ty)
+                    && !in_menu.contains(&ty)
+                    && command.listed(self, cx)
             })
             .collect();
         // Recently run commands first, as in Zed.
@@ -1045,10 +1051,12 @@ impl AppView {
         };
         // An item that isn't a command holds what it acts on, as the menu's do.
         let holds_ids = items.iter().any(|item| item.command.is_none());
-        let place = (!items.is_empty())
-            .then(|| self.store.read(cx).selection.clone())
-            .flatten()
-            .map(|selection| self.store.read(cx).place(&selection));
+        // Of the page with the keys, a pinned one's rather than the selected row's.
+        let place = (self.detail_with_keys(window, cx))
+            .and_then(|detail| detail.read(cx).selection())
+            .or_else(|| self.store.read(cx).selection.clone())
+            .filter(|_| !items.is_empty())
+            .map(|row| self.store.read(cx).place(&row));
         // What right-clicking the selection offers, worded as there until something's typed,
         // which finds a command by its title.
         let selected = items.into_iter().map(|item| match item.command {
@@ -1071,6 +1079,7 @@ impl AppView {
                     key: item.key,
                     detail: item.detail,
                     risky: item.danger || item.risky,
+                    aliases: item.aliases,
                     ..Choice::new(item.label, move |this, window, cx| {
                         handler(this, window, cx)
                     })

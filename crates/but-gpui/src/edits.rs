@@ -1,12 +1,13 @@
 //! The actions on the selected commits, branches and changes, besides cut and paste: push,
 //! rename, delete and discard, move, squash and split commits, new branches, merge, pull,
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
-//! window instead, so the branch page's button reaches it.
+//! window instead, so the branch page's button reaches it, and so is Discard for the selected
+//! row, which `discard_actions` registers.
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{App, Context, Div, SharedString, Window, actions, prelude::*};
+use gpui::{App, Context, Div, Focusable, SharedString, Stateful, Window, actions, prelude::*};
 
 use crate::app::{AppView, FocusNavigator, NewBranchOnTop, Push};
 use crate::backend::{
@@ -15,6 +16,8 @@ use crate::backend::{
 };
 use crate::overlays::run_named;
 use crate::state::{Label, Overlay, ProjectId, Rereads, Selection, Store, snack};
+use crate::terminal::TerminalId;
+use crate::ui::quoted;
 
 actions!(
     edits,
@@ -41,11 +44,36 @@ actions!(
         NameBranch,
         RenameTerminal,
         Uncommit,
-        DiscardCommit,
-        DeleteBranch,
-        DiscardChanges,
+        Discard,
     ]
 );
+
+/// What a branch is found by in ⌘K besides what Discard says of it.
+pub(crate) const BRANCH_ALIASES: &[&str] = &["Remove branch", "Discard branch"];
+
+/// What Discard does to a row.
+pub(crate) struct RowDiscard {
+    /// What a menu calls it.
+    pub phrase: String,
+    /// The other names ⌘K finds it by, all for this row, so typing what another row's Discard
+    /// is called never lands on it.
+    pub aliases: &'static [&'static str],
+    pub run: RunDiscard,
+}
+
+type RunDiscard = Box<dyn FnOnce(&mut AppView, &mut Window, &mut Context<AppView>)>;
+
+fn discarding(
+    phrase: &str,
+    aliases: &'static [&'static str],
+    run: impl FnOnce(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+) -> Option<RowDiscard> {
+    Some(RowDiscard {
+        phrase: phrase.to_owned(),
+        aliases,
+        run: Box::new(run),
+    })
+}
 
 /// Body lines longer than this get rewrapped, as `git` and `but reword` expect.
 const WRAP_AT: usize = 72;
@@ -237,7 +265,6 @@ impl AppView {
                 });
                 el.on_action(cx.listener(Self::reword))
                     .when(!conflicted, |el| el.on_action(cx.listener(Self::uncommit)))
-                    .on_action(cx.listener(Self::discard_commit))
                     .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                         this.add_empty_commit(true, cx)
                     }))
@@ -306,7 +333,6 @@ impl AppView {
                 };
                 let edits = BranchEdits::of(workspace, ref_name);
                 el.on_action(cx.listener(Self::rename_branch))
-                    .on_action(cx.listener(Self::delete_branch))
                     .on_action(cx.listener(|this, _: &AddEmptyCommitAbove, _, cx| {
                         this.add_empty_commit(true, cx)
                     }))
@@ -344,15 +370,6 @@ impl AppView {
                             && workspace.stack_of(bottom.as_ref()).is_some(),
                         |el| el.on_action(cx.listener(Self::unapply_stack)),
                     )
-            }
-            // With changes to discard.
-            Some(Selection::Uncommitted(project, checkout)) => {
-                let changes = (store.workspace(project))
-                    .and_then(|ws| ws.uncommitted_in(checkout))
-                    .is_some_and(|files| !files.is_empty());
-                el.when(changes, |el| {
-                    el.on_action(cx.listener(Self::discard_changes))
-                })
             }
             // Its name, in place of what its shell titles it.
             Some(Selection::Terminal(..)) => el.on_action(cx.listener(Self::rename_terminal)),
@@ -540,28 +557,132 @@ impl AppView {
         );
     }
 
-    /// Discard the selected commit, with the commits picked with it.
-    fn discard_commit(&mut self, _: &DiscardCommit, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Selection::Commit(project, id)) = self.selection(cx) {
-            let ids = self.store.read(cx).with_picks(&project, id);
-            self.discard_commits(project, ids, window, cx)
+    /// Register Discard's key for the selected row, only while the rows have the keys: the diff
+    /// and the file list say what it takes there, and where they take nothing, as on the box
+    /// above a hunk, it mustn't go on from them to everything selected.
+    pub fn discard_actions(
+        &self,
+        el: Stateful<Div>,
+        window: &Window,
+        cx: &Context<AppView>,
+    ) -> Stateful<Div> {
+        let selected = self
+            .selection(cx)
+            .filter(|_| self.rows_have_keys(window, cx));
+        el.when(
+            selected.is_some_and(|row| self.row_discard(&row, cx).is_some()),
+            |el| {
+                el.on_action(cx.listener(|this, _: &Discard, window, cx| {
+                    let discard = (this.selection(cx)).and_then(|row| this.row_discard(&row, cx));
+                    if let Some(discard) = discard {
+                        (discard.run)(this, window, cx)
+                    }
+                }))
+            },
+        )
+    }
+
+    fn rows_have_keys(&self, window: &Window, cx: &App) -> bool {
+        self.navigator.focus_handle(cx).contains_focused(window, cx)
+    }
+
+    /// Whether Discard's key takes the row `target` from where the keys are.
+    pub(crate) fn keys_discard(&self, target: &Selection, window: &Window, cx: &App) -> bool {
+        self.rows_have_keys(window, cx) && self.selection(cx).as_ref() == Some(target)
+    }
+
+    /// What Discard does to the row `target`, where there's something to throw away: a commit
+    /// with those picked with it, a branch, a checkout's changes the composer has checked or all
+    /// of them, a terminal or a linked worktree. A branch, a terminal and a worktree go by the
+    /// words they're known by.
+    pub(crate) fn row_discard(&self, target: &Selection, cx: &App) -> Option<RowDiscard> {
+        let store = self.store.read(cx);
+        match target.clone() {
+            Selection::Commit(project, id) => {
+                let ids = store.with_picks(&project, id);
+                let phrase = match ids.len() {
+                    0 | 1 => "Discard commit".to_owned(),
+                    n => format!("Discard {n} commits"),
+                };
+                let aliases = &["Remove commit", "Delete commit"];
+                discarding(&phrase, aliases, move |this, window, cx| {
+                    this.discard_commits(project, ids, window, cx)
+                })
+            }
+            Selection::Branch(project, Some(ref_name)) => {
+                store.workspace(&project)?;
+                discarding("Delete branch", BRANCH_ALIASES, move |this, window, cx| {
+                    this.remove_branch(project, ref_name, window, cx)
+                })
+            }
+            Selection::Uncommitted(project, checkout) => {
+                let files = store.workspace(&project)?.uncommitted_in(&checkout)?;
+                if files.is_empty() {
+                    return None;
+                }
+                let composing = self.detail.read(cx).composing_in(&project, &checkout);
+                let phrase = match composing {
+                    true => "Discard checked changes",
+                    false => "Discard all changes",
+                };
+                discarding(phrase, &[], move |this, window, cx| {
+                    // The target's own, as a pinned page's ⋯ isn't the selected row's.
+                    let changes = match composing {
+                        true => this.detail.read(cx).selected_changes(cx),
+                        false => (this.store.read(cx).workspace(&project))
+                            .and_then(|ws| ws.uncommitted_in(&checkout))
+                            .unwrap_or_default()
+                            .iter()
+                            .map(Selected::whole)
+                            .collect(),
+                    };
+                    this.discard(project, checkout, changes, window, cx);
+                })
+            }
+            Selection::Terminal(project, id) => {
+                let aliases = &["Remove terminal", "Delete terminal", "Discard terminal"];
+                discarding("Close terminal", aliases, move |this, window, cx| {
+                    this.close_terminal(project, id, window, cx)
+                })
+            }
+            Selection::Checkout(project, Checkout::Linked(name)) => {
+                store.workspace(&project)?.find_worktree(name.as_ref())?;
+                let aliases = &["Remove worktree", "Discard worktree"];
+                discarding("Delete worktree", aliases, move |this, window, cx| {
+                    this.delete_worktree(&project, &name, window, cx)
+                })
+            }
+            Selection::Project(..)
+            | Selection::Section(..)
+            | Selection::Checkout(_, Checkout::Main)
+            | Selection::Branch(_, None)
+            | Selection::Stack(..)
+            | Selection::Upstream(..)
+            | Selection::Mesh(..) => None,
         }
     }
 
-    fn delete_branch(&mut self, _: &DeleteBranch, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Selection::Branch(project, Some(ref_name))) = self.selection(cx) {
-            self.remove_branch(project, ref_name, window, cx)
-        }
-    }
-
-    /// Discard the selected checkout's changes the composer has checked, or all of them.
-    fn discard_changes(&mut self, _: &DiscardChanges, window: &mut Window, cx: &mut Context<Self>) {
-        let checkout = match self.selection(cx) {
-            Some(Selection::Uncommitted(project, checkout)) => (project, checkout),
-            _ => return,
+    /// Close terminal `id` after asking, as what's running in it goes with it.
+    fn close_terminal(
+        &mut self,
+        project: ProjectId,
+        id: TerminalId,
+        window: &mut Window,
+        cx: &mut Context<AppView>,
+    ) {
+        let Some(title) = self.store.read(cx).terminals.title(id) else {
+            return;
         };
-        let changes = self.detail.read(cx).selected_changes(cx);
-        self.discard(checkout.0, checkout.1, changes, window, cx);
+        let message = format!("Close terminal {}?", quoted(title));
+        self.confirm_then(
+            Some(Selection::Terminal(project, id)),
+            message,
+            "Its shell stops, and whatever is running in it.",
+            "Close",
+            window,
+            cx,
+            move |this, cx| (this.store).update(cx, |store, cx| store.close_terminal(id, cx)),
+        );
     }
 
     /// Edit the selected commit's title in its row, as a branch's name is, or its whole message

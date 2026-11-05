@@ -13,7 +13,8 @@ use crate::app::{
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Branch, Checkout, CommitId, FileChange, Messages, ReviewState, Workspace};
-use crate::detail::{DiscardHunk, NextFile, NextHunk};
+use crate::detail::{NextFile, NextHunk};
+use crate::edits::Discard;
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Cut, Part, ProjectId, ProjectTab, SLOW, Section, Selection};
@@ -321,15 +322,15 @@ impl AppView {
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
-            // ⌘X takes what's picked, or the hunk or file under the cursor; ⌥⌘Z the picked lines,
-            // or the hunk, and on a file's header or the box above a hunk there's no hunk for it.
+            // ⌘X takes what's picked, or the hunk or file under the cursor; this hint is for the
+            // picked lines or the hunk, which on a file's header or the box above a hunk isn't.
             let discard = match detail.picked_line_count() {
-                0 => detail.on_hunk().then_some("discard hunk"),
+                0 => detail.on_hunk(cx).then_some("discard hunk"),
                 _ => Some("discard lines"),
             };
             // First, as the hints line up from the right, so the others stay put as the cursor
             // moves on and off a hunk.
-            let discard = discard.map(|label| (&DiscardHunk as &dyn Action, label));
+            let discard = discard.map(|label| (&Discard as &dyn Action, label));
             (discard.into_iter())
                 .chain([
                     (&NextHunk as &dyn Action, "next hunk"),

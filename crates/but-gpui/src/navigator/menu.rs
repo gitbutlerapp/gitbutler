@@ -17,9 +17,9 @@ use crate::backend::{Checkout, CommitId};
 use crate::commands::Command;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CommitEdits, CopyChangeId, CopyMessage,
-    DeleteBranch, DiscardChanges, DiscardCommit, MoveToNewBranch, NameBranch, NewBranchBelow,
-    NewBranchHere, PullRemote, RenameBranch, RenameTerminal, Reword, RewrapMessage, SquashAll,
-    SquashIntoSelected, SquashPicked, TakeRemote, UnapplyStack, Uncommit, Unstack,
+    MoveToNewBranch, NameBranch, NewBranchBelow, NewBranchHere, PullRemote, RenameBranch,
+    RenameTerminal, Reword, RewrapMessage, SquashAll, SquashIntoSelected, SquashPicked, TakeRemote,
+    UnapplyStack, Uncommit, Unstack,
 };
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Seeable, Selection, Store};
@@ -29,21 +29,19 @@ use crate::ui::plural;
 actions!(
     navigator,
     [
-        CloseTerminal,
         Watch,
         StopWatching,
         UnarchiveWorktree,
         Reveal,
         OpenProjectSettings,
         ArchiveWorktree,
-        DeleteWorktree,
     ]
 );
 
 impl AppView {
-    /// Register what the selected row of the navigator offers beyond the edits: closing a
-    /// terminal, watching a project, a checkout's folder, archiving or deleting a worktree,
-    /// and from anywhere in a project, its archived worktrees.
+    /// Register what the selected row of the navigator offers beyond the edits: watching a
+    /// project, a checkout's folder, archiving a worktree, and from anywhere in a project, its
+    /// archived worktrees.
     pub(crate) fn navigator_actions(&self, el: Stateful<Div>, cx: &Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
         let unarchivable = (store.selection.as_ref())
@@ -57,11 +55,6 @@ impl AppView {
             }))
         });
         match store.selection.clone() {
-            Some(Selection::Terminal(_, id)) => {
-                el.on_action(cx.listener(move |this, _: &CloseTerminal, _, cx| {
-                    (this.store).update(cx, |store, cx| store.close_terminal(id, cx))
-                }))
-            }
             Some(Selection::Project(project)) => {
                 let expanded = store.project(&project).is_some_and(|p| p.expanded);
                 let path = store.path(&project);
@@ -95,18 +88,15 @@ impl AppView {
                 let Some(path) = worktree.map(|w| w.path.clone()) else {
                     return el;
                 };
-                let (archived, deleted) = ((project.clone(), name.clone()), name.clone());
                 let linked = (project.clone(), Checkout::Linked(name.clone()));
-                checkout_actions(el, path, linked, cx)
-                    .on_action(cx.listener(move |this, _: &ArchiveWorktree, _, cx| {
-                        let (project, name) = archived.clone();
+                checkout_actions(el, path, linked, cx).on_action(cx.listener(
+                    move |this, _: &ArchiveWorktree, _, cx| {
+                        let (project, name) = (project.clone(), name.clone());
                         (this.store).update(cx, |store, cx| {
                             store.set_worktree_archived(&project, name, true, cx)
                         })
-                    }))
-                    .on_action(cx.listener(move |this, _: &DeleteWorktree, window, cx| {
-                        this.delete_worktree(&project, &deleted, window, cx)
-                    }))
+                    },
+                ))
             }
             _ => el,
         }
@@ -148,7 +138,7 @@ impl AppView {
 
     /// Delete `project`'s linked worktree `name`, its folder and what's uncommitted in it,
     /// after asking.
-    fn delete_worktree(
+    pub(crate) fn delete_worktree(
         &mut self,
         project: &ProjectId,
         name: &BString,
@@ -320,7 +310,7 @@ impl Navigator {
             Selection::Terminal(..) => vec![
                 command(&RenameTerminal),
                 command(&MoveSelection),
-                command(&CloseTerminal),
+                MenuItem::discard_row(target, cx),
             ],
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
@@ -376,7 +366,7 @@ impl Navigator {
             }
             Selection::Uncommitted(project, checkout) => {
                 match (store.workspace(project)).and_then(|ws| ws.uncommitted_in(checkout)) {
-                    Some(files) if !files.is_empty() => changes_items(cx).into(),
+                    Some(files) if !files.is_empty() => changes_items(target, cx).into(),
                     _ => Vec::new(),
                 }
             }
@@ -417,7 +407,7 @@ impl Navigator {
                 items.extend([
                     command(&RenameBranch).separated(),
                     command(&CopyBranchName).keys(&CopySelection, cx),
-                    command(&DeleteBranch).danger(),
+                    MenuItem::discard_row(target, cx),
                 ]);
                 items
             }
@@ -439,7 +429,7 @@ impl Navigator {
                 items.extend(read_marks(store, project, picked, cx));
                 items.extend([
                     command(&Uncommit).separated(),
-                    command(&DiscardCommit).danger(),
+                    MenuItem::discard_row(target, cx),
                 ]);
                 items
             }
@@ -470,7 +460,7 @@ impl Navigator {
                 items.extend(read_marks(store, project, [commit], cx));
                 items.extend([
                     command(&Uncommit).separated(),
-                    command(&DiscardCommit).danger(),
+                    MenuItem::discard_row(target, cx),
                 ]);
                 items
             }
@@ -490,7 +480,7 @@ impl Navigator {
                 items.extend([
                     command(&MoveSelection).separated(),
                     command(&ArchiveWorktree),
-                    command(&DeleteWorktree).danger(),
+                    MenuItem::discard_row(target, cx),
                 ]);
                 items.extend(build_item(&worktree.path, cx));
                 items
@@ -503,10 +493,10 @@ impl Navigator {
 }
 
 /// Commit, amend and discarding the changes of the selected checkout, which has some.
-fn changes_items(cx: &App) -> [MenuItem; 3] {
+fn changes_items(target: &Selection, cx: &App) -> [MenuItem; 3] {
     [
         MenuItem::command(&StartCommit, cx).separated(),
         MenuItem::command(&StartAmend, cx),
-        MenuItem::command(&DiscardChanges, cx).danger(),
+        MenuItem::discard_row(target, cx),
     ]
 }
