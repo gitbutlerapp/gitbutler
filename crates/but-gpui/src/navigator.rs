@@ -157,7 +157,7 @@ enum ClickOpened {
 /// going where it'd land itself, `mark` the colour cut or held rows are marked in, and `inset`
 /// is how far in its section sets it.
 #[derive(Clone, Copy)]
-struct RowStyle<'a> {
+pub(crate) struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
@@ -288,7 +288,7 @@ fn click_opens(
 
 impl<'a> RowStyle<'a> {
     /// A row set in by `inset` that nothing selects, picks or marks.
-    fn plain(theme: &'a Theme, inset: f32) -> Self {
+    pub(crate) fn plain(theme: &'a Theme, inset: f32) -> Self {
         RowStyle {
             theme,
             selected: false,
@@ -4198,11 +4198,9 @@ fn tally(files: &[FileChange]) -> Tally {
     (files.len(), conflicted, lines)
 }
 
-/// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
-/// first, then the lines they add and remove, or with none counted, how many there are.
 /// What a terminal's program is at, in colour only where the user is wanted, turning while
 /// it works and `seen`.
-fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
+pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Option<Stateful<Div>> {
     let theme = style.theme;
     let said = |reason: &str, otherwise: &str| -> SharedString {
         match reason {
@@ -4259,6 +4257,8 @@ fn pressable(
         })
 }
 
+/// What a checkout's uncommitted files count: what a merge left conflicted, as an update can,
+/// first, then the lines they add and remove, or with none counted, how many there are.
 fn change_counts(
     (n, conflicted, (added, removed)): Tally,
     style: RowStyle,

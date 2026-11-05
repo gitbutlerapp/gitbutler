@@ -17,7 +17,9 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree, short_ref,
 };
 use crate::commands::{COMMANDS, Command};
-use crate::navigator::{lists_changes, mesh_choices, mesh_heading_choice, worktrees_listed};
+use crate::navigator::{
+    RowStyle, lists_changes, mesh_choices, mesh_heading_choice, status_mark, worktrees_listed,
+};
 use crate::overlays::backdrop;
 use crate::state::{
     Axis, Notice, ProjectEntry, ProjectId, ProjectTab, RowKey, Section, SectionKind, Selection,
@@ -67,6 +69,9 @@ pub struct Choice {
     /// dispatch no action, which would miss the handlers registered only there.
     goes_to: Option<Selection>,
     pins: Option<RowKey>,
+    /// The terminal's row whose status it shows, kept when another picker takes it from Go to
+    /// anything to do something else with it.
+    status_of: Option<Selection>,
     run: Run,
 }
 
@@ -79,6 +84,7 @@ impl Choice {
             icon: None,
             label: label.into(),
             pins: None,
+            status_of: None,
             aliases: &[],
             phrase: None,
             key: None,
@@ -144,6 +150,12 @@ impl Choice {
 
     pub(crate) fn goes_to(mut self, selection: Selection) -> Choice {
         self.goes_to = Some(selection);
+        self
+    }
+
+    /// Shows the status of terminal row `selection`, as the navigator does.
+    fn status_of(mut self, selection: Selection) -> Choice {
+        self.status_of = Some(selection);
         self
     }
 }
@@ -920,6 +932,7 @@ fn terminal_choice(
     choice
         .icon(Icon::TextCode)
         .details(details)
+        .status_of(goes_to.clone())
         .goes_to(goes_to)
 }
 
@@ -1406,6 +1419,7 @@ impl AppView {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();
         let typed = palette.input.read(cx).text().trim().to_owned();
+        let store = self.store.read(cx);
         let rows: Vec<AnyElement> = (palette.found.iter())
             .enumerate()
             .filter_map(|(row, found)| {
@@ -1419,6 +1433,12 @@ impl AppView {
                     }
                     _ => choice.label.clone(),
                 };
+                // Read here, not kept in the choice, so it changes while the palette is open.
+                let status = (choice.status_of.as_ref())
+                    .and_then(|terminal| store.row_status(terminal))
+                    .and_then(|status| {
+                        status_mark(status, !store.hidden(), RowStyle::plain(&theme, 0.))
+                    });
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
                     .when_some(choice.icon, |el, icon| {
@@ -1436,6 +1456,7 @@ impl AppView {
                             detail.min_w_0().max_w(relative(0.4)).truncate()
                         }))
                     })
+                    .children(status)
                     .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         this.run_command(ix, window, cx)
