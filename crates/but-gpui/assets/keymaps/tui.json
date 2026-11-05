@@ -90,7 +90,7 @@
     }
   },
   // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
-  // next tile and the one before, as iTerm's and Ghostty's panes do. ⌥⌘↩ zooms it, ⇧⌘↩ being
+  // next tile and the one before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, ⌥⌘↩ being
   // amend's, ⇧⌘W closes it, ⌘W being the window's, ⇧⌘M moves it with the keys, ⌘M being the
   // window's too, and ⌥⌘M swaps it with another. On macOS, where ⌘ leaves a terminal's Ctrl keys
   // alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
@@ -102,7 +102,7 @@
       "cmd-]": "tiling::NextTile",
       "cmd-[": "tiling::PreviousTile",
       "cmd-shift-w": "tiling::CloseTile",
-      "cmd-alt-enter": "tiling::ZoomTile",
+      "cmd-shift-enter": "tiling::ZoomTile",
       "cmd-shift-m": "tiling::ArrangeTiles",
       "cmd-alt-m": "tiling::SwapTiles"
     }
@@ -296,10 +296,10 @@
       "c": "app::StartCommit"
     }
   },
-  // Amends, as in GitButler's keymap, typing the message too.
+  // Amends, typing the message too.
   {
     "context": "Workspace",
-    "bindings": { "secondary-shift-enter": "app::StartAmend" }
+    "bindings": { "secondary-alt-enter": "app::StartAmend" }
   },
   {
     "context": "Files && Composer && !TextInput",

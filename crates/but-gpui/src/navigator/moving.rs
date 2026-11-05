@@ -824,7 +824,7 @@ impl Navigator {
     /// Start squashing the selected commit, with those picked with it, or the selected branch,
     /// from its own row, as the TUI's squash mode does: the keys step through what it can go
     /// into until Return squashes it there or Escape lets go. While it's being moved, squash it
-    /// instead. The selected worktree's uncommitted changes start amending, as ⇧⌘↩ does.
+    /// instead. The selected worktree's uncommitted changes start amending, as Amend does.
     pub(super) fn start_squash(
         &mut self,
         _: &SquashSelection,
@@ -1375,7 +1375,7 @@ impl Navigator {
             return;
         };
         // A commit's made as ⌘↩ makes it: from the composer, its message written first, or
-        // as it is without one, where the navigator came out for it. An amend, as ⇧⌘↩ does.
+        // as it is without one, where the navigator came out for it. An amend, by Amend.
         if moving.op == Op::Commit {
             return window.dispatch_action(Box::new(crate::app::StartCommit), cx);
         }
