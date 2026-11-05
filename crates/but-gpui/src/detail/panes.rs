@@ -1384,7 +1384,7 @@ impl Detail {
         let create = offer.map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
-                // With a brief showing, what's being decided is along the foot of the tab.
+                // With a brief showing, what's being decided is along the row of the tabs.
                 .style(match self.showing_brief() {
                     true => ButtonStyle::Outline,
                     false => ButtonStyle::Pop,

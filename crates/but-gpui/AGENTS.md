@@ -182,7 +182,7 @@ Briefs are the server's write-ups of a branch. The API and what it sends will ch
 and the feature may go, so it stays separate.
 
 - Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
-  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState` and
+  Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState`, `BriefView` and
   `PageTab::Brief`, with at most a dispatch arm. Outside that, the Branches page's "With a brief"
   filter reads it, and a quiet mark on a branch's row in the navigator and on that page.
 - What Briefs sent and comments not sent yet are kept in a file of their own under the app's data

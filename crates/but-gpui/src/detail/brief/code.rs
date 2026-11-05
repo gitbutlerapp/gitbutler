@@ -5,11 +5,12 @@ use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelu
 
 use std::collections::HashSet;
 
+use super::state::BriefFold;
 use crate::backend::briefs::{BriefBody, BriefCode, BriefPage, CodeSource, Standing};
 use crate::backend::{FileDiff, LineKind};
 use crate::detail::Detail;
 use crate::detail::find::Spot;
-use crate::detail::page::{BriefFold, PageTab};
+use crate::detail::page::PageTab;
 use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
 use crate::ui::diff::{DiffRow, split_path};

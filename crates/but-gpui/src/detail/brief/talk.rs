@@ -28,10 +28,10 @@ impl Detail {
     /// what Briefs says, every little while it shows. Nothing asks once the tab's left.
     pub(super) fn keep_talk_current(&mut self, cx: &mut Context<Self>) {
         let Some(key) = self.shown_version() else {
-            self.brief_talk = None;
+            self.brief.talk = None;
             return;
         };
-        if (self.brief_talk.as_ref()).is_some_and(|(talking, _)| *talking == key) {
+        if (self.brief.talk.as_ref()).is_some_and(|(talking, _)| *talking == key) {
             return;
         }
         let (id, version) = key.clone();
@@ -82,7 +82,7 @@ impl Detail {
                 cx.background_executor().timer(every).await;
             }
         });
-        self.brief_talk = Some((key, task));
+        self.brief.talk = Some((key, task));
     }
 
     /// Keep a note on the whole brief, as written for them.
@@ -148,7 +148,7 @@ impl Detail {
         let Some((id, version)) = self.shown_version() else {
             return;
         };
-        if self.brief_sending.is_some() {
+        if self.brief.sending {
             return;
         }
         let Some(brief) = self.page.brief() else {
@@ -161,7 +161,7 @@ impl Detail {
                 .clone()
                 .unwrap_or_else(|| listener.name.clone())
         });
-        self.brief_sending = Some((id.clone(), version));
+        self.brief.sending = true;
         cx.notify();
         let key = (id.clone(), version);
         cx.spawn(async move |this, cx| {
@@ -172,7 +172,7 @@ impl Detail {
                 Err(_) => Some(run(move || briefs::kept_talk(&keep_id, keep_version)).await),
             };
             this.update(cx, |this, cx| {
-                this.brief_sending = None;
+                this.brief.sending = false;
                 // What's shown now may be another's by now, whose page this doesn't belong on.
                 let here = this.shown_version().as_ref() == Some(&key);
                 let words = match talk {

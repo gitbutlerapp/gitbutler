@@ -131,7 +131,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         if self.has_brief() {
-            self.brief_first = tab == PageTab::Brief;
+            self.brief.first = tab == PageTab::Brief;
         }
         // What it found is in the tab it was opened on.
         self.find = None;

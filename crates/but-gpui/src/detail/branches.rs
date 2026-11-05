@@ -1532,7 +1532,7 @@ impl Detail {
                                     .tooltip(Tooltip::text("Read the brief"))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
-                                        this.brief_first = true;
+                                        this.brief.first = true;
                                         this.select_other_branch(Some(ref_name.clone()), cx);
                                     }))
                             });
@@ -1696,7 +1696,7 @@ impl Detail {
         let on = project.is_some();
         self.branches_with_brief = project;
         if on {
-            self.brief_first = true;
+            self.brief.first = true;
         }
         self.select_shown_branch(cx);
         // What's asked for is to read one, so the first is there to read.

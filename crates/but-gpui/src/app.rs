@@ -1572,7 +1572,6 @@ impl AppView {
         }
     }
 
-    /// Go to `tab` of `project`'s page.
     /// A brief's command from the palette with the keys elsewhere, as in the navigator: the page
     /// handles it, so it goes there.
     fn brief_command<A: gpui::Action + Clone>(
@@ -1589,6 +1588,7 @@ impl AppView {
         window.dispatch_action(Box::new(action.clone()), cx);
     }
 
+    /// Go to `tab` of `project`'s page.
     pub(crate) fn open_project_tab(
         &mut self,
         project: ProjectId,

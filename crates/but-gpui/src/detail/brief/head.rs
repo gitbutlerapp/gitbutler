@@ -7,10 +7,11 @@ use std::sync::Arc;
 
 use gpui::{AppContext as _, Context, Div, FontWeight, SharedString, div, prelude::*};
 
+use super::state::{BriefFold, BriefState};
 use crate::backend::briefs::{self, Ask, BriefPage, Concern, Found, ReadBack, Standing, Thread};
 use crate::backend::{CheckState, FileDiff};
 use crate::detail::Detail;
-use crate::detail::page::{BriefFold, BriefState, PageTab};
+use crate::detail::page::PageTab;
 use crate::state::Selection;
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;

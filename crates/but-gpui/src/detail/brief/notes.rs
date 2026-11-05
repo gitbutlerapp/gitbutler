@@ -5,15 +5,13 @@
 //! comments, anchored as the web anchors them, so whoever acts on them needs nothing new: an agent
 //! told to check the comments finds them there.
 
-use gpui::{
-    AnyElement, Context, Div, Entity, Focusable as _, Subscription, Window, div, prelude::*,
-};
+use gpui::{AnyElement, Context, Div, Focusable as _, Window, div, prelude::*};
 
 use super::keys::NextBrief;
+use super::state::{BriefFold, BriefInput, BriefState, Writing};
 use super::{Row, block_place, briefs};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
-use crate::detail::page::{BriefFold, BriefState, Writing};
 use crate::detail::pull_request::{card, tag};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
@@ -57,23 +55,6 @@ fn row_target(row: Row, blocks: &[BriefBlock]) -> CommentTo {
     }
 }
 
-/// A comment or a shortcut being written, with its field.
-pub(in crate::detail) struct BriefInput {
-    pub(super) field: Entity<TextInput>,
-    pub(super) writing: Writing,
-    /// What it's about, which can stop being what shows.
-    version: (String, u32),
-    /// What's in the field so far, for keeping it where the field can't be asked.
-    pub(super) written: String,
-    _listen: Subscription,
-}
-
-impl BriefInput {
-    pub(super) fn is_about(&self, id: &str, version: u32) -> bool {
-        self.version.0 == id && self.version.1 == version
-    }
-}
-
 impl Detail {
     /// Open what's shut of `fold`, or shut it, the reading staying where it is if rows come or go.
     pub(super) fn toggle_brief_fold(&mut self, fold: BriefFold, cx: &mut Context<Self>) {
@@ -86,7 +67,7 @@ impl Detail {
 
     /// The rows' heights may have changed.
     pub(super) fn brief_list_changed(&mut self, cx: &mut Context<Self>) {
-        self.brief_list.remeasure();
+        self.brief.list.remeasure();
         cx.notify();
     }
 
@@ -144,11 +125,11 @@ impl Detail {
                     .await;
                 this.update(cx, |this, cx| {
                     // Only from elsewhere: where it's beside what's on screen, nothing moves.
-                    let view = this.brief_list.viewport_bounds();
-                    let shown = (this.brief_list.bounds_for_item(row))
+                    let view = this.brief.list.viewport_bounds();
+                    let shown = (this.brief.list.bounds_for_item(row))
                         .is_some_and(|row| row.intersects(&view));
                     if !shown {
-                        this.brief_list.scroll_to_reveal_item(row);
+                        this.brief.list.scroll_to_reveal_item(row);
                         cx.notify();
                     }
                 })
@@ -177,17 +158,17 @@ impl Detail {
                 InputEvent::Submit => this.submit_writing(window, cx),
                 InputEvent::Cancel => this.finish_writing(None, window, cx),
                 InputEvent::Changed => {
-                    if let Some(input) = &mut this.brief_input {
+                    if let Some(input) = &mut this.brief.input {
                         input.written = field.read(cx).text().to_owned();
                     }
                     // It wraps, so its row can grow as it's written.
-                    this.brief_list.remeasure();
+                    this.brief.list.remeasure();
                     cx.notify();
                 }
             },
         );
         window.focus(&field.focus_handle(cx), cx);
-        self.brief_input = Some(BriefInput {
+        self.brief.input = Some(BriefInput {
             field,
             writing,
             version,
@@ -199,13 +180,13 @@ impl Detail {
 
     /// What's being written, if anything is.
     pub(super) fn brief_writing(&self) -> Option<&Writing> {
-        self.brief_input.as_ref().map(|input| &input.writing)
+        self.brief.input.as_ref().map(|input| &input.writing)
     }
 
     /// Keep a comment being written as one not sent, as its field is going away without it being
     /// finished: whoever wrote it went elsewhere, and their words shouldn't go with it.
     pub(in crate::detail) fn keep_brief_writing(&mut self) {
-        let Some(input) = self.brief_input.take() else {
+        let Some(input) = self.brief.input.take() else {
             return;
         };
         let Writing::Note(to) = &input.writing else {
@@ -231,7 +212,7 @@ impl Detail {
 
     /// Finish what's being written, as Enter does.
     pub(super) fn submit_writing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let body = (self.brief_input.as_ref()).map(|input| input.written.trim().to_owned());
+        let body = (self.brief.input.as_ref()).map(|input| input.written.trim().to_owned());
         self.finish_writing(body, window, cx);
     }
 
@@ -242,7 +223,7 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(input) = &self.brief_input {
+        if let Some(input) = &self.brief.input {
             input.field.update(cx, |input, cx| {
                 let joined = match input.text().trim() {
                     "" => said.to_owned(),
@@ -264,7 +245,7 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let input = self.brief_input.take();
+        let input = self.brief.input.take();
         window.focus(&self.focus, cx);
         self.brief_list_changed(cx);
         let (Some(input), Some(body)) = (input, body) else {

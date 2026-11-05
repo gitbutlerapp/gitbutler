@@ -12,10 +12,10 @@ use gpui::{
 };
 
 use super::keys::WriteNote;
+use super::state::{BriefState, Writing};
 use super::{Row, briefs};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
-use crate::detail::page::{BriefState, Writing};
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::markdown::Tint;
@@ -180,23 +180,23 @@ impl Detail {
     /// Remember how wide the tab is, in design pixels, for its rows to go by. Here, as asking the
     /// list while it's drawing a row can't be done.
     pub(super) fn measure_brief_room(&self, window: &Window) {
-        let wide = self.brief_list.viewport_bounds().size.width;
+        let wide = self.brief.list.viewport_bounds().size.width;
         // Not drawn yet, its rows lay out for the last width rather than moving a frame later.
         if wide <= Pixels::ZERO {
             return;
         }
         let room = wide / dp(1.).to_pixels(window.rem_size());
-        if room != self.brief_room.get() {
-            self.brief_room.set(room);
+        if room != self.brief.room.get() {
+            self.brief.room.set(room);
             // What the list measured was for another width, which it only knows from drawing.
-            self.brief_list.remeasure();
+            self.brief.list.remeasure();
             window.request_animation_frame();
         }
     }
 
     /// Whether what's `wide` leaves the margin the room to go beside it.
     pub(super) fn margin_beside(&self, wide: f32) -> bool {
-        self.brief_room.get() >= wide + MARGIN_NEEDS
+        self.brief.room.get() >= wide + MARGIN_NEEDS
     }
 
     /// `main`, with what's said about it beside it or under it, and the way to say something.
@@ -217,7 +217,7 @@ impl Detail {
         } = beside;
         let theme = Theme::get(cx);
         let writing = self.brief_writing().is_some();
-        let pointed = self.brief_hovered == Some(key) && !writing;
+        let pointed = self.brief.hovered == Some(key) && !writing;
         let shows_controls = !writing && (pointed || held);
         let cards = self.talk_cards(&spot, state, cx);
         // Pointing at it lasts until other words are pointed at, for it to last the way over to
@@ -228,8 +228,8 @@ impl Detail {
                 el.cursor(CursorStyle::IBeam)
             })
             .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
-                if *hovering && this.brief_hovered != Some(key) {
-                    this.brief_hovered = Some(key);
+                if *hovering && this.brief.hovered != Some(key) {
+                    this.brief.hovered = Some(key);
                     cx.notify();
                 }
             }));
@@ -363,7 +363,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Option<Div> {
         let theme = Theme::get(cx);
-        let input = self.brief_input.as_ref()?;
+        let input = self.brief.input.as_ref()?;
         let written = !input.written.trim().is_empty();
         let title = match writing {
             Writing::Shortcut { editing: None, .. } => Some("New shortcut"),
@@ -566,7 +566,7 @@ impl Detail {
             window,
             cx,
         );
-        if let (Some(said), Some(input)) = (said, &self.brief_input) {
+        if let (Some(said), Some(input)) = (said, &self.brief.input) {
             input.field.update(cx, |input, cx| input.set_text(said, cx));
         }
     }
@@ -574,7 +574,7 @@ impl Detail {
     /// Keep what's being written as a shortcut, to go on writing it. With nothing written yet,
     /// write one here.
     fn add_shortcut_from_writing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let written = (self.brief_input.as_ref())
+        let written = (self.brief.input.as_ref())
             .map(|input| input.written.trim().to_owned())
             .unwrap_or_default();
         if !written.is_empty() {
@@ -648,7 +648,7 @@ impl Detail {
             ..Default::default()
         };
         let on_block = |position: usize| block.positions.contains(&position);
-        let hovered = self.brief_said_hovered.as_deref();
+        let hovered = self.brief.said_hovered.as_deref();
         let threads = (state.activity.threads.iter())
             .filter(|thread| thread.resolved.is_none())
             .filter(|thread| said_on(thread, version))
@@ -694,8 +694,8 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         let now = quote.filter(|_| hovered);
-        if self.brief_said_hovered != now {
-            self.brief_said_hovered = now;
+        if self.brief.said_hovered != now {
+            self.brief.said_hovered = now;
             cx.notify();
         }
     }

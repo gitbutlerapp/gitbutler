@@ -6,10 +6,10 @@ use gpui::{AnyElement, Context, Div, div, prelude::*};
 use super::head::agent_name;
 use super::keys::GoBack;
 use super::notes::target_words;
+use super::state::BriefState;
 use super::{NextBrief, SendNotes, briefs};
 use crate::backend::briefs::{Ask, BriefPage, CommentTo};
 use crate::detail::Detail;
-use crate::detail::page::BriefState;
 use crate::state::{Axis, RowKey, Selection, Tile};
 use crate::terminal::{Terminal, TerminalId};
 use crate::theme::Theme;
@@ -162,7 +162,7 @@ impl Detail {
                 format!("{agent} reads what you send here")
             }),
         };
-        let sending = self.brief_sending.is_some();
+        let sending = self.brief.sending;
         let and_send = notes > 0;
         let read_newer = newer.map(|latest| {
             button("brief-read-newer", "Read it")
@@ -209,7 +209,7 @@ impl Detail {
                 .tooltip("Go to the first")
                 .on_click(cx.listener(move |this, _, _, cx| {
                     if let Some(row) = first {
-                        this.brief_list.scroll_to_reveal_item(row);
+                        this.brief.list.scroll_to_reveal_item(row);
                         cx.notify();
                     }
                 }))
@@ -262,7 +262,7 @@ impl Detail {
                 .text_size(dp(12.))
                 .text_color(theme.text_2)
                 // Left out where it would only be cut down to a letter or two.
-                .when(self.brief_room.get() >= STATUS_NEEDS, |el| {
+                .when(self.brief.room.get() >= STATUS_NEEDS, |el| {
                     el.child(div().min_w_0().truncate().child(words))
                 })
                 .children(buttons.into_iter().map(|el| div().flex_none().child(el))),

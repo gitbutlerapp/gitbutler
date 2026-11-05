@@ -11,23 +11,24 @@ use gpui::{
     prelude::*,
 };
 
-mod bar;
+mod actions;
 mod code;
 mod head;
 mod keys;
 mod margin;
 mod names;
 mod notes;
-pub(super) use notes::BriefInput;
+pub(super) mod state;
 mod talk;
 pub(super) mod test_facts;
 
 pub(crate) use keys::{
     ChangesBeside, GoBack, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
 };
+pub(super) use state::BriefView;
 
 use super::Detail;
-use super::page::{BriefFold, PageTab};
+use super::page::PageTab;
 use super::pull_request::COLUMN_MAX_WIDTH;
 use crate::backend::briefs::{
     self, BriefAnchor, BriefBlock, BriefBody, BriefPicture, CommentTo, Pictures,
@@ -37,6 +38,7 @@ use crate::state::{ProjectTab, RowKey, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{Icon, dp, fixed, fold_row, h_flex, markdown, plural, v_flex};
+use state::BriefFold;
 
 /// What a read of a brief is of: its id, the version, and the branch's tip as that was.
 pub(super) type ReadKey = (String, Option<u32>, Option<crate::backend::CommitId>);
@@ -210,7 +212,7 @@ impl Detail {
         let stale = known.is_none_or(|known| briefs::now() - known.asked_at >= KNOWN_FOR);
         let known_at_all = known.is_some();
         let found = known.and_then(|known| known.found.clone());
-        let brief_first = self.brief_first;
+        let brief_first = self.brief.first;
         // Once what's known of the branch is in: a page opened on one the poll leaves out stays
         // open to its brief for the moment it takes to ask.
         let settled_now = known_at_all && (self.page.brief()).is_some_and(|brief| !brief.settled);
@@ -236,9 +238,9 @@ impl Detail {
         {
             review.tab = PageTab::Brief;
         }
-        if anchor != self.brief_asked {
-            self.brief_asked = anchor.clone();
-            self._brief_ask = match anchor.zip(project).filter(|_| stale) {
+        if anchor != self.brief.asked {
+            self.brief.asked = anchor.clone();
+            self.brief._ask = match anchor.zip(project).filter(|_| stale) {
                 None => Task::ready(()),
                 Some((anchor, project)) => cx.spawn(async move |this, cx| {
                     cx.background_executor().timer(SETTLE).await;
@@ -275,7 +277,7 @@ impl Detail {
             brief.unnamed = head::unnamed_files(page, &diff.files);
             brief.drifted = code::drifted_blocks(page, &diff.files);
             brief.linked = Some(key);
-            self.brief_list.remeasure();
+            self.brief.list.remeasure();
         }
     }
 
@@ -287,7 +289,7 @@ impl Detail {
             (self.page.brief())
                 .filter(|_| self.page.brief_tab())
                 .and_then(|brief| brief.found.clone()),
-            self.brief_asked.clone(),
+            self.brief.asked.clone(),
         ) else {
             return;
         };
@@ -298,7 +300,7 @@ impl Detail {
             .and_then(|brief| brief.page())
             .filter(|page| page.id == found.id && version.is_none_or(|it| it == page.version));
         let current = shown.is_some_and(|page| page.tip == tip);
-        let reading = (self.brief_reading.as_ref()).is_some_and(|(reading, _)| *reading == key);
+        let reading = (self.brief.reading.as_ref()).is_some_and(|(reading, _)| *reading == key);
         if current || reading {
             return;
         }
@@ -335,14 +337,14 @@ impl Detail {
                 if failed {
                     cx.background_executor().timer(READ_AGAIN).await;
                     this.update(cx, |this, cx| {
-                        this.brief_reading = None;
+                        this.brief.reading = None;
                         this.ask_briefs(cx);
                     })
                     .ok();
                 }
             }),
         };
-        self.brief_reading = Some((key, task));
+        self.brief.reading = Some((key, task));
     }
 
     /// Show `read`, a version of brief `id`, if that's still what the tab is to show. Anything
@@ -361,7 +363,7 @@ impl Detail {
         }
         // What's being written is about the version that's going, should this be another.
         let same = |page: &briefs::BriefPage| {
-            (self.brief_input.as_ref()).is_some_and(|input| input.is_about(&page.id, page.version))
+            (self.brief.input.as_ref()).is_some_and(|input| input.is_about(&page.id, page.version))
         };
         if !read.as_ref().is_ok_and(same) {
             self.keep_brief_writing();
@@ -390,7 +392,7 @@ impl Detail {
         brief.drifted = Default::default();
         brief.shown = Some(read.map_err(|err| format!("{err:#}")));
         self.link_brief_names();
-        self.brief_list.reset(self.brief_rows().len());
+        self.brief.list.reset(self.brief_rows().len());
         self.keep_talk_current(cx);
         self.run_find(false, cx);
         cx.notify();
@@ -403,12 +405,12 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let top = self.brief_list.logical_scroll_top();
+        let top = self.brief.list.logical_scroll_top();
         if !forward && top.item_ix == 0 && top.offset_in_item == Pixels::ZERO {
             return self.leave(Side::Top, window, cx);
         }
         let step = Theme::get(cx).scaled(if forward { STEP } else { -STEP });
-        self.brief_list.scroll_by(step);
+        self.brief.list.scroll_by(step);
         cx.notify();
     }
 
@@ -469,25 +471,25 @@ impl Detail {
             return div().into_any_element();
         };
         let rows = self.brief_rows();
-        if self.brief_list.item_count() != rows.len() {
-            self.brief_list.reset(rows.len());
+        if self.brief.list.item_count() != rows.len() {
+            self.brief.list.reset(rows.len());
         }
         // Where it was left is among rows that are there once it's read.
         if let Some(Ok(_)) = state.shown
             && let Some(top) = state.top.take()
         {
-            self.brief_list.scroll_to(top);
+            self.brief.list.scroll_to(top);
         }
         self.measure_brief_room(window);
         let column = list(
-            self.brief_list.clone(),
+            self.brief.list.clone(),
             cx.processor(move |this, ix, _, cx| this.brief_row(&rows, ix, cx)),
         )
         .size_full();
         let column = scrolled(
             column,
             "brief-scrollbar",
-            Scroll::List(self.brief_list.clone()),
+            Scroll::List(self.brief.list.clone()),
             theme,
         );
         (self.text_tab_ground(cx))
@@ -495,7 +497,7 @@ impl Detail {
             .on_mouse_down(
                 gpui::MouseButton::Left,
                 cx.listener(|this, _, window, cx| {
-                    if this.brief_input.is_none() {
+                    if this.brief.input.is_none() {
                         window.focus(&this.focus, cx);
                     }
                 }),
@@ -508,7 +510,7 @@ impl Detail {
                         .flex_1()
                         .min_h_0()
                         .on_hover(cx.listener(|this, hovering: &bool, _, cx| {
-                            if !*hovering && this.brief_hovered.take().is_some() {
+                            if !*hovering && this.brief.hovered.take().is_some() {
                                 cx.notify();
                             }
                         }))
@@ -734,7 +736,7 @@ impl Detail {
         }
         let after = self.brief_rows().len();
         let under = ix + 1;
-        self.brief_list.splice(
+        self.brief.list.splice(
             under..under + before.saturating_sub(after),
             after.saturating_sub(before),
         );

@@ -487,29 +487,10 @@ pub struct Detail {
     opening: Option<(ProjectTab, crate::state::SeenCommit)>,
     /// The pull request tab's column: its title, description and conversation.
     review_list: ListState,
-    /// The branch the page last showed, and the asking about it: see [`Self::ask_briefs`].
-    brief_asked: Option<backend::briefs::BriefAnchor>,
-    _brief_ask: Task<()>,
-    /// The version of a brief being read for the tab, and the reading.
-    brief_reading: Option<(brief::ReadKey, Task<()>)>,
-    /// The version whose talk is on its way out. It's here as a page outlives a send to it.
-    brief_sending: Option<(String, u32)>,
-    /// Whether the margin beside a brief's words has room for what's said most.
-    brief_room: Cell<f32>,
-    /// What the comment the pointer is on quotes, which tints those words more strongly.
-    brief_said_hovered: Option<String>,
-    /// The words of a brief last pointed at, by what tells them apart, whose controls show.
-    brief_hovered: Option<usize>,
     /// The project whose Branches page lists only the branches a brief is known of.
     branches_with_brief: Option<ProjectId>,
-    /// The version whose talk is kept current while its tab shows, and that keeping.
-    brief_talk: Option<((String, u32), Task<()>)>,
-    /// A page with a brief opens on it, until a tab with its changes is picked over it: whoever's
-    /// reading one brief after another stays reading.
-    brief_first: bool,
-    /// The field a note is written in, and its events.
-    brief_input: Option<brief::BriefInput>,
-    brief_list: ListState,
+    /// What the Brief tab holds.
+    brief: brief::BriefView,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
     /// How wide the pull request tab was drawn, for whether its side panel fits beside it: on
@@ -882,18 +863,8 @@ impl Detail {
             pending_file: None,
             opening: None,
             review_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
-            brief_asked: None,
-            _brief_ask: Task::ready(()),
-            brief_reading: None,
-            brief_sending: None,
-            brief_room: Cell::new(0.),
-            brief_said_hovered: None,
-            brief_hovered: None,
+            brief: brief::BriefView::new(),
             branches_with_brief: None,
-            brief_talk: None,
-            brief_first: true,
-            brief_input: None,
-            brief_list: ListState::new(0, ListAlignment::Top, fixed(200.)),
             review_side_scroll: ScrollHandle::new(),
             review_width: [(); 2].map(|_| Rc::new(Cell::new(pull_request::TWO_COLUMNS))),
             target_message_height: Rc::new(Cell::new(0.)),
@@ -954,7 +925,7 @@ impl Detail {
         });
         // So is one of a brief, and the keys aren't where it's being read any more.
         let this = cx.weak_entity();
-        detail.brief_list.set_scroll_handler(move |_, _, cx| {
+        detail.brief.list.set_scroll_handler(move |_, _, cx| {
             (this.update(cx, |detail, cx| {
                 if let Some(brief) = detail.page.brief_mut()
                     && brief.cursor.take().is_some()
@@ -1403,10 +1374,10 @@ impl Detail {
             review.top.set(Some(top));
             review.side = side;
         }
-        if self.brief_list.item_count() > 0
+        if self.brief.list.item_count() > 0
             && let Some(brief) = self.page.brief()
         {
-            brief.top.set(Some(self.brief_list.logical_scroll_top()));
+            brief.top.set(Some(self.brief.list.logical_scroll_top()));
         }
     }
 
@@ -1624,8 +1595,8 @@ impl Detail {
         self.fold_rows.clear();
         self.review_list.reset(0);
         self.review_side_scroll.set_offset(Default::default());
-        self.brief_list.reset(0);
-        self.brief_reading = None;
+        self.brief.list.reset(0);
+        self.brief.reading = None;
         self.keep_brief_writing();
     }
 
@@ -1644,7 +1615,7 @@ impl Detail {
             review.top.set(None);
         }
         // Another pick of the same branch still has its brief.
-        if self.brief_anchor(cx) != self.brief_asked
+        if self.brief_anchor(cx) != self.brief.asked
             && let Some(brief) = self.page.brief_mut()
         {
             *brief = Default::default();
@@ -2606,8 +2577,8 @@ impl Detail {
     /// which the file list goes to.
     pub fn page(&mut self, by: f32, window: &mut Window, cx: &mut Context<Self>) {
         if self.showing_brief() {
-            let height = self.brief_list.viewport_bounds().size.height;
-            self.brief_list.scroll_by(height * by);
+            let height = self.brief.list.viewport_bounds().size.height;
+            self.brief.list.scroll_by(height * by);
             return cx.notify();
         }
         let at_end = -self.list.scroll_px_offset_for_scrollbar().y
@@ -2760,7 +2731,7 @@ impl Detail {
         self.glide = None;
         self.list.scroll_to(top);
         self.review_list.remeasure();
-        self.brief_list.remeasure();
+        self.brief.list.remeasure();
         let theme = Theme::get(cx);
         for side in [
             &self.uncommitted_files,
@@ -3600,9 +3571,6 @@ impl Detail {
         }
     }
 
-    /// Put the cursor on file `file_ix`'s header and scroll it to the top, gliding there with
-    /// `glide`, as a key or a click goes from file to file. A diff that's just loaded, or a
-    /// filter being typed, goes there at once.
     /// Put the cursor on hunk `hunk` of file `file_ix`, in view.
     fn show_hunk(&mut self, file_ix: usize, hunk: usize, cx: &mut Context<Self>) {
         self.cursor = Cursor::on_hunk(file_ix, hunk);
@@ -3610,6 +3578,9 @@ impl Detail {
         cx.notify();
     }
 
+    /// Put the cursor on file `file_ix`'s header and scroll it to the top, gliding there with
+    /// `glide`, as a key or a click goes from file to file. A diff that's just loaded, or a
+    /// filter being typed, goes there at once.
     fn scroll_to_file(&mut self, file_ix: usize, glide: bool, cx: &mut Context<Self>) {
         self.cursor = Cursor::on_file(file_ix);
         self.follow_alone(cx);

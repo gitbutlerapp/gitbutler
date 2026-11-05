@@ -3,11 +3,12 @@
 
 use gpui::{Context, Div, ListOffset, Window, actions, prelude::*};
 
+use super::state::{BriefFold, BriefState};
 use super::talk::ROW_MEASURED;
 use super::{Row, markdown};
 use crate::backend::briefs::BriefBody;
 use crate::detail::Detail;
-use crate::detail::page::{BriefFold, PageTab};
+use crate::detail::page::PageTab;
 use crate::state::Selection;
 
 actions!(
@@ -44,10 +45,10 @@ impl Detail {
     pub(super) fn brief_cursor(&self) -> usize {
         // Not where it was left, if the list has been scrolled away from that.
         let cursor = (self.page.brief().and_then(|brief| brief.cursor))
-            .filter(|cursor| self.brief_list.bounds_for_item(*cursor).is_some());
+            .filter(|cursor| self.brief.list.bounds_for_item(*cursor).is_some());
         cursor.unwrap_or_else(|| {
             // The row being read: the next, when the one at the top is partly gone.
-            let top = self.brief_list.logical_scroll_top();
+            let top = self.brief.list.logical_scroll_top();
             top.item_ix + usize::from(top.offset_in_item > gpui::Pixels::ZERO)
         })
     }
@@ -60,7 +61,7 @@ impl Detail {
             brief.cursor = Some(to);
             brief.cursor_shown = true;
         }
-        self.brief_list.scroll_to(ListOffset {
+        self.brief.list.scroll_to(ListOffset {
             item_ix: to,
             offset_in_item: Default::default(),
         });
@@ -70,9 +71,9 @@ impl Detail {
     /// Make `change`, which rows may come or go with, and say where what's at the top is then.
     pub(super) fn brief_place_after(
         &mut self,
-        change: impl FnOnce(&mut crate::detail::page::BriefState),
+        change: impl FnOnce(&mut BriefState),
     ) -> Option<ListOffset> {
-        let top = self.brief_list.logical_scroll_top();
+        let top = self.brief.list.logical_scroll_top();
         let block = self
             .brief_rows()
             .get(top.item_ix)
@@ -132,7 +133,7 @@ impl Detail {
                 if let (Some(row), Some(brief)) = (row, this.page.brief_mut()) {
                     brief.cursor = Some(row);
                     brief.cursor_shown = true;
-                    this.brief_list.scroll_to(ListOffset {
+                    this.brief.list.scroll_to(ListOffset {
                         item_ix: row,
                         offset_in_item: Default::default(),
                     });
@@ -158,7 +159,7 @@ impl Detail {
             brief.open.insert(BriefFold::Unchanged);
             // What the card shows then isn't what's searched.
             if brief.open.remove(&BriefFold::WholeFile(at)) {
-                self.brief_list.remeasure();
+                self.brief.list.remeasure();
             }
         }
         let folded = self.brief_rows().iter().find_map(|row| match *row {
@@ -187,27 +188,27 @@ impl Detail {
             item_ix: row,
             offset_in_item: Default::default(),
         };
-        if self.brief_list.item_count() != rows.len() {
+        if self.brief.list.item_count() != rows.len() {
             // Rows came, so where the list and the keys were means something else now.
-            self.brief_list.reset(rows.len());
+            self.brief.list.reset(rows.len());
             brief.cursor = None;
             brief.top.set(Some(top));
-        } else if self.brief_list.bounds_for_item(row).is_none() {
+        } else if self.brief.list.bounds_for_item(row).is_none() {
             brief.top.set(Some(top));
         }
         cx.notify();
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(ROW_MEASURED).await;
             this.update(cx, |this, cx| {
-                let Some(bounds) = this.brief_list.bounds_for_item(row) else {
+                let Some(bounds) = this.brief.list.bounds_for_item(row) else {
                     return;
                 };
-                let view = this.brief_list.viewport_bounds();
+                let view = this.brief.list.viewport_bounds();
                 let there = bounds.size.height * share;
                 let margin = view.size.height / 6.;
                 let y = bounds.top() + there;
                 if y < view.top() + margin || y > view.bottom() - margin {
-                    this.brief_list.scroll_to(ListOffset {
+                    this.brief.list.scroll_to(ListOffset {
                         item_ix: row,
                         offset_in_item: (there - view.size.height / 3.).max(Default::default()),
                     });
@@ -230,7 +231,7 @@ impl Detail {
         if let Some(brief) = self.page.brief_mut() {
             brief.cursor = None;
         }
-        self.brief_list.scroll_to(top);
+        self.brief.list.scroll_to(top);
         cx.notify();
     }
 
@@ -258,7 +259,7 @@ impl Detail {
     /// the point is to go through them all.
     pub(super) fn next_brief(&self, forward: bool, cx: &gpui::App) -> Option<BriefOnBranch> {
         let project = self.selected_project()?;
-        let at = self.brief_asked.as_ref().map(|asked| &asked.branch);
+        let at = self.brief.asked.as_ref().map(|asked| &asked.branch);
         let store = self.store.read(cx);
         let with_briefs: Vec<BriefOnBranch> = (store.workspace(&project)?.all_branches())
             .filter_map(|branch| {
