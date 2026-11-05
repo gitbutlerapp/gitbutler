@@ -1,9 +1,13 @@
 <script lang="ts">
 	import loginSvg from "$lib/assets/login-modal.svg?raw";
+	import { goToLogin, goToSignup } from "$lib/auth/pageBeforeLogin";
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { Button, Modal } from "@gitbutler/ui-svelte";
 
 	import { type Snippet } from "svelte";
-	import { env } from "$env/dynamic/public";
+
+	const routes = inject(WEB_ROUTES_SERVICE);
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
 
@@ -15,10 +19,6 @@
 
 	export function show() {
 		modal?.show();
-	}
-
-	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}
 </script>
 
@@ -38,8 +38,8 @@
 			</p>
 
 			<div class="login-modal__actions">
-				<Button style="pop" onclick={login}>Log in</Button>
-				<Button kind="outline" onclick={login}>Sign up</Button>
+				<Button style="pop" onclick={() => goToLogin(routes)}>Log in</Button>
+				<Button kind="outline" onclick={() => goToSignup(routes)}>Sign up</Button>
 			</div>
 		</div>
 	</div>

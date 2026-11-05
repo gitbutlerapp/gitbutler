@@ -1,9 +1,11 @@
 <script lang="ts">
-	import RedirectToProfileIfLoggedIn from "$lib/auth/RedirectToProfileIfLoggedIn.svelte";
+	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	const userService = inject(USER_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
 	const user = userService.user;
 
 	const loggedIn = $derived($user !== undefined);
@@ -13,5 +15,5 @@
 	<p>Loading...</p>
 {:else}
 	<!-- For now, just redirect the user back to the  -->
-	<RedirectToProfileIfLoggedIn />
+	<RedirectIfLoggedIn fallback={routes.profilePath()} />
 {/if}

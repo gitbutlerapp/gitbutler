@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goToLogin } from "$lib/auth/pageBeforeLogin";
 	import MessageHandler from "$lib/chat/message.svelte";
 	import RichText from "$lib/chat/richText.svelte";
 	import SuggestionsHandler from "$lib/chat/suggestions.svelte";
@@ -11,6 +12,7 @@
 	import { uploadFiles } from "@gitbutler/shared/dom";
 	import { PATCH_COMMIT_SERVICE } from "@gitbutler/shared/patches/patchCommitService";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { UPLOADS_SERVICE } from "@gitbutler/shared/uploads/uploadsService";
 	import { NEW_USER_SERVICE } from "@gitbutler/shared/users/userService";
 
@@ -29,7 +31,6 @@
 
 	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { PatchCommit } from "@gitbutler/shared/patches/types";
-	import { env } from "$env/dynamic/public";
 
 	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
@@ -65,6 +66,7 @@
 	const patchCommitService = inject(PATCH_COMMIT_SERVICE);
 	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
 	const uploadsService = inject(UPLOADS_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
 	const contributors = $derived(patchCommit.contributors.map((c) => c.user).filter(isDefined));
 	const chatParticipants = $derived(
 		getChatChannelParticipants(appState, chatChannelService, projectId, changeId),
@@ -188,7 +190,7 @@
 	});
 
 	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
+		goToLogin(routes);
 	}
 
 	function isAcceptedFileType(file: File): boolean {

@@ -2,13 +2,12 @@
 	import { browser } from "$app/environment";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/stores";
+	import { goToLogin } from "$lib/auth/pageBeforeLogin";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { Button } from "@gitbutler/ui-svelte";
-
-	import { env } from "$env/dynamic/public";
 
 	const userService = inject(USER_SERVICE);
 	const organizationService = inject(ORGANIZATION_SERVICE);
@@ -85,15 +84,6 @@
 	function handleRetry() {
 		processInvite();
 	}
-
-	// Navigate to login if not logged in
-	function goToLogin() {
-		// Store the current URL in session storage to redirect back after login
-		if (browser) {
-			sessionStorage.setItem("redirectAfterLogin", window.location.href);
-		}
-		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
-	}
 </script>
 
 <div class="invite-container">
@@ -103,7 +93,7 @@
 		{#if !isLoggedIn}
 			<p>You've been invited to join <strong>{slug}</strong>.</p>
 			<p>Please log in to continue.</p>
-			<Button onclick={goToLogin} style="pop">Log In</Button>
+			<Button onclick={() => goToLogin(routes)} style="pop">Log In</Button>
 		{:else if isJoining}
 			<div class="loading-container">
 				<p>Joining organization...</p>

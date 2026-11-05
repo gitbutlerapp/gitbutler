@@ -3,6 +3,7 @@
 	import NotificationSettings from "./components/NotificationSettings.svelte";
 	import ProfileHeader from "./components/ProfileHeader.svelte";
 	import SupporterCard from "./components/SupporterCard.svelte";
+	import { goToLogin } from "$lib/auth/pageBeforeLogin";
 	import linksJson from "$lib/data/links.json";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { getOS } from "$lib/utils/getOS";
@@ -11,6 +12,7 @@
 	import Loading from "@gitbutler/shared/network/Loading.svelte";
 	import { getRecentlyPushedProjects } from "@gitbutler/shared/organizations/projectsPreview.svelte";
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { NOTIFICATION_SETTINGS_SERVICE } from "@gitbutler/shared/settings/notificationSettingsService";
 	import { getNotificationSettingsInterest } from "@gitbutler/shared/settings/notificationSetttingsPreview.svelte";
 	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui-svelte";
@@ -22,6 +24,13 @@
 	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();
 	const loginService = inject(LOGIN_SERVICE);
+	const routes = inject(WEB_ROUTES_SERVICE);
+
+	// A link, so it can still open in a new tab, but here it saves this page to come back to.
+	function logIn(event: MouseEvent) {
+		event.preventDefault();
+		goToLogin(routes);
+	}
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
@@ -87,7 +96,8 @@
 	<div class="not-logged-in">
 		<h3 class="text-18 text-bold">It looks like you're not logged in</h3>
 		<p class="text-14 text-body clr-text-2">
-			Please <a class="underline" href="/login">log in</a> to access your profile
+			Please <a class="underline" href={routes.loginPath()} onclick={logIn}>log in</a> to access your
+			profile
 		</p>
 	</div>
 {:else}

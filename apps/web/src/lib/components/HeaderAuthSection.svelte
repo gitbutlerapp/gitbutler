@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
+	import { goToLogin, goToSignup } from "$lib/auth/pageBeforeLogin";
 	import UserAuthAvatar from "$lib/components/UserAuthAvatar.svelte";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
@@ -21,8 +21,8 @@
 	<UserAuthAvatar user={$user} />
 {:else if !$user}
 	<div class="login-signup-wrap">
-		<Button kind="outline" onclick={() => goto(routes.signupPath())}>Sign up</Button>
-		<Button style="pop" onclick={() => goto(routes.loginPath())} icon="login">Log in</Button>
+		<Button kind="outline" onclick={() => goToSignup(routes)}>Sign up</Button>
+		<Button style="pop" onclick={() => goToLogin(routes)} icon="login">Log in</Button>
 	</div>
 {/if}
 
