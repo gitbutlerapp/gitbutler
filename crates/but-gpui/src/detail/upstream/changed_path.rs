@@ -9,7 +9,7 @@ use crate::backend::upstream::PathQuery;
 use crate::detail::Detail;
 use crate::detail::file_list::At;
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, ProjectTab};
+use crate::state::{CodePlace, ProjectId, ProjectTab};
 use crate::theme::Theme;
 use crate::ui::{dp, faint, h_flex};
 
@@ -109,8 +109,8 @@ impl Detail {
             Some(PathQuery::Whole(file)) => Some(file.to_str_lossy().into_owned()),
             _ => None,
         });
-        if file.is_some() {
-            self.pending_file = file;
+        if let Some(path) = file {
+            self.pending_file = Some(CodePlace::File { path, line: None }.into());
         }
     }
 

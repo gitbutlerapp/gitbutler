@@ -47,6 +47,9 @@ pub struct Theme {
     /// The dark ground of a snackbar, in both themes.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
+    /// A warning snackbar's glyph, which says it went but not quite as asked: design-core's
+    /// fill-warn on the snackbar's ground, as ui-react's has it. For a glyph, so 3:1.
+    pub snackbar_warn: Hsla,
     /// A diff's changed lines as @pierre/diffs colours them in but.dev: the line numbers and
     /// the bar beside them, the ground of the line and its numbers, and behind the words that
     /// changed within it.
@@ -357,6 +360,7 @@ impl Theme {
             purple_on_solid: pick(0xb287de, 0x6e2cb1),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
+            snackbar_warn: rgb(0xf99406).into(),
             diff_added: added,
             diff_removed: removed,
             diff_added_bg: pick(0xeef7ee, 0x2c3f35),
@@ -460,6 +464,12 @@ impl Theme {
                 .or_else(|| reaching(fg, ink, &grounds, ratio))
                 .unwrap_or(ink)
         };
+        // A snackbar's ground is the foreground, so its glyph steps toward whichever of black
+        // and white reads there.
+        let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
+            true => 0xffffff,
+            false => 0x000000,
+        };
         let pop = ansi(6);
         let on_pop = [0xffffff, bg, 0x000000]
             .into_iter()
@@ -494,6 +504,9 @@ impl Theme {
             purple_on_solid: color(readable_on(purple, bg, fg)),
             snackbar_bg: color(fg),
             snackbar_text: color(bg),
+            snackbar_warn: color(
+                reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
+            ),
             diff_added: color(added),
             diff_removed: color(removed),
             diff_added_bg: color(ground(2)),
@@ -725,6 +738,29 @@ mod tests {
             assert!(
                 label >= 4.5,
                 "{name}: a pop button's label reads at {label}"
+            );
+            let glyph = contrast(rgb_hex(theme.snackbar_warn), rgb_hex(theme.snackbar_bg));
+            assert!(
+                glyph >= 3.,
+                "{name}: a warning snackbar's glyph reads at {glyph}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_warning_snackbars_glyph_reads_in_gitbutlers_colours() {
+        for appearance in [Appearance::Light, Appearance::Dark] {
+            let theme = Theme::new(
+                appearance,
+                &ColorScheme::GitButler,
+                WindowAppearance::Light,
+                CodeSize::Medium,
+                &Ghostty::default(),
+            );
+            let glyph = contrast(rgb_hex(theme.snackbar_warn), rgb_hex(theme.snackbar_bg));
+            assert!(
+                glyph >= 3.,
+                "{appearance:?}: a warning snackbar's glyph reads at {glyph}, under 3:1"
             );
         }
     }

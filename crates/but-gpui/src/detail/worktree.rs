@@ -17,7 +17,9 @@ use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, ReviewState,
     Workspace,
 };
-use crate::state::{Activity, ProjectId, ProjectTab, QUARTER, SeenCommit, Selection, Store};
+use crate::state::{
+    Activity, CodePlace, ProjectId, ProjectTab, QUARTER, SeenCommit, Selection, Store,
+};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -245,7 +247,7 @@ impl Detail {
         // The agent that wrote it, or its author.
         let by = (made.agent.as_ref()).map_or(&made.author, |agent| &agent.name);
         let (id, by) = (made.id, by.to_owned());
-        self.pending_file = Some(path);
+        self.pending_file = Some(CodePlace::File { path, line: None }.into());
         let at = Selection::Commit(project.clone(), id);
         self.store.update(cx, |store, cx| {
             store.select(Some(at), cx);

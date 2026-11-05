@@ -8,8 +8,11 @@
 use std::path::PathBuf;
 
 use but_path::AppChannel;
-use but_path::link::OpenLink;
+use but_path::link::{self, OpenLink};
+pub use but_path::link::{FileAt, Page};
 use futures::channel::mpsc;
+
+use super::{Checkout, CommitId, FullName};
 
 #[cfg(unix)]
 mod unix;
@@ -48,10 +51,72 @@ impl IncomingLinks {
     }
 }
 
-/// The project directory `url` asks to open, or `None` if it isn't a `but://open` link. Whether
-/// it asks for a new window doesn't matter, as one window shows every project.
-pub fn project_to_open(url: &str) -> Option<PathBuf> {
-    OpenLink::parse(url).map(|link| link.path)
+/// What a `but://open` link asks to open: the project at `path`, at the place in it `at` names.
+#[derive(Debug, PartialEq)]
+pub struct Link {
+    pub path: PathBuf,
+    pub at: Option<Place>,
+    /// It names a place that can't be, as a branch name that isn't a ref or a commit not by its
+    /// full hash, and opens the project in its place.
+    pub unreadable: bool,
+}
+
+/// A place in a project a link can open at.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Place {
+    /// Some changes, at one of their files if `file` names one.
+    Changes {
+        of: Changes,
+        file: Option<FileAt>,
+    },
+    Page(Page),
+}
+
+/// Changes a link can show.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Changes {
+    Branch(FullName),
+    Commit(CommitId),
+    Uncommitted(Checkout),
+}
+
+/// What `url` asks to open, or `None` if it isn't a `but://open` link. Whether it asks for a
+/// new window doesn't matter, as one window shows every project, and a place it names that
+/// isn't a valid one opens the project as it opens by itself.
+pub fn read_link(url: &str) -> Option<Link> {
+    let link = OpenLink::parse(url)?;
+    let named = link.at.is_some();
+    let at = link.at.and_then(place);
+    Some(Link {
+        path: link.path,
+        unreadable: named && at.is_none(),
+        at,
+    })
+}
+
+/// `at` in the app's own terms, or `None` if the changes it names can't be.
+fn place(at: link::Place) -> Option<Place> {
+    Some(match at {
+        link::Place::Changes { of, file } => Place::Changes {
+            of: changes(of)?,
+            file,
+        },
+        link::Place::Page(page) => Place::Page(page),
+    })
+}
+
+/// `of` in the app's own terms, or `None` for a branch name that isn't a valid ref, or a commit
+/// that isn't named by its full hash.
+fn changes(of: link::Changes) -> Option<Changes> {
+    Some(match of {
+        link::Changes::Branch(name) => Changes::Branch(FullName::try_from(name.as_str()).ok()?),
+        link::Changes::Commit(id) => {
+            Changes::Commit(CommitId(gix::ObjectId::from_hex(id.as_bytes()).ok()?))
+        }
+        link::Changes::Uncommitted { worktree } => Changes::Uncommitted(
+            worktree.map_or(Checkout::Main, |name| Checkout::Linked(name.into())),
+        ),
+    })
 }
 
 /// Hand this launch's links to the app already running, which comes forward with them, and
@@ -96,7 +161,7 @@ fn launch_links() -> Vec<String> {
     std::env::args_os()
         .skip(1)
         .filter_map(|arg| arg.into_string().ok())
-        .filter(|arg| project_to_open(arg).is_some())
+        .filter(|arg| read_link(arg).is_some())
         .collect()
 }
 
@@ -131,6 +196,74 @@ mod tests {
     use futures::StreamExt as _;
 
     use super::*;
+
+    #[test]
+    fn a_link_reads_as_the_place_it_names() {
+        let at = |url| read_link(url).and_then(|link| link.at);
+        let id = "8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a";
+        assert_eq!(
+            read_link("but://open?path=%2Frepo&branch=refs%2Fheads%2Fx&file=src%2Fa.rs&line=4"),
+            Some(Link {
+                path: "/repo".into(),
+                at: Some(Place::Changes {
+                    of: Changes::Branch(FullName::try_from("refs/heads/x").expect("a valid ref")),
+                    file: Some(FileAt {
+                        path: "src/a.rs".into(),
+                        line: Some(4),
+                    }),
+                }),
+                unreadable: false,
+            }),
+            "a branch at a line of one of its files"
+        );
+        let url = format!("but://open?path=%2Frepo&commit={id}");
+        assert_eq!(
+            at(&url),
+            Some(Place::Changes {
+                of: Changes::Commit(CommitId(
+                    gix::ObjectId::from_hex(id.as_bytes()).expect("a hash")
+                )),
+                file: None,
+            }),
+            "a commit by its full hash"
+        );
+        assert_eq!(
+            at("but://open?path=%2Frepo&uncommitted=1&worktree=feature"),
+            Some(Place::Changes {
+                of: Changes::Uncommitted(Checkout::Linked("feature".into())),
+                file: None,
+            }),
+            "a linked worktree's uncommitted changes"
+        );
+        assert_eq!(
+            at("but://open?path=%2Frepo&uncommitted=1"),
+            Some(Place::Changes {
+                of: Changes::Uncommitted(Checkout::Main),
+                file: None,
+            }),
+            "without a worktree, the main worktree's"
+        );
+        assert_eq!(
+            at("but://open?path=%2Frepo&page=graph"),
+            Some(Place::Page(Page::Graph)),
+            "a page as the link names it"
+        );
+        assert_eq!(
+            read_link("but://open?path=%2Frepo").map(|link| (link.at, link.unreadable)),
+            Some((None, false)),
+            "a link naming no place opens the project as it opens by itself"
+        );
+        for url in [
+            "but://open?path=%2Frepo&branch=not%20a..ref",
+            "but://open?path=%2Frepo&commit=8c5a2f0e",
+        ] {
+            assert_eq!(
+                read_link(url).map(|link| (link.at, link.unreadable)),
+                Some((None, true)),
+                "{url} names nothing that can be, so it opens the project and says so"
+            );
+        }
+    }
 
     #[test]
     fn a_later_launch_hands_over_its_links() {

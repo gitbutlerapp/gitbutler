@@ -244,6 +244,7 @@ impl AppChannel {
         let url = link::OpenLink {
             path: possibly_project_dir.to_owned(),
             new_window,
+            at: None,
         }
         .to_url(*self, timestamp)?;
 

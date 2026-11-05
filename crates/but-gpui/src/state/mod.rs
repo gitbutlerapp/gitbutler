@@ -190,7 +190,7 @@ impl Selection {
     }
 }
 
-/// A place in a branch's changes that a brief points to.
+/// A place in the changes shown that a brief or a link points to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodePlace {
     /// A file, at the hunk with this line of its new side if it has one.
@@ -213,6 +213,9 @@ pub enum StoreEvent {
     Reopened,
     /// A tab of the project being selected was asked for, as Go to anything does.
     TabAsked(ProjectTab),
+    /// A place in the changes of the selection a `but://open` link is making was asked for:
+    /// their diff opens there once it's read, and says so if it lacks it.
+    FileAsked(Selection, CodePlace),
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
     Renamed(ProjectId, Option<FullName>, FullName),
@@ -268,6 +271,8 @@ pub enum Notice {
     Snackbar {
         message: SharedString,
         undo: Option<(ProjectId, SnapshotId)>,
+        /// It went, but not quite as asked: a warning glyph leads it.
+        warning: bool,
     },
     /// A failure: a card at the bottom right with the error kept for copying, and what
     /// to try instead, if anything. `source` is the operation that wrote it, by project and
@@ -350,6 +355,8 @@ pub struct Store {
     staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
+    /// What a link selected, and what to say if it isn't there, until its project's read.
+    linked: Option<(Selection, &'static str)>,
     /// Whether the user was asked for Git's missing author since the app started: once is
     /// enough, as it's set for every repository.
     asked_author: bool,
@@ -558,6 +565,7 @@ impl Store {
             made: None,
             staying: false,
             added: None,
+            linked: None,
             asked_author: false,
             dragging: None,
             move_dragged: false,
@@ -1092,6 +1100,21 @@ impl Store {
         self.select_by_hand(selection, cx)
     }
 
+    /// Select `selection` as the user asked, and have its diff open at `place`, as a
+    /// `but://open` link does. Says whether it was. The place is asked for first, as
+    /// [`Store::show_tab`] asks for its tab.
+    fn show_file(
+        &mut self,
+        selection: Selection,
+        place: CodePlace,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if (self.moving.as_ref()).is_none_or(|moving| moving.holds(&selection)) {
+            cx.emit(StoreEvent::FileAsked(selection.clone(), place));
+        }
+        self.select_by_hand(selection, cx)
+    }
+
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
     /// ⇧-click and ⇧-arrows pick the run of commits to `id` in `range`, the commits as
     /// they're shown, from where the last other click left off. The clicked commit becomes
@@ -1129,6 +1152,19 @@ impl Store {
             Notice::Snackbar {
                 message: message.into(),
                 undo: None,
+                warning: false,
+            },
+            cx,
+        );
+    }
+
+    /// A snackbar for what went, but not quite as asked, as ui-react's warning one says it.
+    pub fn snack_warning(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.notify_user(
+            Notice::Snackbar {
+                message: message.into(),
+                undo: None,
+                warning: true,
             },
             cx,
         );
@@ -1225,7 +1261,14 @@ impl Store {
             Some((project, _)) => self.card_title(project, message.to_string()).into(),
             None => message,
         };
-        self.notify_user(Notice::Snackbar { message, undo }, cx);
+        self.notify_user(
+            Notice::Snackbar {
+                message,
+                undo,
+                warning: false,
+            },
+            cx,
+        );
     }
 
     pub fn error(

@@ -954,7 +954,11 @@ impl AppView {
                     .update(cx, |store, cx| store.dismiss_toast(id, cx))
             });
             match &toast.notice {
-                Notice::Snackbar { message, undo } => {
+                Notice::Snackbar {
+                    message,
+                    undo,
+                    warning,
+                } => {
                     snackbar = Some(
                         h_flex()
                             .id(("snackbar", id))
@@ -971,6 +975,9 @@ impl AppView {
                             .shadow_lg()
                             // Over a modal's backdrop, which a click would reach and close it.
                             .occlude()
+                            .when(*warning, |el| {
+                                el.child(small_icon(Icon::Warning).text_color(theme.snackbar_warn))
+                            })
                             .child(message.clone())
                             .when_some(undo.clone(), |el, (project, snapshot)| {
                                 el.child(

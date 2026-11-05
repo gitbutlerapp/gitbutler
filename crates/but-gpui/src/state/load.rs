@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, SharedString, Task, WindowId};
 
-use super::{ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use super::{CodePlace, ProjectEntry, ProjectId, ProjectTab, Selection, Store, StoreEvent};
+use crate::backend::links;
 use crate::backend::watch::Watcher;
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
@@ -35,12 +36,12 @@ pub(super) struct Reload {
 }
 
 /// What asked for a project by its folder.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum Asked {
     /// Add project.
     Add,
-    /// A `but://open` link.
-    Link,
+    /// A `but://open` link, at the place in the project it names.
+    Link(Option<links::Place>),
 }
 
 impl Reload {
@@ -316,9 +317,15 @@ impl Store {
         self.add_or_open(path, Asked::Add, cx);
     }
 
-    /// Open the project at `path` as a `but://open` link asks, adding it first if it's new.
-    pub fn open_from_link(&mut self, path: PathBuf, cx: &mut Context<Self>) {
-        self.add_or_open(path, Asked::Link, cx);
+    /// Open the project at `path` as a `but://open` link asks, adding it first if it's new, at
+    /// the place in it `at` names.
+    pub fn open_from_link(
+        &mut self,
+        path: PathBuf,
+        at: Option<links::Place>,
+        cx: &mut Context<Self>,
+    ) {
+        self.add_or_open(path, Asked::Link(at), cx);
     }
 
     /// Add `path` and select it, as `asked`.
@@ -337,8 +344,8 @@ impl Store {
                     let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
-                    if let Asked::Link = asked {
-                        return store.select_linked(id, existed, cx);
+                    if let Asked::Link(at) = asked {
+                        return store.select_linked(id, existed, at, cx);
                     }
                     store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
                     match (existed, store.project(&id)) {
@@ -357,14 +364,79 @@ impl Store {
         .detach();
     }
 
-    /// Select `id` as a `but://open` link asks: as a click on its row does, and where the user
-    /// already is in it, they stay.
-    fn select_linked(&mut self, id: ProjectId, existed: bool, cx: &mut Context<Self>) {
+    /// Select `id` as a `but://open` link asks: as a click on its row does, at the place in it
+    /// `at` names, or with none, where it opens, and where the user already is in it, they stay.
+    /// A place it doesn't have falls back as any selection does: at once if the project's read,
+    /// otherwise once it is.
+    fn select_linked(
+        &mut self,
+        id: ProjectId,
+        existed: bool,
+        at: Option<links::Place>,
+        cx: &mut Context<Self>,
+    ) {
         if !existed {
-            self.select_by_hand(Selection::Checkout(id.clone(), Checkout::Main), cx);
-            self.added = Some(id);
-        } else if (self.selection.as_ref()).is_none_or(|selection| selection.project() != &id) {
-            self.select_by_hand(self.opening(&id), cx);
+            self.added = Some(id.clone());
+        }
+        match at {
+            Some(links::Place::Changes { of, file }) => {
+                let project = id.clone();
+                let (selection, missing) = match of {
+                    links::Changes::Branch(name) => (
+                        Selection::Branch(id, Some(name)),
+                        "The link's branch isn't in the workspace now",
+                    ),
+                    links::Changes::Commit(commit) => (
+                        Selection::Commit(id, commit),
+                        "The link's commit isn't in the workspace now",
+                    ),
+                    links::Changes::Uncommitted(checkout) => (
+                        Selection::Uncommitted(id, checkout),
+                        "The link's worktree has nothing uncommitted now",
+                    ),
+                };
+                self.linked = Some((selection.clone(), missing));
+                match file {
+                    Some(links::FileAt { path, line }) if self.still_there(&selection) => {
+                        self.show_file(selection, CodePlace::File { path, line }, cx)
+                    }
+                    _ => self.select_by_hand(selection, cx),
+                };
+                // Unlike a click, a link can name what the project doesn't have, which then
+                // says so and falls back now rather than at the project's next reload.
+                self.land_link(&project, cx);
+                self.validate_selection(&project, cx);
+            }
+            Some(links::Place::Page(page)) => {
+                let tab = match page {
+                    links::Page::Branches => ProjectTab::Branches,
+                    links::Page::History => ProjectTab::History,
+                    links::Page::Graph => ProjectTab::Graph,
+                };
+                self.show_tab(id, tab, cx);
+            }
+            None if !existed => {
+                self.select_by_hand(Selection::Checkout(id, Checkout::Main), cx);
+            }
+            None if (self.selection.as_ref()).is_none_or(|s| s.project() != &id) => {
+                self.select_by_hand(self.opening(&id), cx);
+            }
+            None => {}
+        }
+    }
+
+    /// Once `id` is read, say so if what a link selected in it isn't there, before it falls
+    /// back.
+    fn land_link(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.workspace(id).is_none() {
+            return;
+        }
+        let Some((linked, missing)) = self.linked.take_if(|(linked, _)| linked.project() == id)
+        else {
+            return;
+        };
+        if self.selection.as_ref() == Some(&linked) && !self.still_there(&linked) {
+            self.snack_warning(missing, cx);
         }
     }
 
@@ -710,6 +782,7 @@ impl Store {
                 // Checking against a stale one could drop a selection the operation just made.
                 if fresh {
                     store.close_terminals_gone(cx);
+                    store.land_link(&id, cx);
                     store.validate_selection(&id, cx);
                 }
                 // A commit's row is only found once its project is read, so the tiling a

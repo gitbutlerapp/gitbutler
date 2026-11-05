@@ -1138,6 +1138,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 frame(window, cx);
             }
         }
+        // What macOS would hand the running app for a `but://` link.
+        "link" => {
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            let incoming = crate::backend::links::Incoming::Link(rest.to_owned());
+            app.update(cx, |app, cx| crate::links::open(incoming, app, window, cx));
+        }
         // What the system's folder picker would hand Add a repository.
         "add" => {
             let app = window.root::<AppView>().flatten().context("no app view")?;
