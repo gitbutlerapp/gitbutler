@@ -604,18 +604,15 @@ impl Detail {
         .h_full();
         // Side by side, each scrolls on its own, so neither a long description nor a long
         // list of checks takes the other out of sight. The panel is a pane of its own along
-        // the right edge, grey and edged as the navigator is, its cards under the header's
-        // actions, so the room the column leaves reads as margin. Narrow, the panel goes
-        // between the title and the description, so the page still opens on what the pull
-        // request is.
+        // the right edge, grey and edged as the navigator is, its sections flush to it.
+        // Narrow, the panel goes on a card between the title and the description, so the page
+        // still opens on what the pull request is.
         let page = match two_columns {
             true => h_flex().size_full().child(column.min_w_0()).child(
                 scrolling(
                     "review-side",
                     "review-side-scrollbar",
-                    div()
-                        .px(dp(PANEL_INSET))
-                        .child(self.side(project, review, theme, cx)),
+                    self.side(project, review, theme, cx),
                     &self.review_side_scroll,
                     theme,
                 )
@@ -623,8 +620,8 @@ impl Detail {
                 // Narrower in a narrower pane, so the column keeps its room and the panel stays
                 // beside it longer. Flex sizes it, so it's right on the frame the pane changes.
                 .w(relative(0.3))
-                .min_w(dp(PANEL_INSET + PANEL_MIN_WIDTH + PANEL_INSET))
-                .max_w(dp(PANEL_INSET + PANEL_WIDTH + PANEL_INSET))
+                .min_w(dp(PANEL_MIN_WIDTH))
+                .max_w(dp(PANEL_WIDTH))
                 .bg(theme.bg_2)
                 .border_l_1()
                 .border_color(theme.border_3),
@@ -678,7 +675,7 @@ impl Detail {
             0 => (16., Some(self.head(&project, review, theme, cx))),
             1 => (
                 20.,
-                (!two_columns).then(|| self.side(&project, review, theme, cx)),
+                (!two_columns).then(|| card(theme).child(self.side(&project, review, theme, cx))),
             ),
             // While it's edited, the editor above holds it.
             2 => (
@@ -798,7 +795,7 @@ impl Detail {
         Some(h_flex().gap(dp(6.)).children(age).child(button))
     }
 
-    /// The panel of where the pull request stands, a card of facts as Lite's: merging, the
+    /// The panel of where the pull request stands, the facts as Lite's card has them: merging, the
     /// state and a link to it, the checks, who's asked to review, labels, branches and when it
     /// was opened.
     fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
@@ -823,7 +820,7 @@ impl Detail {
                 )
             }),
         ];
-        card(theme).children(
+        v_flex().children(
             (sections.into_iter().flatten().enumerate()).map(|(ix, section)| {
                 section.when(ix > 0, |el| el.border_t_1().border_color(theme.border_3))
             }),
@@ -1044,9 +1041,6 @@ const PANEL_WIDTH: f32 = 315.;
 /// row fits on one line.
 const PANEL_MIN_WIDTH: f32 = 272.;
 
-/// The room on each side of the panel's cards: the header's, so they line up under its actions.
-const PANEL_INSET: f32 = 16.;
-
 /// How wide the column's content gets, so a description's lines stay short enough to read and
 /// 120 columns of code still fit.
 pub(super) const COLUMN_MAX_WIDTH: f32 = 840.;
@@ -1225,7 +1219,7 @@ fn scrolling(
         .size_full()
         .overflow_y_scroll()
         .track_scroll(scroll)
-        .child(content.pt(dp(16.)).pb(dp(24.)));
+        .child(content.pb(dp(24.)));
     scrolled(column, bar, Scroll::Div(scroll.clone()), theme).h_full()
 }
 
