@@ -40,11 +40,8 @@ struct LinkedCheckoutRepo {
 
 /// Context on an error checking out the linked worktree `name` at `path`, which a rewrite
 /// moved to a new commit.
-///
-/// Callers downcast to it to tell a refused checkout there from one in the editor's own
-/// worktree, which is where the command usually runs.
 #[derive(Debug, Clone)]
-pub struct LinkedWorktreeCheckout {
+struct LinkedWorktreeCheckout {
     name: BString,
     path: std::path::PathBuf,
 }
