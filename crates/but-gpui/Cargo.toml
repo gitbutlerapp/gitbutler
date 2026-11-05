@@ -34,6 +34,17 @@ stories = []
 # Build and restart's Cancel stops the build's whole process group.
 libc.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+# A later launch hands the running app its links over a named pipe, as Zed's does.
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 # The Dock icon (see `run`), scripted runs kept out of App Nap, the cursor shown again when the
 # window becomes key, and the window's least width lowered while it's narrowed to the navigator.
