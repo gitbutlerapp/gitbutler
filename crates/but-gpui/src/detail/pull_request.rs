@@ -622,7 +622,7 @@ impl Detail {
                 .w(relative(0.3))
                 .min_w(dp(PANEL_MIN_WIDTH))
                 .max_w(dp(PANEL_WIDTH))
-                .bg(theme.bg_2)
+                .bg(theme.bg_1)
                 .border_l_1()
                 .border_color(theme.border_3),
             ),
