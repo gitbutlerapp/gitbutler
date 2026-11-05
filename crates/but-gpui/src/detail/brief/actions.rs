@@ -7,7 +7,8 @@ use super::head::agent_name;
 use super::keys::GoBack;
 use super::notes::target_words;
 use super::state::BriefState;
-use super::{NextBrief, SendNotes, briefs};
+use super::talk::FINISH_EDITING;
+use super::{NextBrief, briefs};
 use crate::backend::briefs::{Ask, BriefPage, CommentTo};
 use crate::detail::Detail;
 use crate::state::{Axis, RowKey, Selection, Tile};
@@ -88,11 +89,13 @@ impl Detail {
             }
         };
         let notes: Vec<i64> = state.notes.iter().map(|note| note.id).collect();
+        let editing = self.editing_brief_note().then_some(FINISH_EDITING);
         match self.brief_terminal(cx) {
             Some((id, terminal, title, tiled)) => button("brief-tell", format!("Tell {title}"))
                 .small()
                 .style(ButtonStyle::Ghost)
                 .tooltip("Types it in that terminal")
+                .disabled_because(editing)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let Some(project) = this.selected_project() else {
                         return;
@@ -121,6 +124,7 @@ impl Detail {
             None => button("brief-tell", "Copy what to tell it")
                 .small()
                 .style(ButtonStyle::Ghost)
+                .disabled_because(editing)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.clone()));
                     if let Some(brief) = this.page.brief_mut() {
@@ -150,18 +154,25 @@ impl Detail {
         let listening = state.activity.listeners.first().map(|listener| {
             agent_name(listener.agent.as_deref().unwrap_or(&listener.name)).to_owned()
         });
-        let words = match mine {
-            _ if newer.is_some() => format!("Version {} is out", newer.unwrap_or_default()),
-            _ if state.unheard => "No agent is reading this".to_owned(),
-            Some(mine) => answered_words(mine, page),
-            None if answering => match listening {
-                Some(agent) => format!("{}. {agent} is waiting", asked_words(page)),
-                None => asked_words(page),
-            },
-            None => listening.map_or_else(String::new, |agent| {
-                format!("{agent} reads what you send here")
-            }),
+        // Who'd get what's written is worth knowing before it's written.
+        let reaches = match listening {
+            Some(agent) if answering => Some(format!("{agent} is waiting")),
+            Some(agent) => Some(format!("{agent} reads what you send here")),
+            None if notes > 0 || state.unheard => Some("No agent is reading this".to_owned()),
+            None => None,
         };
+        let asks = match mine {
+            Some(mine) => Some(answered_words(mine, page)),
+            None => answering.then(|| asked_words(page)),
+        };
+        let words = match newer {
+            Some(newer) => format!("Version {newer} is out"),
+            None => (asks.into_iter().chain(reaches))
+                .collect::<Vec<_>>()
+                .join(". "),
+        };
+        // Where the row is short, what's there says less rather than running over the tabs.
+        let short = self.brief.room.get() < STATUS_NEEDS;
         let sending = self.brief.sending;
         let and_send = notes > 0;
         let read_newer = newer.map(|latest| {
@@ -196,20 +207,32 @@ impl Detail {
             if self.brief_terminal(cx).is_some() {
                 buttons.insert(0, self.tell_agent_button(page, state, cx));
             }
-            let first = (state.notes.iter()).find_map(|note| self.row_of_note(&note.to));
+            let mut rows: Vec<usize> = (state.notes.iter())
+                .filter_map(|note| self.row_of_note(&note.to))
+                .collect();
+            rows.sort_unstable();
             buttons.push(
                 button(
                     "brief-unsent",
-                    format!("{} not sent", plural(notes, "comment")),
+                    match short {
+                        true => format!("{notes} not sent"),
+                        false => format!("{} not sent", plural(notes, "comment")),
+                    },
                 )
                 .small()
-                .icon(Icon::ArrowUp)
                 .style(ButtonStyle::Ghost)
                 .tint(theme.blue)
-                .tooltip("Go to the first")
+                .tooltip("Go to the next comment")
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    if let Some(row) = first {
-                        this.brief.list.scroll_to_reveal_item(row);
+                    // From where the reading is, and round to the first after the last.
+                    let list = &this.brief.list;
+                    let here = list.logical_scroll_top().item_ix;
+                    let next = (rows.iter().find(|row| **row > here)).or(rows.first());
+                    if let Some(row) = next {
+                        list.scroll_to(gpui::ListOffset {
+                            item_ix: *row,
+                            offset_in_item: gpui::Pixels::ZERO,
+                        });
                         cx.notify();
                     }
                 }))
@@ -219,8 +242,11 @@ impl Detail {
                 button("brief-send", if notes == 1 { "Send" } else { "Send all" })
                     .small()
                     .style(ButtonStyle::Outline)
-                    .tooltip_for(format!("Send to {}", self.brief_reaches(state)), &SendNotes)
-                    .disabled_because(sending.then_some("Sending"))
+                    .tooltip(format!("Send to {}", self.brief_reaches(state)))
+                    .disabled_because(
+                        (sending.then_some("Sending"))
+                            .or(self.editing_brief_note().then_some(FINISH_EDITING)),
+                    )
                     .on_click(cx.listener(|this, _, _, cx| this.send_brief_talk(cx)))
                     .into_any_element(),
             );
@@ -241,12 +267,15 @@ impl Detail {
                 None => {
                     let url = briefs::web_url(&page.id, page.version);
                     buttons.push(
-                        button("brief-answer", "Answer on the web")
-                            .small()
-                            .icon(Icon::ArrowUpRight)
-                            .style(ButtonStyle::Gray)
-                            .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
-                            .into_any_element(),
+                        button(
+                            "brief-answer",
+                            if short { "Answer" } else { "Answer on the web" },
+                        )
+                        .small()
+                        .icon(Icon::ArrowUpRight)
+                        .style(ButtonStyle::Gray)
+                        .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url)))
+                        .into_any_element(),
                     );
                 }
             }
@@ -255,6 +284,7 @@ impl Detail {
             h_flex()
                 .flex_1()
                 .min_w_0()
+                .overflow_hidden()
                 .pl(dp(16.))
                 .pb(dp(11.))
                 .gap(dp(8.))
@@ -262,7 +292,7 @@ impl Detail {
                 .text_size(dp(12.))
                 .text_color(theme.text_2)
                 // Left out where it would only be cut down to a letter or two.
-                .when(self.brief.room.get() >= STATUS_NEEDS, |el| {
+                .when(!short, |el| {
                     el.child(div().min_w_0().truncate().child(words))
                 })
                 .children(buttons.into_iter().map(|el| div().flex_none().child(el))),

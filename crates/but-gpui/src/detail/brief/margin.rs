@@ -11,6 +11,7 @@ use gpui::{
     prelude::*,
 };
 
+use super::MOST_WORDS_WIDE;
 use super::keys::WriteNote;
 use super::state::{BriefState, Writing};
 use super::{Row, briefs};
@@ -37,8 +38,6 @@ const SHORTCUT_SHOWN: usize = 16;
 pub(super) struct Beside<'a> {
     /// Tells this one's controls from all the others'.
     pub key: usize,
-    /// How wide what's drawn is.
-    pub wide: f32,
     pub spot: Spot<'a>,
     /// What a comment from here would be about.
     pub to: CommentTo,
@@ -194,9 +193,9 @@ impl Detail {
         }
     }
 
-    /// Whether what's `wide` leaves the margin the room to go beside it.
-    pub(super) fn margin_beside(&self, wide: f32) -> bool {
-        self.brief.room.get() >= wide + MARGIN_NEEDS
+    /// Whether the tab has the room for a margin, with all that's drawn to one measure beside it.
+    pub(super) fn margin_beside(&self) -> bool {
+        self.brief.room.get() >= MOST_WORDS_WIDE + MARGIN_NEEDS
     }
 
     /// `main`, with what's said about it beside it or under it, and the way to say something.
@@ -209,7 +208,6 @@ impl Detail {
     ) -> AnyElement {
         let Beside {
             key,
-            wide,
             spot,
             to,
             held,
@@ -233,7 +231,7 @@ impl Detail {
                     cx.notify();
                 }
             }));
-        if self.margin_beside(wide) {
+        if self.margin_beside() {
             // The tint reaches past the words' edge, so the words themselves stay put.
             let words = pointing
                 .mx(dp(-6.))
@@ -247,13 +245,13 @@ impl Detail {
                 .relative()
                 .w_full()
                 .items_start()
-                .child(div().flex_none().w(dp(wide)).child(words))
+                .child(div().flex_none().w(dp(MOST_WORDS_WIDE)).child(words))
                 // In the gap, which nothing beside the words ever covers.
                 .children(shows_controls.then(|| {
                     div()
                         .absolute()
                         .top_0()
-                        .left(dp(wide + 6.))
+                        .left(dp(MOST_WORDS_WIDE + 6.))
                         .child(self.talk_write_button(key, to.clone(), cx))
                 }))
                 .child(
@@ -293,29 +291,23 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Whether what's beside paragraphs `drawn` of `row` can run on past them. Not into something
-    /// else beside the words, nor over what's wider than words, which reaches into the margin.
+    /// Whether what's beside something can run on past it: not into what's beside `rest`, the rest
+    /// of its row, or `next`, the row after it, nor off the end of the brief.
     pub(super) fn margin_floats(
         &self,
-        drawn: Range<usize>,
-        row: Row,
+        rest: Option<Row>,
         next: Option<Row>,
         state: &BriefState,
     ) -> bool {
-        let (Some(page), Row::Text { at, to, .. }) = (state.page(), row) else {
+        let Some(page) = state.page() else {
             return false;
         };
         let quiet =
             |row: Row| (row.spot(page)).is_none_or(|spot| self.talk_at(&spot, state).is_empty());
-        let Some(next @ Row::Text { .. }) = next else {
-            return false;
-        };
-        let rest = Row::Text {
-            at,
-            from: drawn.end,
-            to,
-        };
-        quiet(rest) && quiet(next)
+        match next {
+            None | Some(Row::End) => false,
+            Some(next) => quiet(next) && rest.is_none_or(quiet),
+        }
     }
 
     /// What's said about `spot`, and what's being written about it.
@@ -328,12 +320,17 @@ impl Detail {
                 })
                 .collect(),
             notes: (state.notes.iter())
-                .filter(|note| spot.takes_note(&note.to))
+                .filter(|note| spot.takes_note(&note.to) && !self.brief_note_replaced(note))
                 .collect(),
             writing: self
                 .brief_writing()
                 .filter(|writing| spot.takes_note(writing.about())),
         }
+    }
+
+    /// Whether note `note` is being written again, so what's being written stands for it.
+    pub(super) fn brief_note_replaced(&self, note: &Note) -> bool {
+        (self.brief.input.as_ref()).is_some_and(|input| input.replaces == Some(note.id))
     }
 
     /// [`Self::talk_at`], as cards.
@@ -365,6 +362,7 @@ impl Detail {
         let theme = Theme::get(cx);
         let input = self.brief.input.as_ref()?;
         let written = !input.written.trim().is_empty();
+        let drawn = input.drawn.clone();
         let title = match writing {
             Writing::Shortcut { editing: None, .. } => Some("New shortcut"),
             Writing::Shortcut { .. } => Some("Edit shortcut"),
@@ -372,7 +370,8 @@ impl Detail {
         };
         let shortcuts =
             match writing {
-                Writing::Note(to) => Some(
+                // A reply is to someone, and a shortcut's words are about the brief.
+                Writing::Note(to) if !matches!(to, CommentTo::Thread(_)) => Some(
                     h_flex()
                         .flex_wrap()
                         .gap(dp(2.))
@@ -423,7 +422,11 @@ impl Detail {
             .child(
                 button(
                     "brief-composer-keep",
-                    if title.is_some() { "Save" } else { "Add" },
+                    if title.is_some() || input.replaces.is_some() {
+                        "Save"
+                    } else {
+                        "Add"
+                    },
                 )
                 .small()
                 .style(ButtonStyle::Gray)
@@ -432,7 +435,13 @@ impl Detail {
             );
         Some(
             v_flex()
+                .relative()
                 .gap(dp(6.))
+                .child(
+                    gpui::canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {})
+                        .absolute()
+                        .size_full(),
+                )
                 .map(|el| match nested {
                     true => el
                         .px(dp(10.))
@@ -461,7 +470,13 @@ impl Detail {
     fn talk_write_button(&self, key: usize, to: CommentTo, cx: &Context<Self>) -> Button {
         icon_button(("brief-talk-write", key), Icon::Edit)
             .small()
-            .tooltip_for("Write a comment", &WriteNote)
+            .tooltip_for(
+                match to {
+                    CommentTo::Brief => "Comment on the whole brief",
+                    _ => "Write a comment",
+                },
+                &WriteNote,
+            )
             .on_click(
                 cx.listener(move |this, _, window, cx| {
                     this.write_brief_note(to.clone(), window, cx)
@@ -525,7 +540,7 @@ impl Detail {
                     .style(ButtonStyle::Ghost)
                     .tooltip(match cut {
                         true => said.to_owned(),
-                        false => "Right-click to change".to_owned(),
+                        false => "Adds it. Right-click to change".to_owned(),
                     })
                     .on_click(cx.listener(move |this, _, window, cx| on_click(this, window, cx))),
             )
@@ -547,7 +562,7 @@ impl Detail {
     fn leave_shortcut(&mut self, to: CommentTo, said: String, cx: &mut Context<Self>) {
         if let Some((id, version)) = self.shown_version() {
             self.note_selection = None;
-            self.keep_brief_note(id, version, to, said, cx);
+            self.keep_brief_note(id, version, None, to, said, cx);
         }
     }
 

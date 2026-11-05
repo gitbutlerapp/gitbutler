@@ -213,6 +213,8 @@ and the feature may go, so it stays separate.
 - What's said goes in the margin, beside the paragraph it's about, or under it where the tab's too
   narrow. A paragraph's margin takes no height while it can run on past the words without meeting
   anything, so writing, sending and replying move nothing.
+- While the margin shows, everything keeps one measure, wide blocks too, so comments stay in one
+  column and writing beside a block moves nothing. Under the margin's width, blocks go full width.
 - What a paragraph shows on hover goes by `brief_hovered`, the words last pointed at, not a hover
   group: it has to last the way over the gap to it and over a card from the paragraph before. A
   scripted `click` jumps there and can't catch that going wrong: walk there with `move`s and look.

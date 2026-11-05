@@ -4,8 +4,9 @@
 
 use std::cell::Cell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
-use gpui::{Entity, ListAlignment, ListOffset, ListState, Subscription, Task};
+use gpui::{Bounds, Entity, ListAlignment, ListOffset, ListState, Pixels, Subscription, Task};
 
 use super::ReadKey;
 use super::test_facts::TestFacts;
@@ -61,10 +62,14 @@ impl BriefView {
 pub(in crate::detail) struct BriefInput {
     pub(super) field: Entity<TextInput>,
     pub(super) writing: Writing,
+    /// The comment not sent yet that it would take the place of, which doesn't show meanwhile.
+    pub(super) replaces: Option<i64>,
     /// What it's about, which can stop being what shows.
     pub(super) version: (String, u32),
     /// What's in the field so far, for keeping it where the field can't be asked.
     pub(super) written: String,
+    /// Where it was drawn, once it has been, for having it in view.
+    pub(super) drawn: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub(super) _listen: Subscription,
 }
 

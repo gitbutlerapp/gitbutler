@@ -635,7 +635,6 @@
       "k": "brief::PreviousBlock",
       "enter": "brief::OpenBlock",
       "c": "brief::WriteNote",
-      "secondary-enter": "brief::SendNotes",
       "escape": "brief::GoBack",
       "n": "brief::NextBrief",
       "shift-n": "brief::PreviousBrief"

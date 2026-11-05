@@ -5,7 +5,7 @@
 //! comments, anchored as the web anchors them, so whoever acts on them needs nothing new: an agent
 //! told to check the comments finds them there.
 
-use gpui::{AnyElement, Context, Div, Focusable as _, Window, div, prelude::*};
+use gpui::{AnyElement, Context, Div, Focusable as _, ListOffset, Pixels, Window, div, prelude::*};
 
 use super::keys::NextBrief;
 use super::state::{BriefFold, BriefInput, BriefState, Writing};
@@ -16,7 +16,7 @@ use crate::detail::pull_request::{card, tag};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, icon_button, markdown, v_flex};
+use crate::ui::{ButtonStyle, Icon, Tooltip, button, dp, h_flex, icon_button, markdown, v_flex};
 
 /// How much of a paragraph a note quotes to say what it's on.
 const MOST_QUOTED: usize = 400;
@@ -117,6 +117,9 @@ impl Detail {
         // What it's on is tinted from here, where a selection would hide that.
         self.note_selection = None;
         let row = self.row_of_note(&to);
+        let view = self.brief.list.viewport_bounds();
+        let shown = (row.and_then(|row| self.brief.list.bounds_for_item(row)))
+            .is_some_and(|row| row.intersects(&view));
         self.start_writing(Writing::Note(to), placeholder, window, cx);
         if let Some(row) = row {
             cx.spawn(async move |this, cx| {
@@ -124,18 +127,31 @@ impl Detail {
                     .timer(super::talk::ROW_MEASURED)
                     .await;
                 this.update(cx, |this, cx| {
-                    // Only from elsewhere: where it's beside what's on screen, nothing moves.
-                    let view = this.brief.list.viewport_bounds();
-                    let shown = (this.brief.list.bounds_for_item(row))
-                        .is_some_and(|row| row.intersects(&view));
-                    if !shown {
-                        this.brief.list.scroll_to_reveal_item(row);
-                        cx.notify();
-                    }
+                    this.reveal_brief_writing(row, shown);
+                    cx.notify();
                 })
                 .ok();
             })
             .detach();
+        }
+    }
+
+    /// Have what's being written in view: the field takes the keys, and typing into something out
+    /// of sight is typing into nothing. The page goes to row `row` only from elsewhere, where it
+    /// wasn't `shown`. Beside what's on screen, it moves no more than the field needs.
+    fn reveal_brief_writing(&self, row: usize, shown: bool) {
+        let list = &self.brief.list;
+        let view = list.viewport_bounds();
+        match (self.brief.input.as_ref()).and_then(|input| input.drawn.get()) {
+            Some(drawn) if drawn.top() < view.top() => list.scroll_by(drawn.top() - view.top()),
+            Some(drawn) if drawn.bottom() > view.bottom() => {
+                list.scroll_by(drawn.bottom() - view.bottom())
+            }
+            None if !shown => list.scroll_to(ListOffset {
+                item_ix: row,
+                offset_in_item: Pixels::ZERO,
+            }),
+            _ => {}
         }
     }
 
@@ -156,7 +172,16 @@ impl Detail {
             window,
             |this, field, event, window, cx| match event {
                 InputEvent::Submit => this.submit_writing(window, cx),
-                InputEvent::Cancel => this.finish_writing(None, window, cx),
+                // Backing out of writing a note again leaves it as it was.
+                InputEvent::Cancel if this.editing_brief_note() => {
+                    this.finish_writing(None, window, cx)
+                }
+                // New words have nowhere else to be, so a key doesn't throw them away.
+                InputEvent::Cancel => {
+                    this.keep_brief_writing();
+                    window.focus(&this.focus, cx);
+                    this.brief_list_changed(cx);
+                }
                 InputEvent::Changed => {
                     if let Some(input) = &mut this.brief.input {
                         input.written = field.read(cx).text().to_owned();
@@ -171,8 +196,10 @@ impl Detail {
         self.brief.input = Some(BriefInput {
             field,
             writing,
+            replaces: None,
             version,
             written: String::new(),
+            drawn: Default::default(),
             _listen: listen,
         });
         self.brief_list_changed(cx);
@@ -181,6 +208,28 @@ impl Detail {
     /// What's being written, if anything is.
     pub(super) fn brief_writing(&self) -> Option<&Writing> {
         self.brief.input.as_ref().map(|input| &input.writing)
+    }
+
+    /// Whether a note not sent is being written again. Nothing sends notes meanwhile, as what would
+    /// go isn't what's in the field, and the note it replaces must still be there to replace.
+    pub(super) fn editing_brief_note(&self) -> bool {
+        (self.brief.input.as_ref()).is_some_and(|input| input.replaces.is_some())
+    }
+
+    /// Write note `note` again, with what it says so far to change.
+    fn edit_brief_note(&mut self, note: &Note, window: &mut Window, cx: &mut Context<Self>) {
+        // It's on its way, and sending it would take away what this says it replaces.
+        if self.brief.sending {
+            return;
+        }
+        self.write_brief_note(note.to.clone(), window, cx);
+        if let Some(input) = &mut self.brief.input {
+            input.replaces = Some(note.id);
+            input.written = note.body.clone();
+            input
+                .field
+                .update(cx, |field, cx| field.set_text(note.body.clone(), cx));
+        }
     }
 
     /// Keep a comment being written as one not sent, as its field is going away without it being
@@ -197,7 +246,7 @@ impl Detail {
             return;
         }
         let (id, version) = &input.version;
-        match briefs::add_note(id, *version, to, body) {
+        match briefs::add_note(id, *version, input.replaces, to, body) {
             Ok(notes) => {
                 let here = |page: &BriefPage| page.id == *id && page.version == *version;
                 if let Some(brief) =
@@ -252,10 +301,11 @@ impl Detail {
             return;
         };
         let (id, version) = input.version;
+        let replaces = input.replaces;
         let writing = input.writing;
         match writing {
             Writing::Note(_) if body.is_empty() => {}
-            Writing::Note(to) => self.keep_brief_note(id, version, to, body, cx),
+            Writing::Note(to) => self.keep_brief_note(id, version, replaces, to, body, cx),
             Writing::Shortcut { editing, .. } => self.save_brief_shortcut(editing, body, cx),
         }
     }
@@ -324,11 +374,17 @@ impl Detail {
                             .child(person_avatar(name, 16., theme))
                             .child(
                                 div()
+                                    .flex_none()
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .text_color(theme.text_1)
                                     .child(name.to_owned()),
                             )
-                            .children(agent.map(|agent| div().child(agent.to_owned())))
+                            .children(agent.map(|agent| {
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(super::head::agent_name(agent).to_owned())
+                            }))
                             .child(div().flex_1())
                             .children(end),
                     )
@@ -398,6 +454,7 @@ impl Detail {
             .children(
                 (state.notes.iter())
                     .filter(|note| matches!(&note.to, CommentTo::Thread(to) if *to == thread.id))
+                    .filter(|note| !self.brief_note_replaced(note))
                     .map(|note| self.brief_note(note, true, state, cx)),
             )
             .children(replying)
@@ -424,8 +481,13 @@ impl Detail {
             }
             _ => None,
         };
+        let editing = note.clone();
         v_flex()
             .id(("brief-note", id as u64))
+            .tooltip(Tooltip::text("Edit"))
+            .on_click(
+                cx.listener(move |this, _, window, cx| this.edit_brief_note(&editing, window, cx)),
+            )
             .pl(dp(10.))
             .pr(dp(6.))
             .py(dp(6.))
@@ -436,7 +498,8 @@ impl Detail {
                     .rounded(dp(6.))
                     .border_1()
                     .border_color(theme.blue.opacity(0.35))
-                    .bg(theme.blue.opacity(0.05)),
+                    .bg(theme.blue.opacity(0.05))
+                    .hover(|el| el.bg(theme.blue.opacity(0.1))),
             })
             .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
                 this.hover_said(quote.clone(), *hovering, cx)
@@ -468,6 +531,8 @@ impl Detail {
                                     .small()
                                     .tooltip("Discard")
                                     .on_click(cx.listener(move |this, _, _, cx| {
+                                        // Not a click on the card it's on, which edits it.
+                                        cx.stop_propagation();
                                         this.remove_brief_note(id, cx)
                                     })),
                             ),

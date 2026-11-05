@@ -13,6 +13,9 @@ const TALK_EVERY: std::time::Duration = std::time::Duration::from_secs(30);
 /// How often, while an agent's waiting on it too.
 const TALK_EVERY_WAITED_ON: std::time::Duration = std::time::Duration::from_secs(8);
 
+/// Why what sends notes can't while one is being written again.
+pub(super) const FINISH_EDITING: &str = "Finish editing first";
+
 /// How long until a row that's changed has been drawn and measured.
 pub(super) const ROW_MEASURED: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -93,7 +96,7 @@ impl Detail {
     /// Keep a note on the whole brief, as written for them.
     pub(super) fn keep_note_on_brief(&mut self, body: String, cx: &mut Context<Self>) {
         if let Some((id, version)) = self.shown_version() {
-            self.keep_brief_note(id, version, CommentTo::Brief, body, cx);
+            self.keep_brief_note(id, version, None, CommentTo::Brief, body, cx);
         }
     }
 
@@ -101,13 +104,14 @@ impl Detail {
         &mut self,
         id: String,
         version: u32,
+        replaces: Option<i64>,
         to: CommentTo,
         body: String,
         cx: &mut Context<Self>,
     ) {
         let key = (id.clone(), version);
         cx.spawn(async move |this, cx| {
-            let notes = run(move || briefs::add_note(&id, version, &to, &body)).await;
+            let notes = run(move || briefs::add_note(&id, version, replaces, &to, &body)).await;
             this.update(cx, |this, cx| match notes {
                 // Kept either way, which that brief's page reads when it next shows.
                 Ok(_) if this.shown_version().as_ref() != Some(&key) => {}
@@ -154,6 +158,10 @@ impl Detail {
             return;
         };
         if self.brief.sending {
+            return;
+        }
+        if self.editing_brief_note() {
+            (self.store).update(cx, |store, cx| store.snack(FINISH_EDITING, cx));
             return;
         }
         let Some(brief) = self.page.brief() else {

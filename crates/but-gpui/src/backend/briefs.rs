@@ -362,10 +362,20 @@ pub fn ask_talk(id: &str, version: u32) -> Result<Activity> {
     Ok(Activity::read(&raw))
 }
 
-/// Keep a note until it's sent, and give back all there are.
-pub fn add_note(id: &str, version: u32, to: &CommentTo, body: &str) -> Result<Vec<Note>> {
+/// Keep a note, in place of note `replaces` if it's one written again, and give back those there
+/// are then. The old one goes last, so what's written can't be lost between the two.
+pub fn add_note(
+    id: &str,
+    version: u32,
+    replaces: Option<i64>,
+    to: &CommentTo,
+    body: &str,
+) -> Result<Vec<Note>> {
     let notes = cached(|cache| {
         cache.add_note(id, version, to, body)?;
+        if let Some(note) = replaces {
+            cache.remove_note(note)?;
+        }
         cache.notes(id, version)
     })?;
     Ok(notes.unwrap_or_default())

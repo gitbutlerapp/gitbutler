@@ -1384,11 +1384,7 @@ impl Detail {
         let create = offer.map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
-                // With a brief showing, what's being decided is along the row of the tabs.
-                .style(match self.showing_brief() {
-                    true => ButtonStyle::Outline,
-                    false => ButtonStyle::Pop,
-                })
+                .style(ButtonStyle::Pop)
                 .tooltip("Push and open a pull request")
                 .dispatch(&crate::pr::CreatePullRequest)
                 .disabled_because(offer.err())

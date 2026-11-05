@@ -574,7 +574,6 @@ impl Detail {
                         head,
                         margin::Beside {
                             key: 0,
-                            wide: MOST_WORDS_WIDE,
                             spot: margin::Spot::Brief,
                             to: CommentTo::Brief,
                             held: false,
@@ -681,11 +680,10 @@ impl Detail {
                         body,
                         margin::Beside {
                             key: ix * 1000,
-                            wide: COLUMN_MAX_WIDTH,
                             spot: margin::Spot::Block(block),
                             to: CommentTo::Block(*block.positions.start()),
                             held: false,
-                            floats: false,
+                            floats: self.margin_floats(None, rows.get(ix + 1).copied(), state),
                         },
                         state,
                         cx,
@@ -700,7 +698,7 @@ impl Detail {
         };
         // What has a margin beside it sets its own width, as the row takes in the margin too.
         let has_margin = matches!(row, Row::Head | Row::Block(_) | Row::Text { .. });
-        let beside = has_margin && self.margin_beside(wide);
+        let beside = has_margin && self.margin_beside();
         (div().id(("brief-row", ix)).px(dp(24.)).pt(dp(above)))
             // A note without a passage goes on what was last clicked in.
             .on_mouse_down(
@@ -789,13 +787,15 @@ impl Detail {
                 el,
                 margin::Beside {
                     key: ix * 1000 + drawn.start,
-                    wide: MOST_WORDS_WIDE,
                     spot: margin::Spot::Words(block, from + drawn.start..from + drawn.end),
                     to: about,
                     held,
                     floats: self.margin_floats(
-                        from + drawn.start..from + drawn.end,
-                        Row::Text { at, from, to },
+                        Some(Row::Text {
+                            at,
+                            from: from + drawn.end,
+                            to,
+                        }),
                         next,
                         state,
                     ),
