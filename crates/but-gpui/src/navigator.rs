@@ -20,6 +20,7 @@ use crate::app::{
     AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, ToggleFold,
     UpdateFromTarget,
 };
+use crate::backend::rebuild::Rebuild;
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, CommitState, FileChange, FullName, PushState, Review,
@@ -3266,6 +3267,10 @@ impl Navigator {
                 &workspace.uncommitted,
             ),
         };
+        // The checkout a client `cargo run` started was built from.
+        let running = cx
+            .try_global::<Rebuild>()
+            .is_some_and(|r| r.checkout() == path);
         let uncommitted = store.uncommitted_shown(id, checkout, uncommitted);
         let branches: Vec<_> = workspace.branches_in(checkout).collect();
         let unpushed_n = unpushed(branches.iter().copied());
@@ -3316,6 +3321,7 @@ impl Navigator {
                 el.children(change_counts(tally(&uncommitted), style))
                     .children(style.unpushed(unpushed_n))
             })
+            .when(running, |el| el.child(running_mark(ix, style)))
             .map(|el| self.selectable(el, item, cx))
             .on_click(double_click(toggle, cx));
         // A linked worktree drags itself, its changes going with it.
@@ -4354,6 +4360,17 @@ fn change_counts(
         }
     };
     conflicts.into_iter().chain(all)
+}
+
+/// A flask at the end of a worktree heading, on the checkout the running client was built from.
+fn running_mark(ix: usize, style: RowStyle) -> impl IntoElement {
+    div()
+        .id(("worktree-running", ix))
+        .flex_none()
+        .child(small_icon(Icon::Lab).text_color(style.muted()))
+        .tooltip(Tooltip::text(
+            "The app you're using was built from this checkout",
+        ))
 }
 
 /// A worktree heading's folder, a linked one's doubled, with a dot in its corner while it has
