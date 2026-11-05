@@ -1054,7 +1054,7 @@ impl Detail {
         self.diff.as_ref().is_some_and(|diff| diff.alone.is_some())
     }
 
-    /// Whether the one file shown alone has its header as the pane's title, as Lite has it.
+    /// Whether the one file shown alone has its header as the pane's title, with the diff's controls hidden.
     pub(super) fn titled_header(&self, cx: &App) -> bool {
         let alone = self.diff.as_ref().and_then(|diff| diff.alone);
         matches!(alone, Some(Entry::File(_)))
@@ -1089,7 +1089,7 @@ impl Detail {
             true => !self.beside_files_shown(cx),
             false => !self.files_shown(cx),
         };
-        // Lite leaves the bar out once the files it'd toggle are beside the diff, as keys
+        // Hidden controls leave the bar out once the files it'd toggle are beside the diff, as keys
         // switch the rest.
         let controls = prefs.shows(Part::DiffTools);
         if !controls && !hidden {
@@ -1321,7 +1321,7 @@ impl Detail {
                             .child(commit_title(&commit.title)),
                     )
                 });
-                // Lite leaves the counts and buttons to the menu and the keys.
+                // Hidden controls leave the counts and buttons to the menu and the keys.
                 let controls = store.prefs.shows(Part::FileHeaderControls);
                 let has_trailing = controls || from.is_some();
                 let trailing = h_flex()

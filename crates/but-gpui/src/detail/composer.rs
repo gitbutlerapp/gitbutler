@@ -1049,7 +1049,7 @@ impl Detail {
             window.focus(&input.focus_handle(cx), cx);
         }
         self.rewording = Some((key, input, subscription));
-        // Where Lite lists the message, it's edited there, so that's what the diff shows.
+        // Where the diff lists the message, it's edited there, so that's what the diff shows.
         if self.message_listed(cx) {
             self.scroll_to_message(false, cx);
         }

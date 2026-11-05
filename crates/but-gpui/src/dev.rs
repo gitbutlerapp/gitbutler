@@ -36,7 +36,8 @@
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
-//! lite on                 # turn the Lite interface on or off, as Settings › Experimental does
+//! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
+//!                         # Settings › Appearance does
 //! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
 //!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
@@ -91,7 +92,7 @@ use parking_lot::Mutex;
 use crate::app::AppView;
 use crate::clock;
 use crate::keymap::Keymap;
-use crate::state::Interface;
+use crate::state::Prefs;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 
@@ -1080,17 +1081,24 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 (app.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx))
             });
         }
-        // The interface Settings › Experimental would pick, without opening it.
-        "lite" => {
-            let interface = match rest {
-                "on" => Interface::Lite,
-                "off" => Interface::Full,
-                _ => bail!("lite takes on or off"),
+        // A part Settings › Appearance would show or hide, without opening it.
+        "pref" => {
+            let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
+            let hidden = match state.trim() {
+                "on" => false,
+                "off" => true,
+                _ => bail!("pref takes a part, then on or off"),
+            };
+            let flag: fn(&mut Prefs) -> &mut bool = match part {
+                "status-bar" => |p| &mut p.hide_status_bar,
+                "headers" => |p| &mut p.messages_in_diff,
+                "diff-controls" => |p| &mut p.hide_diff_controls,
+                _ => bail!("pref takes status-bar, headers or diff-controls"),
             };
             let app = window.root::<AppView>().flatten().context("no app view")?;
             app.update(cx, |app, cx| {
                 (app.store).update(cx, |store, cx| {
-                    store.set_prefs(|p| p.interface = interface, cx)
+                    store.set_prefs(move |p| *flag(p) = hidden, cx)
                 })
             });
         }

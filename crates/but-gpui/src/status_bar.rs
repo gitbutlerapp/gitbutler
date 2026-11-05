@@ -25,7 +25,7 @@ use crate::ui::{
 };
 
 impl AppView {
-    /// Whether the bar draws: always, unless Lite leaves it out.
+    /// Whether the bar draws: unless Settings hides it.
     pub(crate) fn status_bar_shown(&self, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::StatusBar)
     }

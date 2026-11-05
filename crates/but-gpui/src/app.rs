@@ -2216,7 +2216,6 @@ impl AppView {
         cx: &Context<Self>,
     ) -> Div {
         let theme = Theme::get(cx);
-        let bar = self.detail.read(cx).top_strip_height(window, cx);
         let store = self.store.read(cx);
         let (areas, drawn_home) = (store.drawn_areas(), store.drawn_home());
         let (dividers, lifted) = (store.drawn_dividers(), store.lifted_tile().cloned());
@@ -2350,7 +2349,7 @@ impl AppView {
                 // The cards' room, in from its edges as far as they are from each other.
                 div()
                     .absolute()
-                    .top(dp(bar + self.detail.read(cx).room_top(window, cx)))
+                    .top(dp(HEADER_HEIGHT + self.detail.read(cx).room_top()))
                     .bottom(dp(TILE_MARGIN))
                     .left(dp(self.detail.read(cx).room_left()))
                     .right(dp(TILE_MARGIN))

@@ -45,46 +45,27 @@ use crate::ui::{
 const MESSAGE_WIDTH: f32 = 720.;
 
 impl Detail {
-    /// Whether the location bar draws: always, unless Lite leaves it out while the navigator
-    /// shows whole, where the traffic lights and its toggle are then. Where the app draws the
-    /// window's buttons over the bar's right end, they need it.
-    pub(crate) fn location_bar_shown(&self, window: &Window, cx: &App) -> bool {
-        (self.store.read(cx).prefs).shows(Part::LocationBar)
-            || self.navigator_shown.get() < 1.
-            || crate::ui::draws_window_controls(window)
-    }
-
-    /// How tall the strip along the detail's top is, for what sits below it: the location
-    /// bar, or as much room for dragging the window while the bar's left out beside the
-    /// navigator, so the cards stay level with the navigator's, under its own bar. Nothing
-    /// with neither.
-    pub(crate) fn top_strip_height(&self, window: &Window, cx: &App) -> f32 {
-        match self.location_bar_shown(window, cx) || self.navigator_shown.get() > 0. {
-            true => HEADER_HEIGHT,
-            false => 0.,
-        }
-    }
-
-    /// Whether a branch's or a stack's page has its header: always, unless Lite leaves it out.
+    /// Whether a branch's or a stack's page has its header: unless the messages list in the
+    /// diff instead.
     pub(super) fn branch_header_shown(&self, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::BranchHeader)
     }
 
-    /// Whether a worktree's uncommitted changes have their header: always, unless Lite leaves
-    /// it out.
+    /// Whether a worktree's uncommitted changes have their header: unless the messages list in
+    /// the diff instead.
     pub(super) fn changes_header_shown(&self, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::ChangesHeader)
     }
 
-    /// Whether commit `id`'s page has its header: always, unless Lite lists its message
-    /// first among its files instead. Commits picked together keep theirs, which has no
+    /// Whether commit `id`'s page has its header: unless its message lists first among its
+    /// files instead. Commits picked together keep theirs, which has no
     /// message.
     pub(super) fn commit_header_shown(&self, project: &ProjectId, id: CommitId, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::CommitHeader) || self.shows_picks(project, id, cx)
     }
 
-    /// Whether the page of a commit only a remote has has its header: always, unless Lite
-    /// lists its message first among its files instead, as a commit's.
+    /// Whether the page of a commit only a remote has has its header: unless its message lists
+    /// first among its files instead, as a commit's.
     pub(super) fn upstream_header_shown(&self, cx: &App) -> bool {
         self.store.read(cx).prefs.shows(Part::CommitHeader)
     }

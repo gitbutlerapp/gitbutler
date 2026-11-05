@@ -22,9 +22,7 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{
-    Interface, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
-};
+use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -71,10 +69,16 @@ impl AppPage {
     ];
 
     /// The pages this build has: Developer only in a build of its own, not a nightly or a
-    /// release.
-    fn shown() -> impl Iterator<Item = AppPage> {
+    /// release, and Experimental only inside the desktop app's binary, the only place it has
+    /// anything.
+    fn shown(cx: &App) -> impl Iterator<Item = AppPage> + use<> {
         let dev = backend::dev_build();
-        (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
+        let embedded = cx.has_global::<crate::Embedded>();
+        (AppPage::ALL.into_iter()).filter(move |page| match page {
+            AppPage::Developer => dev,
+            AppPage::Experimental => embedded,
+            _ => true,
+        })
     }
 }
 
@@ -379,7 +383,7 @@ impl SettingsView {
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
-            app_links: (AppPage::shown())
+            app_links: (AppPage::shown(cx))
                 .map(|page| Link::new(Page::App(page), cx))
                 .collect(),
             project_focus: HashMap::new(),
@@ -673,6 +677,7 @@ impl SettingsView {
         let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
+        let status_bar = self.status_bar_row(cx);
         let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
@@ -723,6 +728,12 @@ impl SettingsView {
                 )),
             ),
         ];
+        diff.splice(
+            5..5,
+            [self.single_file_row(cx)]
+                .into_iter()
+                .chain(self.diff_layout_rows(cx)),
+        );
         if !prefs.no_semantic_context {
             let detail = self.detail.clone();
             let scope = segmented(
@@ -842,7 +853,7 @@ impl SettingsView {
             terminal_font,
         );
         vec![
-            Card::new(None, vec![scheme, appearance, size]),
+            Card::new(None, vec![scheme, appearance, size, status_bar]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts]),
             Card::new(Some("Diff"), diff),
@@ -957,26 +968,46 @@ impl SettingsView {
         .with_keywords("all-in-one one file at a time per screen")
     }
 
-    fn lite_row(&self, cx: &Context<Self>) -> Row {
-        let lite = self.store.read(cx).prefs.interface == Interface::Lite;
+    /// The status bar's switch, on while it shows.
+    fn status_bar_row(&self, cx: &Context<Self>) -> Row {
+        let shown = !self.store.read(cx).prefs.hide_status_bar;
         Row::new(
-            "Lite interface",
-            "Leaves out parts of the window that repeat what's elsewhere or switch what keys \
-             do, as the status bar and the pages' headers. What's left out may change from \
-             one release to the next.",
-            self.pref_switch(
-                "lite-interface",
-                lite,
-                |p| {
-                    p.interface = match p.interface {
-                        Interface::Full => Interface::Lite,
-                        Interface::Lite => Interface::Full,
-                    }
-                },
-                cx,
-            ),
+            "Show status bar",
+            "The bar along the window's bottom, with what's under way and the keys for it.",
+            self.pref_switch("status-bar", shown, |p| p.hide_status_bar ^= true, cx),
         )
-        .with_keywords("minimal compact hide status bar breadcrumbs toolbar header")
+        .with_keywords("minimal compact footer hide")
+    }
+
+    /// Where the messages go and which controls the diff draws.
+    fn diff_layout_rows(&self, cx: &Context<Self>) -> [Row; 2] {
+        let prefs = &self.store.read(cx).prefs;
+        [
+            Row::new(
+                "Commit messages in the diff",
+                "Commit and branch pages list their messages above the files in place of \
+                 their headers, and uncommitted changes go without theirs.",
+                self.pref_switch(
+                    "messages-in-diff",
+                    prefs.messages_in_diff,
+                    |p| p.messages_in_diff ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact header"),
+            Row::new(
+                "Show diff controls",
+                "The bar over the diff, and the line counts and buttons in file headers. Off, \
+                 keys and menus still have them.",
+                self.pref_switch(
+                    "diff-controls",
+                    !prefs.hide_diff_controls,
+                    |p| p.hide_diff_controls ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("minimal compact toolbar hide"),
+        ]
     }
 
     fn fps_row(&self, cx: &Context<Self>) -> Row {
@@ -1189,13 +1220,7 @@ impl SettingsView {
                     .has_global::<crate::Embedded>()
                     .then(|| self.start_row(cx))
                     .flatten();
-                vec![Card::new(
-                    None,
-                    start
-                        .into_iter()
-                        .chain([self.single_file_row(cx), self.lite_row(cx)])
-                        .collect(),
-                )]
+                vec![Card::new(None, start.into_iter().collect())]
             }
             Page::App(AppPage::Developer) => vec![
                 Card::new(None, vec![self.fps_row(cx)]),
@@ -1256,7 +1281,8 @@ impl SettingsView {
         let project = (self.page.project().cloned())
             .into_iter()
             .flat_map(|project| ProjectPage::ALL.map(|page| Page::Project(project.clone(), page)));
-        AppPage::shown().map(Page::App).chain(project).collect()
+        let app = self.app_links.iter().map(|link| link.page.clone());
+        app.chain(project).collect()
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
