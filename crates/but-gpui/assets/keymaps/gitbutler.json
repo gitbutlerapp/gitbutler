@@ -281,8 +281,8 @@
       "/": "navigator::FocusFilter"
     }
   },
-  // In the file list, as in but.dev's, ↑ and ↓ step through files, and with ⇧ pick them, as
-  // in Finder.
+  // In the file list, as in but.dev's, ↑ and ↓ step through files, and through a tree's folders
+  // too when Settings › Appearance asks for it, and with ⇧ pick them, as in Finder.
   {
     "context": "Files && !TextInput",
     "bindings": {

@@ -69,8 +69,8 @@ use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, ROW_HEIGHT, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state,
-    faint, fixed, h_flex, icon_button, matched, muted, popover, shortcut, side_row, small_icon,
-    v_flex,
+    faint, fixed, h_flex, icon_button, list_row, matched, muted, plural, popover, shortcut,
+    side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -364,7 +364,8 @@ impl Detail {
                 (Icon::ArrowDown, commit_title(title), None)
             }
         };
-        let current = self.current_entry() == super::Entry::Message;
+        let current =
+            self.current_entry() == super::Entry::Message && self.cursor_folder(cx).is_none();
         let solid = current && has_keys(&self.files_focus, window, cx);
         let muted = match solid {
             true => theme.muted_on_solid(),
@@ -505,12 +506,18 @@ impl Detail {
             false => diff::stats_columns(counts),
         };
         // The list follows the cursor to another file, as j and ↓ move it, or to the folded
-        // directory the file is in.
-        let cursor = self
-            .cursor_path()
-            .filter(|path| paths.contains(&path.as_str()));
+        // directory the file is in, or to the folder the keys stepped onto.
+        let folder = self.cursor_folder(cx).map(str::to_owned);
+        let cursor = match &folder {
+            Some(dir) => Some(dir.clone()),
+            None => self
+                .cursor_path()
+                .filter(|path| paths.contains(&path.as_str())),
+        };
         let cursor_row = cursor.as_deref().and_then(|cursor| {
             rows.iter().position(|row| match row {
+                TreeRow::Dir { path, .. } if folder.is_some() => path == cursor,
+                _ if folder.is_some() => false,
                 TreeRow::File { pos, .. } => paths.get(*pos) == Some(&cursor),
                 TreeRow::Dir {
                     path,
@@ -576,7 +583,12 @@ impl Detail {
                     dir @ TreeRow::Dir { .. } => {
                         let found = found.get(ix)?;
                         let holds_cursor = cursor_row == Some(ix);
-                        this.render_dir_row(dir, holds_cursor, &source, found, columns, theme, cx)
+                        // Solid as a file's, once the keys stepped onto it.
+                        let solid = holds_cursor
+                            && this.cursor_folder(cx).is_some()
+                            && has_keys(&this.files_focus, window, cx);
+                        let held = (holds_cursor, solid);
+                        this.render_dir_row(dir, held, &source, found, columns, theme, cx)
                     }
                     TreeRow::File { pos, depth } => {
                         let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
@@ -763,6 +775,9 @@ impl Detail {
         if self.page.line_picks().is_some() || self.page.has_file_picks() {
             return Some(changes);
         }
+        if self.cursor_folder(cx).is_some() {
+            return None;
+        }
         let file = self.current_file()?;
         let at = self.cursor.in_file()?;
         let cursor_file = self.diff.as_ref()?.files.get(at)?;
@@ -876,9 +891,9 @@ impl Detail {
 
     /// Step `delta` files from the cursor, picking the run as ⇧-click does.
     pub(super) fn pick_step(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let next = match self.file_step(delta, cx) {
-            Some(super::Entry::File(file)) => self.diff_path(file),
-            Some(super::Entry::Message) | None => None,
+        let next = match self.file_step(delta, false, cx) {
+            Some(super::ListStop::Entry(super::Entry::File(file))) => self.diff_path(file),
+            _ => None,
         };
         let (Some(cursor), Some(next)) = (self.cursor_path(), next) else {
             return;
@@ -1105,13 +1120,148 @@ impl Detail {
         }))
     }
 
+    /// What fills the diff's pane while the file list's keys are on the tree's folder `dir`: a
+    /// card as the diff's files have, its header the folder's as theirs is the file's, then a
+    /// row for each of its files, as the file list orders them, a click on which opens it.
+    pub(super) fn render_folder_summary(
+        &self,
+        dir: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let Some(diff) = &self.diff else {
+            return div().into_any_element();
+        };
+        let files = self.folder_files(dir, cx);
+        let listed = || (files.iter()).filter_map(|ix| diff.files.get(*ix));
+        let (added, removed) = diff::total_stats(listed());
+        let columns = diff::stats_columns(listed().map(FileDiff::stats));
+        if self.summarized.borrow().as_deref() != Some(dir) {
+            *self.summarized.borrow_mut() = Some(dir.to_owned());
+            self.folder_rows.scroll_to(gpui::ListOffset::default());
+        }
+        let (name, parent) = diff::split_path(dir);
+        let header = h_flex()
+            .flex_none()
+            .h(dp(diff::FILE_HEADER_HEIGHT))
+            .pl(dp(10.))
+            .pr(dp(12.))
+            .gap(dp(8.))
+            .border_b_1()
+            .border_color(theme.border_2)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(dp(6.))
+                    .child(folder_icon())
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_color(theme.text_1)
+                            .child(name.to_owned()),
+                    )
+                    .child(
+                        (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                            .text_ellipsis_middle()
+                            .text_color(theme.text_3)
+                            .child(parent.to_owned()),
+                    ),
+            )
+            .child(faint(plural(files.len(), "file"), theme).flex_none())
+            .child(diff::stats(added, removed, false, theme))
+            .children(diff::change_scale(added, removed, theme));
+        let height = files.len() as f32 * ROW_HEIGHT + 8.;
+        let prefix = format!("{dir}/");
+        let files = std::rc::Rc::new(files);
+        let rows = side_list(
+            files.len(),
+            &self.folder_rows,
+            "folder-summary-scrollbar",
+            cx,
+            |_, _| None,
+            move |this, at, theme, _, cx| {
+                let ix = *files.get(at)?;
+                let file = this.diff.as_ref()?.files.get(ix)?;
+                let path = &file.file.path;
+                let (name, sub) = diff::split_path(path.strip_prefix(&prefix).unwrap_or(path));
+                let (added, removed) = file.stats();
+                let row = list_row(("folder-file", ix), false, theme)
+                    .mx(dp(4.))
+                    .pl(dp(8.))
+                    .pr(dp(4.))
+                    .gap(dp(8.))
+                    .text_size(dp(13.))
+                    .aria_label(path.clone())
+                    .child(file_icon(path, cx))
+                    .child(
+                        h_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .gap(dp(8.))
+                            .child(div().flex_none().child(name.to_owned()))
+                            .child(
+                                (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                                    .text_ellipsis_middle()
+                                    .text_color(theme.text_3)
+                                    .child(sub.to_owned()),
+                            ),
+                    )
+                    .child(diff::column_stats(added, removed, columns, false, theme))
+                    .child(
+                        div()
+                            .w(dp(MARK_WIDTH))
+                            .flex_none()
+                            .flex()
+                            .justify_center()
+                            .text_size(dp(11.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(diff::change_color(file.file.kind, theme))
+                            .child(file.file.kind.letter()),
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.scroll_to_file(ix, true, cx)
+                    }));
+                Some(row.into_any_element())
+            },
+        );
+        // As tall as its rows, till the pane runs out.
+        let card = v_flex()
+            .w_full()
+            .max_h_full()
+            .min_h_0()
+            .rounded(dp(6.))
+            .border_1()
+            .border_color(theme.border_2)
+            .bg(theme.bg_1)
+            .overflow_hidden()
+            .child(header)
+            .child(
+                v_flex()
+                    .h(dp(height))
+                    .min_h_0()
+                    .flex_shrink(1.)
+                    .py(dp(4.))
+                    .child(rows),
+            );
+        v_flex()
+            .id("folder-summary")
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .p(dp(12.))
+            .bg(theme.bg_1)
+            .child(card)
+            .into_any_element()
+    }
+
     /// A tree's folder row, with the byte ranges of its name the filter `found`, its end lined
     /// up with the list's other rows at `columns`.
     #[expect(clippy::too_many_arguments)]
     fn render_dir_row(
         &self,
         row: &TreeRow,
-        holds_cursor: bool,
+        (holds_cursor, solid): (bool, bool),
         source: &FileSource,
         found: &[Range<usize>],
         columns: (usize, usize),
@@ -1137,7 +1287,7 @@ impl Detail {
         let row = file_row(
             ElementId::Name(format!("dir-{path}").into()),
             holds_cursor,
-            false,
+            solid,
             theme,
         )
         .group(ROW_GROUP)
@@ -1186,17 +1336,9 @@ impl Detail {
                 }
             }),
         )
-        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let Some(files) = this.page.files_mut() else {
-                return;
-            };
-            let open = files.collapsed_dirs.remove(&path);
-            if !open {
-                files.collapsed_dirs.insert(path.clone());
-            }
-            this.page_folds.start(fold.clone(), open, cx);
-            cx.notify();
-        }));
+        .on_click(
+            cx.listener(move |this, _: &ClickEvent, _, cx| this.fold_dir(path.clone(), None, cx)),
+        );
         Some(row.into_any_element())
     }
 
@@ -1335,6 +1477,9 @@ impl Detail {
         let current = diff_ix.is_some_and(|ix| Some(ix) == self.current_file());
         let picked = extras.picked;
         let solid = (current || picked) && solid;
+        // Not while the keys are on a folder, whose summary hides the diff's cursor.
+        let on_folder = self.cursor_folder(cx).is_some();
+        let (current, solid) = (current && !on_folder, solid && (picked || !on_folder));
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
         let muted = match solid {
             true => theme.muted_on_solid(),
@@ -1568,7 +1713,10 @@ impl Detail {
         if !(self.files_focus.is_focused(window) || self.focus.is_focused(window)) {
             return None;
         }
-        let path = self.shown_cursor_path(cx)?;
+        let path = match self.cursor_folder(cx) {
+            Some(dir) => dir.to_owned(),
+            None => self.shown_cursor_path(cx)?,
+        };
         let key = &self.diff.as_ref()?.key;
         let root = self.checkout_root(&key.project, &key.files_checkout(), cx)?;
         // Git's paths use `/`; Windows' own `\`.

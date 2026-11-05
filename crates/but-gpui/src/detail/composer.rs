@@ -447,7 +447,7 @@ impl Detail {
             None => self.toggle_checked(&path, cx),
         }
         match in_list {
-            true => self.move_file(1, cx),
+            true => self.move_file(1, false, cx),
             false => self.move_past(cx),
         }
     }
