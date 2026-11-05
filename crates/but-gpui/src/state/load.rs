@@ -8,13 +8,13 @@ use std::time::{Duration, Instant};
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, SharedString, Task};
 
-use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use super::{ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
     Worktree,
 };
-use crate::transfer::{Move, Moving, Stop, Target};
+use crate::transfer::{Changes, Move, Moving, Stop, Target};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -802,20 +802,9 @@ impl Store {
             picks.follow(|commit| follow_by_key(old, &workspace, *commit));
             self.picked = picks;
         }
-        // A cut commit follows the same way, and the cut goes with the commit; a commit
-        // picked from elsewhere, as the target's history, stays as it is.
-        if let Some(mut cut) = self.cut.take_if(|cut| cut.project() == id) {
-            let kept = follow_cut(&mut cut, self.workspace(id), &workspace);
-            // Let go of one that changed out loud, rather than ⌘V doing nothing.
-            self.cut = Some(cut);
-            if !kept {
-                self.set_cut(None, cx);
-                self.snack("What was cut changed, so it was let go", cx);
-            }
-        }
         // What's being dragged follows too, so letting go still lands it.
-        if let Some(mut dragged) = self.dragging.take_if(|cut| cut.project() == id) {
-            match follow_cut(&mut dragged, self.workspace(id), &workspace) {
+        if let Some(mut dragged) = self.dragging.take_if(|dragged| dragged.project == *id) {
+            match follow_dragged(&mut dragged.what, self.workspace(id), &workspace) {
                 true => self.dragging = Some(dragged),
                 false => self.snack("What's being dragged changed, so it won't land", cx),
             }
@@ -898,23 +887,10 @@ fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, F
 /// them, from `old` to `new`, saying whether they're all still there.
 fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> bool {
     match &mut moving.what {
-        // As they would if they were cut.
-        Moving::Files {
-            from,
-            worktree,
-            files,
-        } => {
-            let mut cut = Cut::Files {
-                project: moving.project.clone(),
-                from: *from,
-                worktree: worktree.clone(),
-                files: files.clone(),
-            };
-            if !follow_cut(&mut cut, old, new) {
+        // As they would if they were dragged.
+        Moving::Files(changes) => {
+            if !follow_changes(changes, old, new) {
                 return false;
-            }
-            if let Cut::Files { from: followed, .. } = cut {
-                *from = followed;
             }
         }
         // A project's card and a terminal are where they are whatever the workspace has.
@@ -958,55 +934,71 @@ fn follow_move(moving: &mut Move, old: Option<&Workspace>, new: &Workspace) -> b
     }
 }
 
-/// Follow what's cut or dragged from `old` to where its commits are in `new`. False once it
+/// Follow what's dragged from `old` to where its commits are in `new`. False once it
 /// changed past following.
-fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
-    let follow = |commit| match old.is_some_and(|old| old.find_commit(commit).is_some()) {
-        true => follow_by_key(old, new, commit),
-        false => Some(commit),
-    };
-    match cut {
-        Cut::Commit(_, commits) => {
-            let followed: Option<Arc<[CommitId]>> =
-                commits.iter().map(|commit| follow(*commit)).collect();
+fn follow_dragged(what: &mut Moving, old: Option<&Workspace>, new: &Workspace) -> bool {
+    match what {
+        Moving::Commits(commits) => {
+            let followed: Option<Arc<[CommitId]>> = (commits.iter())
+                .map(|commit| follow_from_workspace(old, new, *commit))
+                .collect();
             followed.map(|followed| *commits = followed).is_some()
         }
+        Moving::Files(changes) => follow_changes(changes, old, new),
+        // A branch goes when it's gone, as when renamed.
+        Moving::Branch(ref_name) => new.find_branch(Some(ref_name)).is_some(),
+        Moving::Worktree { name, .. } => new.find_worktree(name.as_ref()).is_some(),
+        // None of these are carried by the pointer, which moves them itself.
+        Moving::Project(_) | Moving::Terminal { .. } | Moving::Copies(_) => true,
+    }
+}
+
+/// Follow `changes` from `old` to where they are in `new`. False once they changed past
+/// following.
+fn follow_changes(changes: &mut Changes, old: Option<&Workspace>, new: &Workspace) -> bool {
+    let Changes {
+        from,
+        worktree,
+        files,
+    } = changes;
+    match from {
         // Some of a commit's file goes once the commit is rewritten, as the lines
         // picked may have moved with it.
-        Cut::Files {
-            from: Some(commit),
-            files,
-            ..
-        } => follow(*commit)
+        Some(commit) => follow_from_workspace(old, new, *commit)
             .filter(|new| new == commit || files.iter().all(|f| f.hunks.is_none()))
             .map(|new| *commit = new)
             .is_some(),
         // Uncommitted files go when one of them is no longer uncommitted, and some of
         // a file once it changed, as the lines picked may have moved under the pick; a linked
         // worktree's whole file too, as what an agent wrote since would go along unseen, out
-        // of its worktree, which undo can't bring back. A branch goes when it's gone, as when
-        // renamed.
-        Cut::Files {
-            from: None,
-            worktree,
-            files,
-            ..
-        } => {
+        // of its worktree, which undo can't bring back.
+        None => {
             let uncommitted = new.uncommitted_in(worktree);
             let same = |f: &Selected, u: &FileChange| {
                 (f.hunks.is_none() && !worktree.is_linked())
                     || (u.modified, u.size, u.lines) == (f.file.modified, f.file.size, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
-                // By path, as all of thousands can be cut, and this runs on every reload.
+                // By path, as all of thousands can be dragged, and this runs on every reload.
                 let by_path: HashMap<&str, &FileChange> =
                     (uncommitted.iter()).map(|u| (u.path.as_str(), u)).collect();
                 (files.iter())
                     .all(|f| (by_path.get(f.file.path.as_str())).is_some_and(|u| same(f, u)))
             })
         }
-        Cut::Branch(_, ref_name) => new.find_branch(Some(ref_name)).is_some(),
-        Cut::Worktree(_, name) => new.find_worktree(name.as_ref()).is_some(),
+    }
+}
+
+/// Where `commit` is in `new`, as [`follow_by_key`] says while `old` has it, and as it is when
+/// it's from outside the workspace, as the target's history, which no rewrite here moves.
+fn follow_from_workspace(
+    old: Option<&Workspace>,
+    new: &Workspace,
+    commit: CommitId,
+) -> Option<CommitId> {
+    match old.is_some_and(|old| old.find_commit(commit).is_some()) {
+        true => follow_by_key(old, new, commit),
+        false => Some(commit),
     }
 }
 

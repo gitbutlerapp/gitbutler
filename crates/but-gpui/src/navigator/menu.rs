@@ -8,9 +8,9 @@ use gpui::{Action, App, Context, Div, Stateful, Window, actions, prelude::*};
 use super::{ClickOpened, Navigator};
 use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
-    CopyPath, CopyPullRequestLink, CopySelection, CutSelection, Expand, Fetch, MarkAllRead,
-    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SplitBelow,
-    SplitRight, SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
+    CopyPath, CopyPullRequestLink, CopySelection, Expand, Fetch, MarkAllRead, MoveSelection,
+    NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SplitBelow, SplitRight,
+    SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -397,8 +397,7 @@ impl Navigator {
                     command(&NewBranchBelow),
                     command(&AddEmptyCommitAbove),
                     command(&SquashAll),
-                    command(&CutSelection).separated(),
-                    command(&MoveSelection),
+                    command(&MoveSelection).separated(),
                     command(&SquashSelection),
                     command(&Unstack),
                     command(&crate::edits::MergeBranch),
@@ -417,7 +416,6 @@ impl Navigator {
                     .filter_map(|id| store.find_commit(project, *id).map(|(_, commit)| commit))
                     .collect();
                 let mut items = vec![
-                    command(&CutSelection),
                     command(&MoveSelection),
                     command(&SquashSelection),
                     command(&CherryPick),
@@ -439,8 +437,7 @@ impl Navigator {
                 };
                 let mut items = vec![
                     command(&crate::detail::ResolveConflicts),
-                    command(&CutSelection).separated(),
-                    command(&MoveSelection),
+                    command(&MoveSelection).separated(),
                     command(&SquashSelection),
                     command(&CherryPick),
                     command(&Reword).separated(),

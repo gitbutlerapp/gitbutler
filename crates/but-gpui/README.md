@@ -23,7 +23,7 @@ The app is built for watching what coding agents change. Reading their changes c
 
 - one navigator for every project, with its worktrees, stacks, branches and commits, kept current while agents work
 - diffs of uncommitted changes, commits, branches and stacks
-- committing, amending and moving commits, files, hunks and lines, by drag and drop or cut and paste
+- committing, amending and moving commits, files, hunks and lines, by drag and drop or with the keys
 - the branches not applied, and pull requests with their checks
 - conflict resolution for conflicted commits
 - linked worktrees, and the checkouts on your other machines through the mesh

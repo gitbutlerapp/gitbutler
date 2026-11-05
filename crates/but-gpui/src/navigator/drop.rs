@@ -2,81 +2,34 @@
 //! stops as the keys do, the zone for a new branch, and scrolling while it's near an edge. The
 //! rows stay where they are as it goes, so what the pointer aims at holds still: a divider between
 //! them shows where it lands. A linked worktree dragged by its heading moves as the move of it
-//! does (see `order.rs`). What's cut shows where ⌘V puts it on the selected row.
+//! does (see `order.rs`).
 
 use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Bounds, Context, Div, DragMoveEvent, Hsla, MouseButton, MouseDownEvent,
-    MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div, prelude::*,
+    MouseMoveEvent, Pixels, PlatformInput, Point, Window, div, prelude::*,
 };
 
 use super::Navigator;
 use super::rows::{Row, span_height};
 use crate::backend::{CommitId, Destination, FullName, Messages};
-use crate::state::{Cut, ProjectId, Selection};
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
-use crate::transfer::{Move, Moving, Op, Place, Stop, Target, Transfer};
-use crate::ui::{Icon, dp, fixed, h_flex, small_icon};
+use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
+use crate::ui::{Icon, dp, h_flex, small_icon};
 
 impl Navigator {
-    /// Make a row show where ⌘V puts what's cut and offer its right-click menu. While something is
-    /// cut, the selected row shows where it goes: a line above or below a commit, or an outline
-    /// around what it goes into. Rows it can't go on step back.
-    pub(super) fn drop_target(
+    /// Let a row offer its right-click menu.
+    pub(super) fn row_menu(
         &self,
         el: AnyElement,
-        target: Selection,
-        window: &Window,
-        theme: &Theme,
+        menu_target: Selection,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let store = self.store.read(cx);
-        // Not while something's dragged, which shows where it goes with a divider or an outline.
-        let pending = store.cut.as_ref().filter(|_| !cx.has_active_drag());
-        let takes = !self.folded_heading(&target);
-        let lands = |place: Place| {
-            takes
-                && pending.is_some_and(|payload| {
-                    Transfer::resolve(payload, &target, place, store).is_some()
-                })
-        };
-        let landing = (pending.filter(|_| store.selection.as_ref() == Some(&target)))
-            .map(|cut| Place::from_keys(window.modifiers(), cut, &target))
-            .filter(|place| lands(*place))
-            // A branch goes below another under its last commit, rows further down, so a line
-            // under its heading would point at the wrong place: the heading is outlined, as the
-            // pill says where.
-            .map(|place| match target {
-                Selection::Branch(..) => Place::Into,
-                _ => place,
-            });
-        let steps_back = pending.is_some()
-            && ![Place::Above, Place::Into, Place::Below]
-                .into_iter()
-                .any(lands);
-        let highlight = theme.pop;
-        let menu_target = target.clone();
         div()
             .relative()
-            .rounded(dp(4.))
             .child(el)
-            .when(steps_back, |el| el.opacity(0.35))
-            .map(|el| match landing {
-                Some(Place::Into) => el.child(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .rounded(dp(4.))
-                        .border_1()
-                        .border_color(highlight)
-                        .bg(highlight.opacity(0.14)),
-                ),
-                // Painted last, as the next row's slice of the card would cover what of it
-                // crosses into that row.
-                Some(place) => el.child(deferred(insertion_line(place == Place::Above, highlight))),
-                None => el,
-            })
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -113,7 +66,7 @@ impl Navigator {
     /// by its heading.
     pub(super) fn follow_dragged(
         &mut self,
-        event: &DragMoveEvent<Cut>,
+        event: &DragMoveEvent<Dragged>,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -121,7 +74,10 @@ impl Navigator {
         if (store.moving.as_ref()).is_some_and(|moving| !moving.dragged(store)) {
             return;
         }
-        let Some((project, what)) = store.dragging.as_ref().and_then(Moving::dragged) else {
+        // A linked worktree dragged by its heading follows the pointer on its own.
+        let Some(Dragged { project, what }) = (store.dragging.clone())
+            .filter(|dragged| !matches!(dragged.what, Moving::Worktree { .. }))
+        else {
             return;
         };
         let at = event.event.position;
@@ -175,7 +131,7 @@ impl Navigator {
     fn dragged_from(&self, project: &ProjectId, what: &Moving, cx: &App) -> Option<(Stop, Op)> {
         match what {
             // Dragged from a page, their row may not be listed, which is nothing to them.
-            Moving::Files { .. } => {
+            Moving::Files(_) => {
                 let selected = self.store.read(cx).selection.as_ref();
                 let home = what.home(project, selected)?;
                 Some((Stop::Into(home), Op::Squash(Messages::default())))
@@ -224,7 +180,7 @@ impl Navigator {
     /// where it's shown. Changes on a branch start a commit there, as the composer takes them.
     pub(super) fn drop_dragged(
         &mut self,
-        dropped: &Cut,
+        dropped: &Dragged,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -236,13 +192,13 @@ impl Navigator {
         let Move {
             project, at, op, ..
         } = &moving;
-        if let (Op::Commit, Stop::In(Destination::Branch(branch)), Some(payload)) =
+        if let (Op::Commit, Stop::In(Destination::Branch(branch)), Some(dragged)) =
             (*op, at, store.dragging.clone())
         {
             let target = Selection::Branch(project.clone(), Some(branch.clone()));
             (self.store).update(cx, |store, cx| store.set_moving(None, cx));
             return self.app.update_later(window, cx, move |app, window, cx| {
-                app.transfer(&payload, &target, Place::Into, window, cx)
+                app.transfer(&dragged.what, &target, Place::Into, window, cx)
             });
         }
         self.land_move(window, cx);
@@ -258,8 +214,9 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let highlight = theme.pop;
-        let label = match self.store.read(cx).dragging {
-            Some(Cut::Branch(..)) => "Unstack",
+        let dragging = self.store.read(cx).dragging.as_ref();
+        let label = match dragging.map(|dragged| &dragged.what) {
+            Some(Moving::Branch(_)) => "Unstack",
             _ => "New independent branch",
         };
         let zone = h_flex()
@@ -276,7 +233,7 @@ impl Navigator {
             .text_color(theme.text_2)
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
             .child(label)
-            .drag_over::<Cut>(move |style, _, _, _| {
+            .drag_over::<Dragged>(move |style, _, _, _| {
                 style
                     .bg(highlight.opacity(0.14))
                     .border_color(highlight)
@@ -381,7 +338,7 @@ fn stop_at(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32) -> Opti
     match what {
         Moving::Commits(_) => commit_stop(rows, ix, y, project),
         Moving::Branch(_) => branch_stop(rows, ix, y, project),
-        Moving::Files { from, .. } => file_stop(rows, ix, project, *from),
+        Moving::Files(Changes { from, .. }) => file_stop(rows, ix, project, *from),
         Moving::Project(_)
         | Moving::Worktree { .. }
         | Moving::Terminal { .. }
@@ -394,7 +351,7 @@ fn stop_at(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32) -> Opti
 fn op_at(what: &Moving, at: &Stop) -> Op {
     match (what, at) {
         (_, Stop::Into(_)) => Op::Squash(Messages::default()),
-        (Moving::Files { .. }, _) => Op::Commit,
+        (Moving::Files(_), _) => Op::Commit,
         (_, _) => Op::Move,
     }
 }
@@ -610,16 +567,6 @@ fn divider(color: Hsla) -> Div {
     )
 }
 
-/// The line a paste lands on, along the row's top edge or its bottom one, so the rows either
-/// side of a gap draw it in the same place.
-fn insertion_line(above: bool, color: Hsla) -> Div {
-    let line = divider(color).left(dp(10.)).right(dp(6.));
-    match above {
-        true => line.top(fixed(-1.)),
-        false => line.bottom(fixed(-1.)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -628,7 +575,7 @@ mod tests {
     use crate::backend::model::build::{full, id};
     use crate::backend::{Checkout, CommitId, Destination};
     use crate::state::{ProjectId, Selection};
-    use crate::transfer::{Moving, Place, Stop, Target};
+    use crate::transfer::{Changes, Moving, Place, Stop, Target};
     use crate::ui::ROW_HEIGHT;
 
     fn project() -> ProjectId {
@@ -931,11 +878,11 @@ mod tests {
     }
 
     fn files(from: Option<CommitId>) -> Moving {
-        Moving::Files {
+        Moving::Files(Changes {
             from,
             worktree: Checkout::Main,
             files: Arc::from([]),
-        }
+        })
     }
 
     #[test]

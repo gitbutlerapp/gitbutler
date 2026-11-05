@@ -1,5 +1,5 @@
-//! The actions on the selected commits, branches and changes, besides cut and paste: push,
-//! rename, delete and discard, move, squash and split commits, new branches, merge, pull,
+//! The actions on the selected commits, branches and changes: push, rename, delete and discard,
+//! move, squash and split commits, new branches, merge, pull,
 //! unstack and unapply. `edit_actions` registers them around the navigator; Push is on the
 //! window instead, so the branch page's button reaches it, and so is Discard for the selected
 //! row, which `discard_actions` registers.

@@ -4,10 +4,10 @@
 use gpui::{Action, App};
 
 use crate::app::{
-    ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, Fetch,
-    FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere,
-    Pull, Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator,
-    Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, Fetch, FocusChanges,
+    FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, Pull, Push, Quit, Redo,
+    StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo, UpdateFromTarget,
+    UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
@@ -131,7 +131,7 @@ commands! {
     crate::detail::UncheckAll => "Uncheck all files",
     crate::detail::MarkResolved => "Mark resolved",
     crate::detail::UncommitChanges => "Uncommit changes" risky {
-        phrase: |app, cx| Some(format!("Uncommit {}", app.detail.read(cx).cut_kind(cx)?)),
+        phrase: |app, cx| Some(format!("Uncommit {}", app.detail.read(cx).changes_kind(cx)?)),
     },
     crate::detail::SplitIntoNewCommit => "Split into a new commit",
     StartCommit => "Commit",
@@ -206,8 +206,6 @@ commands! {
     crate::app::CopyAbsolutePath => "Copy absolute path",
     crate::app::CopyErrorMessage => "Copy error message",
     CopyMore => "Copy more",
-    CutSelection => "Cut" { phrase: cut_phrase },
-    PasteHere => "Paste here",
     crate::app::MoveSelection => "Move" {
         phrase: |app, cx| picks(app, cx).map(|n| format!("Move {n} commits")),
     },
@@ -525,23 +523,6 @@ fn deletable(app: &AppView, cx: &App) -> bool {
             < 2
     });
     !(last && store.in_linked(selection))
-}
-
-/// Whether the composer is open on the selected checkout. `None` when no checkout is selected.
-fn composing_selected(app: &AppView, cx: &App) -> Option<bool> {
-    let (project, checkout) = match &app.store.read(cx).selection {
-        Some(Selection::Uncommitted(project, checkout)) => (project, checkout.clone()),
-        _ => return None,
-    };
-    Some(app.detail.read(cx).composing_in(project, &checkout))
-}
-
-/// While committing, a cut takes what's checked wherever the keys are, a file's menu too.
-fn cut_phrase(app: &AppView, cx: &App) -> Option<String> {
-    match picks(app, cx) {
-        Some(n) => Some(format!("Cut {n} commits")),
-        None => composing_selected(app, cx)?.then(|| "Cut checked changes".to_owned()),
-    }
 }
 
 #[cfg(test)]
