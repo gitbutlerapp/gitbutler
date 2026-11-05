@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bstr::{BStr, BString, ByteSlice as _};
 use gix::{index::entry::Mode, merge::tree::TreatAsUnresolved};
 
-use super::{Conflicts, Trees, in_place::Placed};
+use super::{Conflicts, Trees, transaction::Placed};
 use crate::index::{ConflictStage, Edit, Stat};
 
 /// What an index entry records about content.

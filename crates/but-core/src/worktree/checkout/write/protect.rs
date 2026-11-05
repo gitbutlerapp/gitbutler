@@ -5,10 +5,29 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice as _};
 
-use super::plan::{Content, Plan};
+use super::{
+    is_empty_dir,
+    plan::{Content, Plan},
+};
+
+/// A filesystem object the commit removes to make room for the target.
+pub(super) struct Clearance {
+    pub rela_path: BString,
+    pub reason: Reason,
+}
+
+/// Why checkout removes an object.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reason {
+    /// The target deletes it.
+    Deleted,
+    /// It's in the way of a file the target writes.
+    InTheWay,
+}
 
 /// Fail if anything checkout removes from the worktree changed after the worktree was
-/// snapshotted into `baseline`, so checkout doesn't replace an edit it never saw.
+/// snapshotted into `baseline`, so checkout doesn't replace an edit it never saw. Otherwise,
+/// return the objects to remove.
 ///
 /// Like Git, a change of type or executable bit counts, files are hashed through the worktree
 /// filters like the snapshot, and a missing file loses nothing. Files the snapshot doesn't have
@@ -17,28 +36,39 @@ pub(super) fn worktree(
     repo: &gix::Repository,
     baseline: &gix::index::State,
     plan: &Plan,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<Clearance>> {
     let (pipeline, index) = repo.filter_pipeline(None)?;
     let mut judge = Judge::new(repo, baseline, &index, pipeline)?;
-    let objects = objects_to_remove(&mut judge, plan)?;
+    let removals = objects_to_remove(&mut judge, plan)?;
     refuse_unless_empty(
-        judge_each_once(&mut judge, objects)?,
+        judge_each_once(&mut judge, &removals)?,
         "Uncommitted files would be overwritten by checkout",
-    )
+    )?;
+    Ok(clearances(removals))
 }
 
-/// Judge the `objects`, and return the paths of those that changed.
+/// Judge the objects of `removals`, and return the paths of those that changed.
 ///
 /// An object can be removed for several reasons, like being deleted and in the way of the files
 /// that replace it, or being in a directory that is removed too. It's judged once.
-fn judge_each_once(judge: &mut Judge<'_>, objects: Vec<BString>) -> anyhow::Result<Vec<String>> {
-    let mut changed = Vec::new();
-    for rela_path in objects.into_iter().collect::<BTreeSet<_>>() {
+fn judge_each_once(judge: &mut Judge<'_>, removals: &[Removal]) -> anyhow::Result<Vec<String>> {
+    let (mut judged, mut changed) = (BTreeSet::new(), Vec::new());
+    for rela_path in removals.iter().flat_map(|removal| &removal.judged) {
+        if !judged.insert(rela_path.clone()) {
+            continue;
+        }
         if let Verdict::Changed(path) = judge.judge(rela_path.as_ref())? {
             changed.push(format!("{path:?}"));
         }
     }
     Ok(changed)
+}
+
+/// An object checkout removes, and the files in it whose content must be the snapshot's.
+struct Removal {
+    rela_path: BString,
+    reason: Reason,
+    judged: Vec<BString>,
 }
 
 /// What an object about to be removed is, compared with the snapshot.
@@ -51,17 +81,29 @@ enum Verdict {
     Changed(BString),
 }
 
-/// The objects whose content must be the snapshot's in everything checkout removes: the object
-/// at each deleted path, and whatever is in the way of each written file.
-fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<BString>> {
-    let mut objects = Vec::new();
+/// Everything checkout removes: the object at each deleted path, and whatever is in the way of
+/// each written file.
+fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<Removal>> {
+    let mut removals = Vec::new();
     for rela_path in plan.deletions() {
-        objects.extend(judge.deleted_object(rela_path)?);
+        removals.extend(judge.deleted_object(rela_path)?);
     }
     for (rela_path, content) in plan.writes() {
-        objects.extend(judge.object_in_the_way(rela_path, content)?);
+        removals.extend(judge.object_in_the_way(rela_path, content)?);
     }
-    Ok(objects)
+    Ok(removals)
+}
+
+/// The objects to remove.
+fn clearances(removals: Vec<Removal>) -> Vec<Clearance> {
+    removals
+        .into_iter()
+        .map(
+            |Removal {
+                 rela_path, reason, ..
+             }| Clearance { rela_path, reason },
+        )
+        .collect()
 }
 
 /// What judging worktree objects against the snapshot needs.
@@ -108,17 +150,25 @@ impl<'a> Judge<'a> {
         })
     }
 
-    /// The object at the deleted `rela_path` to judge. Like Git, a path behind a missing
-    /// directory, or a file or symlink where a directory should be, isn't in the worktree, and a
-    /// directory, like a submodule's, only goes if empty, which leaves nothing to judge.
-    fn deleted_object(&self, rela_path: &BStr) -> anyhow::Result<Option<BString>> {
+    /// The object at the deleted `rela_path`. Like Git, a path behind a missing directory, or
+    /// a file or symlink where a directory should be, isn't in the worktree, and a directory, like a
+    /// submodule's, only goes if empty.
+    fn deleted_object(&self, rela_path: &BStr) -> anyhow::Result<Option<Removal>> {
         if self.blocking_ancestor(rela_path)?.is_some() {
             return Ok(None);
         }
-        Ok(match self.metadata(rela_path)? {
-            Some(md) if !md.is_dir() => Some(rela_path.to_owned()),
-            Some(_) | None => None,
-        })
+        let judged = match self.metadata(rela_path)? {
+            Some(md) if md.is_dir() && !is_empty_dir(&self.path(rela_path)?) => return Ok(None),
+            // Nothing to judge in it.
+            Some(md) if md.is_dir() => Vec::new(),
+            Some(_) => vec![rela_path.to_owned()],
+            None => return Ok(None),
+        };
+        Ok(Some(Removal {
+            rela_path: rela_path.to_owned(),
+            reason: Reason::Deleted,
+            judged,
+        }))
     }
 
     /// What writing `content` at `rela_path` removes: a leading component that isn't a
@@ -128,22 +178,27 @@ impl<'a> Judge<'a> {
         &mut self,
         rela_path: &BStr,
         content: Content,
-    ) -> anyhow::Result<Vec<BString>> {
+    ) -> anyhow::Result<Option<Removal>> {
         let in_the_way = self
             .blocking_ancestor(rela_path)?
             .unwrap_or_else(|| rela_path.to_owned());
         let Some(md) = self.metadata(in_the_way.as_ref())? else {
-            return Ok(Vec::new());
+            return Ok(None);
         };
         if md.is_dir() && content.is_submodule() {
-            return Ok(Vec::new());
+            return Ok(None);
         }
-        Ok(match md.is_dir() {
+        let judged = match md.is_dir() {
             // A submodule the snapshot has is judged as a whole.
-            true if self.baseline_entry(in_the_way.as_ref()).is_some() => vec![in_the_way],
+            true if self.baseline_entry(in_the_way.as_ref()).is_some() => vec![in_the_way.clone()],
             true => self.files_below(in_the_way.as_ref())?,
-            false => vec![in_the_way],
-        })
+            false => vec![in_the_way.clone()],
+        };
+        Ok(Some(Removal {
+            rela_path: in_the_way,
+            reason: Reason::InTheWay,
+            judged,
+        }))
     }
 
     /// The first leading component of `rela_path` that is a file or symlink, which a directory

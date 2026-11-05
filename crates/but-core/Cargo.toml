@@ -46,6 +46,9 @@ uuid.workspace = true
 
 boolean-enums.workspace = true
 
+# for staging checkout files before moving them into the worktree
+tempfile.workspace = true
+
 # for parallel changeset-similarity computation
 flume = "0.11.1"
 
