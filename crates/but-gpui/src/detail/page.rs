@@ -341,6 +341,8 @@ pub(super) struct BriefState {
     pub(super) linked: Option<(super::DiffKey, u32, Option<crate::backend::CommitId>)>,
     /// The branch's own diff was gone to from here, which the key back returns from.
     pub(super) left_for_code: bool,
+    /// What that diff says about the branch's tests.
+    pub(super) tests: Option<super::brief::test_facts::TestFacts>,
     /// The files that diff changes which tend to matter and the brief neither shows nor names.
     pub(super) unnamed: Vec<String>,
     /// The code cards that show what that diff no longer has, by their blocks.

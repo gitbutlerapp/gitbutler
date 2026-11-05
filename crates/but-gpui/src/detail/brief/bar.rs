@@ -40,6 +40,14 @@ impl Detail {
     /// They add up in the field, as a branch can have several of them.
     fn brief_reasons_to_hold(&self, state: &BriefState, page: &BriefPage) -> Vec<(String, String)> {
         let name_of = |path: &str| path.rsplit('/').next().unwrap_or(path).to_owned();
+        let turned_off = (state.tests.iter()).flat_map(|tests| tests.turned_off.first());
+        let turned_off = turned_off.map(|off| {
+            let name = name_of(&off.path);
+            (
+                "Turn the test back on".to_owned(),
+                format!("Turn the test in {name} back on, or say why it's off."),
+            )
+        });
         let unnamed = state.unnamed.first().map(|path| {
             let name = name_of(path);
             (
@@ -53,7 +61,7 @@ impl Detail {
                 "Update the brief to match the branch.".to_owned(),
             )
         });
-        unnamed.into_iter().chain(stale).collect()
+        turned_off.into_iter().chain(unnamed).chain(stale).collect()
     }
 
     /// The bar while something's being written: what it's about, the field, and what's quickest

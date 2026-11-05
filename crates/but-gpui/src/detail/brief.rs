@@ -17,6 +17,7 @@ mod head;
 mod keys;
 mod notes;
 mod talk;
+pub(super) mod test_facts;
 
 pub(crate) use keys::{
     Approve, GoBack, Hold, NextBlock, NextBrief, PreviousBrief, SendNotes, WriteNote,
@@ -248,6 +249,7 @@ impl Detail {
         };
         let key = (diff.key.clone(), page.version, page.tip);
         if brief.linked.as_ref() != Some(&key) {
+            brief.tests = Some(test_facts::TestFacts::of(&diff.files));
             brief.unnamed = head::unnamed_files(page, &diff.files);
             brief.drifted = code::drifted_blocks(page, &diff.files);
             brief.linked = Some(key);

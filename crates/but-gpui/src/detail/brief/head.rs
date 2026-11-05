@@ -176,6 +176,7 @@ impl Detail {
             false => (None, Some(standing)),
         };
         let others: Vec<Div> = (self.brief_failed_checks_fact(cx).into_iter())
+            .chain(self.brief_turned_off_fact(state, cx))
             .chain(self.brief_unnamed_facts(state, cx))
             .collect();
         // Whether it matches, first, as that's what decides how far to go by the rest.
@@ -250,6 +251,7 @@ impl Detail {
                     .children(current)
                     .children(self.brief_checks_fact(cx))
                     .children(self.brief_size_facts(page, theme))
+                    .children(self.brief_tests_fact(state, cx))
                     .children(self.brief_unshown_fact(page, state, cx))
                     .children(self.brief_labels_facts(page, theme)),
             )
@@ -308,6 +310,68 @@ impl Detail {
                     )
                 }));
                 rows
+            }
+        }
+    }
+
+    /// A line of the branch's that turns a test off, whatever the brief says about its tests. It's
+    /// the line itself, which says which test, and goes to where it is.
+    fn brief_turned_off_fact(&self, state: &BriefState, cx: &Context<Self>) -> Option<Div> {
+        let theme = Theme::get(cx);
+        let tests = state.tests.as_ref()?;
+        let first = tests.turned_off.first()?;
+        let more = tests.turned_off.len() - 1;
+        let (path, hunk, line) = (first.path.clone(), first.hunk, first.line);
+        let name = (first.path.rsplit('/').next())
+            .unwrap_or(&first.path)
+            .to_owned();
+        Some(
+            v_flex()
+                .id("brief-test-off")
+                .gap(dp(2.))
+                .hover(|el| el.bg(theme.warn.opacity(0.06)))
+                .role(gpui::Role::Button)
+                .aria_label(SharedString::from(format!("Show the line in {name}")))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.brief_go_to_line(&path, hunk, line, window, cx)
+                }))
+                .child(div().text_color(theme.warn).child(match more {
+                    0 => format!("Turns off a test in {name}"),
+                    more => format!("Turns off a test in {name}, and {more} more"),
+                }))
+                .child(
+                    div()
+                        .truncate()
+                        .font_family(theme.diff_font.clone())
+                        .text_color(theme.text_1)
+                        .child(first.text.clone()),
+                )
+                .into_any_element(),
+        )
+        .map(|el| div().child(el))
+    }
+
+    /// What the diff says of the branch's tests: how much they change, against what the brief says
+    /// about them.
+    fn brief_tests_fact(&self, state: &BriefState, cx: &Context<Self>) -> Option<Div> {
+        let theme = Theme::get(cx);
+        let tests = state.tests.as_ref()?;
+        if !tests.deleted.is_empty() {
+            return Some(fact(
+                div()
+                    .text_color(theme.warn)
+                    .child(format!("Deletes tests: {}", tests.deleted.join(", "))),
+            ));
+        }
+        match tests.files.len() {
+            0 if tests.changes_code => Some(measure("Tests", "none changed", theme)),
+            0 => None,
+            files => {
+                let row = h_flex()
+                    .gap_x(dp(5.))
+                    .child(plural(files, "file"))
+                    .child(diff::stats(tests.added, tests.removed, false, theme));
+                Some(measure("Tests", row, theme))
             }
         }
     }
@@ -435,7 +499,8 @@ impl Detail {
             .selected_review(cx)
             .and_then(|review| review.checks)
             .is_some_and(|checks| checks.failed > 0);
-        failed || !state.unnamed.is_empty()
+        let turned_off = (state.tests.as_ref()).is_some_and(|tests| !tests.turned_off.is_empty());
+        failed || turned_off || !state.unnamed.is_empty()
     }
 
     /// Which of the files the branch changes now the brief shows no code of: what it leaves out.

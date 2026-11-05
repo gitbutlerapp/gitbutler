@@ -10,7 +10,7 @@ use crate::backend::{FileDiff, LineKind};
 use crate::detail::Detail;
 use crate::detail::page::{BriefFold, PageTab};
 use crate::theme::Theme;
-use crate::ui::diff::split_path;
+use crate::ui::diff::{DiffRow, split_path};
 use crate::ui::file_icons::file_icon;
 use crate::ui::{Icon, diff, dp, h_flex, icon, v_flex};
 
@@ -333,5 +333,44 @@ impl Detail {
         if let Some(brief) = self.page.brief_mut() {
             brief.left_for_code = true;
         }
+    }
+
+    /// Go to line `line` of hunk `hunk` of file `path` in the branch's own diff.
+    pub(super) fn brief_go_to_line(
+        &mut self,
+        path: &str,
+        hunk: usize,
+        line: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(file_ix) = (self.shown_diff())
+            .and_then(|loaded| loaded.files.iter().position(|file| file.file.path == path))
+        else {
+            return;
+        };
+        self.leave_brief_for_code(window, cx);
+        self.scroll_to_file(file_ix, false, cx);
+        self.show_hunk(file_ix, hunk, cx);
+        let row = self.row_of(|row| match *row {
+            DiffRow::Line {
+                file,
+                hunk: of,
+                line: at,
+            } => (file, of, at) == (file_ix, hunk, line),
+            DiffRow::Pair {
+                file,
+                hunk: of,
+                left,
+                right,
+            } => (file, of) == (file_ix, hunk) && (left == Some(line) || right == Some(line)),
+            _ => false,
+        });
+        if let Some(row) = row {
+            // With a few lines above it, for what it's in.
+            self.scroll_to_row(row.saturating_sub(4), false);
+        }
+        self.focus_files(window, cx);
+        cx.notify();
     }
 }
