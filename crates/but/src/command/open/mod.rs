@@ -25,6 +25,9 @@ use crate::{
     utils::{IntermediateChannel, change_source::InvokedFrom},
 };
 
+#[cfg(feature = "nightly")]
+pub(crate) mod gui;
+
 #[derive(Debug)]
 pub(crate) struct Hunk {
     /// The line numbers that were added in this hunk.

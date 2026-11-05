@@ -1,4 +1,5 @@
-//! The `but://` links the GUI opens, written by `but gui` and read by the apps that open them.
+//! The `but://` links the GUI opens, written by `but gui` and `but _open --gui` and read by the
+//! apps that open them.
 //!
 //! A link names its project by `path`. Where in it to open is the app's to spell and read, so
 //! this crate only carries it, as the parameters past the link's own, but for [`Changes`], which
