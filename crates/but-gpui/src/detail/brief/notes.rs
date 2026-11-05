@@ -21,7 +21,15 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, icon_button, markdown, v_flex};
 
 /// How much of a paragraph a note quotes to say what it's on.
-pub(super) const MOST_QUOTED: usize = 400;
+const MOST_QUOTED: usize = 400;
+
+/// A note on `words` of `block`, by as much of them as it takes to find them again.
+pub(super) fn passage(block: &BriefBlock, words: &str) -> CommentTo {
+    CommentTo::Passage {
+        block: *block.positions.start(),
+        quote: words.chars().take(MOST_QUOTED).collect(),
+    }
+}
 
 /// What a note written with the keys on `row` is about. A section is a row of a block that can be
 /// the whole brief, so it's the section, by its first words, not the block.
@@ -39,10 +47,7 @@ fn row_target(row: Row, blocks: &[BriefBlock]) -> CommentTo {
                 _ => None,
             });
             match block.zip(first.filter(|first| !first.text.trim().is_empty())) {
-                Some((block, first)) => CommentTo::Passage {
-                    block: *block.positions.start(),
-                    quote: first.text.chars().take(MOST_QUOTED).collect(),
-                },
+                Some((block, first)) => passage(block, &first.text),
                 None => whole(at),
             }
         }
@@ -108,10 +113,7 @@ impl Detail {
             && let Some(paragraph) = paragraphs.get(from + point.0)
             && !paragraph.text.trim().is_empty()
         {
-            return CommentTo::Passage {
-                block: *block.positions.start(),
-                quote: paragraph.text.chars().take(MOST_QUOTED).collect(),
-            };
+            return passage(block, &paragraph.text);
         }
         // Only where the keys went: what's on screen may not be what's being read, and a note on
         // the wrong paragraph says more than it meant to.
@@ -304,7 +306,7 @@ impl Detail {
             // What was said on other versions, which has nowhere on this one to go.
             .children(
                 (state.activity.threads.iter())
-                    .filter(|thread| thread.version.is_some_and(|said| said != version))
+                    .filter(|thread| !super::margin::said_on(thread, version))
                     .map(|thread| {
                         v_flex()
                             .child(super::small_line(
@@ -352,10 +354,7 @@ impl Detail {
                     .child(markdown::render(&id, &markdown::parse(body), None, theme))
             };
         let resolved = thread.resolved.is_some();
-        let quote = match &thread.anchor {
-            briefs::Anchor::Text { quote, .. } => Some(quote.clone()),
-            _ => None,
-        };
+        let quote = super::margin::quote_of(thread).map(str::to_owned);
         let gone = quote.clone().filter(|quote| {
             (thread.anchor.block()).is_some_and(|at| super::margin::quote_is_gone(state, at, quote))
         });

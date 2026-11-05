@@ -294,6 +294,15 @@ pub(super) enum Writing {
     },
 }
 
+impl Writing {
+    /// What it's about, or beside.
+    pub(super) fn about(&self) -> &CommentTo {
+        match self {
+            Writing::Note(to) | Writing::Shortcut { to, .. } => to,
+        }
+    }
+}
+
 /// What can be opened on a Brief tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum BriefFold {

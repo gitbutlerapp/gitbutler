@@ -771,10 +771,7 @@ impl Detail {
             // Worked out now, as pressing anything lets go of the selection before its click.
             let about = match words.get(drawn.start) {
                 _ if held => self.brief_note_target(),
-                Some(first) if !first.text.trim().is_empty() => CommentTo::Passage {
-                    block: position,
-                    quote: first.text.chars().take(notes::MOST_QUOTED).collect(),
-                },
+                Some(first) if !first.text.trim().is_empty() => notes::passage(block, &first.text),
                 _ => CommentTo::Block(position),
             };
             self.with_talk(

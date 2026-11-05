@@ -13,7 +13,7 @@ use gpui::{
 
 use super::keys::WriteNote;
 use super::{Row, briefs};
-use crate::backend::briefs::{BriefBlock, BriefBody, CommentTo, Thread};
+use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
 use crate::detail::page::{BriefState, Writing};
 use crate::overlays::MenuItem;
@@ -70,6 +70,42 @@ impl Spot<'_> {
             _ => false,
         }
     }
+
+    fn takes_note(&self, to: &CommentTo) -> bool {
+        place_of(to).is_some_and(|(block, quote)| self.takes(block, quote))
+    }
+}
+
+/// What's said about somewhere, and what's being written about it.
+struct Talk<'a> {
+    threads: Vec<&'a Thread>,
+    notes: Vec<&'a Note>,
+    writing: Option<&'a Writing>,
+}
+
+impl Talk<'_> {
+    fn is_empty(&self) -> bool {
+        self.threads.is_empty() && self.notes.is_empty() && self.writing.is_none()
+    }
+}
+
+impl Row {
+    /// What's said about what it draws goes beside it, if anything can be.
+    fn spot(self, page: &BriefPage) -> Option<Spot<'_>> {
+        match self {
+            Row::Head => Some(Spot::Brief),
+            Row::Block(at) => page.blocks.get(at).map(Spot::Block),
+            Row::Text { at, from, to } => {
+                (page.blocks.get(at)).map(|block| Spot::Words(block, from..to))
+            }
+            Row::End | Row::Since | Row::Unchanged(_) | Row::Fold { .. } => None,
+        }
+    }
+}
+
+/// Whether `thread` is about `version`, rather than one before it.
+pub(super) fn said_on(thread: &Thread, version: u32) -> bool {
+    thread.version.is_none_or(|said_on| said_on == version)
 }
 
 /// The paragraph of `block` that `quote` starts in. Without one, or once its words are gone, the
@@ -105,7 +141,7 @@ fn place_of(to: &CommentTo) -> Option<(Option<usize>, Option<&str>)> {
     }
 }
 
-fn quote_of(thread: &Thread) -> Option<&str> {
+pub(super) fn quote_of(thread: &Thread) -> Option<&str> {
     match &thread.anchor {
         briefs::Anchor::Text { quote, .. } => Some(quote),
         _ => None,
@@ -269,60 +305,50 @@ impl Detail {
         let (Some(page), Row::Text { at, to, .. }) = (state.page(), row) else {
             return false;
         };
-        let talk_in = |at: usize, paragraphs: Range<usize>| {
-            page.blocks.get(at).is_some_and(|block| {
-                let spot = Spot::Words(block, paragraphs);
-                let version = page.version;
-                (state.activity.threads.iter()).any(|thread| {
-                    thread.version.is_none_or(|said_on| said_on == version)
-                        && spot.takes(thread.anchor.block(), quote_of(thread))
-                }) || (state.notes.iter()).any(|note| {
-                    place_of(&note.to).is_some_and(|(block, quote)| spot.takes(block, quote))
-                }) || self.brief_writing().is_some_and(|writing| match writing {
-                    Writing::Note(to) | Writing::Shortcut { to, .. } => {
-                        place_of(to).is_some_and(|(block, quote)| spot.takes(block, quote))
-                    }
-                })
-            })
-        };
-        let Some(Row::Text {
-            at: next_at,
-            from: next_from,
-            to: next_to,
-        }) = next
-        else {
+        let quiet =
+            |row: Row| (row.spot(page)).is_none_or(|spot| self.talk_at(&spot, state).is_empty());
+        let Some(next @ Row::Text { .. }) = next else {
             return false;
         };
-        !talk_in(at, drawn.end..to) && !talk_in(next_at, next_from..next_to)
+        let rest = Row::Text {
+            at,
+            from: drawn.end,
+            to,
+        };
+        quiet(rest) && quiet(next)
     }
 
     /// What's said about `spot`, and what's being written about it.
+    fn talk_at<'a>(&'a self, spot: &Spot<'_>, state: &'a BriefState) -> Talk<'a> {
+        let version = state.page().map_or(0, |page| page.version);
+        Talk {
+            threads: (state.activity.threads.iter())
+                .filter(|thread| {
+                    said_on(thread, version) && spot.takes(thread.anchor.block(), quote_of(thread))
+                })
+                .collect(),
+            notes: (state.notes.iter())
+                .filter(|note| spot.takes_note(&note.to))
+                .collect(),
+            writing: self
+                .brief_writing()
+                .filter(|writing| spot.takes_note(writing.about())),
+        }
+    }
+
+    /// [`Self::talk_at`], as cards.
     fn talk_cards(
         &self,
         spot: &Spot<'_>,
         state: &BriefState,
         cx: &Context<Self>,
     ) -> Vec<AnyElement> {
-        let version = state.page().map_or(0, |page| page.version);
-        let threads = (state.activity.threads.iter())
-            .filter(|thread| {
-                thread.version.is_none_or(|said_on| said_on == version)
-                    && spot.takes(thread.anchor.block(), quote_of(thread))
-            })
+        let talk = self.talk_at(spot, state);
+        let threads = (talk.threads.into_iter())
             .map(|thread| self.brief_thread(thread, state, cx).into_any_element());
-        let notes = (state.notes.iter())
-            .filter(|note| {
-                place_of(&note.to).is_some_and(|(block, quote)| spot.takes(block, quote))
-            })
+        let notes = (talk.notes.into_iter())
             .map(|note| self.brief_note(note, false, state, cx).into_any_element());
-        let writing = self
-            .brief_writing()
-            .and_then(|writing| match writing {
-                Writing::Note(to) | Writing::Shortcut { to, .. } => {
-                    let (block, quote) = place_of(to)?;
-                    spot.takes(block, quote).then_some(writing)
-                }
-            })
+        let writing = (talk.writing)
             .and_then(|writing| self.talk_composer(writing, false, cx))
             .map(IntoElement::into_any_element);
         threads.chain(notes).chain(writing).collect()
@@ -625,7 +651,7 @@ impl Detail {
         let hovered = self.brief_said_hovered.as_deref();
         let threads = (state.activity.threads.iter())
             .filter(|thread| thread.resolved.is_none())
-            .filter(|thread| thread.version.is_none_or(|said_on| said_on == version))
+            .filter(|thread| said_on(thread, version))
             .filter(|thread| thread.anchor.block().is_some_and(on_block))
             .filter_map(quote_of)
             .map(|quote| {
@@ -677,22 +703,8 @@ impl Detail {
     /// The row a note on `to` shows in.
     pub(super) fn row_of_note(&self, to: &CommentTo) -> Option<usize> {
         let page = self.page.brief()?.page()?;
-        let (block, quote) = place_of(to)?;
-        self.brief_rows()
-            .iter()
-            .position(|row| match (*row, block) {
-                (Row::Head, None) => true,
-                (Row::Block(at), Some(block)) => {
-                    (page.blocks.get(at)).is_some_and(|on| on.positions.contains(&block))
-                }
-                (Row::Text { at, from, to }, Some(block)) => {
-                    (page.blocks.get(at)).is_some_and(|on| {
-                        on.positions.contains(&block)
-                            && (from..to).contains(&paragraph_of(on, quote))
-                    })
-                }
-                _ => false,
-            })
+        (self.brief_rows().iter())
+            .position(|row| row.spot(page).is_some_and(|spot| spot.takes_note(to)))
     }
 }
 
