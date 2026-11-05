@@ -102,6 +102,9 @@ struct FileRow {
     menu: Option<(ProjectId, Changes)>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
+    /// The tree has folders: the row keeps a step empty where theirs have the chevron, so a
+    /// file sits a step in from its folder and lines up with the folders beside it.
+    folders: bool,
     /// Picked with other files, which its menu and a drag take along.
     picked: bool,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
@@ -135,7 +138,8 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
 
 /// A tree row's indent, as ui-react's FileListItem draws it: a step per level, each with a
 /// guide that joins the rows above and below into one line down its directory, and a
-/// directory's `chevron` in a step of its own. A file's icon so sits under its directory's.
+/// directory's `chevron` in a step of its own, which a file's row keeps empty. A file's icon so
+/// sits a step in from its directory's, under its name.
 fn steps(depth: usize, chevron: Option<AnyElement>, theme: &Theme) -> Div {
     let step = || {
         div()
@@ -468,6 +472,7 @@ impl Detail {
                 .map(|pos| TreeRow::File { pos, depth: 0 })
                 .collect()
         };
+        let folders = tree && rows.iter().any(|row| matches!(row, TreeRow::Dir { .. }));
         let depth = |row: &TreeRow| match row {
             TreeRow::Dir { depth, .. } | TreeRow::File { depth, .. } => *depth,
         };
@@ -577,6 +582,7 @@ impl Detail {
                         let lit = |ix: usize| lit.get(ix).copied().unwrap_or(false);
                         let row = FileRow {
                             depth: tree.then_some(*depth),
+                            folders,
                             joined: match lit(ix) {
                                 true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
                                 false => (false, false),
@@ -1400,12 +1406,10 @@ impl Detail {
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
             .group(ROW_GROUP)
-            .children(
-                extras
-                    .depth
-                    .filter(|&d| d > 0)
-                    .map(|depth| steps(depth, None, theme)),
-            )
+            .children(extras.depth.and_then(|depth| {
+                let room = extras.folders.then(|| div().into_any_element());
+                (depth > 0 || room.is_some()).then(|| steps(depth, room, theme))
+            }))
             .child(lead)
             // The name whole where it fits, then its folder dimmed and cut in the middle, as the
             // folder's end tells two files of one name apart.
