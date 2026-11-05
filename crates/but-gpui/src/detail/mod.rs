@@ -104,6 +104,7 @@ actions!(
         ScrollUp,
         SwitchTab,
         ShowBrief,
+        ShowBranchesWithBriefs,
         PickCommitTarget,
         ToggleWrap,
         TogglePlainLines,
@@ -493,6 +494,8 @@ pub struct Detail {
     brief_reading: Option<(brief::ReadKey, Task<()>)>,
     /// The version whose talk is on its way out. It's here as a page outlives a send to it.
     brief_sending: Option<(String, u32)>,
+    /// The project whose Branches page lists only the branches a brief is known of.
+    branches_with_brief: Option<ProjectId>,
     /// The version whose talk is kept current while its tab shows, and that keeping.
     brief_talk: Option<((String, u32), Task<()>)>,
     /// A page with a brief opens on it, until a tab with its changes is picked over it: whoever's
@@ -876,6 +879,7 @@ impl Detail {
             _brief_ask: Task::ready(()),
             brief_reading: None,
             brief_sending: None,
+            branches_with_brief: None,
             brief_talk: None,
             brief_first: true,
             brief_input: None,

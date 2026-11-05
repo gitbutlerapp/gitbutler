@@ -199,6 +199,8 @@ enum Facet {
     Who,
     Status,
     Recency,
+    /// Counts what the brief filter would show, whether it's on or not.
+    Brief,
 }
 
 /// How recently a branch has to have changed for the list to keep it.
@@ -636,13 +638,21 @@ impl Detail {
                 || says(&title(branch))
                 || branch.description.as_deref().is_some_and(says)
                 || branch.people.iter().any(|person| says(person));
+            // Merged and all, as what was explained is worth reading after it's landed too.
+            let with_brief = skip == Some(Facet::Brief)
+                || self.branches_with_brief.as_ref() == Some(&branches.project);
+            let has_brief = (store.brief_at(&branches.project, &branch.name))
+                .is_some_and(|known| known.found.is_some());
             // One being deleted leaves at once, and one with no commits of its own shows only
             // when its name is searched for.
             !store.hides_branch(&branches.project, &branch.ref_name)
-                && (branch.own_commits != Some(0) || named)
+                && (!with_brief || has_brief)
+                && (with_brief || branch.own_commits != Some(0) || named)
                 && (branch.local || !prefs.branches_local_only)
                 && found
-                && (skip == Some(Facet::Status) || status_keeps(prefs.branches_status, branch))
+                && (with_brief
+                    || skip == Some(Facet::Status)
+                    || status_keeps(prefs.branches_status, branch))
                 && (skip == Some(Facet::Who)
                     || (branches.who.as_ref()).is_none_or(|who| branch.people.contains(who)))
                 && (skip == Some(Facet::Recency) || branches.recency.keeps(branch.time, today))
@@ -1320,6 +1330,13 @@ impl Detail {
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
             .map(|target| target.name.clone());
+        let brief_titles: HashMap<String, String> = (branches.list.iter())
+            .filter(|_| self.branches_with_brief.as_ref() == Some(project))
+            .filter_map(|branch| {
+                let known = self.store.read(cx).brief_at(project, &branch.name)?;
+                Some((branch.name.clone(), known.found.as_ref()?.title.clone()))
+            })
+            .collect();
         let list = if rows.is_empty() {
             self.no_branches(branches, theme, cx)
         } else {
@@ -1475,7 +1492,10 @@ impl Detail {
                                 None if branch.ahead == Some(0) => theme.text_2,
                                 None => theme.text_1,
                             };
-                            let shown = title(branch);
+                            // What's asked for is what's been explained, by what it's called.
+                            let shown = (brief_titles.get(&branch.name))
+                                .map(|title| Cow::Borrowed(title.as_str()))
+                                .unwrap_or_else(|| title(branch));
                             let name = div()
                                 .flex_1()
                                 .min_w_0()
@@ -1640,9 +1660,32 @@ impl Detail {
     fn menu_narrows(&self, branches: &Branches, cx: &App) -> bool {
         let prefs = &self.store.read(cx).prefs;
         branches.who.is_some()
+            || self.branches_with_brief.as_ref() == Some(&branches.project)
             || branches.recency != Recency::Any
             || prefs.branches_status != BranchStatus::NotMerged
             || prefs.branches_local_only
+    }
+
+    /// List only the branches of `project` a brief is known of, or stop. They open on their briefs.
+    pub(crate) fn filter_with_brief(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
+        let on = project.is_some();
+        self.branches_with_brief = project;
+        if on {
+            self.brief_first = true;
+        }
+        self.select_shown_branch(cx);
+        // What's asked for is to read one, so the first is there to read.
+        if let Some(first) = (self.page_branches())
+            .filter(|branches| on && branches.selected.is_none())
+            .and_then(|branches| {
+                let kept = self.kept_in(branches, &branches.list, None, cx);
+                let first = kept.first()?;
+                Some(branches.list.get(*first)?.ref_name.clone())
+            })
+        {
+            self.select_other_branch(Some(first), cx);
+        }
+        cx.notify();
     }
 
     /// The filter bar over the list, with a fetch button.
@@ -1683,6 +1726,15 @@ impl Detail {
                     cx.listener(|this, _, _, cx| this.filter_status(BranchStatus::NotMerged, cx)),
                 )
             });
+        let page_project = self
+            .page_branches()
+            .map(|branches| branches.project.clone());
+        let filtering =
+            self.branches_with_brief.is_some() && self.branches_with_brief == page_project;
+        let with_brief = filtering.then(|| {
+            chip("branches-with-brief", "With a brief".to_owned())
+                .on_click(cx.listener(|this, _, _, cx| this.filter_with_brief(None, cx)))
+        });
         let local = prefs.branches_local_only.then(|| {
             chip("branches-local", "Only local".to_owned()).on_click(cx.listener(
                 |this, _, _, cx| {
@@ -1694,7 +1746,7 @@ impl Detail {
             ))
         });
         // Not the person picked, whom the People card's Clear lets go of.
-        let chips: Vec<_> = [status, local].into_iter().flatten().collect();
+        let chips: Vec<_> = [with_brief, status, local].into_iter().flatten().collect();
         (!chips.is_empty()).then(|| {
             h_flex()
                 .flex_none()
@@ -1788,6 +1840,20 @@ impl Detail {
                 .ticked(prefs.branches_local_only)
                 .separated(),
         );
+        if self.store.read(cx).briefs {
+            let on = self.branches_with_brief.as_ref() == Some(&branches.project);
+            let project = (!on).then(|| branches.project.clone());
+            let this = this.clone();
+            let n = self.kept_in(branches, &branches.list, Some(Facet::Brief), cx);
+            items.push(
+                MenuItem::new("With a brief", move |_, _, cx| {
+                    let project = project.clone();
+                    this.update(cx, |detail, cx| detail.filter_with_brief(project, cx));
+                })
+                .ticked(on)
+                .detail(n.len().to_string()),
+            );
+        }
         items
     }
 

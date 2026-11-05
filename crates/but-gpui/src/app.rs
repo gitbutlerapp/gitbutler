@@ -5047,6 +5047,26 @@ impl Render for AppView {
             .on_action(cx.listener(Self::brief_command::<crate::detail::Hold>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::NextBrief>))
             .on_action(cx.listener(Self::brief_command::<crate::detail::PreviousBrief>))
+            .on_action(cx.listener(
+                |this, _: &crate::detail::ShowBranchesWithBriefs, window, cx| {
+                    let project = this
+                        .store
+                        .read(cx)
+                        .selection
+                        .as_ref()
+                        .map(|s| s.project().clone());
+                    if let Some(project) = project {
+                        this.open_project_tab(
+                            project.clone(),
+                            crate::state::ProjectTab::Branches,
+                            window,
+                            cx,
+                        );
+                        this.detail
+                            .update(cx, |detail, cx| detail.filter_with_brief(Some(project), cx));
+                    }
+                },
+            ))
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
             }))

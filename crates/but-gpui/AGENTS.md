@@ -183,7 +183,8 @@ and the feature may go, so it stays separate.
 
 - Its code stays in `crates/but-briefs`, `backend/briefs/`, `state/briefs.rs` and `detail/brief/`.
   Everything else reaches it through `Store::brief_at`, `Detail::has_brief`, `BriefState` and
-  `PageTab::Brief`, with at most a dispatch arm.
+  `PageTab::Brief`, with at most a dispatch arm. The Branches page's "With a brief" filter is the
+  one place outside that reads it, and no row says anything about briefs unless it's on.
 - What Briefs sent is kept in a file of its own under the app's cache folder, never in `but-db`.
   It holds the server's JSON, which is read leniently, and has no migrations: anything unreadable
   is dropped and asked for again, and a bump of its `SCHEMA` empties it.

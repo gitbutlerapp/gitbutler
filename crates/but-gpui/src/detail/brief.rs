@@ -382,7 +382,15 @@ impl Detail {
         if self.has_brief() {
             return self.set_page_tab(PageTab::Brief, window, cx);
         }
-        (self.store).update(cx, |store, cx| store.snack("No brief here", cx))
+        if self.on_tab(ProjectTab::Branches).is_some() {
+            return self.filter_with_brief(self.selected_project(), cx);
+        }
+        (self.store).update(cx, |store, cx| {
+            store.snack(
+                "No brief here. The Branches page can list those with one",
+                cx,
+            )
+        })
     }
 
     /// The text selected in the brief.

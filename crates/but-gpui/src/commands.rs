@@ -249,6 +249,10 @@ commands! {
         aliases: &["Switch between Changes and Pull request"]
     },
     crate::detail::ShowBrief => "Show brief" { listed: brief_here },
+    crate::detail::ShowBranchesWithBriefs => "Show branches with a brief" {
+        aliases: &["Find a brief"],
+        listed: briefs_on,
+    },
     crate::detail::WriteNote => "Write a note on this brief" { listed: brief_shown },
     crate::detail::SendNotes => "Send notes on this brief" { listed: brief_shown },
     crate::detail::Approve => "Approve this brief" { listed: brief_shown },
