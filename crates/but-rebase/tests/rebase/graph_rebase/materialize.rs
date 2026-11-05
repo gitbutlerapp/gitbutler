@@ -1,7 +1,7 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::{Editor, Step, testing::Testing as _};
 use but_testsupport::{
     StackState, git_status, graph_tree, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git,
@@ -1301,5 +1301,30 @@ fn materialize_moves_a_detached_head_along_with_its_rewritten_commit() -> Result
 "#]]
     );
 
+    Ok(())
+}
+
+#[test]
+fn a_branch_checked_out_in_an_archived_worktree_is_not_rewritten() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+        name: b"wt".to_vec(),
+        archived: true,
+    })?;
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // Nothing follows `middle` into the archived worktree, so the branch stays put.
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/main
+●  a96434e b
+◎  refs/heads/middle (immutable)
+●  d591dfe a
+●  35b8235 base
+"#]]
+    );
     Ok(())
 }

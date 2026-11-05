@@ -124,14 +124,25 @@ pub(crate) fn classify(
         .into_iter()
         .flat_map(Lane::identified_segments)
         // A checked-out target branch that leaves the lanes isn't removed: it became the target.
-        .filter(|(identity, _)| match identity {
+        // Neither is one checked out in another worktree: the rewrite left it behind.
+        .filter(|(identity, segment)| match identity {
             Some(identity @ SegmentIdentity::Branch(name)) => {
-                Some(name.as_ref()) != target_branch || preview_conflicts.contains_key(identity)
+                let stays_put = Some(name.as_ref()) == target_branch
+                    || is_checked_out_in_another_worktree(segment);
+                !stays_put || preview_conflicts.contains_key(identity)
             }
             _ => true,
         })
         .map(|(identity, segment)| classify_segment(identity, segment, &preview_conflicts))
         .collect()
+}
+
+fn is_checked_out_in_another_worktree(segment: &Segment) -> bool {
+    segment
+        .ref_info
+        .as_ref()
+        .and_then(|ref_info| ref_info.worktree.as_ref())
+        .is_some_and(|worktree| !worktree.owned_by_repo)
 }
 
 pub(crate) fn has_cleanup_candidate(head_info: &RefInfo, update: &[PullUpdate]) -> bool {
