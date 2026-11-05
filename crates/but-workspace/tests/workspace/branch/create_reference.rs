@@ -2067,6 +2067,68 @@ Single commit, target, no ws commit, but ws-reference
         );
         Ok(())
     }
+
+    /// Regression: a no-anchor branch rests on the highest base, here `main`, which conflicts with
+    /// `older`. That used to fail the rebase, depending on the order of the workspace parents, even
+    /// though `newer` already contains `main`, so the new branch adds nothing to the workspace.
+    #[test]
+    fn no_anchor_branch_keeps_the_tree_of_a_workspace_with_mixed_bases() -> anyhow::Result<()> {
+        for (order, expected_parents) in [
+            (Some(0), ["main", "older", "newer"]),
+            (None, ["older", "newer", "main"]),
+        ] {
+            let (_tmp, repo, mut meta, mut db) = named_writable_scenario("stacks-on-mixed-bases")?;
+            snapbox::assert_data_eq!(
+                visualize_commit_graph_all(&repo)?,
+                snapbox::str![[r#"
+*   4e4c809 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * cf9ed1d (newer) newer
+| * 8eb5282 (origin/main, main) main
+* | 2f8a7a2 (older) older
+|/  
+* ee25044 base
+
+"#]]
+            );
+            add_stack_with_segments(&mut meta, 0, "older", StackState::InWorkspace, &[]);
+            add_stack_with_segments(&mut meta, 1, "newer", StackState::InWorkspace, &[]);
+            let graph = but_graph::Graph::from_head(
+                &repo,
+                &meta,
+                project_meta(&repo)?,
+                &mut db,
+                Options::limited(),
+            )?;
+            let mut ws = graph.into_workspace()?;
+            let tree_before = repo.head_tree_id()?.detach();
+
+            crate::utils::create_reference(
+                &repo,
+                &mut ws,
+                &mut meta,
+                &mut db,
+                rc("refs/heads/new-branch"),
+                None,
+                order,
+            )?;
+
+            assert_eq!(
+                repo.head_tree_id()?,
+                tree_before,
+                "an empty branch doesn't change what's in the workspace, with order {order:?}"
+            );
+            assert_eq!(
+                repo.head_commit()?.parent_ids().collect::<Vec<_>>(),
+                expected_parents
+                    .iter()
+                    .map(|rev| repo.rev_parse_single(*rev))
+                    .collect::<Result<Vec<_>, _>>()?,
+                "the new branch at `main` is a workspace parent at the requested position"
+            );
+        }
+        Ok(())
+    }
 }
 
 #[test]

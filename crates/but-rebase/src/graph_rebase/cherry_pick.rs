@@ -1,7 +1,7 @@
 //! Cherry picking generalised for N to M cases.
 
-use crate::commit::DateMode;
-use anyhow::{Context as _, Result, bail};
+use crate::{commit::DateMode, graph_rebase::merge_tree::MergeTree};
+use anyhow::{Context as _, Result};
 use bstr::BString;
 use but_core::{
     ChangeId, RepositoryExt as _,
@@ -52,8 +52,8 @@ pub enum CherryPickOutcome {
 /// Controls how parent trees are merged during cherry-pick.
 ///
 /// When cherry-picking a commit with multiple parents, both the old parents
-/// (base) and the new parents (ontos) are merged pairwise. This enum controls
-/// the merge options used for that pairwise merging.
+/// (base) and the new parents (ontos) are merged along the history they share.
+/// This enum controls the merge options used for those merges.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TreeMergeMode {
     /// Merge with rename detection enabled (default).
@@ -403,45 +403,52 @@ fn merged_tree_from_commits(
     tree_merge_mode: TreeMergeMode,
     preference: TreeKind,
 ) -> Result<MergeOutcome> {
-    let mut to_merge = commits.to_vec();
-    to_merge.reverse();
-    let Some(first) = to_merge.pop() else {
-        // Handle the case where no commits are given.
+    let Some(merge_tree) = MergeTree::new(repo, commits)? else {
         return Ok(MergeOutcome::NoCommit);
     };
-    let mut sum = find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
+    // When parents are independent, rename detection can produce false
+    // positives across them, silently swallowing clean file deletions.
+    let (options, conflicts) = match tree_merge_mode {
+        TreeMergeMode::WithRenames => repo.merge_options_fail_fast()?,
+        TreeMergeMode::WithoutRenames => repo.merge_options_no_rewrites_fail_fast()?,
+    };
+    merged_tree_along(repo, commits, &merge_tree, preference, &options, conflicts)
+}
 
-    let mut base: Option<Option<gix::ObjectId>> = None;
-
-    while let Some(commit) = to_merge.pop() {
-        if let Some(base_commit) = base {
-            if let Some(base_commit) = base_commit {
-                base = Some(merge_base(repo, base_commit, commit)?);
-            }
-        } else {
-            base = Some(merge_base(repo, first, commit)?);
+fn merged_tree_along(
+    repo: &gix::Repository,
+    commits: &[gix::ObjectId],
+    merge_tree: &MergeTree,
+    preference: TreeKind,
+    options: &gix::merge::tree::Options,
+    conflicts: gix::merge::tree::TreatAsUnresolved,
+) -> Result<MergeOutcome> {
+    let (base, branches) = match merge_tree {
+        MergeTree::Commit(id) => {
+            let commit = but_core::Commit::from_id(id.attach(repo))?;
+            return Ok(MergeOutcome::Success(
+                find_real_tree(&commit, preference)?.detach(),
+            ));
         }
-        let Some(base) = base else {
-            bail!("BUG: Base is None, this should never happen");
+        MergeTree::Fork { base, branches } => (peel_to_tree_or_empty(repo, *base)?, branches),
+    };
+    let mut sum = None;
+    for branch in branches {
+        let tree = match merged_tree_along(repo, commits, branch, preference, options, conflicts)? {
+            MergeOutcome::Success(tree) => tree,
+            outcome => return Ok(outcome),
         };
-
-        let commit = but_core::Commit::from_id(commit.attach(repo))?;
-        let tree = find_real_tree(&commit, preference)?;
-        // When parents are independent, rename detection can produce false
-        // positives across them, silently swallowing clean file deletions.
-        let (options, conflicts) = match tree_merge_mode {
-            TreeMergeMode::WithRenames => repo.merge_options_fail_fast()?,
-            TreeMergeMode::WithoutRenames => repo.merge_options_no_rewrites_fail_fast()?,
+        let Some(ours) = sum else {
+            sum = Some(tree);
+            continue;
         };
-
         let mut output = repo.merge_trees(
-            peel_to_tree_or_empty(repo, base)?,
-            sum,
+            base,
+            ours,
             tree,
             repo.default_merge_labels(),
-            options,
+            options.clone(),
         )?;
-
         if output.has_unresolved_conflicts(conflicts) {
             return Ok(MergeOutcome::Conflict {
                 commits: commits.into(),
@@ -453,11 +460,9 @@ fn merged_tree_from_commits(
                     .collect(),
             });
         }
-
-        sum = output.tree.write()?;
+        sum = Some(output.tree.write()?.detach());
     }
-
-    Ok(MergeOutcome::Success(sum.detach()))
+    Ok(sum.map_or(MergeOutcome::NoCommit, MergeOutcome::Success))
 }
 
 fn merge_base(

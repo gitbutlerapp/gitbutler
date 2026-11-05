@@ -474,6 +474,80 @@ fn apply_of_a_conflicting_branch_returns_error_payload() -> anyhow::Result<()> {
 }
 
 #[test]
+fn apply_merges_each_stack_over_what_it_shares_with_any_stack_before_it() -> anyhow::Result<()> {
+    for (stacks, branch, expected, why) in [
+        (
+            &["adds-base", "edits-main"][..],
+            "adds-main",
+            "file is four",
+            "`adds-main` shares `main` with `edits-main`, even if `adds-base` is older",
+        ),
+        (
+            &["adds-base", "edits-main", "empty-at-main"],
+            "adds-other",
+            "file is four",
+            "`empty-at-main` shares `main` with `edits-main` as well",
+        ),
+        (
+            &["empty-at-main", "adds-base", "edits-main"],
+            "adds-other",
+            "file is four",
+            "`edits-main` shares `main` with `empty-at-main`, even if `adds-base` is older",
+        ),
+        (
+            &["adds-base", "reverts-main"],
+            "edits-main",
+            r#"conflict in ["file"]"#,
+            "`reverts-main` and `edits-main` both change `main`, which an older base would hide",
+        ),
+        (
+            &["empty-at-main", "adds-base"],
+            "reverts-main",
+            "file is one",
+            "the change of `main` that `reverts-main` undid must not stay",
+        ),
+        (
+            &["adds-base", "reverts-main", "empty-at-main"],
+            "edits-main",
+            r#"conflict in ["file"]"#,
+            "`empty-at-main` doesn't hide the conflict of `reverts-main` and `edits-main`",
+        ),
+    ] {
+        let (_tmp, repo, mut meta, mut db) =
+            named_writable_scenario("various-heads-on-mixed-bases")?;
+        git(&repo)
+            .args(["reset", "--hard", &format!("ws/{}", stacks.join("+"))])
+            .run();
+        for (idx, stack) in stacks.iter().enumerate() {
+            add_stack_with_segments(&mut meta, idx as u128, stack, StackState::InWorkspace, &[]);
+        }
+        let ws = workspace(&repo, &meta, &mut db)?;
+
+        let branch = format!("refs/heads/{branch}");
+        let outcome = match apply_stack(r(&branch), ws, &repo, &mut meta, &mut db) {
+            Ok(_) => format!(
+                "file is {}",
+                repo.head_tree()?
+                    .lookup_entry_by_path("file")?
+                    .expect("all stacks have the file")
+                    .object()?
+                    .data
+                    .trim()
+                    .as_bstr()
+            ),
+            Err(err) => format!(
+                "conflict in {:?}",
+                err.downcast_ref::<but_rebase::merge::ConflictErrorContext>()
+                    .expect("the error carries the conflict")
+                    .paths
+            ),
+        };
+        assert_eq!(outcome, expected, "{why}");
+    }
+    Ok(())
+}
+
+#[test]
 fn apply_creates_a_missing_workspace_commit() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
     git(&repo).args(["reset", "--hard", "main"]).run();
