@@ -11,6 +11,9 @@ use crate::ui::text_input::BoundKey;
 /// What the table's group of text fields' keys is called.
 pub const TEXT_FIELDS: &str = "Text fields, as bound in code on this platform";
 
+/// The modifiers, as keys are written.
+const MODIFIERS: [char; 4] = ['⌃', '⌥', '⇧', '⌘'];
+
 /// An action, by what the table calls it.
 pub struct Command {
     pub name: String,
@@ -78,6 +81,23 @@ impl Row {
     pub fn found_by(&self, query: &str) -> bool {
         (query.split_whitespace()).all(|word| self.words.contains(word))
     }
+
+    /// Whether one of its keys has all of `pressed`, whatever else it has: P is in ⌘P and ⌥⌘P,
+    /// and ⌘P in ⌥⌘P but not ⌃P.
+    pub fn bound_to(&self, pressed: &str) -> bool {
+        let pressed = key_parts(pressed);
+        (self.keys.iter()).any(|key| pressed.is_subset(&key_parts(&key.label)))
+    }
+}
+
+/// The modifiers and keys of every stroke of `label`.
+fn key_parts(label: &str) -> HashSet<String> {
+    let mut parts = HashSet::new();
+    for stroke in label.split_whitespace() {
+        parts.extend((stroke.chars().filter(|c| MODIFIERS.contains(c))).map(String::from));
+        parts.insert(stroke.trim_start_matches(MODIFIERS).to_owned());
+    }
+    parts
 }
 
 /// Which rows the table shows.
@@ -630,6 +650,87 @@ mod tests {
         assert!(rows[0].found_by(&crate::ui::keys_written("secondary-r").to_lowercase()));
         assert!(rows[0].found_by("secondary-r"));
         assert!(!rows[0].found_by("walk"));
+    }
+
+    /// A row bound to keys written as they are, as a text field's are.
+    fn row_bound_to(labels: &[&str]) -> Row {
+        let text_keys: Vec<BoundKey> = (labels.iter())
+            .map(|label| BoundKey {
+                title: "Run".to_owned(),
+                action: "text_input::Run",
+                label: SharedString::from((*label).to_owned()),
+            })
+            .collect();
+        let mut rows = rows(&Sources {
+            commands: &[],
+            bindings: &[],
+            text_keys: &text_keys,
+            places: &[],
+            audited: &HashSet::new(),
+            os: "macos",
+        });
+        rows.remove(0)
+    }
+
+    #[test]
+    fn a_key_pressed_finds_it_alone() {
+        assert!(row_bound_to(&["P"]).bound_to("P"));
+    }
+
+    #[test]
+    fn a_key_pressed_finds_it_under_any_modifiers() {
+        assert!(row_bound_to(&["⌃P"]).bound_to("P"));
+        assert!(row_bound_to(&["⌥⌘P"]).bound_to("P"));
+    }
+
+    #[test]
+    fn another_key_doesnt_find_it() {
+        assert!(!row_bound_to(&["⌘K"]).bound_to("P"));
+    }
+
+    #[test]
+    fn a_key_is_a_whole_key_not_part_of_a_name() {
+        assert!(!row_bound_to(&["pageup"]).bound_to("p"));
+    }
+
+    #[test]
+    fn modifiers_pressed_have_to_be_in_its_keys() {
+        let row = row_bound_to(&["⌥⌘P"]);
+        assert!(row.bound_to("⌘P"));
+        assert!(row.bound_to("⌥⌘P"));
+        assert!(!row.bound_to("⌃P"));
+        assert!(!row.bound_to("⇧⌘P"));
+    }
+
+    #[test]
+    fn any_of_a_rows_keys_can_be_the_one_found() {
+        assert!(row_bound_to(&["⌘K", "⌃P"]).bound_to("⌃P"));
+    }
+
+    #[test]
+    fn what_was_pressed_has_to_be_in_one_key() {
+        assert!(!row_bound_to(&["⌘K", "⌃P"]).bound_to("⌘P"));
+    }
+
+    #[test]
+    fn a_chord_is_found_by_any_of_its_strokes() {
+        assert!(row_bound_to(&["⌘K ⌘S"]).bound_to("⌘S"));
+    }
+
+    #[test]
+    fn keys_bound_in_a_keymap_are_found_as_they_show() {
+        let commands = [command("a::Run", "Run")];
+        let bindings = [binding(KeymapFile::Standard, "alt-p", "a::Run", None)];
+        let rows = table(&commands, &bindings);
+        assert!(rows[0].bound_to("P"));
+        assert!(rows[0].bound_to("⌥P"));
+        assert!(!rows[0].bound_to("⇧P"));
+    }
+
+    #[test]
+    fn a_row_with_no_keys_isnt_found() {
+        let rows = table(&[command("a::Prune", "Prune")], &[]);
+        assert!(!rows[0].bound_to("P"));
     }
 
     fn audited_table(commands: &[Command], bindings: &[Binding], audited: &[&str]) -> Vec<Row> {

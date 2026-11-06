@@ -166,6 +166,10 @@ pub struct CommandEditor {
     store: Entity<Store>,
     focus: FocusHandle,
     search: Entity<TextInput>,
+    /// The key pressed to find what's bound to it, as keys are written.
+    found_keys: Option<SharedString>,
+    /// Waiting for that key: takes the keys from everything else while it lasts.
+    finding: Option<Subscription>,
     filter: Filter,
     audit_filter: AuditFilter,
     rows: Vec<Row>,
@@ -214,6 +218,8 @@ impl CommandEditor {
             store,
             focus: cx.focus_handle(),
             search,
+            found_keys: None,
+            finding: None,
             filter: Filter::All,
             audit_filter: AuditFilter::Any,
             rows: Vec::new(),
@@ -255,7 +261,9 @@ impl CommandEditor {
         let mut last: Option<&Row> = None;
         let mut striped = true;
         for (ix, row) in self.rows.iter().enumerate() {
-            let kept = self.filter.keeps(row) && self.audit_filter.keeps(row);
+            let kept = self.filter.keeps(row)
+                && self.audit_filter.keeps(row)
+                && (self.found_keys.as_ref()).is_none_or(|keys| row.bound_to(keys));
             if !kept || !row.found_by(&query) {
                 continue;
             }
@@ -320,16 +328,7 @@ impl CommandEditor {
         window: &mut Window,
         cx: &mut Context<CommandEditor>,
     ) {
-        let this = cx.entity().downgrade();
-        let here = window.window_handle().window_id();
-        let intercept = cx.intercept_keystrokes(move |event, window, cx| {
-            if window.window_handle().window_id() == here {
-                cx.stop_propagation();
-                let keystroke = event.keystroke.clone();
-                this.update(cx, |this, cx| this.take_key(keystroke, cx))
-                    .ok();
-            }
-        });
+        let intercept = intercept_keys(CommandEditor::take_key, window, cx);
         self.notice = None;
         self.recording = Some(Recording {
             target,
@@ -361,9 +360,28 @@ impl CommandEditor {
     }
 
     fn stop_recording(&mut self, cx: &mut Context<CommandEditor>) {
-        if self.recording.take().is_some() {
+        let finding = self.finding.take();
+        if self.recording.take().is_some() || finding.is_some() {
             cx.notify();
         }
+    }
+
+    /// Wait for a key to find what's bound to it.
+    fn start_finding(&mut self, window: &mut Window, cx: &mut Context<CommandEditor>) {
+        self.finding = Some(intercept_keys(CommandEditor::find_key, window, cx));
+        cx.notify();
+    }
+
+    fn find_key(&mut self, keystroke: gpui::Keystroke, cx: &mut Context<CommandEditor>) {
+        self.finding = None;
+        let keys = edit::written(&keystroke, None, std::env::consts::OS);
+        self.found_keys = Some(ui::keys_written(&keys));
+        self.show_rows(false, cx);
+    }
+
+    fn clear_found_keys(&mut self, cx: &mut Context<CommandEditor>) {
+        self.found_keys = None;
+        self.show_rows(false, cx);
     }
 
     /// A key while recording: the first waits for a second, which ends it. After the key has
@@ -545,6 +563,7 @@ impl CommandEditor {
                 focused,
                 theme,
             )))
+            .child(self.render_key_finder(theme, cx))
             .child(segmented(true, theme, filters))
             .child(segmented(true, theme, audit_filters))
             .child(div().flex_1())
@@ -555,6 +574,51 @@ impl CommandEditor {
                     .child(ui::dot(theme.pop))
                     .child("Shown in menus"),
             )
+    }
+
+    /// Where a key is pressed to find what's bound to it, with that key once it has been.
+    fn render_key_finder(
+        &self,
+        theme: &Theme,
+        cx: &mut Context<CommandEditor>,
+    ) -> impl IntoElement {
+        let finding = self.finding.is_some();
+        let found = self.found_keys.as_ref().filter(|_| !finding);
+        let press = ui::tab_stop(div().id("find-keys"), theme)
+            .role(Role::Button)
+            .aria_label("Find by pressing a key")
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .flex()
+            .items_center()
+            .px(dp(8.))
+            .on_click(cx.listener(|this, _, window, cx| this.start_finding(window, cx)));
+        let press = match (finding, found) {
+            (true, _) => press.child("Press a key…"),
+            (false, Some(keys)) => press.child(ui::keycap_large(keys, theme)),
+            (false, None) => press
+                .text_color(theme.text_3)
+                .child("Find by pressing a key"),
+        };
+        h_flex()
+            .flex_none()
+            .w(dp(190.))
+            .h(dp(30.))
+            .pr(dp(3.))
+            .rounded(dp(4.))
+            .border_1()
+            .border_color(if finding { theme.pop } else { theme.border_2 })
+            .bg(theme.bg_1)
+            .text_size(dp(13.))
+            .child(press)
+            .children(found.map(|_| {
+                icon_button("clear-found-keys", Icon::Cross)
+                    .small()
+                    .style(ButtonStyle::Ghost)
+                    .tooltip("Show every key")
+                    .on_click(cx.listener(|this, _, _, cx| this.clear_found_keys(cx)))
+            }))
     }
 
     fn render_header(&self, theme: &Theme) -> impl IntoElement {
@@ -986,6 +1050,10 @@ impl CommandEditor {
     fn render_footer(&self, theme: &Theme, cx: &mut Context<CommandEditor>) -> impl IntoElement {
         let errors = (cx.try_global::<Loaded>()).map_or(Vec::new(), |loaded| loaded.errors.clone());
         let (text, color) = match (&self.recording, errors.first(), &self.notice) {
+            _ if self.finding.is_some() => (
+                "Press a key to find what's bound to it. Click elsewhere to cancel.".to_owned(),
+                theme.text_1,
+            ),
             (Some(_), _, _) => (
                 "Press the keys, two for a chord. Click elsewhere to cancel.".to_owned(),
                 theme.text_1,
@@ -1089,6 +1157,23 @@ impl CommandEditor {
 }
 
 /// The cap of keys being recorded, with those pressed so far.
+/// Have `take` get every key pressed in `window`, and nothing else, while what's returned lasts.
+fn intercept_keys(
+    take: fn(&mut CommandEditor, gpui::Keystroke, &mut Context<CommandEditor>),
+    window: &Window,
+    cx: &mut Context<CommandEditor>,
+) -> Subscription {
+    let this = cx.entity().downgrade();
+    let here = window.window_handle().window_id();
+    cx.intercept_keystrokes(move |event, window, cx| {
+        if window.window_handle().window_id() == here {
+            cx.stop_propagation();
+            let keystroke = event.keystroke.clone();
+            this.update(cx, |this, cx| take(this, keystroke, cx)).ok();
+        }
+    })
+}
+
 fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use<> {
     let keys: Vec<String> = (recording.strokes.iter())
         .map(|stroke| edit::written(stroke, None, std::env::consts::OS))
