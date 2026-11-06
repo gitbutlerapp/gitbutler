@@ -20,6 +20,7 @@ pub mod history;
 pub mod images;
 mod intent;
 pub mod links;
+pub mod locks;
 pub mod logs;
 mod markers;
 pub mod mesh;
