@@ -99,9 +99,7 @@ export const Cell: FC<
 							}
 						</span>
 						{description !== undefined && (
-							<span className={classes("text-13", "text-body", styles.description)}>
-								{description}
-							</span>
+							<span className={classes("text-prose", styles.description)}>{description}</span>
 						)}
 						{meta !== undefined && <span className={classes("text-13", styles.meta)}>{meta}</span>}
 					</span>

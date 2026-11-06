@@ -77,6 +77,14 @@
 		font-family: var(--fontfamily-base);
 	}
 
+	/* Reading text under those headings, as Figma's Markdown/Prose: 14 on the body line */
+	.text-prose {
+		font-weight: var(--font-weight-regular);
+		font-size: 0.875rem;
+		line-height: var(--font-line-height-body);
+		font-family: var(--fontfamily-base);
+	}
+
 	/* MODIFIERS */
 	.text-body {
 		line-height: var(--font-line-height-body);

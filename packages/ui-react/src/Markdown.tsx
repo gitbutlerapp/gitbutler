@@ -44,7 +44,7 @@ export const Markdown: FC<{
 	onCopy?: (code: string) => void;
 	className?: string;
 }> = ({ children, renderLink = openInNewTab, onCopy, className }) => (
-	<div className={classes("text-13", "text-body", styles.markdown, className)}>
+	<div className={classes("text-prose", styles.markdown, className)}>
 		{/* The compiler rather than its component: the blocks go straight into this element, and the
 		    component would wrap them in one of its own. */}
 		{compiler(children, {

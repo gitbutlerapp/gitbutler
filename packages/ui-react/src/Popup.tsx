@@ -224,7 +224,7 @@ export const ModalHeader: FC<
 				</div>
 			)}
 			{description !== undefined && (
-				<Dialog.Description className={classes("text-13", "text-body", styles.modalDescription)}>
+				<Dialog.Description className={classes("text-prose", styles.modalDescription)}>
 					{description}
 				</Dialog.Description>
 			)}
