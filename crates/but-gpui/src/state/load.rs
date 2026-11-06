@@ -861,6 +861,8 @@ impl Store {
                 });
                 if store.locks.get(&id) != Some(&locks) {
                     store.locks.insert(id.clone(), locks);
+                    // Its lock may have gone from under the pointer, which then never leaves it.
+                    store.lock_hovered.take_if(|(project, _)| *project == id);
                     cx.notify();
                 }
                 if again {

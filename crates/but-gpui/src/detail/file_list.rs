@@ -56,7 +56,9 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
         (false, false, _) => "files",
     }
 }
-use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{
+    self, Checkout, CommitId, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+};
 use crate::clipboard;
 use crate::detail::Stop;
 use crate::navigator::upstream_label;
@@ -114,6 +116,8 @@ struct FileRow {
     /// The characters the list's widest added and removed counts take, to line its own up
     /// with the other rows': see [`diff::column_stats`].
     columns: (usize, usize),
+    /// The commits its uncommitted changes build on, which pointing at its lock marks.
+    locks: Vec<CommitId>,
 }
 
 /// The room a row keeps for its file's change letter, which a folder's keeps empty, so their
@@ -704,7 +708,16 @@ impl Detail {
                     return Some(self.render_file_row(pos, opened, extras, solid, theme, cx));
                 };
                 let whole = Selected::whole(file);
+                let locks = (store.locks.get(project))
+                    .filter(|_| !worktree.is_linked())
+                    .map_or_else(Vec::new, |locks| {
+                        let mut commits: Vec<_> = locks.of(&whole).collect();
+                        commits.sort();
+                        commits.dedup();
+                        commits
+                    });
                 let extras = FileRow {
+                    locks,
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
@@ -1603,6 +1616,36 @@ impl Detail {
             .collect()
     }
 
+    /// The lock of a file whose changes build on `commits` of the project `menu` is in, if
+    /// any. Pointing at it marks them in the navigator.
+    fn lock(
+        &self,
+        ix: usize,
+        menu: Option<&(ProjectId, Changes)>,
+        commits: Vec<CommitId>,
+        theme: &Theme,
+    ) -> Option<Stateful<Div>> {
+        let project = menu.filter(|_| !commits.is_empty())?.0.clone();
+        let tip = match commits.len() {
+            1 => "Depends on 1 commit".to_owned(),
+            n => format!("Depends on {n} commits"),
+        };
+        let store = self.store.clone();
+        Some(
+            div()
+                .id(("lock", ix))
+                .flex_none()
+                .role(gpui::Role::Image)
+                .aria_label("Depends on commits")
+                .child(small_icon(Icon::Lock).text_color(theme.warn))
+                .tooltip(Tooltip::text(tip))
+                .on_hover(move |hovered, _, cx| {
+                    let hovered = hovered.then(|| (project.clone(), commits.clone()));
+                    store.update(cx, |store, cx| store.hover_lock(hovered, cx));
+                }),
+        )
+    }
+
     fn render_file_row(
         &self,
         ix: usize,
@@ -1770,6 +1813,10 @@ impl Detail {
                             theme,
                         ))
                     }),
+            )
+            .when_some(
+                self.lock(ix, extras.menu.as_ref(), extras.locks, theme),
+                |el, lock| el.child(lock),
             )
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {

@@ -4206,6 +4206,9 @@ impl Navigator {
                 )
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
+                .when(store.lock_marks(id, *commit_id), |el| {
+                    el.bg(style.theme.warn.opacity(0.12))
+                })
                 .map(|el| self.selectable(el, item, cx))
                 .when(several, |el| {
                     let item = item.clone();
