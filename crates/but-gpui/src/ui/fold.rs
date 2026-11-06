@@ -322,6 +322,51 @@ impl Slide {
     }
 }
 
+/// A number gliding, over [`FOLD`] or as long as it's made to last, from where it was to where it's going, which may itself move
+/// on the way, as a tab's place does while the tabs before it slide. Under reduced motion, it's
+/// there at once.
+#[derive(Clone, Copy)]
+pub struct Glide {
+    set_out: Option<(f32, Instant)>,
+    lasting: Duration,
+}
+
+impl Default for Glide {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
+impl Glide {
+    /// One that takes `lasting` to get there.
+    pub fn lasting(lasting: Duration) -> Self {
+        Self {
+            set_out: None,
+            lasting,
+        }
+    }
+
+    /// It sets out now, from `from`.
+    pub fn start(&mut self, from: f32, cx: &App) {
+        self.set_out = (!cx.reduce_motion()).then(|| (from, clock::now()));
+    }
+
+    /// Where it is at `now`, on its way to `to`.
+    pub fn at(&self, to: f32, now: Instant) -> f32 {
+        match self.set_out {
+            Some((from, since)) => {
+                from + (to - from) * openness_over(true, since, now, self.lasting)
+            }
+            None => to,
+        }
+    }
+
+    /// Whether it's still on its way at `now`.
+    pub fn moving(&self, now: Instant) -> bool {
+        (self.set_out).is_some_and(|(_, since)| now.saturating_duration_since(since) < self.lasting)
+    }
+}
+
 /// A hairline along the edge of a pane sliding over another, as the border the other has at
 /// rest: placed at the edge by the caller.
 pub fn edge(color: Hsla) -> Div {
@@ -681,23 +726,32 @@ fn solve(target: f32, f: impl Fn(f32) -> f32) -> f32 {
     (low + high) / 2.
 }
 
-/// A list's rows sliding to where a reorder put them, over [`FOLD`] as a fold moves, by their
-/// keys. Rows reordered again partway slide on from where they're drawn. Under reduced
-/// motion, rows move at once.
+/// A list's rows sliding to where a reorder put them, over [`FOLD`] as a fold moves unless
+/// it's made [`Reorder::lasting`] another time, by their keys. Rows reordered again partway
+/// slide on from where they're drawn. Under reduced motion, rows move at once.
 pub struct Reorder<K> {
     from: HashMap<K, f32>,
     since: Instant,
     /// The frame being drawn, which every row reads its offset at.
     now: Instant,
+    lasting: Duration,
 }
 
 impl<K> Default for Reorder<K> {
     fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
+impl<K> Reorder<K> {
+    /// One whose rows take `lasting` to get there.
+    pub fn lasting(lasting: Duration) -> Self {
         let now = clock::now();
         Self {
             from: HashMap::new(),
             since: now,
             now,
+            lasting,
         }
     }
 }
@@ -732,7 +786,7 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
     }
 
     fn offset_at(&self, key: &K, now: Instant) -> f32 {
-        let left = 1. - openness(true, self.since, now);
+        let left = 1. - openness_over(true, self.since, now, self.lasting);
         self.from.get(key).map_or(0., |by| by * left)
     }
 
@@ -743,7 +797,7 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
 
     /// How far the row drawn furthest from where it's laid out is, in this frame.
     pub fn furthest(&self) -> f32 {
-        let left = 1. - openness(true, self.since, self.now);
+        let left = 1. - openness_over(true, self.since, self.now, self.lasting);
         (self.from.values()).fold(0., |far, by| f32::max(far, by.abs())) * left
     }
 
@@ -755,7 +809,7 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
 
     fn frame_at(&mut self, now: Instant) {
         self.now = now;
-        if now.saturating_duration_since(self.since) >= FOLD {
+        if now.saturating_duration_since(self.since) >= self.lasting {
             self.from.clear();
         }
     }

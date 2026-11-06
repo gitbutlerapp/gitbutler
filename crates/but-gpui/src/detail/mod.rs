@@ -631,6 +631,8 @@ pub struct Detail {
     /// How much of the navigator shows beside the detail, from 0 to 1, as the app last drew
     /// it. Its sliding changes the detail's width, so the detail draws again as it changes.
     pub navigator_shown: Cell<f32>,
+    /// How much of the navigator's tabs show across the window's top, from 0 to 1, as they slide.
+    pub tabs_shown: Cell<f32>,
     /// The window's width to lay out for, in unscaled pixels, while the window narrows to the
     /// navigator or widens back as the detail slides, so it isn't laid out again at every
     /// width; otherwise the window's own.
@@ -984,6 +986,7 @@ impl Detail {
             files_popover_shown: Cell::new(false),
             _files_popover_delay: Task::ready(()),
             navigator_shown: Cell::new(1.),
+            tabs_shown: Cell::new(0.),
             window_width: Cell::new(None),
             graph,
             pinned,
@@ -3367,6 +3370,12 @@ impl Detail {
         crate::ui::TILE_MARGIN * (1. - 2. * self.navigator_shown.get())
     }
 
+    /// How tall the location bar is: gone with the navigator across the top, which says where
+    /// things are, and going as the tabs come down, so what's under it stays put.
+    pub fn location_bar_height(&self) -> f32 {
+        crate::ui::HEADER_HEIGHT * (1. - self.tabs_shown.get())
+    }
+
     /// How far the tiles' room sits from the bottom of the location bar: up into it as far as
     /// the cards sit in, so they start where it ends, as the navigator's under its own bar,
     /// its controls as far above them as tiles are apart.
@@ -4414,9 +4423,10 @@ impl Render for Detail {
                 None => theme.bg_2,
             })
             // A pinned page goes in its tile, under the location bar across the home tile's.
-            .when(self.pinned.is_none(), |el| {
-                el.child(self.render_header(selection.as_ref(), &theme, window, cx))
-            })
+            .when(
+                self.pinned.is_none() && self.location_bar_height() > 0.,
+                |el| el.child(self.render_header(selection.as_ref(), &theme, window, cx)),
+            )
             .child(
                 div()
                     .flex_1()

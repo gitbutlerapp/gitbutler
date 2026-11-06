@@ -3,7 +3,8 @@
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
-// tabs, ⌘B and ⌥⌘B to show and hide the navigator and the details, ⌘D and ⇧⌘D to split a tile,
+// tabs, ⌃Tab and ⌃⇧Tab to step along the navigator's tabs, ⌘B and ⌥⌘B to show and hide the
+// navigator and the details, ⌘D and ⇧⌘D to split a tile,
 // ⇧⌘T and ⌃⌘T to open a terminal beside it, ⌘] and ⌘[ to go between tiles (Ghostty's keys for
 // them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go to the tile on that side, ⇧⌘M and ⌥⌘M to move and
 // swap one, and the keys the app's lists and overlays need.
@@ -77,6 +78,15 @@
     "bindings": {
       "ctrl-pagedown": "app::NextProjectPage",
       "ctrl-pageup": "app::PreviousProjectPage"
+    }
+  },
+  // ⌃Tab and ⌃⇧Tab step along the navigator's tabs across the top, as l and h do on them, and as
+  // they step through tabs in browsers and Finder. From anywhere, a terminal too, and the keys
+  // stay where they are.
+  {
+    "bindings": {
+      "ctrl-tab": "app::NextNavigatorTab",
+      "ctrl-shift-tab": "app::PreviousNavigatorTab"
     }
   },
   // A page's own tabs, as Changes and Pull request, on the same keys, as they're the tabs in
@@ -234,6 +244,20 @@
   {
     "context": "Navigator && !TextInput",
     "bindings": { "/": "navigator::FocusFilter", "shift-n": "edits::AddEmptyCommitBelow", "f2": "edits::RenameBranch", "secondary-shift-u": "navigator::ToggleRead", "secondary-shift-n": "navigator::NewBranchOnTop", "secondary-f": "navigator::FocusFilter" }
+  },
+  // On the navigator's tabs across the top, what the navigator's keys do to its rows they do to the
+  // rows of the card under a tab, so the tabs count as the navigator too. These go down and back up
+  // them and fold them. Along the tabs and off them is the Workspace's h, l and ⇧⌘H to L.
+  {
+    "context": "Tabs && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "shift-l": "navigator::Expand",
+      "shift-h": "navigator::Collapse"
+    }
   },
   // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
   // fold and no others, as those would act on the row it left.

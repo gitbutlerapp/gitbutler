@@ -100,6 +100,18 @@ impl Terminals {
 
     /// Those open on `project`'s `checkout`, in the order they opened, but for those living in
     /// a tile alone.
+    /// What every terminal open on `project` is at, tiled or not, or only those on `checkout`.
+    pub fn statuses_on<'a>(
+        &'a self,
+        project: &'a ProjectId,
+        checkout: Option<&'a Checkout>,
+    ) -> impl Iterator<Item = &'a Status> + 'a {
+        (self.open.iter())
+            .filter(move |open| open.project == *project)
+            .filter(move |open| checkout.is_none_or(|checkout| open.checkout == *checkout))
+            .map(|open| &open.status)
+    }
+
     pub fn on<'a>(
         &'a self,
         project: &'a ProjectId,
@@ -326,6 +338,7 @@ impl Store {
         if self.left_on.get(from.project()) == Some(&from) {
             self.left_on.remove(from.project());
         }
+        self.left_in.retain(|_, left| *left != from);
     }
 
     /// Show `name` for terminal `id` in place of what its shell titles it, or with an empty
