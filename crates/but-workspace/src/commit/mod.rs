@@ -130,7 +130,9 @@ pub use reword::reword;
 pub mod commit_create;
 pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::{AmendInEditorOutcome, CommitAmendOutcome, amend_in_editor, commit_amend};
+pub use commit_amend::{
+    AmendInEditorOutcome, CommitAmendOutcome, Conflicts, amend_in_editor, commit_amend,
+};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;

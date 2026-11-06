@@ -1996,7 +1996,12 @@ impl AmendUncommittedDiffSpecsOperation {
         let IntermediateCommitCreateResult {
             new_commit,
             rejected_specs,
-        } = tx.amend_commit(target.commit_id, changes, source)?;
+        } = tx.amend_commit(
+            target.commit_id,
+            changes,
+            source,
+            but_workspace::commit::Conflicts::Reject,
+        )?;
 
         if !rejected_specs.is_empty() {
             return Err(rejection::RejectedChanges(rejected_specs).into());

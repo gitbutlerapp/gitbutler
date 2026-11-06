@@ -1508,7 +1508,12 @@ impl Intent for Amend {
                     .as_slice(),
                 DryRun::No,
                 |mut tx| {
-                    let made = tx.amend_commit(into.0, specs, source)?;
+                    let made = tx.amend_commit(
+                        into.0,
+                        specs,
+                        source,
+                        but_workspace::commit::Conflicts::Reject,
+                    )?;
                     let Some(amended) = made.new_commit else {
                         return Ok(DynamicOutcome::Rollback(made.rejected_specs));
                     };
