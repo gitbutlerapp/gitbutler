@@ -3,9 +3,10 @@
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
-// tabs and ⇧⌘H to its Operations history, ⌘B and ⌥⌘B to show and hide the navigator and the
-// details, ⌘D and ⇧⌘D to split a tile, ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on
-// Linux), ⇧⌘M and ⌥⌘M to move and swap one, and the keys the app's lists and overlays need.
+// tabs, ⌘B and ⌥⌘B to show and hide the navigator and the details, ⌘D and ⇧⌘D to split a tile,
+// ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go
+// to the tile on that side, ⇧⌘M and ⌥⌘M to move and swap one, and the keys the app's lists and
+// overlays need.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -111,6 +112,19 @@
       "cmd-shift-enter": "tiling::ZoomTile",
       "cmd-shift-m": "tiling::ArrangeTiles",
       "cmd-alt-m": "tiling::SwapTiles"
+    }
+  },
+  // ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L go straight to the tile on that side, past the panes and rows of the
+  // one with the keys, with the navigator a tile left of the rest. From a terminal or a text
+  // field too, which take the letters. Ctrl+Shift elsewhere, which a terminal gives up as it does
+  // Ctrl+Shift+R.
+  {
+    "context": "Workspace",
+    "bindings": {
+      "secondary-shift-h": "app::FocusTileLeft",
+      "secondary-shift-j": "app::FocusTileDown",
+      "secondary-shift-k": "app::FocusTileUp",
+      "secondary-shift-l": "app::FocusTileRight"
     }
   },
   // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and

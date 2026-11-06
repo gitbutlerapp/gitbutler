@@ -40,6 +40,9 @@ impl KeyPane {
 pub(crate) enum KeyMove {
     /// To what's on that side, as the arrows and h, j, k and l do.
     Beside(Side),
+    /// To the tile on that side, past the panes of the one with the keys, as ⇧⌘H, ⇧⌘J, ⇧⌘K and
+    /// ⇧⌘L do.
+    TileBeside(Side),
     /// To what's next, round again, as Tab does, or going back, as ⇧Tab does.
     Round { forward: bool },
 }
@@ -110,6 +113,12 @@ fn pane_entered(shown: &[KeyPane], side: Side, last: Option<KeyPane>) -> Option<
         .collect();
     let reached = (along_edge(&areas, edge).into_iter()).chain(along_edge(&content, edge));
     pick(reached.copied().collect(), last)
+}
+
+/// The pane the keys land on coming `side` into a page showing `shown` from another tile: the one
+/// they left, wherever it is on the page, as a tile's gone to as a whole, else as [`pane_entered`].
+fn pane_returned_to(shown: &[KeyPane], side: Side, last: Option<KeyPane>) -> Option<KeyPane> {
+    (last.filter(|last| shown.contains(last))).or_else(|| pane_entered(shown, side, last))
 }
 
 /// The pane after `from` going round, or before it going back, of `shown`, in reading order.
@@ -189,6 +198,7 @@ impl Detail {
         let shown = self.key_panes(cx);
         match by {
             KeyMove::Beside(side) => pane_beside(&shown, from, side, self.last_pane()),
+            KeyMove::TileBeside(_) => None,
             KeyMove::Round { forward } => pane_round(&shown, from, forward),
         }
     }
@@ -198,6 +208,7 @@ impl Detail {
         let shown = self.key_panes(cx);
         match by {
             KeyMove::Beside(side) => pane_entered(&shown, side, self.last_pane()),
+            KeyMove::TileBeside(side) => pane_returned_to(&shown, side, self.last_pane()),
             KeyMove::Round { forward: true } => shown.first().copied(),
             KeyMove::Round { forward: false } => shown.last().copied(),
         }
@@ -230,7 +241,7 @@ impl Detail {
 
 #[cfg(test)]
 mod tests {
-    use super::{KeyPane, pane_beside, pane_entered, pane_round};
+    use super::{KeyPane, pane_beside, pane_entered, pane_returned_to, pane_round};
     use crate::state::Side;
 
     /// A list page with its files showing and a pull request's tabs.
@@ -247,6 +258,33 @@ mod tests {
 
     /// A list page with no files beside its list and no tabs.
     const PLAIN_LIST_PAGE: [KeyPane; 3] = [KeyPane::ProjectTabs, KeyPane::List, KeyPane::Diff];
+
+    #[test]
+    fn going_back_to_a_tile_lands_on_the_pane_the_keys_left() {
+        assert_eq!(
+            pane_returned_to(&DIFF_PAGE, Side::Left, Some(KeyPane::Files)),
+            Some(KeyPane::Files),
+            "the files aren't along the edge it comes in by, but the keys left them"
+        );
+    }
+
+    #[test]
+    fn a_tile_the_keys_never_left_is_entered_by_its_edge() {
+        assert_eq!(
+            pane_returned_to(&DIFF_PAGE, Side::Left, None),
+            Some(KeyPane::Diff),
+            "with nothing to go back to, it's the pane on that side"
+        );
+    }
+
+    #[test]
+    fn a_pane_that_has_gone_is_not_returned_to() {
+        assert_eq!(
+            pane_returned_to(&DIFF_PAGE, Side::Left, Some(KeyPane::List)),
+            Some(KeyPane::Diff),
+            "this page shows no list to go back to"
+        );
+    }
 
     #[test]
     fn right_of_a_list_is_what_tabs_show_not_the_tabs() {
