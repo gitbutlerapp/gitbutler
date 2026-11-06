@@ -3,43 +3,36 @@
    variant, for a popup's list, closes those to 20, 6 and 12 to sit with small
    buttons.
 
-   The bottom padding is that component's optical counterweight, and it is
-   padding rather than a margin so that centring the box moves the ink. The
-   block's weight sits low — two lines of type and a row of buttons under a
-   light illustration — so a box centred on its geometry reads as sitting below
-   centre. Padding the foot by 60 lifts what you actually see by 30. Whatever
-   centres this component centres the padded box, which is the whole trick.
+   Centred optically, which is not the same as centred. The block's weight sits
+   low — two lines of type and a row of buttons under a light illustration — so
+   a block with equal room above and below reads as sitting under the middle.
+   The box is three rows with the block in the middle one, and the spare height
+   goes 2 : 3 to the rows around it, which puts the block a little above centre.
 
-   It scales with the height it is being centred in, because a lift is only
-   worth having while there is room to lift into: 60 is a tenth of a tall
-   sidebar and half of a panel dragged to its minimum, where `safe center` has
-   already given up and top-aligned, and the padding would be nothing but dead
-   scroll. `cqh` needs the host to declare `container-type: size`; where none
-   does, it falls back to the viewport, which is the right order of magnitude
-   for a full-height surface and still shrinks on a small window.
+   The lift is a share of the spare height rather than a length, so it is only
+   ever as large as the room there is to lift into: generous in a tall pane,
+   small in a panel dragged near its minimum, and nothing at all in a box as
+   tall as its content, where a fixed foot would be dead space under the text.
+   When the content outgrows the box the outer rows are 0 and the block starts
+   at the top, so its head never goes out of reach above the scroll origin.
 
-   Capped at 320 so the block stays a block on any surface it lands on: the
+   Capped at 350 so the block stays a block on any surface it lands on: the
    details pane is over a thousand pixels wide, and text, actions or a wide
    illustration would otherwise spread across it. This is the only measure —
    the lines inside take theirs from here.
 
-   It centres itself: the box grows to the height its container gives it and
-   centres its content in that, so no host has to remember to. `safe` so a
-   short panel falls back to the top rather than putting the block's head out
-   of reach above the scroll origin. The host's one job is to give it a height,
-   by being a pane that fills its column; in a box as tall as its content there
-   is nothing to centre in.
+   It centres itself, so no host has to remember to. The host's one job is to
+   give it a height, by being a pane that fills its column.
 
-   The gap under the illustration and the counterweight are custom properties
+   The gap under the illustration and the foot's share are custom properties
    because both are sized for the full block, and a host holding a lighter one
-   sets its own. A popup's list takes the `tidy` variant below, which sets
-   lighter defaults for both. See `PopupEmpty`. */
+   sets its own: `--empty-state-lift: 1fr` centres plainly. A popup's list takes
+   the `tidy` variant below, which sets lighter defaults for both. See
+   `PopupEmpty`. */
 .empty {
-	display: flex;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto minmax(0, var(--empty-state-lift, 1.5fr));
 	flex: 1 0 auto;
-	flex-direction: column;
-	align-items: center;
-	justify-content: safe center;
 	max-width: 350px;
 	/* Centres itself horizontally whatever the host is — block, flex or grid —
 	   so the cap above cannot pin the block to one edge. Without this every host
@@ -50,27 +43,32 @@
 	   flush with their gutter, but centred, balanced prose hugging the same
 	   edges reads as pressed against the sides in a sidebar at its narrowest. */
 	padding-inline: 32px;
-	padding-block-end: var(--empty-state-counterweight, min(80px, 14cqh));
-	gap: var(--empty-state-gap, 24px);
 	text-align: center;
 }
 
-/* Fills the height its container gives it, so there is room to centre in. A
-   default, not a rule: `:where` gives it no specificity, so a host that sets
-   its own height, as a popup's list holds 200 for the rows it replaces, wins
-   whichever stylesheet loads last. */
+/* Fills the height its container gives it, so the outer rows have room to share out. A default, not
+   a rule: `:where` gives it no specificity, so a host that sets its own height wins whichever
+   stylesheet loads last. */
 :where(.empty) {
 	min-block-size: 100%;
 }
 
+.stack {
+	display: flex;
+	grid-row: 2;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--empty-state-gap, 24px);
+}
+
 /* Flush with the list it stands in for: the rows' left edge, their width, no measure of its own. */
 .start {
-	align-items: flex-start;
 	max-width: none;
 	margin-inline: 0;
 	padding-inline: 0;
 	text-align: start;
 
+	& .stack,
 	& .body {
 		align-items: flex-start;
 	}
@@ -86,7 +84,7 @@
 /* Both lines wrap balanced (`text-balance`, applied in the component). A
    centred block with a long line and a two-word orphan under it reads as
    broken, and the copy here is short enough that the browser's line-count cap
-   never comes into it. The measure it balances within is the block's own 320,
+   never comes into it. The measure it balances within is the block's own 350,
    which is what stops a line running the width of a pane. */
 .lines {
 	display: flex;
@@ -95,7 +93,7 @@
 }
 
 /* Both still defaults rather than rules: a host that sets the properties wins
-   here as it does on the default block. No counterweight, since a popup's list
+   here as it does on the default block. Centred plainly, since a popup's list
    is too short to lift into and the line and a small button weigh little.
 
    Its height follows its width, so a popup holds the same proportions however
@@ -105,6 +103,7 @@
    line is one short line and has no measure to keep. Content taller than the
    ratio still grows the box. */
 .tidy {
+	grid-template-rows: minmax(0, 1fr) auto minmax(0, var(--empty-state-lift, 1fr));
 	aspect-ratio: 5 / 2;
 	max-width: none;
 	/* Not the full height: the ratio is the height, and a host sized from it would resolve the 100% back
@@ -112,8 +111,10 @@
 	min-block-size: auto;
 	/* The auto margins would shrink it to its content in a flex host, and the ratio needs the host's width. */
 	margin-inline: 0;
-	padding-block-end: var(--empty-state-counterweight, 0px);
-	gap: var(--empty-state-gap, 20px);
+
+	& .stack {
+		gap: var(--empty-state-gap, 20px);
+	}
 
 	& .body {
 		gap: 12px;

@@ -94,6 +94,11 @@
 	white-space: nowrap;
 }
 
+.text {
+	color: var(--text-2);
+	white-space: nowrap;
+}
+
 .hint {
 	display: inline-flex;
 	column-gap: 8px;

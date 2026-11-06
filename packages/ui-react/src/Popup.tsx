@@ -478,14 +478,9 @@ export const PopupEmpty: FC<{
 	onClearSearch: () => void;
 }> = ({ query, nothingFound, nothingToList, onClearSearch }) =>
 	query === "" ? (
-		<EmptyState
-			variant="tidy"
-			illustration="cactus"
-			description={nothingToList}
-			className={styles.empty}
-		/>
+		<EmptyState variant="tidy" illustration="cactus" description={nothingToList} />
 	) : (
-		<EmptyState variant="tidy" description={nothingFound} className={styles.empty}>
+		<EmptyState variant="tidy" description={nothingFound}>
 			<Button
 				variant="outline"
 				size="small"

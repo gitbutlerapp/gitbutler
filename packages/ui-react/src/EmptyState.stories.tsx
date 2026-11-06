@@ -20,11 +20,10 @@ const meta = stories({
 	},
 	decorators: [
 		// A plain box with a height, as a pane gives it: the block centres itself
-		// in it, and the counterweight scales to it.
+		// in it, a little above the middle.
 		(Story) => (
 			<div
 				style={{
-					containerType: "size",
 					width: 360,
 					height: 520,
 					backgroundColor: "var(--bg-2)",
