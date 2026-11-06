@@ -353,8 +353,6 @@ pub fn fonts() -> Vec<Cow<'static, [u8]>> {
         "Inter-Regular.ttf",
         "Inter-Medium.ttf",
         "Inter-SemiBold.ttf",
-        "GeistMono-Regular.ttf",
-        "GeistMono-SemiBold.ttf",
         "GeistMonoNerdFontMono-Regular.otf",
         "GeistMonoNerdFontMono-SemiBold.otf",
     )
@@ -381,8 +379,8 @@ pub fn prewarm_fonts(cx: &gpui::App) {
         ("Inter", FontWeight::NORMAL),
         ("Inter", FontWeight::MEDIUM),
         ("Inter", FontWeight::SEMIBOLD),
-        ("Geist Mono", FontWeight::NORMAL),
-        ("Geist Mono", FontWeight::SEMIBOLD),
+        ("GeistMono Nerd Font Mono", FontWeight::NORMAL),
+        ("GeistMono Nerd Font Mono", FontWeight::SEMIBOLD),
     ]
     .map(|(family, weight)| gpui::Font {
         weight,

@@ -5207,7 +5207,7 @@ impl Render for AppView {
             .bg(theme.bg_1)
             .text_color(theme.text_1)
             .font_family(theme.ui_font)
-            // Only the code font has ligatures (`liga`), so this leaves the UI font as it is.
+            // Only a font the user picks has ligatures (`liga`), so this leaves ours as they are.
             .when(!ligatures, |el| {
                 el.font_features(FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)])))
             })
