@@ -42,7 +42,6 @@ pub(crate) use page::PageTab;
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::PathBuf;
@@ -1937,12 +1936,9 @@ impl Detail {
         // in a tree, folder by folder. Copied only when that's not how they came.
         let prefs = &self.store.read(cx).prefs;
         let (tree, sort) = (prefs.file_view == FileView::Tree, prefs.file_sort);
-        let order = |a: &FileDiff, b: &FileDiff| {
-            let folders = match tree {
-                true => file_tree::folder_order(&a.file.path, &b.file.path),
-                false => Ordering::Equal,
-            };
-            folders.then_with(|| file_tree::file_order(sort, &a.file, &b.file))
+        let order = |a: &FileDiff, b: &FileDiff| match tree {
+            true => file_tree::tree_order(sort, &a.file, &b.file),
+            false => file_tree::file_order(sort, &a.file, &b.file),
         };
         let files = match files.is_sorted_by(|a, b| order(a, b).is_le()) {
             true => files,

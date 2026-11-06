@@ -315,6 +315,9 @@ pub enum FileSort {
     /// By path.
     #[default]
     Name,
+    /// Names in capitals first, as `README.md`, then the rest by name whatever their case,
+    /// folders and files mixed.
+    DocsFirst,
     /// The last written first.
     Modified,
 }
