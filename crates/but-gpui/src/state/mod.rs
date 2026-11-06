@@ -29,6 +29,7 @@ mod saved;
 mod seen;
 mod terminals;
 mod tiling;
+mod unfit;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
@@ -39,6 +40,7 @@ pub use mutation::{
     marked_parts, up_to_date,
 };
 pub use picks::Picks;
+pub use unfit::{Held, Lands, Unfit};
 pub use saved::{
     BranchStatus, FileSort, FileView, NavigatorPlace, Pane, Part, Prefs, ScopeLines, TerminalRuns,
     WatchedOrder, screen_reader_on,
@@ -297,6 +299,9 @@ pub enum StoreEvent {
         found: backend::upstream::UpdateConflicts,
         detail: String,
     },
+    /// Locked changes were held back from landing where they lack some of what they build on:
+    /// ask the user first ([`Store::take_held`]).
+    Unfit,
 }
 
 /// An error card's button: its label, and what it runs.
@@ -511,6 +516,8 @@ pub struct Store {
     /// A commit not made as some of its changes couldn't go where it was asked to, till the
     /// window asks the user where they go instead.
     blocked_commit: Option<BlockedCommit>,
+    /// Locked changes held back from landing, till the window asks the user.
+    held: Option<Held>,
     /// What ⌘⇧Z redoes, newest last: the oplog entries ⌘Z recorded taking something back, in
     /// whichever project, since the user last did something.
     redo_steps: Vec<(ProjectId, SnapshotId)>,
@@ -665,6 +672,7 @@ impl Store {
             last_snapshot: None,
             undo_steps: Vec::new(),
             blocked_commit: None,
+            held: None,
             redo_steps: Vec::new(),
             ran: HashMap::new(),
             kept_snapshots: (saved.kept_by_project.into_iter())

@@ -23,9 +23,9 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, NavigatorPlace,
-    Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile,
-    Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
+    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, Lands, MeshPick,
+    NavigatorPlace, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store,
+    StoreEvent, Tile, Tiling, Unfit, Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -39,7 +39,6 @@ use crate::ui::{
     gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
     tile_card, tile_content, v_flex,
 };
-use crate::unfit::{Lands, Unfit};
 use crate::{clipboard, clock};
 
 // Named in the keymap as area::Action, by where they act.
@@ -538,6 +537,7 @@ impl AppView {
                     existed,
                     at,
                 } => crate::links::land(this, project.clone(), *existed, at, window, cx),
+                StoreEvent::Unfit => this.ask_held(window, cx),
                 StoreEvent::TilingChanged => {
                     this.drop_stale_tile_drag(cx);
                     this.drop_stale_row_tile(cx);

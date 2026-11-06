@@ -738,6 +738,24 @@ pub fn try_restack(path: &std::path::Path, stacking: &Stacking, into: CommitId) 
     restack_keeps(&mut ctx, guard.write_permission(), stacking, into)
 }
 
+/// Whether stacking the project at `path` as `stacking` says, then committing the main
+/// checkout's `changes` on top of the branch stacked, takes them all and leaves no commit
+/// conflicted that wasn't. It waits for GitButler's lock and changes nothing.
+pub fn try_stacking(
+    path: &std::path::Path,
+    stacking: &Stacking,
+    changes: &[Selected],
+) -> Result<bool> {
+    let mut ctx = super::open(path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    stacks_cleanly(
+        &mut ctx,
+        guard.write_permission(),
+        stacking,
+        selected_specs(changes),
+    )
+}
+
 /// Stack whole stacks as `stacking` says.
 pub struct Restack {
     pub stacking: Stacking,

@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use gpui::{Context, SharedString, Task};
 
-use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
+use super::{Held, Lands, Notice, ProjectId, Reload, Selection, Store, StoreEvent, Unfit};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome, UpdateScope};
 use crate::backend::{
@@ -342,7 +342,8 @@ impl Store {
     /// Apply `commit` to `project`, as [`Self::apply`] does, then `committed` with what it
     /// made. One some of whose changes can't go where it was asked to is not made at all, and
     /// the window asks the user where they go instead ([`StoreEvent::CommitBlocked`]), so
-    /// nothing is left out of a commit without their say.
+    /// nothing is left out of a commit without their say. One of locked changes that restacks
+    /// or conflicts waits for them to say so ([`StoreEvent::Unfit`]).
     pub fn commit(
         &mut self,
         project: &ProjectId,
@@ -353,7 +354,34 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let committed = std::rc::Rc::new(committed);
-        self.commit_with(project, label.into(), overlay, commit, committed, cx)
+        let label = label.into();
+        let fit = self.landing_fit(project, &commit.checkout, &commit.changes, |ws| {
+            ws.landing(&commit.to)
+        });
+        let Some(fit) = fit.filter(|fit| fit.asks()) else {
+            return self.commit_with(project, label, overlay, commit, committed, cx);
+        };
+        let commit = backend::CommitChanges {
+            conflicts: fit.conflicts,
+            restack: fit.restack.clone(),
+            ..commit
+        };
+        let changes = commit.changes.clone();
+        let unfit = Unfit {
+            project: project.clone(),
+            lands: Lands::Commit,
+            restack: fit.restack,
+            conflicts: fit.conflicts,
+        };
+        let project = project.clone();
+        let held = Held {
+            unfit,
+            tried: Box::new(move |path, stacking| backend::try_stacking(path, stacking, &changes)),
+            go: Box::new(move |store, cx| {
+                store.commit_with(&project, label, overlay, commit, committed, cx)
+            }),
+        };
+        self.hold(held, cx);
     }
 
     fn commit_with(

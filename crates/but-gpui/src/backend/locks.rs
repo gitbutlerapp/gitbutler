@@ -11,8 +11,8 @@ use but_core::{HunkHeader, TreeChange};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 
 use super::{
-    Branch, Checkout, CommitId, CommitState, Conflicts, FullName, Lane, Selected, Stacking,
-    Workspace,
+    Branch, Checkout, CommitId, CommitState, CommitTo, Conflicts, FullName, Lane, Selected,
+    Stacking, Workspace,
 };
 
 /// The main checkout's hunks that build on commits, by their file's path.
@@ -72,6 +72,48 @@ impl Workspace {
             on: Some(into),
         })
     }
+
+    /// Where committing changes to `to` lands them.
+    pub fn landing(&self, to: &CommitTo) -> Option<Landing> {
+        let (lane, from) = match to {
+            CommitTo::Branch(branch) => self.branch_at(branch)?,
+            CommitTo::NewBranchAt {
+                beside: Some((branch, below)),
+                ..
+            } => {
+                let (lane, at) = self.branch_at(branch)?;
+                (lane, at + usize::from(*below))
+            }
+            CommitTo::NewBranchAt { beside: None, .. } => {
+                return Some(Landing {
+                    lane: None,
+                    on: None,
+                });
+            }
+            CommitTo::BelowCommit { commit, .. } => {
+                let lane = (self.lanes.iter()).position(|lane| lane_has(lane, *commit))?;
+                let mut below = lane_commits(self.lanes.get(lane)?, 0)
+                    .skip_while(|id| id != commit)
+                    .skip(1);
+                return Some(Landing {
+                    lane: Some(lane),
+                    on: below.next(),
+                });
+            }
+        };
+        Some(Landing {
+            lane: Some(lane),
+            on: lane_commits(self.lanes.get(lane)?, from).next(),
+        })
+    }
+
+    /// The lane holding `branch`, and its place from the lane's top.
+    fn branch_at(&self, branch: &FullName) -> Option<(usize, usize)> {
+        (self.lanes.iter().enumerate()).find_map(|(ix, lane)| {
+            let at = (lane.branches.iter()).position(|b| b.ref_name.as_ref() == Some(branch))?;
+            Some((ix, at))
+        })
+    }
 }
 
 fn lane_has(lane: &Lane, id: CommitId) -> bool {
@@ -95,6 +137,13 @@ pub struct Fit {
     /// conflicted, as one they build on is above it in its own lane, or in a stack that can't
     /// go below it.
     pub conflicts: Conflicts,
+}
+
+impl Fit {
+    /// Whether landing them asks the user first: it restacks, or leaves a commit conflicted.
+    pub fn asks(&self) -> bool {
+        self.restack.is_some() || self.conflicts == Conflicts::Keep
+    }
 }
 
 impl Locks {
@@ -295,6 +344,76 @@ mod tests {
             fit("gone", 1),
             (None, false),
             "a lock on a commit gone holds nothing back"
+        );
+    }
+
+    #[test]
+    fn locked_files_committed_conflict_below_their_lock_and_in_a_new_stack() {
+        use crate::backend::model::build::{branch, id, workspace};
+        use crate::backend::{CommitTo, Conflicts, FullName};
+        // Newest first: ui's 3, 2, 1; api's 5, 4.
+        let ws = workspace(
+            vec![vec![branch("ui", &[3, 2, 1])], vec![branch("api", &[5, 4])]],
+            vec![],
+        );
+        let lock = super::Lock {
+            hunk: but_core::HunkHeader {
+                old_start: 5,
+                old_lines: 1,
+                new_start: 5,
+                new_lines: 1,
+            },
+            commits: vec![id(2)],
+        };
+        let locks = super::Locks([("file".into(), vec![lock])].into());
+        let files = [Selected::whole(&crate::backend::FileChange::bare("file"))];
+        let ui = FullName::try_from("refs/heads/ui").unwrap();
+        let fit = |to: CommitTo| {
+            let fit = locks.fit(&ws, &files, ws.landing(&to).unwrap());
+            (fit.restack.is_some(), fit.conflicts == Conflicts::Keep)
+        };
+        let below = |n| CommitTo::BelowCommit {
+            commit: id(n),
+            branch: ui.clone(),
+        };
+        let new_branch = |beside| CommitTo::NewBranchAt {
+            beside,
+            first: false,
+            name: None,
+        };
+        assert_eq!(
+            fit(CommitTo::Branch(ui.clone())),
+            (false, false),
+            "on top of it"
+        );
+        assert_eq!(
+            fit(below(3)),
+            (false, false),
+            "right above what it builds on"
+        );
+        assert_eq!(fit(below(2)), (false, true), "below it, it conflicts");
+        assert_eq!(fit(below(1)), (false, true), "at the stack's bottom too");
+        assert_eq!(
+            fit(new_branch(Some((ui.clone(), false)))),
+            (false, false),
+            "in a new branch above"
+        );
+        assert_eq!(
+            fit(new_branch(Some((ui.clone(), true)))),
+            (false, true),
+            "in a new branch below, it conflicts"
+        );
+        assert_eq!(
+            fit(CommitTo::Branch(
+                FullName::try_from("refs/heads/api").unwrap()
+            )),
+            (true, false),
+            "in another stack, it restacks"
+        );
+        assert_eq!(
+            fit(new_branch(None)),
+            (false, true),
+            "in a new stack, which nothing can go below, it conflicts"
         );
     }
 

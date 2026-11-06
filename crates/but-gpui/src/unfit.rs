@@ -8,27 +8,14 @@ use anyhow::Result;
 use gpui::{App, Context, PromptLevel, Window};
 
 use crate::app::AppView;
-use crate::backend::{self, CommitId, Conflicts, FullName, Stacking, short_ref};
-use crate::state::{ProjectId, Selection};
-
-/// Where locked changes land.
-pub enum Lands {
-    Amend(CommitId),
-}
-
-/// Locked changes landing in `project` as `lands` says, after stacking as `restack` says, and
-/// taking what doesn't merge there as `conflicts` says.
-pub struct Unfit {
-    pub project: ProjectId,
-    pub lands: Lands,
-    pub restack: Option<Stacking>,
-    pub conflicts: Conflicts,
-}
+use crate::backend::{self, Checkout, Conflicts, FullName, Stacking, short_ref};
+use crate::state::{Held, Lands, Selection, Unfit};
 
 impl Unfit {
     fn verb(&self) -> &'static str {
         match self.lands {
             Lands::Amend(_) => "amend",
+            Lands::Commit => "commit",
         }
     }
 
@@ -39,6 +26,7 @@ impl Unfit {
                 .map_or("the commit".into(), |(_, commit)| {
                     format!("\"{}\"", crate::ui::commit_title(&commit.title))
                 }),
+            Lands::Commit => "the new commit".into(),
         }
     }
 
@@ -46,11 +34,23 @@ impl Unfit {
     fn at(&self) -> Selection {
         match self.lands {
             Lands::Amend(id) => Selection::Commit(self.project.clone(), id),
+            Lands::Commit => Selection::Uncommitted(self.project.clone(), Checkout::Main),
         }
     }
 }
 
 impl AppView {
+    /// Ask about the landing the store last held back, if one is waiting, and land it once the
+    /// user says to.
+    pub(crate) fn ask_held(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Held { unfit, tried, go }) = self.store.update(cx, |store, _| store.take_held())
+        else {
+            return;
+        };
+        let go = move |app: &mut AppView, cx: &mut Context<AppView>| app.store.update(cx, go);
+        self.ask_unfit(unfit, tried, go, window, cx);
+    }
+
     /// Land `unfit`'s changes as `go` does, once the user says to. Where it restacks, `tried`
     /// says first whether stacking still lets them land.
     pub fn ask_unfit(
@@ -88,16 +88,23 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let message = match unfit.lands {
-            Lands::Amend(_) => format!("Amend {} with conflicts?", unfit.named(cx, self)),
+        let (message, lacks, confirm) = match unfit.lands {
+            Lands::Amend(_) => (
+                format!("Amend {} with conflicts?", unfit.named(cx, self)),
+                "it doesn't have",
+                "Amend",
+            ),
+            Lands::Commit => (
+                "Commit with conflicts?".to_owned(),
+                "it won't sit on",
+                "Commit",
+            ),
         };
-        let detail = "These changes build on commits it doesn't have, so it's left \
-                      conflicted. They'll be in its conflict, not in your files, until you \
-                      resolve it.";
-        let confirm = match unfit.lands {
-            Lands::Amend(_) => "Amend",
-        };
-        self.confirm_then(Some(unfit.at()), message, detail, confirm, window, cx, go);
+        let detail = format!(
+            "These changes build on commits {lacks}, so it's left conflicted. They'll be in its \
+             conflict, not in your files, until you resolve it."
+        );
+        self.confirm_then(Some(unfit.at()), message, &detail, confirm, window, cx, go);
     }
 
     /// Ask to stack the stacks `unfit`'s changes build on below where they land, then land
@@ -124,15 +131,23 @@ impl AppView {
             names(&stacking.branches),
             short_ref(&stacking.onto),
         );
-        match (keeps, unfit.conflicts) {
-            (false, _) => detail.push_str(&format!(
+        let above = match unfit.lands {
+            Lands::Amend(_) => "above it",
+            Lands::Commit => "above where it goes",
+        };
+        match (keeps, unfit.conflicts, &unfit.lands) {
+            (false, _, Lands::Amend(_)) => detail.push_str(&format!(
                 " Stacking leaves {named} conflicted, so it can't take them after. Restack, \
-                 then drag them again."
+                 then try again."
             )),
-            (true, Conflicts::Keep) => detail.push_str(&format!(
-                " They also build on a commit above it, so {verb}ing leaves it conflicted."
+            (false, _, Lands::Commit) => detail.push_str(
+                " Stacking leaves commits conflicted, so these can't be committed after. \
+                 Restack, then try again.",
+            ),
+            (true, Conflicts::Keep, _) => detail.push_str(&format!(
+                " They also build on a commit {above}, so {verb}ing leaves it conflicted."
             )),
-            (true, Conflicts::Reject) => {}
+            (true, Conflicts::Reject, _) => {}
         }
         match stacking.pushed.as_slice() {
             [] => {}
@@ -151,7 +166,10 @@ impl AppView {
             true => &[&restack_and_land, "Restack", "Cancel"],
             false => &["Restack", "Cancel"],
         };
-        let message = format!("Restack to {verb} {named}?");
+        let message = match unfit.lands {
+            Lands::Amend(_) => format!("Restack to amend {named}?"),
+            Lands::Commit => "Restack to commit?".to_owned(),
+        };
         let answer = window.prompt(PromptLevel::Info, &message, Some(&detail), answers, cx);
         cx.spawn(async move |this, cx| {
             let chosen = answer.await.ok();
