@@ -1192,7 +1192,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 |\  
 | | * 07e525c (origin/gitbutler/workspace) GitButler Workspace Commit
 | |/  
-| * 141de4f (origin/top, origin/bottom) add bottom
+| * 141de4f (origin/top) add bottom
 |/  
 * 563a7fc add base
 

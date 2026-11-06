@@ -423,6 +423,36 @@ pub fn workspace_fetch_from_remotes(
     fetch_result.map(|_| ())
 }
 
+/// Delete the remote-tracking refs whose branches every remote no longer has, as an update does
+/// once it has rebased, so branches merged and deleted on the forge stop showing as pushed.
+/// Every remote gets an attempt, and the first failure is returned. Like
+/// [`workspace_fetch_from_remotes()`], it holds no repository lock while the remotes are contacted.
+pub fn workspace_prune_remotes(
+    ctx: &mut but_ctx::Context,
+    action: Option<String>,
+) -> anyhow::Result<()> {
+    let repo_path = ctx.workdir_or_gitdir()?;
+    let remotes = (ctx.repo.get()?.remote_names().iter())
+        .map(|name| name.to_str().map(str::to_owned))
+        .collect::<Result<Vec<_>, _>>()?;
+    let repo_fetch_lock = fetch_lock(&ctx.gitdir);
+    let pruned = {
+        let _fetch_guard = repo_fetch_lock
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        remotes
+            .iter()
+            .map(|remote| {
+                gitbutler_git::prune_with_askpass(&repo_path, remote, action.clone())
+                    .with_context(|| format!("pruning remote `{remote}` failed"))
+            })
+            .collect::<Vec<_>>()
+    };
+    let _guard = ctx.exclusive_worktree_access();
+    ctx.invalidate_workspace_cache()?;
+    pruned.into_iter().collect()
+}
+
 /// Return the in-process lock that serializes network fetches for the repository at `gitdir`,
 /// so overlapping fetches wait for each other without blocking other repository operations.
 fn fetch_lock(gitdir: &std::path::Path) -> std::sync::Arc<std::sync::Mutex<()>> {

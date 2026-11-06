@@ -147,6 +147,40 @@ pub fn fetch_with_askpass(
     remote_name: &str,
     action: Option<String>,
 ) -> Result<()> {
+    with_askpass(repo_path, remote_name, action, RemoteCall::Fetch)
+}
+
+/// Prune the remote-tracking refs of `remote_name` whose branches are gone from it, as
+/// [`fetch_with_askpass()`] fetches.
+pub fn prune_with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    action: Option<String>,
+) -> Result<()> {
+    with_askpass(repo_path, remote_name, action, RemoteCall::Prune)
+}
+
+#[derive(Clone, Copy)]
+enum RemoteCall {
+    Fetch,
+    Prune,
+}
+
+impl RemoteCall {
+    fn git_command(self) -> &'static str {
+        match self {
+            RemoteCall::Fetch => "git fetch",
+            RemoteCall::Prune => "git remote prune",
+        }
+    }
+}
+
+fn with_askpass(
+    repo_path: impl AsRef<Path>,
+    remote_name: &str,
+    action: Option<String>,
+    call: RemoteCall,
+) -> Result<()> {
     let on_prompt = if askpass::get_broker().is_some() {
         Some(move |prompt: String| handle_git_prompt_fetch(prompt, action.clone()))
     } else {
@@ -155,17 +189,19 @@ pub fn fetch_with_askpass(
 
     let repo_path = repo_path.as_ref().to_owned();
     let remote = remote_name.to_owned();
+    let command = call.git_command();
     let result = std::thread::spawn(move || -> Result<_> {
         let runtime = tokio::runtime::Runtime::new().context(
-            but_error::Context::new("failed to initialize async runtime for git fetch")
+            but_error::Context::new(format!("failed to initialize async runtime for {command}"))
                 .with_code(Code::Unknown),
         )?;
-        Ok(runtime.block_on(crate::fetch(
-            repo_path,
-            crate::tokio::TokioExecutor,
-            &remote,
-            on_prompt,
-        )))
+        let executor = crate::tokio::TokioExecutor;
+        Ok(runtime.block_on(async {
+            match call {
+                RemoteCall::Fetch => crate::fetch(repo_path, executor, &remote, on_prompt).await,
+                RemoteCall::Prune => crate::prune(repo_path, executor, &remote, on_prompt).await,
+            }
+        }))
     })
     .join()
     .map_err(|panic| {
@@ -177,8 +213,9 @@ pub fn fetch_with_askpass(
             "unknown panic payload".to_owned()
         };
 
-        anyhow!("git fetch worker thread panicked: {reason}").context(
-            but_error::Context::new("git fetch failed unexpectedly").with_code(Code::Unknown),
+        anyhow!("{command} worker thread panicked: {reason}").context(
+            but_error::Context::new(format!("{command} failed unexpectedly"))
+                .with_code(Code::Unknown),
         )
     })??;
     result.map_err(map_needs_authorization)

@@ -1104,6 +1104,27 @@ impl Intent for Update {
     type Done = UpdateOutcome;
 
     fn apply(self, run: &mut Run) -> Result<UpdateOutcome> {
+        let outcome = self.rebase(run)?;
+        if let UpdateOutcome::Updated { .. } = outcome
+            && let Err(err) = open(run.path()).and_then(|mut ctx| {
+                but_api::workspace::workspace_prune_remotes(&mut ctx, Some("update".into()))
+            })
+        {
+            tracing::warn!(
+                ?err,
+                "could not prune remote-tracking branches after updating"
+            );
+        }
+        Ok(outcome)
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::Update
+    }
+}
+
+impl Update {
+    fn rebase(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
             let behind = {
@@ -1166,10 +1187,6 @@ impl Intent for Update {
                     .collect(),
             })
         })
-    }
-
-    fn kind(&self) -> OpKind {
-        OpKind::Update
     }
 }
 
@@ -1324,6 +1341,7 @@ mod tests {
     }
 
     fn update(path: &std::path::Path, scope: UpdateScope) -> UpdateOutcome {
+        without_askpass();
         let update = Update {
             scope,
             accepted: None,
@@ -1558,7 +1576,8 @@ mod tests {
         })
     }
 
-    /// Pushes go without the app's askpass broker, which a process can turn off only once.
+    /// Pushes and the prune after an update go without the app's askpass broker, which a
+    /// process can turn off only once.
     fn without_askpass() {
         static ASKPASS: std::sync::Once = std::sync::Once::new();
         ASKPASS.call_once(but_askpass::disable);
