@@ -176,6 +176,8 @@ mod tests {
             base_sha,
             current_sha: Some(base_sha),
             behind: 0,
+            workspace_behind: false,
+            worktrees_behind: vec![],
             upstream_commits: vec![],
             recent_commits: vec![],
             last_fetched_ms: None,

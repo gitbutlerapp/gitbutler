@@ -93,3 +93,69 @@ fn dry_run_does_not_sign_the_commits_it_rebases() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn the_update_rebases_a_linked_worktree_onto_the_target() -> anyhow::Result<()> {
+    let (repo, tmp) = repo_with_feature_branch()?;
+    drop(repo);
+    let root = tmp.path();
+    git_at_dir(root)
+        .args(["switch", "-c", "gitbutler/workspace"])
+        .run();
+    git_at_dir(root)
+        .args([
+            "commit",
+            "--allow-empty",
+            "-m",
+            "GitButler Workspace Commit",
+        ])
+        .run();
+    let mut ctx =
+        but_ctx::Context::from_repo_for_testing(open_repo(root)?)?.with_memory_app_cache();
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
+    but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+    ctx.db.get_cache_mut()?.worktree_meta_mut().mark_adopted()?;
+
+    let outside = tempfile::tempdir()?;
+    let agent = outside.path().join("agent");
+    git_at_dir(root)
+        .args(["worktree", "add", "-q", "-b", "agent"])
+        .arg(&agent)
+        .arg("origin/main")
+        .run();
+    git_at_dir(&agent)
+        .args(["commit", "--allow-empty", "-m", "agent work"])
+        .run();
+    git_at_dir(root)
+        .args(["update-ref", "refs/remotes/origin/main", "main"])
+        .run();
+    ctx.invalidate_workspace_cache()?;
+    let behind = |ctx: &mut but_ctx::Context| -> anyhow::Result<(bool, Vec<String>)> {
+        let mut guard = ctx.exclusive_worktree_access();
+        let base =
+            but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
+                .expect("the target is set");
+        Ok((base.workspace_behind, base.worktrees_behind))
+    };
+    assert_eq!(
+        behind(&mut ctx)?,
+        (true, vec!["agent".to_string()]),
+        "the workspace lacks the new target commit, and so does agent, which rests on the old one"
+    );
+
+    but_api::workspace::workspace_integrate_upstream(&mut ctx, vec![], but_core::DryRun::No)?;
+
+    let repo = open_repo(root)?;
+    assert_eq!(
+        repo.rev_parse_single("agent~")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "the worktree's own commit now rests on the target's newest commit, as `but pull` leaves it"
+    );
+    ctx.invalidate_workspace_cache()?;
+    assert_eq!(
+        behind(&mut ctx)?,
+        (false, vec![]),
+        "the update brought the workspace and agent onto the target"
+    );
+    Ok(())
+}

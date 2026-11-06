@@ -156,6 +156,10 @@ export type BaseBranch = {
    */
   currentSha: string | null;
   behind: number;
+  /** Whether updating the workspace from the target would change anything. */
+  workspaceBehind: boolean;
+  /** The names of the linked worktrees an update would rebase onto the target. */
+  worktreesBehind: Array<string>;
   upstreamCommits: Array<RemoteCommit>;
   recentCommits: Array<RemoteCommit>;
   lastFetchedMs: number | null;

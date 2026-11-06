@@ -32,10 +32,12 @@ async function renderModal({
 	loadStatuses,
 	integrate = vi.fn().mockResolvedValue(undefined),
 	refreshBaseBranch = vi.fn().mockResolvedValue(undefined),
+	worktreesBehind = [],
 }: {
 	loadStatuses: ReturnType<typeof vi.fn>;
 	integrate?: ReturnType<typeof vi.fn>;
 	refreshBaseBranch?: ReturnType<typeof vi.fn>;
+	worktreesBehind?: string[];
 }) {
 	const context = new Map<unknown, unknown>([
 		[
@@ -55,6 +57,7 @@ async function renderModal({
 						currentSha: "upstream-tip",
 						targetShaAheadOfRef: null,
 						upstreamCommits: [],
+						worktreesBehind,
 					},
 				}),
 				refreshBaseBranch,
@@ -178,5 +181,27 @@ describe("IntegrateUpstreamModal failure recovery", () => {
 			expect(screen.getByRole("button", { name: "Update workspace" })).toBeEnabled(),
 		);
 		expect(screen.queryByText("Couldn't update the workspace.")).not.toBeInTheDocument();
+	});
+});
+
+describe("IntegrateUpstreamModal worktrees", () => {
+	test("lists the linked worktrees the update rebases", async () => {
+		await renderModal({
+			loadStatuses: vi.fn().mockResolvedValue(statuses),
+			worktreesBehind: ["agent-1", "agent-2"],
+		});
+
+		const section = await screen.findByTestId("integrate-upstream-worktrees");
+		expect(section).toHaveTextContent("Worktrees to be updated");
+		expect(section).toHaveTextContent("rebased onto main");
+		expect(section).toHaveTextContent("agent-1");
+		expect(section).toHaveTextContent("agent-2");
+	});
+
+	test("leaves the worktrees out when none are behind", async () => {
+		await renderModal({ loadStatuses: vi.fn().mockResolvedValue(statuses) });
+
+		await screen.findByRole("button", { name: "Update workspace" });
+		expect(screen.queryByTestId("integrate-upstream-worktrees")).not.toBeInTheDocument();
 	});
 });
