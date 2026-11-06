@@ -5,11 +5,12 @@
 
 use std::ops::Range;
 
+use but_tty::Status;
 use strum::IntoEnumIterator as _;
 
 use gpui::{
-    Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, ScrollHandle,
-    SharedString, Subscription, Window, actions, div, prelude::*, relative,
+    Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, Role,
+    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, relative,
 };
 
 use crate::app::AppView;
@@ -32,12 +33,20 @@ use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Icon, POPOVER_RADIUS, commit_title, dp, h_flex, keycap, list_row, matched, muted, popover,
-    shortcut_here, small_icon, v_flex,
+    shortcut_here, small_icon, tab_after, tab_stop, v_flex,
 };
 
 actions!(
     palette,
-    [PaletteUp, PaletteDown, GoTo, GoToTerminal, CopyMore]
+    [
+        PaletteUp,
+        PaletteDown,
+        NextGroup,
+        PreviousGroup,
+        GoTo,
+        GoToTerminal,
+        CopyMore
+    ]
 );
 
 /// What picking a choice does, given what's typed.
@@ -170,6 +179,86 @@ impl Choice {
     }
 }
 
+/// What a terminal's program is at, as the terminal picker groups its rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StatusGroup {
+    Blocked,
+    Failed,
+    Done,
+    Working,
+    Idle,
+}
+
+impl StatusGroup {
+    /// As Tab goes through them: what wants the user first.
+    const ALL: [StatusGroup; 5] = [
+        StatusGroup::Blocked,
+        StatusGroup::Failed,
+        StatusGroup::Done,
+        StatusGroup::Working,
+        StatusGroup::Idle,
+    ];
+
+    fn of(status: &Status) -> StatusGroup {
+        match status {
+            Status::Blocked(_) => StatusGroup::Blocked,
+            Status::Failed(_) => StatusGroup::Failed,
+            Status::Done => StatusGroup::Done,
+            Status::Working => StatusGroup::Working,
+            Status::Idle => StatusGroup::Idle,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            StatusGroup::Blocked => "Blocked",
+            StatusGroup::Failed => "Failed",
+            StatusGroup::Done => "Done",
+            StatusGroup::Working => "Working",
+            StatusGroup::Idle => "Idle",
+        }
+    }
+}
+
+/// The terminal picker's groups, which Tab goes through. They're sorted out as the query or the
+/// group changes, not as a program's status does, so what an agent does moves no row from under
+/// the keys. The row's own mark still follows it.
+#[derive(Default)]
+struct Groups {
+    /// The group listed alone, or with none, every row.
+    shown: Option<StatusGroup>,
+    /// How many rows the query finds in each group it finds any in, and in the one shown.
+    counts: Vec<(StatusGroup, usize)>,
+    /// How many rows the query finds.
+    total: usize,
+}
+
+impl Groups {
+    /// Count `found`, each with its group, and keep the rows of the group shown.
+    fn sort_out(&mut self, found: Vec<(Option<StatusGroup>, Found)>) -> Vec<Found> {
+        self.total = found.len();
+        self.counts = (StatusGroup::ALL.into_iter())
+            .filter_map(|group| {
+                let count = found.iter().filter(|(of, _)| *of == Some(group)).count();
+                (count > 0 || self.shown == Some(group)).then_some((group, count))
+            })
+            .collect();
+        (found.into_iter())
+            .filter(|(of, _)| self.shown.is_none() || *of == self.shown)
+            .map(|(_, found)| found)
+            .collect()
+    }
+
+    /// The group after the one shown, or before it, going round through every row.
+    fn step(&self, forward: bool) -> Option<StatusGroup> {
+        let groups = self.counts.iter().map(|(group, _)| Some(*group));
+        let stops: Vec<Option<StatusGroup>> = std::iter::once(None).chain(groups).collect();
+        let at = stops.iter().position(|stop| *stop == self.shown);
+        let to = tab_after(stops.len(), at.unwrap_or(0), forward)?;
+        stops.get(to).copied().flatten()
+    }
+}
+
 /// The command palette, or another list to pick from the same way.
 pub struct Palette {
     input: Entity<TextInput>,
@@ -178,7 +267,8 @@ pub struct Palette {
     choices: Vec<Choice>,
     /// What Enter does, for the hint at the bottom.
     verb: &'static str,
-    /// What the query finds, best first, worked out as it changes: nothing else changes it.
+    /// What the query finds in the group shown, best first, worked out as either changes:
+    /// nothing else changes it.
     found: Vec<Found>,
     selected: usize,
     /// The rows' scroll, which follows the selection.
@@ -194,6 +284,8 @@ pub struct Palette {
     /// The terminal picker's: what was selected and whether the details showed when it
     /// opened. The row it selects shows behind it until Esc puts these back.
     previewed_from: Option<(Option<Selection>, bool)>,
+    /// The terminal picker's, which lists its rows by status.
+    groups: Option<Groups>,
     _subscription: Subscription,
 }
 
@@ -213,10 +305,21 @@ impl Palette {
         self.select(safe.unwrap_or(0));
     }
 
-    /// The choices the query finds, best first.
-    fn find(&self, cx: &gpui::App) -> Vec<Found> {
+    /// List the choices the query finds, best first, of the group shown if there is one.
+    fn find(&mut self, store: &Store, cx: &gpui::App) {
         let query = self.input.read(cx).text().trim().to_owned();
-        find_in(&self.choices, &query)
+        let found = find_in(&self.choices, &query);
+        self.found = match &mut self.groups {
+            Some(groups) => {
+                let grouped = found.into_iter().map(|found| {
+                    let terminal = (self.choices.get(found.ix)).and_then(|c| c.status_of.as_ref());
+                    let status = terminal.and_then(|terminal| store.row_status(terminal));
+                    (status.map(StatusGroup::of), found)
+                });
+                groups.sort_out(grouped.collect())
+            }
+            None => found,
+        };
     }
 }
 
@@ -1235,6 +1338,8 @@ impl AppView {
         self.open_picker(None, "Go to a terminal", "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
+            palette.groups = Some(Groups::default());
+            palette.find(self.store.read(cx), cx);
             // On the terminal shown, so opening it shows no other.
             let shown = (palette.found.iter()).position(|found| {
                 let goes_to = palette
@@ -1303,7 +1408,7 @@ impl AppView {
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Changed => {
                     if let Some(palette) = &mut this.palette {
-                        palette.found = palette.find(cx);
+                        palette.find(this.store.read(cx), cx);
                         palette.select_first(cx);
                     }
                     this.outline_choice(window, cx);
@@ -1326,9 +1431,10 @@ impl AppView {
             holds_ids: false,
             wide: false,
             previewed_from: None,
+            groups: None,
             _subscription: subscription,
         };
-        palette.found = palette.find(cx);
+        palette.find(self.store.read(cx), cx);
         palette.select_first(cx);
         self.palette = Some(palette);
         self.outline_choice(window, cx);
@@ -1444,6 +1550,37 @@ impl AppView {
         }
     }
 
+    fn next_group(&mut self, _: &NextGroup, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_group(|groups| groups.step(true), window, cx);
+    }
+
+    fn previous_group(&mut self, _: &PreviousGroup, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_group(|groups| groups.step(false), window, cx);
+    }
+
+    /// List the group `pick` says alone, from what the programs are at now, on its first row.
+    fn show_group(
+        &mut self,
+        pick: impl FnOnce(&Groups) -> Option<StatusGroup>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        // Other pickers have no groups, and Tab reaches them too.
+        let Some(palette) = (self.palette.as_mut()).filter(|p| p.groups.is_some()) else {
+            return;
+        };
+        // Sorted out again first, so Tab skips a group that has emptied since.
+        palette.find(store, cx);
+        if let Some(groups) = &mut palette.groups {
+            groups.shown = pick(groups);
+        }
+        palette.find(store, cx);
+        palette.select_first(cx);
+        self.outline_choice(window, cx);
+        cx.notify();
+    }
+
     /// Lite's picker dialog: near the top, a search row, 28px rows, and a footer of hints.
     pub fn render_palette(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let palette = self.palette.as_ref()?;
@@ -1495,11 +1632,54 @@ impl AppView {
             })
             .collect();
         let empty = rows.is_empty();
+        let group_tabs = palette.groups.as_ref().map(|groups| {
+            let every = (None, "All", groups.total);
+            let counted =
+                (groups.counts.iter()).map(|(group, count)| (Some(*group), group.label(), *count));
+            let text = theme.text_1;
+            let tabs = std::iter::once(every)
+                .chain(counted)
+                .map(|(group, name, count)| {
+                    let on = groups.shown == group;
+                    let tab = h_flex()
+                        .id(name)
+                        .h_full()
+                        .gap(dp(4.))
+                        // Always there, so picking another moves nothing.
+                        .border_b_2()
+                        .border_color(if on { text } else { gpui::transparent_black() })
+                        .text_color(if on { text } else { theme.text_2 })
+                        .hover(move |el| el.text_color(text))
+                        .aria_label(format!("{name} {count}"))
+                        .aria_selected(on)
+                        .child(name)
+                        .child(div().text_color(theme.text_3).child(count.to_string()))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.show_group(|_| group, window, cx)
+                        }));
+                    tab_stop(tab, &theme).role(Role::Tab)
+                });
+            h_flex()
+                .id("status-tabs")
+                .role(Role::TabList)
+                .aria_label("Status")
+                .flex_none()
+                .h(dp(28.))
+                .px(dp(12.))
+                .gap(dp(14.))
+                .border_b_1()
+                .border_color(theme.border_3)
+                .text_size(dp(12.))
+                .children(tabs)
+        });
+        let tab_hint = palette.groups.as_ref().map(|_| ("⇥", "Filter"));
         let card = popover(&theme)
             .id("palette")
             .key_context("Palette")
             .on_action(cx.listener(Self::palette_up))
             .on_action(cx.listener(Self::palette_down))
+            .on_action(cx.listener(Self::next_group))
+            .on_action(cx.listener(Self::previous_group))
             .w(dp(match palette.wide {
                 true => 720.,
                 false => 520.,
@@ -1520,6 +1700,7 @@ impl AppView {
                     .child(div().flex_1().min_w_0().child(palette.input.clone()))
                     .children((palette.place.clone()).map(|place| muted(place, &theme))),
             )
+            .children(group_tabs)
             .child(
                 v_flex()
                     .relative()
@@ -1565,11 +1746,17 @@ impl AppView {
                     .text_size(dp(12.))
                     .text_color(theme.text_2)
                     .children(
-                        [("↑ ↓", "Move"), ("↩", palette.verb), ("esc", "Close")].map(
-                            |(key, hint)| {
-                                h_flex().gap(dp(4.)).child(keycap(key, &theme)).child(hint)
-                            },
-                        ),
+                        [
+                            Some(("↑ ↓", "Move")),
+                            tab_hint,
+                            Some(("↩", palette.verb)),
+                            Some(("esc", "Close")),
+                        ]
+                        .into_iter()
+                        .flatten()
+                        .map(|(key, hint)| {
+                            h_flex().gap(dp(4.)).child(keycap(key, &theme)).child(hint)
+                        }),
                     ),
             );
         // Over a modal, a click outside closes only the palette. Down a column, it shrinks to
@@ -1583,8 +1770,8 @@ impl AppView {
 #[cfg(test)]
 mod tests {
     use super::{
-        Choice, ProjectTab, RowKey, Selection, alias_score, detail_score, find_in, id_starts,
-        rank_selected_project, score, shared_start,
+        Choice, Found, Groups, ProjectTab, RowKey, Selection, StatusGroup, alias_score,
+        detail_score, find_in, id_starts, rank_selected_project, score, shared_start,
     };
 
     const ID: &str = "3a79334c0b5e8f1d2a6b7c9e0f1a2b3c4d5e6f70";
@@ -1986,6 +2173,112 @@ mod tests {
             ["in it"],
             "its project decides, and a row going nowhere has none"
         );
+    }
+
+    fn found(ix: usize) -> Found {
+        Found {
+            ix,
+            label: Vec::new(),
+            detail: Vec::new(),
+        }
+    }
+
+    fn groups_of(rows: &[Option<StatusGroup>], shown: Option<StatusGroup>) -> (Groups, Vec<usize>) {
+        let mut groups = Groups {
+            shown,
+            ..Groups::default()
+        };
+        let rows = rows.iter().enumerate().map(|(ix, of)| (*of, found(ix)));
+        let kept = groups.sort_out(rows.collect());
+        (groups, kept.into_iter().map(|found| found.ix).collect())
+    }
+
+    #[test]
+    fn no_group_shown_keeps_every_row_in_its_order() {
+        let rows = [Some(StatusGroup::Idle), None, Some(StatusGroup::Blocked)];
+        let (groups, kept) = groups_of(&rows, None);
+        assert_eq!(kept, [0, 1, 2], "All lists what the query finds");
+        assert_eq!(groups.total, 3, "a row with no status is still a row");
+    }
+
+    #[test]
+    fn a_group_shown_keeps_only_its_rows() {
+        let rows = [
+            Some(StatusGroup::Working),
+            Some(StatusGroup::Blocked),
+            Some(StatusGroup::Working),
+        ];
+        let (groups, kept) = groups_of(&rows, Some(StatusGroup::Working));
+        assert_eq!(kept, [0, 2], "the others wait for their own stop");
+        assert_eq!(groups.total, 3, "All still counts every row");
+    }
+
+    #[test]
+    fn groups_are_counted_most_wanted_first_leaving_out_the_empty() {
+        let rows = [
+            Some(StatusGroup::Idle),
+            Some(StatusGroup::Blocked),
+            Some(StatusGroup::Idle),
+        ];
+        let (groups, _) = groups_of(&rows, None);
+        assert_eq!(
+            groups.counts,
+            [(StatusGroup::Blocked, 1), (StatusGroup::Idle, 2)],
+            "there's nothing to go to in the rest"
+        );
+    }
+
+    #[test]
+    fn the_group_shown_stays_listed_when_the_query_finds_none_of_it() {
+        let (groups, kept) = groups_of(&[Some(StatusGroup::Idle)], Some(StatusGroup::Done));
+        assert!(kept.is_empty(), "nothing matches here");
+        assert_eq!(
+            groups.counts,
+            [(StatusGroup::Done, 0), (StatusGroup::Idle, 1)],
+            "it says why the list is empty, and Tab goes on from it"
+        );
+    }
+
+    #[test]
+    fn tab_stays_on_every_row_with_no_group_to_go_to() {
+        let (groups, _) = groups_of(&[None], None);
+        assert_eq!(groups.step(true), None, "All is the only stop");
+    }
+
+    #[test]
+    fn tab_goes_from_every_row_to_the_first_group() {
+        let rows = [Some(StatusGroup::Done), Some(StatusGroup::Idle)];
+        let (groups, _) = groups_of(&rows, None);
+        assert_eq!(
+            groups.step(true),
+            Some(StatusGroup::Done),
+            "All comes first"
+        );
+    }
+
+    #[test]
+    fn tab_passes_over_groups_with_nothing_in_them() {
+        let rows = [Some(StatusGroup::Blocked), Some(StatusGroup::Idle)];
+        let (groups, _) = groups_of(&rows, Some(StatusGroup::Blocked));
+        assert_eq!(
+            groups.step(true),
+            Some(StatusGroup::Idle),
+            "nothing failed, is done or is working"
+        );
+    }
+
+    #[test]
+    fn tab_from_the_last_group_goes_back_to_every_row() {
+        let rows = [Some(StatusGroup::Blocked), Some(StatusGroup::Idle)];
+        let (groups, _) = groups_of(&rows, Some(StatusGroup::Idle));
+        assert_eq!(groups.step(true), None, "it goes round");
+    }
+
+    #[test]
+    fn shift_tab_from_every_row_goes_to_the_last_group() {
+        let rows = [Some(StatusGroup::Blocked), Some(StatusGroup::Idle)];
+        let (groups, _) = groups_of(&rows, None);
+        assert_eq!(groups.step(false), Some(StatusGroup::Idle), "it goes round");
     }
 
     #[test]

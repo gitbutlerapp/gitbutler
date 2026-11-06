@@ -460,6 +460,14 @@ pub fn icon_toggle(
         .tooltip(Tooltip::keyed(tip, key))
 }
 
+/// Which of `len` tabs comes after the one at `at`, going round, if there's another.
+pub fn tab_after(len: usize, at: usize, forward: bool) -> Option<usize> {
+    (len > 1).then(|| match forward {
+        true => (at + 1) % len,
+        false => (at + len - 1) % len,
+    })
+}
+
 /// A choice of one, as ui-react's `SegmentedControl`: `segments` with whether each is the
 /// picked one, on a recessed track. The picked one is raised on the content ground, and a short
 /// rule parts two that aren't.
@@ -2019,5 +2027,35 @@ pub fn resize_pane(
             let width = width / Theme::get(cx).scale + beyond;
             store.update(cx, |store, cx| store.set_width(pane, Some(width), cx));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tab_after;
+
+    #[test]
+    fn the_next_tab_is_the_one_after() {
+        assert_eq!(tab_after(3, 0, true), Some(1));
+    }
+
+    #[test]
+    fn the_next_tab_goes_round_to_the_first() {
+        assert_eq!(tab_after(3, 2, true), Some(0));
+    }
+
+    #[test]
+    fn the_previous_tab_is_the_one_before() {
+        assert_eq!(tab_after(3, 2, false), Some(1));
+    }
+
+    #[test]
+    fn the_previous_tab_goes_round_to_the_last() {
+        assert_eq!(tab_after(3, 0, false), Some(2));
+    }
+
+    #[test]
+    fn a_page_with_one_tab_has_no_other() {
+        assert_eq!(tab_after(1, 0, true), None);
     }
 }

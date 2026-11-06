@@ -31,7 +31,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, TextPoint, Tooltip, ago, button, count_badge, dot, dp, dropdown_button,
     duration, h_flex, icon, icon_button, local_time, now, relative_time, shortcut, small_icon,
-    switch_grounds, switch_spring, tab_stop, v_flex,
+    switch_grounds, switch_spring, tab_after, tab_stop, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -1503,42 +1503,4 @@ pub(super) fn tab(
                     }),
             )
         })
-}
-
-/// Which of `len` tabs comes after the one at `at`, going round, if there's another.
-fn tab_after(len: usize, at: usize, forward: bool) -> Option<usize> {
-    (len > 1).then(|| match forward {
-        true => (at + 1) % len,
-        false => (at + len - 1) % len,
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::tab_after;
-
-    #[test]
-    fn the_next_tab_is_the_one_after() {
-        assert_eq!(tab_after(3, 0, true), Some(1));
-    }
-
-    #[test]
-    fn the_next_tab_goes_round_to_the_first() {
-        assert_eq!(tab_after(3, 2, true), Some(0));
-    }
-
-    #[test]
-    fn the_previous_tab_is_the_one_before() {
-        assert_eq!(tab_after(3, 2, false), Some(1));
-    }
-
-    #[test]
-    fn the_previous_tab_goes_round_to_the_last() {
-        assert_eq!(tab_after(3, 0, false), Some(2));
-    }
-
-    #[test]
-    fn a_page_with_one_tab_has_no_other() {
-        assert_eq!(tab_after(1, 0, true), None);
-    }
 }
