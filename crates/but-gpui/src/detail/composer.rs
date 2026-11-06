@@ -1401,6 +1401,7 @@ impl Detail {
                 checkout: worktree,
                 message,
                 run_hooks: store.runs_hooks(&project),
+                conflicts: backend::Conflicts::Reject,
             };
             store.amend(&project, amend, landed, cx)
         });

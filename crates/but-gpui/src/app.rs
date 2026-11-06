@@ -1249,6 +1249,9 @@ impl AppView {
             return;
         };
         let project = target.project().clone();
+        if transfer.conflicts() {
+            return self.perform_conflicting(transfer, project, lands, window, cx);
+        }
         let staged =
             (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
@@ -1262,6 +1265,43 @@ impl AppView {
                 detail.stage(branch, &files, window, cx)
             });
         }
+    }
+
+    /// Do `transfer` in `project`, which leaves the commit it goes into conflicted, once the
+    /// user says to.
+    pub fn perform_conflicting(
+        &mut self,
+        transfer: Transfer,
+        project: ProjectId,
+        lands: Option<Move>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Transfer::Amend { into, .. } = &transfer else {
+            return;
+        };
+        let at = Selection::Commit(project.clone(), *into);
+        let title = (self.store.read(cx).find_commit(&project, *into))
+            .map_or("the commit".into(), |(_, commit)| {
+                format!("\"{}\"", crate::ui::commit_title(&commit.title))
+            });
+        let message = format!("Amend {title} with conflicts?");
+        let detail = "These changes build on commits it doesn't have, so it's left \
+                      conflicted. They'll be in its conflict, not in your files, until you \
+                      resolve it.";
+        self.confirm_then(
+            Some(at),
+            message,
+            detail,
+            "Amend",
+            window,
+            cx,
+            move |app, cx| {
+                // Only staging comes back, which an amend never is.
+                let _ = (app.store)
+                    .update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
+            },
+        );
     }
 
     fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {

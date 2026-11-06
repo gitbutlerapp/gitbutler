@@ -115,6 +115,18 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
     })
 }
 
+/// The colour of the outline over what the squash shown in `project` goes into: a squash's, or
+/// a conflict's where it leaves that conflicted.
+pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
+    let conflicts = shown(store, project)
+        .and_then(|moving| moving.squashed(store))
+        .is_some_and(|transfer| transfer.conflicts());
+    match conflicts {
+        true => theme.warn,
+        false => mark_of(store, project, theme),
+    }
+}
+
 /// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
 pub(super) fn mark_of(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
     shown(store, project).map_or(theme.pop, |moving| moving.op.colour(theme))
@@ -1472,11 +1484,17 @@ impl Navigator {
                 | Transfer::StageOnBranch { .. }
                 | Transfer::CommitOnBranch { .. } => target.row(&project),
             };
-            return self.store.update(cx, |store, cx| {
-                store.select(Some(on), cx);
-                // Only staging comes back, which a squash never is.
-                let _ = transfer.perform(&project, None, store, cx);
-            });
+            self.store
+                .update(cx, |store, cx| store.select(Some(on), cx));
+            if transfer.conflicts() {
+                return self.app.update_later(window, cx, move |app, window, cx| {
+                    app.perform_conflicting(transfer, project, None, window, cx)
+                });
+            }
+            // Only staging comes back, which a squash never is.
+            let _ =
+                (self.store).update(cx, |store, cx| transfer.perform(&project, None, store, cx));
+            return;
         }
         // A card, a worktree or a terminal, already shown where it goes, goes there in the
         // order they keep.

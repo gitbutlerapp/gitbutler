@@ -45,11 +45,13 @@ pub enum Transfer {
         keep: Messages,
         emptied: Option<FullName>,
     },
-    /// Uncommitted files of `worktree` into a commit.
+    /// Uncommitted files of `worktree` into a commit, which `conflicts` leaves conflicted when
+    /// they build on commits it doesn't have.
     Amend {
         into: CommitId,
         files: Arc<[Selected]>,
         worktree: Checkout,
+        conflicts: backend::Conflicts,
     },
     MoveFiles {
         from: CommitId,
@@ -838,6 +840,13 @@ impl Move {
                 true => "write the message",
                 false => "commit",
             },
+            (
+                Op::Squash(_),
+                Some(Transfer::Amend {
+                    conflicts: backend::Conflicts::Keep,
+                    ..
+                }),
+            ) => "amend with conflicts",
             (Op::Squash(_), Some(Transfer::Amend { .. })) => "amend",
             (Op::Squash(_), Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. })) => {
                 "uncommit"
@@ -1112,17 +1121,18 @@ impl Transfer {
             ) => match (*from, target) {
                 // The engine won't amend a conflicted commit, nor move changes in or out of one.
                 _ if from.is_some_and(conflicted) => return None,
-                (None, Selection::Commit(_, into))
-                    if !conflicted(*into)
-                        && (worktree.is_linked()
-                            || (store.locks.get(project)).is_none_or(|locks| {
-                                locks.amend_keeps(workspace, files, *into)
-                            })) =>
-                {
+                (None, Selection::Commit(_, into)) if !conflicted(*into) => {
+                    let keeps = worktree.is_linked()
+                        || (store.locks.get(project))
+                            .is_none_or(|locks| locks.amend_keeps(workspace, files, *into));
                     Transfer::Amend {
                         into: *into,
                         files: files.clone(),
                         worktree: worktree.clone(),
+                        conflicts: match keeps {
+                            true => backend::Conflicts::Reject,
+                            false => backend::Conflicts::Keep,
+                        },
                     }
                 }
                 // The composer commits the main checkout's files to the workspace's branches.
@@ -1160,6 +1170,17 @@ impl Transfer {
         })
     }
 
+    /// Whether it leaves the commit it goes into conflicted, which the user is asked about first.
+    pub fn conflicts(&self) -> bool {
+        matches!(
+            self,
+            Transfer::Amend {
+                conflicts: backend::Conflicts::Keep,
+                ..
+            }
+        )
+    }
+
     /// What a drop does, said in the drag's pill: the row under the pointer shows where.
     pub fn verb(&self) -> &'static str {
         match self {
@@ -1177,6 +1198,10 @@ impl Transfer {
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
+            Transfer::Amend {
+                conflicts: backend::Conflicts::Keep,
+                ..
+            } => "Amend with conflicts",
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
             Transfer::StageOnBranch { .. } => "Start a commit here",
@@ -1346,6 +1371,7 @@ impl Transfer {
                 into,
                 files,
                 worktree,
+                conflicts,
             } => {
                 let amend = backend::Amend {
                     into,
@@ -1353,6 +1379,7 @@ impl Transfer {
                     checkout: worktree,
                     message: None,
                     run_hooks: store.runs_hooks(project),
+                    conflicts,
                 };
                 store.amend(project, amend, |_, _, _| {}, cx)
             }

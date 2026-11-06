@@ -1451,7 +1451,11 @@ pub struct Amend {
     /// The message it gets instead of its own, if any.
     pub message: Option<String>,
     pub run_hooks: bool,
+    /// What happens to changes that don't merge into it.
+    pub conflicts: Conflicts,
 }
+
+pub use but_workspace::commit::Conflicts;
 
 /// The commits an amend rewrote, with the changes left out of it and what a failing
 /// post-commit hook printed.
@@ -1473,6 +1477,7 @@ impl Intent for Amend {
             checkout,
             message,
             run_hooks,
+            conflicts,
         } = self;
         let worktree = checkout.linked();
         let run_hooks = run_hooks && worktree.is_none();
@@ -1508,12 +1513,7 @@ impl Intent for Amend {
                     .as_slice(),
                 DryRun::No,
                 |mut tx| {
-                    let made = tx.amend_commit(
-                        into.0,
-                        specs,
-                        source,
-                        but_workspace::commit::Conflicts::Reject,
-                    )?;
+                    let made = tx.amend_commit(into.0, specs, source, conflicts)?;
                     let Some(amended) = made.new_commit else {
                         return Ok(DynamicOutcome::Rollback(made.rejected_specs));
                     };
@@ -2323,6 +2323,7 @@ pub(super) mod tests {
             checkout: Checkout::Main,
             message: None,
             run_hooks: false,
+            conflicts: Conflicts::Reject,
         }
     }
 

@@ -2836,7 +2836,7 @@ impl Navigator {
         match outlined {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
-                let colour = moving::mark_of(store, item.project(), theme);
+                let colour = moving::outline_colour(store, item.project(), theme);
                 let outline =
                     moving::squash_outline(outline.edges(slid), blink, colour, theme.shape);
                 let outline = self.over_rows(outline, 2);
