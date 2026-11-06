@@ -1414,6 +1414,7 @@ impl Transfer {
                     checkout: worktree,
                     message: None,
                     run_hooks: store.runs_hooks(project),
+                    leave_out: false,
                     conflicts,
                     restack,
                 };

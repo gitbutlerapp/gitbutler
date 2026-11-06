@@ -1403,6 +1403,7 @@ impl Detail {
                 checkout: worktree,
                 message,
                 run_hooks: store.runs_hooks(&project),
+                leave_out: false,
                 conflicts: backend::Conflicts::Reject,
                 restack: None,
             };

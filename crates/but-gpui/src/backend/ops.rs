@@ -430,6 +430,24 @@ pub struct Blocked {
     /// Taking them all where it was asked to go anyway, keeping what doesn't merge, as a dry
     /// run found it: `None` where even that doesn't take them all.
     pub with_conflicts: Option<WithConflicts>,
+    /// For an amend, the commit they build on topmost in its stack, which takes them all
+    /// instead, as tried.
+    pub instead: Option<CommitId>,
+}
+
+/// What refused changes were asked to do: be committed to a place, or amended into a commit.
+#[derive(Debug, Clone, Copy)]
+enum Asked<'a> {
+    Commit(&'a CommitTo),
+    Amend(CommitId),
+}
+
+/// What a dry run does with changes: commit them on top of a branch or right below its commit,
+/// or amend them into a commit.
+#[derive(Debug, Clone, Copy)]
+enum Tried<'a> {
+    Commit(&'a FullName, Option<CommitId>),
+    Amend(CommitId),
 }
 
 /// Changes taken where they don't merge: the commit they go in is left conflicted, and `also`
@@ -599,16 +617,13 @@ fn blocked(
         rejected,
         takes_others,
     }: Refused,
-    to: &CommitTo,
+    asked: Asked<'_>,
     explain: bool,
     specs: &[DiffSpec],
 ) -> Blocked {
     use but_hunk_dependency::rejection::{
-        dependency_branch, explain_rejections, is_dependency_reason, stacking_under, stackings,
-    };
-    let into = match to {
-        CommitTo::Branch(branch) | CommitTo::BelowCommit { branch, .. } => Some(branch),
-        CommitTo::NewBranchAt { .. } => None,
+        Footing, dependency_branch, explain_rejections, is_dependency_reason, stacking_under,
+        stackings,
     };
     let keepable = rejected
         .iter()
@@ -619,16 +634,43 @@ fn blocked(
         let info = but_api::legacy::workspace::head_info(ctx)?;
         let merged = merged_branches(&info);
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-        let changes = explain_rejections(&repo, &ws, &rejected, into.map(|name| name.as_ref()));
+        let (into, footing, at) = match asked {
+            Asked::Commit(to) => {
+                let into = match to {
+                    CommitTo::Branch(branch) | CommitTo::BelowCommit { branch, .. } => {
+                        Some(branch.clone())
+                    }
+                    CommitTo::NewBranchAt { .. } => None,
+                };
+                (into, footing(to), tried_at(&info, to))
+            }
+            Asked::Amend(commit) => (
+                branch_holding(&info, commit),
+                Some(Footing::Into(commit.0)),
+                None,
+            ),
+        };
+        let changes = explain_rejections(&repo, &ws, &rejected, into.as_ref().map(|n| n.as_ref()));
         let builds_on = dependency_branch(&ws, &changes);
-        let stackings = stackings(&ws, &changes, &merged);
-        let at = tried_at(&info, to);
-        let restack = (footing(to)).and_then(|on| stacking_under(&ws, &changes, &merged, on));
+        let stackings = match asked {
+            Asked::Commit(_) => stackings(&ws, &changes, &merged),
+            Asked::Amend(_) => Vec::new(),
+        };
+        let restack = footing.and_then(|on| stacking_under(&ws, &changes, &merged, on));
         let merged = (builds_on.as_ref()).is_some_and(|branch| merged.contains(branch));
+        let instead = match (asked, merged) {
+            (Asked::Amend(_), false) => topmost_built_on(&info, &changes),
+            (Asked::Amend(_) | Asked::Commit(_), _) => None,
+        };
         let changes: Vec<_> = (changes.iter().enumerate())
             .map(|(ix, change)| blocked_change(&repo, change, ix < BLOCKED_FILES_SHOWN))
             .collect();
-        Ok((changes, (builds_on, merged), stackings, (at, restack)))
+        Ok((
+            changes,
+            (builds_on, merged),
+            stackings,
+            (at, restack, instead),
+        ))
     });
     let explained = match explained.transpose() {
         Ok(explained) => explained,
@@ -638,7 +680,7 @@ fn blocked(
             None
         }
     };
-    let (changes, (builds_on, builds_on_merged), stackings, (at, restack)) = explained
+    let (changes, (builds_on, builds_on_merged), stackings, (at, restack, instead)) = explained
         .unwrap_or_else(|| {
             let changes = (rejected.iter())
                 .map(|(reason, spec)| BlockedChange {
@@ -649,32 +691,37 @@ fn blocked(
                     why: why(reason),
                 })
                 .collect();
-            (changes, (None, false), Vec::new(), (None, None))
+            (changes, (None, false), Vec::new(), (None, None, None))
         });
-    let mut dry_run =
-        |stacking: Option<&Stacking>, at: (&FullName, Option<CommitId>), conflicts: Conflicts| {
-            dry_run(ctx, perm, stacking, specs.to_vec(), at, conflicts).unwrap_or_else(|err| {
-                tracing::warn!(?err, "couldn't try where the changes could go");
-                None
-            })
-        };
+    let mut dry_run = |stacking: Option<&Stacking>, tried: Tried<'_>, conflicts: Conflicts| {
+        dry_run(ctx, perm, stacking, specs.to_vec(), tried, conflicts).unwrap_or_else(|err| {
+            tracing::warn!(?err, "couldn't try where the changes could go");
+            None
+        })
+    };
     let clean = |also: Option<Vec<_>>| also.is_some_and(|also| also.is_empty());
     // The first that works, as each is tried in full.
     let stack = (stackings.into_iter()).find(|stacking| {
-        clean(dry_run(
-            Some(stacking),
-            (&stacking.top, None),
-            Conflicts::Reject,
-        ))
+        let on_top = Tried::Commit(&stacking.top, None);
+        clean(dry_run(Some(stacking), on_top, Conflicts::Reject))
     });
-    let at = at.as_ref().map(|(branch, below)| (branch, *below));
+    let tried = match asked {
+        Asked::Commit(_) => at
+            .as_ref()
+            .map(|(branch, below)| Tried::Commit(branch, *below)),
+        Asked::Amend(into) => Some(Tried::Amend(into)),
+    };
     let restack = restack.filter(|stacking| {
-        at.is_some_and(|at| clean(dry_run(Some(stacking), at, Conflicts::Reject)))
+        tried.is_some_and(|tried| clean(dry_run(Some(stacking), tried, Conflicts::Reject)))
     });
+    let instead =
+        instead.filter(|commit| clean(dry_run(None, Tried::Amend(*commit), Conflicts::Reject)));
     // A stack of its own has nothing above it to conflict.
-    let with_conflicts = match (explain && keepable, at) {
+    let with_conflicts = match (explain && keepable, tried) {
         (false, _) => None,
-        (true, Some(at)) => dry_run(None, at, Conflicts::Keep).map(|also| WithConflicts { also }),
+        (true, Some(tried)) => {
+            dry_run(None, tried, Conflicts::Keep).map(|also| WithConflicts { also })
+        }
         (true, None) => Some(WithConflicts { also: Vec::new() }),
     };
     Blocked {
@@ -685,7 +732,46 @@ fn blocked(
         stack,
         restack,
         with_conflicts,
+        instead,
     }
+}
+
+/// The branch of `info` that has `commit`.
+fn branch_holding(info: &but_workspace::RefInfo, commit: CommitId) -> Option<FullName> {
+    (info.lanes().flat_map(|lane| lane.segments))
+        .find(|segment| (segment.commits.iter()).any(|c| c.inner.id == commit.0))
+        .and_then(|segment| segment.ref_name().map(ToOwned::to_owned))
+}
+
+/// The commit `changes` build on that's topmost in its stack, when every one of them builds
+/// on commits of that one stack, so it has all they build on.
+fn topmost_built_on(
+    info: &but_workspace::RefInfo,
+    changes: &[but_hunk_dependency::rejection::RejectedChange],
+) -> Option<CommitId> {
+    let mut built_on = Vec::new();
+    for change in changes {
+        if change.dependencies.is_empty() {
+            return None;
+        }
+        (change.dependencies.iter())
+            .flat_map(|dependency| &dependency.commits)
+            .for_each(|commit| built_on.push(commit.commit_id));
+    }
+    let stacks = info.lanes().map(|lane| {
+        (lane.segments.iter().flat_map(|s| &s.commits))
+            .map(|c| c.inner.id)
+            .collect::<Vec<_>>()
+    });
+    let mut holding = stacks.filter(|commits| commits.iter().any(|id| built_on.contains(id)));
+    let stack = holding.next()?;
+    if holding.next().is_some() || !built_on.iter().all(|id| stack.contains(id)) {
+        return None;
+    }
+    stack
+        .into_iter()
+        .find(|id| built_on.contains(id))
+        .map(CommitId)
 }
 
 /// Where a dry run commits to try a commit to `to`: on top of a branch, or right below one of
@@ -755,16 +841,16 @@ fn merged_branches(info: &but_workspace::RefInfo) -> Vec<FullName> {
         .collect()
 }
 
-/// The other commits stacking as `stacking` says, then committing `specs` of the main checkout
-/// at `at`, on top of a branch or right below its commit, taking what doesn't merge as
-/// `conflicts` says, leaves conflicted that weren't, each by branch with how many. `None` where
-/// it doesn't take them all. Tried in a dry run, which changes nothing.
+/// The other commits stacking as `stacking` says, then committing or amending `specs` of the
+/// main checkout as `tried` says, taking what doesn't merge as `conflicts` says, leaves
+/// conflicted that weren't, each by branch with how many. `None` where it doesn't take them
+/// all. Tried in a dry run, which changes nothing.
 fn dry_run(
     ctx: &mut but_ctx::Context,
     perm: &mut but_ctx::access::RepoExclusive,
     stacking: Option<&Stacking>,
     specs: Vec<DiffSpec>,
-    at: (&FullName, Option<CommitId>),
+    tried: Tried<'_>,
     conflicts: Conflicts,
 ) -> Result<Option<NewlyConflicted>> {
     use but_transaction::DynamicOutcome;
@@ -777,14 +863,19 @@ fn dry_run(
         DryRun::Yes,
         |mut tx| {
             stack_in(&mut tx, stacking)?;
-            let made = tx.create_commit(
-                relative_to(at),
-                InsertSide::Below,
-                specs,
-                String::new(),
-                ChangeSource::Head,
-                conflicts,
-            )?;
+            let made = match tried {
+                Tried::Commit(branch, below) => tx.create_commit(
+                    relative_to((branch, below)),
+                    InsertSide::Below,
+                    specs,
+                    String::new(),
+                    ChangeSource::Head,
+                    conflicts,
+                )?,
+                Tried::Amend(into) => {
+                    tx.amend_commit(into.0, specs, ChangeSource::Head, conflicts)?
+                }
+            };
             Ok(
                 match made.new_commit.filter(|_| made.rejected_specs.is_empty()) {
                     Some(made) => DynamicOutcome::Commit(made.change_id),
@@ -960,7 +1051,9 @@ impl Intent for CommitChanges {
                     Some(stacking),
                     specs.clone(),
                     at.as_ref()
-                        .map_or((&stacking.top, None), |(branch, below)| (branch, *below)),
+                        .map_or(Tried::Commit(&stacking.top, None), |(branch, below)| {
+                            Tried::Commit(branch, *below)
+                        }),
                     conflicts,
                 )?
                 .is_some_and(|also| also.is_empty())
@@ -984,7 +1077,7 @@ impl Intent for CommitChanges {
                     ctx,
                     perm,
                     refused,
-                    &asked,
+                    Asked::Commit(&asked),
                     worktree.is_none(),
                     &tried,
                 ))),
@@ -1632,6 +1725,7 @@ impl Intent for DeleteBranchAndCommits {
 /// Add the `changes` of `checkout` to `into`, keeping its message. With `run_hooks`, in the
 /// main checkout only, pre-commit runs first and can refuse, outside GitButler's lock as for
 /// [`CommitChanges`], and post-commit runs after, as the desktop app does.
+#[derive(Clone)]
 pub struct Amend {
     pub into: CommitId,
     pub changes: Arc<[Selected]>,
@@ -1639,11 +1733,22 @@ pub struct Amend {
     /// The message it gets instead of its own, if any.
     pub message: Option<String>,
     pub run_hooks: bool,
+    /// Whether it goes ahead without changes it can't take, which otherwise leave it unmade,
+    /// [`AmendOutcome::Blocked`] saying why.
+    pub leave_out: bool,
     /// What happens to changes that don't merge into it.
     pub conflicts: Conflicts,
     /// Whole stacks stacked first, in the same oplog entry, so the changes have what they
-    /// build on below it: only while that leaves it unconflicted still.
+    /// build on below it: only while that takes them all cleanly still.
     pub restack: Option<Stacking>,
+}
+
+/// How an amend went.
+#[derive(Debug)]
+pub enum AmendOutcome {
+    Amended(Amended),
+    /// Not made, as some of its changes couldn't go into the commit.
+    Blocked(Box<Blocked>),
 }
 
 pub use but_workspace::commit::Conflicts;
@@ -1658,9 +1763,9 @@ pub struct Amended {
 }
 
 impl Intent for Amend {
-    type Done = Amended;
+    type Done = AmendOutcome;
 
-    fn apply(self, run: &mut Run) -> Result<Amended> {
+    fn apply(self, run: &mut Run) -> Result<AmendOutcome> {
         use but_transaction::DynamicOutcome;
         let Self {
             into,
@@ -1668,6 +1773,7 @@ impl Intent for Amend {
             checkout,
             message,
             run_hooks,
+            leave_out,
             conflicts,
             restack,
         } = self;
@@ -1688,13 +1794,22 @@ impl Intent for Amend {
         let outcome = run.locked(|ctx, perm| {
             // What it was tried with when it was offered may have changed since, as by an agent.
             if let Some(stacking) = &restack
-                && !restack_keeps(ctx, perm, stacking, into)?
+                && !dry_run(
+                    ctx,
+                    perm,
+                    Some(stacking),
+                    specs.clone(),
+                    Tried::Amend(into),
+                    conflicts,
+                )?
+                .is_some_and(|also| also.is_empty())
             {
                 bail!(
-                    "Stacking the branches would leave the commit conflicted now, so nothing \
-                     was changed"
+                    "Stacking the branches wouldn't take these changes cleanly any more, so \
+                     nothing was changed"
                 );
             }
+            let tried = specs.clone();
             let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
             let source = match (worktree, &linked) {
                 (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
@@ -1706,7 +1821,7 @@ impl Intent for Amend {
                 None => None,
             };
             let mut meta = ctx.meta()?;
-            but_transaction::with_transaction_with_perm(
+            let outcome = but_transaction::with_transaction_with_perm(
                 ctx,
                 &mut meta,
                 perm,
@@ -1718,9 +1833,17 @@ impl Intent for Amend {
                 DryRun::No,
                 |mut tx| {
                     stack_in(&mut tx, restack.as_ref())?;
+                    let asked = specs.len();
                     let made = tx.amend_commit(into.0, specs, source, conflicts)?;
-                    let Some(amended) = made.new_commit else {
-                        return Ok(DynamicOutcome::Rollback(made.rejected_specs));
+                    let takes_others = made.rejected_specs.len() < asked;
+                    let amended = match made.new_commit {
+                        Some(amended) if leave_out || made.rejected_specs.is_empty() => amended,
+                        _ => {
+                            return Ok(DynamicOutcome::Rollback(Refused {
+                                rejected: made.rejected_specs,
+                                takes_others,
+                            }));
+                        }
                     };
                     // In the same transaction, so undo takes both back at once.
                     let amended = match &message {
@@ -1732,28 +1855,31 @@ impl Intent for Amend {
                         made.rejected_specs,
                     )))
                 },
-            )
+            )?;
+            Ok(match outcome {
+                DynamicOutcome::Commit(amended) => Ok(amended),
+                DynamicOutcome::Rollback(refused) => Err(blocked(
+                    ctx,
+                    perm,
+                    refused,
+                    Asked::Amend(into),
+                    worktree.is_none(),
+                    &tried,
+                )),
+            })
         })?;
         let ((amended, rejected), workspace) = match outcome {
-            DynamicOutcome::Commit(amended) => amended,
-            DynamicOutcome::Rollback(rejected) => {
-                bail!(
-                    but_error::Context::new(format!(
-                        "Nothing could be amended.\n{}",
-                        left_out(&rejected).join("\n")
-                    ))
-                    .with_code(but_error::Code::PreconditionFailed)
-                )
-            }
+            Ok(amended) => amended,
+            Err(blocked) => return Ok(AmendOutcome::Blocked(Box::new(blocked))),
         };
         let hook_failed = run_hooks.then(|| post_commit(run.ctx())).flatten();
         let mut rewritten = rewritten(&workspace);
         rewritten.insert(into, amended);
-        Ok(Amended {
+        Ok(AmendOutcome::Amended(Amended {
             rewritten,
             left_out: left_out(&rejected),
             hook_failed,
-        })
+        }))
     }
 }
 
@@ -2509,6 +2635,17 @@ pub(super) mod tests {
         }
     }
 
+    impl AmendOutcome {
+        /// The amend made, which every amend in these tests is unless it says otherwise.
+        #[track_caller]
+        fn amended(self) -> Amended {
+            match self {
+                AmendOutcome::Amended(amended) => amended,
+                AmendOutcome::Blocked(blocked) => panic!("the amend was blocked: {blocked:?}"),
+            }
+        }
+    }
+
     pub(in crate::backend) fn branch_named(name: &str) -> CreateBranch {
         CreateBranch {
             name: Some(name.into()),
@@ -2529,6 +2666,7 @@ pub(super) mod tests {
             checkout: Checkout::Main,
             message: None,
             run_hooks: false,
+            leave_out: false,
             conflicts: Conflicts::Reject,
             restack: None,
         }
@@ -3119,6 +3257,7 @@ pub(super) mod tests {
                 ..amend_main(into, vec![Selected::whole(&uncommitted(path)[0])])
             };
             let (amended, ran) = crate::backend::apply(path, amend).unwrap();
+            let amended = amended.amended();
 
             let made = head(path);
             assert_eq!(
@@ -3173,6 +3312,7 @@ pub(super) mod tests {
                 ..amend_main(into, Vec::new())
             };
             let (amended, ran) = crate::backend::apply(path, amend).unwrap();
+            let amended = amended.amended();
 
             assert_eq!(
                 amended.rewritten.get(&into),
@@ -3315,6 +3455,65 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_refused_amend_offers_what_it_builds_on_a_restack_or_its_conflicts() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let blocked = |path: &Path, into| {
+                let changes = vec![Selected::whole(&uncommitted(path)[0])];
+                match crate::backend::apply(path, amend_main(into, changes))
+                    .unwrap()
+                    .0
+                {
+                    AmendOutcome::Blocked(blocked) => blocked,
+                    AmendOutcome::Amended(_) => panic!("it builds on what the commit lacks"),
+                }
+            };
+
+            // Line 15 edited again builds on "second", above "edit" in the same branch.
+            let (dir, edit, _, mut edited) = workspace_with_an_edit();
+            let path = dir.path();
+            edited[14] = "fifteen\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
+            git(path, &["commit", "-qam", "second"]);
+            let second = head(path);
+            crate::backend::apply(path, name_at(second, "feature")).unwrap();
+            edited[14] = "fifteen again\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
+            let into_edit = blocked(path, edit);
+            assert_eq!(
+                into_edit.instead,
+                Some(second),
+                "amending the commit it builds on takes it, as tried"
+            );
+            assert!(
+                into_edit.restack.is_none(),
+                "nothing to stack in one branch"
+            );
+            assert!(!into_edit.takes_others, "its one change is what's refused");
+            assert!(
+                into_edit.with_conflicts.is_some(),
+                "\"edit\" can still take it, conflicted"
+            );
+            assert_eq!(uncommitted(path).len(), 1, "nothing was amended");
+
+            let dir = an_edit_building_on_alpha_and_beta();
+            let path = dir.path();
+            let tip = git(path, &["rev-parse", "beta"]);
+            let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
+            let into_beta = blocked(path, beta);
+            let restack = into_beta.restack.expect("alpha can go below beta");
+            assert_eq!(
+                (restack.onto, restack.branches),
+                (full("refs/heads/alpha"), vec![full("refs/heads/beta")]),
+                "beta goes on alpha, then takes it"
+            );
+            assert_eq!(
+                into_beta.instead, None,
+                "no one commit has both stacks' changes below it"
+            );
+        })
+    }
+
+    #[test]
     fn an_amend_that_takes_nothing_records_nothing_to_undo() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
@@ -3324,17 +3523,11 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), "one\n").unwrap();
             let before = crate::backend::history::oplog_head(&open(path).unwrap());
 
-            let err =
-                crate::backend::apply(path, amend_main(head(path), vec![changed])).unwrap_err();
+            let (outcome, _) =
+                crate::backend::apply(path, amend_main(head(path), vec![changed])).unwrap();
             assert!(
-                err.to_string().contains("Nothing could be amended"),
-                "the file changes nothing: {err}"
-            );
-            assert_eq!(
-                err.downcast_ref::<but_error::Context>()
-                    .map(|context| context.code),
-                Some(but_error::Code::PreconditionFailed),
-                "a refusal is the user's to act on, not a bug"
+                matches!(outcome, AmendOutcome::Blocked(ref blocked) if !blocked.takes_others),
+                "the file changes nothing, and nothing else was asked: {outcome:?}"
             );
             assert_eq!(entries_since(path, before), "", "the amend rolled back");
         })
