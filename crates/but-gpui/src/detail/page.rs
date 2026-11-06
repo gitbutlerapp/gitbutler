@@ -258,7 +258,10 @@ impl Place {
 }
 
 /// One of a page's tabs, each showing in place of the others.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+// As a `but://open` link names the tab (`tab=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
 pub(crate) enum PageTab {
     #[default]
     Changes,
@@ -362,6 +365,21 @@ pub(super) enum PageState {
     Overview(CheckoutState),
     /// Nothing selected, or a terminal, which is drawn over the detail and keeps its own state.
     Blank,
+}
+
+/// Whether the page `selection` shows has tabs past its changes, a pull request's and a brief's,
+/// as a `but://open` link can open it on.
+pub(crate) fn has_tabs(selection: &Selection) -> bool {
+    (PageState::of(Some(selection), ProjectTab::default()).review()).is_some()
+}
+
+/// Whether the page `selection` shows is its changes' diff, as a `but://open` link can open it at
+/// one of their files.
+pub(crate) fn shows_its_diff(selection: &Selection) -> bool {
+    matches!(
+        PageState::of(Some(selection), ProjectTab::default()),
+        PageState::Changes { .. } | PageState::Diff { .. }
+    )
 }
 
 impl PageState {

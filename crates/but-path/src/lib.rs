@@ -244,7 +244,7 @@ impl AppChannel {
         let url = link::OpenLink {
             path: possibly_project_dir.to_owned(),
             new_window,
-            at: None,
+            at: Vec::new(),
         }
         .to_url(*self, timestamp)?;
 
