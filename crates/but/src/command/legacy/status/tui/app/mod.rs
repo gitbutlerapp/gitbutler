@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
+    collections::BTreeSet,
     sync::{Arc, mpsc::Receiver},
     time::{Duration, Instant},
 };
@@ -46,8 +47,8 @@ use crate::{
 };
 
 use super::{
-    BackstackEntry, DETAILS_SIZE_ADJUSTMENT_PERCENTAGE, DetailsLayoutMessage, FilesMessage,
-    Message, ReloadCause, SelectAfterReload, TuiInputOutputChannel,
+    BackstackEntry, CollapseMessage, DETAILS_SIZE_ADJUSTMENT_PERCENTAGE, DetailsLayoutMessage,
+    FilesMessage, Message, ReloadCause, SelectAfterReload, TuiInputOutputChannel,
     backstack::{Backstack, RememberToUpdateBackstack},
     confirm::Confirm,
     copy_selection_picker::{self, CopySelectionItem},
@@ -671,6 +672,14 @@ impl App {
                     self.handle_files_toggle_files_for_selected_commit(ctx, messages)?
                 }
             },
+            Message::Collapse(collapse_message) => match collapse_message {
+                CollapseMessage::ToggleSelectedBranch => {
+                    self.handle_collapse_toggle_selected_branch(messages)
+                }
+                CollapseMessage::ToggleAllBranches => {
+                    self.handle_collapse_toggle_all_branches(messages)
+                }
+            },
             Message::Reload(select_after_reload, cause) => {
                 self.handle_reload(ctx, out, select_after_reload, cause)?
             }
@@ -1218,6 +1227,58 @@ impl App {
         }
     }
 
+    fn handle_collapse_toggle_selected_branch(&mut self, messages: &mut Vec<Message>) {
+        let Some(branch) = self.cursor.owning_branch_name(&self.status_lines) else {
+            return;
+        };
+        let collapsed_branches = &mut self.launch_options.collapsed_branches;
+        let select_after_reload = if collapsed_branches.remove(&branch) {
+            None
+        } else {
+            collapsed_branches.insert(branch.clone());
+            self.close_commit_file_list();
+            Some(SelectAfterReload::Branch(branch))
+        };
+        messages.push(Message::Reload(select_after_reload, ReloadCause::ViewOnly));
+    }
+
+    /// Expands everything if any shown branch is collapsed, otherwise collapses every shown
+    /// branch. Branches that are no longer shown, like those of an unapplied stack, are
+    /// ignored so a stale entry never swallows the press.
+    fn handle_collapse_toggle_all_branches(&mut self, messages: &mut Vec<Message>) {
+        let shown_branches: BTreeSet<String> = self
+            .status_lines
+            .iter()
+            .filter_map(|line| match line.data.cli_id().map(|id| &**id) {
+                Some(CliId::Branch(branch)) => Some(branch.name.clone()),
+                _ => None,
+            })
+            .collect();
+        let any_shown_collapsed = shown_branches
+            .iter()
+            .any(|branch| self.launch_options.collapsed_branches.contains(branch));
+        let select_after_reload = if !any_shown_collapsed {
+            self.launch_options.collapsed_branches = shown_branches;
+            self.close_commit_file_list();
+            self.cursor
+                .owning_branch_name(&self.status_lines)
+                .map(SelectAfterReload::Branch)
+        } else {
+            self.launch_options.collapsed_branches.clear();
+            None
+        };
+        messages.push(Message::Reload(select_after_reload, ReloadCause::ViewOnly));
+    }
+
+    /// A single commit's file list would be hidden along with its branch's commits, leaving
+    /// the cursor nowhere to go, so collapsing closes it.
+    fn close_commit_file_list(&mut self) {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(_) => self.close_file_list(),
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+    }
+
     fn handle_files_toggle_files_for_selected_commit(
         &mut self,
         ctx: &mut Context,
@@ -1535,8 +1596,37 @@ impl App {
             }
         }
 
-        let new_lines =
+        let mut new_lines =
             operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
+        // A commit about to be selected may sit in a collapsed branch, where it has no row, so
+        // that branch is expanded. Otherwise the cursor falls back elsewhere and anything that
+        // follows on the selection, like the inline commit message composer, is skipped.
+        let commit_to_reveal = match &select_after_reload {
+            Some(
+                SelectAfterReload::Commit(commit_id)
+                | SelectAfterReload::FirstFileInCommit(commit_id)
+                | SelectAfterReload::RewrittenCommit {
+                    new_commit: commit_id,
+                    ..
+                },
+            ) => Some(*commit_id),
+            _ => None,
+        };
+        if let Some(commit_id) = commit_to_reveal
+            && !self.launch_options.collapsed_branches.is_empty()
+            && Cursor::select_commit(commit_id, &new_lines).is_none()
+        {
+            let mut expanded_options = self.launch_options.clone();
+            expanded_options.collapsed_branches.clear();
+            let expanded_lines = operations::reload_legacy(ctx, out, self.flags, expanded_options)?;
+            if let Some(branch) = Cursor::select_commit(commit_id, &expanded_lines)
+                .and_then(|cursor| cursor.owning_branch_name(&expanded_lines))
+                && self.launch_options.collapsed_branches.remove(&branch)
+            {
+                new_lines =
+                    operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
+            }
+        }
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = match select_after_reload {

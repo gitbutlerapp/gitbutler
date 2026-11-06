@@ -415,6 +415,51 @@ impl Cursor {
         Some(Self(idx))
     }
 
+    /// The name of the branch the cursor is on, or that owns the commit or committed file it
+    /// is on.
+    ///
+    /// A commit belongs to the nearest branch above it in the same lane, which skips the
+    /// branches of worktree lanes drawn between a branch and its commits.
+    pub fn owning_branch_name(self, lines: &[StatusOutputLine]) -> Option<String> {
+        // Upstream commits' files carry their commit's ID, so both kinds count as committed.
+        fn is_committed_file(cli_id: &CliId) -> bool {
+            matches!(cli_id, CliId::CommittedFile { .. } | CliId::Commit { .. })
+        }
+        // Rows like the merge base have no owner, and walking up from them would find one.
+        let starts_on_owned_row = match &lines.get(self.0)?.data {
+            StatusOutputLineData::Branch { .. } | StatusOutputLineData::Commit { .. } => true,
+            StatusOutputLineData::File { cli_id } => is_committed_file(cli_id),
+            _ => false,
+        };
+        if !starts_on_owned_row {
+            return None;
+        }
+        let mut commit_lane: Option<&LaneId> = None;
+        for line in lines.get(..=self.0)?.iter().rev() {
+            match (&line.data, commit_lane) {
+                (StatusOutputLineData::Branch { cli_id, .. }, None) => {
+                    return match &**cli_id {
+                        CliId::Branch(branch) => Some(branch.name.clone()),
+                        _ => None,
+                    };
+                }
+                (StatusOutputLineData::Branch { cli_id, .. }, Some(lane)) => {
+                    if let CliId::Branch(branch) = &**cli_id
+                        && branch.lane == *lane
+                    {
+                        return Some(branch.name.clone());
+                    }
+                }
+                (StatusOutputLineData::Commit { lane, .. }, None) => {
+                    commit_lane = Some(lane);
+                }
+                (StatusOutputLineData::File { cli_id }, None) if is_committed_file(cli_id) => {}
+                (data, None) if data.cli_id().is_some() => return None,
+                (_, _) => {}
+            }
+        }
+        None
+    }
     /// Select the first line that points to the given branch name.
     pub fn select_branch(branch_name: &str, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {

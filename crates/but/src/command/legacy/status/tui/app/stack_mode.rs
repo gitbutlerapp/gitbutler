@@ -218,7 +218,7 @@ fn stack_id_for_line(
         | StatusOutputLineData::StagedFile { cli_id }
         | StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::File { cli_id } => stack_id_for_cli_id(cli_id, status_lines),
-        StatusOutputLineData::Commit { stack_id, .. } => *stack_id,
+        StatusOutputLineData::Commit { lane, .. } => lane.stack_id(),
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
@@ -253,10 +253,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
     match cli_id {
         CliId::CommittedFile { .. } | CliId::Commit { .. } => {
             status_lines.iter().find_map(|line| match &line.data {
-                StatusOutputLineData::Commit {
-                    cli_id, stack_id, ..
-                } => match &**cli_id {
-                    CliId::Commit { commit, id: _ } if commit_matches(commit) => *stack_id,
+                StatusOutputLineData::Commit { cli_id, lane, .. } => match &**cli_id {
+                    CliId::Commit { commit, id: _ } if commit_matches(commit) => lane.stack_id(),
                     CliId::AnonymousSegment(..)
                     | CliId::UncommittedHunkOrFile(..)
                     | CliId::PathPrefix { .. }
@@ -702,17 +700,14 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
     let mut commit_stack_ids = HashMap::new();
 
     for line in lines {
-        if let StatusOutputLineData::Commit {
-            cli_id,
-            stack_id: Some(stack_id),
-            ..
-        } = &line.data
+        if let StatusOutputLineData::Commit { cli_id, lane, .. } = &line.data
+            && let Some(stack_id) = lane.stack_id()
             && let CliId::Commit {
                 commit: CommitId { commit_id, .. },
                 id: _,
             } = &**cli_id
         {
-            commit_stack_ids.insert(*commit_id, *stack_id);
+            commit_stack_ids.insert(*commit_id, stack_id);
         }
     }
 
@@ -724,9 +719,9 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 current_stack_id = stack_id;
                 stack_id
             }
-            StatusOutputLineData::Commit { stack_id, .. } => {
-                current_stack_id = *stack_id;
-                *stack_id
+            StatusOutputLineData::Commit { lane, .. } => {
+                current_stack_id = lane.stack_id();
+                current_stack_id
             }
             StatusOutputLineData::StagedChanges { cli_id } => {
                 let stack_id = stack_id_from_cli_id(cli_id.as_ref());

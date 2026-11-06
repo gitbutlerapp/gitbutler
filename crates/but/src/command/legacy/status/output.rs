@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use but_core::ref_metadata::StackId;
 use ratatui::text::Span;
 
 use crate::{
     CliId,
     command::legacy::status::{CommitClassification, render_oneshot},
+    id::LaneId,
     utils::WriteWithUtils,
 };
 
@@ -181,7 +181,7 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         line: CommitLineContent,
         id: CliId,
-        stack_id: Option<StackId>,
+        lane: LaneId,
         classification: CommitClassification,
     ) -> anyhow::Result<()> {
         self.push_line(
@@ -189,7 +189,7 @@ impl StatusOutput<'_> {
             StatusOutputContent::Commit(line),
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
-                stack_id,
+                lane,
                 classification,
             },
         )
@@ -428,7 +428,8 @@ pub enum StatusOutputLineData {
     },
     Commit {
         cli_id: Arc<CliId>,
-        stack_id: Option<StackId>,
+        /// The lane the commit is drawn in; a linked worktree's lane has no stack.
+        lane: LaneId,
         classification: CommitClassification,
     },
     CommitMessage,

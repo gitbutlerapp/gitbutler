@@ -20,6 +20,7 @@ use crate::{CliId, IdMap};
 mod branch_picker_tests;
 mod branch_tests;
 mod click_tests;
+mod collapse_tests;
 mod command_tests;
 mod commit_tests;
 mod copy_tests;

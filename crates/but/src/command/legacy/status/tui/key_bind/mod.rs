@@ -19,7 +19,8 @@ use crate::{
 };
 
 use super::{
-    CommandModeKind, CommitMessage, FilesMessage, MoveMessage, ReloadCause, mode::DetailsReturnMode,
+    CollapseMessage, CommandModeKind, CommitMessage, FilesMessage, MoveMessage, ReloadCause,
+    mode::DetailsReturnMode,
 };
 
 #[cfg(test)]
@@ -858,6 +859,24 @@ impl KeyBindsBuilder<'_> {
         .hide_from_hotbar()
     }
 
+    fn collapse_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind("collapse", press().code(KeyCode::Char('z')), || {
+            Message::Collapse(CollapseMessage::ToggleSelectedBranch)
+        })
+        .long_description("Collapse or expand the commits of the selected branch")
+        .hide_from_hotbar()
+    }
+
+    fn collapse_all_branches(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "collapse all",
+            press().shift().code(KeyCode::Char('Z')),
+            || Message::Collapse(CollapseMessage::ToggleAllBranches),
+        )
+        .long_description("Collapse or expand all branches")
+        .hide_from_hotbar()
+    }
+
     fn discard(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("discard", press().code(KeyCode::Char('x')), || {
             Message::Discard
@@ -1269,6 +1288,11 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
 
     builder.files().register();
     builder.all_files().register();
+
+    if without_marks {
+        builder.collapse_branch().register();
+        builder.collapse_all_branches().register();
+    }
 
     builder.discard().register();
 
