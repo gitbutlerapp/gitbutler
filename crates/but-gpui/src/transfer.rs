@@ -1438,6 +1438,7 @@ impl Transfer {
                     message: String::new(),
                     run_hooks: false,
                     leave_out: false,
+                    conflicts: backend::Conflicts::Reject,
                     restack: None,
                 };
                 store.commit(

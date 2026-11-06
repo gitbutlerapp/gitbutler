@@ -380,11 +380,12 @@ pub enum CommitTo {
 ///
 /// A change it can't take, as one building on another branch's commits, leaves the commit
 /// unmade, [`CommitOutcome::Blocked`] saying why, unless `leave_out`, as the user agreed to
-/// commit without such changes.
+/// commit without such changes. With `conflicts` kept, one that only builds on commits above
+/// where it goes is taken, leaving the commit conflicted.
 ///
-/// With `restack`, its branch is stacked first, in the same oplog entry, as [`Blocked::stack`]
-/// offers: only for a commit on top of that branch or a new branch beside one, and only if that
-/// stacks cleanly still.
+/// With `restack`, its branches are stacked first, in the same oplog entry, as
+/// [`Blocked::stack`] offers: only for a commit to one of the branches stacked or a new branch
+/// beside one, and only if that stacks cleanly still.
 #[derive(Clone)]
 pub struct CommitChanges {
     pub to: CommitTo,
@@ -393,6 +394,7 @@ pub struct CommitChanges {
     pub message: String,
     pub run_hooks: bool,
     pub leave_out: bool,
+    pub conflicts: Conflicts,
     pub restack: Option<Stacking>,
 }
 
@@ -806,22 +808,23 @@ impl Intent for CommitChanges {
             message,
             run_hooks,
             leave_out,
+            conflicts,
             restack,
         } = self;
         let worktree = checkout.linked();
         if let Some(stacking) = &restack {
             let goes_on_it = match &to {
                 CommitTo::NewBranchAt {
-                    beside: Some((branch, below)),
+                    beside: Some((branch, _)),
                     ..
-                } => !below && *branch == stacking.top,
-                CommitTo::Branch(branch) => *branch == stacking.top,
-                CommitTo::BelowCommit { .. } | CommitTo::NewBranchAt { beside: None, .. } => false,
+                }
+                | CommitTo::Branch(branch)
+                | CommitTo::BelowCommit { branch, .. } => stacking.branches.contains(branch),
+                CommitTo::NewBranchAt { beside: None, .. } => false,
             };
             if worktree.is_some() || !goes_on_it {
                 bail!(
-                    "Only {} or a new branch in the workspace goes on branches stacked for it",
-                    short_ref(&stacking.top)
+                    "Only a branch in the workspace that's stacked takes a commit stacked for it"
                 );
             }
         }
@@ -861,7 +864,9 @@ impl Intent for CommitChanges {
                 );
             }
             let tried = specs.clone();
-            let made = commit_locked(ctx, perm, to, specs, message, worktree, leave_out, restack);
+            let made = commit_locked(
+                ctx, perm, to, specs, message, worktree, leave_out, conflicts, restack,
+            );
             match made.map_err(|err| err.downcast::<Refused>()) {
                 Ok(made) => Ok(Ok(made)),
                 Err(Ok(refused)) => Ok(Err(blocked(
@@ -891,7 +896,8 @@ impl Intent for CommitChanges {
 
 /// Commit `specs` of the main checkout, or of the linked `worktree`, to `to`, under the lock,
 /// in one oplog entry, stacking first as `restack` says. Changes it can't take refuse it with
-/// [`Refused`], unless `leave_out`.
+/// [`Refused`], unless `leave_out`; those that don't merge where it goes it takes as
+/// `conflicts` says.
 #[expect(clippy::too_many_arguments)]
 fn commit_locked(
     ctx: &mut but_ctx::Context,
@@ -901,6 +907,7 @@ fn commit_locked(
     message: String,
     worktree: Option<&BStr>,
     leave_out: bool,
+    conflicts: Conflicts,
     restack: Option<Stacking>,
 ) -> Result<(FullName, Made, Rejected)> {
     let unborn = ctx.repo.get()?.head()?.is_unborn();
@@ -971,7 +978,7 @@ fn commit_locked(
                             first.then_some(0),
                         )?,
                     }
-                    commit_in(&mut tx, at, specs, message, source, leave_out)
+                    commit_in(&mut tx, at, specs, message, source, leave_out, conflicts)
                 },
             )?
         }
@@ -984,7 +991,7 @@ fn commit_locked(
             DryRun::No,
             |mut tx| {
                 stack_in(&mut tx, restack.as_ref())?;
-                commit_in(&mut tx, at, specs, message, source, leave_out)
+                commit_in(&mut tx, at, specs, message, source, leave_out, conflicts)
             },
         )?,
     };
@@ -1016,7 +1023,8 @@ fn stack_in<M: RefMetadata>(
 
 /// Commit `specs` in `tx` on top of `branch`, or right below its commit `below`. Changes it
 /// can't take roll it back, leaving no branch made for it behind, unless `leave_out`; the
-/// rollback says whether it would have taken the rest.
+/// rollback says whether it would have taken the rest. Those that don't merge there it takes as
+/// `conflicts` says.
 fn commit_in<M: RefMetadata>(
     tx: &mut Transaction<'_, '_, M>,
     (branch, below): (&FullName, Option<CommitId>),
@@ -1024,6 +1032,7 @@ fn commit_in<M: RefMetadata>(
     message: String,
     source: ChangeSource<'_>,
     leave_out: bool,
+    conflicts: Conflicts,
 ) -> Result<DynamicOutcome<(Made, Rejected), (Rejected, bool)>> {
     let relative_to = match below {
         Some(commit) => RelativeTo::Commit(commit.0),
@@ -1035,7 +1044,7 @@ fn commit_in<M: RefMetadata>(
         specs,
         message,
         source,
-        but_workspace::commit::Conflicts::Reject,
+        conflicts,
     )?;
     let rejected = made.rejected_specs;
     Ok(match made.new_commit {
@@ -2377,6 +2386,7 @@ pub(super) mod tests {
             message: message.into(),
             run_hooks,
             leave_out: false,
+            conflicts: Conflicts::Reject,
             restack: None,
         }
     }
@@ -4507,6 +4517,43 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
     }
 
     #[test]
+    fn a_commit_below_what_it_builds_on_in_another_stack_restacks_and_keeps_the_conflict() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_alpha_and_beta();
+            let path = dir.path();
+            let ws = crate::backend::load_workspace(path, crate::backend::Kept::default()).unwrap();
+            let locks = crate::backend::locks::read_locks(path, ws.lock_input()).unwrap();
+            let changes = vec![Selected::whole(&uncommitted(path)[0])];
+            let tip = git(path, &["rev-parse", "beta"]);
+            let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
+            let fit = locks.fit(&ws, &changes, ws.landing_into(beta).unwrap());
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+
+            let commit = CommitChanges {
+                to: CommitTo::BelowCommit {
+                    commit: beta,
+                    branch: full("refs/heads/beta"),
+                },
+                conflicts: Conflicts::Keep,
+                restack: fit.restack,
+                ..commit_to_main(changes, "Under", false)
+            };
+            crate::backend::apply(path, commit).unwrap().0.committed();
+            assert_eq!(
+                titles_on(path, "beta"),
+                "Beta, [conflict] Under, edit",
+                "under beta's commit, on alpha's, it lacks what it builds on in beta"
+            );
+            assert!(uncommitted(path).is_empty(), "it took the change");
+            assert_eq!(
+                entries_since(path, before),
+                "CreateCommit\n",
+                "stacking and committing are one undo step"
+            );
+        })
+    }
+
+    #[test]
     fn a_blocked_commit_goes_where_its_changes_build_on_or_without_them() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = an_edit_building_on_feature();
@@ -4707,6 +4754,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             message: message.into(),
             run_hooks: false,
             leave_out: false,
+            conflicts: Conflicts::Reject,
             restack: None,
         };
         crate::backend::apply(path, commit).unwrap().0.committed()
