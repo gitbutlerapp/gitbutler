@@ -2200,7 +2200,7 @@ impl AppView {
                 icon_button("close-home", Icon::Cross)
                     .small()
                     .tooltip_for("Close", &CloseTile)
-                    .on_click(move |_, _, cx| close(cx))
+                    .on_click(move |_, window, cx| close(window, cx))
             });
             let grab = self.grab_tile(Tile::Home, cx);
             let buttons = self.tile_buttons(&Tile::Home, cx).into_iter().chain(close);
@@ -2254,7 +2254,7 @@ impl AppView {
         // The detail draws the card under it; a terminal's edge is drawn over it here.
         let home = placed(home)
             .when_some(close_home, |el, close| {
-                el.on_action(move |_: &CloseTile, _, cx| close(cx))
+                el.on_action(move |_: &CloseTile, window, cx| close(window, cx))
             })
             .child(tile_content().child(page).children(home_bar))
             .children(self.tile_edge(&Tile::Home, window, theme, cx))
@@ -2470,14 +2470,17 @@ impl AppView {
         let bar_id = SharedString::from(format!("bar-{pinned:?}"));
         let id = SharedString::from(format!("close-{pinned:?}"));
         let close = {
-            let store = self.store.clone();
-            move |cx: &mut App| store.update(cx, |store, cx| store.close_tile(&pinned, cx))
+            let app = cx.weak_entity();
+            move |window: &mut Window, cx: &mut App| {
+                app.update(cx, |app, cx| app.close_pinned_tile(&pinned, window, cx))
+                    .ok();
+            }
         };
         let (on_key, on_click) = (close.clone(), close);
         let close = icon_button(id, Icon::Cross)
             .small()
             .tooltip_for("Close", &CloseTile)
-            .on_click(move |_, _, cx| on_click(cx));
+            .on_click(move |_, window, cx| on_click(window, cx));
         let buttons = tile_buttons.into_iter().chain(Some(close));
         let bar = tile_bar(kind, title, buttons, focus, grab, theme)
             .flex_none()
@@ -2507,7 +2510,7 @@ impl AppView {
                 // Over the home tile's detail, which spans the room under it, gaps and all.
                 .occlude()
                 .key_context("PinnedTile")
-                .on_action(move |_: &CloseTile, _, cx| on_key(cx))
+                .on_action(move |_: &CloseTile, window, cx| on_key(window, cx))
                 .child(tile_card(theme))
                 .child(
                     (tile_content().flex().flex_col())
@@ -3963,16 +3966,36 @@ impl AppView {
 
     /// Close the selected terminal, the home tile, while a terminal pinned beside it would take
     /// its place, as its shell exiting does.
-    fn close_home(&self, cx: &App) -> Option<impl Fn(&mut App) + Clone + 'static> {
+    fn close_home(
+        &self,
+        cx: &Context<AppView>,
+    ) -> Option<impl Fn(&mut Window, &mut App) + Clone + 'static> {
         let store = self.store.read(cx);
         if store.home_heirs(&[]).is_empty() {
             return None;
         }
-        let Some(Selection::Terminal(_, id)) = store.selection else {
+        let Some(Selection::Terminal(project, id)) = store.selection.clone() else {
             return None;
         };
-        let store = self.store.clone();
-        Some(move |cx: &mut App| store.update(cx, |store, cx| store.close_terminal(id, cx)))
+        let app = cx.weak_entity();
+        Some(move |window: &mut Window, cx: &mut App| {
+            let project = project.clone();
+            app.update(cx, |app, cx| app.close_terminal(project, id, window, cx))
+                .ok();
+        })
+    }
+
+    /// Close the tile showing `pinned`, as a terminal closing with it is closed any other way.
+    fn close_pinned_tile(
+        &mut self,
+        pinned: &RowKey,
+        window: &mut Window,
+        cx: &mut Context<AppView>,
+    ) {
+        match self.store.read(cx).terminal_closing_with(pinned) {
+            Some((project, id)) => self.close_terminal(project.clone(), id, window, cx),
+            None => (self.store).update(cx, |store, cx| store.close_tile(pinned, cx)),
+        }
     }
 
     /// The tile of the selected row's tiling that has the keys: a pinned one, else its home

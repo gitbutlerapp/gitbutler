@@ -662,15 +662,20 @@ impl AppView {
         }
     }
 
-    /// Close terminal `id` after asking, as what's running in it goes with it.
-    fn close_terminal(
+    /// Close terminal `id`, however the user closes it, after asking if Settings says to, as
+    /// what's running in it goes with it.
+    pub(crate) fn close_terminal(
         &mut self,
         project: ProjectId,
         id: TerminalId,
         window: &mut Window,
         cx: &mut Context<AppView>,
     ) {
-        let Some(title) = self.store.read(cx).terminals.title(id) else {
+        let store = self.store.read(cx);
+        if !store.prefs.confirm_terminal_close {
+            return (self.store).update(cx, |store, cx| store.close_terminal(id, cx));
+        }
+        let Some(title) = store.terminals.title(id) else {
             return;
         };
         let message = format!("Close terminal {}?", quoted(title));
