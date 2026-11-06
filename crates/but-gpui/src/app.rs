@@ -1347,13 +1347,17 @@ impl AppView {
 
     /// Have the keys go on `by` that move: past the panes of the tile with them to the next,
     /// left of the tiles to the navigator, and going round, through all of those. On either
-    /// tabs, ← and → go to the tab on that side first. Over what's open, while a tile's moved
-    /// with them, or with the detail hidden, where the navigator is the only pane, they stay.
+    /// tabs, ← and → go to the tab on that side first, and in the navigator, ⇧⌘J and ⇧⌘K go to
+    /// the project on that side. Over what's open or while a tile's moved with them they stay,
+    /// and with the detail hidden, where the navigator is the only pane, they stay in it.
     pub(crate) fn move_keys(&mut self, by: KeyMove, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() || self.arranging.is_some() || !self.detail_open {
+        if self.covered() || self.arranging.is_some() {
             return;
         }
         let from = self.place_with_keys(window, cx);
+        if self.step_project(&from, by, window, cx) || !self.detail_open {
+            return;
+        }
         if self.step_tabs(&from, by, window, cx) {
             return;
         }
@@ -1366,6 +1370,26 @@ impl AppView {
         {
             detail.update(cx, |detail, _| detail.left_pane(*pane));
         }
+    }
+
+    /// ⇧⌘J or ⇧⌘K in the navigator, whose projects stand over each other as tiles do: the
+    /// project on that side. Says whether `by` from `from` was that, there being one or not.
+    fn step_project(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let forward = match (from, by) {
+            (KeyPlace::Navigator, KeyMove::TileBeside(Side::Bottom)) => true,
+            (KeyPlace::Navigator, KeyMove::TileBeside(Side::Top)) => false,
+            _ => return false,
+        };
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.step_project(forward, window, cx)
+        });
+        true
     }
 
     /// ← or → on either tabs, in `from`: the tab on that side. Says whether there was one.

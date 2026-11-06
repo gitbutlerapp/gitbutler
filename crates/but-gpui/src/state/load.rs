@@ -902,6 +902,12 @@ impl Store {
             picks.follow(|commit| follow_by_key(old, &workspace, *commit));
             self.picked = picks;
         }
+        // The row a project was left on follows its commit too.
+        if let Some(Selection::Commit(_, commit)) = self.left_on.get(id)
+            && let Some(new) = follow_by_key(self.workspace(id), &workspace, *commit)
+        {
+            (self.left_on).insert(id.clone(), Selection::Commit(id.clone(), new));
+        }
         // What's being dragged follows too, so letting go still lands it.
         if let Some(mut dragged) = self.dragging.take_if(|dragged| dragged.project == *id) {
             match follow_dragged(&mut dragged.what, self.workspace(id), &workspace) {

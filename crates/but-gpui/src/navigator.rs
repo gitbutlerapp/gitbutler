@@ -1119,6 +1119,49 @@ impl Navigator {
         }
     }
 
+    /// Select the project after (`forward`) or before the one the selection's in, past what's
+    /// left of its card, as the keys go from tile to tile, at the row it was left on. Not while
+    /// something's being moved.
+    pub(crate) fn step_project(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        if store.moving.is_some() {
+            return;
+        }
+        let items = self.items();
+        let projects: Vec<&ProjectId> = (items.iter())
+            .filter_map(|item| match item {
+                Selection::Project(id) => Some(id),
+                _ => None,
+            })
+            .collect();
+        if projects.is_empty() {
+            return;
+        }
+        let at = (store.selection.as_ref())
+            .and_then(|s| projects.iter().position(|project| *project == s.project()));
+        let delta = if forward { 1 } else { -1 };
+        let Some(Step::Item(next)) = step_to(at, projects.len(), None, false, delta) else {
+            return;
+        };
+        let Some(next) = projects.get(next).map(|project| (*project).clone()) else {
+            return;
+        };
+        // Selecting a row holds its folds open, but a folded card stays folded. A project in the
+        // drawer has no rows, and the filter lists only what it finds.
+        let rows = !self.filtering(cx)
+            && !store.prefs.folded_projects.contains(next.as_ref())
+            && store.project(&next).is_some_and(|p| p.expanded);
+        let row = (store.left_on.get(&next))
+            .filter(|row| rows && store.still_there(row))
+            .cloned();
+        self.select(row.unwrap_or(Selection::Project(next)), window, cx);
+    }
+
     /// Whether `branch` shows its commits: as Settings start branches, unless folded or
     /// opened since.
     fn is_open(&self, branch: &ClickOpened) -> bool {

@@ -373,6 +373,8 @@ pub struct Store {
     pub projects: Vec<ProjectEntry>,
     pub projects_loaded: bool,
     pub selection: Option<Selection>,
+    /// The row selected last in each project the selection has left, to go back to.
+    pub left_on: HashMap<ProjectId, Selection>,
     /// Commits picked along with the selected one (⌘- or ⇧-click, ⇧-arrows) to squash or
     /// uncommit together: two or more, or none, all in the selected commit's project.
     pub picked: Picks<CommitId>,
@@ -592,6 +594,7 @@ impl Store {
             projects: Vec::new(),
             projects_loaded: false,
             selection: None,
+            left_on: HashMap::new(),
             picked: Picks::default(),
             followed: None,
             made: None,
@@ -1033,6 +1036,13 @@ impl Store {
                 .ok();
             })
             .detach();
+        }
+        if let Some(left) = &self.selection
+            && selection
+                .as_ref()
+                .is_none_or(|s| s.project() != left.project())
+        {
+            self.left_on.insert(left.project().clone(), left.clone());
         }
         self.selection = selection;
         self.show_terminals(cx);
