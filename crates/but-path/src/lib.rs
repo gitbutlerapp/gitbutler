@@ -223,30 +223,25 @@ impl AppChannel {
         }
     }
 
-    /// Open the GitButler GUI application for `possibly_project_dir`.
-    ///
-    /// This uses the deeplink URL scheme registered for the specific channel.
-    ///
-    /// Note: On Linux, we don't have a good way of distinguishing between channels in the installed
-    /// binaries, so we always just resolve `gitbutler-tauri`.
-    pub fn open(
-        &self,
-        possibly_project_dir: &std::path::Path,
-        new_window: bool,
-    ) -> anyhow::Result<()> {
+    /// The URL [`open`](Self::open) sends for `link`.
+    pub fn link_url(&self, link: &link::OpenLink) -> anyhow::Result<url::Url> {
         // Add a timestamp to avoid processing the same URL multiple times due to caching.
         // Read more https://github.com/gitbutlerapp/gitbutler/pull/11234#issuecomment-3533202481
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
+        link.to_url(*self, timestamp)
+    }
 
-        let url = link::OpenLink {
-            path: possibly_project_dir.to_owned(),
-            new_window,
-            at: Vec::new(),
-        }
-        .to_url(*self, timestamp)?;
+    /// Open the GitButler GUI application as `link` asks.
+    ///
+    /// This uses the deeplink URL scheme registered for the specific channel.
+    ///
+    /// Note: On Linux, we don't have a good way of distinguishing between channels in the installed
+    /// binaries, so we always just resolve `gitbutler-tauri`.
+    pub fn open(&self, link: &link::OpenLink) -> anyhow::Result<()> {
+        let url = self.link_url(link)?;
 
         let cleaned_vars: Vec<(&str, String)> = clean_env_vars(&[
             "APPDIR",

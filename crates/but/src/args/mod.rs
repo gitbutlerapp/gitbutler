@@ -708,17 +708,25 @@ pub enum Subcommands {
         path: Option<PathBuf>,
     },
 
-    /// Open files in the workspace using any defined program.
+    /// Open files or hunks in an editor, or with `--gui`, what a CLI ID names in the GitButler GUI.
     #[cfg(feature = "nightly")]
-    #[clap(hide = true, name = "_open")]
+    #[clap(hide = true, name = "_open", after_long_help = gui_places_help())]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     _Open {
-        /// One or more files or hunks to open.
+        /// What to open, by CLI ID from `but status` or `but diff`: one or more files or hunks, or
+        /// with `--gui`, one ID, or a link's parameters for a place with no ID. For more details
+        /// about CLI IDs, see `but help cli-ids`.
         #[clap(num_args = 1..)]
         sources: Vec<CliIdArg>,
         /// The program to use for opening.
-        #[clap(long, short = 'p')]
+        #[clap(long, short = 'p', conflicts_with = "gui")]
         program_id: Option<String>,
+        /// Open it in the GitButler GUI instead.
+        #[clap(long)]
+        gui: bool,
+        /// With `--gui`, print the link that opens it without opening it.
+        #[clap(long = "dry-run", requires = "gui")]
+        dry_run: bool,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -1150,6 +1158,29 @@ pub(crate) fn find_subcommand(args: &[std::ffi::OsString]) -> Option<(usize, &st
     None
 }
 
+/// Example invocations appended to a `but _open` parse error.
+#[cfg(all(feature = "legacy", feature = "nightly"))]
+const OPEN_ERROR_EXAMPLES: &str = "\
+Examples:
+  but _open <file-or-hunk>...            # open in an editor
+  but _open <id> --gui                   # open in the GitButler GUI
+  but _open <id> --gui --dry-run         # print the link instead
+  but _open to=project tab=graph --gui   # a place with no CLI ID, by its link's parameters
+";
+
+/// What `but _open --help` ends with: every place a link opens, from `but-gpui`'s `LINKS.md`,
+/// which its tests write from the app's own lists.
+#[cfg(feature = "nightly")]
+fn gui_places_help() -> String {
+    const LINKS: &str = include_str!("../../../but-gpui/LINKS.md");
+    // Past the note on how it's written, which is for the app's developers.
+    let places = (LINKS.split_once("-->")).map_or(LINKS, |(_, places)| places.trim_start());
+    format!(
+        "With --gui, a place with no CLI ID is given as its link's parameters, each its own \
+         argument, as but _open to=project tab=graph --gui.\n\n{places}"
+    )
+}
+
 /// Example invocations appended to a subcommand's parse error, for the
 /// commands whose grammar most often trips people up.
 pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
@@ -1161,6 +1192,8 @@ pub(crate) fn error_examples(subcommand: &str) -> Option<&'static str> {
             "diff" => diff::ERROR_EXAMPLES,
             "move" => r#move::ERROR_EXAMPLES,
             "squash" => squash::ERROR_EXAMPLES,
+            #[cfg(feature = "nightly")]
+            "_open" => OPEN_ERROR_EXAMPLES,
             _ => return None,
         })
     }
