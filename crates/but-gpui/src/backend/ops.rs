@@ -650,16 +650,19 @@ fn blocked(
                 None,
             ),
         };
-        let changes = explain_rejections(&repo, &ws, &rejected, into.as_ref().map(|n| n.as_ref()));
-        let builds_on = dependency_branch(&ws, &changes);
+        let into = into.as_ref().map(|name| name.as_ref());
+        let changes = explain_rejections(&repo, &ws, &rejected, into);
+        // Where else it could all go is told by the whole files left out, in part or whole.
+        let files = explain_rejections(&repo, &ws, &whole_files(&rejected, specs), into);
+        let builds_on = dependency_branch(&ws, &files);
         let stackings = match asked {
-            Asked::Commit(_) => stackings(&ws, &changes, &merged),
+            Asked::Commit(_) => stackings(&ws, &files, &merged),
             Asked::Amend(_) => Vec::new(),
         };
-        let restack = footing.and_then(|on| stacking_under(&ws, &changes, &merged, on));
+        let restack = footing.and_then(|on| stacking_under(&ws, &files, &merged, on));
         let merged = (builds_on.as_ref()).is_some_and(|branch| merged.contains(branch));
         let instead = match (asked, merged) {
-            (Asked::Amend(_), false) => topmost_built_on(&info, &changes),
+            (Asked::Amend(_), false) => topmost_built_on(&info, &files),
             (Asked::Amend(_) | Asked::Commit(_), _) => None,
         };
         let changes: Vec<_> = (changes.iter().enumerate())
@@ -734,6 +737,17 @@ fn blocked(
         with_conflicts,
         instead,
     }
+}
+
+/// The files of `specs` that `rejected` left out, in part or whole, as they were asked for, each
+/// for the reason it was.
+fn whole_files(rejected: &Rejected, specs: &[DiffSpec]) -> Rejected {
+    (rejected.iter())
+        .filter_map(|(reason, left_out)| {
+            let asked = specs.iter().find(|spec| spec.path == left_out.path)?;
+            Some((*reason, asked.clone()))
+        })
+        .collect()
 }
 
 /// The branch of `info` that has `commit`.
