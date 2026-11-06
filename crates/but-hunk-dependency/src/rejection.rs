@@ -325,7 +325,7 @@ fn dependencies_for_spec(
             || spec
                 .hunk_headers
                 .iter()
-                .any(|spec_hunk| hunks_overlap(spec_hunk, &hunk));
+                .any(|spec_hunk| spec_hunk.overlaps(hunk));
         if !overlaps {
             continue;
         }
@@ -409,15 +409,4 @@ fn branches_touching_path(
         }
     }
     branches
-}
-
-/// Whether two hunks touch the same lines on the new (worktree) side, which is
-/// the coordinate space both the spec hunk and the dependency hunk share.
-///
-/// Zero-length ranges (pure deletions) are treated as covering a single line so
-/// that they still match an overlapping hunk.
-fn hunks_overlap(a: &HunkHeader, b: &HunkHeader) -> bool {
-    let end_a = a.new_start.saturating_add(a.new_lines.max(1));
-    let end_b = b.new_start.saturating_add(b.new_lines.max(1));
-    a.new_start < end_b && b.new_start < end_a
 }
