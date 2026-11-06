@@ -1,7 +1,8 @@
 //! The `but://` links the GUI opens, written by `but gui` and read by the apps that open them.
 //!
 //! A link names its project by `path`. Where in it to open is the app's to spell and read, so
-//! this crate only carries it, as the parameters past the link's own.
+//! this crate only carries it, as the parameters past the link's own, but for [`Changes`], which
+//! the CLI names by its IDs and so writes as the app reads them.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -24,10 +25,56 @@ pub struct OpenLink {
 /// The link's own parameters, which [`OpenLink::parse`] keeps out of the place.
 const OWN: [&str; 3] = ["path", "t", "new_window"];
 
+/// Changes the CLI names by its IDs, as the app reads them.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Changes {
+    /// A branch's, by its full ref name, as `refs/heads/feature`.
+    Branch(String),
+    /// A commit's, by its full hash.
+    Commit(String),
+    /// A worktree's uncommitted ones: a linked worktree's by its name, the folder name under
+    /// `.git/worktrees/`, or else the main worktree's.
+    Uncommitted { worktree: Option<String> },
+}
+
+/// A file in changes, relative to the project, with `/`, at the hunk with a line of its new side
+/// if `line` names one.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FileAt {
+    pub path: String,
+    pub line: Option<u32>,
+}
+
+impl Changes {
+    /// The place these changes are, at `file` if it names one, as [`OpenLink::at`] takes it.
+    pub fn at(&self, file: Option<&FileAt>) -> Vec<(String, String)> {
+        let mut params = match self {
+            Changes::Branch(name) => vec![("to", "branch".into()), ("branch", name.clone())],
+            Changes::Commit(id) => vec![("to", "commit".into()), ("commit", id.clone())],
+            Changes::Uncommitted { worktree } => {
+                let mut params = vec![("to", "uncommitted".into())];
+                params.extend(worktree.clone().map(|name| ("worktree", name)));
+                params
+            }
+        };
+        if let Some(FileAt { path, line }) = file {
+            params.push(("file", path.clone()));
+            params.extend(line.map(|line| ("line", line.to_string())));
+        }
+        (params.into_iter())
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect()
+    }
+}
+
 impl OpenLink {
     /// The link as `channel`'s app takes it. `timestamp` makes each link differ from the last,
-    /// so the platform doesn't drop a repeat of one it just delivered.
+    /// so the platform doesn't drop a repeat of one it just delivered. A place can't name one of
+    /// the link's own parameters, which would stand in for the link's.
     pub fn to_url(&self, channel: AppChannel, timestamp: u128) -> anyhow::Result<url::Url> {
+        if let Some((key, _)) = (self.at.iter()).find(|(key, _)| OWN.contains(&key.as_str())) {
+            anyhow::bail!("`{key}` is the link's own parameter, not a place's");
+        }
         let mut url = url::Url::parse(&format!("{}://open", channel.scheme()))?;
         {
             let mut query = url.query_pairs_mut();
@@ -153,6 +200,21 @@ mod tests {
             }),
             "the app reads the place, and an older one opens the project at a place it doesn't know"
         );
+    }
+
+    #[test]
+    fn to_url_refuses_a_place_naming_the_links_own_parameters() {
+        for key in ["path", "t", "new_window"] {
+            let link = OpenLink {
+                path: "/repo".into(),
+                new_window: false,
+                at: at(&[("to", "project"), (key, "x")]),
+            };
+            assert!(
+                link.to_url(AppChannel::Release, 123).is_err(),
+                "`{key}` would stand in for the link's own, as opening another project"
+            );
+        }
     }
 
     #[test]

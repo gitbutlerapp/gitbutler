@@ -652,4 +652,54 @@ the project's on {project_pages}.
         // Written from the app's own lists, so a place added, renamed or dropped changes it.
         snapbox::assert_data_eq!(list_of_places(), snapbox::file!["../LINKS.md"].raw());
     }
+
+    /// What the CLI writes for the changes its IDs name reads as those changes, so `but _open
+    /// --gui` and the app agree. No wildcard: a new kind of changes doesn't build until it's read.
+    #[test]
+    fn the_changes_cli_ids_name_read_as_them() {
+        use but_path::link::{Changes, FileAt};
+
+        let file = FileAt {
+            path: "src/a.rs".into(),
+            line: Some(4),
+        };
+        for changes in [
+            Changes::Branch("refs/heads/feature".into()),
+            Changes::Commit(HASH.into()),
+            Changes::Uncommitted { worktree: None },
+            Changes::Uncommitted {
+                worktree: Some("feature".into()),
+            },
+        ] {
+            let selection = match &changes {
+                Changes::Branch(_) => Selection::Branch(project(), Some(feature())),
+                Changes::Commit(_) => Selection::Commit(project(), commit_id()),
+                Changes::Uncommitted { worktree } => Selection::Uncommitted(
+                    project(),
+                    (worktree.clone()).map_or(Checkout::Main, |name| Checkout::Linked(name.into())),
+                ),
+            };
+            assert_eq!(
+                read(&changes.at(None), &project()),
+                Some(Route::Select {
+                    selection: selection.clone(),
+                    tab: None,
+                    place: None,
+                }),
+                "{changes:?}"
+            );
+            assert_eq!(
+                read(&changes.at(Some(&file)), &project()),
+                Some(Route::Select {
+                    selection,
+                    tab: None,
+                    place: Some(CodePlace::File {
+                        path: "src/a.rs".into(),
+                        line: Some(4),
+                    }),
+                }),
+                "{changes:?} at a line of one of its files"
+            );
+        }
+    }
 }
