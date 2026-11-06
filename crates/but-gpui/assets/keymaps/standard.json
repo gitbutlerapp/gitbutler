@@ -4,9 +4,9 @@
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
 // tabs, ⌘B and ⌥⌘B to show and hide the navigator and the details, ⌘D and ⇧⌘D to split a tile,
-// ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go
-// to the tile on that side, ⇧⌘M and ⌥⌘M to move and swap one, and the keys the app's lists and
-// overlays need.
+// ⇧⌘T and ⌃⌘T to open a terminal beside it, ⌘] and ⌘[ to go between tiles (Ghostty's keys for
+// them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go to the tile on that side, ⇧⌘M and ⌥⌘M to move and
+// swap one, and the keys the app's lists and overlays need.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
 // binding added last wins, and the last binding for an action is the key menus and tooltips
@@ -96,16 +96,19 @@
       "ctrl-pageup": "diff::PreviousTab"
     }
   },
-  // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, and ⌘] and ⌘[ go to the
-  // next tile and the one before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, ⌥⌘↩ being
-  // amend's, ⇧⌘W closes it, ⌘W being the window's, ⇧⌘M moves it with the keys, ⌘M being the
-  // window's too, and ⌥⌘M swaps it with another. On macOS, where ⌘ leaves a terminal's Ctrl keys
-  // alone: elsewhere Ctrl+D and Ctrl+[ are a shell's.
+  // ⌘D divides the tile with the keys to the right and ⇧⌘D below it, ⇧⌘T and ⌃⌘T do so with a new
+  // terminal, without asking what to show there, and ⌘] and ⌘[ go to the next tile and the one
+  // before, as iTerm's and Ghostty's panes do. ⇧⌘↩ zooms it, ⌥⌘↩ being amend's, ⇧⌘W closes it,
+  // ⌘W being the window's, ⇧⌘M moves it with the keys, ⌘M being the window's too, and ⌥⌘M swaps
+  // it with another. On macOS, where ⌘ leaves a terminal's Ctrl keys alone: elsewhere Ctrl+D and
+  // Ctrl+[ are a shell's.
   {
     "os": ["macos"],
     "bindings": {
       "cmd-d": "tiling::SplitRight",
       "cmd-shift-d": "tiling::SplitBelow",
+      "cmd-shift-t": "tiling::NewTerminalRight",
+      "cmd-ctrl-t": "tiling::NewTerminalBelow",
       "cmd-]": "tiling::NextTile",
       "cmd-[": "tiling::PreviousTile",
       "cmd-shift-w": "tiling::CloseTile",
@@ -129,12 +132,15 @@
   },
   // On Linux, Ghostty's keys there: Ctrl+Shift+O and Ctrl+Shift+E split right and below, and
   // Ctrl+Super+] and Ctrl+Super+[ go to the next tile and the one before. A text field keeps
-  // Ctrl+Shift+E, which selects to its line's end.
+  // Ctrl+Shift+E, which selects to its line's end. Ctrl+Shift+T and Ctrl+Super+T open a
+  // terminal beside the tile, as ⇧⌘T and ⌃⌘T do on macOS.
   {
     "os": ["linux"],
     "bindings": {
       "ctrl-shift-o": "tiling::SplitRight",
       "ctrl-shift-e": "tiling::SplitBelow",
+      "ctrl-shift-t": "tiling::NewTerminalRight",
+      "ctrl-super-t": "tiling::NewTerminalBelow",
       "ctrl-super-]": "tiling::NextTile",
       "ctrl-super-[": "tiling::PreviousTile"
     }

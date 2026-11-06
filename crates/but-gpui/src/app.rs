@@ -126,6 +126,8 @@ actions!(
     [
         SplitRight,
         SplitBelow,
+        NewTerminalRight,
+        NewTerminalBelow,
         CloseTile,
         ZoomTile,
         EqualizeTiles,
@@ -497,6 +499,8 @@ impl AppView {
                     if !this.covered()
                         && let Some(focus) = this.tile_focus(&Tile::Pinned(pinned.clone()), cx)
                     {
+                        // Tiles draw in the detail, and the keys come back from what's not drawn.
+                        this.set_detail(true, window, cx);
                         window.focus(&focus, cx);
                     }
                 }
@@ -1305,6 +1309,13 @@ impl AppView {
             let checkout = store.checkout_of(&selection).unwrap_or(Checkout::Main);
             store.open_terminal(selection.project().clone(), checkout, cx);
         });
+    }
+
+    /// Open a terminal in a new tile beside the one with the keys, along `axis`, on the checkout
+    /// that tile shows, without asking what to show there as a split does.
+    fn new_terminal_beside(&mut self, axis: Axis, window: &mut Window, cx: &mut Context<Self>) {
+        let at = self.focused_tile(window, cx);
+        (self.store).update(cx, |store, cx| store.pin_terminal(at, axis, cx));
     }
 
     /// The terminal the detail's place shows, while one is selected.
@@ -4940,6 +4951,12 @@ impl Render for AppView {
             .on_action(
                 cx.listener(|this, _: &SplitBelow, window, cx| this.split(Axis::Down, window, cx)),
             )
+            .on_action(cx.listener(|this, _: &NewTerminalRight, window, cx| {
+                this.new_terminal_beside(Axis::Across, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalBelow, window, cx| {
+                this.new_terminal_beside(Axis::Down, window, cx)
+            }))
             .when(self.store.read(cx).tiling().is_some(), |el| {
                 el.on_action(
                     cx.listener(|this, _: &ZoomTile, window, cx| this.zoom_with_keys(window, cx)),
