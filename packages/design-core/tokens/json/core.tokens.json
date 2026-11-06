@@ -847,7 +847,7 @@
       "prose": {
         "$type": "dimension",
         "$value": {
-          "value": 540,
+          "value": 620,
           "unit": "px"
         },
         "$description": "The widest a column of reading text gets: headings, paragraphs, lists, quotes and code in rendered markdown. A comfortable line at Body/13.",
@@ -858,7 +858,7 @@
       "prose-wide": {
         "$type": "dimension",
         "$value": {
-          "value": 740,
+          "value": 820,
           "unit": "px"
         },
         "$description": "The widest rendered markdown gets: tables, images, galleries and video, centred on the size/prose column so they break out of it on both sides.",

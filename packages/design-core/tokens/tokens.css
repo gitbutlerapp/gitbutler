@@ -491,9 +491,9 @@
   /* Width of an xsmall modal: a one-line question and its buttons — "Discard 3 files?". */
   --size-modal-xs: 20rem;
   /* The widest a column of reading text gets: headings, paragraphs, lists, quotes and code in rendered markdown. A comfortable line at Body/13. */
-  --size-prose: 33.75rem;
+  --size-prose: 38.75rem;
   /* The widest rendered markdown gets: tables, images, galleries and video, centred on the size/prose column so they break out of it on both sides. */
-  --size-prose-wide: 46.25rem;
+  --size-prose-wide: 51.25rem;
   /* Height of a tag or badge. Points at size/control-sm, so a tag lines up with a small button in the same row. Tags and badges are not controls; an interactive element takes size/control-sm. */
   --size-tag: var(--size-control-sm);
   /* Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job. */
