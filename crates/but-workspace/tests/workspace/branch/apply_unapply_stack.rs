@@ -342,28 +342,65 @@ fn apply_of_the_target_changes_nothing() -> anyhow::Result<()> {
 }
 
 #[test]
-fn apply_refuses_an_overlapping_branch() -> anyhow::Result<()> {
+fn apply_adds_a_branch_overlapping_a_lane_as_its_own_lane() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) = two_stacks(Default::default())?;
-    git(&repo).args(["branch", "D", "A^"]).run();
-    let before = visualize_commit_graph_all(&repo)?;
+    git(&repo).args(["checkout", "-q", "-b", "D", "A^"]).run();
+    git(&repo)
+        .args(["commit", "-q", "--allow-empty", "-m", "add D"])
+        .run();
+    git(&repo)
+        .args(["checkout", "-q", "gitbutler/workspace"])
+        .run();
     let ws = workspace(&repo, &meta, &mut db)?;
 
-    let err =
-        apply_stack(r("refs/heads/D"), ws, &repo, &mut meta, &mut db).expect_err("D overlaps A");
+    let out = apply_stack(r("refs/heads/D"), ws, &repo, &mut meta, &mut db)?;
 
-    snapbox::assert_data_eq!(
-        err.to_string(),
-        snapbox::str!["Cannot apply 'D' as it overlaps with 'A'"]
-    );
-    assert!(
-        err.downcast_ref::<apply::OverlapErrorContext>().is_some(),
-        "callers can tell an overlap apart from other failures"
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "sharing a commit with A doesn't keep D out"
     );
     assert_eq!(
-        visualize_commit_graph_all(&repo)?,
-        before,
-        "the repository is unchanged"
+        out.applied_branches,
+        [r("refs/heads/D").to_owned()],
+        "only D is newly applied"
     );
+    // D becomes the last parent of the workspace commit, with the commit it shares with A unchanged.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+*-.   68be297 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/ /  
+| | * a9b8419 (D) add D
+| * | e16577c (B) add b
+* | | dcc139a (A) add A2
+| |/  
+|/|   
+* | a33af50 add A1
+|/  
+* 0dc3733 (origin/main, main) add M
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&out.workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 0dc3733
+├── ≡📙:A on 0dc3733 {1}
+│   └── 📙:A
+│       ├── ·dcc139a (🏘️)
+│       └── ·a33af50 (🏘️)
+├── ≡📙:B on 0dc3733 {2}
+│   └── 📙:B
+│       └── ·e16577c (🏘️)
+└── ≡📙:D on 0dc3733 {3}
+    └── 📙:D
+        ├── ·a9b8419 (🏘️)
+        └── ·a33af50 (🏘️)
+
+"#]]
+    );
+    assert_worktree_files(&repo, &["shared", "a", "b"], &[]);
     Ok(())
 }
 

@@ -102,8 +102,8 @@ pub fn workspace_recreate_with_perm(
             existing_stacks
         };
 
-        // Reapply the saved stacks in metadata order. If it fails due to conflict or overlap,
-        // remove the offending stack and try again.
+        // Reapply the saved stacks in metadata order. If it fails due to a conflict, remove the
+        // offending stack and try again.
         let mut stacks = previously_applied_stacks;
         let mut conflicting_stacks = Vec::new();
         loop {
@@ -122,13 +122,6 @@ pub fn workspace_recreate_with_perm(
                 .is_some()
             {
                 conflicting_stacks.push(stack.head);
-            } else if err
-                .downcast_ref::<but_workspace::branch::apply::OverlapErrorContext>()
-                .is_some()
-            {
-                // A stack that shares commits with another one is usually already in the
-                // workspace through it.
-                warn!("Not reapplying an overlapping stack: {err:#}");
             } else {
                 return Err(err);
             }
@@ -167,8 +160,7 @@ pub fn workspace_recreate_with_perm(
 /// tip first, to it.
 ///
 /// If a stack can't be applied, its index in `stacks` is returned with the error, which carries a
-/// [`but_rebase::merge::ConflictErrorContext`] if it conflicts with the stacks before it, and a
-/// [`but_workspace::branch::apply::OverlapErrorContext`] if it shares commits with them.
+/// [`but_rebase::merge::ConflictErrorContext`] if it conflicts with the stacks before it.
 fn switch_to_workspace_with_stacks<'ws, 'meta, M: RefMetadata>(
     editor: but_rebase::graph_rebase::Editor<'ws, 'meta, M>,
     stacks: &[NonEmpty<gix::refs::FullName>],

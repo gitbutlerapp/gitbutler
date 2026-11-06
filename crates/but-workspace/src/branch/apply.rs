@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use anyhow::{Context as _, bail};
 use but_core::{
     ObjectStorageExt, RefMetadata, RepositoryExt, ref_metadata,
@@ -50,24 +48,6 @@ impl std::fmt::Debug for ConflictingStack {
             .field("id", &self.id)
             .field("ref_name", &self.ref_name.to_string())
             .finish()
-    }
-}
-
-/// Attached to the error of [apply_stack()] if the branch shares commits with a stack of the
-/// workspace, so callers can tell it apart from other failures.
-#[derive(Debug, Clone)]
-pub struct OverlapErrorContext {
-    /// The branch that couldn't be applied.
-    pub branch: gix::refs::FullName,
-}
-
-impl std::fmt::Display for OverlapErrorContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "'{}' overlaps with a stack of the workspace",
-            self.branch.shorten()
-        )
     }
 }
 
@@ -218,9 +198,6 @@ impl LocalTracking {
 ///
 /// If there is no workspace commit, one is first created with `HEAD` as its parent.
 ///
-/// For each parent of the workspace commit P, `target..branch` must have no commits in common with
-/// `target..P`, or the error carries an [`OverlapErrorContext`].
-///
 /// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
 /// doesn't exist, it's created at the remote-tracking commit, and its tracking configuration is
 /// returned to be written after materializing.
@@ -248,12 +225,6 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
         bail_precondition!("Can only apply local or remote-tracking branches, got '{branch}'");
     };
     let branch = branch.as_ref();
-
-    let target = editor
-        .target_selector()
-        .map(|target| editor.find_commit_target(target))
-        .transpose()?
-        .map(|(_, target_commit)| target_commit.id);
 
     // If HEAD was not a parent of the workspace commit, it needs to be reported as applied. This
     // duplicates some of the work in ensure_workspace_commit/switch_to_workspace. Figure out if
@@ -293,52 +264,45 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
 
     // `branch_selector` needs to be Option because until we know that we are actually applying
     // something, we don't want to create one if it doesn't already exists.
-    let (branch_selector, branch_commit_selector, branch_commit_id) =
-        match editor.try_select_reference(branch) {
-            Some(branch_selector) => {
-                let (branch_commit_selector, branch_commit) =
-                    editor.find_commit_target(branch_selector)?;
-                (
-                    Some(branch_selector),
-                    branch_commit_selector,
-                    branch_commit.id,
-                )
-            }
-            None => {
-                let repo = editor.repo();
-                let branch_commit_id =
-                    match (repo.try_find_reference(branch)?, remote_tracking_branch) {
-                        (Some(mut reference), _) => reference.peel_to_commit()?.id,
-                        (None, Some(remote_tracking_branch)) => {
-                            tracking = Some(LocalTracking {
-                                local: branch.to_owned(),
-                                remote: remote_tracking_branch.to_owned(),
-                            });
-                            repo.find_reference(remote_tracking_branch)?
-                                .peel_to_commit()?
-                                .id
-                        }
-                        (None, None) => {
-                            bail!("Cannot apply non-existing branch '{}'", branch.shorten())
-                        }
-                    };
-                let branch_commit_selector = match editor.try_select_commit(branch_commit_id) {
-                    Some(branch_commit_selector) => branch_commit_selector,
-                    None => {
-                        // The branch is outside of the graph the editor knows, so keep its history as is.
-                        let mut pick = Pick::new_pick(branch_commit_id);
-                        pick.preserved_parents =
-                            Some(editor.find_commit(branch_commit_id)?.parents.to_vec());
-                        pick.mutable = false;
-                        editor.add_step(Step::Pick(pick))?
-                    }
-                };
-                // The reference is only added once the branch becomes a lane, so a local tracking
-                // branch isn't created for nothing.
-                (None, branch_commit_selector, branch_commit_id)
-            }
-        };
-    let commits_in_branch = commits_in(editor.repo(), branch_commit_id, target)?;
+    let (branch_selector, branch_commit_selector) = match editor.try_select_reference(branch) {
+        Some(branch_selector) => {
+            let (branch_commit_selector, _) = editor.find_commit_target(branch_selector)?;
+            (Some(branch_selector), branch_commit_selector)
+        }
+        None => {
+            let repo = editor.repo();
+            let branch_commit_id = match (repo.try_find_reference(branch)?, remote_tracking_branch)
+            {
+                (Some(mut reference), _) => reference.peel_to_commit()?.id,
+                (None, Some(remote_tracking_branch)) => {
+                    tracking = Some(LocalTracking {
+                        local: branch.to_owned(),
+                        remote: remote_tracking_branch.to_owned(),
+                    });
+                    repo.find_reference(remote_tracking_branch)?
+                        .peel_to_commit()?
+                        .id
+                }
+                (None, None) => {
+                    bail!("Cannot apply non-existing branch '{}'", branch.shorten())
+                }
+            };
+            let branch_commit_selector = match editor.try_select_commit(branch_commit_id) {
+                Some(branch_commit_selector) => branch_commit_selector,
+                None => {
+                    // The branch is outside of the graph the editor knows, so keep its history as is.
+                    let mut pick = Pick::new_pick(branch_commit_id);
+                    pick.preserved_parents =
+                        Some(editor.find_commit(branch_commit_id)?.parents.to_vec());
+                    pick.mutable = false;
+                    editor.add_step(Step::Pick(pick))?
+                }
+            };
+            // The reference is only added once the branch becomes a lane, so a local tracking
+            // branch isn't created for nothing.
+            (None, branch_commit_selector)
+        }
+    };
     let already_applied = Some(branch) == editor.target_ref()
         || 'already_applied: {
             for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
@@ -363,11 +327,10 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
         });
     }
 
-    // Check for empty branches and overlaps
+    // The target commit, or the target branch pointing at it, only stands in for the target
+    // in a workspace without lanes.
     let mut empty_parents = Vec::new();
     for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
-        // The target commit, or the target branch pointing at it, only stands in for the target
-        // in a workspace without lanes.
         let is_target = Some(parent_selector) == editor.target_selector()
             || matches!(
                 editor.lookup_step(parent_selector)?,
@@ -375,31 +338,6 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             );
         if is_target {
             empty_parents.push(parent_selector);
-            continue;
-        }
-        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
-        let overlap: Vec<gix::ObjectId> = commits_in_branch
-            .intersection(&commits_in(editor.repo(), parent_commit_id, target)?)
-            .copied()
-            .collect();
-        if !overlap.is_empty() {
-            let parent_label = match editor.lookup_step(parent_selector)? {
-                Step::Reference { refname, .. } => format!("'{}'", refname.shorten()),
-                Step::Pick(_) | Step::None => {
-                    let (_, commit) = editor.find_commit_target(parent_selector)?;
-                    commit.id.to_hex_with_len(7).to_string()
-                }
-            };
-            return Err(anyhow::Error::msg(OverlapErrorContext {
-                branch: branch.to_owned(),
-            })
-            .context(
-                but_error::Context::new(format!(
-                    "Cannot apply '{}' as it overlaps with {parent_label}",
-                    branch.shorten()
-                ))
-                .with_code(but_error::Code::PreconditionFailed),
-            ));
         }
     }
 
@@ -423,19 +361,6 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
         applied_branches,
         tracking,
     })
-}
-
-/// The commits reachable from `tip` but not from `target` (if specified).
-fn commits_in(
-    repo: &gix::Repository,
-    tip: gix::ObjectId,
-    target: Option<gix::ObjectId>,
-) -> anyhow::Result<BTreeSet<gix::ObjectId>> {
-    let mut revwalk = tip.attach(repo).ancestors();
-    if target.is_some() {
-        revwalk = revwalk.with_hidden(target);
-    }
-    revwalk.all()?.map(|info| Ok(info?.id)).collect()
 }
 
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
