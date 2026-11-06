@@ -1,5 +1,8 @@
 use anyhow::{Context as _, Result};
+use but_core::RepositoryExt as _;
 use gix::revwalk::{PriorityQueue, graph};
+
+use super::cherry_pick::peel_to_tree_or_empty;
 
 pub(crate) struct SharedHistory {
     commits: Vec<HistoryCommit>,
@@ -281,6 +284,69 @@ impl MergeTree {
         };
         Ok(groups.0[root].tree.take())
     }
+
+    #[cfg_attr(not(test), expect(dead_code, reason = "no caller asks yet"))]
+    pub(crate) fn conflicts_with(
+        &self,
+        repo: &gix::Repository,
+        tip: Tip,
+        options: &gix::merge::tree::Options,
+        conflicts: gix::merge::tree::TreatAsUnresolved,
+    ) -> Result<Vec<Tip>> {
+        let ours = peel_to_tree_or_empty(repo, Some(tip.id))?;
+        let mut conflicting = Vec::new();
+        for meeting in self.meetings(tip) {
+            let output = repo.merge_trees(
+                peel_to_tree_or_empty(repo, meeting.base)?,
+                ours,
+                peel_to_tree_or_empty(repo, Some(meeting.tip.id))?,
+                repo.default_merge_labels(),
+                options.clone(),
+            )?;
+            if output.has_unresolved_conflicts(conflicts) {
+                conflicting.push(meeting.tip);
+            }
+        }
+        Ok(conflicting)
+    }
+
+    fn meetings(&self, tip: Tip) -> Vec<Meeting> {
+        let MergeTree::Fork { base, branches } = self else {
+            return Vec::new();
+        };
+        let Some(own) = branches
+            .iter()
+            .position(|branch| branch.tips().contains(&tip))
+        else {
+            return Vec::new();
+        };
+        let mut meetings = branches[own].meetings(tip);
+        for (index, branch) in branches.iter().enumerate() {
+            if index != own {
+                meetings.extend(
+                    branch
+                        .tips()
+                        .into_iter()
+                        .map(|tip| Meeting { tip, base: *base }),
+                );
+            }
+        }
+        meetings.sort_by_key(|meeting| meeting.tip.position);
+        meetings
+    }
+
+    fn tips(&self) -> Vec<Tip> {
+        match self {
+            MergeTree::Tip(tip) => vec![*tip],
+            MergeTree::Fork { branches, .. } => branches.iter().flat_map(MergeTree::tips).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Meeting {
+    tip: Tip,
+    base: Option<gix::ObjectId>,
 }
 
 struct Group {
@@ -333,8 +399,9 @@ mod tests {
     use std::collections::BTreeMap;
 
     use anyhow::Result;
+    use but_core::RepositoryExt as _;
 
-    use super::{MergeTree, SharedHistory};
+    use super::{MergeTree, SharedHistory, Tip};
 
     struct Scenario {
         repo: gix::Repository,
@@ -416,6 +483,44 @@ mod tests {
             Ok(self.render(&tree))
         }
 
+        fn meetings(&self, tips: &[&str], position: usize) -> Result<String> {
+            let ids = self.ids(tips)?;
+            let tree = MergeTree::new(&self.repo, &ids)?.expect("tips were given");
+            let tip = Tip {
+                position,
+                id: ids[position],
+            };
+            Ok(tree
+                .meetings(tip)
+                .iter()
+                .map(|meeting| {
+                    format!(
+                        "{}:{}@{}",
+                        self.name(meeting.tip.id),
+                        meeting.tip.position,
+                        meeting.base.map_or("none", |base| self.name(base))
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" "))
+        }
+
+        fn conflicts_with(&self, tips: &[&str], position: usize) -> Result<String> {
+            let ids = self.ids(tips)?;
+            let tree = MergeTree::new(&self.repo, &ids)?.expect("tips were given");
+            let tip = Tip {
+                position,
+                id: ids[position],
+            };
+            let (options, conflicts) = self.repo.merge_options_fail_fast()?;
+            Ok(tree
+                .conflicts_with(&self.repo, tip, &options, conflicts)?
+                .iter()
+                .map(|tip| format!("{}:{}", self.name(tip.id), tip.position))
+                .collect::<Vec<_>>()
+                .join(" "))
+        }
+
         fn render(&self, tree: &MergeTree) -> String {
             match tree {
                 MergeTree::Tip(tip) => format!("{}:{}", self.name(tip.id), tip.position),
@@ -430,6 +535,54 @@ mod tests {
                 ),
             }
         }
+    }
+
+    #[test]
+    fn tips_meet_every_other_tip_at_their_shared_fork() -> Result<()> {
+        let nested = Scenario::open("nested")?;
+        // p3 meets p1 at c2, while p2 only joins them at c1.
+        snapbox::assert_data_eq!(
+            nested.meetings(&["p1", "p2", "p3"], 0)?,
+            snapbox::str!["p2:1@c1 p3:2@c2"]
+        );
+        snapbox::assert_data_eq!(
+            nested.meetings(&["p1", "p2", "p3"], 1)?,
+            snapbox::str!["p1:0@c1 p3:2@c1"]
+        );
+        // The same tip twice meets itself.
+        snapbox::assert_data_eq!(nested.meetings(&["p1", "p1"], 1)?, snapbox::str!["p1:0@p1"]);
+        // A single tip meets nothing.
+        snapbox::assert_data_eq!(nested.meetings(&["p1"], 0)?, snapbox::str![""]);
+        // Unrelated tips meet without a base.
+        snapbox::assert_data_eq!(
+            Scenario::open("unrelated")?.meetings(&["r1", "r2"], 0)?,
+            snapbox::str!["r2:1@none"]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tips_conflict_with_the_tips_they_cannot_merge_with_at_their_shared_fork() -> Result<()> {
+        let conflicting = Scenario::open("conflicting")?;
+        // p1 and p3 merge cleanly at c2, though at c1 they would conflict.
+        snapbox::assert_data_eq!(
+            conflicting.conflicts_with(&["p1", "p2", "p3"], 0)?,
+            snapbox::str!["p2:1"]
+        );
+        snapbox::assert_data_eq!(
+            conflicting.conflicts_with(&["p1", "p2", "p3"], 1)?,
+            snapbox::str!["p1:0 p3:2"]
+        );
+        snapbox::assert_data_eq!(
+            conflicting.conflicts_with(&["p1", "p2", "p3"], 2)?,
+            snapbox::str!["p2:1"]
+        );
+        // A tip never conflicts with itself.
+        snapbox::assert_data_eq!(
+            conflicting.conflicts_with(&["p1", "p1"], 0)?,
+            snapbox::str![""]
+        );
+        Ok(())
     }
 
     #[test]

@@ -473,7 +473,7 @@ fn merge_base(
     Ok(repo.merge_base(first, second)?.map(gix::Id::detach))
 }
 
-fn peel_to_tree_or_empty(
+pub(super) fn peel_to_tree_or_empty(
     repo: &'_ gix::Repository,
     id: Option<gix::ObjectId>,
 ) -> Result<gix::Id<'_>> {

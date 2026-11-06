@@ -50,6 +50,17 @@ git init reverted
   empty probe
 )
 
+git init conflicting
+(cd conflicting
+  commit aa c1
+  commit ba c2
+  commit ca p1
+  git checkout -q --detach c2
+  commit bb p3
+  git checkout -q --detach c1
+  commit da p2
+)
+
 git init five-leaves
 (cd five-leaves
   empty Z
