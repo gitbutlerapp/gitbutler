@@ -31,12 +31,11 @@ pub(super) fn linked(ctx: &Context, kept: &mut HashMap<BString, KeptWorktree>) -
             let checkout = opened(ctx, name.as_ref())?;
             let tree = head_tree(&checkout);
             // What Git is partway through is cheap to read, and changes without the files.
-            let (uncommitted, git_operation) = match kept.remove(&name) {
+            let ((uncommitted, tree), git_operation) = match kept.remove(&name) {
                 Some((files, read_against)) if read_against == tree => {
-                    (files, git_operation(&checkout))
+                    ((files, tree), git_operation(&checkout))
                 }
-                Some((files, _)) => read(&checkout, name.as_ref(), &files)?,
-                None => read(&checkout, name.as_ref(), &[])?,
+                previous => read(&checkout, name.as_ref(), previous.unwrap_or_default()),
             };
             Some(Worktree {
                 name,
@@ -80,32 +79,34 @@ pub fn reload_uncommitted(
         let Some(checkout) = opened(&ctx, worktree.name.as_ref()) else {
             return false;
         };
-        match read(&checkout, worktree.name.as_ref(), &worktree.uncommitted) {
-            Some((files, operation)) => {
-                worktree.uncommitted = files;
-                worktree.git_operation = operation;
-                worktree.tree = head_tree(&checkout);
-                true
-            }
-            None => false,
-        }
+        let previous = (std::mem::take(&mut worktree.uncommitted), worktree.tree);
+        let ((files, tree), operation) = read(&checkout, worktree.name.as_ref(), previous);
+        worktree.uncommitted = files;
+        worktree.tree = tree;
+        worktree.git_operation = operation;
+        true
     });
     tracing::debug!(elapsed = ?started.elapsed(), main, ?linked, "reloaded uncommitted files");
     Ok(shown)
 }
 
-/// The uncommitted files of worktree `name` and the Git command it's partway through, or
-/// nothing when it can't be read, as when an agent just removed it: the next full load lists
-/// the worktrees as they are.
+/// The uncommitted files of worktree `name` with the tree they were read against, and the Git
+/// command it's partway through. When they can't be read, as when a file goes while it's read,
+/// they stay as `previous` was read: only [`opened`] and the listing say a worktree is gone.
 fn read(
     checkout: &gix::Repository,
     name: &BStr,
-    previous: &[FileChange],
-) -> Option<(Vec<FileChange>, Option<&'static str>)> {
-    (worktree_files(checkout, previous))
-        .inspect_err(|err| tracing::warn!("couldn't read worktree {name}: {err:#}"))
-        .ok()
-        .map(|files| (files, git_operation(checkout)))
+    previous: KeptWorktree,
+) -> (KeptWorktree, Option<&'static str>) {
+    let tree = head_tree(checkout);
+    let kept = match worktree_files(checkout, &previous.0) {
+        Ok(files) => (files, tree),
+        Err(err) => {
+            tracing::warn!("couldn't read worktree {name}: {err:#}");
+            previous
+        }
+    };
+    (kept, git_operation(checkout))
 }
 
 /// Worktree `name`'s own repository, to read its checkout from, or nothing when it can't be
@@ -321,5 +322,41 @@ mod tests {
             "its own moves but its commit, from its log, which outlasts its folder"
         );
         assert!(said(i64::MAX).is_empty(), "and none from before `since`");
+    }
+
+    #[test]
+    fn a_linked_worktree_that_cant_be_read_keeps_its_files() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let (_outside, linked) = agent_worktree(path);
+            std::fs::write(linked.join("file"), "two\n").unwrap();
+            let shown = crate::backend::Workspace {
+                worktrees: vec![crate::backend::Worktree {
+                    name: "agent".into(),
+                    path: linked,
+                    branch: None,
+                    uncommitted: Vec::new(),
+                    git_operation: None,
+                    tree: None,
+                    updated_at: None,
+                }],
+                ..Default::default()
+            };
+            let agent = std::collections::HashSet::from(["agent".into()]);
+            let reload = |shown| super::reload_uncommitted(path, shown, false, &agent).unwrap();
+            let shown = reload(shown);
+            std::fs::write(path.join(".git/worktrees/agent/index"), "garbage").unwrap();
+
+            let shown = reload(shown);
+            let files: Vec<_> = (shown.worktrees.iter())
+                .flat_map(|worktree| worktree.uncommitted.iter().map(|file| file.path.as_str()))
+                .collect();
+            assert_eq!(
+                files,
+                ["file"],
+                "a read that fails keeps the worktree and its files, and so its terminals"
+            );
+        });
     }
 }
