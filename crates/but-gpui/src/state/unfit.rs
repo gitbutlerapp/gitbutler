@@ -7,7 +7,7 @@ use anyhow::Result;
 use gpui::Context;
 
 use super::{ProjectId, Store, StoreEvent};
-use crate::backend::locks::{Fit, Landing};
+use crate::backend::locks::{Fit, Footing};
 use crate::backend::{Checkout, CommitId, Conflicts, Selected, Stacking, Workspace};
 
 /// Where locked changes land.
@@ -40,18 +40,18 @@ pub struct Held {
 }
 
 impl Store {
-    /// How `worktree`'s `files` landing in `project` where `landing` says sit with what they
+    /// How `worktree`'s `files` put on the `footing` it reads of `project` sit with what they
     /// build on, if they're the main checkout's, whose locks are read.
-    pub fn landing_fit(
+    pub fn lock_fit(
         &self,
         project: &ProjectId,
         worktree: &Checkout,
         files: &[Selected],
-        landing: impl FnOnce(&Workspace) -> Option<Landing>,
+        footing: impl FnOnce(&Workspace) -> Option<Footing>,
     ) -> Option<Fit> {
         let locks = self.locks.get(project).filter(|_| !worktree.is_linked())?;
         let workspace = self.workspace(project)?;
-        Some(locks.fit(workspace, files, landing(workspace)?))
+        Some(locks.fit(workspace, files, footing(workspace)?))
     }
 
     /// Hold `held` back for the window to ask about.

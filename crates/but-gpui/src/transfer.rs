@@ -756,7 +756,7 @@ impl Move {
             return None;
         };
         let to = self.commit_to(store)?;
-        store.landing_fit(&self.project, worktree, files, |ws| ws.landing(&to))
+        store.lock_fit(&self.project, worktree, files, |ws| ws.footing(&to))
     }
 
     /// [`Self::commit_to`] in `workspace`.
@@ -1148,8 +1148,8 @@ impl Transfer {
                 (None, Selection::Commit(_, into)) if !conflicted(*into) => {
                     let fit = (store.locks.get(project))
                         .filter(|_| !worktree.is_linked())
-                        .zip(workspace.landing_into(*into))
-                        .map(|(locks, landing)| locks.fit(workspace, files, landing));
+                        .zip(workspace.footing_into(*into))
+                        .map(|(locks, footing)| locks.fit(workspace, files, footing));
                     let (restack, conflicts) = fit
                         .map_or((None, backend::Conflicts::Reject), |fit| {
                             (fit.restack, fit.conflicts)

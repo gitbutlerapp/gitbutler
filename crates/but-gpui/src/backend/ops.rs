@@ -4497,7 +4497,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let changes = vec![Selected::whole(&uncommitted(path)[0])];
             let tip = git(path, &["rev-parse", "beta"]);
             let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
-            let fit = locks.fit(&ws, &changes, ws.landing_into(beta).unwrap());
+            let fit = locks.fit(&ws, &changes, ws.footing_into(beta).unwrap());
             assert_eq!(
                 fit.conflicts,
                 Conflicts::Reject,
@@ -4545,7 +4545,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let changes = vec![Selected::whole(&uncommitted(path)[0])];
             let tip = git(path, &["rev-parse", "beta"]);
             let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
-            let fit = locks.fit(&ws, &changes, ws.landing_into(beta).unwrap());
+            let fit = locks.fit(&ws, &changes, ws.footing_into(beta).unwrap());
             let before = crate::backend::history::oplog_head(&open(path).unwrap());
 
             let commit = CommitChanges {

@@ -55,26 +55,26 @@ impl Locks {
     }
 }
 
-/// Where changes land in the workspace's history: in the lane at `lane`, on top of its commit
-/// `on`, or at its bottom with `None`; with no lane, in a new stack of their own.
+/// What changes amended or committed sit on in the workspace's history: in the lane at `lane`,
+/// its commit `on`, or its bottom with `None`; with no lane, a new stack of their own.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Landing {
+pub struct Footing {
     lane: Option<usize>,
     pub on: Option<CommitId>,
 }
 
 impl Workspace {
-    /// Where amending changes into commit `into` lands them.
-    pub fn landing_into(&self, into: CommitId) -> Option<Landing> {
+    /// What amending changes into commit `into` puts them on.
+    pub fn footing_into(&self, into: CommitId) -> Option<Footing> {
         let lane = (self.lanes.iter()).position(|lane| lane_has(lane, into))?;
-        Some(Landing {
+        Some(Footing {
             lane: Some(lane),
             on: Some(into),
         })
     }
 
-    /// Where committing changes to `to` lands them.
-    pub fn landing(&self, to: &CommitTo) -> Option<Landing> {
+    /// What committing changes to `to` puts them on.
+    pub fn footing(&self, to: &CommitTo) -> Option<Footing> {
         let (lane, from) = match to {
             CommitTo::Branch(branch) => self.branch_at(branch)?,
             CommitTo::NewBranchAt {
@@ -85,7 +85,7 @@ impl Workspace {
                 (lane, at + usize::from(*below))
             }
             CommitTo::NewBranchAt { beside: None, .. } => {
-                return Some(Landing {
+                return Some(Footing {
                     lane: None,
                     on: None,
                 });
@@ -95,13 +95,13 @@ impl Workspace {
                 let mut below = lane_commits(self.lanes.get(lane)?, 0)
                     .skip_while(|id| id != commit)
                     .skip(1);
-                return Some(Landing {
+                return Some(Footing {
                     lane: Some(lane),
                     on: below.next(),
                 });
             }
         };
-        Some(Landing {
+        Some(Footing {
             lane: Some(lane),
             on: lane_commits(self.lanes.get(lane)?, from).next(),
         })
@@ -127,11 +127,11 @@ fn lane_commits(lane: &Lane, from: usize) -> impl Iterator<Item = CommitId> {
         .map(|c| c.id)
 }
 
-/// How landing changes somewhere sits with the commits they build on.
+/// How putting changes on a footing sits with the commits they build on.
 #[derive(Debug, PartialEq)]
 pub struct Fit {
     /// The stacking that puts every other stack they build on below the one they land in, if
-    /// one has to go there: the first stays, the rest go on it whole, the landing's own last.
+    /// one has to go there: the first stays, the rest go on it whole, the footing's own last.
     pub restack: Option<Stacking>,
     /// Whether what doesn't merge where they land is kept, leaving the commit they land in
     /// conflicted, as one they build on is above it in its own lane, or in a stack that can't
@@ -147,28 +147,28 @@ impl Fit {
 }
 
 impl Locks {
-    /// How landing the main checkout's `files` at `landing` in `workspace` sits with what they
+    /// How putting the main checkout's `files` on `footing` in `workspace` sits with what they
     /// build on. A commit the workspace doesn't have, as locks read before a rewrite name,
     /// holds nothing back. Other lanes that can't be stacked, as a linked worktree's or below
     /// a new stack, leave it conflicted.
-    pub fn fit(&self, workspace: &Workspace, files: &[Selected], landing: Landing) -> Fit {
+    pub fn fit(&self, workspace: &Workspace, files: &[Selected], footing: Footing) -> Fit {
         let lane_of = |id| (workspace.lanes.iter()).position(|lane| lane_has(lane, id));
-        let own = landing.lane.and_then(|ix| workspace.lanes.get(ix));
+        let own = footing.lane.and_then(|ix| workspace.lanes.get(ix));
         let under: Vec<CommitId> = (own.into_iter())
             .flat_map(|lane| lane_commits(lane, 0))
-            .skip_while(|id| Some(*id) != landing.on)
+            .skip_while(|id| Some(*id) != footing.on)
             .collect();
         let mut conflicts = false;
         let mut below = Vec::new();
         for base in files.iter().flat_map(|file| self.of(file)) {
             match lane_of(base) {
-                Some(lane) if Some(lane) == landing.lane => conflicts |= !under.contains(&base),
+                Some(lane) if Some(lane) == footing.lane => conflicts |= !under.contains(&base),
                 Some(lane) if !below.contains(&lane) => below.push(lane),
                 Some(_) | None => {}
             }
         }
         below.sort_unstable();
-        let restack = match (landing.lane, below.is_empty()) {
+        let restack = match (footing.lane, below.is_empty()) {
             (Some(own), false) => {
                 stacking((below.iter().chain([&own])).filter_map(|ix| workspace.lanes.get(*ix)))
             }
@@ -294,8 +294,8 @@ mod tests {
             .into(),
         );
         let fit = |name: &str, into| {
-            let landing = ws.landing_into(id(into)).unwrap();
-            let fit = locks.fit(&ws, &[Selected::whole(&file(name))], landing);
+            let footing = ws.footing_into(id(into)).unwrap();
+            let fit = locks.fit(&ws, &[Selected::whole(&file(name))], footing);
             let restack = fit.restack.map(|stacking| {
                 let names = |refs: &[crate::backend::FullName]| {
                     refs.iter()
@@ -369,7 +369,7 @@ mod tests {
         let files = [Selected::whole(&crate::backend::FileChange::bare("file"))];
         let ui = FullName::try_from("refs/heads/ui").unwrap();
         let fit = |to: CommitTo| {
-            let fit = locks.fit(&ws, &files, ws.landing(&to).unwrap());
+            let fit = locks.fit(&ws, &files, ws.footing(&to).unwrap());
             (fit.restack.is_some(), fit.conflicts == Conflicts::Keep)
         };
         let below = |n| CommitTo::BelowCommit {

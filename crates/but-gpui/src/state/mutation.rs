@@ -355,8 +355,8 @@ impl Store {
     ) {
         let committed = std::rc::Rc::new(committed);
         let label = label.into();
-        let fit = self.landing_fit(project, &commit.checkout, &commit.changes, |ws| {
-            ws.landing(&commit.to)
+        let fit = self.lock_fit(project, &commit.checkout, &commit.changes, |ws| {
+            ws.footing(&commit.to)
         });
         let Some(fit) = fit.filter(|fit| fit.asks()) else {
             return self.commit_with(project, label, overlay, commit, committed, cx);
@@ -1402,8 +1402,8 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let into = amend.into;
-        let fit = self.landing_fit(project, &amend.checkout, &amend.changes, |ws| {
-            ws.landing_into(into)
+        let fit = self.lock_fit(project, &amend.checkout, &amend.changes, |ws| {
+            ws.footing_into(into)
         });
         let Some(fit) = fit.filter(|fit| fit.asks()) else {
             return self.amend_with(project, amend, then, cx);
