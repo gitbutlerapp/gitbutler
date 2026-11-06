@@ -13,14 +13,7 @@ const meta = stories({
 	title: "Content & status/Steps",
 	id: "components-steps",
 	component: Steps,
-	parameters: figma("4686-216442"),
-	decorators: [
-		(Story) => (
-			<div style={{ maxWidth: 386 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { ...figma("4686-216442"), width: 386 },
 });
 
 const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);

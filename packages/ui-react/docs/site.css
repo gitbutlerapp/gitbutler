@@ -137,15 +137,20 @@ body[data-layout="centered"] {
 	padding: var(--gap-stack);
 }
 
+/* The scrollbar's gutter is kept on a page too short to scroll, so the column doesn't shift. */
 .docs-site-main {
 	height: 100%;
 	overflow: auto;
 	background-color: var(--bg-1);
+	scrollbar-gutter: stable;
 }
 
-/* The design notes: Markdown, drawn as any app draws it. */
-.docs-site-prose {
-	max-width: 760px;
+/* Every page is laid out as rendered markdown is: a column as wide as its media, with the text kept
+   to the prose line centred in it, so the text starts at the same edge from page to page. The
+   design notes are Markdown itself, drawn as any app draws it. */
+.docs-site-prose,
+.docs-page {
+	max-width: calc(var(--size-prose-wide) + 64px);
 	margin: 0 auto;
 	padding: 48px 32px 64px;
 }
@@ -162,9 +167,6 @@ body[data-layout="centered"] {
 .docs-page {
 	display: flex;
 	flex-direction: column;
-	max-width: 760px;
-	margin: 0 auto;
-	padding: 48px 32px 64px;
 	gap: 40px;
 	color: var(--text-1);
 	font-family: var(--fontfamily-base);
@@ -178,19 +180,19 @@ body[data-layout="centered"] {
 	border-bottom: 1px solid var(--border-3);
 }
 
-/* The page's one title, above the 11–16 scale the components keep to. */
-.docs-page-title {
-	margin: 0;
-	font-weight: var(--font-weight-semibold);
-	font-size: 1.5rem;
-	line-height: var(--font-line-height-default);
-}
-
+/* The title, a story's name and the text are set as the design notes' Markdown sets them, on its
+   prose line; the stories' cards take the column's full width, as its media does. */
+.docs-page-title,
 .docs-page-prose {
 	margin: 0;
-	color: var(--text-2);
-	font-size: 0.875rem;
-	line-height: var(--font-line-height-body);
+}
+
+.docs-page-header,
+.docs-page-example > :is(.docs-page-example-title, .docs-page-prose) {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--size-prose);
+	margin: 0 auto;
 }
 
 .docs-page-example {
@@ -204,23 +206,25 @@ body[data-layout="centered"] {
 	}
 }
 
-.docs-page-example-title {
-	margin: 0;
-	font-weight: var(--font-weight-semibold);
-	font-size: 1rem;
-	line-height: var(--font-line-height-default);
-}
-
 /* The ground an example stands on: tinted, with no border, so a component that draws its own card
    isn't framed by a second one that looks the same. Muted, not bg/2: bg/2 is the components' own
    inset (a code chip, a segmented control's track), which would vanish on it. In the dark, muted is
    ten steps above the page and shouts, so the ground takes a third of the way there: still apart
    from a bg/1 card and from bg/2 below it. */
 .docs-page-canvas {
+	align-self: center;
+	width: 100%;
 	padding: 24px;
 	overflow: auto;
 	border-radius: var(--radius-card);
 	background-color: light-dark(var(--bg-mute), color-mix(in srgb, var(--bg-1) 65%, var(--bg-mute)));
+
+	/* As in rendered markdown, a component reads with the text: its ground keeps to the prose line,
+	   with the story at its start, on the same edge as the words above it. A wide story, as a table
+	   or a diff, breaks out to the column's full width on both sides, as markdown's media does. */
+	&:not([data-layout="wide"]) {
+		max-width: var(--size-prose);
+	}
 }
 
 /* A bar the width of a window, edge to edge in its card: the card's border is the bar's. The card

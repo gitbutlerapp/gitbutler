@@ -83,7 +83,7 @@ export const Toasts: FC = () => {
 												// Default is `p` which restricts content elements.
 												<div />
 											}
-											className={classes(styles.description, "text-13", "text-body")}
+											className={classes(styles.description, "text-prose")}
 										/>
 									</div>
 									{toast.actionProps && (

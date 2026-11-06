@@ -9,14 +9,8 @@ const meta = stories({
 	component: SkeletonBone,
 	parameters: {
 		design: { type: "figma", url: `${FIGMA}?node-id=3621-1525` },
+		width: 320,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 320, padding: 24 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 /** A line of `text-13` that is still loading. */

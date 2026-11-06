@@ -22,6 +22,7 @@ export const AllIllustrations = meta.story({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2124-1502",
 		},
+		layout: "wide",
 	},
 	render: () => (
 		<div

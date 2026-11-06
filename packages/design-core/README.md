@@ -114,6 +114,7 @@ Text classes are scoped to `@layer text`. The layer also sets three font-family 
 | `.text-h1`          | 20px (1.25rem), semibold, 130% — markdown heading  |
 | `.text-h2`          | 18px (1.125rem), semibold, 130% — markdown heading |
 | `.text-h3`          | 16px (1rem), semibold, 130% — markdown heading     |
+| `.text-prose`       | 14px (0.875rem), regular, 160% — reading text      |
 
 **Modifier classes** are designed to be composed on top of a size class:
 

@@ -13,7 +13,7 @@ const meta = stories({
 	title: "Content & status/Banner",
 	id: "components-banner",
 	component: Banner,
-	parameters: figma("2763-6872"),
+	parameters: { ...figma("2763-6872"), width: 360 },
 	args: {
 		variant: "warn",
 		title: "Live updates paused · may be out of date",
@@ -23,13 +23,6 @@ const meta = stories({
 			</Button>
 		),
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 360 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 /** The banner as the design states it: a glyph, a title, and the fix. */

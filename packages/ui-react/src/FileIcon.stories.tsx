@@ -29,6 +29,7 @@ export const Default = meta.story({});
 
 /** Every icon a file name can reach, under the icon's name in ⚛️ Core. */
 export const AllIcons = meta.story({
+	parameters: { layout: "wide" },
 	render: () => (
 		<div
 			className="text-11"

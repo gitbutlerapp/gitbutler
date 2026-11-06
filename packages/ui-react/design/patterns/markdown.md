@@ -12,15 +12,22 @@ below, collapsing into the next block's margin. Margins collapse, so a box next
 to a paragraph gets 16, not 28.
 
 **Text reads narrow; media spreads wide.** Headings, paragraphs, lists, quotes
-and code keep to `--size-prose` (540px), a comfortable line. Tables, images,
-galleries and video take `--size-prose-wide` (740px), centred on the same axis,
+and code keep to `--size-prose` (620px), a comfortable line. Tables, images,
+galleries and video take `--size-prose-wide` (820px), centred on the same axis,
 so they break out of the text on both sides.
 
-**Type.** Body/13 on a 160% line. H1 is 20, H2 18, H3 16, all semibold on a
-130% line so a wrapped heading reads as one: design-core's `text-h1`,
-`text-h2` and `text-h3`, Figma's Markdown/H1–H3. Levels four to six stay at body
-size, semibold only; Figma has no component for them, and a description that
-needs a fourth level needs fewer levels.
+**Type.** Text is 14 on a 160% line: design-core's `text-prose`, Figma's
+Markdown/Prose. H1 is 20, H2 18, H3 16, all semibold on a 130% line so a
+wrapped heading reads as one: `text-h1`, `text-h2` and `text-h3`, Figma's
+Markdown/H1–H3. A table stays at 13, as every `Table` is: its cells are rows,
+not sentences. Levels four to six stay at body size, semibold only; Figma has
+no component for them, and a description that needs a fourth level needs fewer
+levels.
+
+**Any reading text takes the same style.** A description in a modal, an empty
+state or a toast, a component's notes in these docs: if it is sentences, it is
+`text-prose`, not a size paired with `text-body`. Labels, rows and other single
+lines keep their size class on the default line.
 
 **Every link leaves the app, and the arrow says so.** Each is a `TextLink` (see
 [Links](../components/links.md)), ending in the arrow hung off the text without

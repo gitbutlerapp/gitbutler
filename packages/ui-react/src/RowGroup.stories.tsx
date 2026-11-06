@@ -18,14 +18,7 @@ const meta = stories({
 	title: "Content & status/RowGroup",
 	id: "components-rowgroup",
 	component: RowGroup,
-	parameters: figma("4732-1025"),
-	decorators: [
-		(Story) => (
-			<div style={{ maxWidth: 386 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { ...figma("4732-1025"), width: 386 },
 });
 
 export const Default = meta.story({

@@ -26,7 +26,7 @@ const meta = stories({
 	title: "Sidebar/SidebarRow",
 	id: "components-sidebarrow",
 	component: BranchItem,
-	parameters: { design: { type: "figma", url: core("2572-3458") } },
+	parameters: { design: { type: "figma", url: core("2572-3458") }, width: 316 },
 	args: {
 		title: "fix: retry stalled transfers",
 		pr: { number: 377, state: "open" },
@@ -35,13 +35,6 @@ const meta = stories({
 		folded: true,
 		selected: false,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 316, paddingBlock: 24 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 const push = (

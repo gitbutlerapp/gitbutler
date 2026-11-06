@@ -25,7 +25,7 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 	return (
 		<div className="docs-page">
 			<header className="docs-page-header">
-				<h1 className="docs-page-title">{pageName(page)}</h1>
+				<h1 className="docs-page-title text-h1">{pageName(page)}</h1>
 				{data.description !== undefined && <Prose text={data.description} />}
 			</header>
 			{data.stories.map((entry) => (
@@ -38,13 +38,18 @@ export const ComponentPage: FC<{ page: Page; data: ComponentPageData }> = ({ pag
 
 const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) => {
 	const { layout, width, height } = entry.story.parameters;
-	// The card is the story's size plus the card's border, or the ground's padding, centred on the
-	// column: a narrower one in it, a wider one reaching past both its edges.
-	const card = width === undefined ? undefined : width + (framed || layout === "bar" ? 2 : 48);
+	// A card is the story's size plus its border, centred on the column: a narrower one in it, a
+	// wider one reaching past both its edges. A ground keeps to the prose line and only grows, past
+	// both its edges, for a story wider than it.
+	const card = width === undefined ? undefined : width + 2;
 	const sized = card === undefined ? undefined : { width: card, alignSelf: "center" };
+	const ground =
+		width === undefined
+			? undefined
+			: { width: `max(min(100%, var(--size-prose)), ${width + 48}px)`, maxWidth: "none" };
 	return (
 		<section className="docs-page-example">
-			<h2 className="docs-page-example-title">{entry.name}</h2>
+			<h2 className="docs-page-example-title text-h3">{entry.name}</h2>
 			{entry.description !== undefined && <Prose text={entry.description} />}
 			{framed || layout === "bar" ? (
 				// A window or a bar the width of one: a bordered card, the window's edge.
@@ -66,8 +71,10 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 			) : (
 				// Anything else stands on a tinted ground with no border, so a component with a card of
 				// its own, as a RowGroup, isn't drawn as a card within a card.
-				<div className="docs-page-canvas" style={sized}>
-					<entry.story.Component />
+				<div className="docs-page-canvas" data-layout={layout} style={ground}>
+					<div className="docs-page-stage" style={width === undefined ? undefined : { width }}>
+						<entry.story.Component />
+					</div>
 				</div>
 			)}
 		</section>
@@ -111,7 +118,7 @@ const PageLink: FC<{
 /** JSDoc's paragraphs, its `code` and `{@link Name}` as code. */
 const Prose: FC<{ text: string }> = ({ text }) =>
 	text.split(/\n\s*\n/).map((paragraph) => (
-		<p key={paragraph} className="docs-page-prose">
+		<p key={paragraph} className="docs-page-prose text-prose">
 			{paragraph.split(/(`[^`]+`|\{@link [^}]+\})/).map((part, index) =>
 				/^(`|\{@link )/.test(part) ? (
 					// oxlint-disable-next-line react/no-array-index-key -- The parts of one paragraph don't move.
