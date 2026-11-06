@@ -55,6 +55,9 @@ use create_tree::RejectionReason;
 
 use crate::worktree::worktree_file_to_git_in_buf;
 
+mod merged;
+pub use merged::{MergedFile, MergedHunks};
+
 /// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
