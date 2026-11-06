@@ -17,6 +17,7 @@ use but_transaction::{
 };
 use but_workspace::{RefInfo, commit::ChangeSource};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gitbutler_repo::hooks::{ErrorData, HookResult, MessageData, MessageHookResult};
 use gix::refs::{FullName, FullNameRef};
 use nonempty::NonEmpty;
 use serde::Serialize;
@@ -34,7 +35,7 @@ use crate::{
     },
     error::BadInput,
     id::{CommitId, UncommittedHunkOrFile},
-    theme::{self, Theme},
+    theme::{self, Paint as _, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
         change_source::{ChangeSourceId, ChangeSourceRepo, InvokedFrom, UncommittedSelection},
@@ -52,6 +53,8 @@ pub struct CommitOutcome {
     pub new_commit: CommitId,
     pub branch_name: Option<BranchNameTarget>,
     pub(crate) changed_path_count: usize,
+    /// What the `post-commit` hook printed when it failed.
+    pub(crate) post_commit_hook_failure: Option<String>,
 }
 
 /// `--json` should only include newly created things. So if the branch already existed it
@@ -67,12 +70,13 @@ impl CliOutputHuman for CommitOutcome {
         self,
         out: &mut dyn WriteWithUtils,
         _agent: bool,
-        _theme: &Theme,
+        theme: &Theme,
     ) -> anyhow::Result<()> {
         let Self {
             new_commit,
             branch_name,
             changed_path_count: _,
+            post_commit_hook_failure,
         } = self;
 
         match branch_name {
@@ -89,6 +93,14 @@ impl CliOutputHuman for CommitOutcome {
                 theme::Branch(branch_name),
             )?,
             None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
+        }
+        if let Some(output) = post_commit_hook_failure {
+            writeln!(
+                out,
+                "{} post-commit hook failed:\n{}",
+                theme.attention.paint("Warning:"),
+                output.trim_end()
+            )?;
         }
 
         Ok(())
@@ -111,6 +123,7 @@ impl CliOutput for CommitOutcome {
             new_commit,
             branch_name,
             changed_path_count: _,
+            post_commit_hook_failure: _,
         } = self;
 
         let branch_name = match branch_name {
@@ -136,6 +149,7 @@ pub fn commit(
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
+    let no_hooks = args.no_hooks;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -150,14 +164,21 @@ pub fn commit(
             current_dir,
         )?
     };
-    Ok(run(
+    // Hooks run in the main worktree, so they can't check changes from a linked one.
+    let run_hooks = !no_hooks && commit_selection.source() == ChangeSourceId::Head;
+    let (mut outcome, ws) = run(
         ctx,
         &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,
         reword_op,
-    )?)
+        run_hooks,
+    )?;
+    if run_hooks {
+        outcome.post_commit_hook_failure = post_commit_hook(ctx);
+    }
+    Ok((outcome, ws))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -186,6 +207,7 @@ fn resolve(
         below,
         interactive,
         changes,
+        no_hooks: _,
         allow_merged,
         switch,
     } = args;
@@ -389,6 +411,8 @@ fn unresolved_change_error(change: &CliIdArg, repo: &gix::Repository, id_map: &I
     }
 }
 
+/// With `run_hooks`, the pre-commit and commit-msg hooks run and can refuse the commit. Running
+/// the post-commit hook is up to the caller.
 pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
@@ -396,12 +420,13 @@ pub fn run(
     mut commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: CommitMessageSource,
+    run_hooks: bool,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
     // Owned for the whole operation: the `ChangeSource` handed to the transaction
     // below borrows from it.
     let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
 
-    let changes = {
+    let (mut changes, whole_files) = {
         let context_lines = ctx.settings.context_lines;
         let repo = ctx.repo.get()?;
 
@@ -423,14 +448,32 @@ pub fn run(
             CommitSelection::Nothing => {}
         }
 
-        builder.into_diff_specs()
+        let whole_files = if run_hooks {
+            let mut all = DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
+            all.push_changes_from_uncommitted_area()?;
+            all.into_diff_specs()
+        } else {
+            Vec::new()
+        };
+        (builder.into_diff_specs(), whole_files)
     };
+
+    if run_hooks {
+        pre_commit_hook(ctx, changes.clone())?;
+        // A hook that formats a file moves its hunks, so a file selected whole is committed as the
+        // hook left it. A partly selected file keeps its hunks, which can't be widened safely.
+        for change in &mut changes {
+            if whole_files.contains(change) {
+                change.hunk_headers.clear();
+            }
+        }
+    }
 
     {
         let repo = ctx.repo.get()?;
         if repo.head()?.is_unborn() {
             drop(repo);
-            return run_in_unborn_repo(ctx, meta, perm, commit_op, changes, reword_op);
+            return run_in_unborn_repo(ctx, meta, perm, commit_op, changes, reword_op, run_hooks);
         }
     }
 
@@ -460,6 +503,8 @@ pub fn run(
         .chain(worktree_branch.iter())
         .map(AsRef::as_ref)
         .collect();
+    // The transaction borrows `ctx`, so the commit-msg hook gets a context of its own.
+    let hooks_ctx = run_hooks.then(|| ctx.to_sync().into_thread_local());
 
     let ((new_commit, branch_name), ws) = if let Some(sbm) = sbm {
         sbm.transaction_with_workspace_setup(
@@ -477,6 +522,7 @@ pub fn run(
                     source_repo.as_change_source(),
                     Some(&sbm),
                     reword_op,
+                    hooks_ctx.as_ref(),
                 )
             },
         )
@@ -496,6 +542,7 @@ pub fn run(
                     source_repo.as_change_source(),
                     sbm.as_ref(),
                     reword_op,
+                    hooks_ctx.as_ref(),
                 )
             },
         )
@@ -506,6 +553,7 @@ pub fn run(
         new_commit,
         branch_name,
         changed_path_count,
+        post_commit_hook_failure: None,
     };
 
     Ok((outcome, ws))
@@ -518,6 +566,7 @@ fn commit_with_transaction(
     source: ChangeSource<'_>,
     sbm: Option<&SingleBranchMode>,
     reword_op: CommitMessageSource,
+    hooks_ctx: Option<&Context>,
 ) -> anyhow::Result<but_transaction::Commit<(CommitId, Option<BranchNameTarget>)>> {
     let (
         IntermediateCommitCreateResult {
@@ -534,9 +583,22 @@ fn commit_with_transaction(
     let new_commit =
         new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-    let reworded_commit = reword_op.execute(new_commit.into(), &mut tx)?;
+    let mut new_commit = reword_op.execute(new_commit.into(), &mut tx)?;
+    // After the message source so the hook sees the final message, including one from the editor.
+    if let Some(ctx) = hooks_ctx {
+        let message = tx
+            .repo()
+            .find_commit(new_commit.commit_id)?
+            .message_raw()?
+            .to_string();
+        if let Some(message) = commit_msg_hook(ctx, message)? {
+            new_commit = tx
+                .reword_commit(new_commit.commit_id, BString::from(message).as_ref())?
+                .into();
+        }
+    }
 
-    Ok(but_transaction::Commit((reworded_commit, branch_name)))
+    Ok(but_transaction::Commit((new_commit, branch_name)))
 }
 
 /// Targeting modes for committing.
@@ -1288,6 +1350,7 @@ pub fn run_in_unborn_repo(
     commit_op: CommitOperation,
     changes: Vec<DiffSpec>,
     reword_op: CommitMessageSource,
+    run_hooks: bool,
 ) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
     let name = match commit_op {
         CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
@@ -1379,16 +1442,16 @@ pub fn run_in_unborn_repo(
             "",
         )?;
         if let Some(message) = message {
-            let mut commit = but_core::Commit::from_id(repo.find_commit(new_commit)?.id())?;
-            commit.inner.message = message.into();
-            new_commit = but_rebase::commit::create(
-                &repo,
-                commit.inner,
-                but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
-                but_core::commit::SignCommit::IfSignCommitsEnabled,
-                None,
-            )?;
+            new_commit = recreate_with_message(&repo, new_commit, message)?;
         }
+    }
+    if run_hooks
+        && let Some(message) = commit_msg_hook(
+            ctx,
+            repo.find_commit(new_commit)?.message_raw()?.to_string(),
+        )?
+    {
+        new_commit = recreate_with_message(&repo, new_commit, message)?;
     }
 
     but_workspace::init::publish_first_commit(&repo, name.as_ref(), new_commit)?;
@@ -1411,7 +1474,61 @@ pub fn run_in_unborn_repo(
             new_commit: CommitId::try_from_commit_id(new_commit, &repo)?,
             branch_name: Some(BranchNameTarget::Existing(name)),
             changed_path_count,
+            post_commit_hook_failure: None,
         },
         ws,
     ))
+}
+
+/// Create a copy of the unpublished `commit` with `message`.
+fn recreate_with_message(
+    repo: &gix::Repository,
+    commit: gix::ObjectId,
+    message: String,
+) -> anyhow::Result<gix::ObjectId> {
+    let mut commit = but_core::Commit::from_id(repo.find_commit(commit)?.id())?;
+    commit.inner.message = message.into();
+    but_rebase::commit::create(
+        repo,
+        commit.inner,
+        but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
+        but_core::commit::SignCommit::IfSignCommitsEnabled,
+        None,
+    )
+}
+
+fn pre_commit_hook(ctx: &Context, changes: Vec<DiffSpec>) -> anyhow::Result<()> {
+    match but_api::legacy::repo::pre_commit_hook_diffspecs(ctx, changes)? {
+        HookResult::Success | HookResult::NotConfigured => Ok(()),
+        HookResult::Failure(ErrorData { error }) => {
+            but_error::bail_precondition!("pre-commit hook failed:\n{}", error.trim_end())
+        }
+    }
+}
+
+/// Run the `commit-msg` hook on `message`, returning the message if the hook changed it.
+fn commit_msg_hook(ctx: &Context, mut message: String) -> anyhow::Result<Option<String>> {
+    // Git ends the message file with a newline, which hooks that append trailers rely on.
+    if !message.ends_with('\n') {
+        message.push('\n');
+    }
+    match but_api::legacy::repo::message_hook(ctx, message)? {
+        MessageHookResult::Success | MessageHookResult::NotConfigured => Ok(None),
+        MessageHookResult::Message(MessageData { message }) => {
+            Ok(Some(message.trim_end().to_owned()))
+        }
+        MessageHookResult::Failure(ErrorData { error }) => {
+            but_error::bail_precondition!("commit-msg hook failed:\n{}", error.trim_end())
+        }
+    }
+}
+
+/// Run the `post-commit` hook, returning its output if it failed. The commit exists by then, so
+/// like with Git, a failure doesn't fail the command.
+fn post_commit_hook(ctx: &Context) -> Option<String> {
+    match but_api::legacy::repo::post_commit_hook(ctx) {
+        Ok(HookResult::Success | HookResult::NotConfigured) => None,
+        Ok(HookResult::Failure(ErrorData { error })) => Some(error),
+        Err(err) => Some(format!("{err:#}")),
+    }
 }

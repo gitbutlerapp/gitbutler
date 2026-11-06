@@ -23,6 +23,9 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 /// `--no-message`, `--message` or `--file` is provided, the user's preferred editor is opened to
 /// input a message.
 ///
+/// The repository's pre-commit, commit-msg and post-commit hooks run unless `--no-hooks` is
+/// provided. A failing pre-commit or commit-msg hook aborts the commit.
+///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -110,6 +113,13 @@ pub struct Platform {
     /// If omitted, everything uncommitted in the checkout `but` runs in is committed.
     #[clap(group = "changes_to_commit")]
     pub changes: Vec<CliIdArg>,
+
+    /// Skip the pre-commit, commit-msg and post-commit hooks.
+    ///
+    /// Without this flag the hooks run for changes from the main worktree, but not for changes
+    /// from a linked worktree. A hook's output shows only when it fails.
+    #[clap(short = 'n', long = "no-hooks", visible_alias = "no-verify")]
+    pub no_hooks: bool,
 
     #[clap(flatten)]
     #[allow(missing_docs)]

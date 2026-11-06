@@ -276,6 +276,7 @@ fn commit_extra_props_describe_targeting_and_selection_without_ids() {
             changes: (0..change_count)
                 .map(|index| CliIdArg(format!("private-change-{index}")))
                 .collect(),
+            no_hooks: false,
             allow_merged: Default::default(),
             switch: false,
         });
@@ -629,6 +630,7 @@ fn commit_outcome_properties_are_low_cardinality() {
         },
         branch_name: Some(BranchNameTarget::New(branch_name)),
         changed_path_count: 11,
+        post_commit_hook_failure: None,
     };
     let mut ctx = OneshotMetricsContext::new(CommandName::Commit, Vec::new(), ".".into());
     ctx.record_outcome(&crate::command::CommandOutcome::Commit(outcome));

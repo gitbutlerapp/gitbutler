@@ -81,6 +81,16 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
     }
 }
 
+/// Whether a `pre-commit` hook exists, so callers can skip building the tree it would check.
+pub fn has_pre_commit(ctx: &Context) -> Result<bool> {
+    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
+    Ok(git2_hooks::hook_available(
+        &*ctx.git2_repo.get()?,
+        husky_search_paths(ctx),
+        git2_hooks::HOOK_PRE_COMMIT,
+    )?)
+}
+
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
     #[expect(deprecated, reason = "libgit2 hook/index adapter boundary")]
     let repo = &*ctx.git2_repo.get()?;

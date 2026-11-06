@@ -113,6 +113,10 @@ pub fn pre_commit_hook_diffspecs(
     ctx: &but_ctx::Context,
     changes: Vec<DiffSpec>,
 ) -> Result<HookResult> {
+    // Building the tree and swapping the index cost time, so do neither without a hook.
+    if !hooks::has_pre_commit(ctx)? {
+        return Ok(HookResult::NotConfigured);
+    }
     let repo = ctx.repo.get()?;
     let head = repo
         .head_tree_id_or_empty()
