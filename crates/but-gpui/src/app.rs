@@ -4680,8 +4680,9 @@ impl TileDrag {
     }
 }
 
-/// The least a tile is dragged down to, in design pixels.
-const MIN_TILE: f32 = 160.;
+/// The least a tile is dragged down to, in design pixels: room for its bar and a line of a
+/// terminal under it.
+const MIN_TILE: f32 = 66.;
 
 /// How long a tile takes to slide open out of its split or shut into it: quicker than a fold,
 /// as it's often a step on the way to typing in it.
