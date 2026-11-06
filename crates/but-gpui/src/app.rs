@@ -537,7 +537,6 @@ impl AppView {
                     existed,
                     at,
                 } => crate::links::land(this, project.clone(), *existed, at, window, cx),
-                StoreEvent::Unfit => this.ask_held(window, cx),
                 StoreEvent::TilingChanged => {
                     this.drop_stale_tile_drag(cx);
                     this.drop_stale_row_tile(cx);

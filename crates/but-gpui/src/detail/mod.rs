@@ -772,7 +772,6 @@ impl Detail {
                 | StoreEvent::CommitBlocked
                 | StoreEvent::UpdateConflicts { .. }
                 | StoreEvent::LinkOpened { .. }
-                | StoreEvent::Unfit
                 | StoreEvent::RowDragEnded => {}
             }),
             cx.subscribe_in(

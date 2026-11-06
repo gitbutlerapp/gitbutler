@@ -897,70 +897,6 @@ fn dry_run(
     })
 }
 
-/// Whether stacking as `stacking` says leaves commit `into` unconflicted, so changes can amend
-/// into it after. Tried in a dry run, which changes nothing.
-fn restack_keeps(
-    ctx: &mut but_ctx::Context,
-    perm: &mut but_ctx::access::RepoExclusive,
-    stacking: &Stacking,
-    into: CommitId,
-) -> Result<bool> {
-    let change = {
-        use gix::prelude::ObjectIdExt as _;
-        but_core::Commit::from_id(into.0.attach(&*ctx.repo.get()?))?.change_id()
-    };
-    let mut meta = ctx.meta()?;
-    let (_, stacked) = but_transaction::with_transaction_with_perm_only(
-        ctx,
-        &mut meta,
-        perm,
-        DryRun::Yes,
-        |mut tx| stack_in(&mut tx, Some(stacking)),
-    )?;
-    // What the dry run read of the workspace isn't what's there.
-    ctx.invalidate_workspace_cache()?;
-    Ok(!(stacked.conflicted_commits.iter()).any(|(_, conflicted)| *conflicted == change))
-}
-
-/// Whether stacking the project at `path` as `stacking` says leaves commit `into`
-/// unconflicted, so changes can amend into it after. It waits for GitButler's lock and changes
-/// nothing.
-pub fn try_restack(path: &std::path::Path, stacking: &Stacking, into: CommitId) -> Result<bool> {
-    let mut ctx = super::open(path)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    restack_keeps(&mut ctx, guard.write_permission(), stacking, into)
-}
-
-/// Stack whole stacks as `stacking` says.
-pub struct Restack {
-    pub stacking: Stacking,
-}
-
-impl Intent for Restack {
-    /// The branches it left with conflicted commits they didn't have, each with how many.
-    type Done = Vec<(Option<FullName>, usize)>;
-
-    fn apply(self, run: &mut Run) -> Result<Self::Done> {
-        run.locked(|ctx, perm| {
-            let before = but_api::legacy::workspace::head_info(ctx)?;
-            let mut meta = ctx.meta()?;
-            let stacked = but_transaction::with_transaction_with_perm(
-                ctx,
-                &mut meta,
-                perm,
-                SnapshotDetails::new(OperationKind::MoveBranch),
-                &[],
-                DryRun::No,
-                |mut tx| stack_in(&mut tx, Some(&self.stacking)),
-            )?;
-            Ok(super::upstream::newly_conflicted(
-                &before,
-                &stacked.conflicted_commits,
-            ))
-        })
-    }
-}
-
 /// A commit made on `branch`, with the changes left out of it and what a failing post-commit
 /// hook printed.
 #[derive(Debug)]
@@ -4792,11 +4728,6 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "beta, where it lands, goes on top of alpha"
             );
             let before = crate::backend::history::oplog_head(&open(path).unwrap());
-            assert!(
-                super::try_restack(path, &stacking, beta).unwrap(),
-                "stacking leaves beta's commit unconflicted"
-            );
-            assert_eq!(entries_since(path, before), "", "trying it changed nothing");
 
             let amend = Amend {
                 restack: Some(stacking),

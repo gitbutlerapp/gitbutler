@@ -127,8 +127,9 @@ fn lane_commits(lane: &Lane, from: usize) -> impl Iterator<Item = CommitId> {
         .map(|c| c.id)
 }
 
-/// How putting changes on a footing sits with the commits they build on.
-#[derive(Debug, PartialEq)]
+/// How putting changes on a footing sits with the commits they build on, as the locks read
+/// last say: a hint of what the operation finds, not what it does.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fit {
     /// The stacking that puts every other stack they build on below the one they land in, if
     /// one has to go there: the first stays, the rest go on it whole, the footing's own last.
@@ -140,9 +141,9 @@ pub struct Fit {
 }
 
 impl Fit {
-    /// Whether landing them asks the user first: it restacks, or leaves a commit conflicted.
-    pub fn asks(&self) -> bool {
-        self.restack.is_some() || self.conflicts == Conflicts::Keep
+    /// Whether they land as they are: nothing restacked, no commit left conflicted.
+    pub fn is_clean(&self) -> bool {
+        self.restack.is_none() && self.conflicts == Conflicts::Reject
     }
 }
 

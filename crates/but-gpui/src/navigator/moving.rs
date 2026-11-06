@@ -120,7 +120,7 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
 pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
     let conflicts = shown(store, project)
         .and_then(|moving| moving.squashed(store))
-        .is_some_and(|transfer| transfer.asks());
+        .is_some_and(|transfer| !transfer.lands_cleanly());
     match conflicts {
         true => theme.warn,
         false => mark_of(store, project, theme),

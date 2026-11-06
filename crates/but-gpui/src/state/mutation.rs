@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use gpui::{Context, SharedString, Task};
 
-use super::{Held, Lands, Notice, ProjectId, Reload, Selection, Store, StoreEvent, Unfit};
+use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome, UpdateScope};
 use crate::backend::{
@@ -1390,30 +1390,9 @@ impl Store {
         );
     }
 
-    /// Stack whole stacks of `project` as `stacking` says, so changes can land on the one on
-    /// top.
-    pub fn restack(
-        &mut self,
-        project: &ProjectId,
-        stacking: backend::Stacking,
-        cx: &mut Context<Self>,
-    ) {
-        let top = short_ref(&stacking.top).into_owned();
-        self.apply(
-            project,
-            Label::new("Restack", format!("Restack under {top}")),
-            Overlay::default(),
-            backend::Restack { stacking },
-            move |store, conflicted, cx| {
-                store.snack_undoable(branch_moved("Restacked", &conflicted), cx)
-            },
-            cx,
-        );
-    }
-
-    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
-    /// Locked changes that restack or conflict there wait for the user to say so
-    /// ([`StoreEvent::Unfit`]).
+    /// Amend as `amend` says, then call `then` with the commit it became once that worked. One
+    /// some of whose changes can't go into it is not made at all, and the window asks the user
+    /// what's done instead ([`StoreEvent::CommitBlocked`]).
     pub fn amend(
         &mut self,
         project: &ProjectId,
@@ -1421,31 +1400,7 @@ impl Store {
         then: impl FnOnce(&mut Store, CommitId, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let into = amend.into;
-        let fit = self.lock_fit(project, &amend.checkout, &amend.changes, |ws| {
-            ws.footing_into(into)
-        });
-        let Some(fit) = fit.filter(|fit| fit.asks()) else {
-            return self.amend_with(project, amend, Box::new(then), cx);
-        };
-        let amend = backend::Amend {
-            conflicts: fit.conflicts,
-            restack: fit.restack.clone(),
-            ..amend
-        };
-        let unfit = Unfit {
-            project: project.clone(),
-            lands: Lands::Amend(into),
-            restack: fit.restack,
-            conflicts: fit.conflicts,
-        };
-        let project = project.clone();
-        let held = Held {
-            unfit,
-            tried: Box::new(move |path, stacking| backend::try_restack(path, stacking, into)),
-            go: Box::new(move |store, cx| store.amend_with(&project, amend, Box::new(then), cx)),
-        };
-        self.hold(held, cx);
+        self.amend_with(project, amend, Box::new(then), cx)
     }
 
     fn amend_with(
