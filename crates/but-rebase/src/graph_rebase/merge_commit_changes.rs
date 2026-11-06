@@ -3,7 +3,10 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
-use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
+use but_core::{
+    RefMetadata,
+    commit::tree_expression::{MergedTree, TreeExpression},
+};
 use gix::prelude::ObjectIdExt;
 use petgraph::Direction;
 
@@ -27,29 +30,6 @@ pub struct PlannedCommitChange {
     pub base_tree_id: gix::ObjectId,
 }
 
-/// The result of merging selected commit changes into one tree.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MergeCommitChangesOutcome {
-    /// The resulting tree.
-    ///
-    /// If [`Self::conflict`] is `Some`, this is the auto-resolved tree that
-    /// should be presented as the conflicted commit's visible tree.
-    pub tree_id: gix::ObjectId,
-    /// Details about the last unresolved merge encountered while producing
-    /// [`Self::tree_id`].
-    pub conflict: Option<MergeCommitChangesConflict>,
-}
-
-/// Conflict metadata needed to persist a GitButler conflicted commit from a
-/// merged change-range result.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MergeCommitChangesConflict {
-    /// The tree expression for the conflicted merge step.
-    pub tree_expression: TreeExpression,
-    /// The paths that remained conflicted after auto-resolution.
-    pub conflict_entries: but_core::commit::ConflictEntries,
-}
-
 impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Return the tree produced by preserving the target commit's full tree
     /// and then merging only the surviving selected commits' own change
@@ -61,7 +41,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         target_commit_id: gix::ObjectId,
         subject_commit_ids: Vec<gix::ObjectId>,
         merge_options: gix::merge::tree::Options,
-    ) -> Result<MergeCommitChangesOutcome> {
+    ) -> Result<MergedTree> {
         let target_commit = but_core::Commit::from_id(target_commit_id.attach(&self.repo))?;
         let merge_plan =
             self.plan_commit_changes_for_merge(target_commit_id, subject_commit_ids)?;
@@ -75,36 +55,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             );
         }
 
-        Ok(match tree_expression.merge(&self.repo, merge_options)? {
-            but_core::commit::tree_expression::MergeOutcome::Unconflicted { tree_id } => {
-                MergeCommitChangesOutcome {
-                    tree_id,
-                    conflict: None,
-                }
-            }
-            but_core::commit::tree_expression::MergeOutcome::Conflicted {
-                tree_id,
-                merge,
-                tree_expression,
-            } => {
-                let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
-                let conflict = Some(MergeCommitChangesConflict {
-                    tree_expression,
-                    conflict_entries: but_core::commit::conflict_entries_from_merge_outcome(
-                        &self.repo,
-                        tree_id,
-                        &merge,
-                        conflict_kind,
-                    )?,
-                });
-                MergeCommitChangesOutcome {
-                    // As described in the module-level documentation, we stop
-                    // at the first unresolved merge conflict.
-                    tree_id,
-                    conflict,
-                }
-            }
-        })
+        tree_expression
+            .merge(&self.repo, merge_options)?
+            .into_merged_tree(&self.repo)
     }
 
     /// Turn the selected commits into mergeable `base..commit` change ranges
