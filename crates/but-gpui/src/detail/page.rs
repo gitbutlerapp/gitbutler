@@ -258,7 +258,17 @@ impl Place {
 }
 
 /// One of a page's tabs, each showing in place of the others.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    strum::EnumIter,
+    strum::IntoStaticStr,
+    strum::EnumString,
+)]
 // As a `but://open` link names the tab (`tab=`), so renaming one renames its links: see
 // `crate::links`.
 #[strum(serialize_all = "kebab-case")]
