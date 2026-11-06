@@ -646,6 +646,7 @@ impl AppView {
         };
         // It takes the focus, so nothing else that would take the keys stays over it.
         if self.palette.take().is_some() {
+            self.preview_scheme(None, window, cx);
             (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
         }
         let subscription =

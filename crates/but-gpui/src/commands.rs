@@ -4,10 +4,10 @@
 use gpui::{Action, App};
 
 use crate::app::{
-    ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, Fetch, FocusChanges,
-    FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, Pull, Push, Quit, Redo,
-    StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo, UpdateFromTarget,
-    UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    ActualSize, AddProject, AppView, ChangeTheme, CheckForUpdates, CopySelection, Fetch,
+    FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, Pull,
+    Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo,
+    UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
@@ -245,6 +245,7 @@ commands! {
     AddProject => "Add project",
     crate::projects::CloneRepository => "Clone a repository",
     crate::settings::OpenSettings => "Settings",
+    ChangeTheme => "Change theme" { aliases: &["Colour scheme", "Color scheme"] },
     crate::settings::OpenBriefsSettings => "Briefs settings" { listed: briefs_off },
     crate::settings::OpenKeyboardShortcuts => "Keyboard shortcuts",
     crate::app::OperationsHistory => "Operations history",

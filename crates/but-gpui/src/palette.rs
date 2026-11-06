@@ -28,7 +28,7 @@ use crate::state::{
     SelectionKind, Store, Tile, snack,
 };
 use crate::terminal::TerminalId;
-use crate::theme::Theme;
+use crate::theme::{ColorScheme, Theme};
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -84,6 +84,10 @@ pub struct Choice {
     status_of: Option<Selection>,
     /// It's in the selected project, so it comes before what's found as well elsewhere.
     in_selected_project: bool,
+    /// The colour scheme the window draws in while it's selected.
+    previews: Option<ColorScheme>,
+    /// It's what's set now, so it's selected while nothing's typed.
+    in_use: bool,
     run: Run,
 }
 
@@ -98,6 +102,8 @@ impl Choice {
             pins: None,
             status_of: None,
             in_selected_project: false,
+            previews: None,
+            in_use: false,
             aliases: &[],
             phrase: None,
             key: None,
@@ -158,6 +164,13 @@ impl Choice {
     /// What it pins beside the selected row, rather than the row it goes to.
     pub(crate) fn pins(mut self, row: RowKey) -> Choice {
         self.pins = Some(row);
+        self
+    }
+
+    /// Draws the window in `scheme` while it's selected, which `in_use` says is the one set now.
+    pub(crate) fn previews(mut self, scheme: ColorScheme, in_use: bool) -> Choice {
+        self.previews = Some(scheme);
+        self.in_use = in_use;
         self
     }
 
@@ -296,13 +309,15 @@ impl Palette {
         self.scroll.scroll_to_item(row);
     }
 
-    /// Select the first row, or while nothing's typed the first that doesn't throw work away,
-    /// so Return alone never runs one.
+    /// Select the first row, or while nothing's typed the one in use, else the first that doesn't
+    /// throw work away, so Return alone never runs one.
     fn select_first(&mut self, cx: &gpui::App) {
         let typed = !self.input.read(cx).text().trim().is_empty();
+        let in_use = (self.found.iter())
+            .position(|found| !typed && self.choices.get(found.ix).is_some_and(|c| c.in_use));
         let safe = (self.found.iter())
             .position(|found| typed || self.choices.get(found.ix).is_some_and(|c| !c.risky));
-        self.select(safe.unwrap_or(0));
+        self.select(in_use.or(safe).unwrap_or(0));
     }
 
     /// List the choices the query finds, best first, of the group shown if there is one.
@@ -1438,6 +1453,14 @@ impl AppView {
         palette.select_first(cx);
         self.palette = Some(palette);
         self.outline_choice(window, cx);
+        // A new scroll handle drops what it's asked before its list has drawn once, so a row
+        // opened on further down is asked for again.
+        Self::once_drawn(window, cx, |this, _, cx| {
+            if let Some(palette) = this.palette.as_ref().filter(|p| p.selected > 0) {
+                palette.scroll.scroll_to_item(palette.selected);
+                cx.notify();
+            }
+        });
         cx.notify();
     }
 
@@ -1452,13 +1475,18 @@ impl AppView {
                 window.focus(&focus, cx);
             }
         }
+        self.preview_scheme(None, window, cx);
         (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
         cx.notify();
     }
 
-    /// Have the navigator outline where the selected choice goes, if it goes anywhere, and the
-    /// terminal picker select it behind, the details showing, while the keys stay in it.
+    /// Have the navigator outline where the selected choice goes, if it goes anywhere, the
+    /// terminal picker select it behind, the details showing, while the keys stay in it, and
+    /// the window draw in the colour scheme it previews, if any.
     fn outline_choice(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let scheme = (self.palette.as_ref())
+            .and_then(|p| p.choices.get(p.found.get(p.selected)?.ix)?.previews.clone());
+        self.preview_scheme(scheme, window, cx);
         let Some(palette) = &self.palette else {
             return (self.navigator).update(cx, |navigator, cx| navigator.go_toward(None, cx));
         };

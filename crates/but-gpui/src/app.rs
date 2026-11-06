@@ -75,6 +75,7 @@ actions!(
         ToggleNavigator,
         ToggleDetail,
         CommandPalette,
+        ChangeTheme,
         ShowContextMenu,
         CheckForUpdates,
         BuildAndRestart,
@@ -227,6 +228,8 @@ pub struct AppView {
     #[cfg(target_os = "macos")]
     lights_away: bool,
     pub palette: Option<Palette>,
+    /// The colour scheme selected in its picker, which the window draws in until that closes.
+    previewed_scheme: Option<ColorScheme>,
     /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
     /// to, the subscription that closes it, and what had the keys before it opened, to give
     /// them back.
@@ -424,7 +427,7 @@ impl AppView {
     }
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        cx.set_global(theme_for(store.read(cx), window));
+        cx.set_global(theme_for(store.read(cx), None, window));
         let window_id = window.window_handle().window_id();
         #[cfg(target_os = "macos")]
         place_traffic_lights(false, window, cx);
@@ -633,6 +636,7 @@ impl AppView {
             #[cfg(target_os = "macos")]
             lights_away: false,
             palette: None,
+            previewed_scheme: None,
             modal: None,
             recent_commands: Vec::new(),
             building: None,
@@ -641,14 +645,30 @@ impl AppView {
         }
     }
 
-    /// Use the theme the appearance setting and the system call for.
+    /// Use the theme the appearance setting and the system call for, in the scheme previewed
+    /// if there is one.
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        cx.set_global(theme_for(self.store.read(cx), window));
+        let scheme = self.previewed_scheme.as_ref();
+        cx.set_global(theme_for(self.store.read(cx), scheme, window));
         cx.refresh_windows();
     }
 
+    /// Draw the window in `scheme` without keeping it, or with none, in the one in use again.
+    pub fn preview_scheme(
+        &mut self,
+        scheme: Option<ColorScheme>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.previewed_scheme != scheme {
+            self.previewed_scheme = scheme;
+            self.apply_appearance(window, cx);
+        }
+    }
+
     /// List the colour schemes, GitButler's, the Ghostty config's and every Ghostty theme, to
-    /// pick one to draw the app and its terminals in.
+    /// pick one to draw the app and its terminals in. It opens on the one in use, and the
+    /// window draws in whichever is selected.
     pub fn pick_color_scheme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let current = self.store.read(cx).prefs.color_scheme.clone();
         let named = but_tty::Ghostty::themes()
@@ -657,18 +677,22 @@ impl AppView {
         let choices = ([ColorScheme::GitButler, ColorScheme::Ghostty].into_iter())
             .chain(named)
             .map(|scheme| {
+                let in_use = scheme == current;
                 let detail = match &scheme {
-                    _ if scheme == current => Some("In use"),
+                    _ if in_use => Some("In use"),
                     ColorScheme::GitButler => Some("Light or dark, as Appearance says"),
                     ColorScheme::Ghostty => Some("The themes your Ghostty config sets"),
                     ColorScheme::Named(_) => None,
                 };
+                let previews = scheme.clone();
                 let choice = Choice::new(scheme.label().to_owned(), move |app, window, cx| {
+                    app.previewed_scheme = None;
                     (app.store).update(cx, |store, cx| {
                         store.set_prefs(|prefs| prefs.color_scheme = scheme, cx)
                     });
                     app.apply_appearance(window, cx);
-                });
+                })
+                .previews(previews, in_use);
                 match detail {
                     Some(detail) => choice.detail(detail),
                     None => choice,
@@ -1946,6 +1970,10 @@ impl AppView {
 
     fn toggle_detail(&mut self, _: &ToggleDetail, window: &mut Window, cx: &mut Context<Self>) {
         self.set_detail(!self.detail_open, window, cx);
+    }
+
+    fn change_theme(&mut self, _: &ChangeTheme, window: &mut Window, cx: &mut Context<Self>) {
+        self.pick_color_scheme(window, cx);
     }
 
     fn command_palette(&mut self, _: &CommandPalette, window: &mut Window, cx: &mut Context<Self>) {
@@ -5031,6 +5059,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::toggle_navigator))
             .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
+            .on_action(cx.listener(Self::change_theme))
             // The composer's keys, pressed with the focus elsewhere, like the navigator.
             .on_action(
                 cx.listener(|this, _: &crate::detail::PickCommitTarget, window, cx| {
@@ -5267,10 +5296,14 @@ pub(crate) fn place_traffic_lights(away: bool, window: &Window, cx: &App) {
     window.set_traffic_light_position(point(left, top));
 }
 
-/// The theme the appearance setting and the system call for.
-fn theme_for(store: &Store, window: &Window) -> Theme {
+/// The theme the appearance setting and the system call for, in `previewed` over the scheme
+/// in use.
+fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) -> Theme {
     let prefs = &store.prefs;
-    let (scheme, system) = (&prefs.color_scheme, window.appearance());
+    let (scheme, system) = (
+        previewed.unwrap_or(&prefs.color_scheme),
+        window.appearance(),
+    );
     let ghostty = but_tty::Ghostty::load();
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
