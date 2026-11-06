@@ -1130,6 +1130,18 @@ impl AppView {
                 _ => None,
             },
         ));
+        // For the metrics: what a choice here starts was started from ⌘K, which other pickers'
+        // choices weren't.
+        let choices = (choices.into_iter())
+            .map(|mut choice| {
+                let run = choice.run;
+                choice.run = Box::new(move |this, typed, window, cx| {
+                    crate::backend::metrics::input(crate::backend::metrics::Via::Palette);
+                    run(this, typed, window, cx)
+                });
+                choice
+            })
+            .collect();
         self.open_picker(place, "Search commands", "Run", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.holds_ids = holds_ids;

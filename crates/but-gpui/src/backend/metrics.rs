@@ -156,11 +156,74 @@ pub fn quit() {
     }
 }
 
-/// An operation the user started, named `name`, finished after `took`, failing with
-/// `failure` if it did, on `workspace` as it was shown. An operation that handles its own
-/// failure, as a fetch does, finishes without one, and its error card reports it instead.
+/// What the user did to start an operation, which `api_command` sends as `via`.
+#[derive(Clone, Copy)]
+pub enum Via {
+    Key,
+    /// A click, or a drop at the end of a drag.
+    Pointer,
+    /// An item in a right-click menu, whether clicked or picked with the keys.
+    Menu,
+    /// A command run from ⌘K, whether clicked or picked with the keys.
+    Palette,
+}
+
+impl Via {
+    fn name(self) -> &'static str {
+        match self {
+            Via::Key => "key",
+            Via::Pointer => "pointer",
+            Via::Menu => "menu",
+            Via::Palette => "palette",
+        }
+    }
+}
+
+/// What the user did last, which is what started an operation starting now. One that starts
+/// when another ends, as Pull's update after its fetch, counts as the first did, unless the
+/// user did something else meanwhile. A native dialog's answer is no input here, so what's
+/// confirmed in one counts as what asked. The pointer to start with, as GPUI counts it.
+static INPUT: Mutex<Via> = Mutex::new(Via::Pointer);
+
+/// Note what the user just did. A menu item or ⌘K command notes itself after the key or click
+/// that picked it.
+pub fn input(via: Via) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    *INPUT.lock() = via;
+}
+
+/// How the user started what starts now, for [`operation`].
+pub fn via() -> Via {
+    *INPUT.lock()
+}
+
+/// Notes each press of the pointer, wherever in the window and over whatever it lands on, which
+/// starts every click and drag. It takes none of them.
+pub fn pointer_listener() -> impl gpui::IntoElement {
+    use gpui::Styled as _;
+    gpui::canvas(
+        |_, _, _| {},
+        |_, (), window, _| {
+            window.on_mouse_event(|_: &gpui::MouseDownEvent, phase, _, _| {
+                if phase == gpui::DispatchPhase::Capture {
+                    input(Via::Pointer);
+                }
+            });
+        },
+    )
+    .absolute()
+    .inset_0()
+}
+
+/// An operation the user started, named `name`, the way `via` says, finished after `took`,
+/// failing with `failure` if it did, on `workspace` as it was shown. An operation that handles
+/// its own failure, as a fetch does, finishes without one, and its error card reports it
+/// instead.
 pub fn operation(
     name: &'static str,
+    via: Via,
     took: Duration,
     failure: Option<&anyhow::Error>,
     workspace: Option<&Workspace>,
@@ -171,6 +234,7 @@ pub fn operation(
     let command = camel_case(name);
     let mut props = Props::new();
     props.insert("command".into(), command.clone().into());
+    props.insert("via".into(), via.name().into());
     props.insert("durationMs".into(), (took.as_millis() as u64).into());
     props.insert("failure".into(), failure.is_some().into());
     if let Some(workspace) = workspace {

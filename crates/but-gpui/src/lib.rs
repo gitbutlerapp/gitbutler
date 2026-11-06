@@ -296,6 +296,9 @@ pub fn run(embedded: Option<Embedded>) {
             #[cfg(target_os = "linux")]
             cx.set_prompt_builder(ui::alert::alert);
             help::register(cx);
+            // For the metrics: an operation a key press starts says so.
+            cx.intercept_keystrokes(|_, _, _| backend::metrics::input(backend::metrics::Via::Key))
+                .detach();
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());

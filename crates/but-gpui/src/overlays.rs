@@ -424,6 +424,7 @@ impl AppView {
 
     /// Run the menu's item `ix` from where the keys were before it opened, closing it.
     fn run_menu_item(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        backend::metrics::input(backend::metrics::Via::Menu);
         let handler = (self.menu.as_ref())
             .and_then(|menu| menu.items.get(ix))
             .map(|item| item.handler.clone());

@@ -1391,6 +1391,7 @@ impl Store {
         let beside = kind.beside();
         let remote_only = kind.remote_only();
         let Label { name, text: label } = label.into();
+        let via = backend::metrics::via();
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
         let Some(path) = self.path(project) else {
             return;
@@ -1482,6 +1483,7 @@ impl Store {
                 }
                 backend::metrics::operation(
                     name,
+                    via,
                     now.elapsed(),
                     result.as_ref().err(),
                     store.workspace(&project),

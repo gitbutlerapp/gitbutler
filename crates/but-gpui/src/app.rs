@@ -5166,7 +5166,8 @@ impl Render for AppView {
             .when(show_fps, |el| el.child(self.fps.clone()))
             .when(cfg!(target_os = "macos"), |el| {
                 el.child(crate::ui::holds_back_first_click())
-            });
+            })
+            .child(backend::metrics::pointer_listener());
         crate::ui::window_frame::window_frame(root, window, cx)
     }
 }
