@@ -3981,17 +3981,13 @@ impl AppView {
         (self.tile_drag.as_ref()).is_some_and(|drag| drag.lifted && !drag.released)
     }
 
-    /// Close the selected terminal, the home tile, while a terminal pinned beside it would take
-    /// its place, as its shell exiting does.
+    /// Close the selected terminal, the home tile, as its shell exiting does: a terminal pinned
+    /// beside it takes its place, and the last one takes the tiling with it.
     fn close_home(
         &self,
         cx: &Context<AppView>,
     ) -> Option<impl Fn(&mut Window, &mut App) + Clone + 'static> {
-        let store = self.store.read(cx);
-        if store.home_heirs(&[]).is_empty() {
-            return None;
-        }
-        let Some(Selection::Terminal(project, id)) = store.selection.clone() else {
+        let Some(Selection::Terminal(project, id)) = self.store.read(cx).selection.clone() else {
             return None;
         };
         let app = cx.weak_entity();

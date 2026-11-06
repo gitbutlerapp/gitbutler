@@ -1800,7 +1800,7 @@ impl Store {
 
     /// The terminals pinned in the selected row's tiling, in the order its tiles are laid out,
     /// but for `closing`: what could take the home tile's place, while it's a terminal.
-    pub fn home_heirs(&self, closing: &[TerminalId]) -> Vec<RowKey> {
+    pub(super) fn home_heirs(&self, closing: &[TerminalId]) -> Vec<RowKey> {
         if !matches!(self.selection, Some(Selection::Terminal(..))) {
             return Vec::new();
         }
