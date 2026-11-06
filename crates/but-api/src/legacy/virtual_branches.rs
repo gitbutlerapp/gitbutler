@@ -559,6 +559,7 @@ fn commit_assigned_diffspec(
         "WIP Assignments",
         context_lines,
         but_workspace::commit::ChangeSource::Head,
+        but_workspace::commit::Conflicts::Reject,
     )?;
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(

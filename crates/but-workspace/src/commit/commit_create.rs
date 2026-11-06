@@ -1,6 +1,6 @@
 //! An action to create a new commit relative to a commit or reference.
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
@@ -8,7 +8,10 @@ use but_rebase::graph_rebase::{
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
+use super::{
+    ChangeSource, Conflicts, cancel_consumed_changes, commit_amend::amend_keeping_conflicts,
+    consumed_changes,
+};
 
 /// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
@@ -47,6 +50,9 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
+///
+/// `conflicts` says what happens to changes that don't merge onto the new commit's parent.
+#[expect(clippy::too_many_arguments)]
 pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     changes: Vec<DiffSpec>,
@@ -55,6 +61,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     message: &str,
     context_lines: u32,
     source: ChangeSource<'_>,
+    conflicts: Conflicts,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
@@ -63,22 +70,35 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     // Clone before `create_commit` consumes the vec — needed afterwards
     // to determine which changes were consumed (not rejected).
     let all_changes = changes.clone();
-    let create_out = create_commit(
-        source.repo(&editor),
-        Destination::NewCommit {
+    let repo = source.repo(&editor);
+    let new_commit = |changes| {
+        let destination = Destination::NewCommit {
             parent_commit_id,
             stack_segment: None,
             message: message.to_owned(),
-        },
-        changes,
-        context_lines,
-    )?;
+        };
+        create_commit(repo, destination, changes, context_lines)
+    };
+    let (new_commit, rejected_specs) = match (conflicts, parent_commit_id) {
+        (Conflicts::Keep, Some(_)) => {
+            let requested = changes.len();
+            let empty = new_commit(Vec::new())?.new_commit;
+            let empty = empty.context("BUG: an empty commit is always made")?;
+            let (amended, rejected) = amend_keeping_conflicts(repo, empty, changes, context_lines)?;
+            let all_rejected = requested > 0 && rejected.len() == requested;
+            (amended.filter(|_| !all_rejected), rejected)
+        }
+        (Conflicts::Reject, _) | (Conflicts::Keep, None) => {
+            let created = new_commit(changes)?;
+            (created.new_commit, created.rejected_specs)
+        }
+    };
 
-    let Some(new_commit_id) = create_out.new_commit else {
+    let Some(new_commit_id) = new_commit else {
         return Ok(CommitCreateOutcome {
             rebase: editor.rebase()?,
             commit_selector: None,
-            rejected_specs: create_out.rejected_specs,
+            rejected_specs,
         });
     };
 
@@ -86,7 +106,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     cancel_consumed_changes(
         &mut editor,
         &source,
-        consumed_changes(all_changes, &create_out.rejected_specs),
+        consumed_changes(all_changes, &rejected_specs),
         context_lines,
     )?;
 
@@ -99,7 +119,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     Ok(CommitCreateOutcome {
         rebase: editor.rebase()?,
         commit_selector: Some(commit_selector),
-        rejected_specs: create_out.rejected_specs,
+        rejected_specs,
     })
 }
 

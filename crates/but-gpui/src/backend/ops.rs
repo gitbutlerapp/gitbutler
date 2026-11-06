@@ -682,6 +682,7 @@ fn stacks_cleanly(
                 specs,
                 String::new(),
                 ChangeSource::Head,
+                but_workspace::commit::Conflicts::Reject,
             )?;
             Ok(
                 match made.new_commit.filter(|_| made.rejected_specs.is_empty()) {
@@ -1028,7 +1029,14 @@ fn commit_in<M: RefMetadata>(
         Some(commit) => RelativeTo::Commit(commit.0),
         None => RelativeTo::Reference(branch.clone()),
     };
-    let made = tx.create_commit(relative_to, InsertSide::Below, specs, message, source)?;
+    let made = tx.create_commit(
+        relative_to,
+        InsertSide::Below,
+        specs,
+        message,
+        source,
+        but_workspace::commit::Conflicts::Reject,
+    )?;
     let rejected = made.rejected_specs;
     Ok(match made.new_commit {
         Some(commit) if leave_out || rejected.is_empty() => {

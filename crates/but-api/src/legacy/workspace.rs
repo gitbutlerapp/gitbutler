@@ -306,6 +306,7 @@ pub fn stash_into_branch(
             "Mo-Stashed changes",
             context_lines,
             but_workspace::commit::ChangeSource::Head,
+            but_workspace::commit::Conflicts::Reject,
         )?;
 
         let new_commit = commit_selector

@@ -670,6 +670,7 @@ where
         changes: Vec<DiffSpec>,
         message: String,
         source: ChangeSource<'_>,
+        conflicts: but_workspace::commit::Conflicts,
     ) -> anyhow::Result<IntermediateCommitCreateResult> {
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings| {
@@ -692,6 +693,7 @@ where
                 &message,
                 context_lines,
                 source,
+                conflicts,
             )?;
 
             let new_commit = commit_selector

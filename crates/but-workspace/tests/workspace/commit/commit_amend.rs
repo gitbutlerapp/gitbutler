@@ -741,6 +741,7 @@ mod from_worktree {
                 repo: &wt_repo,
                 name: "wt".into(),
             },
+            Conflicts::Reject,
         )?;
         assert!(
             outcome.rejected_specs.is_empty(),

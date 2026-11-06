@@ -175,7 +175,7 @@ type Rejected = Vec<(RejectionReason, DiffSpec)>;
 
 /// Amend `target_id` in `repo` with `changes` as they are on its checkout's HEAD: what they
 /// change there merges into the commit, which stays conflicted where it doesn't merge.
-fn amend_keeping_conflicts(
+pub(super) fn amend_keeping_conflicts(
     repo: &gix::Repository,
     target_id: gix::ObjectId,
     changes: Vec<DiffSpec>,
