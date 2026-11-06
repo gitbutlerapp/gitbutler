@@ -120,7 +120,7 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
 pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
     let conflicts = shown(store, project)
         .and_then(|moving| moving.squashed(store))
-        .is_some_and(|transfer| transfer.conflicts());
+        .is_some_and(|transfer| transfer.asks());
     match conflicts {
         true => theme.warn,
         false => mark_of(store, project, theme),
@@ -1486,9 +1486,9 @@ impl Navigator {
             };
             self.store
                 .update(cx, |store, cx| store.select(Some(on), cx));
-            if transfer.conflicts() {
+            if transfer.asks() {
                 return self.app.update_later(window, cx, move |app, window, cx| {
-                    app.perform_conflicting(transfer, project, None, window, cx)
+                    app.perform_asking(transfer, project, None, window, cx)
                 });
             }
             // Only staging comes back, which a squash never is.

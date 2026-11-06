@@ -1402,6 +1402,7 @@ impl Detail {
                 message,
                 run_hooks: store.runs_hooks(&project),
                 conflicts: backend::Conflicts::Reject,
+                restack: None,
             };
             store.amend(&project, amend, landed, cx)
         });

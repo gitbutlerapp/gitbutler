@@ -701,6 +701,70 @@ fn stacks_cleanly(
     })
 }
 
+/// Whether stacking as `stacking` says leaves commit `into` unconflicted, so changes can amend
+/// into it after. Tried in a dry run, which changes nothing.
+fn restack_keeps(
+    ctx: &mut but_ctx::Context,
+    perm: &mut but_ctx::access::RepoExclusive,
+    stacking: &Stacking,
+    into: CommitId,
+) -> Result<bool> {
+    let change = {
+        use gix::prelude::ObjectIdExt as _;
+        but_core::Commit::from_id(into.0.attach(&*ctx.repo.get()?))?.change_id()
+    };
+    let mut meta = ctx.meta()?;
+    let (_, stacked) = but_transaction::with_transaction_with_perm_only(
+        ctx,
+        &mut meta,
+        perm,
+        DryRun::Yes,
+        |mut tx| stack_in(&mut tx, Some(stacking)),
+    )?;
+    // What the dry run read of the workspace isn't what's there.
+    ctx.invalidate_workspace_cache()?;
+    Ok(!(stacked.conflicted_commits.iter()).any(|(_, conflicted)| *conflicted == change))
+}
+
+/// Whether stacking the project at `path` as `stacking` says leaves commit `into`
+/// unconflicted, so changes can amend into it after. It waits for GitButler's lock and changes
+/// nothing.
+pub fn try_restack(path: &std::path::Path, stacking: &Stacking, into: CommitId) -> Result<bool> {
+    let mut ctx = super::open(path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    restack_keeps(&mut ctx, guard.write_permission(), stacking, into)
+}
+
+/// Stack whole stacks as `stacking` says.
+pub struct Restack {
+    pub stacking: Stacking,
+}
+
+impl Intent for Restack {
+    /// The branches it left with conflicted commits they didn't have, each with how many.
+    type Done = Vec<(Option<FullName>, usize)>;
+
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        run.locked(|ctx, perm| {
+            let before = but_api::legacy::workspace::head_info(ctx)?;
+            let mut meta = ctx.meta()?;
+            let stacked = but_transaction::with_transaction_with_perm(
+                ctx,
+                &mut meta,
+                perm,
+                SnapshotDetails::new(OperationKind::MoveBranch),
+                &[],
+                DryRun::No,
+                |mut tx| stack_in(&mut tx, Some(&self.stacking)),
+            )?;
+            Ok(super::upstream::newly_conflicted(
+                &before,
+                &stacked.conflicted_commits,
+            ))
+        })
+    }
+}
+
 /// A commit made on `branch`, with the changes left out of it and what a failing post-commit
 /// hook printed.
 #[derive(Debug)]
@@ -1453,6 +1517,9 @@ pub struct Amend {
     pub run_hooks: bool,
     /// What happens to changes that don't merge into it.
     pub conflicts: Conflicts,
+    /// Whole stacks stacked first, in the same oplog entry, so the changes have what they
+    /// build on below it: only while that leaves it unconflicted still.
+    pub restack: Option<Stacking>,
 }
 
 pub use but_workspace::commit::Conflicts;
@@ -1478,6 +1545,7 @@ impl Intent for Amend {
             message,
             run_hooks,
             conflicts,
+            restack,
         } = self;
         let worktree = checkout.linked();
         let run_hooks = run_hooks && worktree.is_none();
@@ -1490,7 +1558,19 @@ impl Intent for Amend {
         if run_hooks {
             pre_commit(ctx, &specs)?;
         }
+        if restack.is_some() && worktree.is_some() {
+            bail!("Only the workspace's stacks are stacked for an amend");
+        }
         let outcome = run.locked(|ctx, perm| {
+            // What it was tried with when it was offered may have changed since, as by an agent.
+            if let Some(stacking) = &restack
+                && !restack_keeps(ctx, perm, stacking, into)?
+            {
+                bail!(
+                    "Stacking the branches would leave the commit conflicted now, so nothing \
+                     was changed"
+                );
+            }
             let linked = (worktree.map(|name| super::checkout(ctx, Some(name)))).transpose()?;
             let source = match (worktree, &linked) {
                 (Some(name), Some(repo)) => ChangeSource::Worktree { repo, name },
@@ -1513,6 +1593,7 @@ impl Intent for Amend {
                     .as_slice(),
                 DryRun::No,
                 |mut tx| {
+                    stack_in(&mut tx, restack.as_ref())?;
                     let made = tx.amend_commit(into.0, specs, source, conflicts)?;
                     let Some(amended) = made.new_commit else {
                         return Ok(DynamicOutcome::Rollback(made.rejected_specs));
@@ -2324,6 +2405,7 @@ pub(super) mod tests {
             message: None,
             run_hooks: false,
             conflicts: Conflicts::Reject,
+            restack: None,
         }
     }
 
@@ -4366,6 +4448,53 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 "the branch stacked takes it, over both branches' commits: {titles}"
             );
             assert!(uncommitted(path).is_empty(), "it took every change");
+        })
+    }
+
+    #[test]
+    fn an_amend_building_on_another_stack_restacks_it_below_first() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = an_edit_building_on_alpha_and_beta();
+            let path = dir.path();
+            let ws = crate::backend::load_workspace(path, crate::backend::Kept::default()).unwrap();
+            let locks = crate::backend::locks::read_locks(path, ws.lock_input()).unwrap();
+            let changes = vec![Selected::whole(&uncommitted(path)[0])];
+            let tip = git(path, &["rev-parse", "beta"]);
+            let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
+            let fit = locks.fit(&ws, &changes, beta);
+            assert!(
+                !fit.conflicts,
+                "beta's own commit is what it builds on there"
+            );
+            let stacking = fit.restack.expect("alpha has to go below beta");
+            assert_eq!(
+                (stacking.onto.clone(), stacking.branches.clone()),
+                (full("refs/heads/alpha"), vec![full("refs/heads/beta")]),
+                "beta, where it lands, goes on top of alpha"
+            );
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+            assert!(
+                super::try_restack(path, &stacking, beta).unwrap(),
+                "stacking leaves beta's commit unconflicted"
+            );
+            assert_eq!(entries_since(path, before), "", "trying it changed nothing");
+
+            let amend = Amend {
+                restack: Some(stacking),
+                ..amend_main(beta, changes)
+            };
+            crate::backend::apply(path, amend).unwrap();
+            assert_eq!(
+                titles_on(path, "beta"),
+                "Beta, edit",
+                "beta, amended, sits on alpha's commit"
+            );
+            assert!(uncommitted(path).is_empty(), "it took the change");
+            assert_eq!(
+                entries_since(path, before),
+                "AmendCommit\n",
+                "stacking and amending are one undo step"
+            );
         })
     }
 

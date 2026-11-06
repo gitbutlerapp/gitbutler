@@ -1343,6 +1343,27 @@ impl Store {
     }
 
     /// Amend as `amend` says, then call `then` with the commit it became once that worked.
+    /// Stack whole stacks of `project` as `stacking` says, so changes can amend into the one
+    /// on top.
+    pub fn restack(
+        &mut self,
+        project: &ProjectId,
+        stacking: backend::Stacking,
+        cx: &mut Context<Self>,
+    ) {
+        let top = short_ref(&stacking.top).into_owned();
+        self.apply(
+            project,
+            Label::new("Restack", format!("Restack under {top}")),
+            Overlay::default(),
+            backend::Restack { stacking },
+            move |store, conflicted, cx| {
+                store.snack_undoable(branch_moved("Restacked", &conflicted), cx)
+            },
+            cx,
+        );
+    }
+
     pub fn amend(
         &mut self,
         project: &ProjectId,

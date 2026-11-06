@@ -46,12 +46,14 @@ pub enum Transfer {
         emptied: Option<FullName>,
     },
     /// Uncommitted files of `worktree` into a commit, which `conflicts` leaves conflicted when
-    /// they build on commits it doesn't have.
+    /// they build on commits above it, after `restack` puts the other stacks they build on
+    /// below its own.
     Amend {
         into: CommitId,
         files: Arc<[Selected]>,
         worktree: Checkout,
         conflicts: backend::Conflicts,
+        restack: Option<backend::Stacking>,
     },
     MoveFiles {
         from: CommitId,
@@ -843,6 +845,12 @@ impl Move {
             (
                 Op::Squash(_),
                 Some(Transfer::Amend {
+                    restack: Some(_), ..
+                }),
+            ) => "restack and amend",
+            (
+                Op::Squash(_),
+                Some(Transfer::Amend {
                     conflicts: backend::Conflicts::Keep,
                     ..
                 }),
@@ -1125,15 +1133,17 @@ impl Transfer {
                     let fit = (store.locks.get(project))
                         .filter(|_| !worktree.is_linked())
                         .map(|locks| locks.fit(workspace, files, *into));
-                    let keeps = fit.is_none_or(|fit| fit.restack.is_none() && !fit.conflicts);
+                    let (restack, conflicts) =
+                        fit.map_or((None, false), |fit| (fit.restack, fit.conflicts));
                     Transfer::Amend {
                         into: *into,
                         files: files.clone(),
                         worktree: worktree.clone(),
-                        conflicts: match keeps {
-                            true => backend::Conflicts::Reject,
-                            false => backend::Conflicts::Keep,
+                        conflicts: match conflicts {
+                            true => backend::Conflicts::Keep,
+                            false => backend::Conflicts::Reject,
                         },
+                        restack,
                     }
                 }
                 // The composer commits the main checkout's files to the workspace's branches.
@@ -1171,12 +1181,16 @@ impl Transfer {
         })
     }
 
-    /// Whether it leaves the commit it goes into conflicted, which the user is asked about first.
-    pub fn conflicts(&self) -> bool {
+    /// Whether the user is asked first: it restacks, or leaves the commit it goes into
+    /// conflicted.
+    pub fn asks(&self) -> bool {
         matches!(
             self,
             Transfer::Amend {
                 conflicts: backend::Conflicts::Keep,
+                ..
+            } | Transfer::Amend {
+                restack: Some(_),
                 ..
             }
         )
@@ -1199,6 +1213,9 @@ impl Transfer {
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
+            Transfer::Amend {
+                restack: Some(_), ..
+            } => "Restack and amend",
             Transfer::Amend {
                 conflicts: backend::Conflicts::Keep,
                 ..
@@ -1373,6 +1390,7 @@ impl Transfer {
                 files,
                 worktree,
                 conflicts,
+                restack,
             } => {
                 let amend = backend::Amend {
                     into,
@@ -1381,6 +1399,7 @@ impl Transfer {
                     message: None,
                     run_hooks: store.runs_hooks(project),
                     conflicts,
+                    restack,
                 };
                 store.amend(project, amend, |_, _, _| {}, cx)
             }
