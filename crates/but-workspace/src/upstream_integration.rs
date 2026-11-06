@@ -418,12 +418,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             .nodes
             .values()
             .all(|attrs| attrs.is_integrated() || attrs.reference_integrated.is_some());
-        if !is_selected {
-            continue;
+        if is_selected {
+            selected_stack_nodes.extend(stack.nodes.keys().copied());
         }
-        selected_stack_nodes.extend(stack.nodes.keys().copied());
 
-        if is_fully_integrated {
+        if is_selected && is_fully_integrated {
             // If we're not in the managed workspace, we haven't determined a
             // ref replacement yet and we were checked out on a local branch.
             if !head_is_workspace_commit
@@ -454,11 +453,13 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             }
         }
 
-        // Remove integrated refs from the workspace and from git.
-        // TODO: allow to keep some references.
+        // Remove integrated refs from the workspace and from git, whether or not their stack is
+        // rebased. A checked-out ref is replaced instead, which moves its checkout, so only when
+        // its stack is.
         for (selector, attrs) in &stack.nodes {
             if worktree_heads.contains(selector) {
-                if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                if is_selected
+                    && let Some(ref_name) = attrs.reference_integrated.as_ref()
                     && should_delete_integrated_local_branch(
                         ref_name.as_ref(),
                         target_ref.as_ref(),
@@ -485,6 +486,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 if direct_checkout_replacement_ref
                     .as_ref()
                     .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                    || (!is_selected && direct_checkout_head_ref_name.as_ref() == Some(ref_name))
                 {
                     continue;
                 }
@@ -1211,7 +1213,10 @@ fn selector_commit_id<M: RefMetadata>(
                 .id()
                 .detach(),
         ),
-        Step::None => None,
+        Step::None => match editor.direct_parents(selector)?.as_slice() {
+            [(parent, _)] => selector_commit_id(editor, *parent)?,
+            _ => None,
+        },
     })
 }
 

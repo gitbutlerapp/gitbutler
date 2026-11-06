@@ -1392,7 +1392,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
 }
 
 #[test]
-fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<()> {
+fn integrated_branch_in_a_stack_left_out_of_the_update_is_removed() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -1422,8 +1422,8 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     out.rebase.materialize(Default::default())?;
 
     assert!(
-        repo.try_find_reference("A")?.is_some(),
-        "local branch should remain when update selector is not a stack bottom"
+        repo.try_find_reference("A")?.is_none(),
+        "an integrated branch goes even when its stack isn't rebased, as the selector isn't its bottom"
     );
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
@@ -1447,8 +1447,8 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 8d5739f
-└── ≡📙:A on 8d5739f {1}
-    └── 📙:A
+└── ≡:anon: on 8d5739f
+    └── :anon:
         ├── ·ffde79e (🏘️|✓)
         └── ·86b55e6 (🏘️|✓)
 
