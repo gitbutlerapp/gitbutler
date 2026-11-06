@@ -168,8 +168,8 @@ fn amend_below_what_it_builds_on_rejects_it() -> Result<()> {
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 0e500b7 (HEAD -> stack-1) second
-* 6e7b640 first
+* 4adab82 (HEAD -> stack-1) second
+* 6d68248 first
 * 84731fe (origin/main, main) base
 
 "#]]
@@ -613,10 +613,11 @@ mod from_worktree {
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
         let d1_id = detached_tip(&repo)?;
+        // `a-file` builds on F1, which D1 doesn't have, so only the new file goes in cleanly.
         let outcome = commit_amend(
             editor,
             d1_id,
-            whole_file_spec("a-file"),
+            whole_file_spec("new-file"),
             0,
             ChangeSource::Worktree {
                 repo: &wt_repo,

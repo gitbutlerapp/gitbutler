@@ -1415,7 +1415,7 @@ pub fn run_in_unborn_repo(
     let but_workspace::commit_engine::CreateCommitOutcome {
         new_commit,
         rejected_specs,
-        changed_tree_pre_cherry_pick: _,
+        consumed_specs: _,
         references: _,
         rebase_output: _,
         index: _,
@@ -1428,6 +1428,7 @@ pub fn run_in_unborn_repo(
         },
         changes,
         context_lines,
+        but_workspace::commit::Conflicts::Reject,
     )?;
 
     if !rejected_specs.is_empty() {

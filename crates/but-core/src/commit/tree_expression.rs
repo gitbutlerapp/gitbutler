@@ -136,7 +136,7 @@ impl MergedTree {
     pub fn apply_to(
         self,
         repo: &gix::Repository,
-        commit: &mut crate::CommitOwned,
+        commit: &mut gix::objs::Commit,
     ) -> anyhow::Result<()> {
         match self.conflict {
             Some(conflict) => {

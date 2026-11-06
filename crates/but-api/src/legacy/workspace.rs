@@ -332,7 +332,7 @@ pub fn stash_into_branch(
         Ok(commit_engine::CreateCommitOutcome {
             rejected_specs,
             new_commit,
-            changed_tree_pre_cherry_pick: None,
+            consumed_specs: Vec::new(),
             references: Vec::new(),
             rebase_output,
             index: None,

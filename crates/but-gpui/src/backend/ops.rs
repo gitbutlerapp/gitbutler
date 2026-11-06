@@ -337,6 +337,7 @@ fn commit_first(
         },
         changes,
         ctx.settings.context_lines,
+        Conflicts::Reject,
     )?;
     let id = match outcome.new_commit {
         Some(id) if leave_out || outcome.rejected_specs.is_empty() => id,

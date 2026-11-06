@@ -112,19 +112,6 @@ pub fn cancel_consumed_changes<M: but_core::RefMetadata>(
     Ok(())
 }
 
-/// Return the specs of `all_changes` that weren't rejected, i.e. that were consumed.
-fn consumed_changes(
-    all_changes: Vec<DiffSpec>,
-    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, DiffSpec)],
-) -> Vec<DiffSpec> {
-    let rejected_paths: std::collections::BTreeSet<_> =
-        rejected_specs.iter().map(|(_, spec)| &spec.path).collect();
-    all_changes
-        .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
-        .collect()
-}
-
 pub mod reword;
 pub use reword::reword;
 pub mod commit_create;

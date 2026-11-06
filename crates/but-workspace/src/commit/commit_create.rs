@@ -1,6 +1,6 @@
 //! An action to create a new commit relative to a commit or reference.
 
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
@@ -8,10 +8,7 @@ use but_rebase::graph_rebase::{
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::{
-    ChangeSource, Conflicts, cancel_consumed_changes, commit_amend::amend_keeping_conflicts,
-    consumed_changes,
-};
+use super::{ChangeSource, Conflicts, cancel_consumed_changes};
 
 /// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
@@ -67,32 +64,19 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
 
-    // Clone before `create_commit` consumes the vec — needed afterwards
-    // to determine which changes were consumed (not rejected).
-    let all_changes = changes.clone();
-    let repo = source.repo(&editor);
-    let new_commit = |changes| {
-        let destination = Destination::NewCommit {
-            parent_commit_id,
-            stack_segment: None,
-            message: message.to_owned(),
-        };
-        create_commit(repo, destination, changes, context_lines)
+    let destination = Destination::NewCommit {
+        parent_commit_id,
+        stack_segment: None,
+        message: message.to_owned(),
     };
-    let (new_commit, rejected_specs) = match (conflicts, parent_commit_id) {
-        (Conflicts::Keep, Some(_)) => {
-            let requested = changes.len();
-            let empty = new_commit(Vec::new())?.new_commit;
-            let empty = empty.context("BUG: an empty commit is always made")?;
-            let (amended, rejected) = amend_keeping_conflicts(repo, empty, changes, context_lines)?;
-            let all_rejected = requested > 0 && rejected.len() == requested;
-            (amended.filter(|_| !all_rejected), rejected)
-        }
-        (Conflicts::Reject, _) | (Conflicts::Keep, None) => {
-            let created = new_commit(changes)?;
-            (created.new_commit, created.rejected_specs)
-        }
-    };
+    let created = create_commit(
+        source.repo(&editor),
+        destination,
+        changes,
+        context_lines,
+        conflicts,
+    )?;
+    let (new_commit, rejected_specs) = (created.new_commit, created.rejected_specs);
 
     let Some(new_commit_id) = new_commit else {
         return Ok(CommitCreateOutcome {
@@ -103,12 +87,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     };
 
     // Runs before `insert` so an unknown worktree fails with zero graph mutation.
-    cancel_consumed_changes(
-        &mut editor,
-        &source,
-        consumed_changes(all_changes, &rejected_specs),
-        context_lines,
-    )?;
+    cancel_consumed_changes(&mut editor, &source, created.consumed_specs, context_lines)?;
 
     let commit_selector = editor.insert(
         relative_to_selector,
