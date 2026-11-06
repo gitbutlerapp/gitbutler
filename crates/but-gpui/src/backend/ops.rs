@@ -4469,7 +4469,7 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let changes = vec![Selected::whole(&uncommitted(path)[0])];
             let tip = git(path, &["rev-parse", "beta"]);
             let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
-            let fit = locks.fit(&ws, &changes, beta);
+            let fit = locks.fit(&ws, &changes, ws.landing_into(beta).unwrap());
             assert!(
                 !fit.conflicts,
                 "beta's own commit is what it builds on there"

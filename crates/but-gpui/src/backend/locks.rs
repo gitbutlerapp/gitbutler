@@ -1,7 +1,7 @@
 //! What the main checkout's uncommitted hunks build on: the commits of its stacks they
-//! overlap. A hunk amends cleanly into one of those or a commit above them in their stack, once
-//! every other stack it builds on is stacked below that one. Any lower in its own stack leaves
-//! the commits it builds on out of the commit it's in, which conflicts it.
+//! overlap. A hunk lands cleanly, amended or committed, on one of those or a commit above them
+//! in their stack, once every other stack it builds on is stacked below that one. Any lower in
+//! its own stack leaves the commits it builds on out of the commit it's in, which conflicts it.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -54,53 +54,76 @@ impl Locks {
     }
 }
 
-/// How amending changes into a commit sits with the commits they build on.
+/// Where changes land in the workspace's history: in the lane at `lane`, on top of its commit
+/// `on`, or at its bottom with `None`; with no lane, in a new stack of their own.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Landing {
+    lane: Option<usize>,
+    pub on: Option<CommitId>,
+}
+
+impl Workspace {
+    /// Where amending changes into commit `into` lands them.
+    pub fn landing_into(&self, into: CommitId) -> Option<Landing> {
+        let lane = (self.lanes.iter()).position(|lane| lane_has(lane, into))?;
+        Some(Landing {
+            lane: Some(lane),
+            on: Some(into),
+        })
+    }
+}
+
+fn lane_has(lane: &Lane, id: CommitId) -> bool {
+    lane_commits(lane, 0).any(|c| c == id)
+}
+
+/// The commits of `lane`'s branches from its `from`th down, newest first.
+fn lane_commits(lane: &Lane, from: usize) -> impl Iterator<Item = CommitId> {
+    (lane.branches.iter().skip(from))
+        .flat_map(|b| &b.commits)
+        .map(|c| c.id)
+}
+
+/// How landing changes somewhere sits with the commits they build on.
 #[derive(Debug, PartialEq)]
-pub struct AmendFit {
-    /// The stacking that puts every other stack they build on below the commit's, if one has
-    /// to go there: the first stays, the rest go on it whole, the commit's own last.
+pub struct Fit {
+    /// The stacking that puts every other stack they build on below the one they land in, if
+    /// one has to go there: the first stays, the rest go on it whole, the landing's own last.
     pub restack: Option<Stacking>,
-    /// Whether one they build on is above it in its own lane, which leaves it conflicted.
+    /// Whether one they build on is above where they land in its own lane, or in a stack
+    /// that can't go below it, which leaves the commit they land in conflicted.
     pub conflicts: bool,
 }
 
 impl Locks {
-    /// How amending the main checkout's `files` into commit `into` of `workspace` sits with
-    /// what they build on. A commit the workspace doesn't have, as locks read before a rewrite
-    /// name, holds nothing back. Other lanes that can't be stacked, as a linked worktree's,
-    /// leave it conflicted.
-    pub fn fit(&self, workspace: &Workspace, files: &[Selected], into: CommitId) -> AmendFit {
-        let lane_of = |id: CommitId| {
-            (workspace.lanes.iter()).position(|lane| {
-                lane.branches
-                    .iter()
-                    .any(|b| b.commits.iter().any(|c| c.id == id))
-            })
-        };
-        let Some(own) = lane_of(into) else {
-            return AmendFit {
-                restack: None,
-                conflicts: false,
-            };
-        };
-        let own_commits = workspace.lane_commits(into).unwrap_or_default();
-        let at = |id| own_commits.iter().position(|c| *c == id);
+    /// How landing the main checkout's `files` at `landing` in `workspace` sits with what they
+    /// build on. A commit the workspace doesn't have, as locks read before a rewrite name,
+    /// holds nothing back. Other lanes that can't be stacked, as a linked worktree's or below
+    /// a new stack, leave it conflicted.
+    pub fn fit(&self, workspace: &Workspace, files: &[Selected], landing: Landing) -> Fit {
+        let lane_of = |id| (workspace.lanes.iter()).position(|lane| lane_has(lane, id));
+        let own = landing.lane.and_then(|ix| workspace.lanes.get(ix));
+        let under: Vec<CommitId> = (own.into_iter())
+            .flat_map(|lane| lane_commits(lane, 0))
+            .skip_while(|id| Some(*id) != landing.on)
+            .collect();
         let mut conflicts = false;
         let mut below = Vec::new();
         for base in files.iter().flat_map(|file| self.of(file)) {
             match lane_of(base) {
-                Some(lane) if lane == own => conflicts |= at(base) < at(into),
+                Some(lane) if Some(lane) == landing.lane => conflicts |= !under.contains(&base),
                 Some(lane) if !below.contains(&lane) => below.push(lane),
                 Some(_) | None => {}
             }
         }
         below.sort_unstable();
-        let lanes = below
-            .iter()
-            .chain([&own])
-            .filter_map(|ix| workspace.lanes.get(*ix));
-        let restack = (!below.is_empty()).then(|| stacking(lanes)).flatten();
-        AmendFit {
+        let restack = match (landing.lane, below.is_empty()) {
+            (Some(own), false) => {
+                stacking((below.iter().chain([&own])).filter_map(|ix| workspace.lanes.get(*ix)))
+            }
+            (Some(_), true) | (None, _) => None,
+        };
+        Fit {
             conflicts: conflicts || (!below.is_empty() && restack.is_none()),
             restack,
         }
@@ -217,7 +240,8 @@ mod tests {
             .into(),
         );
         let fit = |name: &str, into| {
-            let fit = locks.fit(&ws, &[Selected::whole(&file(name))], id(into));
+            let landing = ws.landing_into(id(into)).unwrap();
+            let fit = locks.fit(&ws, &[Selected::whole(&file(name))], landing);
             let restack = fit.restack.map(|stacking| {
                 let names = |refs: &[crate::backend::FullName]| {
                     refs.iter()
