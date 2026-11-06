@@ -38,7 +38,7 @@ pub use diff_view::DiffPane;
 pub(crate) use graph::GraphWindow;
 pub(crate) use key_panes::{KeyMove, KeyPane};
 pub use page::KeptPages;
-pub(crate) use page::PageTab;
+pub(crate) use page::{PageTab, has_tabs, shows_its_diff};
 pub use resolve::{ResolveConflicts, oldest_conflict};
 
 use std::cell::Cell;
@@ -735,6 +735,7 @@ impl Detail {
                 | StoreEvent::TilingMoved { .. }
                 | StoreEvent::MoveToward(_)
                 | StoreEvent::CommitBlocked
+                | StoreEvent::LinkOpened { .. }
                 | StoreEvent::RowDragEnded => {}
             }),
             cx.subscribe_in(

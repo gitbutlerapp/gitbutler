@@ -66,7 +66,13 @@ pub type ProjectId = SharedString;
     serde::Serialize,
     serde::Deserialize,
 )]
-#[strum_discriminants(name(SelectionKind), derive(strum::EnumIter))]
+#[strum_discriminants(
+    name(SelectionKind),
+    derive(strum::EnumIter, strum::IntoStaticStr, strum::EnumString),
+    // As a `but://open` link names the kind (`to=`), so renaming one renames its links: see
+    // `crate::links`.
+    strum(serialize_all = "kebab-case")
+)]
 pub enum Selection {
     /// A project's page, whose tabs are what its page keeps: see [`ProjectTab`].
     Project(ProjectId),
@@ -96,8 +102,21 @@ pub enum Selection {
 /// A tab of a project's page, as a branch's page has Changes and its pull request. Which one
 /// shows is the page's, so it stays with the tile showing it.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::IntoStaticStr,
+    strum::EnumString,
 )]
+// As a `but://open` link names the tab (`tab=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
 pub enum ProjectTab {
     #[default]
     Overview,
@@ -145,7 +164,12 @@ impl ProjectTab {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[strum_discriminants(name(SectionKind), derive(strum::EnumIter))]
+#[strum_discriminants(
+    name(SectionKind),
+    derive(strum::EnumIter, strum::IntoStaticStr, strum::EnumString),
+    // As a `but://open` link names the section (`section=`), so renaming one renames its links.
+    strum(serialize_all = "kebab-case")
+)]
 pub enum Section {
     /// The commits only a branch's remote has, by the branch's full ref.
     Upstream(FullName),
@@ -217,6 +241,13 @@ pub enum StoreEvent {
     /// A place in the changes of the selection a `but://open` link is making was asked for:
     /// their diff opens there once it's read, and says so if it lacks it.
     FileAsked(Selection, CodePlace),
+    /// The project a `but://open` link names is open, for the window to go where `at` points in
+    /// it. `existed` says whether it was added before the link.
+    LinkOpened {
+        project: ProjectId,
+        existed: bool,
+        at: Vec<(String, String)>,
+    },
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
     Renamed(ProjectId, Option<FullName>, FullName),
@@ -356,8 +387,8 @@ pub struct Store {
     staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
-    /// What a link selected, and what to say if it isn't there, until its project's read.
-    linked: Option<(Selection, &'static str)>,
+    /// What a link selected, to say so if it isn't there, until its project's read.
+    linked: Option<Selection>,
     /// Whether the user was asked for Git's missing author since the app started: once is
     /// enough, as it's set for every repository.
     asked_author: bool,

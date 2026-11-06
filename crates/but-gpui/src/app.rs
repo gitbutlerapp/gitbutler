@@ -466,6 +466,11 @@ impl AppView {
                 StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
                 StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
                 StoreEvent::CommitBlocked => this.ask_where_blocked_commit_goes(window, cx),
+                StoreEvent::LinkOpened {
+                    project,
+                    existed,
+                    at,
+                } => crate::links::land(this, project.clone(), *existed, at, window, cx),
                 StoreEvent::TilingChanged => {
                     this.drop_stale_tile_drag(cx);
                     this.drop_stale_row_tile(cx);

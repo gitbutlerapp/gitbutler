@@ -8,8 +8,7 @@ use std::time::{Duration, Instant};
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, SharedString, Task, WindowId};
 
-use super::{CodePlace, ProjectEntry, ProjectId, ProjectTab, Selection, Store, StoreEvent};
-use crate::backend::links;
+use super::{CodePlace, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{
     self, Checkout, CommitId, Destination, FileChange, FullName, Project, Selected, Workspace,
@@ -41,7 +40,7 @@ enum Asked {
     /// Add project.
     Add,
     /// A `but://open` link, at the place in the project it names.
-    Link(Option<links::Place>),
+    Link(Vec<(String, String)>),
 }
 
 impl Reload {
@@ -322,7 +321,7 @@ impl Store {
     pub fn open_from_link(
         &mut self,
         path: PathBuf,
-        at: Option<links::Place>,
+        at: Vec<(String, String)>,
         cx: &mut Context<Self>,
     ) {
         self.add_or_open(path, Asked::Link(at), cx);
@@ -345,7 +344,7 @@ impl Store {
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
                     if let Asked::Link(at) = asked {
-                        return store.select_linked(id, existed, at, cx);
+                        return store.link_opened(id, existed, at, cx);
                     }
                     store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
                     match (existed, store.project(&id)) {
@@ -364,64 +363,53 @@ impl Store {
         .detach();
     }
 
-    /// Select `id` as a `but://open` link asks: as a click on its row does, at the place in it
-    /// `at` names, or with none, where it opens, and where the user already is in it, they stay.
-    /// A place it doesn't have falls back as any selection does: at once if the project's read,
-    /// otherwise once it is.
-    fn select_linked(
+    /// Hand the `but://open` link that asked for `id` back to the window, now the project's open,
+    /// to go where `at` points in it. `existed` says whether it was added before the link.
+    fn link_opened(
         &mut self,
         id: ProjectId,
         existed: bool,
-        at: Option<links::Place>,
+        at: Vec<(String, String)>,
         cx: &mut Context<Self>,
     ) {
         if !existed {
             self.added = Some(id.clone());
         }
-        match at {
-            Some(links::Place::Changes { of, file }) => {
-                let project = id.clone();
-                let (selection, missing) = match of {
-                    links::Changes::Branch(name) => (
-                        Selection::Branch(id, Some(name)),
-                        "The link's branch isn't in the workspace now",
-                    ),
-                    links::Changes::Commit(commit) => (
-                        Selection::Commit(id, commit),
-                        "The link's commit isn't in the workspace now",
-                    ),
-                    links::Changes::Uncommitted(checkout) => (
-                        Selection::Uncommitted(id, checkout),
-                        "The link's worktree has nothing uncommitted now",
-                    ),
-                };
-                self.linked = Some((selection.clone(), missing));
-                match file {
-                    Some(links::FileAt { path, line }) if self.still_there(&selection) => {
-                        self.show_file(selection, CodePlace::File { path, line }, cx)
-                    }
-                    _ => self.select_by_hand(selection, cx),
-                };
-                // Unlike a click, a link can name what the project doesn't have, which then
-                // says so and falls back now rather than at the project's next reload.
-                self.land_link(&project, cx);
-                self.validate_selection(&project, cx);
-            }
-            Some(links::Place::Page(page)) => {
-                let tab = match page {
-                    links::Page::Branches => ProjectTab::Branches,
-                    links::Page::History => ProjectTab::History,
-                    links::Page::Graph => ProjectTab::Graph,
-                };
-                self.show_tab(id, tab, cx);
-            }
-            None if !existed => {
-                self.select_by_hand(Selection::Checkout(id, Checkout::Main), cx);
-            }
-            None if (self.selection.as_ref()).is_none_or(|s| s.project() != &id) => {
-                self.select_by_hand(self.opening(&id), cx);
-            }
-            None => {}
+        cx.emit(StoreEvent::LinkOpened {
+            project: id,
+            existed,
+            at,
+        });
+    }
+
+    /// Select `selection` as a `but://open` link asks, as a click on its row does, with its diff
+    /// open at `place` if it names one. A place the project doesn't have falls back as any
+    /// selection does, at once if the project's read, otherwise once it is, and says so.
+    pub(crate) fn select_linked(
+        &mut self,
+        selection: Selection,
+        place: Option<CodePlace>,
+        cx: &mut Context<Self>,
+    ) {
+        let project = selection.project().clone();
+        self.linked = Some(selection.clone());
+        match place {
+            Some(place) if self.still_there(&selection) => self.show_file(selection, place, cx),
+            _ => self.select_by_hand(selection, cx),
+        };
+        // Unlike a click, a link can name what the project doesn't have, which then says so and
+        // falls back now rather than at the project's next reload.
+        self.land_link(&project, cx);
+        self.validate_selection(&project, cx);
+    }
+
+    /// Select `id` as a link naming no place in it does: where it opens, just added or while the
+    /// user is in another project; in it already, they stay where they are.
+    pub(crate) fn select_opened(&mut self, id: &ProjectId, existed: bool, cx: &mut Context<Self>) {
+        if !existed {
+            self.select_by_hand(Selection::Checkout(id.clone(), Checkout::Main), cx);
+        } else if (self.selection.as_ref()).is_none_or(|s| s.project() != id) {
+            self.select_by_hand(self.opening(id), cx);
         }
     }
 
@@ -431,12 +419,11 @@ impl Store {
         if self.workspace(id).is_none() {
             return;
         }
-        let Some((linked, missing)) = self.linked.take_if(|(linked, _)| linked.project() == id)
-        else {
+        let Some(linked) = self.linked.take_if(|linked| linked.project() == id) else {
             return;
         };
         if self.selection.as_ref() == Some(&linked) && !self.still_there(&linked) {
-            self.snack_warning(missing, cx);
+            self.snack_warning("What the link points to isn't there now", cx);
         }
     }
 

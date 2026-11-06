@@ -547,6 +547,7 @@ impl GraphView {
             StoreEvent::Reopened
             | StoreEvent::TabAsked(_)
             | StoreEvent::FileAsked(..)
+            | StoreEvent::LinkOpened { .. }
             | StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)

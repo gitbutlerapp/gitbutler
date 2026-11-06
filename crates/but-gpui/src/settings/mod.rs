@@ -52,8 +52,11 @@ fn keys_in_diff(action: &dyn gpui::Action, does: &str, cx: &App) -> String {
         .map_or_else(String::new, |keys| format!(" {keys} in a diff {does}."))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AppPage {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+// As a `but://open` link names the page (`page=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
+pub(crate) enum AppPage {
     General,
     Appearance,
     Keyboard,
@@ -65,7 +68,7 @@ enum AppPage {
 }
 
 impl AppPage {
-    const ALL: [AppPage; 8] = [
+    pub(crate) const ALL: [AppPage; 8] = [
         AppPage::General,
         AppPage::Appearance,
         AppPage::Keyboard,
@@ -78,25 +81,28 @@ impl AppPage {
 
     /// The pages this build has: Developer only in a build of its own, not a nightly or a
     /// release.
-    fn shown() -> impl Iterator<Item = AppPage> + use<> {
+    pub(crate) fn shown() -> impl Iterator<Item = AppPage> + use<> {
         let dev = backend::dev_build();
         (AppPage::ALL.into_iter()).filter(move |page| dev || *page != AppPage::Developer)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProjectPage {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::EnumString)]
+// As a `but://open` link names the page (`page=`), so renaming one renames its links: see
+// `crate::links`.
+#[strum(serialize_all = "kebab-case")]
+pub(crate) enum ProjectPage {
     Project,
     Git,
 }
 
 impl ProjectPage {
-    const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
+    pub(crate) const ALL: [ProjectPage; 2] = [ProjectPage::Project, ProjectPage::Git];
 }
 
 /// A page of settings, in the sidebar's order: the app's, then each project's.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Page {
+pub(crate) enum Page {
     App(AppPage),
     Project(ProjectId, ProjectPage),
 }
@@ -1857,7 +1863,7 @@ impl AppView {
 
     /// Settings, at `page`. Already open, it shows `page` there: built again, it would draw
     /// without what it reads until that's read, and forget what had the keys before it opened.
-    fn open_settings_at(
+    pub(crate) fn open_settings_at(
         &mut self,
         page: Page,
         window: &mut Window,
