@@ -389,7 +389,9 @@
       "up": "palette::PaletteUp",
       "down": "palette::PaletteDown",
       "ctrl-p": "palette::PaletteUp",
-      "ctrl-n": "palette::PaletteDown"
+      "ctrl-n": "palette::PaletteDown",
+      "tab": "palette::NextGroup",
+      "shift-tab": "palette::PreviousGroup"
     }
   },
   // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
