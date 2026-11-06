@@ -80,7 +80,6 @@ fn apply_stack(
         workspace: ws,
         status,
         applied_branches,
-        conflicting_stacks: Vec::new(),
     })
 }
 

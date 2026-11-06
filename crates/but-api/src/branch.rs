@@ -100,22 +100,7 @@ pub mod json {
         ///
         /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
-        /// Stacks that conflicted while applying the branch.
-        pub conflicting_stacks: Vec<ConflictingStack>,
     }
-
-    /// A stack that conflicted while applying a branch.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
-    pub struct ConflictingStack {
-        /// The tip branch name of the stack.
-        pub ref_name: crate::json::FullRefName,
-        /// The shortened tip branch name, matching CLI display.
-        pub short_name: String,
-    }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(ConflictingStack);
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ApplyOutcome);
 
@@ -126,23 +111,12 @@ pub mod json {
                 workspace: _,
                 status,
                 applied_branches,
-                conflicting_stacks,
             } = value;
 
             ApplyOutcome {
                 status,
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
-                conflicting_stacks: conflicting_stacks
-                    .into_iter()
-                    .map(|stack| {
-                        let short_name = stack.ref_name.shorten().to_string();
-                        ConflictingStack {
-                            ref_name: stack.ref_name.into(),
-                            short_name,
-                        }
-                    })
-                    .collect(),
             }
         }
     }

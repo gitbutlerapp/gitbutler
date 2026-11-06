@@ -4331,21 +4331,11 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
 Outcome {
     workspace_changed: true,
     applied_branches: "[]",
-    conflicting_stacks: [
-        ConflictingStack {
-            id: 1,
-            ref_name: "refs/heads/conflict-F1",
-        },
-        ConflictingStack {
-            id: 2,
-            ref_name: "refs/heads/conflict-F2",
-        },
-    ],
 }
 "#]]
     );
     let ws = graph_with_cutoff_only(&repo, &meta, &mut db)?.into_workspace()?;
-    // By default, it fails and just reports the conflicting stacks, so it's the same as it was before.
+    // By default, it fails and leaves the workspace as it was before.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -4370,22 +4360,11 @@ Outcome {
 
 "#]]
     );
-    let conflicting_stacks = out
-        .conflicting_stacks
-        .iter()
-        .map(|stack| stack.ref_name.to_string())
-        .collect::<Vec<_>>();
-    assert_eq!(
-        conflicting_stacks,
-        ["refs/heads/conflict-F1", "refs/heads/conflict-F2"]
-    );
-
     Ok(())
 }
 
 #[test]
-fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() -> anyhow::Result<()>
-{
+fn conflicting_apply_reports_no_applied_branches() -> anyhow::Result<()> {
     let (_tmp, repo, mut meta, mut db) =
         named_writable_scenario("one-fork-with-conflicting-sibling")?;
     let graph_snapshot = visualize_commit_graph_all(&repo)?.replace("|/  ", "|/");
@@ -4467,12 +4446,6 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
 Outcome {
     workspace_changed: true,
     applied_branches: "[]",
-    conflicting_stacks: [
-        ConflictingStack {
-            id: 1,
-            ref_name: "refs/heads/A",
-        },
-    ],
 }
 "#]]
     );

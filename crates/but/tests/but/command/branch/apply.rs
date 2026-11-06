@@ -303,8 +303,7 @@ fn local_branch_with_json_output() {
   "workspaceChanged": true,
   "appliedBranches": [
     "refs/heads/feature-branch"
-  ],
-  "conflictingStacks": []
+  ]
 }
 
 "#]])
@@ -651,7 +650,7 @@ fn apply_branch_conflicting_with_workspace_reports_error() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
+Failed to apply branch: 'conflicting-branch' could not be applied because it would cause conflicts
 
 "#]])
         .stdout_eq(str![""]);
@@ -661,7 +660,7 @@ Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch: 'conflicting-branch' conflicts with existing stack: 'A'
+Failed to apply branch: 'conflicting-branch' could not be applied because it would cause conflicts
 
 "#]])
         .stdout_eq(str![""]);
@@ -701,10 +700,7 @@ fn apply_branch_conflicting_with_workspace_reports_json_error() {
 {
   "status": "conflictAborted",
   "workspaceChanged": true,
-  "appliedBranches": [],
-  "conflictingStacks": [
-    "refs/heads/A"
-  ]
+  "appliedBranches": []
 }
 
 "#]])
