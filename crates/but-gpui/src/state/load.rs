@@ -384,15 +384,16 @@ impl Store {
 
     /// Select `selection` as a `but://open` link asks, as a click on its row does, with its diff
     /// open at `place` if it names one. A place the project doesn't have falls back as any
-    /// selection does, at once if the project's read, otherwise once it is, and says so.
+    /// selection does, at once if the project's read, otherwise once it is, and says `missing`.
     pub(crate) fn select_linked(
         &mut self,
         selection: Selection,
         place: Option<CodePlace>,
+        missing: &'static str,
         cx: &mut Context<Self>,
     ) {
         let project = selection.project().clone();
-        self.linked = Some(selection.clone());
+        self.linked = Some((selection.clone(), missing));
         match place {
             Some(place) if self.still_there(&selection) => self.show_file(selection, place, cx),
             _ => self.select_by_hand(selection, cx),
@@ -419,11 +420,12 @@ impl Store {
         if self.workspace(id).is_none() {
             return;
         }
-        let Some(linked) = self.linked.take_if(|linked| linked.project() == id) else {
+        let Some((linked, missing)) = self.linked.take_if(|(linked, _)| linked.project() == id)
+        else {
             return;
         };
         if self.selection.as_ref() == Some(&linked) && !self.still_there(&linked) {
-            self.snack_warning("What the link points to isn't there now", cx);
+            self.snack_warning(missing, cx);
         }
     }
 

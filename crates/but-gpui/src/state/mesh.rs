@@ -27,7 +27,23 @@ pub type MeshBranch = (ProjectId, Arc<str>, String);
 
 /// What's selected of a checkout on another machine: it, one of its branches, or a commit,
 /// by the branch it's listed under.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::EnumDiscriminants,
+)]
+#[strum_discriminants(
+    name(MeshPickKind),
+    derive(strum::EnumIter, strum::IntoStaticStr, strum::EnumString),
+    // As a `but://open` link names the pick (`pick=`), so renaming one renames its links: see
+    // `crate::links`.
+    strum(serialize_all = "kebab-case")
+)]
 pub enum MeshPick {
     Checkout,
     Branch(String),

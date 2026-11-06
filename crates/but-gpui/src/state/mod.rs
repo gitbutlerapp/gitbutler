@@ -32,7 +32,7 @@ mod tiling;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
-pub use mesh::{MeshBranch, MeshPick, MeshState};
+pub use mesh::{MeshBranch, MeshPick, MeshPickKind, MeshState};
 use mutation::Running;
 pub use mutation::{
     BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
@@ -387,8 +387,8 @@ pub struct Store {
     staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
-    /// What a link selected, to say so if it isn't there, until its project's read.
-    linked: Option<Selection>,
+    /// What a link selected, and what to say if it isn't there, until its project's read.
+    linked: Option<(Selection, &'static str)>,
     /// Whether the user was asked for Git's missing author since the app started: once is
     /// enough, as it's set for every repository.
     asked_author: bool,
