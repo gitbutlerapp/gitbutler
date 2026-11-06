@@ -63,6 +63,7 @@ export enum TestId {
 	IntegrateUpstreamSeriesRowStatusBadge = "integrate-upstream-series-row-status-badge",
 	IntegrateUpstreamActionButton = "integrate-upstream-action-button",
 	IntegrateUpstreamWorktreeConflicts = "integrate-upstream-worktree-conflicts",
+	IntegrateUpstreamWorktrees = "integrate-upstream-worktrees",
 	FileListModeOption = "file-list-mode-option",
 	FileListTreeFolder = "file-list-tree-folder",
 	StackTab = "stack-tab",

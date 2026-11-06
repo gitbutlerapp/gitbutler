@@ -10,6 +10,8 @@ export function getMockBaseBranch(): BaseBranch {
 		baseSha: "mock-base-sha",
 		currentSha: "mock-current-sha",
 		behind: 0,
+		workspaceBehind: false,
+		worktreesBehind: [],
 		upstreamCommits: [],
 		recentCommits: [],
 		lastFetchedMs: null,

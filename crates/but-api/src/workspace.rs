@@ -792,27 +792,10 @@ pub fn is_behind_target(
     target_tip: gix::ObjectId,
     target_commit: gix::ObjectId,
 ) -> anyhow::Result<bool> {
-    let behind = |head: gix::ObjectId| -> anyhow::Result<bool> {
-        let mut missing = repo.rev_walk([target_tip]).with_hidden([head]).all()?;
-        Ok(missing.next().transpose()?.is_some())
-    };
-    let workspace_behind = || -> anyhow::Result<bool> {
-        Ok(target_commit != target_tip
-            || head_info.can_fast_forward_local_target
-            || match repo.head_id() {
-                Ok(head) => behind(head.detach())?,
-                Err(_) => false,
-            })
-    };
-    let worktrees_behind = || -> anyhow::Result<bool> {
-        for worktree in &head_info.worktrees {
-            if worktree.rebasable_base().is_some() && behind(worktree.head)? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    };
-    Ok((scope.workspace() && workspace_behind()?) || (scope.worktrees() && worktrees_behind()?))
+    Ok(
+        (scope.workspace() && head_info.workspace_behind(repo, target_tip, target_commit)?)
+            || (scope.worktrees() && !head_info.worktrees_behind(repo, target_tip)?.is_empty()),
+    )
 }
 
 /// The name of the target branch within its remote, like `main` for `refs/remotes/origin/main`.
@@ -918,13 +901,12 @@ pub fn workspace_integrate_upstream_only(
     )
 }
 
-/// Integrate upstream changes into the current workspace and record an oplog
-/// snapshot on success.
+/// Apply `updates` to the workspace and rebase the linked worktrees on the target's history
+/// onto it, as `but pull` does, recording an oplog snapshot on success.
 ///
-/// This acquires exclusive worktree access from `ctx`, applies the requested
-/// upstream updates, and commits a best-effort `MergeUpstream` oplog snapshot
-/// when the integration succeeds. When `dry_run` is enabled, the returned
-/// workspace previews the integration and no oplog entry is persisted. See
+/// This acquires exclusive worktree access from `ctx` and commits a best-effort
+/// `MergeUpstream` oplog snapshot when the integration succeeds. When `dry_run` is enabled,
+/// the returned workspace previews the integration and no oplog entry is persisted. See
 /// [`workspace_integrate_upstream_with_perm()`] for lower-level details.
 #[but_api(try_from = json::WorkspaceIntegrateUpstreamOutcome)]
 #[instrument(err(Debug))]
@@ -934,11 +916,28 @@ pub fn workspace_integrate_upstream(
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let head_info = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::graph_to_ref_info(
+            &ws,
+            &repo,
+            but_workspace::ref_info::Options {
+                project_meta: ws.graph.project_meta.clone(),
+                traversal: but_graph::init::Options::limited(),
+                expensive_commit_info: false,
+                ..Default::default()
+            },
+        )?
+    };
+    let worktrees = rebase_lane_bottoms(selected_lanes(&head_info, UpdateScope::Worktrees));
     workspace_integrate_upstream_with_perm(
         ctx,
-        updates.into_iter().map(Into::into).collect(),
+        (updates.into_iter().map(Into::into))
+            .chain(worktrees)
+            .collect(),
         dry_run,
-        guard.write_permission(),
+        perm,
     )
 }
 

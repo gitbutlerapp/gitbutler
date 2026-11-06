@@ -767,6 +767,37 @@ impl RefInfo {
         })
     }
 
+    /// Whether updating the workspace onto `target_tip` would change anything: `target_commit`,
+    /// the stored one, isn't the tip, the local target can fast-forward to it, or `HEAD` lacks it.
+    pub fn workspace_behind(
+        &self,
+        repo: &Repository,
+        target_tip: gix::ObjectId,
+        target_commit: gix::ObjectId,
+    ) -> anyhow::Result<bool> {
+        Ok(target_commit != target_tip
+            || self.can_fast_forward_local_target
+            || match repo.head_id() {
+                Ok(head) => lacks(repo, target_tip, head.detach())?,
+                Err(_) => false,
+            })
+    }
+
+    /// The worktrees an update rebases onto `target_tip` that lack it.
+    pub fn worktrees_behind(
+        &self,
+        repo: &Repository,
+        target_tip: gix::ObjectId,
+    ) -> anyhow::Result<Vec<&crate::worktrees::WorktreeInfo>> {
+        let mut behind = Vec::new();
+        for worktree in &self.worktrees {
+            if worktree.rebasable_base().is_some() && lacks(repo, target_tip, worktree.head)? {
+                behind.push(worktree);
+            }
+        }
+        Ok(behind)
+    }
+
     /// Every lane, i.e. each stack followed by each worktree in tip order.
     ///
     /// A lane can only rest on a lane listed before it, so following [`Lane::rests_on`] always
@@ -1029,6 +1060,12 @@ impl crate::worktrees::WorktreeInfo {
                 .collect::<anyhow::Result<_>>()?,
         })
     }
+}
+
+/// Whether `head` lacks any commit of `tip`.
+fn lacks(repo: &Repository, tip: gix::ObjectId, head: gix::ObjectId) -> anyhow::Result<bool> {
+    let mut missing = repo.rev_walk([tip]).with_hidden([head]).all()?;
+    Ok(missing.next().transpose()?.is_some())
 }
 
 fn beneath_padding(id: gix::ObjectId, repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
