@@ -24,6 +24,7 @@
 				action={async () => {
 					await settingsService.updateOnboardingComplete(true);
 					initAnalyticsIfEnabled($appSettings, posthog, true).then(() => {
+						if (!$appSettings?.telemetry.appDistinctId) posthog.setAnonymousPostHogUser();
 						// Await the initialization before logging the event to ensure PostHog is ready
 						posthog.captureOnboarding(OnboardingEvent.ConfirmedAnalytics);
 					});

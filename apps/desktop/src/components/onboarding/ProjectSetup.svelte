@@ -4,6 +4,7 @@
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
+	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -26,6 +27,7 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const urlService = inject(URL_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTargetRef] = baseService.setTargetRef;
 
@@ -54,11 +56,16 @@
 		const destination = `/${projectId}/`;
 		try {
 			await goto(destination, { invalidateAll: true });
-			return true;
 		} catch (error) {
 			showError("The target was set, but the project could not be opened", error);
 			return false;
 		}
+		// Setting up the first project ends a new user's onboarding. Adding another project, or
+		// choosing the target again, opens nothing.
+		if (!notice && (await projectsService.fetchProjects()).length === 1) {
+			urlService.openExternalUrl("https://docs.gitbutler.com/getting-started");
+		}
+		return true;
 	}
 
 	$effect(() => {
