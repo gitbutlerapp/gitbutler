@@ -2304,7 +2304,7 @@ pub(super) mod tests {
         }
     }
 
-    fn name_at(top: CommitId, name: &str) -> NameBranch {
+    pub(in crate::backend) fn name_at(top: CommitId, name: &str) -> NameBranch {
         NameBranch {
             top,
             name: name.into(),
@@ -5858,7 +5858,8 @@ move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/work
 
     /// A workspace whose one commit, on top of the target, turns line 5 of `file` into two,
     /// with that commit's id and diff.
-    fn workspace_with_an_edit() -> (tempfile::TempDir, CommitId, Vec<FileDiff>, Vec<String>) {
+    pub(in crate::backend) fn workspace_with_an_edit()
+    -> (tempfile::TempDir, CommitId, Vec<FileDiff>, Vec<String>) {
         let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
