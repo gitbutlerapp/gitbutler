@@ -1,8 +1,7 @@
 # Fonts
 
-Inter and Geist Mono, GitButler's UI and code fonts, from `@gitbutler/but-ui` (Inter 4.001,
-Geist Mono 1.401). That package ships them as variable woff2 files; these are static instances,
-cut with fontTools:
+Inter, GitButler's UI font, from `@gitbutler/but-ui` (Inter 4.001). That package ships it as
+a variable woff2 file; these are static instances, cut with fontTools:
 
 ```bash
 fonttools ttLib.woff2 decompress Inter-Variable.woff2 -o Inter-Variable.ttf
@@ -48,12 +47,12 @@ base.save("Inter-Regular.ttf")
 ```
 
 GPUI keeps a font added as bytes at its default instance, so it never reaches a variable file's
-other weights, hence static files. Both fonts are under the SIL Open Font License 1.1 (https://openfontlicense.org); each
+other weights, hence static files. Inter is under the SIL Open Font License 1.1 (https://openfontlicense.org); each
 file carries its copyright notice and license link in its name table.
 
-## Terminal font
+## Code and terminal font
 
-The terminals draw with Geist Mono Nerd Font Mono (`GeistMonoNerdFontMono-*.otf`), Geist Mono
+Code and terminals draw with Geist Mono Nerd Font Mono (`GeistMonoNerdFontMono-*.otf`), Geist Mono
 1.702 patched by Nerd Fonts v3.5.1, unmodified:
 
 ```bash
@@ -61,12 +60,14 @@ gh release download v3.5.1 -R ryanoasis/nerd-fonts -p GeistMono.tar.xz
 tar xf GeistMono.tar.xz GeistMonoNerdFontMono-Regular.otf GeistMonoNerdFontMono-SemiBold.otf LICENSE
 ```
 
-TUIs draw borders with box-drawing characters and file icons from the Private Use Area, which
-but-ui's Geist Mono leaves out. CoreText takes those from other fonts with other widths,
-so rows drift off the grid, borders gap, and icons show as missing glyphs. The Mono variant
-keeps every glyph, icons included, one cell wide. Nerd Fonts ships only these fixed weights, so
-the terminal's bold is 600 rather than 540. CoreText names the family "GeistMono Nerd Font
-Mono", not the "GeistMono NFM" in the files' legacy names.
+The Geist Mono in but-ui is a subset. It leaves out most accented Latin letters, as 16 of
+Polish's 18, and the box-drawing characters and Private Use Area file icons TUIs draw with.
+CoreText takes those from other fonts with other designs and widths, so words mix two fonts,
+rows drift off the grid, borders gap, and icons show as missing glyphs. The Mono variant keeps
+every glyph, icons included, one cell wide. Nerd Fonts ships only these fixed weights, so bold is
+600 rather than 540, and it has no ligatures, so the Font ligatures setting shows only in a font
+the user picks. CoreText names the family "GeistMono Nerd Font Mono", not the "GeistMono NFM" in
+the files' legacy names.
 
 Nerd Fonts' patched fonts are under the SIL Open Font License 1.1
 ([licensing](https://github.com/ryanoasis/nerd-fonts/blob/v3.5.1/LICENSE)), and
