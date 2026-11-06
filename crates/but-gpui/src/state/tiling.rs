@@ -119,11 +119,18 @@ pub fn along_edge<T>(places: &[(T, Area)], side: Side) -> Vec<&T> {
 }
 
 /// The tile on `side` of `from`, of `tiles`, as [`Tiling::areas`] lists them: of those nearest,
-/// the one most level with it, the first listed if two are.
-pub fn tile_beside(tiles: &[(Tile, Area)], from: &Tile, side: Side) -> Option<Tile> {
-    (nearest_beside(tiles, from, side).into_iter())
-        .min_by(|(_, a), (_, b)| b.total_cmp(a))
-        .map(|(tile, _)| tile.clone())
+/// `came_from`, so that going back goes back, else the one most level with it, the first listed
+/// if two are.
+pub fn tile_beside(
+    tiles: &[(Tile, Area)],
+    from: &Tile,
+    side: Side,
+    came_from: Option<&Tile>,
+) -> Option<Tile> {
+    let nearest = nearest_beside(tiles, from, side);
+    let back = (nearest.iter()).find(|(tile, _)| Some(*tile) == came_from);
+    (back.or(nearest.iter().min_by(|(_, a), (_, b)| b.total_cmp(a))))
+        .map(|(tile, _)| (*tile).clone())
 }
 
 /// A gap between cards being dragged: between two tiles, by their division's path and the
@@ -1755,12 +1762,23 @@ impl Store {
 
     /// The tile of the selected row's tiling that had the keys last, of those it has.
     pub fn last_tile_with_keys(&self) -> Option<Tile> {
+        self.recent_tile(|_| true)
+    }
+
+    /// The tile of the selected row's tiling that had the keys last before `tile`, of those it
+    /// has: where the keys came to `tile` from.
+    pub fn tile_with_keys_before(&self, tile: &Tile) -> Option<Tile> {
+        self.recent_tile(|other| other != tile)
+    }
+
+    /// The tile of the selected row's tiling that had the keys last, of those it has that `keep`.
+    fn recent_tile(&self, keep: impl Fn(&Tile) -> bool) -> Option<Tile> {
         let tiling = self.tiling()?;
         let row = self.row_key(self.selection.as_ref()?);
         let recent = self.tiles_with_keys.get(&row)?;
         (recent.iter().rev())
             .map(|shown| tile_showing(&row, shown))
-            .find(|tile| tiling.has(tile))
+            .find(|tile| tiling.has(tile) && keep(tile))
     }
 
     /// Whether the tile of the selected row that had the keys last is gone, which it forgets
@@ -1930,12 +1948,12 @@ mod tests {
             (right.clone(), area(0.5, 0., 0.5, 1.)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Right),
+            tile_beside(&tiles, &left, Side::Right, None),
             Some(right.clone()),
             "the pinned tile is right of the home one"
         );
         assert_eq!(
-            tile_beside(&tiles, &right, Side::Left),
+            tile_beside(&tiles, &right, Side::Left, None),
             Some(left),
             "the home tile is left of the pinned one"
         );
@@ -1949,12 +1967,12 @@ mod tests {
             (right.clone(), area(0.5, 0., 0.5, 1.)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Left),
+            tile_beside(&tiles, &left, Side::Left, None),
             None,
             "the navigator is left of the leftmost tile, not another tile"
         );
         assert_eq!(
-            tile_beside(&tiles, &right, Side::Right),
+            tile_beside(&tiles, &right, Side::Right, None),
             None,
             "the keys stop at the window's edge"
         );
@@ -1968,7 +1986,7 @@ mod tests {
             (bottom, area(0., 0.5, 1., 0.5)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &top, Side::Right),
+            tile_beside(&tiles, &top, Side::Right, None),
             None,
             "the tile under it isn't to its right"
         );
@@ -1987,9 +2005,71 @@ mod tests {
             (lower.clone(), area(0.5, 0.5, 0.5, 0.5)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Right),
+            tile_beside(&tiles, &left, Side::Right, None),
             Some(lower),
             "it shares more of its height with the lower tile on its right"
+        );
+    }
+
+    #[test]
+    fn going_back_goes_to_the_tile_it_came_from() {
+        let (left, upper, lower) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0., 0.5, 1.)),
+            (upper.clone(), area(0.5, 0., 0.5, 0.5)),
+            (lower.clone(), area(0.5, 0.5, 0.5, 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right, Some(&lower)),
+            Some(lower.clone()),
+            "as level as the upper tile, the lower one is where the keys came from"
+        );
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right, Some(&upper)),
+            Some(upper),
+            "from the upper tile they go back there too"
+        );
+    }
+
+    #[test]
+    fn where_it_came_from_beats_a_tile_more_level_with_it() {
+        let (left, upper, lower) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0.25, 0.5, 0.75)),
+            (upper.clone(), area(0.5, 0., 0.5, 0.5)),
+            (lower, area(0.5, 0.5, 0.5, 0.5)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right, Some(&upper)),
+            Some(upper),
+            "the lower tile shares more of its height, but the keys came from the upper one"
+        );
+    }
+
+    #[test]
+    fn where_it_came_from_doesnt_skip_a_nearer_tile() {
+        let (left, middle, right) = (
+            Tile::Home,
+            Tile::Pinned(terminal(1)),
+            Tile::Pinned(terminal(2)),
+        );
+        let tiles = [
+            (left.clone(), area(0., 0., 0.25, 1.)),
+            (middle.clone(), area(0.25, 0., 0.25, 1.)),
+            (right.clone(), area(0.5, 0., 0.5, 1.)),
+        ];
+        assert_eq!(
+            tile_beside(&tiles, &left, Side::Right, Some(&right)),
+            Some(middle),
+            "the keys having been further on doesn't make it beside"
         );
     }
 
@@ -2006,7 +2086,7 @@ mod tests {
             (lower, area(0.5, 0.5, 0.5, 0.5)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Right),
+            tile_beside(&tiles, &left, Side::Right, None),
             Some(upper),
             "both span half its height, so the one listed first goes"
         );
@@ -2025,7 +2105,7 @@ mod tests {
             (right, area(0.5, 0., 0.5, 1.)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Right),
+            tile_beside(&tiles, &left, Side::Right, None),
             Some(middle),
             "the right tile is more level with it, but past the one next to it"
         );
@@ -2039,7 +2119,7 @@ mod tests {
             (right.clone(), area(0.499_999, 0., 0.5, 1.)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &left, Side::Right),
+            tile_beside(&tiles, &left, Side::Right, None),
             Some(right),
             "shares that add up differently don't leave the tiles overlapping"
         );
@@ -2053,12 +2133,12 @@ mod tests {
             (bottom.clone(), area(0., 0.5, 1., 0.5)),
         ];
         assert_eq!(
-            tile_beside(&tiles, &top, Side::Bottom),
+            tile_beside(&tiles, &top, Side::Bottom, None),
             Some(bottom.clone()),
             "the pinned tile is under the home one"
         );
         assert_eq!(
-            tile_beside(&tiles, &bottom, Side::Top),
+            tile_beside(&tiles, &bottom, Side::Top, None),
             Some(top),
             "the home tile is over the pinned one"
         );

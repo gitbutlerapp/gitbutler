@@ -25,8 +25,8 @@ use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
     Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane, Prefs,
-    ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones, snack,
-    tile_beside, up_to_date,
+    ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones,
+    along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -66,6 +66,10 @@ actions!(
         FocusPreviousPane,
         FocusPaneLeft,
         FocusPaneRight,
+        FocusTileLeft,
+        FocusTileRight,
+        FocusTileUp,
+        FocusTileDown,
         StartCommit,
         StartAmend,
         ToggleNavigator,
@@ -1343,10 +1347,10 @@ impl AppView {
 
     /// Have the keys go on `by` that move: past the panes of the tile with them to the next,
     /// left of the tiles to the navigator, and going round, through all of those. On either
-    /// tabs, ← and → go to the tab on that side first. Over what's open, or with the detail
-    /// hidden, where the navigator is the only pane, they stay.
+    /// tabs, ← and → go to the tab on that side first. Over what's open, while a tile's moved
+    /// with them, or with the detail hidden, where the navigator is the only pane, they stay.
     pub(crate) fn move_keys(&mut self, by: KeyMove, window: &mut Window, cx: &mut Context<Self>) {
-        if self.covered() || !self.detail_open {
+        if self.covered() || self.arranging.is_some() || !self.detail_open {
             return;
         }
         let from = self.place_with_keys(window, cx);
@@ -1375,7 +1379,9 @@ impl AppView {
         let forward = match by {
             KeyMove::Beside(Side::Left) => false,
             KeyMove::Beside(Side::Right) => true,
-            KeyMove::Beside(Side::Top | Side::Bottom) | KeyMove::Round { .. } => return false,
+            KeyMove::Beside(Side::Top | Side::Bottom)
+            | KeyMove::TileBeside(_)
+            | KeyMove::Round { .. } => return false,
         };
         let KeyPlace::Tile(tile, Some(pane)) = from else {
             return false;
@@ -1437,8 +1443,14 @@ impl AppView {
         }
         let tiles = self.shown_tiles(cx);
         let navigator = self.navigator_shown();
+        let came_from = match from {
+            KeyPlace::Navigator => self.store.read(cx).last_tile_with_keys(),
+            KeyPlace::Tile(tile, _) => self.store.read(cx).tile_with_keys_before(tile),
+        };
         let next = match by {
-            KeyMove::Beside(side) => stop_beside(&from.stop(), side, &tiles, navigator),
+            KeyMove::Beside(side) | KeyMove::TileBeside(side) => {
+                stop_beside(&from.stop(), side, &tiles, navigator, came_from.as_ref())
+            }
             KeyMove::Round { forward } => stop_round(&from.stop(), forward, &tiles, navigator),
         };
         match next? {
@@ -4327,21 +4339,24 @@ fn stop_round(
     stops.into_iter().nth(next % count)
 }
 
-/// Past the last of `from`'s panes on `side`: the tile beside it, left of the tiles the
-/// `navigator`, while it shows, and right of the navigator the first tile.
+/// Past the last of `from`'s panes on `side`: the tile beside it, `came_from` of those as near,
+/// left of the tiles the `navigator`, while it shows, and right of the navigator `came_from` if
+/// it's along it, else the first tile that is.
 fn stop_beside(
     from: &KeyStop,
     side: Side,
     tiles: &[(Tile, Area)],
     navigator: bool,
+    came_from: Option<&Tile>,
 ) -> Option<KeyStop> {
     match from {
         KeyStop::Navigator if side == Side::Right => {
-            let (first, _) = tiles.first()?;
-            Some(KeyStop::Tile(first.clone()))
+            let along = along_edge(tiles, Side::Left);
+            let back = (along.iter()).find(|tile| Some(**tile) == came_from);
+            (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
         }
         KeyStop::Navigator => None,
-        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side) {
+        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
             Some(beside) => Some(KeyStop::Tile(beside)),
             None if side == Side::Left && navigator => Some(KeyStop::Navigator),
             None => None,
@@ -4961,6 +4976,18 @@ impl Render for AppView {
             .on_action(cx.listener(|this, _: &FocusPaneRight, window, cx| {
                 this.move_keys(KeyMove::Beside(Side::Right), window, cx)
             }))
+            .on_action(cx.listener(|this, _: &FocusTileLeft, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Left), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileRight, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Right), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileUp, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Top), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusTileDown, window, cx| {
+                this.move_keys(KeyMove::TileBeside(Side::Bottom), window, cx)
+            }))
             .on_action(cx.listener(Self::operations_history))
             .on_action(cx.listener(|this, _: &NextProjectPage, window, cx| {
                 this.step_project_page(true, window, cx)
@@ -5375,6 +5402,16 @@ mod tests {
         [(Tile::Home, area(0.)), (pinned(), area(0.5))]
     }
 
+    fn stacked() -> [(Tile, Area); 2] {
+        let area = |top| Area {
+            left: 0.,
+            top,
+            width: 1.,
+            height: 0.5,
+        };
+        [(Tile::Home, area(0.)), (pinned(), area(0.5))]
+    }
+
     fn at(tile: Tile) -> KeyStop {
         KeyStop::Tile(tile)
     }
@@ -5450,16 +5487,52 @@ mod tests {
     #[test]
     fn right_of_the_navigator_is_the_first_tile() {
         assert_eq!(
-            stop_beside(&KeyStop::Navigator, Side::Right, &side_by_side(), true),
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &side_by_side(),
+                true,
+                None
+            ),
             Some(at(Tile::Home)),
             "→ from the navigator goes to the tile beside it"
         );
     }
 
     #[test]
+    fn right_of_the_navigator_is_the_tile_along_it_that_had_the_keys() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &stacked(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(pinned())),
+            "→ back from the navigator goes to the lower tile the keys left, not the first"
+        );
+    }
+
+    #[test]
+    fn right_of_the_navigator_is_never_a_tile_away_from_it() {
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Right,
+                &side_by_side(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(Tile::Home)),
+            "the tile with the keys last has another between it and the navigator"
+        );
+    }
+
+    #[test]
     fn nothing_is_left_of_the_navigator() {
         assert_eq!(
-            stop_beside(&KeyStop::Navigator, Side::Left, &side_by_side(), true),
+            stop_beside(&KeyStop::Navigator, Side::Left, &side_by_side(), true, None),
             None,
             "← stops at the window's edge"
         );
@@ -5468,7 +5541,7 @@ mod tests {
     #[test]
     fn left_of_a_pinned_tile_is_the_tile_beside_it() {
         assert_eq!(
-            stop_beside(&at(pinned()), Side::Left, &side_by_side(), true),
+            stop_beside(&at(pinned()), Side::Left, &side_by_side(), true, None),
             Some(at(Tile::Home)),
             "← out of a pinned tile goes on to the tile on its left"
         );
@@ -5477,7 +5550,7 @@ mod tests {
     #[test]
     fn right_of_a_tile_is_the_tile_beside_it() {
         assert_eq!(
-            stop_beside(&at(Tile::Home), Side::Right, &side_by_side(), true),
+            stop_beside(&at(Tile::Home), Side::Right, &side_by_side(), true, None),
             Some(at(pinned())),
             "→ out of the home tile reaches the tile pinned on its right"
         );
@@ -5486,7 +5559,7 @@ mod tests {
     #[test]
     fn left_of_the_tiles_is_the_navigator() {
         assert_eq!(
-            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), true),
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), true, None),
             Some(KeyStop::Navigator),
             "← out of the leftmost tile reaches the navigator"
         );
@@ -5495,7 +5568,7 @@ mod tests {
     #[test]
     fn left_of_the_tiles_without_the_navigator_is_nothing() {
         assert_eq!(
-            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), false),
+            stop_beside(&at(Tile::Home), Side::Left, &side_by_side(), false, None),
             None,
             "a hidden navigator takes no keys"
         );
@@ -5504,7 +5577,13 @@ mod tests {
     #[test]
     fn nothing_is_over_or_under_the_navigator() {
         assert_eq!(
-            stop_beside(&KeyStop::Navigator, Side::Bottom, &side_by_side(), true),
+            stop_beside(
+                &KeyStop::Navigator,
+                Side::Bottom,
+                &side_by_side(),
+                true,
+                None
+            ),
             None,
             "↓ on the navigator steps through its rows"
         );
@@ -5513,16 +5592,34 @@ mod tests {
     #[test]
     fn over_a_tile_with_none_above_it_is_nothing() {
         assert_eq!(
-            stop_beside(&at(Tile::Home), Side::Top, &side_by_side(), true),
+            stop_beside(&at(Tile::Home), Side::Top, &side_by_side(), true, None),
             None,
             "the navigator is only left of the tiles"
         );
     }
 
     #[test]
+    fn under_a_tile_is_the_tile_below_it() {
+        assert_eq!(
+            stop_beside(&at(Tile::Home), Side::Bottom, &stacked(), true, None),
+            Some(at(pinned())),
+            "⇧⌘J out of a tile reaches the one stacked under it"
+        );
+    }
+
+    #[test]
+    fn over_a_tile_is_the_tile_above_it() {
+        assert_eq!(
+            stop_beside(&at(pinned()), Side::Top, &stacked(), true, None),
+            Some(at(Tile::Home)),
+            "⇧⌘K out of a tile reaches the one stacked over it"
+        );
+    }
+
+    #[test]
     fn right_of_the_last_tile_is_nothing() {
         assert_eq!(
-            stop_beside(&at(pinned()), Side::Right, &side_by_side(), true),
+            stop_beside(&at(pinned()), Side::Right, &side_by_side(), true, None),
             None,
             "→ stops at the window's edge rather than going round"
         );

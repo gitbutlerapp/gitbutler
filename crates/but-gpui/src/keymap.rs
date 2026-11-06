@@ -670,6 +670,53 @@ mod tests {
     }
 
     #[test]
+    fn a_terminal_keeps_its_letters_but_not_the_keys_between_tiles() {
+        for keymap in Keymap::ALL {
+            for os in PLATFORMS {
+                let entries = bound(keymap, os);
+                for letter in ["h", "j", "k", "l"] {
+                    assert!(
+                        !(entries.iter())
+                            .any(|entry| entry.keys == letter
+                                && works_in(entry, "Terminal TextInput")),
+                        "{keymap:?} on {os}: {letter} is typed into a terminal"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_keys_between_tiles_work_from_anywhere_in_the_workspace() {
+        for keymap in Keymap::ALL {
+            for os in PLATFORMS {
+                let entries = bound(keymap, os);
+                for (letter, action) in [
+                    ("h", "app::FocusTileLeft"),
+                    ("j", "app::FocusTileDown"),
+                    ("k", "app::FocusTileUp"),
+                    ("l", "app::FocusTileRight"),
+                ] {
+                    let keys = format!("secondary-shift-{letter}");
+                    for context in [
+                        "Navigator",
+                        "Files",
+                        "Diff",
+                        "TextInput",
+                        "Terminal TextInput",
+                    ] {
+                        let found: Vec<&str> = (entries.iter())
+                            .filter(|entry| entry.keys == keys && works_in(entry, context))
+                            .map(|entry| entry.action.as_str())
+                            .collect();
+                        assert_eq!(found, [action], "{keymap:?} on {os}: {keys} in {context}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn a_key_macos_keeps_is_kept_in_a_section_for_every_platform() {
         assert_eq!(kept_by_platform("secondary-tab", None), Some("macos"));
     }

@@ -256,6 +256,10 @@ commands! {
     crate::app::FocusPreviousPane => "Previous pane",
     crate::app::FocusPaneRight => "Pane to the right",
     crate::app::FocusPaneLeft => "Pane to the left",
+    crate::app::FocusTileLeft => "Tile to the left" { aliases: &["Left split"] },
+    crate::app::FocusTileRight => "Tile to the right" { aliases: &["Right split"] },
+    crate::app::FocusTileUp => "Tile above" { aliases: &["Upper split"] },
+    crate::app::FocusTileDown => "Tile below" { aliases: &["Lower split"] },
     crate::detail::SwitchTab => "Switch tab" {
         aliases: &["Switch between Changes and Pull request"]
     },
