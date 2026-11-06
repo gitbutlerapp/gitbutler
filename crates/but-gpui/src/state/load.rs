@@ -791,7 +791,10 @@ impl Store {
                 let queued = entry.queued.take();
                 let first_read = entry.workspace.is_none();
                 match result {
-                    Ok(workspace) => store.workspace_loaded(&id, workspace, fresh, cx),
+                    Ok(workspace) => {
+                        store.workspace_loaded(&id, workspace, fresh, cx);
+                        store.read_locks(&id, cx);
+                    }
                     Err(err) => entry.failed(&err, failure),
                 }
                 // Checking against a stale one could drop a selection the operation just made.
@@ -828,6 +831,40 @@ impl Store {
                 cx.notify();
                 if let Some(queued) = queued {
                     store.load(&id, queued, cx);
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Read what `id`'s uncommitted hunks build on as it's loaded now, once a read running
+    /// already ends.
+    fn read_locks(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if let Some(again) = self.locks_reading.get_mut(id) {
+            *again = true;
+            return;
+        }
+        let input = self.workspace(id).map(Workspace::lock_input);
+        let (Some(path), Some(input)) = (self.path(id), input) else {
+            return;
+        };
+        self.locks_reading.insert(id.clone(), false);
+        let id = id.clone();
+        cx.spawn(async move |this, cx| {
+            let read = backend::run(move || backend::locks::read_locks(&path, input)).await;
+            this.update(cx, |store, cx| {
+                let again = store.locks_reading.remove(&id).unwrap_or(false);
+                let locks = read.unwrap_or_else(|err| {
+                    tracing::debug!("couldn't read what {id}'s changes build on: {err:#}");
+                    Default::default()
+                });
+                if store.locks.get(&id) != Some(&locks) {
+                    store.locks.insert(id.clone(), locks);
+                    cx.notify();
+                }
+                if again {
+                    store.read_locks(&id, cx);
                 }
             })
             .ok();

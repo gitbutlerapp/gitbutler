@@ -1112,11 +1112,19 @@ impl Transfer {
             ) => match (*from, target) {
                 // The engine won't amend a conflicted commit, nor move changes in or out of one.
                 _ if from.is_some_and(conflicted) => return None,
-                (None, Selection::Commit(_, into)) if !conflicted(*into) => Transfer::Amend {
-                    into: *into,
-                    files: files.clone(),
-                    worktree: worktree.clone(),
-                },
+                (None, Selection::Commit(_, into))
+                    if !conflicted(*into)
+                        && (worktree.is_linked()
+                            || (store.locks.get(project)).is_none_or(|locks| {
+                                locks.amend_keeps(workspace, files, *into)
+                            })) =>
+                {
+                    Transfer::Amend {
+                        into: *into,
+                        files: files.clone(),
+                        worktree: worktree.clone(),
+                    }
+                }
                 // The composer commits the main checkout's files to the workspace's branches.
                 (None, Selection::Branch(_, Some(branch)))
                     if !worktree.is_linked() && !store.in_linked(target) =>
