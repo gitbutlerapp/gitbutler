@@ -322,6 +322,10 @@ impl Store {
         if self.selection.as_ref() == Some(&from) {
             self.select(Some(to), cx);
         }
+        // The project it left has no row of it to go back to.
+        if self.left_on.get(from.project()) == Some(&from) {
+            self.left_on.remove(from.project());
+        }
     }
 
     /// Show `name` for terminal `id` in place of what its shell titles it, or with an empty

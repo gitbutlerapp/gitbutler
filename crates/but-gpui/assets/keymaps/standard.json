@@ -115,9 +115,9 @@
     }
   },
   // ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L go straight to the tile on that side, past the panes and rows of the
-  // one with the keys, with the navigator a tile left of the rest. From a terminal or a text
-  // field too, which take the letters. Ctrl+Shift elsewhere, which a terminal gives up as it does
-  // Ctrl+Shift+R.
+  // one with the keys, with the navigator a tile left of the rest, and in it ⇧⌘J and ⇧⌘K go to the
+  // project on that side. From a terminal or a text field too, which take the letters. Ctrl+Shift
+  // elsewhere, which a terminal gives up as it does Ctrl+Shift+R.
   {
     "context": "Workspace",
     "bindings": {

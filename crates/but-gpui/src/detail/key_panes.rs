@@ -41,7 +41,7 @@ pub(crate) enum KeyMove {
     /// To what's on that side, as the arrows and h, j, k and l do.
     Beside(Side),
     /// To the tile on that side, past the panes of the one with the keys, as ⇧⌘H, ⇧⌘J, ⇧⌘K and
-    /// ⇧⌘L do.
+    /// ⇧⌘L do. In the navigator, up and down go to the project on that side.
     TileBeside(Side),
     /// To what's next, round again, as Tab does, or going back, as ⇧Tab does.
     Round { forward: bool },
