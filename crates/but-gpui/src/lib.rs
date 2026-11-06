@@ -59,6 +59,7 @@ mod terminal;
 mod theme;
 mod transfer;
 mod ui;
+mod unfit;
 mod whats_new;
 
 /// What the desktop app's binary gives the client when it starts it instead of its web one.

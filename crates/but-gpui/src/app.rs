@@ -39,6 +39,7 @@ use crate::ui::{
     gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
     tile_card, tile_content, v_flex,
 };
+use crate::unfit::{Lands, Unfit};
 use crate::{clipboard, clock};
 
 // Named in the keymap as area::Action, by where they act.
@@ -1277,152 +1278,31 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Transfer::Amend { into, restack, .. } = &transfer else {
-            return;
-        };
-        let Some(stacking) = restack.clone() else {
-            return self.ask_conflicting(transfer, project, lands, window, cx);
-        };
-        let Some(path) = self.store.read(cx).path(&project) else {
-            return;
-        };
-        let into = *into;
-        cx.spawn_in(window, async move |this, cx| {
-            let tried = backend::run(move || backend::try_restack(&path, &stacking, into)).await;
-            this.update_in(cx, |app, window, cx| match tried {
-                Ok(keeps) => app.ask_restack(transfer, project, lands, keeps, window, cx),
-                Err(err) => (app.store).update(cx, |store, cx| {
-                    store.failed("Couldn't try stacking the branches", &err, cx)
-                }),
-            })
-            .ok();
-        })
-        .detach();
-    }
-
-    /// `"title"` of commit `id` of `project`, as a dialog names it.
-    fn quoted_title(&self, project: &ProjectId, id: backend::CommitId, cx: &App) -> String {
-        (self.store.read(cx).find_commit(project, id)).map_or("the commit".into(), |(_, commit)| {
-            format!("\"{}\"", crate::ui::commit_title(&commit.title))
-        })
-    }
-
-    /// Ask before amending with `transfer`, which leaves the commit it goes into conflicted.
-    fn ask_conflicting(
-        &mut self,
-        transfer: Transfer,
-        project: ProjectId,
-        lands: Option<Move>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Transfer::Amend { into, .. } = &transfer else {
-            return;
-        };
-        let at = Selection::Commit(project.clone(), *into);
-        let message = format!(
-            "Amend {} with conflicts?",
-            self.quoted_title(&project, *into, cx)
-        );
-        let detail = "These changes build on commits it doesn't have, so it's left \
-                      conflicted. They'll be in its conflict, not in your files, until you \
-                      resolve it.";
-        self.confirm_then(
-            Some(at),
-            message,
-            detail,
-            "Amend",
-            window,
-            cx,
-            move |app, cx| {
-                // Only staging comes back, which an amend never is.
-                let _ = (app.store)
-                    .update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
-            },
-        );
-    }
-
-    /// Ask to stack the stacks `transfer`'s changes build on below the commit it goes into,
-    /// then amend it, when stacking `keeps` that commit unconflicted, or only to stack them.
-    fn ask_restack(
-        &mut self,
-        transfer: Transfer,
-        project: ProjectId,
-        lands: Option<Move>,
-        keeps: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
         let Transfer::Amend {
             into,
-            restack: Some(stacking),
+            restack,
             conflicts,
             ..
         } = &transfer
         else {
             return;
         };
-        let title = self.quoted_title(&project, *into, cx);
-        let named = |refs: &[backend::FullName]| {
-            let names: Vec<_> = refs.iter().map(short_ref).collect();
-            names.join(", ")
+        let into = *into;
+        let unfit = Unfit {
+            project: project.clone(),
+            lands: Lands::Amend(into),
+            restack: restack.clone(),
+            conflicts: *conflicts,
         };
-        let mut detail = format!(
-            "These changes build on commits in other stacks. Stacking {} on {} puts those \
-             below {title}.",
-            named(&stacking.branches),
-            short_ref(&stacking.onto),
-        );
-        match (keeps, conflicts) {
-            (false, _) => detail.push_str(&format!(
-                " Stacking leaves {title} conflicted, so it can't take them after. Restack, \
-                 then drag them again."
-            )),
-            (true, backend::Conflicts::Keep) => detail.push_str(
-                " They also build on a commit above it, so amending leaves it conflicted.",
-            ),
-            (true, backend::Conflicts::Reject) => {}
-        }
-        match stacking.pushed.as_slice() {
-            [] => {}
-            [branch] => detail.push_str(&format!(
-                " {} is pushed, so it needs a force push.",
-                short_ref(branch)
-            )),
-            pushed => detail.push_str(&format!(
-                " {} are pushed, so they need a force push.",
-                named(pushed)
-            )),
-        }
-        let detail = format!(
-            "{}\n{detail}",
-            self.store
-                .read(cx)
-                .place(&Selection::Commit(project.clone(), *into))
-        );
-        let answers: &[&str] = match keeps {
-            true => &["Restack and amend", "Restack", "Cancel"],
-            false => &["Restack", "Cancel"],
+        let tried = move |path: &std::path::Path, stacking: &backend::Stacking| {
+            backend::try_restack(path, stacking, into)
         };
-        let message = format!("Restack to amend {title}?");
-        let stacking = stacking.clone();
-        let answer = window.prompt(PromptLevel::Info, &message, Some(&detail), answers, cx);
-        cx.spawn(async move |this, cx| {
-            let chosen = answer.await.ok().and_then(|ix| answers.get(ix).copied());
-            this.update(cx, |app, cx| match chosen {
-                Some("Restack and amend") => {
-                    // Only staging comes back, which an amend never is.
-                    let _ = (app.store)
-                        .update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
-                }
-                Some("Restack") => {
-                    (app.store).update(cx, |store, cx| store.restack(&project, stacking, cx))
-                }
-                _ => {}
-            })
-            .ok();
-        })
-        .detach();
+        let go = move |app: &mut AppView, cx: &mut Context<AppView>| {
+            // Only staging comes back, which an amend never is.
+            let _ =
+                (app.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
+        };
+        self.ask_unfit(unfit, tried, go, window, cx);
     }
 
     fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {
