@@ -36,9 +36,9 @@ use crate::transfer::{
 };
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
-    Button, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
-    gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
-    tile_card, tile_content,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title,
+    dp, fixed, gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane,
+    small_icon, tile_card, tile_content,
 };
 
 // Named in the keymap as area::Action, by where they act.
@@ -3844,8 +3844,9 @@ impl AppView {
     }
 
     /// The buttons on `tile`'s bar that zoom it and split it, as Zoom tile, Split right and
-    /// Split below do with the keys in it.
-    fn tile_buttons(&self, tile: &Tile, cx: &Context<Self>) -> [Button; 3] {
+    /// Split below do with the keys in it. While it's zoomed only the one back out shows, filled
+    /// to say the tile's not where it was.
+    fn tile_buttons(&self, tile: &Tile, cx: &Context<Self>) -> Vec<Button> {
         let button = |axis: Axis, icon: Icon, label: &'static str, action: &dyn gpui::Action| {
             let (this, tile) = (cx.entity().downgrade(), tile.clone());
             let id = SharedString::from(format!("{label}-{tile:?}"));
@@ -3857,19 +3858,24 @@ impl AppView {
                     (this.update(cx, |this, cx| this.split_tile(tile, axis, window, cx))).ok();
                 })
         };
-        let (icon, label) = match self.zoomed() == Some(tile) {
-            true => (Icon::TileUnzoom, "Zoom out"),
-            false => (Icon::TileZoom, "Zoom"),
+        let zoomed = self.zoomed() == Some(tile);
+        let (icon, label, style) = match zoomed {
+            true => (Icon::TileUnzoom, "Zoom out", ButtonStyle::Pop),
+            false => (Icon::TileZoom, "Zoom", ButtonStyle::Ghost),
         };
-        let (this, zoomed) = (cx.entity().downgrade(), tile.clone());
+        let (this, target) = (cx.entity().downgrade(), tile.clone());
         let zoom = icon_button(SharedString::from(format!("zoom-{tile:?}")), icon)
             .small()
+            .style(style)
             .tooltip_for(label, &ZoomTile)
             .on_click(move |_, window, cx| {
-                let tile = zoomed.clone();
+                let tile = target.clone();
                 (this.update(cx, |this, cx| this.toggle_zoom(tile, window, cx))).ok();
             });
-        [
+        if zoomed {
+            return vec![zoom];
+        }
+        vec![
             zoom,
             button(Axis::Across, Icon::SplitRight, "Split right", &SplitRight),
             button(Axis::Down, Icon::SplitBelow, "Split below", &SplitBelow),
