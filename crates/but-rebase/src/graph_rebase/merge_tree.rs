@@ -207,9 +207,15 @@ impl Walk<'_, '_> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Tip {
+    pub(crate) position: usize,
+    pub(crate) id: gix::ObjectId,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum MergeTree {
-    Commit(gix::ObjectId),
+    Tip(Tip),
     Fork {
         base: Option<gix::ObjectId>,
         branches: Vec<MergeTree>,
@@ -226,8 +232,11 @@ impl MergeTree {
         let mut groups = Groups(
             tips.iter()
                 .enumerate()
-                .map(|(first_tip, tip)| Group {
-                    tree: Some(MergeTree::Commit(*tip)),
+                .map(|(first_tip, id)| Group {
+                    tree: Some(MergeTree::Tip(Tip {
+                        position: first_tip,
+                        id: *id,
+                    })),
                     first_tip,
                     joined: None,
                 })
@@ -409,7 +418,7 @@ mod tests {
 
         fn render(&self, tree: &MergeTree) -> String {
             match tree {
-                MergeTree::Commit(id) => self.name(*id).to_owned(),
+                MergeTree::Tip(tip) => format!("{}:{}", self.name(tip.id), tip.position),
                 MergeTree::Fork { base, branches } => format!(
                     "fork {} [{}]",
                     base.map_or("none", |base| self.name(base)),
@@ -594,55 +603,55 @@ s1       1
         // p1 and p3 share c2, so they merge there before p2 joins them at c1.
         snapbox::assert_data_eq!(
             nested.merge_tree(&["p1", "p2", "p3"])?,
-            snapbox::str!["fork c1 [fork c2 [p1, p3], p2]"]
+            snapbox::str!["fork c1 [fork c2 [p1:0, p3:2], p2:1]"]
         );
         // Branches keep the order of their first tip.
         snapbox::assert_data_eq!(
             nested.merge_tree(&["p2", "p1", "p3"])?,
-            snapbox::str!["fork c1 [p2, fork c2 [p1, p3]]"]
+            snapbox::str!["fork c1 [p2:0, fork c2 [p1:1, p3:2]]"]
         );
         // A tip inside another tip's history forks at itself.
         snapbox::assert_data_eq!(
             nested.merge_tree(&["p1", "p2", "c2"])?,
-            snapbox::str!["fork c1 [fork c2 [p1, c2], p2]"]
+            snapbox::str!["fork c1 [fork c2 [p1:0, c2:2], p2:1]"]
         );
         // The same tip twice forks at itself too.
         snapbox::assert_data_eq!(
             nested.merge_tree(&["p1", "p1"])?,
-            snapbox::str!["fork p1 [p1, p1]"]
+            snapbox::str!["fork p1 [p1:0, p1:1]"]
         );
         // A single tip needs no merge at all.
-        snapbox::assert_data_eq!(nested.merge_tree(&["p1"])?, snapbox::str!["p1"]);
+        snapbox::assert_data_eq!(nested.merge_tree(&["p1"])?, snapbox::str!["p1:0"]);
 
         // Each fork is merged on its own before the two are merged at Z.
         snapbox::assert_data_eq!(
             Scenario::open("five-leaves")?.merge_tree(&["c1", "c4", "c2", "c5", "c3"])?,
-            snapbox::str!["fork Z [fork A [c1, c2, c3], fork B [c4, c5]]"]
+            snapbox::str!["fork Z [fork A [c1:0, c2:2, c3:4], fork B [c4:1, c5:3]]"]
         );
         // Of the two best merge-bases, X is the deeper.
         snapbox::assert_data_eq!(
             Scenario::open("criss-cross")?.merge_tree(&["a", "b"])?,
-            snapbox::str!["fork X [a, b]"]
+            snapbox::str!["fork X [a:0, b:1]"]
         );
         // Unrelated histories merge without a base.
         snapbox::assert_data_eq!(
             Scenario::open("unrelated")?.merge_tree(&["r1", "r2"])?,
-            snapbox::str!["fork none [r1, r2]"]
+            snapbox::str!["fork none [r1:0, r2:1]"]
         );
         // A tip inside another's history meets it even when walked first.
         snapbox::assert_data_eq!(
             Scenario::open("newer-ancestor")?.merge_tree(&["B", "base"])?,
-            snapbox::str!["fork base [B, base]"]
+            snapbox::str!["fork base [B:0, base:1]"]
         );
         // The merged-in root line doesn't hide m2.
         snapbox::assert_data_eq!(
             Scenario::open("merged-root")?.merge_tree(&["a", "b"])?,
-            snapbox::str!["fork m2 [a, b]"]
+            snapbox::str!["fork m2 [a:0, b:1]"]
         );
         // A shallow boundary walked first ends the walk there.
         snapbox::assert_data_eq!(
             Scenario::open("shallow")?.merge_tree(&["a", "b"])?,
-            snapbox::str!["fork S [a, b]"]
+            snapbox::str!["fork S [a:0, b:1]"]
         );
         Ok(())
     }

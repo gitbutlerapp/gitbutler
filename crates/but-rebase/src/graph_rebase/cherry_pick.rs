@@ -424,8 +424,8 @@ fn merged_tree_along(
     conflicts: gix::merge::tree::TreatAsUnresolved,
 ) -> Result<MergeOutcome> {
     let (base, branches) = match merge_tree {
-        MergeTree::Commit(id) => {
-            let commit = but_core::Commit::from_id(id.attach(repo))?;
+        MergeTree::Tip(tip) => {
+            let commit = but_core::Commit::from_id(tip.id.attach(repo))?;
             return Ok(MergeOutcome::Success(
                 find_real_tree(&commit, preference)?.detach(),
             ));
