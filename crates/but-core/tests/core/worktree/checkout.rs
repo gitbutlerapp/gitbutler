@@ -2926,6 +2926,9 @@ fn untracked(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
         .collect())
 }
 
+/// What macOS writes onto a volume some time after mounting it, as the disk image at `m/`.
+const VOLUME_EVENTS: &str = ".fseventsd";
+
 /// Every path below the worktree root except `.git`, without following symlinks: directories end
 /// in `/`, symlinks show their target, and files their content and whether they're executable.
 fn disk(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
@@ -2937,7 +2940,7 @@ fn disk(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
         for entry in std::fs::read_dir(dir)? {
             let path = entry?.path();
             let rela = path.strip_prefix(root)?.display().to_string();
-            if rela == ".git" {
+            if rela == ".git" || path.file_name().is_some_and(|name| name == VOLUME_EVENTS) {
                 continue;
             }
             let md = path.symlink_metadata()?;
@@ -3015,9 +3018,8 @@ fn checkout_changes_and_deletes_files_on_another_filesystem_than_git() -> anyhow
     let m_dir = repo.workdir_path("m").expect("non-bare");
     let in_m: Vec<_> = std::fs::read_dir(&m_dir)?
         .map(|entry| Ok(entry?.file_name().to_string_lossy().into_owned()))
-        // macOS may keep file-event metadata in the root of a freshly mounted volume.
         .filter(|name: &anyhow::Result<String>| {
-            name.as_ref().map_or(true, |name| name != ".fseventsd")
+            name.as_ref().map_or(true, |name| name != VOLUME_EVENTS)
         })
         .collect::<anyhow::Result<_>>()?;
     assert_eq!(in_m, ["changed"], "nothing is left of what was moved aside");
