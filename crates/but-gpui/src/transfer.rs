@@ -1122,9 +1122,10 @@ impl Transfer {
                 // The engine won't amend a conflicted commit, nor move changes in or out of one.
                 _ if from.is_some_and(conflicted) => return None,
                 (None, Selection::Commit(_, into)) if !conflicted(*into) => {
-                    let keeps = worktree.is_linked()
-                        || (store.locks.get(project))
-                            .is_none_or(|locks| locks.amend_keeps(workspace, files, *into));
+                    let fit = (store.locks.get(project))
+                        .filter(|_| !worktree.is_linked())
+                        .map(|locks| locks.fit(workspace, files, *into));
+                    let keeps = fit.is_none_or(|fit| fit.restack.is_none() && !fit.conflicts);
                     Transfer::Amend {
                         into: *into,
                         files: files.clone(),

@@ -1,6 +1,7 @@
 //! What the main checkout's uncommitted hunks build on: the commits of its stacks they
-//! overlap. A hunk amends only into one of those or a commit above them, as any lower would
-//! leave the commits it builds on out of the commit it's in.
+//! overlap. A hunk amends cleanly into one of those or a commit above them in their stack, once
+//! every other stack it builds on is stacked below that one. Any lower in its own stack leaves
+//! the commits it builds on out of the commit it's in, which conflicts it.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,7 +10,9 @@ use anyhow::Result;
 use but_core::{HunkHeader, TreeChange};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 
-use super::{CommitId, Selected, Workspace};
+use super::{
+    Branch, Checkout, CommitId, CommitState, FullName, Lane, Selected, Stacking, Workspace,
+};
 
 /// The main checkout's hunks that build on commits, by their file's path.
 #[derive(Debug, Default, PartialEq)]
@@ -29,19 +32,6 @@ impl Workspace {
             .filter(|file| !file.conflicted)
             .map(|file| file.change.clone())
             .collect()
-    }
-
-    /// Whether `commit` is `base` or above it in its lane, so amending a hunk that builds on
-    /// `base` into it keeps it above what it builds on. A `base` the workspace doesn't have,
-    /// as locks read before a rewrite name, holds nothing back.
-    pub fn builds_on(&self, commit: CommitId, base: CommitId) -> bool {
-        let Some(lane) = self.lane_commits(base) else {
-            return true;
-        };
-        let at = |id| lane.iter().position(|c| *c == id);
-        at(commit)
-            .zip(at(base))
-            .is_some_and(|(commit, base)| commit <= base)
     }
 }
 
@@ -64,14 +54,90 @@ impl Locks {
     }
 }
 
+/// How amending changes into a commit sits with the commits they build on.
+#[derive(Debug, PartialEq)]
+pub struct AmendFit {
+    /// The stacking that puts every other stack they build on below the commit's, if one has
+    /// to go there: the first stays, the rest go on it whole, the commit's own last.
+    pub restack: Option<Stacking>,
+    /// Whether one they build on is above it in its own lane, which leaves it conflicted.
+    pub conflicts: bool,
+}
+
 impl Locks {
-    /// Whether amending the main checkout's `files` into commit `into` of `workspace` keeps
-    /// them above every commit they build on.
-    pub fn amend_keeps(&self, workspace: &Workspace, files: &[Selected], into: CommitId) -> bool {
-        (files.iter())
-            .flat_map(|file| self.of(file))
-            .all(|base| workspace.builds_on(into, base))
+    /// How amending the main checkout's `files` into commit `into` of `workspace` sits with
+    /// what they build on. A commit the workspace doesn't have, as locks read before a rewrite
+    /// name, holds nothing back. Other lanes that can't be stacked, as a linked worktree's,
+    /// leave it conflicted.
+    pub fn fit(&self, workspace: &Workspace, files: &[Selected], into: CommitId) -> AmendFit {
+        let lane_of = |id: CommitId| {
+            (workspace.lanes.iter()).position(|lane| {
+                lane.branches
+                    .iter()
+                    .any(|b| b.commits.iter().any(|c| c.id == id))
+            })
+        };
+        let Some(own) = lane_of(into) else {
+            return AmendFit {
+                restack: None,
+                conflicts: false,
+            };
+        };
+        let own_commits = workspace.lane_commits(into).unwrap_or_default();
+        let at = |id| own_commits.iter().position(|c| *c == id);
+        let mut conflicts = false;
+        let mut below = Vec::new();
+        for base in files.iter().flat_map(|file| self.of(file)) {
+            match lane_of(base) {
+                Some(lane) if lane == own => conflicts |= at(base) < at(into),
+                Some(lane) if !below.contains(&lane) => below.push(lane),
+                Some(_) | None => {}
+            }
+        }
+        below.sort_unstable();
+        let lanes = below
+            .iter()
+            .chain([&own])
+            .filter_map(|ix| workspace.lanes.get(*ix));
+        let restack = (!below.is_empty()).then(|| stacking(lanes)).flatten();
+        AmendFit {
+            conflicts: conflicts || (!below.is_empty() && restack.is_none()),
+            restack,
+        }
     }
+}
+
+/// `lanes` stacked whole, each on the one before, if they're all the main checkout's stacks
+/// with named branches.
+fn stacking<'a>(mut lanes: impl Iterator<Item = &'a Lane>) -> Option<Stacking> {
+    let named = |lane: &Lane| -> Option<Vec<FullName>> {
+        (lane.checkout == Checkout::Main).then_some(())?;
+        lane.branches
+            .iter()
+            .rev()
+            .map(|b| b.ref_name.clone())
+            .collect()
+    };
+    let stays = lanes.next()?;
+    let onto = named(stays)?.pop()?;
+    let mut branches = Vec::new();
+    let mut pushed = Vec::new();
+    for lane in lanes {
+        branches.extend(named(lane)?);
+        let was_pushed = |b: &&Branch| b.commits.iter().any(|c| c.state == CommitState::Pushed);
+        pushed.extend(
+            lane.branches
+                .iter()
+                .filter(was_pushed)
+                .filter_map(|b| b.ref_name.clone()),
+        );
+    }
+    Some(Stacking {
+        onto,
+        top: branches.last()?.clone(),
+        branches,
+        pushed,
+    })
 }
 
 /// The locks of `changes` on the commits of the project at `path`'s stacks.
@@ -117,46 +183,89 @@ mod tests {
             };
             assert_eq!(of("file"), [edit], "it rewrites a line `edit` wrote");
             assert_eq!(of("new"), [], "a new file builds on nothing");
-            assert!(ws.builds_on(edit, edit), "it amends into what it builds on");
-            assert!(ws.builds_on(second, edit), "and into a commit above it");
-            assert!(!ws.builds_on(edit, second), "but nothing below");
         })
     }
 
     #[test]
-    fn locked_files_amend_only_into_what_they_build_on_and_above() {
+    fn locked_files_restack_other_stacks_below_and_conflict_below_their_lock() {
         use crate::backend::model::build::{branch, id, workspace};
-        // ui's commits newest first: 3, 2, 1; api's: 5, 4.
+        // Newest first: ui's 3, 2, 1; api's 5, 4; db's 7, 6.
         let ws = workspace(
-            vec![vec![branch("ui", &[3, 2, 1])], vec![branch("api", &[5, 4])]],
+            vec![
+                vec![branch("ui", &[3, 2, 1])],
+                vec![branch("api", &[5, 4])],
+                vec![branch("db", &[7, 6])],
+            ],
             vec![],
         );
-        let file = crate::backend::FileChange::bare("file");
-        let lock = |commits: Vec<_>| super::Lock {
+        let file = |name: &str| crate::backend::FileChange::bare(name);
+        let lock = |line, commit| super::Lock {
             hunk: but_core::HunkHeader {
-                old_start: 5,
+                old_start: line,
                 old_lines: 1,
-                new_start: 5,
+                new_start: line,
                 new_lines: 1,
             },
-            commits,
+            commits: vec![id(commit)],
         };
-        let locks = super::Locks([("file".into(), vec![lock(vec![id(2)])])].into());
-        let files = [Selected::whole(&file)];
-        let into = |n| locks.amend_keeps(&ws, &files, id(n));
-        assert!(into(2) && into(3), "into what it builds on, and above it");
-        assert!(!into(1), "not below it");
-        assert!(!into(5), "nor into another stack");
-
-        let unrelated = [Selected::whole(&crate::backend::FileChange::bare("other"))];
-        assert!(
-            locks.amend_keeps(&ws, &unrelated, id(1)),
+        let locks = super::Locks(
+            [
+                ("ui".into(), vec![lock(5, 2)]),
+                ("ui+api".into(), vec![lock(5, 2), lock(9, 4)]),
+                ("gone".into(), vec![lock(5, 9)]),
+            ]
+            .into(),
+        );
+        let fit = |name: &str, into| {
+            let fit = locks.fit(&ws, &[Selected::whole(&file(name))], id(into));
+            let restack = fit.restack.map(|stacking| {
+                let names = |refs: &[crate::backend::FullName]| {
+                    refs.iter()
+                        .map(|r| r.shorten().to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                };
+                format!(
+                    "{} <- {} ({})",
+                    stacking.onto.shorten(),
+                    names(&stacking.branches),
+                    stacking.top.shorten()
+                )
+            });
+            (restack, fit.conflicts)
+        };
+        assert_eq!(fit("ui", 2), (None, false), "into what it builds on");
+        assert_eq!(fit("ui", 3), (None, false), "and above it");
+        assert_eq!(fit("ui", 1), (None, true), "below it, it conflicts");
+        assert_eq!(
+            fit("ui", 5),
+            (Some("ui <- api (api)".into()), false),
+            "in another stack, that one goes on top of the one it builds on"
+        );
+        assert_eq!(
+            fit("ui+api", 3),
+            (Some("api <- ui (ui)".into()), false),
+            "on two stacks, the other goes below the one it lands in"
+        );
+        assert_eq!(
+            fit("ui+api", 1),
+            (Some("api <- ui (ui)".into()), true),
+            "below its lock in its own stack, it conflicts as well"
+        );
+        assert_eq!(
+            fit("ui+api", 7),
+            (Some("ui <- api db (db)".into()), false),
+            "in a third stack, both go below it, whole"
+        );
+        assert_eq!(
+            fit("other", 1),
+            (None, false),
             "a file that builds on nothing goes anywhere"
         );
-        let gone = super::Locks([("file".into(), vec![lock(vec![id(9)])])].into());
-        assert!(
-            gone.amend_keeps(&ws, &files, id(1)),
-            "a lock read before a rewrite, on a commit gone, holds nothing back"
+        assert_eq!(
+            fit("gone", 1),
+            (None, false),
+            "a lock on a commit gone holds nothing back"
         );
     }
 
