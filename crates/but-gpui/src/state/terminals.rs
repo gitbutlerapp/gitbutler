@@ -184,6 +184,7 @@ impl Store {
         };
         let run = self.prefs.terminal_run().map(str::to_owned);
         let asked = Instant::now();
+        let via = backend::metrics::via();
         cx.spawn(async move |this, cx| {
             let started = backend::run(move || {
                 let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref())?;
@@ -198,6 +199,7 @@ impl Store {
                     Ok(terminal) => {
                         backend::metrics::operation(
                             "New terminal",
+                            via,
                             asked.elapsed(),
                             None,
                             store.workspace(&project),
