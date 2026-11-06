@@ -469,6 +469,8 @@ pub struct Store {
     /// What each project's uncommitted hunks build on, read after a load lands, so the files
     /// show without waiting for them.
     pub locks: HashMap<ProjectId, backend::locks::Locks>,
+    /// The commits the lock the pointer is on builds on, which the navigator marks.
+    pub lock_hovered: Option<(ProjectId, Vec<CommitId>)>,
     /// The projects whose locks are being read, each with whether a load landed meanwhile.
     locks_reading: HashMap<ProjectId, bool>,
     /// The commits each project had before the app's last operation on it, and the checkouts
@@ -609,6 +611,7 @@ impl Store {
             drafts: HashMap::new(),
             merged: HashMap::new(),
             locks: HashMap::new(),
+            lock_hovered: None,
             locks_reading: HashMap::new(),
             widths: saved.widths,
             prefs: saved.prefs,
@@ -738,6 +741,23 @@ impl Store {
             let (merged, _) = self.merged.get(&merge.id)?.as_ref()?;
             Some((merge.id, merged.iter().find(|commit| commit.id == id)?))
         })
+    }
+
+    pub fn hover_lock(
+        &mut self,
+        hovered: Option<(ProjectId, Vec<CommitId>)>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.lock_hovered != hovered {
+            self.lock_hovered = hovered;
+            cx.notify();
+        }
+    }
+
+    /// Whether `project`'s commit `id` is one the lock the pointer is on builds on.
+    pub fn lock_marks(&self, project: &str, id: CommitId) -> bool {
+        (self.lock_hovered.as_ref())
+            .is_some_and(|(on, commits)| on == project && commits.contains(&id))
     }
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {
