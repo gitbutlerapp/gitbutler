@@ -62,6 +62,7 @@ pub fn run(args: Platform, path: &Path, out: &mut OutputChannel) -> CliResult<In
                     crate::command::legacy::reword2::CommitMessageSource::Provided(
                         "Initial commit".to_owned(),
                     ),
+                    false,
                 )?;
 
                 Some(outcome.new_commit)

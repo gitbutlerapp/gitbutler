@@ -4,6 +4,7 @@ use super::util::{
 };
 use crate::utils::{CommandExt as _, Sandbox};
 
+mod hooks;
 mod unborn;
 
 #[test]

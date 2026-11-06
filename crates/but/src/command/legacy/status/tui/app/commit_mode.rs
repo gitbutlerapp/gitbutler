@@ -561,6 +561,7 @@ where
         commit_op,
         commit_selection,
         reword_op,
+        false,
     )?;
 
     drop(_suspend_guard);

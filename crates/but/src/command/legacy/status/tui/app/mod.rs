@@ -1731,6 +1731,7 @@ impl App {
                     }),
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
+                    false,
                 )?;
 
                 messages.push(Message::Reload(
@@ -1758,6 +1759,7 @@ impl App {
                     }),
                     CommitSelection::Nothing,
                     CommitMessageSource::Empty,
+                    false,
                 )?;
 
                 messages.push(Message::Reload(
