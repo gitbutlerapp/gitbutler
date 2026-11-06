@@ -707,7 +707,7 @@ impl SettingsView {
             Row::new("Font", "The font of code in diffs.", diff_font),
             Row::new(
                 "Font ligatures",
-                "Code joins pairs of characters like != and == into one symbol.",
+                "Code joins pairs of characters like != and == into one symbol, if the font has them.",
                 self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
                     .on_click(move |_, window, cx| {
                         app.update_later(window, cx, |app, window, cx| {
