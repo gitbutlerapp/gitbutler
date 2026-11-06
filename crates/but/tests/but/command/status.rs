@@ -1071,7 +1071,7 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
         snapbox::str![[r#"
 *   55165db (origin/main, origin/HEAD, main, gitbutler/target) merge document-but-pr-skill
 |\  
-| | * ef247f6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| | * f1e063e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | |/  
 | * 080592b (origin/document-but-pr-skill, document-but-pr-skill) add document-but-pr-skill
 |/  

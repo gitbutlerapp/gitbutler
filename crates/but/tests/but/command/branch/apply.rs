@@ -98,14 +98,14 @@ Hint: run `but help` for all commands
         .stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [D] (no commits)
+┊╭┄ g0 [C] (no commits)
+┊│
+┊├┄ h0 [B] (no commits)
+┊│
+┊├┄ i0 [A] (no commits)
 ├╯
 ┊
-┊╭┄ h0 [C] (no commits)
-┊│
-┊├┄ i0 [B] (no commits)
-┊│
-┊├┄ j0 [A] (no commits)
+┊╭┄ j0 [D] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
@@ -263,7 +263,7 @@ Branch 'feature-branch' is already in the workspace; nothing changed
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8668d2f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
@@ -312,7 +312,7 @@ fn local_branch_with_json_output() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8668d2f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
@@ -363,7 +363,7 @@ Applied remote branch 'origin/remote-feature' to workspace
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   986265c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
@@ -414,7 +414,7 @@ Applied remote branch 'origin/remote-feature' to workspace
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   986265c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
@@ -477,7 +477,7 @@ Applied remote branch 'origin/remote-feature' to workspace
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   986265c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * ba02e5f (upstream/remote-feature, origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
@@ -605,7 +605,7 @@ Applied branch 'feature-2' to workspace
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-.   7044ae9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-.   fcbf457 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\ \  
 | | * 4e81b31 (feature-2) Add feature 2
 | * | 9c2fe5c (feature-1) Add feature 1
@@ -758,11 +758,15 @@ Applied branch 'top' to workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
+┊╭┄ bo [bottom]
+┊●   l#0 on bottom (no changes)
+├╯
+┊
 ┊╭┄ to [top]
 ┊●   ylm on top (no changes)
 ┊│
-┊├┄ bo [bottom]
-┊●   lsm on bottom (no changes)
+┊├┄ ot [bottom]
+┊●   l#1 on bottom (no changes)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
@@ -774,8 +778,10 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* c878e9e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 41e32b0 (top) on top
+*   244fdd7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 41e32b0 (top) on top
+|/  
 * ff665ad (bottom) on bottom
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init

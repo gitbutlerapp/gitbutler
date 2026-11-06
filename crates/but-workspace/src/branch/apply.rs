@@ -274,7 +274,20 @@ pub fn apply_stack<'ws, 'meta, M: RefMetadata>(
             (None, branch_commit_selector)
         }
     };
+    // A branch checked out in a linked worktree is already in the workspace as that worktree's lane.
+    let checked_out_in_worktree = 'checked_out: {
+        let Some(branch_selector) = branch_selector else {
+            break 'checked_out false;
+        };
+        for worktree in editor.repo().worktrees()? {
+            if editor.worktree_head(worktree.id()?) == Some(branch_selector) {
+                break 'checked_out true;
+            }
+        }
+        false
+    };
     let already_applied = Some(branch) == editor.target_ref()
+        || checked_out_in_worktree
         || 'already_applied: {
             for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
                 if Some(parent_selector) == branch_selector {
