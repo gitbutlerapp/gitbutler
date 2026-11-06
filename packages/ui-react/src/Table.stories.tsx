@@ -18,14 +18,7 @@ const meta = stories({
 	title: "Content & status/Table",
 	id: "components-table",
 	component: Table,
-	parameters: figma("4799-1082"),
-	decorators: [
-		(Story) => (
-			<div style={{ maxWidth: 720 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { ...figma("4799-1082"), layout: "wide" },
 });
 
 export const Default = meta.story({

@@ -225,10 +225,15 @@ instance through the `design` parameter.
 The docs site gives each story a place under its words. Pick it with the
 `layout` parameter, never with a wrapper the story draws itself:
 
-- **The ground (default):** the story stands on a muted ground with no
-  border and 24px of room, so a component with its own card (`RowGroup`,
-  `DescriptionList`, `DiffFile`) isn't framed by a second card that looks the
-  same. Don't add a border, a card or a background around the component.
+- **The ground (default):** a muted ground as wide as the text above it,
+  with no border and 24px of room, the story at its start, so the title, the
+  words and the component share one edge. A component with its own card
+  (`RowGroup`, `DescriptionList`) isn't framed by a second card that looks
+  the same. Don't add a border, a card or a background around the component.
+- **`wide`:** the same ground broken out to the column's full width on both
+  sides, as media is in rendered markdown: for a part that fills its pane in
+  the app (`Table`, `DiffFile`, `Markdown`) and a grid that fills its row
+  (`Icon`'s gallery).
 - **`bar`:** a bar that runs the width of a window or a pane (`StatusBar`,
   `LocationBar`, `ViewHeader`): edge to edge in a bordered card, with no
   padding and no scrolling. The card's border is the bar's edge, the bar's
@@ -239,14 +244,17 @@ The docs site gives each story a place under its words. Pick it with the
   page.
 
 Size a story with the `width` and `height` parameters, not a `<div style={{
-width }}>`: the card follows the story's size, centred on the column whether
-it is narrower or wider, so a narrow bar has no gap beside it and a full view
-is never cropped or scrolled. Give a size only when the size is the point (a
-narrow pane, a phone, a window); a part that fills its pane in the app, as a
-diff card or a file list, fills its ground here too, rather than a width
-copied from an old pane. Pick a story's content to fit the column, about
-740px, rather than making the page scroll sideways: the bar's own drop and
-ellipsis rules are what a narrower width shows.
+width }}>`: on the ground the story takes that width, the ground growing past
+the text on both sides only for a story wider than it, and a card follows the
+story's size, centred on the column whether it is narrower or wider, so a
+narrow bar has no gap beside it and a full view is never cropped or scrolled.
+A width the app gives the component itself, as a range's `style`, stays on the
+component. Give a size only when the size is the point (a narrow pane, a
+phone, a window); a part that fills its pane in the app, as a diff card or a
+file list, fills its ground here too, rather than a width copied from an old
+pane. Pick a story's content to fit the text, about 570px inside the ground
+(770px when `wide`), rather than making the page scroll sideways: the bar's
+own drop and ellipsis rules are what a narrower width shows.
 
 ### Looking up a component
 

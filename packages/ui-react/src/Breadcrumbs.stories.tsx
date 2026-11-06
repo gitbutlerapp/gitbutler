@@ -31,16 +31,15 @@ export const Default = meta.story({
  * menu; the last level left ends in an ellipsis before the trail would spill.
  */
 export const Narrow = meta.story({
+	parameters: { width: 320 },
 	render: () => (
-		<div style={{ width: 320 }}>
-			<Breadcrumbs
-				items={[
-					...worktree,
-					{ label: "Main worktree", href: "#worktree" },
-					{ label: "ios-push-handoff", href: "#branch" },
-				]}
-			/>
-		</div>
+		<Breadcrumbs
+			items={[
+				...worktree,
+				{ label: "Main worktree", href: "#worktree" },
+				{ label: "ios-push-handoff", href: "#branch" },
+			]}
+		/>
 	),
 });
 

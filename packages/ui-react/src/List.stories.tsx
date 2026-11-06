@@ -12,14 +12,8 @@ const meta = stories({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2238-1670",
 		},
+		width: 320,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 320, padding: 24 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 /** The default marker: a dot on each item's first line. A long item wraps under itself. */

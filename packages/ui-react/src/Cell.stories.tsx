@@ -16,14 +16,7 @@ const meta = stories({
 	title: "Content & status/Cell",
 	id: "components-cell",
 	component: Cell,
-	parameters: figma("4537-7201"),
-	decorators: [
-		(Story) => (
-			<div style={{ maxWidth: 386 }}>
-				<Story />
-			</div>
-		),
-	],
+	parameters: { ...figma("4537-7201"), width: 386 },
 });
 
 export const Default = meta.story({

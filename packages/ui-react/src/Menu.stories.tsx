@@ -175,32 +175,31 @@ const branchActions = (
  * Each menu keeps its own state, so a right-click leaves the ⋯ unpressed.
  */
 export const OnARow = meta.story({
+	parameters: { width: 334 },
 	render: () => (
-		<div style={{ width: 334 }}>
-			<ContextMenu
-				aria-label="Branch actions"
-				trigger={
-					<BranchItem
-						title="resume-on-laptop"
-						folded
-						meta={<MetaCount type="unpushed">9</MetaCount>}
-						menu={
-							<Menu
-								aria-label="Branch actions"
-								trigger={
-									<Button variant="ghost" size="small" iconOnly aria-label="More actions">
-										<Icon name="kebab" />
-									</Button>
-								}
-							>
-								{branchActions}
-							</Menu>
-						}
-					/>
-				}
-			>
-				{branchActions}
-			</ContextMenu>
-		</div>
+		<ContextMenu
+			aria-label="Branch actions"
+			trigger={
+				<BranchItem
+					title="resume-on-laptop"
+					folded
+					meta={<MetaCount type="unpushed">9</MetaCount>}
+					menu={
+						<Menu
+							aria-label="Branch actions"
+							trigger={
+								<Button variant="ghost" size="small" iconOnly aria-label="More actions">
+									<Icon name="kebab" />
+								</Button>
+							}
+						>
+							{branchActions}
+						</Menu>
+					}
+				/>
+			}
+		>
+			{branchActions}
+		</ContextMenu>
 	),
 });

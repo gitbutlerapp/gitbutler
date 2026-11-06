@@ -18,6 +18,7 @@ const meta = stories({
 			type: "figma",
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2341-2564",
 		},
+		width: 340,
 	},
 	args: {
 		name: "userSlice.ts",
@@ -29,13 +30,6 @@ const meta = stories({
 		reviewed: false,
 		conflicted: false,
 	},
-	decorators: [
-		(Story) => (
-			<div style={{ width: 340, paddingBlock: 24 }}>
-				<Story />
-			</div>
-		),
-	],
 });
 
 /**

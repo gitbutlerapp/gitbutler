@@ -12,7 +12,7 @@ const meta = stories({
 	title: "Content & status/Markdown",
 	id: "components-markdown",
 	component: Markdown,
-	parameters: figma("4809-1328"),
+	parameters: { ...figma("4809-1328"), layout: "wide" },
 });
 
 const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);
