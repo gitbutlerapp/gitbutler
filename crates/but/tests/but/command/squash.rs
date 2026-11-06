@@ -434,7 +434,7 @@ Squashed branches 'a-branch-1', 'add-file-branch' into tqv
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ta [target-branch]
+┊╭┄ ta [target-branch] [HEAD]
 ┊● tqv author 2000-01-01 00:00:00 +0000 (sha 5ce6b4f)
 ┊│     new commit on new branch
 ┊│     tqv:q A file
@@ -517,7 +517,7 @@ Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' into tqv
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ ta [target-branch]
+┊╭┄ ta [target-branch] [HEAD]
 ┊● tqv author 2000-01-01 00:00:00 +0000 (sha 2a2f0c1)
 ┊│     target commit
 ┊│     tqv:q A file
@@ -999,7 +999,7 @@ Squashed branch 'one' into uqr
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ se [second]
+┊╭┄ se [second] [HEAD]
 ┊●   uqr add two
 ┊│     uqr:q A four
 ┊│     uqr:k A one
@@ -3306,7 +3306,7 @@ Uncommitted 'A', 'B', 'C'
 ┊   pl A B
 ┊   wx A C
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -3377,7 +3377,7 @@ Uncommitted 'a-branch-1'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+┴ 0dc3733 (common base, main, origin/main, HEAD) 2000-01-02 add M
 
 Hint: run `but branch new` to create a new branch to work on
 

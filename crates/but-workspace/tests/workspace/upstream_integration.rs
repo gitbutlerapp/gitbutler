@@ -837,7 +837,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
 }
 
 #[test]
-fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
+fn fully_integrated_single_branch_checks_out_local_target() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -887,16 +887,15 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 905d6e5
+⌂:main[🌳] <> ✓refs/heads/main on 905d6e5
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* f88e9ce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 905d6e5 (origin/main) add A1
-* 3183e43 (main) M1
+* 905d6e5 (HEAD -> main, origin/main) add A1
+* 3183e43 M1
 
 "#]]
     );
@@ -905,7 +904,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
 }
 
 #[test]
-fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target() -> Result<()> {
+fn fully_integrated_single_branch_checks_out_advanced_target() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -974,18 +973,17 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6b20716
+⌂:main[🌳] <> ✓refs/heads/main on 6b20716
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* fa202eb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6b20716 (origin/main) add X
+* 6b20716 (HEAD -> main, origin/main) add X
 * ffde79e add A
 * 86b55e6 add B
-* 8d5739f (main) add C
+* 8d5739f add C
 
 "#]]
     );
@@ -1071,7 +1069,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6204bf3
+⌂:main[🌳] <> ✓refs/heads/main on 6204bf3
 
 "#]]
     );
@@ -1079,10 +1077,9 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 6ad6d07 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6204bf3 (origin/main) add X
+* 6204bf3 (HEAD -> main, origin/main) add X
 * 039050a A1 + A2 (#1)
-* 9bede57 (main) add M1
+* 9bede57 add M1
 
 "#]]
     );
@@ -1462,8 +1459,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
 }
 
 #[test]
-fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_target() -> Result<()>
-{
+fn fully_integrated_single_branch_checks_out_advanced_merge_target() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-integrated-single-branch-target-advanced-through-merge",
     )?;
@@ -1541,21 +1537,20 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on f27db86
+⌂:main[🌳] <> ✓refs/heads/main on f27db86
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* d60856a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* f27db86 (origin/main) add X
+* f27db86 (HEAD -> main, origin/main) add X
 *   4f5589a D
 |\  
 | * ffde79e add A
 | * 86b55e6 add B
 |/  
-* 8d5739f (main) add C
+* 8d5739f add C
 
 "#]]
         .raw()
@@ -2600,7 +2595,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
 }
 
 #[test]
-fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
+fn content_integrated_single_branch_checks_out_target_tip() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) = named_writable_scenario_with_description(
         "fully-content-integrated-single-branch-target-advanced",
     )?;
@@ -2624,9 +2619,19 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
     )?;
 
     assert_eq!(
-        workspace_first_parent(&repo)?,
+        repo.head_name()?.as_ref().map(|name| name.as_bstr()),
+        Some("refs/heads/main".into()),
+        "the last stack being content integrated should leave the workspace for the local target"
+    );
+    assert_eq!(
+        repo.head_id()?,
         repo.rev_parse_single("origin/main")?,
-        "orphaned workspace commit should be reparented to the advanced target tip after content integration"
+        "the local target should have moved to the target tip"
+    );
+    assert!(
+        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+            .is_none(),
+        "the empty managed workspace reference should be gone"
     );
 
     Ok(())
@@ -2798,18 +2803,17 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 563a7fc
-└── ≡:main <> origin/main on 563a7fc
-    └── :main <> origin/main
-        └── ❄️364a08f (🏘️|✓)
+⌂:main[🌳] <> ✓refs/heads/main⇣2 on 563a7fc
+└── ≡:main[🌳] <> origin/main on 563a7fc {1}
+    └── :main[🌳] <> origin/main
+        └── ❄️364a08f (✓)
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* cf134fb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-*   364a08f (origin/main, main) merge topic
+*   364a08f (HEAD -> main, origin/main) merge topic
 |\  
 | * 6ba217e (origin/topic) add topic
 |/  
@@ -3064,7 +3068,7 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
 }
 
 #[test]
-fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
+fn fully_integrated_single_branch_at_target_tip_checks_out_target() -> Result<()> {
     let (_tmp, repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
@@ -3087,14 +3091,19 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
     )?;
 
     assert_eq!(
-        workspace_first_parent(&repo)?,
-        repo.rev_parse_single("origin/main")?,
-        "orphaned workspace commit should stay on the target tip when it already equals the removed parent"
+        repo.head_name()?.as_ref().map(|name| name.as_bstr()),
+        Some("refs/heads/main".into()),
+        "the last stack being integrated should leave the workspace for the local target"
     );
     assert_eq!(
-        workspace_parent_count(&repo)?,
-        1,
-        "workspace commit should not gain duplicate parents"
+        repo.head_id()?,
+        repo.rev_parse_single("origin/main")?,
+        "the local target should have moved to the target tip"
+    );
+    assert!(
+        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+            .is_none(),
+        "the empty managed workspace reference should be gone"
     );
 
     Ok(())
@@ -3828,11 +3837,6 @@ fn workspace_parent_ids(repo: &gix::Repository) -> Result<Vec<gix::ObjectId>> {
         .parent_ids()
         .map(|id| id.detach())
         .collect())
-}
-
-fn workspace_parent_count(repo: &gix::Repository) -> Result<usize> {
-    let workspace_commit = repo.find_commit(repo.rev_parse_single("gitbutler/workspace")?)?;
-    Ok(workspace_commit.parent_ids().count())
 }
 
 fn force_prefixless_canned_branch_name(repo: &mut gix::Repository) -> Result<()> {

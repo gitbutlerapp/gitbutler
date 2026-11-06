@@ -789,9 +789,8 @@ Hint: run `but help` for all commands
     );
 }
 
-/// Applying from single branch mode doesn't report the checked-out branch, which was already applied.
 #[test]
-fn apply_from_single_branch_mode_reports_only_requested_branch() {
+fn apply_after_unapplying_down_to_one_branch_reports_that_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
     create_local_branch_with_commit(&env, "feature-branch");

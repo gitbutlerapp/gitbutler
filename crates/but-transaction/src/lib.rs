@@ -24,6 +24,7 @@ use but_workspace::commit::{
     ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
     squash_commits::MessageCombinationStrategy,
 };
+use but_workspace::editor_workspace::{leave_unnecessary_workspace, workspace_tips};
 use gix::{
     ObjectId,
     refs::{
@@ -309,7 +310,7 @@ where
         target: ObjectId,
         how_to_combine_messages: MessageCombinationStrategy,
     ) -> anyhow::Result<CommitIdentifiers> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let SquashCommitsOutcome {
                 rebase,
                 commit_selector,
@@ -344,7 +345,7 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
@@ -359,7 +360,7 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let mut rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
@@ -420,6 +421,7 @@ where
     }
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
 
@@ -499,6 +501,11 @@ where
                 editor.remove_edges(must_disconnect_child, ref_selector)?;
             }
             let rebase = editor.rebase()?;
+            let rebase = if checkout_is_pending {
+                rebase
+            } else {
+                leave_unnecessary_workspace(rebase.into_editor())?
+            };
             Ok(((), rebase))
         })?;
         let repo = self.repo().clone();
@@ -520,7 +527,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
@@ -769,7 +776,7 @@ where
         relative_to: RelativeTo,
         side: InsertSide,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase_losing_tips(|editor, commit_mappings| {
             let subject_commit_ids = subject_commit_ids
                 .into_iter()
                 .map(|commit| commit_mappings.map(commit));
@@ -891,6 +898,27 @@ where
         self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
+    }
+
+    fn rebase_losing_tips<F, T>(&mut self, f: F) -> anyhow::Result<T>
+    where
+        F: FnOnce(
+            Editor<'rebase, 'rebase, M>,
+            &CommitMappings,
+        ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
+    {
+        let checkout_is_pending = self.inner.pending_checkout.is_some();
+        self.rebase(|editor, commit_mappings| {
+            let tips_before = workspace_tips(&editor)?.len();
+            let (outcome, rebase) = f(editor, commit_mappings)?;
+            let editor = rebase.into_editor();
+            let rebase = if !checkout_is_pending && workspace_tips(&editor)?.len() < tips_before {
+                leave_unnecessary_workspace(editor)?
+            } else {
+                editor.rebase()?
+            };
+            Ok((outcome, rebase))
+        })
     }
 }
 

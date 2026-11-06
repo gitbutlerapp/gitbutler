@@ -3003,7 +3003,7 @@ Stacked branch 'B' on top of branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   lrm add B
 ┊│
 ┊├┄ h0 [A]
@@ -3055,7 +3055,7 @@ Stacked branch 'B' on top of branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B] (no commits)
+┊╭┄ g0 [B] [HEAD] (no commits)
 ┊│
 ┊├┄ h0 [A]
 ┊●   tpm add A
@@ -4757,7 +4757,7 @@ Stacked branch 'B' on top of branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   lrm add B
 ┊│     lrm:p A B
 ┊│
@@ -5092,7 +5092,7 @@ Stacked branch 'B' on top of branch 'wt-inside'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊┊
 ┊┊╭┄ h0:@ [uncommitted] {wt-inside} (no changes)
 ┊┊├┄ h0 [B]
@@ -5114,8 +5114,6 @@ Hint: run `but help` for all commands
         snapbox::str![[r#"
 * 4ce1279 (HEAD -> B) add B
 * 580bef0 (wt-inside) add W
-| * b66c23e (gitbutler/workspace) GitButler Workspace Commit
-|/  
 * 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -5125,6 +5123,50 @@ Hint: run `but help` for all commands
     assert!(
         wt_dir.join("B").exists(),
         "the moved branch's file reached the worktree's checkout"
+    );
+}
+
+#[test]
+fn moving_one_of_two_stacks_onto_a_worktrees_branch_checks_out_the_other() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "main");
+
+    env.but("move A --above wt-inside").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "B",
+        "a move leaving one stack checks that stack out"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the unnecessary managed workspace reference should be removed"
+    );
+}
+
+#[test]
+fn moving_the_only_stack_onto_a_worktrees_branch_leaves_the_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("status").assert().success();
+    crate::command::util::add_worktree_with_commit(&env, "wt-inside", "main");
+
+    env.but("move A --above wt-inside").assert().success();
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "with no stacks left in the main checkout, the workspace has no purpose"
+    );
+    assert!(
+        env.open_repo()
+            .try_find_reference(but_core::WORKSPACE_REF_NAME)
+            .unwrap()
+            .is_none(),
+        "the empty managed workspace reference should be removed"
     );
 }
 
@@ -5788,12 +5830,10 @@ Stacked branch 'B' on top of branch 'wt-lower'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* b66c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 9f6b492 (wt-inside) add W2
-| * 4ce1279 (B) add B
-| * 580bef0 (wt-lower) add W
-|/  
-* 9477ae7 (A) add A
+* 9f6b492 (wt-inside) add W2
+* 4ce1279 (B) add B
+* 580bef0 (wt-lower) add W
+* 9477ae7 (HEAD -> A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -5805,7 +5845,7 @@ Stacked branch 'B' on top of branch 'wt-lower'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [A]
+┊╭┄ g0 [A] [HEAD]
 ┊┊
 ┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
 ┊┊├┄ wt [wt-inside]
@@ -6384,7 +6424,7 @@ fn move_a_branch_above_a_branch_resting_on_the_target() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊●   lrm add B
 ┊│
 ┊├┄ h0 [A]

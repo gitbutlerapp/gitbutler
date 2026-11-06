@@ -45,9 +45,11 @@ plain Git, and there is no `gitbutler/workspace` branch:
   branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
 - `but apply` while the target branch is checked out also switches to `gitbutler/workspace`,
   even for a single stack.
-- Unapplying, discarding, or deleting branches down to one stack checks that stack's branch out
-  again. Other ways of dropping to one stack, such as squashing a whole branch into `@`, can
-  leave `HEAD` on `gitbutler/workspace`.
+- Unapplying, discarding, deleting, uncommitting, or squashing away branches down to one stack
+  checks that stack's branch out again. Moving a branch onto another stack leaves `HEAD` on
+  `gitbutler/workspace`, even with one stack left.
+- When the last stack leaves, whether removed, landed by `but pull`, or moved onto a linked
+  worktree's branch, `HEAD` moves to the target's local branch.
 
 Commands, IDs, and recipes are the same in both modes, so you do not need to track which mode
 the repository is in. The exception is edit mode (`but resolve <commit-id>`), which needs `gitbutler/workspace`. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.

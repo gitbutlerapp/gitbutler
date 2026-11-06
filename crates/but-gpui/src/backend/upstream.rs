@@ -1283,8 +1283,9 @@ mod tests {
         ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, day_start, overview,
         push_refusal, pushed_with,
     };
+    use crate::backend::branches::ApplyBranch;
     use crate::backend::model::build::full;
-    use crate::backend::ops::tests::git;
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
 
     /// A commit on `origin/main` as a fetch brings it.
     fn new_on_target(path: &std::path::Path, message: &str) {
@@ -1376,6 +1377,61 @@ mod tests {
                 git(path, &["rev-parse", "agent~"]),
                 git(path, &["rev-parse", "origin/main"]),
                 "agent's work now sits on the target's newest commit"
+            );
+        })
+    }
+
+    #[test]
+    fn integrating_the_last_stack_checks_out_the_target() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            for name in ["first", "second"] {
+                git(path, &["checkout", "-q", "-b", name, "main"]);
+                std::fs::write(path.join(name), "work\n").unwrap();
+                git(path, &["add", name]);
+                git(path, &["commit", "-q", "-m", name]);
+            }
+            git(path, &["checkout", "-q", "main"]);
+            for name in ["first", "second"] {
+                let apply = ApplyBranch {
+                    branch: full(&format!("refs/heads/{name}")),
+                    freeing: None,
+                };
+                crate::backend::apply(path, apply).unwrap();
+            }
+            let integrate = |branch: &str| {
+                let merge = git(
+                    path,
+                    &[
+                        "commit-tree",
+                        "origin/main^{tree}",
+                        "-p",
+                        "origin/main",
+                        "-p",
+                        branch,
+                        "-m",
+                        "merge",
+                    ],
+                );
+                git(
+                    path,
+                    &["update-ref", "refs/remotes/origin/main", merge.trim()],
+                );
+                update(path, UpdateScope::All);
+                git(path, &["symbolic-ref", "HEAD"]).trim().to_owned()
+            };
+
+            assert_eq!(
+                integrate("first"),
+                "refs/heads/gitbutler/workspace",
+                "second still needs the workspace"
+            );
+            assert_eq!(
+                integrate("second"),
+                "refs/heads/main",
+                "with nothing left in it, the workspace goes"
             );
         })
     }

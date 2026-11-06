@@ -1256,6 +1256,95 @@ fn discard_changes_from_commit() {
 }
 
 #[test]
+fn leaving_the_workspace_removes_its_metadata() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let [a_tip] = find_commits(&env, ["A"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(a.as_ref())?;
+            tx.discard_commits([a_tip])?;
+            Ok(())
+        },
+    )
+    .unwrap();
+    drop(meta);
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "B",
+        "the workspace was left for the remaining stack"
+    );
+    let workspace_ref = FullName::try_from(but_core::WORKSPACE_REF_NAME).unwrap();
+    let workspace = ctx
+        .meta()
+        .unwrap()
+        .workspace(workspace_ref.as_ref())
+        .unwrap();
+    assert!(
+        workspace.stacks.is_empty(),
+        "workspace metadata goes with the reference"
+    );
+    assert!(
+        ctx.project_meta().unwrap().target_ref.is_some(),
+        "the target isn't workspace metadata"
+    );
+}
+
+#[test]
+fn removing_the_last_two_stacks_together_leaves_the_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let a = FullName::try_from("refs/heads/A").unwrap();
+    let b = FullName::try_from("refs/heads/B").unwrap();
+    let [a_tip, b_tip] = find_commits(&env, ["A", "B"]);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(a.as_ref())?;
+            tx.remove_reference(b.as_ref())?;
+            tx.discard_commits([a_tip, b_tip])?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "main",
+        "nothing is left to keep a workspace for"
+    );
+    assert!(
+        ref_target(&env, "refs/heads/gitbutler/workspace".try_into().unwrap()).is_none(),
+        "the workspace reference goes with the workspace"
+    );
+}
+
+#[test]
 fn remove_references() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["branch"]);
@@ -1304,8 +1393,7 @@ fn remove_references() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+* 6674d4f (HEAD -> main, origin/main, origin/HEAD, gitbutler/target) add random-file
 
 "#]]
     );

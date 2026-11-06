@@ -1301,7 +1301,7 @@ pub fn branch_remove_only_with_perm(
         let new_ws = but_workspace::branch::dissolve_unnecessary_workspace(
             &new_ws,
             &repo,
-            &meta,
+            &mut meta,
             Default::default(),
         )?
         .map_or(new_ws, |(dissolved, _)| dissolved);
