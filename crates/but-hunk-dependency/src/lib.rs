@@ -158,20 +158,7 @@ pub fn new_stacks_to_input_stacks(
                 .segments
                 .iter()
                 .flat_map(|s| &s.commits)
-                .map(|commit| {
-                    let commit = repo.find_commit(commit.id)?;
-                    let tree_changes = but_core::diff::tree_changes(
-                        repo,
-                        commit.parent_ids().next().map(|id| id.detach()),
-                        commit.id,
-                    )?;
-                    let files = tree_changes_to_input_files(repo, tree_changes)?;
-
-                    Ok(InputCommit {
-                        commit_id: commit.id,
-                        files,
-                    })
-                })
+                .map(|commit| input_commit(repo, commit.id))
                 .rev()
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
@@ -183,6 +170,17 @@ pub fn new_stacks_to_input_stacks(
             })
         })
         .collect()
+}
+
+/// The [`InputCommit`] of commit `id`: what it changes against its first parent.
+pub fn input_commit(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<InputCommit> {
+    let commit = repo.find_commit(id)?;
+    let parent = commit.parent_ids().next().map(|id| id.detach());
+    let tree_changes = but_core::diff::tree_changes(repo, parent, id)?;
+    Ok(InputCommit {
+        commit_id: id,
+        files: tree_changes_to_input_files(repo, tree_changes)?,
+    })
 }
 
 /// Turn `changes` with [`TreeChange`] instances into [`InputFile`], one for each input.
