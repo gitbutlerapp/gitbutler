@@ -7,17 +7,19 @@ import { Kbd } from "./Kbd.tsx";
 import styles from "./StatusBar.module.css";
 
 type StatusBarProps = {
-	/** What needs attention: notes, a {@link StatusAlert}, a {@link StatusLocation}; or, while something is under way, one {@link StatusOperation}. */
+	/** What needs attention: notes, a {@link StatusAlert}, a {@link StatusLocation}, a {@link StatusText}; or, while something is under way, one {@link StatusOperation}. */
 	start?: ReactNode;
-	/** What you can do: {@link StatusHint}s for the selection, then a note that opens the commands. */
+	/** What you can do: {@link StatusHint}s for the selection, then a note that opens the commands, then at most one small outline `Button` the window offers on its own, as "Build and restart" in a dev build. */
 	end?: ReactNode;
 } & Omit<ComponentProps<"footer">, "children">;
 
 /**
  * The window's footer, as ⚛️ Core's StatusBar draws it: what needs attention at the start, what
  * you can do at the end. The start holds "Fetched 2m ago", then a {@link StatusAlert} with the
- * conflicts, then the other notes (1 unread, CI failed), then a {@link StatusLocation}. While a
- * drag, a cut or an operation is under way it holds a {@link StatusOperation} instead.
+ * conflicts, then the other notes (1 unread, CI failed), then a {@link StatusLocation} or a
+ * {@link StatusText}. While a drag, a cut or an operation is under way it holds a
+ * {@link StatusOperation} instead. The end holds the keys, then ⌘K Commands, then, only when the
+ * window has one of its own, a small outline `Button` (Build and restart in a dev build).
  *
  * A note that doesn't fit drops whole from the end of the start, so put them in the order they
  * matter. An operation doesn't drop: its subject and place are ellipsed instead.
@@ -105,6 +107,16 @@ export const StatusLocation: FC<StatusLocationProps> = ({
 		<Icon name="folder" size={14} />
 		{place}
 	</span>
+);
+
+/**
+ * Plain words in the start of a {@link StatusBar}, quiet text/2 that isn't a way in: where you are
+ * as you step through something, as "File 12 of 36" while going through a diff's files.
+ *
+ * @import import { StatusText } from "@gitbutler/ui-react/StatusBar.tsx";
+ */
+export const StatusText: FC<ComponentProps<"span">> = (props) => (
+	<span {...props} className={classes(props.className, "text-12", styles.text)} />
 );
 
 type StatusHintProps = {
