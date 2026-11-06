@@ -172,8 +172,11 @@ pub fn create_commit(
     let new_commit = if let Some(new_tree) = destination_tree {
         match destination {
             // With every change rejected, as when each builds on another branch, it would be
-            // empty.
-            Destination::NewCommit { .. } if all_rejected => None,
+            // empty, and an amend would only rewrite the commit (and its descendants) for nothing.
+            Destination::NewCommit { .. }
+            | Destination::AmendCommit {
+                new_message: None, ..
+            } if all_rejected => None,
             Destination::NewCommit {
                 message,
                 parent_commit_id: _,
