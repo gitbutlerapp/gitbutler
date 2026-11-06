@@ -901,6 +901,21 @@ impl SettingsView {
         )
     }
 
+    fn composer_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Start commits with nothing checked",
+            "The commit box opens with every file unchecked, and you check the ones that go \
+             in. Off, they all start checked.",
+            self.pref_switch(
+                "composer-starts-unchecked",
+                self.store.read(cx).prefs.composer_starts_unchecked,
+                |p| p.composer_starts_unchecked ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("selected unselected staging auto-select default files")
+    }
+
     /// A switch for one of this app's own preferences, which a click turns over with `flip`.
     fn pref_switch(
         &self,
@@ -1257,7 +1272,10 @@ impl SettingsView {
             Page::App(AppPage::Appearance) => self.appearance_cards(cx),
             Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
             Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
-            Page::App(AppPage::Git) => vec![Card::new(None, vec![self.fetch_row(cx)])],
+            Page::App(AppPage::Git) => vec![
+                Card::new(None, vec![self.fetch_row(cx)]),
+                Card::new(Some("Commits"), vec![self.composer_row(cx)]),
+            ],
             Page::App(AppPage::Integrations) => self.integration_cards(window, cx),
             Page::App(AppPage::Experimental) => {
                 // Only where the desktop app's binary has this client built in.

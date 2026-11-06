@@ -42,8 +42,10 @@ pub(super) struct Checks {
     /// Hunks only some of whose changed lines go in the next commit: those lines by their
     /// index in the hunk, and the [`fingerprint`] of the lines they index.
     line_picks: HashMap<(String, HunkKey), (BTreeSet<usize>, u64)>,
-    /// The uncommitted paths listed since the composer opened, `None` while it's closed. A
-    /// file that turns up after, as an agent writes one, starts out: nobody picked it.
+    /// The uncommitted paths listed since the composer opened. A file that turns up after, as
+    /// an agent writes one, starts out: nobody picked it. `None` while it's closed, but where
+    /// it starts unchecked, leaving it for another checkout keeps them until it opens again,
+    /// to tell what was checked from what's new.
     known: Option<HashSet<String>>,
 }
 
@@ -101,7 +103,18 @@ impl Checks {
     }
 
     fn is_empty(&self) -> bool {
-        self.unchecked.is_empty() && self.unchecked_hunks.is_empty() && self.line_picks.is_empty()
+        self.known.is_none()
+            && self.unchecked.is_empty()
+            && self.unchecked_hunks.is_empty()
+            && self.line_picks.is_empty()
+    }
+
+    /// Leave out each of `files` that isn't known, which is all of them unless the composer
+    /// was left open for another checkout: what was checked there stays checked.
+    fn start_unchecked(&mut self, files: &[FileChange]) {
+        let known = self.known.take().unwrap_or_default();
+        let unknown = (files.iter()).filter(|file| !known.contains(&file.path));
+        self.unchecked.extend(unknown.map(|file| file.path.clone()));
     }
 
     /// Put everything back in.
@@ -277,7 +290,9 @@ impl Detail {
             .unwrap_or_default();
         let mut checks = std::mem::replace(&mut self.checks, next);
         // Opened again, the composer starts from what's there then.
-        checks.known = None;
+        if !self.store.read(cx).prefs.composer_starts_unchecked {
+            checks.known = None;
+        }
         if !checks.is_empty() {
             self.other_checks.insert(left.clone(), checks);
         }
@@ -778,6 +793,8 @@ impl Detail {
             }
         }
         if !self.composing {
+            // Not what's dropped or picked, which goes in as it would otherwise.
+            let mut starts_unchecked = picks && self.store.read(cx).prefs.composer_starts_unchecked;
             // Its checks take over the line numbers, and lines or files picked in its
             // checkout's diff are what it commits, as dropped on a branch they would be.
             let picks = if !picks {
@@ -804,6 +821,7 @@ impl Detail {
                     == (self.checks_project.as_ref(), &self.checks_worktree)
             {
                 self.check_only(Some(project), worktree, &files, cx);
+                starts_unchecked = false;
                 if let Some(files) = self.page.files_mut() {
                     files.file_picks.clear();
                 }
@@ -815,6 +833,9 @@ impl Detail {
                 .and_then(|project| self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(&self.checks_worktree))
                 .unwrap_or_default();
+            if starts_unchecked {
+                self.checks.start_unchecked(files);
+            }
             let left_out = (files.iter())
                 .filter(|file| file.conflicted || file.nested_repository())
                 .map(|file| file.path.clone());
@@ -1332,7 +1353,7 @@ impl Detail {
     }
 
     /// Add the checked changes to the commit the navigator's at, with the message in the box
-    /// if that was rewritten.
+    /// if that was rewritten. With nothing checked, only its message can change, so it has to.
     pub(super) fn amend(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(moving) = self.amending(cx) else {
             return;
@@ -1351,12 +1372,16 @@ impl Detail {
             return;
         }
         let files = self.selected_changes(cx);
-        if files.is_empty() {
-            return snack(&self.store, "Nothing checked to amend", cx);
+        let rewritten = self.amend_message_rewritten(cx);
+        // Unchanged, amending would only give it and the commits above it new ids.
+        if files.is_empty() && !rewritten {
+            return snack(
+                &self.store,
+                "Nothing checked, and the message is unchanged",
+                cx,
+            );
         }
-        let written = self.message.read(cx).text(cx);
-        let rewritten = (self.amend_message.as_ref()).is_some_and(|shown| shown.loaded != written);
-        let message = rewritten.then(|| written.trim().to_owned());
+        let message = rewritten.then(|| self.message.read(cx).text(cx).trim().to_owned());
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
         let (finished, from) = (project.clone(), worktree.clone());
@@ -1379,6 +1404,12 @@ impl Detail {
             };
             store.amend(&project, amend, landed, cx)
         });
+    }
+
+    /// Whether the box no longer holds the message of the commit being amended.
+    fn amend_message_rewritten(&self, cx: &App) -> bool {
+        let written = self.message.read(cx).text(cx);
+        (self.amend_message.as_ref()).is_some_and(|shown| shown.loaded != written)
     }
 
     /// The checked changes as a unified diff, for the AI to read.
@@ -1663,10 +1694,15 @@ impl Detail {
                             .style(ButtonStyle::Pop)
                             .disabled_because(match &amended {
                                 None => Some("Pick a commit to amend"),
-                                Some(_) => (checked == 0).then_some("Check some changes first"),
+                                Some(_) => (checked == 0 && !self.amend_message_rewritten(cx))
+                                    .then_some("Check some changes or change the message"),
                             })
                             .tooltip_for(
-                                "Add the checked changes to this commit",
+                                if checked == 0 {
+                                    "Change only this commit's message"
+                                } else {
+                                    "Add the checked changes to this commit"
+                                },
                                 &crate::app::StartAmend,
                             )
                             .on_click(cx.listener(|this, _, window, cx| this.amend(window, cx))),
@@ -1870,6 +1906,63 @@ mod tests {
 
     fn paths(names: &[&str]) -> Vec<String> {
         names.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    #[test]
+    fn starting_unchecked_leaves_every_file_out() {
+        let mut checks = Checks::default();
+
+        checks.start_unchecked(&[FileChange::bare("a"), FileChange::bare("b")]);
+
+        assert_eq!(
+            checks.all_check(&paths(&["a", "b"])),
+            Some(Toggled::False),
+            "nothing goes in until it's checked"
+        );
+    }
+
+    #[test]
+    fn starting_unchecked_keeps_what_was_checked_before_leaving_the_checkout() {
+        let mut checks = Checks {
+            unchecked: ["b"].map(str::to_owned).into(),
+            known: Some(["a", "b"].map(str::to_owned).into()),
+            ..Checks::default()
+        };
+
+        checks.start_unchecked(&[
+            FileChange::bare("a"),
+            FileChange::bare("b"),
+            FileChange::bare("c"),
+        ]);
+
+        assert_eq!(
+            checks.file_check("a"),
+            Toggled::True,
+            "what was checked stays in"
+        );
+        assert_eq!(
+            checks.file_check("b"),
+            Toggled::False,
+            "what wasn't stays out"
+        );
+        assert_eq!(
+            checks.file_check("c"),
+            Toggled::False,
+            "and so does a file that turned up meanwhile, as nobody picked it"
+        );
+    }
+
+    #[test]
+    fn checks_with_every_file_in_are_kept_while_they_know_their_files() {
+        let checks = Checks {
+            known: Some(["a"].map(str::to_owned).into()),
+            ..Checks::default()
+        };
+
+        assert!(
+            !checks.is_empty(),
+            "starting unchecked, everything being in is something to come back to"
+        );
     }
 
     #[test]

@@ -1008,7 +1008,8 @@ impl Navigator {
     }
 
     /// Why `worktree`'s changes in `project` can't amend anything started from `from`, if they
-    /// can't: none are checked, there are none, or nothing can take them.
+    /// can't: there are none, or nothing can take them. None being checked is fine, as an amend
+    /// of nothing still changes the message.
     pub(crate) fn amend_refused(
         &self,
         project: &ProjectId,
@@ -1016,19 +1017,19 @@ impl Navigator {
         from: &Selection,
         cx: &App,
     ) -> Option<&'static str> {
-        if let Some(what) = self.uncommitted(project, worktree.clone(), cx) {
-            let start = self.amend_start(project, from, cx);
-            return (self.squash_move(project, &what, start, cx))
-                .is_none()
-                .then_some("Nowhere to amend it");
-        }
         let uncommitted = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.uncommitted_in(worktree))
             .is_some_and(|files| !files.is_empty());
-        Some(match uncommitted {
-            true => "Nothing checked to amend",
-            false => "Nothing uncommitted to amend",
-        })
+        if !uncommitted {
+            return Some("Nothing uncommitted to amend");
+        }
+        let Some(what) = self.amended_changes(project, worktree.clone(), cx) else {
+            return Some("Nothing to amend with");
+        };
+        let start = self.amend_start(project, from, cx);
+        (self.squash_move(project, &what, start, cx))
+            .is_none()
+            .then_some("Nowhere to amend it")
     }
 
     /// Start amending a commit with `worktree`'s uncommitted changes in `project`, from `start`
@@ -1043,31 +1044,24 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        let composing = self.detail.read(cx).composing_in(&project, &worktree);
-        let Some(what) = self.uncommitted(&project, worktree.clone(), cx) else {
+        let Some(what) = self.amended_changes(&project, worktree, cx) else {
             return false;
-        };
-        // The checks can change till it lands, and a file going from what's held would end it.
-        let what = match composing {
-            true => Moving::Files(Changes {
-                from: None,
-                worktree,
-                files: Arc::from([]),
-            }),
-            false => what,
         };
         self.reveal_selection = true;
         self.squash(project, what, start, window, cx)
     }
 
-    /// `worktree`'s uncommitted changes, as what's squashed: those checked while they show, but
-    /// not conflicted ones. `None` when there are none.
-    fn uncommitted(&self, project: &ProjectId, worktree: Checkout, cx: &App) -> Option<Moving> {
-        let files = self
-            .detail
-            .read(cx)
-            .files_to_move(project, worktree.clone(), cx);
-        (!files.is_empty()).then(|| {
+    /// What an amend of `worktree`'s uncommitted changes holds: none while the composer's open
+    /// on them, as the checks can change till it lands and a file going from what's held would
+    /// end it. Otherwise them all but conflicted ones, `None` when that leaves none.
+    fn amended_changes(&self, project: &ProjectId, worktree: Checkout, cx: &App) -> Option<Moving> {
+        let detail = self.detail.read(cx);
+        let composing = detail.composing_in(project, &worktree);
+        let files = match composing {
+            true => Vec::new(),
+            false => detail.files_to_move(project, worktree.clone(), cx),
+        };
+        (composing || !files.is_empty()).then(|| {
             Moving::Files(Changes {
                 from: None,
                 worktree,
