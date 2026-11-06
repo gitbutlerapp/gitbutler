@@ -825,10 +825,28 @@ impl Store {
         }
     }
 
-    /// Whether `project`'s commit `id` is one the lock the pointer is on builds on.
+    /// Whether `project`'s commit `id` is one the lock the pointer is on, or the main
+    /// checkout's changes being dragged, build on.
     pub fn lock_marks(&self, project: &str, id: CommitId) -> bool {
-        (self.lock_hovered.as_ref())
-            .is_some_and(|(on, commits)| on == project && commits.contains(&id))
+        use crate::transfer::{Changes, Dragged, Moving};
+        let hovered = (self.lock_hovered.as_ref())
+            .is_some_and(|(on, commits)| on == project && commits.contains(&id));
+        let dragged = match (&self.dragging, self.locks.get(project)) {
+            (
+                Some(Dragged {
+                    project: on,
+                    what:
+                        Moving::Files(Changes {
+                            from: None,
+                            worktree: Checkout::Main,
+                            files,
+                        }),
+                }),
+                Some(locks),
+            ) if on == project => (files.iter()).any(|file| locks.of(file).any(|c| c == id)),
+            _ => false,
+        };
+        hovered || dragged
     }
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {
