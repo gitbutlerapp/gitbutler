@@ -559,6 +559,17 @@ async fn handle_pull(
                 guard.write_permission(),
             )
         };
+        if integration_result.is_ok()
+            && let Err(err) = but_api::workspace::workspace_prune_remotes(
+                &mut ctx.to_sync().into_thread_local(),
+                Some("pull".into()),
+            )
+        {
+            tracing::warn!(
+                ?err,
+                "could not prune remote-tracking branches after pulling"
+            );
+        }
 
         match integration_result {
             Ok(outcome) => {

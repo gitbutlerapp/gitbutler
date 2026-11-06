@@ -509,6 +509,36 @@ where
     }
 }
 
+/// Deletes the remote-tracking refs of `remote` whose branches are gone from it, like
+/// `git remote prune`. Unlike a pruning fetch, it never brings new commits.
+pub async fn prune<P, F, Fut, E>(
+    repo_path: P,
+    executor: E,
+    remote: &str,
+    on_prompt: Option<F>,
+) -> Result<(), crate::Error<Error<E>>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let repo_path = repo_path.as_ref();
+    let args = ["remote", "prune", remote];
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, on_prompt).await?;
+    if status == 0 {
+        Ok(())
+    } else {
+        Err(Error::<E>::Failed {
+            status,
+            args: args.into_iter().map(Into::into).collect(),
+            stdout,
+            stderr,
+        })?
+    }
+}
+
 fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<String>> {
     let refspecs: Vec<_> = repo
         .find_remote(remote)?
