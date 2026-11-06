@@ -206,7 +206,7 @@
   // a commit's files in the TUI. From the navigator too, which the app passes it on from.
   {
     "context": "(Navigator || Diff) && !TextInput",
-    "bindings": { "f": "diff::ToggleFiles", "shift-space": "diff::PageUp", "secondary-shift-p": "pr::CreatePullRequest" }
+    "bindings": { "f": "diff::ToggleFiles", "shift-space": "diff::PageUp" }
   },
   // / searches what has the keys: the navigator with its filter, the diff with its find bar, and
   // the file list or a list with its filter, as the project page's commits, Branches and
@@ -381,7 +381,7 @@
   // ⇧F10 opens the selected row's right-click menu, as on Windows and Linux and in VS Code.
   {
     "context": "Workspace && !TextInput",
-    "bindings": { "shift-f10": "app::ShowContextMenu", "tab": "app::FocusNextPane", "secondary-shift-z": "app::Redo", "shift-tab": "app::FocusPreviousPane", "u": "app::Undo", "shift-u": "app::Redo", "secondary-shift-p": "remote::Push" }
+    "bindings": { "shift-f10": "app::ShowContextMenu", "tab": "app::FocusNextPane", "secondary-shift-z": "app::Redo", "shift-tab": "app::FocusPreviousPane", "u": "app::Undo", "shift-u": "app::Redo", "shift-p": "remote::Push", "secondary-shift-p": "pr::CreatePullRequest" }
   },
   // Tabs take the keys as the panes do: ↑ and ↓ go between them and what's over and under them.
   {
