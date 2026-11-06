@@ -342,8 +342,7 @@ impl Store {
     /// Apply `commit` to `project`, as [`Self::apply`] does, then `committed` with what it
     /// made. One some of whose changes can't go where it was asked to is not made at all, and
     /// the window asks the user where they go instead ([`StoreEvent::CommitBlocked`]), so
-    /// nothing is left out of a commit without their say. One of locked changes that restacks
-    /// or conflicts waits for them to say so ([`StoreEvent::Unfit`]).
+    /// nothing is left out of a commit without their say.
     pub fn commit(
         &mut self,
         project: &ProjectId,
@@ -354,34 +353,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let committed = std::rc::Rc::new(committed);
-        let label = label.into();
-        let fit = self.lock_fit(project, &commit.checkout, &commit.changes, |ws| {
-            ws.footing(&commit.to)
-        });
-        let Some(fit) = fit.filter(|fit| fit.asks()) else {
-            return self.commit_with(project, label, overlay, commit, committed, cx);
-        };
-        let commit = backend::CommitChanges {
-            conflicts: fit.conflicts,
-            restack: fit.restack.clone(),
-            ..commit
-        };
-        let changes = commit.changes.clone();
-        let unfit = Unfit {
-            project: project.clone(),
-            lands: Lands::Commit,
-            restack: fit.restack,
-            conflicts: fit.conflicts,
-        };
-        let project = project.clone();
-        let held = Held {
-            unfit,
-            tried: Box::new(move |path, stacking| backend::try_stacking(path, stacking, &changes)),
-            go: Box::new(move |store, cx| {
-                store.commit_with(&project, label, overlay, commit, committed, cx)
-            }),
-        };
-        self.hold(held, cx);
+        self.commit_with(project, label.into(), overlay, commit, committed, cx)
     }
 
     fn commit_with(
@@ -416,12 +388,14 @@ impl Store {
     }
 
     /// Commit what `blocked` asked for to `to` instead, as the user said, leaving out the
-    /// changes it can't take with `leave_out`, or stacking first as `restack` says.
+    /// changes it can't take with `leave_out`, keeping what doesn't merge as `conflicts` says,
+    /// or stacking first as `restack` says.
     pub fn commit_instead(
         &mut self,
         blocked: BlockedCommit,
         to: backend::CommitTo,
         leave_out: bool,
+        conflicts: backend::Conflicts,
         restack: Option<backend::Stacking>,
         cx: &mut Context<Self>,
     ) {
@@ -438,6 +412,7 @@ impl Store {
         let commit = backend::CommitChanges {
             to,
             leave_out,
+            conflicts,
             restack,
             ..commit
         };

@@ -8,14 +8,13 @@ use anyhow::Result;
 use gpui::{App, Context, PromptLevel, Window};
 
 use crate::app::AppView;
-use crate::backend::{self, Checkout, Conflicts, FullName, Stacking, short_ref};
+use crate::backend::{self, Conflicts, FullName, Stacking, short_ref};
 use crate::state::{Held, Lands, Selection, Unfit};
 
 impl Unfit {
     fn verb(&self) -> &'static str {
         match self.lands {
             Lands::Amend(_) => "amend",
-            Lands::Commit => "commit",
         }
     }
 
@@ -26,7 +25,6 @@ impl Unfit {
                 .map_or("the commit".into(), |(_, commit)| {
                     format!("\"{}\"", crate::ui::commit_title(&commit.title))
                 }),
-            Lands::Commit => "the new commit".into(),
         }
     }
 
@@ -34,7 +32,6 @@ impl Unfit {
     fn at(&self) -> Selection {
         match self.lands {
             Lands::Amend(id) => Selection::Commit(self.project.clone(), id),
-            Lands::Commit => Selection::Uncommitted(self.project.clone(), Checkout::Main),
         }
     }
 }
@@ -94,11 +91,6 @@ impl AppView {
                 "it doesn't have",
                 "Amend",
             ),
-            Lands::Commit => (
-                "Commit with conflicts?".to_owned(),
-                "it won't sit on",
-                "Commit",
-            ),
         };
         let detail = format!(
             "These changes build on commits {lacks}, so it's left conflicted. They'll be in its \
@@ -131,23 +123,15 @@ impl AppView {
             names(&stacking.branches),
             short_ref(&stacking.onto),
         );
-        let above = match unfit.lands {
-            Lands::Amend(_) => "above it",
-            Lands::Commit => "above where it goes",
-        };
-        match (keeps, unfit.conflicts, &unfit.lands) {
-            (false, _, Lands::Amend(_)) => detail.push_str(&format!(
+        match (keeps, unfit.conflicts) {
+            (false, _) => detail.push_str(&format!(
                 " Stacking leaves {named} conflicted, so it can't take them after. Restack, \
                  then try again."
             )),
-            (false, _, Lands::Commit) => detail.push_str(
-                " Stacking leaves commits conflicted, so these can't be committed after. \
-                 Restack, then try again.",
-            ),
-            (true, Conflicts::Keep, _) => detail.push_str(&format!(
-                " They also build on a commit {above}, so {verb}ing leaves it conflicted."
+            (true, Conflicts::Keep) => detail.push_str(&format!(
+                " They also build on a commit above it, so {verb}ing leaves it conflicted."
             )),
-            (true, Conflicts::Reject, _) => {}
+            (true, Conflicts::Reject) => {}
         }
         match stacking.pushed.as_slice() {
             [] => {}
@@ -168,7 +152,6 @@ impl AppView {
         };
         let message = match unfit.lands {
             Lands::Amend(_) => format!("Restack to amend {named}?"),
-            Lands::Commit => "Restack to commit?".to_owned(),
         };
         let answer = window.prompt(PromptLevel::Info, &message, Some(&detail), answers, cx);
         cx.spawn(async move |this, cx| {

@@ -13,7 +13,6 @@ use crate::backend::{Checkout, CommitId, Conflicts, Selected, Stacking, Workspac
 /// Where locked changes land.
 pub enum Lands {
     Amend(CommitId),
-    Commit,
 }
 
 /// Locked changes landing in `project` as `lands` says, after stacking as `restack` says, and
