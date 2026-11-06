@@ -466,6 +466,11 @@ pub struct Store {
     /// The commits each merge of a remote brought in, by the merge, as read when its commits
     /// were first shown, and whether it brought more than those; `None` while reading.
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
+    /// What each project's uncommitted hunks build on, read after a load lands, so the files
+    /// show without waiting for them.
+    pub locks: HashMap<ProjectId, backend::locks::Locks>,
+    /// The projects whose locks are being read, each with whether a load landed meanwhile.
+    locks_reading: HashMap<ProjectId, bool>,
     /// The commits each project had before the app's last operation on it, and the checkouts
     /// it made commits in: see [`Overlay::checkouts`]. Commits that appear there after it are
     /// the app's own doing, so they load as already seen. A person's operations with the CLI
@@ -603,6 +608,8 @@ impl Store {
             arrived: HashMap::new(),
             drafts: HashMap::new(),
             merged: HashMap::new(),
+            locks: HashMap::new(),
+            locks_reading: HashMap::new(),
             widths: saved.widths,
             prefs: saved.prefs,
             // Read with the saved state, so the diff doesn't start in the other layout.

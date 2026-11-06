@@ -13,11 +13,11 @@ use but_hunk_dependency::{InputStack, WorkspaceRanges, input_commit};
 use super::{Checkout, CommitId, Selected, Workspace};
 
 /// The main checkout's hunks that build on commits, by their file's path.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Locks(HashMap<String, Vec<Lock>>);
 
 /// A hunk, as a diff without context has it, and the commits it builds on.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Lock {
     old: (u32, u32),
     new: (u32, u32),
@@ -76,6 +76,16 @@ impl Locks {
         locks
             .filter(taken)
             .flat_map(|lock| lock.commits.iter().copied())
+    }
+}
+
+impl Locks {
+    /// Whether amending the main checkout's `files` into commit `into` of `workspace` keeps
+    /// them above every commit they build on.
+    pub fn amend_keeps(&self, workspace: &Workspace, files: &[Selected], into: CommitId) -> bool {
+        (files.iter())
+            .flat_map(|file| self.of(file))
+            .all(|base| workspace.builds_on(into, base))
     }
 }
 
@@ -156,6 +166,39 @@ mod tests {
             assert!(ws.builds_on(second, edit), "and into a commit above it");
             assert!(!ws.builds_on(edit, second), "but nothing below");
         })
+    }
+
+    #[test]
+    fn locked_files_amend_only_into_what_they_build_on_and_above() {
+        use crate::backend::model::build::{branch, id, workspace};
+        // ui's commits newest first: 3, 2, 1; api's: 5, 4.
+        let ws = workspace(
+            vec![vec![branch("ui", &[3, 2, 1])], vec![branch("api", &[5, 4])]],
+            vec![],
+        );
+        let file = crate::backend::FileChange::bare("file");
+        let lock = |commits: Vec<_>| super::Lock {
+            old: (5, 1),
+            new: (5, 1),
+            commits,
+        };
+        let locks = super::Locks([("file".into(), vec![lock(vec![id(2)])])].into());
+        let files = [Selected::whole(&file)];
+        let into = |n| locks.amend_keeps(&ws, &files, id(n));
+        assert!(into(2) && into(3), "into what it builds on, and above it");
+        assert!(!into(1), "not below it");
+        assert!(!into(5), "nor into another stack");
+
+        let unrelated = [Selected::whole(&crate::backend::FileChange::bare("other"))];
+        assert!(
+            locks.amend_keeps(&ws, &unrelated, id(1)),
+            "a file that builds on nothing goes anywhere"
+        );
+        let gone = super::Locks([("file".into(), vec![lock(vec![id(9)])])].into());
+        assert!(
+            gone.amend_keeps(&ws, &files, id(1)),
+            "a lock read before a rewrite, on a commit gone, holds nothing back"
+        );
     }
 
     #[test]
