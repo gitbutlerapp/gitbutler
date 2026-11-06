@@ -1486,11 +1486,6 @@ impl Navigator {
             };
             self.store
                 .update(cx, |store, cx| store.select(Some(on), cx));
-            if transfer.asks() {
-                return self.app.update_later(window, cx, move |app, window, cx| {
-                    app.perform_asking(transfer, project, None, window, cx)
-                });
-            }
             // Only staging comes back, which a squash never is.
             let _ =
                 (self.store).update(cx, |store, cx| transfer.perform(&project, None, store, cx));

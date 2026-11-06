@@ -1370,9 +1370,8 @@ impl Store {
         );
     }
 
-    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
-    /// Stack whole stacks of `project` as `stacking` says, so changes can amend into the one
-    /// on top.
+    /// Stack whole stacks of `project` as `stacking` says, so changes can land on the one on
+    /// top.
     pub fn restack(
         &mut self,
         project: &ProjectId,
@@ -1392,7 +1391,44 @@ impl Store {
         );
     }
 
+    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
+    /// Locked changes that restack or conflict there wait for the user to say so
+    /// ([`StoreEvent::Unfit`]).
     pub fn amend(
+        &mut self,
+        project: &ProjectId,
+        amend: backend::Amend,
+        then: impl FnOnce(&mut Store, CommitId, &mut Context<Store>) + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let into = amend.into;
+        let fit = self.landing_fit(project, &amend.checkout, &amend.changes, |ws| {
+            ws.landing_into(into)
+        });
+        let Some(fit) = fit.filter(|fit| fit.asks()) else {
+            return self.amend_with(project, amend, then, cx);
+        };
+        let amend = backend::Amend {
+            conflicts: fit.conflicts,
+            restack: fit.restack.clone(),
+            ..amend
+        };
+        let unfit = Unfit {
+            project: project.clone(),
+            lands: Lands::Amend(into),
+            restack: fit.restack,
+            conflicts: fit.conflicts,
+        };
+        let project = project.clone();
+        let held = Held {
+            unfit,
+            tried: Box::new(move |path, stacking| backend::try_restack(path, stacking, into)),
+            go: Box::new(move |store, cx| store.amend_with(&project, amend, then, cx)),
+        };
+        self.hold(held, cx);
+    }
+
+    fn amend_with(
         &mut self,
         project: &ProjectId,
         amend: backend::Amend,

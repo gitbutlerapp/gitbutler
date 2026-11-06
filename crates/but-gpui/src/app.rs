@@ -23,9 +23,9 @@ use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, Lands, MeshPick,
-    NavigatorPlace, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store,
-    StoreEvent, Tile, Tiling, Unfit, Zones, along_edge, snack, tile_beside, up_to_date,
+    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, NavigatorPlace,
+    Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile,
+    Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -1250,9 +1250,6 @@ impl AppView {
             return;
         };
         let project = target.project().clone();
-        if transfer.asks() {
-            return self.perform_asking(transfer, project, lands, window, cx);
-        }
         let staged =
             (self.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
         if let Some((branch, files)) = staged {
@@ -1266,43 +1263,6 @@ impl AppView {
                 detail.stage(branch, &files, window, cx)
             });
         }
-    }
-
-    /// Do `transfer` in `project`, an amend that restacks or leaves the commit it goes into
-    /// conflicted, once the user says to.
-    pub fn perform_asking(
-        &mut self,
-        transfer: Transfer,
-        project: ProjectId,
-        lands: Option<Move>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Transfer::Amend {
-            into,
-            restack,
-            conflicts,
-            ..
-        } = &transfer
-        else {
-            return;
-        };
-        let into = *into;
-        let unfit = Unfit {
-            project: project.clone(),
-            lands: Lands::Amend(into),
-            restack: restack.clone(),
-            conflicts: *conflicts,
-        };
-        let tried = move |path: &std::path::Path, stacking: &backend::Stacking| {
-            backend::try_restack(path, stacking, into)
-        };
-        let go = move |app: &mut AppView, cx: &mut Context<AppView>| {
-            // Only staging comes back, which an amend never is.
-            let _ =
-                (app.store).update(cx, |store, cx| transfer.perform(&project, lands, store, cx));
-        };
-        self.ask_unfit(unfit, tried, go, window, cx);
     }
 
     fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {

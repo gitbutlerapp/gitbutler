@@ -53,7 +53,7 @@ impl AppView {
 
     /// Land `unfit`'s changes as `go` does, once the user says to. Where it restacks, `tried`
     /// says first whether stacking still lets them land.
-    pub fn ask_unfit(
+    fn ask_unfit(
         &mut self,
         unfit: Unfit,
         tried: impl FnOnce(&Path, &Stacking) -> Result<bool> + Send + 'static,
