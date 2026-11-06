@@ -340,6 +340,16 @@ pub enum WatchedOrder {
     Activity,
 }
 
+/// Where the navigator goes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NavigatorPlace {
+    /// A column beside the panes.
+    #[default]
+    Side,
+    /// A strip of tabs across the window's top, which gives its width back to the panes.
+    Top,
+}
+
 /// Which branches the Branches page lists by their pull request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
@@ -445,6 +455,8 @@ pub struct Prefs {
     pub confirm_terminal_close: bool,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
+    /// Where the navigator goes.
+    pub navigator_place: NavigatorPlace,
     /// The bar along the window's bottom is left out.
     pub hide_status_bar: bool,
     /// Commit and branch pages list the messages first among their files, in place of their

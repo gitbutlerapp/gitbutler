@@ -584,6 +584,7 @@ impl AppView {
 
     fn rows_have_keys(&self, window: &Window, cx: &App) -> bool {
         self.navigator.focus_handle(cx).contains_focused(window, cx)
+            || self.strip_has_keys(window, cx)
     }
 
     /// Whether Discard's key takes the row `target` from where the keys are.
@@ -696,7 +697,7 @@ impl AppView {
         let Some(Selection::Commit(project, id)) = self.selection(cx) else {
             return;
         };
-        if self.navigator_shown() && self.detail.read(cx).rewording_selected(cx).is_none() {
+        if self.rows_in_sight() && self.detail.read(cx).rewording_selected(cx).is_none() {
             (self.navigator).update(cx, |navigator, cx| {
                 navigator.reword(project, id, window, cx)
             })
@@ -710,7 +711,7 @@ impl AppView {
         let Some(Selection::Terminal(project, id)) = self.selection(cx) else {
             return;
         };
-        if !self.navigator_shown() {
+        if !self.rows_in_sight() {
             self.set_navigator(true, window, cx);
         }
         (self.navigator).update(cx, |navigator, cx| {
@@ -742,7 +743,7 @@ impl AppView {
     ) {
         let submit = self.submit_branch_name(&project, ref_name.clone(), cx);
         // The name is edited in its row there, out over the detail too.
-        if !self.navigator_shown() {
+        if !self.rows_in_sight() {
             self.set_navigator(true, window, cx);
         }
         (self.navigator).update(cx, |navigator, cx| {

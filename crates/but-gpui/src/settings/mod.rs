@@ -22,7 +22,9 @@ use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel};
+use crate::state::{
+    NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
+};
 use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
@@ -701,6 +703,7 @@ impl SettingsView {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
         let status_bar = self.status_bar_row(cx);
+        let navigator_place = self.navigator_place_row(cx);
         let app = self.app.clone();
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
@@ -889,7 +892,10 @@ impl SettingsView {
             terminal_font,
         );
         vec![
-            Card::new(None, vec![scheme, appearance, size, status_bar]),
+            Card::new(
+                None,
+                vec![scheme, appearance, size, navigator_place, status_bar],
+            ),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts, folder_stops]),
             Card::new(Some("Diff"), diff),
@@ -1047,6 +1053,29 @@ impl SettingsView {
             switch("single-file-diff", on, Theme::get(cx)).on_click(flip),
         )
         .with_keywords("all-in-one one file at a time per screen")
+    }
+
+    /// Whether the navigator goes beside the panes or across the window's top.
+    fn navigator_place_row(&self, cx: &Context<Self>) -> Row {
+        let store = self.store.clone();
+        let place = self.store.read(cx).prefs.navigator_place;
+        let pick = move |place, _: &mut Window, cx: &mut App| {
+            store.update(cx, |store, cx| {
+                store.set_prefs(|prefs| prefs.navigator_place = place, cx)
+            })
+        };
+        Row::new(
+            "Navigator position",
+            "Across the top, each project is a tab, and pointing at one shows what's in it.",
+            segmented(
+                "navigator-place",
+                [(NavigatorPlace::Side, "Side"), (NavigatorPlace::Top, "Top")],
+                place,
+                pick,
+                Theme::get(cx),
+            ),
+        )
+        .with_keywords("sidebar tabs horizontal layout")
     }
 
     /// The status bar's switch, on while it shows.

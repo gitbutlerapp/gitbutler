@@ -37,6 +37,8 @@
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
 //!                         # Settings › Appearance does
+//! navigator top           # put the navigator across the top, or at the `side`, as Settings
+//!                         # › Appearance does
 //! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
 //!                         # user looks at (`dev/control.rs`); then print how it's laid out
 //! sh but commit -m x      # run a shell command, as an agent or another app would
@@ -102,7 +104,7 @@ use parking_lot::Mutex;
 use crate::app::AppView;
 use crate::clock;
 use crate::detail::GraphWindow;
-use crate::state::Prefs;
+use crate::state::{NavigatorPlace, Prefs};
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
 
@@ -1153,6 +1155,20 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             });
         }
         // A part Settings › Appearance would show or hide, without opening it.
+        // Where Settings › Appearance would put the navigator, without opening it.
+        "navigator" => {
+            let place = match rest.trim() {
+                "side" => NavigatorPlace::Side,
+                "top" => NavigatorPlace::Top,
+                _ => bail!("navigator takes side or top"),
+            };
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                (app.store).update(cx, |store, cx| {
+                    store.set_prefs(move |p| p.navigator_place = place, cx)
+                })
+            });
+        }
         "pref" => {
             let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
             let hidden = match state.trim() {
