@@ -440,6 +440,9 @@ pub struct Prefs {
     /// The command they run with [`TerminalRuns::Command`], kept while the login shell is
     /// picked.
     pub terminal_command: String,
+    /// Closing a terminal by hand asks first, as what runs in it ends with it. Off unless
+    /// picked. Quitting asks either way.
+    pub confirm_terminal_close: bool,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
     /// The bar along the window's bottom is left out.
@@ -637,6 +640,15 @@ impl Saved {
 #[cfg(test)]
 mod tests {
     use super::Saved;
+
+    #[test]
+    fn closing_a_terminal_asks_only_once_picked() {
+        let saved = Saved::parse(serde_json::from_str(r#"{ "prefs": {} }"#).expect("it's JSON"));
+        assert!(
+            !saved.prefs.confirm_terminal_close,
+            "what was saved before the setting closes at once"
+        );
+    }
 
     #[test]
     fn a_choice_this_build_doesnt_know_loses_only_itself() {

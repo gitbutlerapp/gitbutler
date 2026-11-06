@@ -1793,14 +1793,25 @@ impl Store {
             .collect()
     }
 
+    /// The terminal that closes with the tile showing `pinned`: one living in the tile alone.
+    pub fn terminal_closing_with<'a>(
+        &self,
+        pinned: &'a RowKey,
+    ) -> Option<(&'a ProjectId, TerminalId)> {
+        match pinned {
+            RowKey::Row(Selection::Terminal(project, id)) if self.terminals.tiled(*id) => {
+                Some((project, *id))
+            }
+            _ => None,
+        }
+    }
+
     /// Take the tile showing `pinned` away from the selected row's tiling, the tiles beside it
     /// growing into its room. What it showed stays open, as a terminal does in the navigator,
     /// but for a terminal living in the tile alone, which closes with it.
     pub fn close_tile(&mut self, pinned: &RowKey, cx: &mut Context<Self>) {
-        if let RowKey::Row(Selection::Terminal(_, id)) = pinned
-            && self.terminals.tiled(*id)
-        {
-            return self.close_terminal(*id, cx);
+        if let Some((_, id)) = self.terminal_closing_with(pinned) {
+            return self.close_terminal(id, cx);
         }
         let Some(selection) = &self.selection else {
             return;

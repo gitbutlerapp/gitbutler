@@ -581,6 +581,21 @@ impl SettingsView {
         row.with_below(field(&self.terminal_command, focused, Theme::get(cx)))
     }
 
+    /// Whether closing a terminal asks first.
+    fn terminal_close_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Confirm closing terminals",
+            "",
+            self.pref_switch(
+                "confirm-terminal-close",
+                self.store.read(cx).prefs.confirm_terminal_close,
+                |p| p.confirm_terminal_close ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("ask prompt warning shell tile")
+    }
+
     /// Save the command as typed, unless it's what's saved already.
     fn save_terminal_command(&self, cx: &mut App) {
         let command = self.terminal_command.read(cx).text().trim().to_owned();
@@ -1263,7 +1278,13 @@ impl SettingsView {
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
                 ),
                 Card::new(None, self.program_rows(cx)),
-                Card::new(None, vec![self.terminal_run_row(window, cx)]),
+                Card::new(
+                    None,
+                    vec![
+                        self.terminal_run_row(window, cx),
+                        self.terminal_close_row(cx),
+                    ],
+                ),
                 // Only once it's been looked for, which only macOS does.
                 Card::new(None, self.cli_row(cx).into_iter().collect()),
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
