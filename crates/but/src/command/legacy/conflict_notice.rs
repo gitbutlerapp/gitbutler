@@ -10,6 +10,7 @@ use std::collections::HashSet;
 
 use but_core::{ChangeId, commit::CommitIdentifiers};
 use but_ctx::Context;
+use but_rebase::graph_rebase::ConflictedCheckout;
 use gix::prelude::ObjectIdExt as _;
 use itertools::Itertools as _;
 
@@ -62,29 +63,38 @@ pub(crate) fn snapshot(ctx: &Context) -> ConflictSnapshot {
     ConflictSnapshot { change_ids }
 }
 
-/// Warn about checkout conflict.
-pub(crate) fn report_checkout_conflict(out: &mut OutputChannel) {
-    if let Err(err) = try_report_checkout_conflict(out) {
-        tracing::warn!(?err, "could not report checkout_conflict");
+/// Warn about each checkout whose uncommitted changes got conflict markers.
+pub(crate) fn report_checkout_conflicts(out: &mut OutputChannel, checkouts: &[ConflictedCheckout]) {
+    if let Err(err) = try_report_checkout_conflicts(out, checkouts) {
+        tracing::warn!(?err, "could not report checkout conflicts");
     }
 }
 
-fn try_report_checkout_conflict(out: &mut OutputChannel) -> anyhow::Result<()> {
+fn try_report_checkout_conflicts(
+    out: &mut OutputChannel,
+    checkouts: &[ConflictedCheckout],
+) -> anyhow::Result<()> {
     let t = theme::get();
+    let warnings = checkouts.iter().map(|checkout| match checkout {
+        ConflictedCheckout::Head => {
+            "A conflict occurred during checkout. Run `but status` for more information."
+                .to_owned()
+        }
+        ConflictedCheckout::Worktree { name, path } => format!(
+            "A conflict occurred during checkout of worktree '{name}' at {}. Run `but status` there for more information.",
+            path.display()
+        ),
+    });
     if let Some(out) = out.for_human() {
         writeln!(out)?;
-        writeln!(
-            out,
-            "{}",
-            t.attention.paint(
-                "⚠ A conflict occurred during checkout. Run `but status` for more information."
-            )
-        )?;
+        for warning in warnings {
+            writeln!(out, "{}", t.attention.paint(format!("⚠ {warning}")))?;
+        }
     } else if matches!(out.format(), OutputFormat::Json) {
         // JSON outputs are parsed, so the warning goes to stderr.
-        eprintln!(
-            "warning: A conflict occurred during checkout. Run `but status` for more information.",
-        );
+        for warning in warnings {
+            eprintln!("warning: {warning}");
+        }
     }
     Ok(())
 }

@@ -35,7 +35,8 @@ use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 use mutation::Running;
 pub use mutation::{
-    BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts, up_to_date,
+    BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
+    marked_parts, up_to_date,
 };
 pub use picks::Picks;
 pub use saved::{

@@ -808,7 +808,11 @@ impl Store {
                             cx,
                         )
                     }
-                    UpdateOutcome::Updated { conflicted, merged } => {
+                    UpdateOutcome::Updated {
+                        conflicted,
+                        merged,
+                        marked,
+                    } => {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
@@ -818,7 +822,10 @@ impl Store {
                         if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
-                        store.snack_undoable(updated_message(&target, &conflicted, &merged), cx)
+                        store.snack_undoable(
+                            updated_message(&target, &conflicted, &merged, &marked),
+                            cx,
+                        )
                     }
                 }
             },
@@ -2169,9 +2176,11 @@ fn updated_message(
     target: &str,
     conflicted: &[(Option<FullName>, usize)],
     merged: &[FullName],
+    marked: &[Checkout],
 ) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
+    said.extend(marked_parts(marked));
     match merged {
         [] => {}
         [only] => said.push(format!("{} was merged and removed", short_ref(only))),
@@ -2201,6 +2210,14 @@ pub fn conflicted_parts(conflicted: &[(Option<FullName>, usize)]) -> impl Iterat
             branch_name(branch.as_ref()),
             crate::ui::plural(*count, "conflicted commit")
         )
+    })
+}
+
+/// "uncommitted changes in wt got conflict markers" for each of `marked`.
+pub fn marked_parts(marked: &[Checkout]) -> impl Iterator<Item = String> {
+    marked.iter().map(|checkout| match checkout {
+        Checkout::Main => "uncommitted changes got conflict markers".to_owned(),
+        Checkout::Linked(name) => format!("uncommitted changes in {name} got conflict markers"),
     })
 }
 
@@ -2353,14 +2370,15 @@ mod tests {
             updated_message(
                 "origin/main",
                 &[(Some(full("refs/heads/feature-a")), 2)],
-                &[full("refs/heads/feature-b")]
+                &[full("refs/heads/feature-b")],
+                &[]
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
              feature-b was merged and removed",
             "each branch by its short name"
         );
         assert_eq!(
-            updated_message("origin/main", &[], &[]),
+            updated_message("origin/main", &[], &[], &[]),
             "Updated from origin/main",
             "nothing else happened"
         );
@@ -2372,10 +2390,22 @@ mod tests {
                     full("refs/heads/a"),
                     full("refs/heads/b"),
                     full("refs/heads/c")
-                ]
+                ],
+                &[]
             ),
             "Updated from origin/main, 3 branches were merged and removed",
             "several are counted so the snackbar stays one line"
+        );
+        assert_eq!(
+            updated_message(
+                "origin/main",
+                &[],
+                &[],
+                &[Checkout::Main, Checkout::Linked("harry".into())]
+            ),
+            "Updated from origin/main, uncommitted changes got conflict markers, \
+             uncommitted changes in harry got conflict markers",
+            "a linked worktree's markers say which worktree has them"
         );
     }
 

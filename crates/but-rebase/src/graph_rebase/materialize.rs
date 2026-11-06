@@ -12,7 +12,9 @@ use gix::{
     },
 };
 
-use crate::graph_rebase::{Checkout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase};
+use crate::graph_rebase::{
+    Checkout, ConflictedCheckout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase,
+};
 
 struct LinkedCheckoutSpec {
     name: BString,
@@ -38,11 +40,8 @@ struct LinkedCheckoutRepo {
 
 /// Context on an error checking out the linked worktree `name` at `path`, which a rewrite
 /// moved to a new commit.
-///
-/// Callers downcast to it to tell a refused checkout there from one in the editor's own
-/// worktree, which is where the command usually runs.
-#[derive(Debug)]
-pub struct LinkedWorktreeCheckout {
+#[derive(Debug, Clone)]
+struct LinkedWorktreeCheckout {
     name: BString,
     path: std::path::PathBuf,
 }
@@ -274,7 +273,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 workspace: self.workspace,
                 meta: self.meta,
                 db: self.db,
-                checkout_conflict_occurred: false,
+                conflicted_checkouts: Vec::new(),
             });
         }
 
@@ -291,21 +290,25 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         ref_edits.extend(worktree_head_edits(&specs)?);
 
-        let checkout_conflict_occurred = if !materialize_options.without_checkout {
+        let mut conflicted_checkouts = Vec::new();
+        if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
-                safe_checkout_from_head(
+                let outcome = safe_checkout_from_head(
                     linked_repo.target,
                     &linked_repo.repo,
                     Options {
                         skip_head_update: true,
                         merge_base_override: linked_repo.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Don't allow for linked worktrees.
-                        allow_uncommitted_changes_to_conflict_with_new_head: false,
+                        allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )
-                .with_context(|| linked_repo.worktree)?;
+                .with_context(|| linked_repo.worktree.clone())?;
+                if outcome.conflict_occurred {
+                    let LinkedWorktreeCheckout { name, path } = linked_repo.worktree;
+                    conflicted_checkouts.push(ConflictedCheckout::Worktree { name, path });
+                }
             }
 
             if let Some(head) = &head {
@@ -316,17 +319,14 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        // Allow for our worktree.
                         allow_uncommitted_changes_to_conflict_with_new_head: true,
                     },
                 )?;
-                outcome.conflict_occurred
-            } else {
-                false
+                if outcome.conflict_occurred {
+                    conflicted_checkouts.push(ConflictedCheckout::Head);
+                }
             }
-        } else {
-            false
-        };
+        }
 
         if let Some(head) = head {
             let target = head_target(head.target, head.ref_name);
@@ -354,7 +354,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             workspace: self.workspace,
             meta: self.meta,
             db: self.db,
-            checkout_conflict_occurred,
+            conflicted_checkouts,
         })
     }
 

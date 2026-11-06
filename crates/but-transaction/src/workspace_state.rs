@@ -76,7 +76,7 @@ impl WorkspaceState {
         conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         prs_by_head: &HashMap<String, but_forge::ReviewAssociation>,
         db: &mut but_db::DbHandle,
-        checkout_conflict_occurred: bool,
+        conflicted_checkouts: Vec<but_rebase::graph_rebase::ConflictedCheckout>,
     ) -> anyhow::Result<WorkspaceState> {
         #[cfg(not(feature = "graph-workspace"))]
         {
@@ -102,7 +102,7 @@ impl WorkspaceState {
                 replaced_commits,
                 conflicted_commits,
                 head_info,
-                checkout_conflict_occurred,
+                conflicted_checkouts,
             })
         }
         #[cfg(feature = "graph-workspace")]
@@ -118,7 +118,7 @@ impl WorkspaceState {
                 replaced_commits,
                 conflicted_commits,
                 graph_workspace: graph_workspace.into(),
-                checkout_conflict_occurred,
+                conflicted_checkouts,
             })
         }
     }
@@ -129,8 +129,8 @@ impl WorkspaceState {
     /// workspace cache DB. It derives PR associations from the forge review
     /// cache before projecting the workspace state.
     ///
-    /// It reports `checkout_conflict_occurred: false`, which is only true of a workspace that
-    /// was never checked out. Use [`Self::from_materialized`] after a materialize with checkout.
+    /// It reports no `conflicted_checkouts`, which is only true of a workspace that was never
+    /// checked out. Use [`Self::from_materialized`] after a materialize with checkout.
     pub fn from_workspace_with_db<M: RefMetadata>(
         workspace: &but_graph::Workspace,
         meta: &mut M,
@@ -148,7 +148,7 @@ impl WorkspaceState {
             conflicted_commits,
             &prs_by_head,
             db,
-            false,
+            Vec::new(),
         )
     }
 
@@ -173,7 +173,7 @@ impl WorkspaceState {
             conflicted_commits,
             prs_by_head,
             db,
-            false,
+            Vec::new(),
         )
     }
 
@@ -192,8 +192,8 @@ impl WorkspaceState {
     /// Build a [`WorkspaceState`] from a materialized rebase.
     ///
     /// This takes the whole [`MaterializeOutcome`] rather than its parts so that everything the
-    /// projection reports — the workspace, the commit mappings, the PR associations, and whether
-    /// the checkout conflicted — is read from one place. A caller cannot forget to pass one on,
+    /// projection reports — the workspace, the commit mappings, the PR associations, and which
+    /// checkouts conflicted — is read from one place. A caller cannot forget to pass one on,
     /// which is the failure mode [`Self::from_workspace_with_db`] invites for materialized work.
     pub fn from_materialized<M: RefMetadata>(
         materialized: MaterializeOutcome<'_, '_, M>,
@@ -208,7 +208,7 @@ impl WorkspaceState {
             materialized.history.conflicted_commits,
             &prs_by_head,
             materialized.db,
-            materialized.checkout_conflict_occurred,
+            materialized.conflicted_checkouts,
         )
     }
 

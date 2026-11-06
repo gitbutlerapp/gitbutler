@@ -63,9 +63,8 @@ pub struct WorkspaceState {
     /// for more detail.
     #[cfg(feature = "graph-workspace")]
     pub graph_workspace: but_workspace::ui::workspace::DetailedGraphWorkspace,
-    /// True if a checkout occurred, and a conflict occurred during that
-    /// checkout.
-    pub checkout_conflict_occurred: bool,
+    /// The checkouts whose uncommitted changes now carry conflict markers.
+    pub conflicted_checkouts: Vec<but_rebase::graph_rebase::ConflictedCheckout>,
 }
 
 /// Run a workspace transaction.
