@@ -71,6 +71,61 @@ struct Delete {
 
 const CONTEXT: &str = "TextInput";
 
+impl Target {
+    fn words(self) -> &'static str {
+        match self {
+            Target::Left => "left",
+            Target::Right => "right",
+            Target::Up => "up",
+            Target::Down => "down",
+            Target::WordLeft => "word left",
+            Target::WordRight => "word right",
+            Target::LineStart => "line start",
+            Target::LineEnd => "line end",
+            Target::Start => "start",
+            Target::End => "end",
+        }
+    }
+}
+
+/// Keys [`bind_keys`] binds.
+pub struct BoundKey {
+    /// What they do, as `Move` and `Delete` run keys for many targets.
+    pub title: String,
+    pub action: &'static str,
+    pub label: SharedString,
+}
+
+/// The keys [`bind_keys`] binds on this platform, for the command editor.
+pub fn bound_keys(cx: &App) -> Vec<BoundKey> {
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    (keymap.bindings())
+        .filter(|binding| {
+            let in_field = binding
+                .predicate()
+                .is_some_and(|p| p.to_string() == CONTEXT);
+            in_field && binding.action().name().starts_with("text_input::")
+        })
+        .map(|binding| BoundKey {
+            title: title_of(binding.action()),
+            action: binding.action().name(),
+            label: super::keys_of(binding),
+        })
+        .collect()
+}
+
+fn title_of(action: &dyn gpui::Action) -> String {
+    if let Some(Move { to, select }) = action.as_any().downcast_ref::<Move>() {
+        let verb = if *select { "Select to" } else { "Move to" };
+        return format!("{verb} {}", to.words());
+    }
+    if let Some(Delete { to }) = action.as_any().downcast_ref::<Delete>() {
+        return format!("Delete to {}", to.words());
+    }
+    crate::commands::title_of(action.name())
+}
+
 /// The platform's text keys: on macOS the Cocoa text system's, ⌘ for lines, ⌥ for words and
 /// Emacs's ⌃ keys; elsewhere ctrl for words and the document, home and end for lines.
 pub fn bind_keys(cx: &mut App) {

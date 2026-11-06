@@ -35,7 +35,6 @@
 //! wheel 900 400 1         # turn a mouse's notched wheel 1 notch there, down; -1 up
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
-//! keymap tui              # pick a keymap, gitbutler or tui, as Settings › Keyboard does
 //! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
 //!                         # Settings › Appearance does
 //! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
@@ -69,6 +68,8 @@
 //! film /tmp/f 240 8 -- click 306 66  # save before.png, run the input, then film it, on a
 //!                         # clock stopped for the while
 //! keys                    # print what typing would reach, as `KEYS Workspace > Navigator`
+//! window other            # send what follows to the window that isn't the main one, as the
+//!                         # command editor; `window main` goes back, as closing it does
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
 //! perf startup            # time from launch until the first loads settle
@@ -101,7 +102,6 @@ use parking_lot::Mutex;
 use crate::app::AppView;
 use crate::clock;
 use crate::detail::GraphWindow;
-use crate::keymap::Keymap;
 use crate::state::Prefs;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
@@ -252,6 +252,10 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                 continue;
             }
             let (command, rest) = line.split_once(' ').unwrap_or((line, ""));
+            // A window a step closed leaves the script with the main one.
+            if cx.update_window(window, |_, _, _| ()).is_err() {
+                window = main;
+            }
             // A failed step is reported and the script goes on, so it still reaches `quit`.
             let result: Result<()> = async {
                 match command {
@@ -275,7 +279,11 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                                 .copied()
                                 .find(|window| window.downcast::<GraphWindow>().is_some())
                                 .context("no graph window is open")?,
-                            _ => anyhow::bail!("window takes main or graph"),
+                            "other" => (windows.iter())
+                                .copied()
+                                .find(|window| *window != main)
+                                .context("no other window is open")?,
+                            _ => anyhow::bail!("window takes main, graph or other"),
                         };
                         eprintln!("WINDOWS {}", windows.len());
                         Ok(())
@@ -1136,19 +1144,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             app.update(cx, |app, cx| {
                 app.store
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
-            });
-        }
-        // The keymap Settings › Keyboard would pick, without opening it.
-        "keymap" => {
-            let keymap = (Keymap::ALL.into_iter())
-                .find(|keymap| keymap.name().eq_ignore_ascii_case(rest))
-                .with_context(|| {
-                    let names = Keymap::ALL.map(|keymap| keymap.name().to_lowercase());
-                    format!("keymap takes {}", names.join(" or "))
-                })?;
-            let app = window.root::<AppView>().flatten().context("no app view")?;
-            app.update(cx, |app, cx| {
-                (app.store).update(cx, |store, cx| store.set_prefs(|p| p.keymap = keymap, cx))
             });
         }
         // A part Settings › Appearance would show or hide, without opening it.

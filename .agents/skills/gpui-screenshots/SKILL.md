@@ -102,6 +102,12 @@ shortcuts, so a query typed there makes branches (b), pushes (⇧P), or opens th
 on their screen (e) instead. After `add` the navigator has the keys, so click
 the field you mean first. In a `run` script, a `keys` line prints the same.
 
+## The command editor
+
+Edit commands (`key cmd-k`, `type edit commands`, `key enter`) opens a second window. A
+`window other` step sends what follows to it, shots too, and `window main` goes back, as closing
+it does. It writes keys to a copy of the keymaps in the run's app data, never to the checkout.
+
 ## Coordinates
 
 The window is 1360×860 in logical pixels, which is what `click`, `move`, `drag` and `scroll`
@@ -286,9 +292,6 @@ what it covers.
   `nix develop --command crates/but-gpui/scripts/drive.sh …` (needed for `run` and `start`;
   `step` and `stop` don't build).
 - `GITBUTLER_GPUI_APPEARANCE=dark` (or `light`) before the command picks the theme.
-- Each run and session starts with app data of its own, so on the GitButler keymap. A
-  `keymap tui` step right after `add` picks the TUI's, as Settings › Keyboard would, without
-  clicking through Settings.
 - `run --release` builds with optimizations, for `perf` and `hold` timings; see Measuring
   performance.
 - The window is never key, even with `activate`, so `on_focus` and `on_blur` listeners never fire, a rename doesn't

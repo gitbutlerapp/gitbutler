@@ -452,6 +452,9 @@ pub struct Prefs {
     pub hide_diff_controls: bool,
     /// The keys the app binds, as Settings › Keyboard picks them.
     pub keymap: crate::keymap::Keymap,
+    /// The commands checked as audited in the command editor, by `command_editor`'s key for
+    /// each. Kept here as it's a person's progress, not something the keymaps say.
+    pub audited_commands: HashSet<String>,
     /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
     /// desktop app.
     pub ligatures: bool,
