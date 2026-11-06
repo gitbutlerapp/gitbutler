@@ -1523,6 +1523,7 @@ impl Navigator {
                 rows.split_at_checked(new_ix)?,
             ))
         });
+        let top = self.list.logical_scroll_top();
         let changed = match halves {
             // Below the hovered row first, so the indexes above it still hold.
             Some(((old_above, old_below), (new_above, new_below))) => {
@@ -1530,7 +1531,6 @@ impl Navigator {
                 splice(&self.list, old_above, new_above, 0).is_some() || below.is_some()
             }
             None => {
-                let top = self.list.logical_scroll_top();
                 let spliced = splice(&self.list, &self.rows, &rows, 0);
                 // Cards or linked worktrees trading places, as one dragged by its heading does,
                 // leave the list where it is, rather than at the first row they moved, where a
@@ -1594,13 +1594,14 @@ impl Navigator {
             let taken = self.stand_ins(&keys, was, (ended, landing), clock::now(), store);
             stand_ins.extend(taken);
             self.stand_ins = stand_ins;
-            let offsets = self.slides(
-                &rows,
-                &keys,
-                held,
-                every || changes_came_or_went(&self.rows, &rows),
-                landing,
-            );
+            // Room made or left above the list's top moves nothing in view, as the list keeps
+            // its top row where it is, so nothing slides.
+            let room = room_came_or_went(&self.rows, &rows);
+            let above_view = room && top.item_ix != self.list.logical_scroll_top().item_ix;
+            let offsets = match above_view {
+                true => HashMap::new(),
+                false => self.slides(&rows, &keys, held, every || room, landing),
+            };
             self.reorder.start(offsets, cx);
             if let Some(id) = crossed_cards(&self.rows, &rows) {
                 self.crossing = Some(RowKey::Terminal(id));
@@ -4131,10 +4132,16 @@ fn as_deep(old: &[Row], new: &[Row], from: usize, top: ListOffset, theme: &Theme
     }
 }
 
-/// Whether going from `old` to `new` only lists or unlists checkouts' uncommitted changes.
-fn changes_came_or_went(old: &[Row], new: &[Row]) -> bool {
+/// Whether going from `old` to `new` only lists or unlists checkouts' uncommitted changes, or
+/// the zone for a new branch, which a drag brings before it's a move.
+fn room_came_or_went(old: &[Row], new: &[Row]) -> bool {
     fn others(rows: &[Row]) -> impl Iterator<Item = &Row> {
-        (rows.iter()).filter(|row| !matches!(row, Row::Item(Selection::Uncommitted(..))))
+        (rows.iter()).filter(|row| {
+            !matches!(
+                row,
+                Row::Item(Selection::Uncommitted(..)) | Row::NewBranch(_)
+            )
+        })
     }
     old.len() != new.len() && others(old).eq(others(new))
 }
@@ -4723,7 +4730,7 @@ impl Render for Navigator {
 
 #[cfg(test)]
 mod tests {
-    use super::{Row, Step, headings_reordered, past_last_row, step_to};
+    use super::{Row, Step, headings_reordered, past_last_row, room_came_or_went, step_to};
     use crate::backend::Checkout;
     use crate::state::{ProjectId, Selection};
 
@@ -4878,6 +4885,33 @@ mod tests {
             past_last_row([28., 0.].into_iter(), 28.),
             0.,
             "the card shrinks as the rows close up"
+        );
+    }
+
+    #[test]
+    fn a_drag_s_zone_coming_or_going_makes_room_as_changes_do() {
+        let id = ProjectId::from("a");
+        let card = || Row::Item(Selection::Project(id.clone()));
+        let worktree = || {
+            Row::Item(Selection::Checkout(
+                id.clone(),
+                Checkout::Linked("x".into()),
+            ))
+        };
+        let zone = || Row::NewBranch(id.clone());
+        let at_rest = [card(), worktree()];
+        let dragging = [card(), zone(), worktree()];
+        assert!(
+            room_came_or_went(&at_rest, &dragging),
+            "the rows under the zone slide down as a drag starts"
+        );
+        assert!(
+            room_came_or_went(&dragging, &at_rest),
+            "and back up as it ends"
+        );
+        assert!(
+            !room_came_or_went(&at_rest, &[worktree(), zone(), card()]),
+            "the zone coming as the rows reorder is a reorder"
         );
     }
 
