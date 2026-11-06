@@ -25,7 +25,7 @@ type Props = {
 	/**
 	 * `tidy` where the block stands in for a popup's rows — a search in a picker
 	 * or the command palette that found nothing: usually just the line and a
-	 * `small` "Clear search", closed up and with no counterweight.
+	 * `small` "Clear search", closed up and centred plainly rather than lifted.
 	 */
 	variant?: "default" | "tidy";
 	/**
@@ -63,38 +63,40 @@ export const EmptyState: FC<Props> = ({
 			align === "start" && styles.start,
 		)}
 	>
-		{illustration !== undefined && <Illustration name={illustration} />}
+		<div className={styles.stack}>
+			{illustration !== undefined && <Illustration name={illustration} />}
 
-		<div className={styles.body}>
-			<div className={styles.lines}>
-				{title !== undefined && (
-					<p
-						className={classes(
-							"text-14",
-							"text-semibold",
-							"text-body",
-							"text-balance",
-							styles.title,
-						)}
-					>
-						{title}
-					</p>
-				)}
-				{description !== undefined && (
-					<p className={classes("text-13", "text-body", "text-balance", styles.description)}>
-						{description}
-					</p>
-				)}
-			</div>
+			<div className={styles.body}>
+				<div className={styles.lines}>
+					{title !== undefined && (
+						<p
+							className={classes(
+								"text-14",
+								"text-semibold",
+								"text-body",
+								"text-balance",
+								styles.title,
+							)}
+						>
+							{title}
+						</p>
+					)}
+					{description !== undefined && (
+						<p className={classes("text-prose", "text-balance", styles.description)}>
+							{description}
+						</p>
+					)}
+				</div>
 
-			{
-				/* Spelled out rather than a truthiness check: `{cond && <Button/>}`
+				{
+					/* Spelled out rather than a truthiness check: `{cond && <Button/>}`
 			    passes `false`, and an actions row with nothing in it would still
 			    spend its gap. */
-				children !== undefined && children !== null && children !== false && (
-					<div className={styles.actions}>{children}</div>
-				)
-			}
+					children !== undefined && children !== null && children !== false && (
+						<div className={styles.actions}>{children}</div>
+					)
+				}
+			</div>
 		</div>
 	</div>
 );

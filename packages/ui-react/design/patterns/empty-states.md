@@ -7,7 +7,7 @@ change one and change the other.
 **Two variants: `default` for a panel, `tidy` for a popup.** Where the block
 stands in for a popup's rows — a picker or the command palette whose search
 found nothing — it takes `tidy`: 20 under the illustration, 6 between the
-lines, 12 above the actions, no counterweight, and `small` buttons. Its height
+lines, 12 above the actions, centred plainly, and `small` buttons. Its height
 follows the popup's width at 5:2, so a popup keeps its proportions however wide
 it opens instead of holding one fixed height. Usually it
 is just the line reporting the miss and an outline "Clear search", which is
@@ -44,13 +44,14 @@ fills its column.
 **An empty section inside a page takes the same block.** A settings list with
 nothing in it — no active worktrees, a feature turned off — uses `EmptyState`
 without the illustration, framed on the recessed ground so it reads as the
-page's state, not another row, with the counterweight off. There is no second
+page's state, not another row. There is no second
 empty pattern: no title-and-hint card in a page's own CSS.
 
 **Centred optically, which is not the same as centred.** The block's weight
-sits low, so the component and the frontend both carry 60px of bottom padding
-(padding, not margin, so centring lifts the ink by half). Keep the two in step
-with the block's proportions.
+sits low, so the component gives the spare height above and below it 2 : 3
+rather than half and half, which sets it a little above the middle. The lift is
+a share of the room, not a fixed foot: large in a tall pane, nothing in a box
+as tall as its content.
 
 **The title names the state; the body says what happens next.** One short line
 each, sentence case, no full stop. The body gives what the user can't see: what

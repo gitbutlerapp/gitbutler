@@ -290,13 +290,6 @@
 	}
 }
 
-/* Holds the list's place where the rows would have been, so the popup does not collapse to the
-   search row with a line under it. How tall comes from the tidy block, which follows the popup's
-   width; this only centres the block on its own geometry. */
-.empty {
-	justify-content: center;
-}
-
 .section {
 	display: flex;
 	flex: none;

@@ -55,7 +55,7 @@ const KNOWN_RUNTIME = new Map([
 	["--toast-offset-y", "@base-ui/react toast root"],
 	// Consumer knobs: the component's CSS falls back to its default, and a host may override it.
 	["--logo-size", "Logo consumer override"],
-	["--empty-state-counterweight", "EmptyState consumer override"],
+	["--empty-state-lift", "EmptyState consumer override"],
 	["--empty-state-gap", "EmptyState consumer override"],
 	["--snackbars-bottom", "Snackbars consumer override"],
 ]);
