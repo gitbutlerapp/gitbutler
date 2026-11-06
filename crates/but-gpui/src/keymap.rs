@@ -686,6 +686,42 @@ mod tests {
         }
     }
 
+    /// What `keys` runs on `os` wherever the keys are, a terminal included.
+    fn bound_everywhere(os: &str, keys: &str) -> Vec<String> {
+        (bound(Keymap::Standard, os).into_iter())
+            .filter(|entry| entry.keys == keys && entry.context.is_none())
+            .map(|entry| entry.action)
+            .collect()
+    }
+
+    #[test]
+    fn a_terminal_opens_beside_a_tile_from_anywhere_on_macos() {
+        assert_eq!(
+            bound_everywhere("macos", "cmd-shift-t"),
+            ["tiling::NewTerminalRight"],
+            "⇧⌘T opens it to the right, even from a terminal"
+        );
+        assert_eq!(
+            bound_everywhere("macos", "cmd-ctrl-t"),
+            ["tiling::NewTerminalBelow"],
+            "⌃⌘T opens it below, even from a terminal"
+        );
+    }
+
+    #[test]
+    fn a_terminal_opens_beside_a_tile_from_anywhere_on_linux() {
+        assert_eq!(
+            bound_everywhere("linux", "ctrl-shift-t"),
+            ["tiling::NewTerminalRight"],
+            "Ctrl+Shift+T opens it to the right, even from a terminal"
+        );
+        assert_eq!(
+            bound_everywhere("linux", "ctrl-super-t"),
+            ["tiling::NewTerminalBelow"],
+            "Ctrl+Super+T opens it below, even from a terminal"
+        );
+    }
+
     #[test]
     fn the_keys_between_tiles_work_from_anywhere_in_the_workspace() {
         for keymap in Keymap::ALL {

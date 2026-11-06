@@ -1576,15 +1576,21 @@ impl Store {
     }
 
     /// Open a terminal in a tile pinned beside `at` in the selected row's tiling, along
-    /// `axis`, once its shell has started: on the checkout the selection is in, the main one
-    /// when it's in none.
+    /// `axis`, once its shell has started: on the checkout `at` shows, which a pinned tile may
+    /// have from another worktree or project, as a split of a pane opens where that pane is, or
+    /// the main one when it's in none.
     pub fn pin_terminal(&mut self, at: Tile, axis: Axis, cx: &mut Context<Self>) {
         let Some(selection) = self.selection.clone() else {
             return;
         };
-        let checkout = self.checkout_of(&selection).unwrap_or(Checkout::Main);
         let row = self.row_key(&selection);
-        let project = selection.project().clone();
+        let shown = match &at {
+            Tile::Home => None,
+            Tile::Pinned(pinned) => self.selection_of(pinned),
+        }
+        .unwrap_or(selection);
+        let checkout = self.checkout_of(&shown).unwrap_or(Checkout::Main);
+        let project = shown.project().clone();
         self.open_terminal_then(project, checkout, Some((row, at, axis)), cx);
     }
 
