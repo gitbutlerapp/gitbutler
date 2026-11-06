@@ -360,6 +360,9 @@ impl Navigator {
         if !terms.is_empty() {
             return self.build_filtered_rows(&terms, cx);
         }
+        if let Some(scope) = self.scope.clone().or_else(|| self.top_scope(cx)) {
+            return self.scope_rows(&scope, cx);
+        }
         let store = self.store.read(cx);
         let mut rows = Rows::default();
         for entry in self.watched(store) {
@@ -373,6 +376,23 @@ impl Navigator {
                 self.card_rows(store, entry, rows)
             });
         }
+        let listing = self.drawer_listing(store);
+        rows.drawer.listed = listing.listed;
+        rows.drawer.total = listing.total;
+        // With no cards it's always open.
+        if !rows.rows.is_empty() {
+            let open = !store.prefs.projects_folded;
+            rows.folds.push((Fold::Drawer, open, None));
+            if !self.folds.shows(&Fold::Drawer, open) {
+                return rows;
+            }
+        }
+        rows.drawer.rows = listing.rows;
+        rows
+    }
+
+    /// The projects not watched, as the settings list them, folded or not.
+    pub(super) fn drawer_listing(&self, store: &Store) -> Drawer {
         let others: Vec<&ProjectEntry> = (store.projects.iter())
             .filter(|entry| !entry.expanded)
             .collect();
@@ -390,28 +410,22 @@ impl Navigator {
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
-        rows.drawer.listed = listed.len();
-        rows.drawer.total = others.len();
-        // With no cards it's always open.
-        if !rows.rows.is_empty() {
-            let open = !prefs.projects_folded;
-            rows.folds.push((Fold::Drawer, open, None));
-            if !self.folds.shows(&Fold::Drawer, open) {
-                return rows;
-            }
-        }
-        rows.drawer.rows = (listed.iter())
+        let mut rows: Vec<Row> = (listed.iter())
             .map(|(entry, _)| Row::Item(Selection::Project(entry.id.clone())))
             .collect();
         if listed.is_empty() && !others.is_empty() {
-            (rows.drawer.rows).push(Row::Note("None active in the last 7 days".into(), false));
+            rows.push(Row::Note("None active in the last 7 days".into(), false));
         }
-        rows
+        Drawer {
+            rows,
+            listed: listed.len(),
+            total: others.len(),
+        }
     }
 
     /// The rows of watched project `entry`'s card under its own: its worktrees with their
     /// branches, then its checkouts elsewhere.
-    fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
+    pub(super) fn card_rows(&self, store: &Store, entry: &ProjectEntry, rows: &mut Rows) {
         let id = &entry.id;
         let Some(workspace) = &entry.workspace else {
             rows.push(match &entry.error {
@@ -443,39 +457,7 @@ impl Navigator {
         rows.push(Row::Item(heading.clone()));
         rows.open_in(STEP);
         rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
-            changes_row(store, workspace, id, &Checkout::Main, rows);
-            terminal_rows(store, id, &Checkout::Main, rows);
-            // A stack being unapplied leaves at once, as one whose branches are all being
-            // deleted does.
-            let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
-                !(stack.branches.iter())
-                    .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
-                    && !store.after_deletes(id, &stack.branches).is_empty()
-            });
-            // Whether a branch is checked out on its own or several share the workspace,
-            // they're listed alike, a line between each stack and the next; with none, as on
-            // the default branch, there's nothing to list, and the next commit starts one.
-            // Commits being moved to a new stack show where it goes, first or last.
-            let mut listed = false;
-            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true })
-            {
-                rows.push_ghosts(moving, true);
-                listed = true;
-            }
-            for stack in stacks {
-                if listed {
-                    rows.push(Row::Between(id.clone()));
-                }
-                self.lane_rows(store, id, &stack.branches, rows);
-                listed = true;
-            }
-            if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false })
-            {
-                if listed {
-                    rows.push(Row::Between(id.clone()));
-                }
-                rows.push_ghosts(moving, true);
-            }
+            self.main_checkout_rows(store, id, workspace, rows)
         });
         rows.close();
         // Under the workspace it adds to, not past the worktrees.
@@ -509,6 +491,48 @@ impl Navigator {
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
         self.mesh_rows(store, id, rows);
+    }
+
+    /// What the main worktree's heading folds away: its uncommitted changes, its terminals and
+    /// its stacks.
+    pub(super) fn main_checkout_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        workspace: &Workspace,
+        rows: &mut Rows,
+    ) {
+        changes_row(store, workspace, id, &Checkout::Main, rows);
+        terminal_rows(store, id, &Checkout::Main, rows);
+        // A stack being unapplied leaves at once, as one whose branches are all being
+        // deleted does.
+        let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
+            !(stack.branches.iter())
+                .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
+                && !store.after_deletes(id, &stack.branches).is_empty()
+        });
+        // Whether a branch is checked out on its own or several share the workspace,
+        // they're listed alike, a line between each stack and the next; with none, as on
+        // the default branch, there's nothing to list, and the next commit starts one.
+        // Commits being moved to a new stack show where it goes, first or last.
+        let mut listed = false;
+        if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true }) {
+            rows.push_ghosts(moving, true);
+            listed = true;
+        }
+        for stack in stacks {
+            if listed {
+                rows.push(Row::Between(id.clone()));
+            }
+            self.lane_rows(store, id, &stack.branches, rows);
+            listed = true;
+        }
+        if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false }) {
+            if listed {
+                rows.push(Row::Between(id.clone()));
+            }
+            rows.push_ghosts(moving, true);
+        }
     }
 
     /// The rows while the filter has words in it: every project, worktree, branch and commit
@@ -780,26 +804,38 @@ impl Navigator {
         let open = self.worktree_open(id, Checkout::Linked(name.clone()), selected);
         rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
             rows.open_in(STEP);
-            let workspace = store.workspace(id);
-            if let Some(workspace) = workspace {
-                changes_row(store, workspace, id, &Checkout::Linked(name.clone()), rows);
-            }
-            terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
-            let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
-            self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
-            if let Some((workspace, lane)) = workspace.zip(lane) {
-                let listed = |branch: &Branch| {
-                    !(branch.ref_name.as_ref())
-                        .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
-                };
-                rows.extend(
-                    rests_on(id, workspace, lane, listed)
-                        .map(|(item, checkout)| Row::RestsOn(item, checkout)),
-                );
-            }
+            self.linked_checkout_rows(store, id, &name, rows);
             rows.close();
         });
         rows.push(Row::WorktreeDivider);
+    }
+
+    /// What linked worktree `name`'s heading folds away: its uncommitted changes, its terminals,
+    /// its branches and what they rest on.
+    pub(super) fn linked_checkout_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        name: &bstr::BString,
+        rows: &mut Rows,
+    ) {
+        let workspace = store.workspace(id);
+        if let Some(workspace) = workspace {
+            changes_row(store, workspace, id, &Checkout::Linked(name.clone()), rows);
+        }
+        terminal_rows(store, id, &Checkout::Linked(name.clone()), rows);
+        let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
+        self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
+        if let Some((workspace, lane)) = workspace.zip(lane) {
+            let listed = |branch: &Branch| {
+                !(branch.ref_name.as_ref())
+                    .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
+            };
+            rows.extend(
+                rests_on(id, workspace, lane, listed)
+                    .map(|(item, checkout)| Row::RestsOn(item, checkout)),
+            );
+        }
     }
 
     /// The heading over the commits only `ref_name`'s remote has, and when it's open each of

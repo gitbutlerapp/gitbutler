@@ -531,6 +531,10 @@ impl Navigator {
     /// How far down the cards' rows `at` is, from the top of the first, as the rows count
     /// their heights ([`span_height`]): from the drawn row it's over, or else the nearest.
     pub(super) fn depth_at(&self, at: Point<Pixels>, theme: &Theme) -> Option<f32> {
+        // In the card under a tab, which is as tall as they are, they're all there is to go by.
+        if let Some(top) = self.card_top.get() {
+            return Some(f32::from(at.y - top) / theme.scale);
+        }
         let list = &self.list;
         let mut drawn = (list.logical_scroll_top().item_ix..self.rows.len())
             .map_while(|ix| Some((ix, list.bounds_for_item(ix)?)));

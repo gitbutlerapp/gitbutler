@@ -322,6 +322,51 @@ impl Slide {
     }
 }
 
+/// A number gliding, over [`FOLD`] or as long as it's made to last, from where it was to where it's going, which may itself move
+/// on the way, as a tab's place does while the tabs before it slide. Under reduced motion, it's
+/// there at once.
+#[derive(Clone, Copy)]
+pub struct Glide {
+    set_out: Option<(f32, Instant)>,
+    lasting: Duration,
+}
+
+impl Default for Glide {
+    fn default() -> Self {
+        Self::lasting(FOLD)
+    }
+}
+
+impl Glide {
+    /// One that takes `lasting` to get there.
+    pub fn lasting(lasting: Duration) -> Self {
+        Self {
+            set_out: None,
+            lasting,
+        }
+    }
+
+    /// It sets out now, from `from`.
+    pub fn start(&mut self, from: f32, cx: &App) {
+        self.set_out = (!cx.reduce_motion()).then(|| (from, clock::now()));
+    }
+
+    /// Where it is at `now`, on its way to `to`.
+    pub fn at(&self, to: f32, now: Instant) -> f32 {
+        match self.set_out {
+            Some((from, since)) => {
+                from + (to - from) * openness_over(true, since, now, self.lasting)
+            }
+            None => to,
+        }
+    }
+
+    /// Whether it's still on its way at `now`.
+    pub fn moving(&self, now: Instant) -> bool {
+        (self.set_out).is_some_and(|(_, since)| now.saturating_duration_since(since) < self.lasting)
+    }
+}
+
 /// A hairline along the edge of a pane sliding over another, as the border the other has at
 /// rest: placed at the edge by the caller.
 pub fn edge(color: Hsla) -> Div {

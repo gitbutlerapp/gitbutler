@@ -19,14 +19,14 @@ use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
 use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
-use crate::navigator::Navigator;
+use crate::navigator::{Navigator, NavigatorTabs};
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
-    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, Pane, Prefs,
-    ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling, Zones,
-    along_edge, snack, tile_beside, up_to_date,
+    Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, NavigatorPlace,
+    Pane, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling,
+    Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -73,6 +73,7 @@ actions!(
         StartCommit,
         StartAmend,
         ToggleNavigator,
+        ToggleNavigatorPlace,
         ToggleDetail,
         CommandPalette,
         ChangeTheme,
@@ -201,6 +202,11 @@ pub struct AppView {
     /// The room the tiles share, in the window, as it was last drawn.
     tile_room: Rc<Cell<Bounds<Pixels>>>,
     pub(crate) navigator: Entity<Navigator>,
+    /// The navigator across the window's top, in its place beside the panes.
+    tabs: Entity<NavigatorTabs>,
+    /// Whether it's there, as Settings had it when last drawn, and it sliding down or back up.
+    navigator_on_top: bool,
+    tabs_slide: Slide,
     pub menu: Option<ContextMenu>,
     /// A menu with commands in it, waiting for the frame that registers the actions of the
     /// selection it opened on, to say which it offers.
@@ -447,8 +453,18 @@ impl AppView {
             Detail::new(store.clone(), app, kept, None, window, cx)
         });
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
-        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
-        window.focus(&navigator.focus_handle(cx), cx);
+        let navigator =
+            cx.new(|cx| Navigator::new(app.clone(), store.clone(), detail.clone(), window, cx));
+        let tabs = cx.new(|cx| NavigatorTabs::new(app, store.clone(), navigator.clone(), cx));
+        let strip_keys = tabs.read(cx).focus_handle().clone();
+        navigator.update(cx, |navigator, _| navigator.set_strip_keys(strip_keys));
+        // Where it was left, it's there from the first frame rather than sliding there.
+        let navigator_on_top = store.read(cx).prefs.navigator_place == NavigatorPlace::Top;
+        // Across the top it isn't drawn, and keys given to what isn't drawn reach nothing.
+        match navigator_on_top {
+            true => detail.update(cx, |detail, cx| detail.focus(window, cx)),
+            false => window.focus(&navigator.focus_handle(cx), cx),
+        }
         let subscriptions = vec![
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
@@ -628,13 +644,16 @@ impl AppView {
             tile_drag: None,
             tile_room: Rc::default(),
             navigator,
+            tabs,
+            navigator_on_top,
+            tabs_slide: Slide::default(),
             menu: None,
             pending_menu: None,
             menu_returns_to: None,
             menu_focus: cx.focus_handle(),
             prompt: None,
             icon_picker: None,
-            navigator_open: true,
+            navigator_open: !navigator_on_top,
             navigator_slide: Slide::default(),
             detail_open: true,
             detail_slide: Slide::default(),
@@ -1099,6 +1118,7 @@ impl AppView {
         if changes.from.is_none() && self.detail.read(cx).composing() {
             return window.dispatch_action(Box::new(StartAmend), cx);
         }
+        self.catch_up_navigator(window, cx);
         (self.navigator).update(cx, |navigator, cx| {
             navigator.squash(project, Moving::Files(changes), None, window, cx);
         });
@@ -1287,6 +1307,12 @@ impl AppView {
         if self.covered() {
             return;
         }
+        self.catch_up_navigator(window, cx);
+        // Across the top, it's there already.
+        if self.strip_is_navigator() {
+            let strip = self.tabs.read(cx).focus_handle().clone();
+            return window.focus(&strip, cx);
+        }
         let navigator = self.navigator.focus_handle(cx);
         // Asking for the hidden navigator brings it out over the detail, as the pointer does,
         // and back beside it while it's still sliding away.
@@ -1302,6 +1328,14 @@ impl AppView {
             self.set_navigator(true, window, cx);
         }
         window.focus(&navigator, cx);
+    }
+
+    /// Bring the navigator's rows up to date while it's out of sight, where nothing draws them,
+    /// as where a commit or a squash can go is worked out from them, before a frame could.
+    fn catch_up_navigator(&self, window: &Window, cx: &mut Context<Self>) {
+        if !self.navigator_shown() {
+            (self.navigator).update(cx, |navigator, cx| navigator.catch_up_rows(window, cx));
+        }
     }
 
     /// Open a terminal on the checkout the selection is in, the main one when it's in none.
@@ -1394,13 +1428,24 @@ impl AppView {
             return;
         }
         let from = self.place_with_keys(window, cx);
-        if self.step_project(&from, by, window, cx) || !self.detail_open {
+        if self.step_strip(&from, by, cx)
+            || self.step_project(&from, by, window, cx)
+            || !self.detail_open
+        {
             return;
         }
         if self.step_tabs(&from, by, window, cx) {
             return;
         }
         let Some(to) = self.place_after(&from, by, cx).filter(|to| *to != from) else {
+            // A page with no panes has nowhere for the keys to land, which leaves the navigator's
+            // rows with them, but the tabs are left for the page however it's laid out.
+            if from == KeyPlace::Navigator
+                && by == KeyMove::TileBeside(Side::Bottom)
+                && self.strip_is_navigator()
+            {
+                self.focus_main(window, cx);
+            }
             return;
         };
         self.focus_place(&to, window, cx);
@@ -1409,6 +1454,44 @@ impl AppView {
         {
             detail.update(cx, |detail, _| detail.left_pane(*pane));
         }
+    }
+
+    /// Whether the navigator's rows can be got at on screen: it's there, or across the top, its
+    /// tabs are, with the card under them.
+    pub(crate) fn rows_in_sight(&self) -> bool {
+        self.navigator_shown() || self.strip_is_navigator()
+    }
+
+    /// Whether the keys are on the navigator's tabs.
+    pub(crate) fn strip_has_keys(&self, window: &Window, cx: &App) -> bool {
+        self.tabs.read(cx).focus_handle().is_focused(window)
+    }
+
+    /// Whether the navigator's tabs take its keys: across the top, but for while it's out over
+    /// the detail.
+    fn strip_is_navigator(&self) -> bool {
+        self.navigator_on_top && !self.peek.open
+    }
+
+    /// Along the navigator's tabs, in `from`: h and l the tab beside it, ⇧⌘H and ⇧⌘L the project.
+    /// Says whether `by` was that, there being one or not.
+    fn step_strip(&mut self, from: &KeyPlace, by: KeyMove, cx: &mut Context<Self>) -> bool {
+        if *from != KeyPlace::Navigator || !self.strip_is_navigator() {
+            return false;
+        }
+        let (side, projects_only) = match by {
+            KeyMove::Beside(side) => (side, false),
+            KeyMove::TileBeside(side) => (side, true),
+            KeyMove::Round { .. } => return false,
+        };
+        let forward = match side {
+            Side::Left => false,
+            Side::Right => true,
+            Side::Top => return true,
+            Side::Bottom => return false,
+        };
+        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, projects_only, cx));
+        true
     }
 
     /// ⇧⌘J or ⇧⌘K in the navigator, whose projects stand over each other as tiles do: the
@@ -1420,6 +1503,10 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        // The tabs stand side by side, and down from them is the page.
+        if self.strip_is_navigator() {
+            return false;
+        }
         let forward = match (from, by) {
             (KeyPlace::Navigator, KeyMove::TileBeside(Side::Bottom)) => true,
             (KeyPlace::Navigator, KeyMove::TileBeside(Side::Top)) => false,
@@ -1486,7 +1573,8 @@ impl AppView {
 
     /// Where the keys are, of the places they go between.
     fn place_with_keys(&self, window: &Window, cx: &App) -> KeyPlace {
-        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+        let strip = self.tabs.read(cx).focus_handle().is_focused(window);
+        if strip || self.navigator.focus_handle(cx).contains_focused(window, cx) {
             return KeyPlace::Navigator;
         }
         let tile = (self.zoomed().cloned()).unwrap_or_else(|| self.focused_tile(window, cx));
@@ -1505,12 +1593,16 @@ impl AppView {
             }
         }
         let tiles = self.shown_tiles(cx);
-        let navigator = self.navigator_shown();
+        let strip = self.strip_is_navigator();
+        let navigator = self.navigator_shown() || strip;
         let came_from = match from {
             KeyPlace::Navigator => self.store.read(cx).last_tile_with_keys(),
             KeyPlace::Tile(tile, _) => self.store.read(cx).tile_with_keys_before(tile),
         };
         let next = match by {
+            KeyMove::Beside(side) | KeyMove::TileBeside(side) if strip => {
+                stop_beside_strip(&from.stop(), side, &tiles, came_from.as_ref())
+            }
             KeyMove::Beside(side) | KeyMove::TileBeside(side) => {
                 stop_beside(&from.stop(), side, &tiles, navigator, came_from.as_ref())
             }
@@ -1539,6 +1631,10 @@ impl AppView {
     /// Give `place` the keys.
     fn focus_place(&mut self, place: &KeyPlace, window: &mut Window, cx: &mut Context<Self>) {
         match place {
+            KeyPlace::Navigator if self.strip_is_navigator() => {
+                let strip = self.tabs.read(cx).focus_handle().clone();
+                window.focus(&strip, cx)
+            }
             KeyPlace::Navigator => window.focus(&self.navigator.focus_handle(cx), cx),
             KeyPlace::Tile(tile, Some(pane)) => {
                 if let Some(detail) = self.tile_detail(tile, cx) {
@@ -1730,12 +1826,13 @@ impl AppView {
         let Some(worktree) = self.store.read(cx).checkout_of(&checkout) else {
             return;
         };
+        self.catch_up_navigator(window, cx);
         // Refused here, what's shown stays as it is.
         let navigator = self.navigator.read(cx);
         if amend && let Some(why) = navigator.amend_refused(&project, &worktree, &selection, cx) {
             return snack(&self.store, why, cx);
         }
-        let shown = self.navigator_shown();
+        let shown = self.rows_in_sight();
         if shown {
             // The message is written in the detail.
             self.set_detail(true, window, cx);
@@ -2002,6 +2099,55 @@ impl AppView {
         }
     }
 
+    /// Put the navigator at the side if it's across the top, or the other way round, as
+    /// Settings does.
+    fn toggle_navigator_place(
+        &mut self,
+        _: &ToggleNavigatorPlace,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(
+                |prefs| {
+                    prefs.navigator_place = match prefs.navigator_place {
+                        NavigatorPlace::Side => NavigatorPlace::Top,
+                        NavigatorPlace::Top => NavigatorPlace::Side,
+                    }
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Slide the navigator to where Settings just put it: out of the column as the tabs come
+    /// down over the panes, or back. Called as the window draws, so the rest waits till that's
+    /// over.
+    fn follow_navigator_place(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let on_top = self.store.read(cx).prefs.navigator_place == NavigatorPlace::Top;
+        if on_top == self.navigator_on_top {
+            return;
+        }
+        self.navigator_on_top = on_top;
+        self.tabs_slide.start(on_top, cx);
+        cx.defer_in(window, move |this, window, cx| {
+            this.set_navigator(!on_top, window, cx);
+            // The tabs are going, with the keys they had.
+            if !on_top && this.tabs.read(cx).focus_handle().is_focused(window) {
+                window.focus(&this.navigator.focus_handle(cx), cx);
+            }
+        });
+    }
+
+    /// Hand the keys on from the navigator, a press in a card under its tabs having given it
+    /// them, unless it's out over the detail, where it can use them.
+    pub(crate) fn keys_off_hidden_navigator(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let navigator = self.navigator.focus_handle(cx);
+        if !self.peek.open && navigator.contains_focused(window, cx) {
+            self.focus_main(window, cx);
+        }
+    }
+
     /// Show or hide the navigator, sliding it there. The keys stay where they are, but for
     /// moving off it when it goes, and onto it when it comes back while they're on a diff with
     /// nothing for them. Out over the detail already, it shows beside it at once rather than
@@ -2012,6 +2158,8 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Across the top, it never shows beside the panes.
+        let navigator_open = navigator_open && !self.navigator_on_top;
         if !navigator_open {
             self.set_detail(true, window, cx);
         }
@@ -2045,7 +2193,8 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if detail_open == self.detail_open {
+        // With the navigator across the top, there's nothing to take the window in its place.
+        if detail_open == self.detail_open || self.navigator_on_top {
             return;
         }
         if !detail_open {
@@ -2167,7 +2316,8 @@ impl AppView {
         let Point { x, y } = at;
         if !self.peek.open {
             let beside = y >= Theme::get(cx).scaled(HEADER_HEIGHT);
-            if x <= fixed(PEEK_EDGE) && beside && !self.covered() {
+            let edge = x <= fixed(PEEK_EDGE) && !self.navigator_on_top;
+            if edge && beside && !self.covered() {
                 self.open_peek(cx);
             }
             return;
@@ -2402,7 +2552,8 @@ impl AppView {
                 // The cards' room, in from its edges as far as they are from each other.
                 div()
                     .absolute()
-                    .top(dp(HEADER_HEIGHT + self.detail.read(cx).room_top()))
+                    .top(dp(self.detail.read(cx).location_bar_height()
+                        + self.detail.read(cx).room_top()))
                     .bottom(dp(TILE_MARGIN))
                     .left(dp(self.detail.read(cx).room_left()))
                     .right(dp(TILE_MARGIN))
@@ -4436,6 +4587,30 @@ fn stop_beside(
     }
 }
 
+/// As [`stop_beside`], with the navigator's tabs across the top: above the tiles, and so only up
+/// reaches them. Down from the tabs, the tile `came_from` if it's along the top, else the first
+/// that is.
+fn stop_beside_strip(
+    from: &KeyStop,
+    side: Side,
+    tiles: &[(Tile, Area)],
+    came_from: Option<&Tile>,
+) -> Option<KeyStop> {
+    match from {
+        KeyStop::Navigator if side == Side::Bottom => {
+            let along = along_edge(tiles, Side::Top);
+            let back = (along.iter()).find(|tile| Some(**tile) == came_from);
+            (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
+        }
+        KeyStop::Navigator => None,
+        KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
+            Some(beside) => Some(KeyStop::Tile(beside)),
+            None if side == Side::Top => Some(KeyStop::Navigator),
+            None => None,
+        },
+    }
+}
+
 /// A tile sliding open out of the split it's pinned at, or shut back into it as it closes, as
 /// the detail slides in beside the navigator.
 struct TileSlide {
@@ -4832,6 +5007,7 @@ impl Render for AppView {
                 (this.update(cx, |this, cx| this.open_pending_menu(window, cx))).ok();
             });
         }
+        self.follow_navigator_place(window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         let show_fps = self.store.read(cx).prefs.show_fps;
@@ -4840,14 +5016,18 @@ impl Render for AppView {
         let now = clock::now();
         let navigator_share = self.navigator_slide.share(self.navigator_open, now);
         let navigator_sliding = self.navigator_slide.openness(now).is_some();
+        let tabs_share = self.tabs_slide.share(self.navigator_on_top, now);
+        let tabs_sliding = self.tabs_slide.openness(now).is_some();
         // Pinned pages fit their file lists to the same room.
         for detail in std::iter::once(&self.detail).chain(self.pages.values().map(|p| &p.detail)) {
             let view = detail.read(cx);
             let was = view.navigator_shown.replace(navigator_share);
+            let tabs_were = view.tabs_shown.replace(tabs_share);
             (view.window_width).set(self.narrowing.map(|narrowing| narrowing.wide));
             // A slide's last frames can leave a cached detail's bounds as they were, so it's
             // drawn once more where the slide ends.
-            if was != navigator_share && !navigator_sliding {
+            let moved = was != navigator_share || tabs_were != tabs_share;
+            if moved && !navigator_sliding && !tabs_sliding {
                 let detail = detail.clone();
                 cx.defer(move |cx| detail.update(cx, |_, cx| cx.notify()));
             }
@@ -4870,7 +5050,8 @@ impl Render for AppView {
         // As the window narrows or widens, each resize draws it, and a frame drawn on the
         // display's beat would be for the width before.
         let resizing = self.narrowing.is_some_and(|narrowing| !narrowing.settled);
-        let sliding = navigator_sliding || files_sliding || peek_sliding || detail_sliding;
+        let sliding =
+            navigator_sliding || files_sliding || peek_sliding || detail_sliding || tabs_sliding;
         if sliding && !resizing {
             window.request_animation_frame();
         }
@@ -4878,7 +5059,8 @@ impl Render for AppView {
         // AppKit draws them over everything the app does, so they make way while it's drawn.
         #[cfg(target_os = "macos")]
         {
-            let away = self.peek.open || self.peek.slide.closing(now);
+            let peeking = self.peek.open || self.peek.slide.closing(now);
+            let away = peeking && !self.navigator_on_top;
             if away != self.lights_away {
                 self.lights_away = away;
                 place_traffic_lights(away, window, cx);
@@ -5087,6 +5269,7 @@ impl Render for AppView {
                 this.update_selected_project(UpdateScope::Worktrees, cx)
             }))
             .on_action(cx.listener(Self::toggle_navigator))
+            .on_action(cx.listener(Self::toggle_navigator_place))
             .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
             .on_action(cx.listener(Self::change_theme))
@@ -5213,6 +5396,27 @@ impl Render for AppView {
             })
             .text_size(dp(13.))
             .line_height(dp(18.))
+            // Keeping its height as it slides, the bottom edge coming down over the panes.
+            .when(tabs_share > 0., |el| {
+                el.child(
+                    div()
+                        .flex_none()
+                        .relative()
+                        .h(dp(HEADER_HEIGHT * tabs_share))
+                        .overflow_hidden()
+                        // The keys on the tabs do to the selection what they do in the navigator.
+                        .map(|el| self.edit_actions(el, cx))
+                        .child(
+                            div()
+                                .absolute()
+                                .left_0()
+                                .right_0()
+                                .bottom_0()
+                                .h(dp(HEADER_HEIGHT))
+                                .child(self.tabs.clone()),
+                        ),
+                )
+            })
             .child(
                 div()
                     .flex()
@@ -5473,7 +5677,7 @@ pub(crate) fn scripted() -> bool {
 mod tests {
     use gpui::{Bounds, point, size};
 
-    use super::{KeyStop, ZONE_BEYOND, left_zone_end, stop_beside, stop_round};
+    use super::{KeyStop, ZONE_BEYOND, left_zone_end, stop_beside, stop_beside_strip, stop_round};
     use crate::state::{Area, Axis, Landing, ProjectTab, RowKey, Selection, Side, Tile, Tiling};
     use crate::terminal::TerminalId;
     use crate::ui::fixed;
@@ -5526,6 +5730,44 @@ mod tests {
             left_zone_end(&along_left, &tile, room),
             None,
             "there already, nothing keeps it from the navigator"
+        );
+    }
+
+    #[test]
+    fn the_tabs_across_the_top_are_above_the_tiles_and_not_left_of_them() {
+        assert_eq!(
+            stop_beside_strip(&at(Tile::Home), Side::Top, &side_by_side(), None),
+            Some(KeyStop::Navigator),
+            "up from a tile along the top"
+        );
+        assert_eq!(
+            stop_beside_strip(&at(Tile::Home), Side::Left, &side_by_side(), None),
+            None,
+            "⇧⌘H stops at the window's edge, as the tabs are above the tiles, not beside them"
+        );
+        assert_eq!(
+            stop_beside_strip(&at(pinned()), Side::Top, &stacked(), None),
+            Some(at(Tile::Home)),
+            "up from a lower tile goes to the one above it first"
+        );
+    }
+
+    #[test]
+    fn down_from_the_tabs_goes_back_to_the_tile_they_came_from() {
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Navigator, Side::Bottom, &side_by_side(), None),
+            Some(at(Tile::Home)),
+            "the first along the top, with none to go back to"
+        );
+        assert_eq!(
+            stop_beside_strip(
+                &KeyStop::Navigator,
+                Side::Bottom,
+                &side_by_side(),
+                Some(&pinned())
+            ),
+            Some(at(pinned())),
+            "else the one the keys left"
         );
     }
 
