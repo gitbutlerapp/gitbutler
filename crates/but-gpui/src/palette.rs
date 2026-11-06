@@ -9,15 +9,19 @@ use but_tty::Status;
 use strum::IntoEnumIterator as _;
 
 use gpui::{
-    Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, Role,
-    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, relative,
+    Action, AnyElement, App, ClickEvent, Context, Entity, FocusHandle, Focusable as _, Role,
+    ScrollHandle, SharedString, Subscription, WeakEntity, Window, actions, div, prelude::*,
+    relative,
 };
 
 use crate::app::AppView;
+use crate::backend::edit_lines;
 use crate::backend::{
-    Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree, short_ref,
+    self, Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree,
+    short_ref,
 };
 use crate::commands::{COMMANDS, Command};
+use crate::detail::Detail;
 use crate::edits::Discard;
 use crate::navigator::{
     RowStyle, lists_changes, mesh_choices, mesh_heading_choice, status_mark, worktrees_listed,
@@ -29,6 +33,7 @@ use crate::state::{
 };
 use crate::terminal::TerminalId;
 use crate::theme::{ColorScheme, Theme};
+use crate::ui::file_icons::file_icon;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -88,8 +93,14 @@ pub struct Choice {
     previews: Option<ColorScheme>,
     /// It's what's set now, so it's selected while nothing's typed.
     in_use: bool,
+    /// A file to edit, found only by what's typed, as a checkout has thousands, unless the
+    /// picker offers only files, and [`FILES_SHOWN`] at most.
+    file: bool,
     run: Run,
 }
+
+/// How many files a picker lists at most, the best matches.
+const FILES_SHOWN: usize = 50;
 
 impl Choice {
     pub fn new(
@@ -104,6 +115,7 @@ impl Choice {
             in_selected_project: false,
             previews: None,
             in_use: false,
+            file: false,
             aliases: &[],
             phrase: None,
             key: None,
@@ -294,6 +306,10 @@ pub struct Palette {
     /// Go to anything's: wider, for commit and pull request titles, with each detail cut short
     /// before its label is.
     wide: bool,
+    /// It offers only files, so lists some before anything's typed.
+    files_only: bool,
+    /// The files it offers are still being read.
+    reading_files: bool,
     /// The terminal picker's: what was selected and whether the details showed when it
     /// opened. The row it selects shows behind it until Esc puts these back.
     previewed_from: Option<(Option<Selection>, bool)>,
@@ -323,7 +339,16 @@ impl Palette {
     /// List the choices the query finds, best first, of the group shown if there is one.
     fn find(&mut self, store: &Store, cx: &gpui::App) {
         let query = self.input.read(cx).text().trim().to_owned();
-        let found = find_in(&self.choices, &query);
+        let found = find_in(&self.choices, &query, self.files_only);
+        // Files at most a few, the best: a checkout can have thousands.
+        let mut files = 0;
+        let found: Vec<Found> = (found.into_iter())
+            .filter(|found| {
+                let file = self.choices.get(found.ix).is_some_and(|c| c.file);
+                files += usize::from(file);
+                !file || files <= FILES_SHOWN
+            })
+            .collect();
         self.found = match &mut self.groups {
             Some(groups) => {
                 let grouped = found.into_iter().map(|found| {
@@ -344,12 +369,16 @@ impl Palette {
 const SELECTED_PROJECT_BONUS: i32 = 500;
 
 /// The `choices` that `query` finds, best first.
-fn find_in(choices: &[Choice], query: &str) -> Vec<Found> {
+/// A file is found only by what's typed, unless `files_only`.
+fn find_in(choices: &[Choice], query: &str, files_only: bool) -> Vec<Found> {
     let taken = (choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(query));
     let mut scored: Vec<(i32, Found)> = choices
         .iter()
         .enumerate()
         .filter_map(|(ix, choice)| {
+            if choice.file && query.is_empty() && !files_only {
+                return None;
+            }
             // Last, under what the text finds.
             if choice.names && !query.is_empty() {
                 let found = Found {
@@ -1012,6 +1041,34 @@ pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
     rows.into_iter().next().map(|(_, _, selection)| selection)
 }
 
+/// A row for a file at `path` of `target`, to edit.
+fn file_choice(target: &FileTarget, path: String) -> Choice {
+    let target = target.clone();
+    let label = path.clone();
+    let choice = Choice::new(label, move |this, window, cx| {
+        let shown = (target.shown.as_ref())
+            .and_then(WeakEntity::upgrade)
+            .unwrap_or_else(|| this.detail.clone());
+        let (project, checkout) = (target.project, target.checkout);
+        shown.update(cx, |detail, cx| {
+            detail.open_file_in(project, checkout, path, window, cx)
+        });
+    });
+    Choice {
+        file: true,
+        ..choice
+    }
+}
+
+/// Where a file picked to edit opens: `project`'s `checkout`, in `shown`, the page showing its
+/// changes, or else the selected row's page once they're selected.
+#[derive(Clone)]
+struct FileTarget {
+    shown: Option<WeakEntity<Detail>>,
+    project: ProjectId,
+    checkout: Checkout,
+}
+
 /// Go to anything's rows for the terminals open on a loaded project's worktrees, the main
 /// one's first, as the navigator lists them under each.
 fn terminal_choices(
@@ -1248,6 +1305,18 @@ impl AppView {
                 _ => None,
             },
         ));
+        // Files aren't commands, but looking for one here finds the way to them, last as a
+        // command run from where the keys were is.
+        if self.files_target(window, cx).is_some() {
+            let key = shortcut_here(&GoTo, window, cx);
+            choices.push(Choice {
+                key,
+                aliases: &["file", "find file", "go to file", "edit file"],
+                ..Choice::new("Open a file…", |this, window, cx| {
+                    this.open_file_picker(String::new(), window, cx)
+                })
+            });
+        }
         // For the metrics: what a choice here starts was started from ⌘K, which other pickers'
         // choices weren't.
         let choices = (choices.into_iter())
@@ -1268,13 +1337,129 @@ impl AppView {
 
     /// Pick any row of the navigator's, a loaded project's by name, pull request title or
     /// commit id, and select it.
+    /// On a checkout's page or its changes, its files too, to edit, found by typing.
     pub fn go_to(&mut self, _: &GoTo, window: &mut Window, cx: &mut Context<Self>) {
         let choices = go_to_choices(self.store.read(cx));
-        let placeholder = "Go to anything in the navigator";
+        let target = self.files_target(window, cx);
+        let placeholder = match target {
+            Some(_) => "Go to anything in the navigator, or a file",
+            None => "Go to anything in the navigator",
+        };
         self.open_picker(None, placeholder, "Go", choices, window, cx);
         if let Some(palette) = &mut self.palette {
             palette.wide = true;
         }
+        if let Some(target) = target {
+            self.offer_files(target, window, cx);
+        }
+    }
+
+    /// Pick a file the checkout shown tracks to edit, `query` typed, as the file list's ⋯ menu
+    /// and its filter offer.
+    pub fn open_file_picker(&mut self, query: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(target) = self.files_target(window, cx) else {
+            return snack(&self.store, "Go to a checkout to edit its files", cx);
+        };
+        self.pick_file(target, query, window, cx);
+    }
+
+    /// Pick a file `project`'s `checkout` tracks to edit, as its row's menu offers.
+    pub fn open_checkout_file(
+        &mut self,
+        project: ProjectId,
+        checkout: Checkout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let shown = (self.files_target(window, cx))
+            .filter(|target| (&target.project, &target.checkout) == (&project, &checkout))
+            .and_then(|target| target.shown);
+        let target = FileTarget {
+            shown,
+            project,
+            checkout,
+        };
+        self.pick_file(target, String::new(), window, cx);
+    }
+
+    /// Pick a file of `target` to edit, `query` typed.
+    fn pick_file(
+        &mut self,
+        target: FileTarget,
+        query: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_picker(None, "Open a file to edit", "Open", Vec::new(), window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.wide = true;
+            palette.files_only = true;
+            (palette.input).update(cx, |input, cx| input.set_text(query, cx));
+        }
+        self.offer_files(target, window, cx);
+    }
+
+    /// Where a file picked to edit opens: the checkout whose changes the page with the keys,
+    /// else the selected row's, shows, or whose page it is.
+    fn files_target(&self, window: &Window, cx: &App) -> Option<FileTarget> {
+        let with_keys = self.detail_with_keys(window, cx).cloned();
+        (with_keys.into_iter().chain([self.detail.clone()])).find_map(|detail| {
+            let page = detail.read(cx);
+            if let Some((project, checkout)) = page.openable_checkout() {
+                let shown = Some(detail.downgrade());
+                return Some(FileTarget {
+                    shown,
+                    project,
+                    checkout,
+                });
+            }
+            match page.selection()? {
+                Selection::Checkout(project, checkout) => Some(FileTarget {
+                    shown: None,
+                    project,
+                    checkout,
+                }),
+                _ => None,
+            }
+        })
+    }
+
+    /// Add the files `target` tracks to the picker open now, once they're read, unless it's
+    /// closed by then.
+    fn offer_files(&mut self, target: FileTarget, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(root) = self.store.read(cx).path(&target.project) else {
+            return;
+        };
+        let picker = (self.palette.as_mut()).map(|palette| {
+            palette.reading_files = true;
+            palette.input.entity_id()
+        });
+        let worktree = target.checkout.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let files =
+                backend::run(move || edit_lines::tracked_files(&root, worktree.linked())).await;
+            (this.update_in(cx, |this, window, cx| {
+                let Some(palette) = (this.palette.as_mut())
+                    .filter(|palette| Some(palette.input.entity_id()) == picker)
+                else {
+                    return;
+                };
+                palette.reading_files = false;
+                cx.notify();
+                let files = match files {
+                    Ok(files) => files,
+                    Err(err) => return snack(&this.store, format!("{err:#}"), cx),
+                };
+                let choices = files.into_iter().map(|path| file_choice(&target, path));
+                palette.choices.extend(choices);
+                palette.find(this.store.read(cx), cx);
+                palette.select_first(cx);
+                this.outline_choice(window, cx);
+                cx.notify();
+            }))
+            .ok();
+        })
+        .detach();
     }
 
     /// Divide the tile with the keys along `axis`, giving the new tile a new terminal or what
@@ -1445,6 +1630,8 @@ impl AppView {
             acting_on: self.store.read(cx).acting_on(),
             holds_ids: false,
             wide: false,
+            files_only: false,
+            reading_files: false,
             previewed_from: None,
             groups: None,
             _subscription: subscription,
@@ -1639,6 +1826,8 @@ impl AppView {
                     .when_some(choice.icon, |el, icon| {
                         el.child(small_icon(icon).text_color(theme.text_2))
                     })
+                    // A file by its kind, as the file list shows it.
+                    .when(choice.file, |el| el.child(file_icon(&choice.label, cx)))
                     .child(
                         div()
                             .flex_1()
@@ -1745,11 +1934,12 @@ impl AppView {
                             .children(rows)
                             .when(empty, |el| {
                                 el.child(
-                                    div()
-                                        .px(dp(12.))
-                                        .py(dp(6.))
-                                        .text_color(theme.text_2)
-                                        .child("Nothing matches"),
+                                    div().px(dp(12.)).py(dp(6.)).text_color(theme.text_2).child(
+                                        match palette.reading_files {
+                                            true => "Reading files…",
+                                            false => "Nothing matches",
+                                        },
+                                    ),
                                 )
                             }),
                     )
@@ -2023,7 +2213,7 @@ mod tests {
     }
 
     fn labels_found(choices: &[Choice], query: &str) -> Vec<String> {
-        (find_in(choices, query).into_iter())
+        (find_in(choices, query, false).into_iter())
             .filter_map(|found| Some(choices.get(found.ix)?.label.to_string()))
             .collect()
     }

@@ -95,6 +95,34 @@ impl AppView {
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(working);
             (working.into_any_element(), Vec::new())
+        } else if let Some((file, says, warn)) = detail.edit_status() {
+            // A file edited in the diff, how that stands: ⌘S saves what's typed, ⌘Z takes back
+            // the last of it, and Esc takes the caret out of the line, then closes the file,
+            // asking to save first.
+            let state = h_flex()
+                .gap(dp(6.))
+                .child(
+                    div()
+                        .text_color(theme.text_1)
+                        .child(format!("Editing {file}")),
+                )
+                .child(div().text_color(theme.text_3).child("·"))
+                .child(
+                    div()
+                        .text_color(if warn { theme.warn } else { theme.text_3 })
+                        .child(says),
+                );
+            let mut keys = vec![
+                (crate::ui::keys_text("⌘S").into(), "save"),
+                (crate::ui::keys_text("⌘Z").into(), "undo"),
+            ];
+            // How the edit ends: Esc takes the caret out of the line, then closes the file.
+            if detail.has_caret() {
+                keys.push(("esc".into(), "done"));
+            } else if detail.esc_closes_edit() {
+                keys.push(("esc".into(), "close"));
+            }
+            (state.into_any_element(), keys)
         } else if let Some(moving) = &store.moving {
             // What's moving, and where Return lands it, unless that's where it is.
             let lands = moving.lands(store);

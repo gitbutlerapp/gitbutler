@@ -452,6 +452,31 @@ impl Store {
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
     /// others by when it started.
+    /// Count a write the app made outside an operation, which `started` and ran for `span`, as
+    /// its own, as a file edited in the diff saving itself: undo then doesn't take it for
+    /// someone else's, nor the checkout for active. One that `recorded` a snapshot is what ⌘Z
+    /// takes back next.
+    pub fn count_own_write(
+        &mut self,
+        project: &ProjectId,
+        span: (i64, i64),
+        recorded: Option<SnapshotId>,
+        started: Instant,
+    ) {
+        self.ran.entry(project.clone()).or_default().push(span);
+        // As an operation's, in seconds: a second early, and the watcher's events after.
+        let now = crate::ui::now();
+        let from = now - started.elapsed().as_secs() as i64 - 1;
+        let spans = self.own_writes.entry(project.clone()).or_default();
+        spans.retain(|span| crate::ui::just_now(*span.end()));
+        spans.push(from..=now + 2);
+        if let Some(snapshot) = recorded {
+            self.last_snapshot = Some((project.clone(), snapshot));
+            self.push_undo_step(project.clone(), snapshot, started);
+            self.redo_steps.clear();
+        }
+    }
+
     fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, started: Instant) {
         let done = backend::now_millis();
         (self.undo_steps).push(UndoStep {

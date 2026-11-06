@@ -405,6 +405,9 @@ pub struct Store {
     /// Commits being moved with the keys, followed as agents rewrite them, until they land or
     /// the selection goes elsewhere.
     pub moving: Option<crate::transfer::Move>,
+    /// The checkout a file with no changes is opened to edit in: its changes are listed and
+    /// shown while it is, though there may be none.
+    opened: Option<(ProjectId, Checkout)>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
     /// Where the window is, saved for the next launch.
@@ -606,6 +609,7 @@ impl Store {
             move_dragged: false,
             dragged_patch: None,
             moving: None,
+            opened: None,
             toasts: Vec::new(),
             account: account::Account::default(),
             cli: None,
@@ -900,6 +904,24 @@ impl Store {
             .collect()
     }
 
+    /// Whether a file with no changes is opened to edit in `project`'s `checkout`.
+    pub fn opened_in(&self, project: &ProjectId, checkout: &Checkout) -> bool {
+        (self.opened.as_ref()).is_some_and(|(p, c)| p == project && c == checkout)
+    }
+
+    /// Say a file with no changes is opened to edit in `at`, or none is. Once none is, the
+    /// changes it kept listed go if there are none, and the selection with them.
+    pub fn set_opened(&mut self, at: Option<(ProjectId, Checkout)>, cx: &mut Context<Self>) {
+        if self.opened == at {
+            return;
+        }
+        let was = std::mem::replace(&mut self.opened, at);
+        if let Some((project, _)) = was {
+            self.validate_selection(&project, cx);
+        }
+        cx.notify();
+    }
+
     /// Keep the selection pointing at something that still exists after `id` reloaded.
     /// Another project's selection waits for its own reload: it may be what an operation
     /// there just made.
@@ -949,9 +971,11 @@ impl Store {
             Selection::Checkout(_, Checkout::Linked(name)) => {
                 workspace.worktrees.iter().any(|w| w.name == *name)
             }
-            // Listed only with something uncommitted, or as a commit being edited's files.
-            Selection::Uncommitted(_, checkout) => {
-                (workspace.editing.is_some() && *checkout == Checkout::Main)
+            // Listed only with something uncommitted, or as a commit being edited's files, or
+            // while a file's opened to edit there.
+            Selection::Uncommitted(project, checkout) => {
+                self.opened_in(project, checkout)
+                    || (workspace.editing.is_some() && *checkout == Checkout::Main)
                     || workspace
                         .uncommitted_in(checkout)
                         .is_some_and(|f| !f.is_empty())

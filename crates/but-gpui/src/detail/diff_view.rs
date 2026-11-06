@@ -152,11 +152,14 @@ impl Render for DiffPane {
 }
 
 impl Detail {
-    /// `file`'s lines, while it's shown whole and they were read for its patch as it is now.
-    /// Until they're read again after an edit, the file shows only its hunks.
+    /// `file`'s lines, while it's shown whole and they were read for its patch as it is now, or
+    /// are as an edit in the diff left them. Until they're read again after another program's
+    /// edit, the file shows only its hunks.
     pub(super) fn whole_lines(&self, file: &FileDiff) -> Option<&FileLines> {
         match self.whole.get(&file.file.path) {
-            Some(Some(lines)) if lines.0 == file.fingerprint => Some(lines),
+            Some(Some(lines)) if lines.0 == file.fingerprint || lines.0 == super::AS_TYPED => {
+                Some(lines)
+            }
             _ => None,
         }
     }
@@ -178,8 +181,12 @@ impl Detail {
 
     /// Whether hunk `hunk` of `file` goes without a box: nothing before it is left out, so the
     /// row above runs straight on into its lines, as in a file shown whole. Not in the
-    /// composer, where the box holds its checkbox.
+    /// composer, where the box holds its checkbox, unless it's a file opened to edit with no
+    /// changes, which has nothing to check.
     pub(super) fn boxless(&self, file: &FileDiff, hunk: usize) -> bool {
+        if self.opened_unchanged(&file.file) && file.stats() == (0, 0) {
+            return true;
+        }
         !self.composes() && self.hunk_title(file, hunk).0 == 0
     }
 
@@ -276,16 +283,19 @@ impl Detail {
     /// Whether `row` shows part of the changes of the hunk the cursor is on, which carry the
     /// cursor's tab and tint.
     fn marks(&self, row: DiffRow) -> bool {
-        self.changes_at(row)
-            .is_some_and(|(file, hunk)| self.cursor == Cursor::on_hunk(file, hunk))
+        // A file being edited is one hunk, the whole of it: marked, it would all be tinted.
+        self.changes_at(row).is_some_and(|(file, hunk)| {
+            self.cursor == Cursor::on_hunk(file, hunk) && !self.edits_file_at(file)
+        })
     }
 
     /// Which blink row `ix`, showing `row`, is in while what y copied blinks: the selected
     /// text's rows, or while the diff has the keys, the changes of the hunk the cursor is on.
     fn blinks_at(&self, ix: usize, row: DiffRow, solid: bool) -> Option<usize> {
-        let text = self
-            .selected_in_row(ix)
-            .and_then(|_| self.blink(Copied::Text));
+        // The diff's own selection, or what was copied of a file being edited.
+        let text = (self.selected_in_row(ix).is_some() || self.edit_copied(row))
+            .then(|| self.blink(Copied::Text))
+            .flatten();
         let hunk = || (solid && self.marks(row)).then(|| self.blink(Copied::Cursor));
         text.or_else(|| hunk().flatten())
     }
@@ -414,6 +424,14 @@ impl Detail {
         let text = self.line_at(row).map_or("", |line| line.text.as_ref());
         self.text_selection = Some(pressed(self.text_selection, at, text, clicks, extend));
         self.selecting = true;
+        let place = self.line_place(at.0);
+        let editing = place.is_some_and(|(file, _)| self.edits_file_at(file));
+        self.edit_press = edit_press(clicks, extend, place.is_some(), editing).map(|d| (at, d));
+        // Pressed on another line of the file being edited, its field goes while the press
+        // lasts, so a drag draws over every line alike; letting go puts the caret back.
+        if editing {
+            self.put_field_away(cx);
+        }
         // The keys then act on what was pressed: its hunk, or an unchanged line's file.
         let cursor = match (self.diff.as_ref()).and_then(|diff| diff.rows.get(row)) {
             Some(&DiffRow::Line { file, hunk, .. }) => Some(Cursor::on_hunk(file, hunk)),
@@ -900,13 +918,15 @@ impl Detail {
             .when(!self.titled_header(cx), |el| el.pt(dp(7.)))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
+            // A drag's let-go comes as one outside, as gpui takes the pointer to have left
+            // what it pressed once it moves with the button down.
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.let_go(cx)),
+                cx.listener(|this, _, window, cx| this.let_go_editing(window, cx)),
             )
             .on_mouse_up_out(
                 MouseButton::Left,
-                cx.listener(|this, _, _, cx| this.let_go(cx)),
+                cx.listener(|this, _, window, cx| this.let_go_editing(window, cx)),
             )
             .child(
                 div()
@@ -1021,6 +1041,26 @@ impl Detail {
             false => format!("Nothing changed against {target}"),
         }
         .into()
+    }
+
+    /// The button came up, as [`Self::let_go`], and in an uncommitted diff: a double click on a
+    /// line, or a click let go where it began in a file being edited, puts the caret there, the
+    /// word a double click selected giving way to it; a drag over lines of the file being
+    /// edited selects them to edit.
+    fn let_go_editing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.let_go(cx);
+        let pressed = self.edit_press.take();
+        let click = |this: &Detail, at: TextPoint| {
+            (this.text_selection).is_some_and(|(a, b)| a == b && a.0 == at.0)
+        };
+        match pressed {
+            Some((at, double)) if double || click(self, at) => {
+                self.text_selection = None;
+                self.click_to_edit(at, window, cx);
+            }
+            Some(_) => self.drag_to_edit(window, cx),
+            None => {}
+        }
     }
 
     /// The button came up: what a press began ends. A grip held without being dragged lets
@@ -1300,6 +1340,13 @@ impl Detail {
                     move |position: Point<Pixels>, window: &mut Window, cx: &mut App| {
                         (entity.update(cx, |detail, cx| {
                             detail.right_click_on(Cursor::on_file(file), cx);
+                            // While a line's typed in, the keys go back to it as the menu
+                            // closes, though it offers the diff's commands.
+                            if let Some(caret) = detail.caret_focus(cx) {
+                                (detail.app).update_later(window, cx, move |app, _, _| {
+                                    app.menu_returns_to = Some(caret)
+                                });
+                            }
                             window.focus(&detail.focus, cx);
                         }))
                         .ok();
@@ -1332,10 +1379,14 @@ impl Detail {
                 });
                 // Hidden controls leave the counts and buttons to the menu and the keys.
                 let controls = store.prefs.shows(Part::FileHeaderControls);
-                let has_trailing = controls || from.is_some();
+                // That it's being edited, or keeping or dropping what's typed once something
+                // else wrote to the file, whatever else the header hides.
+                let editing = self.edit_controls(file_diff, on, entity.clone(), cx);
+                let has_trailing = controls || from.is_some() || editing.is_some();
                 let trailing = h_flex()
                     .flex_none()
                     .gap(dp(4.))
+                    .children(editing)
                     .children(from)
                     // The toggle last but one: showing text adds the whole-file button, which
                     // mustn't move it from under the pointer.
@@ -1358,6 +1409,7 @@ impl Detail {
                         blink: (current && solid)
                             .then(|| self.blink(Copied::Cursor))
                             .flatten(),
+                        unsaved: self.unsaved(file_diff),
                         ..Default::default()
                     },
                     cx,
@@ -1471,13 +1523,19 @@ impl Detail {
                 let menu = line_menu(ix, entity.clone());
                 let place = (file, hunk, line);
                 let (excluded, toggle) = self.line_check(diff, place, &entity);
+                // The caret's line is a field; presses on it select as on any other line, and
+                // what they select goes to the field once they're let go.
+                let editor = self.edit_field(file, hunk, line);
                 let decor = LineDecor {
                     excluded,
                     toggle,
                     gutter: self.line_gutter(place, &entity, cx),
                     select: Some(line_select(ix, entity, self.follow)),
-                    selected: self.selected_in_row(ix),
+                    // What's selected for editing over more lines, else the diff's own.
+                    selected: (self.edit_selected(file, hunk, line))
+                        .or_else(|| self.selected_in_row(ix)),
                     found: self.found_on(Spot::Line(place)),
+                    editor: editor.map(|input| input.into_any_element()),
                 };
                 let layout = self.layout(file_diff, &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
@@ -1984,7 +2042,7 @@ fn row_blink(n: usize, last: bool, theme: &Theme) -> impl IntoElement {
         .left(dp(12.))
         .right(dp(12.))
         .when(last, |el| el.rounded_b(dp(6.)));
-    blink_once(("blink", n), shape, theme.pop)
+    blink_once(("blink", n), shape, diff::copy_wash(theme))
 }
 
 /// Right-clicking the line at row `ix`: see [`Detail::line_menu`].
@@ -2148,6 +2206,20 @@ pub(super) fn pressed(
     }
 }
 
+/// What a press of `clicks` on a line does once it's let go, unless it `extend`s a selection or
+/// isn't on one of an uncommitted file's lines (`on_line`): `Some(true)` for a double click,
+/// which starts editing the file there as it opens whole around the line, and `Some(false)` in
+/// the file being edited (`editing`), where a click moves the caret and the word or line a
+/// double or triple click selects is selected to type over, as a drag's lines are.
+fn edit_press(clicks: usize, extend: bool, on_line: bool, editing: bool) -> Option<bool> {
+    match clicks {
+        _ if extend || !on_line => None,
+        1..=3 if editing => Some(false),
+        2 => Some(true),
+        _ => None,
+    }
+}
+
 /// What the pointer does to the text of the line at row `ix`: select from where it's
 /// pressed, and extend as it drags, to `follow` too while a drag scrolls past the edge.
 fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixels>>) -> LineSelect {
@@ -2304,10 +2376,43 @@ mod tests {
     use gpui::{Modifiers, ScrollDelta, ScrollWheelEvent, point};
 
     use super::WheelLines::{Accelerated, PerNotch, Set};
-    use super::{nothing_committed_in, wheel_lines, wheel_lines_on};
+    use super::{edit_press, nothing_committed_in, wheel_lines, wheel_lines_on};
     use crate::backend::FullName;
     use crate::backend::model::build::{branch, full, workspace, worktree};
     use crate::state::{ProjectId, Selection};
+
+    #[test]
+    fn a_press_edits_as_its_clicks_and_the_file_say() {
+        // (clicks, extend, on a line, in the file being edited)
+        let edits = |clicks, extend, on_line, editing| edit_press(clicks, extend, on_line, editing);
+        assert_eq!(edits(1, false, true, false), None, "a click only selects");
+        assert_eq!(
+            edits(2, false, true, false),
+            Some(true),
+            "a double click starts editing"
+        );
+        assert_eq!(
+            edits(1, false, true, true),
+            Some(false),
+            "a click moves the caret"
+        );
+        assert_eq!(
+            edits(2, false, true, true),
+            Some(false),
+            "a double click selects the word to type over"
+        );
+        assert_eq!(
+            edits(3, false, true, true),
+            Some(false),
+            "a triple click, the line"
+        );
+        assert_eq!(edits(1, true, true, true), None, "shift only extends");
+        assert_eq!(
+            edits(2, false, false, false),
+            None,
+            "off the file's lines nothing edits"
+        );
+    }
 
     fn wheel(delta: ScrollDelta, modifiers: Modifiers) -> ScrollWheelEvent {
         ScrollWheelEvent {

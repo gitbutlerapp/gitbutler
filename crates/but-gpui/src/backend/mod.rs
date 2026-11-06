@@ -11,6 +11,7 @@ pub mod cli;
 pub mod conflicts;
 mod diff;
 pub mod edit;
+pub mod edit_lines;
 pub mod graph;
 mod highlight;
 pub mod history;
