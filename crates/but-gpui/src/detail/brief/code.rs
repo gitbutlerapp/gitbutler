@@ -11,7 +11,7 @@ use crate::detail::find::Spot;
 use crate::detail::page::PageTab;
 use crate::state::{Axis, CodePlace, RowKey, Selection, StoreEvent, Tile};
 use crate::theme::Theme;
-use crate::ui::diff::{DiffRow, split_path};
+use crate::ui::diff::split_path;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{Icon, diff, dp, h_flex, icon, v_flex};
 
@@ -344,63 +344,9 @@ impl Detail {
         match self.find_code_place(place) {
             Some(found) => self.reveal_code_place(found, cx),
             // Its diff is still on its way.
-            None => {
-                let (CodePlace::File { path, .. } | CodePlace::Line { path, .. }) = place;
-                self.pending_file = Some(path.clone());
-            }
+            None => self.pending_file = Some(place.clone().into()),
         }
         cx.notify();
-    }
-
-    /// `place`'s file, hunk and line in the diff shown, as far as it says and that has them.
-    fn find_code_place(&self, place: &CodePlace) -> Option<(usize, Option<usize>, Option<usize>)> {
-        let loaded = self.shown_diff()?;
-        let (CodePlace::File { path, .. } | CodePlace::Line { path, .. }) = place;
-        let (file_ix, file) =
-            (loaded.files.iter().enumerate()).find(|(_, file)| file.file.path == *path)?;
-        Some(match place {
-            CodePlace::File { line, .. } => {
-                let hunk = line.and_then(|line| {
-                    (file.hunks().iter())
-                        .position(|hunk| hunk.lines.iter().any(|at| at.new == Some(line)))
-                });
-                (file_ix, hunk, None)
-            }
-            CodePlace::Line { hunk, line, .. } => (file_ix, Some(*hunk), Some(*line)),
-        })
-    }
-
-    fn reveal_code_place(
-        &mut self,
-        (file_ix, hunk, line): (usize, Option<usize>, Option<usize>),
-        cx: &mut Context<Self>,
-    ) {
-        self.scroll_to_file(file_ix, false, cx);
-        let Some(hunk) = hunk else {
-            return;
-        };
-        self.show_hunk(file_ix, hunk, cx);
-        let Some(line) = line else {
-            return;
-        };
-        let row = self.row_of(|row| match *row {
-            DiffRow::Line {
-                file,
-                hunk: of,
-                line: at,
-            } => (file, of, at) == (file_ix, hunk, line),
-            DiffRow::Pair {
-                file,
-                hunk: of,
-                left,
-                right,
-            } => (file, of) == (file_ix, hunk) && (left == Some(line) || right == Some(line)),
-            _ => false,
-        });
-        if let Some(row) = row {
-            // With a few lines above it, for what it's in.
-            self.scroll_to_row(row.saturating_sub(4), false);
-        }
     }
 
     /// The tile of this row's changes, if it's beside the brief.

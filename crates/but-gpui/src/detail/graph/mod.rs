@@ -546,6 +546,7 @@ impl GraphView {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),
             StoreEvent::Reopened
             | StoreEvent::TabAsked(_)
+            | StoreEvent::FileAsked(..)
             | StoreEvent::Renamed(..)
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)

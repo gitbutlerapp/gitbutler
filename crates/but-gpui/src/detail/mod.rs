@@ -67,8 +67,8 @@ use crate::edits::Discard;
 use crate::overlays::MenuItem;
 use crate::palette::score;
 use crate::state::{
-    Area, FileSort, FileView, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Section, Selection,
-    Side, Store, StoreEvent, Tile,
+    Area, CodePlace, FileSort, FileView, Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Section,
+    Selection, Side, Store, StoreEvent, Tile,
 };
 use crate::theme::Theme;
 use crate::ui::change_marks::{Change, ChangeMarks};
@@ -365,6 +365,22 @@ struct LoadedDiff {
     selection: Option<Selection>,
 }
 
+/// A place to open the diff on its way at.
+struct PendingFile {
+    place: CodePlace,
+    /// What the link that asked for it selected, whose diff says so if it lacks the place.
+    linked: Option<Selection>,
+}
+
+impl From<CodePlace> for PendingFile {
+    fn from(place: CodePlace) -> Self {
+        PendingFile {
+            place,
+            linked: None,
+        }
+    }
+}
+
 /// A file's new side as diff lines, read for the patch with this fingerprint, and the
 /// widest of them in columns.
 type FileLines = (u64, Arc<Vec<DiffLine>>, u32);
@@ -492,9 +508,9 @@ pub struct Detail {
     blinked: (usize, Option<(Copied, Instant)>),
     /// What that overview reads beyond the workspace.
     now: worktree::Now,
-    /// The file to put the cursor on once the diff loading now lands, as when following the
+    /// The place to put the cursor on once the diff loading now lands, as when following the
     /// file being read into the commit an agent made of it.
-    pending_file: Option<String>,
+    pending_file: Option<PendingFile>,
     /// The page a click on a commit of a branch that left a checkout picked, and that commit,
     /// whose merge or branch it opens once it has read its list.
     opening: Option<(ProjectTab, crate::state::SeenCommit)>,
@@ -639,7 +655,10 @@ impl Detail {
         let subscriptions = vec![
             cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 // A pinned page shows what it was pinned to, whatever's selected.
-                StoreEvent::SelectionChanged | StoreEvent::Reopened | StoreEvent::TabAsked(_)
+                StoreEvent::SelectionChanged
+                | StoreEvent::Reopened
+                | StoreEvent::TabAsked(_)
+                | StoreEvent::FileAsked(..)
                     if this.pinned.is_some() => {}
                 StoreEvent::SelectionChanged => this.follow_selection(window, cx),
                 // Picked again, as by its card or the crumb naming it, a project's page goes back
@@ -654,6 +673,17 @@ impl Detail {
                     _ => {}
                 },
                 StoreEvent::TabAsked(tab) => this.tab_asked(*tab, window, cx),
+                StoreEvent::FileAsked(selection, place) => {
+                    this.pending_file = Some(PendingFile {
+                        place: place.clone(),
+                        linked: Some(selection.clone()),
+                    });
+                    // Shown already, the selection doesn't change, so no diff lands to open it.
+                    if this.shown_diff().and_then(|diff| diff.selection.as_ref()) == Some(selection)
+                    {
+                        this.open_pending_file(cx);
+                    }
+                }
                 StoreEvent::Loaded(project) => {
                     if this.find_pinned(cx) {
                         this.shown_changed(window, cx);
@@ -2046,15 +2076,80 @@ impl Detail {
         self.link_brief_names();
     }
 
-    /// Open the diff shown at the file asked for, if it has it, and stop asking.
+    /// Open the diff shown at the place asked for, as far as it has it, and stop asking. A
+    /// link's says so when the diff of what it selected lacks the file or the line.
     fn open_pending_file(&mut self, cx: &mut Context<Self>) {
-        if let Some(path) = self.pending_file.take()
-            && let Some(at) = (self.diff.iter())
-                .flat_map(|diff| diff.files.iter())
-                .position(|file| file.file.path == path)
-        {
-            self.cursor = Cursor::on_file(at);
-            self.scroll_to_file(at, false, cx);
+        let Some(PendingFile { place, linked }) = self.pending_file.take() else {
+            return;
+        };
+        let found = self.find_code_place(&place);
+        if let Some(found) = found {
+            self.reveal_code_place(found, cx);
+        }
+        let diff_of = self.shown_diff().and_then(|diff| diff.selection.as_ref());
+        if linked.is_none() || linked.as_ref() != diff_of {
+            return;
+        }
+        let missing = match (&place, found) {
+            (_, None) => "The link's file isn't in those changes now",
+            (CodePlace::File { line: Some(_), .. }, Some((_, None, _))) => {
+                "The link's line isn't in the file's changes now"
+            }
+            _ => return,
+        };
+        (self.store).update(cx, |store, cx| store.snack_warning(missing, cx));
+    }
+
+    /// `place`'s file, hunk and line in the diff shown, as far as it says and that has them.
+    fn find_code_place(&self, place: &CodePlace) -> Option<(usize, Option<usize>, Option<usize>)> {
+        let loaded = self.shown_diff()?;
+        let (CodePlace::File { path, .. } | CodePlace::Line { path, .. }) = place;
+        let (file_ix, file) =
+            (loaded.files.iter().enumerate()).find(|(_, file)| file.file.path == *path)?;
+        Some(match place {
+            CodePlace::File { line, .. } => {
+                let hunk = line.and_then(|line| {
+                    (file.hunks().iter())
+                        .position(|hunk| hunk.lines.iter().any(|at| at.new == Some(line)))
+                });
+                (file_ix, hunk, None)
+            }
+            CodePlace::Line { hunk, line, .. } => (file_ix, Some(*hunk), Some(*line)),
+        })
+    }
+
+    /// Scroll to what [`Detail::find_code_place`] found, with the cursor on its hunk if it
+    /// found one, and that hunk's line in view if it found that too.
+    fn reveal_code_place(
+        &mut self,
+        (file_ix, hunk, line): (usize, Option<usize>, Option<usize>),
+        cx: &mut Context<Self>,
+    ) {
+        self.scroll_to_file(file_ix, false, cx);
+        let Some(hunk) = hunk else {
+            return;
+        };
+        self.show_hunk(file_ix, hunk, cx);
+        let Some(line) = line else {
+            return;
+        };
+        let row = self.row_of(|row| match *row {
+            DiffRow::Line {
+                file,
+                hunk: of,
+                line: at,
+            } => (file, of, at) == (file_ix, hunk, line),
+            DiffRow::Pair {
+                file,
+                hunk: of,
+                left,
+                right,
+            } => (file, of) == (file_ix, hunk) && (left == Some(line) || right == Some(line)),
+            _ => false,
+        });
+        if let Some(row) = row {
+            // With a few lines above it, for what it's in.
+            self.scroll_to_row(row.saturating_sub(4), false);
         }
     }
 

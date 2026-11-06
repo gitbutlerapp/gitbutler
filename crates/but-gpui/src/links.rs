@@ -40,15 +40,21 @@ pub fn follow(
     .detach();
 }
 
-fn open(incoming: Incoming, app: &mut AppView, window: &mut Window, cx: &mut Context<AppView>) {
+/// Open `incoming` in `app`'s window, as [`follow`] does each link that comes.
+pub fn open(incoming: Incoming, app: &mut AppView, window: &mut Window, cx: &mut Context<AppView>) {
     if let Incoming::Link(url) = incoming {
-        let Some(path) = backend::links::project_to_open(&url) else {
+        let Some(link) = backend::links::read_link(&url) else {
             // Not the whole link, which can carry a sign-in token.
             let kind = url.split_once('?').map_or(&*url, |(kind, _)| kind);
             tracing::warn!("ignoring a link the app doesn't open: {kind}");
             return;
         };
-        (app.store).update(cx, |store, cx| store.open_from_link(path, cx));
+        (app.store).update(cx, |store, cx| {
+            store.open_from_link(link.path, link.at, cx);
+            if link.unreadable {
+                store.snack_warning("Couldn't read where the link points", cx);
+            }
+        });
     }
     app.focus_main(window, cx);
     window.activate_window();
