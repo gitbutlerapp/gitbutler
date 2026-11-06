@@ -13,12 +13,13 @@ use plan::Plan;
 /// Turn the worktree of `repo`, which matched `trees.baseline` (in Git form) when it was
 /// snapshotted, into `trees.target`, writing only the entries that differ.
 ///
-/// Files are written through the repository's worktree filters, so clean/smudge drivers like
-/// git-crypt or Git LFS see the same conversions as with Git. These drivers are the only filters
-/// that can fail, and they run before anything in the worktree is removed, so a filter that fails
-/// changes nothing. Everything checkout removes
-/// is checked against the snapshot after the filters ran. Like Git, a failure while removing or
-/// placing files leaves what was done so far.
+/// Nothing changes if checkout refuses or fails. Files are written through the repository's
+/// worktree filters, so clean/smudge drivers like git-crypt or Git LFS see the same conversions
+/// as with Git. These drivers are the only filters that can fail, and they run before anything in
+/// the worktree is removed. Everything checkout removes is checked against the snapshot after the
+/// filters ran, and a failure while writing files into place is undone. A crash in the middle
+/// can leave what was moved aside in a `.gitbutler-checkout-*` directory below the Git directory,
+/// or in the worktree for objects on another filesystem.
 /// `.git/index` is updated for the written and deleted paths only, keeping all other entries as
 /// they are. If `conflicts` is set, its unresolved conflicts are recorded as index stages.
 /// Paths the worktree already has as `trees.new_head` has them aren't written, but their index
