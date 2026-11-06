@@ -46,7 +46,12 @@ pub fn commit_amend(
                     repo,
                     name: name.as_bstr(),
                 });
-            Ok(Commit(tx.amend_commit(commit_id, changes, source)?))
+            Ok(Commit(tx.amend_commit(
+                commit_id,
+                changes,
+                source,
+                but_workspace::commit::Conflicts::Reject,
+            )?))
         },
     )?;
 

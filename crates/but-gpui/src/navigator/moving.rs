@@ -17,9 +17,7 @@ use super::{Navigator, RowStyle};
 use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
-use crate::backend::{
-    Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
-};
+use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace};
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::{Hue, Theme};
@@ -29,8 +27,8 @@ use crate::transfer::{
 use crate::ui::Text;
 use crate::ui::fold::{self, on_top};
 use crate::ui::{
-    CommitPlace, Fold as RowFold, Icon, blink_once, branch_item, commit_item, dp, fixed, guide,
-    h_flex, small_icon,
+    CommitPlace, Fold as RowFold, Icon, blink_once, branch_item, commit_item, count_badge, dp,
+    fixed, guide, h_flex, icon, small_icon,
 };
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
@@ -118,6 +116,26 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
         true => Mark::Copied(op),
         false => Mark::Taken(op),
     })
+}
+
+/// The hue of the outline over what the squash shown in `project` goes into: a squash's, or
+/// a conflict's where it leaves that conflicted.
+pub(super) fn outline_hue(store: &Store, project: &ProjectId) -> Hue {
+    let conflicts = shown(store, project)
+        .and_then(|moving| moving.squashed(store))
+        .is_some_and(|transfer| !transfer.lands_cleanly());
+    match conflicts {
+        true => Hue::Warn,
+        false => mark_of(store, project),
+    }
+}
+
+/// Whether `item` is a commit the amend shown in its project goes into and leaves conflicted,
+/// which its row then marks as it does a conflicted commit.
+pub(super) fn left_conflicted(store: &Store, item: &Selection) -> bool {
+    matches!(item, Selection::Commit(..))
+        && lands_on(store, item)
+        && shown(store, item.project()).is_some_and(|moving| moving.conflicts(store))
 }
 
 /// The hue the move shown in `project` marks rows in, as [`Op::hue`] says.
@@ -334,6 +352,8 @@ enum Gone {
     Branch { id: String, name: String },
     /// The new branch commits being moved would land in at that stop.
     NewBranch(Stop),
+    /// The caption of the stack that new branch would make.
+    NewStack,
 }
 
 /// The rows keyed `old` that a move takes away as they go to `new`, the commits where it left
@@ -355,7 +375,7 @@ fn taken_away(
             Some(key @ RowKey::Left(own)) => {
                 !kept.contains(key) && (landing || !kept.contains(&**own))
             }
-            Some(key @ RowKey::GhostBranch(_)) => !kept.contains(key),
+            Some(key @ (RowKey::GhostBranch(_) | RowKey::GhostStack(_))) => !kept.contains(key),
             Some(key @ RowKey::Commit(..)) => ended && !kept.contains(key),
             Some(
                 RowKey::Item(_)
@@ -521,6 +541,7 @@ pub(super) fn stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::GhostStack(_)
             | Row::NewCommit(_) => {}
             // The next stack starts: what's listed above it ends.
             Row::Between(p) if p == project => {
@@ -631,6 +652,7 @@ pub(super) fn squash_stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::GhostStack(_)
             | Row::NewCommit(_)
             | Row::Between(_) => None,
             _ => {
@@ -703,6 +725,7 @@ impl Navigator {
                         }
                     }
                     Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
+                    Row::GhostStack(_) => Gone::NewStack,
                     _ => return None,
                 };
                 let outlined_with = (
@@ -1572,11 +1595,12 @@ impl Navigator {
                 | Transfer::StageOnBranch { .. }
                 | Transfer::CommitOnBranch { .. } => target.row(&project),
             };
-            return self.store.update(cx, |store, cx| {
-                store.select(Some(on), cx);
-                // Only staging comes back, which a squash never is.
-                let _ = transfer.perform(&project, None, store, cx);
-            });
+            self.store
+                .update(cx, |store, cx| store.select(Some(on), cx));
+            // Only staging comes back, which a squash never is.
+            let _ =
+                (self.store).update(cx, |store, cx| transfer.perform(&project, None, store, cx));
+            return;
         }
         // A card, a worktree or a terminal, already shown where it goes, goes there in the
         // order they keep.
@@ -1906,13 +1930,18 @@ pub(super) fn new_commit_row(
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
+    let moving = shown(store, project);
+    let conflicts = moving.is_some_and(|moving| moving.conflicts(store));
     let style = RowStyle {
         held: true,
-        mark: Op::Commit.hue(),
+        mark: match conflicts {
+            true => Hue::Warn,
+            false => Op::Commit.hue(),
+        },
         blink,
         ..RowStyle::plain(theme, inset)
     };
-    let title = shown(store, project).and_then(|moving| moving.commit_title(store));
+    let title = moving.and_then(|moving| moving.commit_title(store));
     // Untitled till its message is written.
     let title = title.map_or("New commit".to_owned(), ToOwned::to_owned);
     let row = commit_item(
@@ -1920,7 +1949,7 @@ pub(super) fn new_commit_row(
         title,
         CommitPlace::Local,
         false,
-        false,
+        conflicts,
         theme,
     );
     // Where a commit's row puts its glyph: see `RowStyle::commit_line`.
@@ -2006,6 +2035,7 @@ pub(super) fn stand_in(
         }
         Gone::Branch { id, name } => branch_copy(id.clone(), name.clone(), style),
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), None, theme),
+        Gone::NewStack => ghost_stack_row(*inset, op.colour(theme), None, theme),
     };
     let guides = guides.iter().map(|at| guide(*at, theme));
     div()
@@ -2026,8 +2056,8 @@ pub(super) fn stand_in(
 
 /// The new branch commits being moved or made would land in at stop `at`, over their copies,
 /// set in by `inset` as an item row is, marked in `mark`, the colour of what's doing it, and
-/// blinking as they do. It names the branch it goes above or below in their stack, or says
-/// it's independent, in a stack of its own.
+/// blinking as they do. In a stack, where it sits among the stack's rows says what it builds on,
+/// so it names no branch; in a stack of its own, it says it's independent.
 pub(super) fn ghost_branch_row(
     at: &Stop,
     inset: f32,
@@ -2035,26 +2065,19 @@ pub(super) fn ghost_branch_row(
     blink: Option<usize>,
     theme: &Theme,
 ) -> AnyElement {
-    let beside = match at {
-        Stop::NewBranch { beside, below } => {
-            let side = if *below { "below" } else { "above" };
-            Some((side, short_ref(beside).into_owned()))
-        }
+    let said = match at {
+        Stop::NewBranch { .. } => "New branch",
         Stop::In(_)
         | Stop::NewStack { .. }
         | Stop::Card(_)
         | Stop::Worktree(_)
         | Stop::Terminal { .. }
-        | Stop::Into(_) => None,
-    };
-    let said = match &beside {
-        Some((side, _)) => format!("New branch {side}"),
-        None => "New independent branch".into(),
+        | Stop::Into(_) => "New independent branch",
     };
     h_flex()
         .min_h(dp(theme.sizes.control))
         .mx(dp(super::rows::ROW_MARGIN))
-        .pl(dp(8. + inset))
+        .pl(dp(8. + GHOST_INDENT + inset))
         .pr(dp(12.))
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
@@ -2066,20 +2089,44 @@ pub(super) fn ghost_branch_row(
             let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
             el.relative().child(blink_once(("blink", n), shape, mark))
         })
-        .child(small_icon(Icon::Branch).text_color(mark))
+        .child(icon(Icon::Branch).text_color(mark))
+        .child(div().min_w_0().truncate().child(said))
+        .into_any_element()
+}
+
+/// How far in a ghost branch or stack row's icon sits, as a real branch or stack row's does
+/// (`RowStyle::row` with its indent of 6), so the preview lines up with what it becomes.
+const GHOST_INDENT: f32 = 6.;
+
+/// The caption a new branch landing beside a branch alone in its lane would give the two, as
+/// the stack they'd make, set in by `inset` and marked in `mark`, as [`ghost_branch_row`] is.
+pub(super) fn ghost_stack_row(
+    inset: f32,
+    mark: Hsla,
+    blink: Option<usize>,
+    theme: &Theme,
+) -> AnyElement {
+    h_flex()
+        .min_h(dp(theme.sizes.control))
+        .mx(dp(super::rows::ROW_MARGIN))
+        .pl(dp(8. + GHOST_INDENT + inset))
+        .pr(dp(12.))
+        .gap(dp(8.))
+        .rounded(dp(theme.shape.control))
+        .border_1()
+        .border_dashed()
+        .border_color(mark)
+        .text_color(mark)
+        .when_some(blink, |el, n| {
+            let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
+            el.relative().child(blink_once(("blink", n), shape, mark))
+        })
+        .child(icon(Icon::Stack).text_color(mark))
         .child(
-            // One phrase, a space apart, the branch's name as it's written in its row.
             h_flex()
-                .min_w_0()
-                .gap(dp(4.))
-                .child(div().flex_none().child(said))
-                .children(beside.map(|(_, name)| {
-                    div()
-                        .min_w_0()
-                        .truncate()
-                        .text_color(theme.foreground)
-                        .child(name)
-                })),
+                .gap(dp(6.))
+                .child(count_badge(2, theme))
+                .child(div().flex_none().child("Stack")),
         )
         .into_any_element()
 }

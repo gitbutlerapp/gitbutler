@@ -86,7 +86,7 @@ pub(crate) use terminals::TerminalOverview;
 use crate::ui::Text;
 use moving::Mark;
 use rows::{
-    CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
+    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADER_RULE, HEADING_HEIGHT,
     LOADING_WIDTHS, ROW_LEFT, ROW_MARGIN, Row, RowKey, caption, card_ends, checkout_holds,
     in_checkout, in_inactive, inactive_open, span_height,
 };
@@ -619,6 +619,8 @@ impl<'a> RowStyle<'a> {
         store: &Store,
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
+        let item = Selection::Commit(project.clone(), commit.id);
+        let conflicted = commit.conflicted || moving::left_conflicted(store, &item);
         let place = match commit.state {
             CommitState::Local => CommitPlace::Local,
             CommitState::Pushed => CommitPlace::Pushed,
@@ -627,7 +629,7 @@ impl<'a> RowStyle<'a> {
         let (title, _) = store.message_of(project, commit);
         let title: SharedString = title.to_owned().into();
         let unread = store.is_unread(project, commit);
-        let row = self.commit_kind(id, &title, place, false, commit.conflicted, unread, rename);
+        let row = self.commit_kind(id, &title, place, false, conflicted, unread, rename);
         // Where a commit's glyph goes: a step in from its branch, 2 on, as a row that doesn't
         // fold puts it.
         self.commit_drawn(row, COMMIT_INDENT - 3., title)
@@ -1855,10 +1857,23 @@ impl Navigator {
                 let blink = self.blinking(Blink::Move);
                 moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
             }
-            Some(Row::Between(_)) => div().into_any_element(),
+            Some(Row::Between(_)) => h_flex()
+                .h(dp(BETWEEN))
+                .px(dp(12.))
+                .child(
+                    div()
+                        .flex_1()
+                        .border_t_1()
+                        .border_color(theme.border_subtle),
+                )
+                .into_any_element(),
             Some(Row::GhostBranch(project, at)) => {
                 let mark = theme.hue(moving::mark_of(self.store.read(cx), project));
                 moving::ghost_branch_row(at, inset, mark, self.blinking(Blink::Move), theme)
+            }
+            Some(Row::GhostStack(project)) => {
+                let mark = theme.hue(moving::mark_of(self.store.read(cx), project));
+                moving::ghost_stack_row(inset, mark, self.blinking(Blink::Move), theme)
             }
             Some(Row::NewCommit(project)) => {
                 let blink = self.blinking(Blink::Move);
@@ -1920,6 +1935,7 @@ impl Navigator {
                 Row::Item(_)
                     | Row::Ghost(..)
                     | Row::GhostBranch(..)
+                    | Row::GhostStack(_)
                     | Row::NewCommit(_)
                     | Row::More(..)
                     | Row::Fewer(..)
@@ -2308,7 +2324,7 @@ impl Navigator {
         match outlined {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
-                let hue = moving::mark_of(store, item.project());
+                let hue = moving::outline_hue(store, item.project());
                 // Around the stack a dragged branch goes in, it says it makes one or joins it.
                 let label = (moving::stack_label(store, item))
                     .map(|label| moving::outline_label(label, self.row, hue, theme));
@@ -3768,6 +3784,11 @@ impl Navigator {
         Some(
             (style.draw(row, 0.))
                 .aria_label(format!("Branch {name}"))
+                // Folded, it stands in for the commits a lock marks.
+                .when(
+                    !open && (branch.commits.iter()).any(|c| store.lock_marks(id, c.id)),
+                    |el| el.bg(theme.info_soft),
+                )
                 .map(|el| self.selectable(el, item, cx))
                 // A click looks inside, opening its commits; the chevron, a double-click, ⇧←
                 // and ⇧→ fold them.
@@ -3932,6 +3953,9 @@ impl Navigator {
                 )
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
+                .when(store.lock_marks(id, *commit_id), |el| {
+                    el.bg(style.theme.info_soft)
+                })
                 .map(|el| self.selectable(el, item, cx))
                 .when(several, |el| {
                     let item = item.clone();
@@ -4651,7 +4675,7 @@ impl Focusable for Navigator {
 /// in, is outlined.
 fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
     match row {
-        Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
+        Row::Ghost(..) | Row::GhostBranch(..) | Row::GhostStack(_) | Row::NewCommit(_) => true,
         Row::Item(item) => moving::lands_on(store, item),
         _ => false,
     }

@@ -207,3 +207,64 @@ fn spec(previous_path: Option<&str>, path: &str) -> DiffSpec {
         hunk_headers: vec![],
     }
 }
+
+#[test]
+fn a_merge_forcing_ours_takes_the_hunks_that_merge_and_leaves_out_those_that_conflict()
+-> anyhow::Result<()> {
+    use but_core::{ChangeState, HunkHeader, RepositoryExt as _, tree::MergedFile};
+    let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let repo = gix::init(tmp.path())?;
+    let numbered = |edits: &[(usize, &str)]| {
+        let mut lines: Vec<String> = (1..=10).map(|n| format!("{n}\n")).collect();
+        for (line, text) in edits {
+            lines[line - 1] = format!("{text}\n");
+        }
+        lines.concat()
+    };
+    let tree_with = |content: String| -> anyhow::Result<gix::ObjectId> {
+        let blob = repo.write_blob(content)?.detach();
+        let mut editor = repo.edit_tree(gix::ObjectId::empty_tree(repo.object_hash()))?;
+        editor.upsert("file", EntryKind::Blob, blob)?;
+        Ok(editor.write()?.detach())
+    };
+    let base = tree_with(numbered(&[]))?;
+    let changed = tree_with(numbered(&[(2, "two"), (8, "eight")]))?;
+    let destination = tree_with(numbered(&[(8, "VIII")]))?;
+    let mut merge = repo.merge_trees(
+        base,
+        destination,
+        changed,
+        repo.default_merge_labels(),
+        repo.merge_options_force_ours()?,
+    )?;
+    let merged = merge.tree.write()?.detach();
+
+    let state = |tree: gix::ObjectId| -> anyhow::Result<Option<ChangeState>> {
+        let entry = repo.find_tree(tree)?.lookup_entry_by_path("file")?;
+        Ok(entry.map(|entry| ChangeState {
+            id: entry.object_id(),
+            kind: EntryKind::Blob,
+        }))
+    };
+    let file = MergedFile {
+        path: "file".into(),
+        base: state(base)?,
+        changed: state(changed)?,
+        destination: state(destination)?,
+        merged: state(merged)?,
+    };
+    let hunks = file.hunks(&repo)?.expect("text diffs");
+    let line = |n| HunkHeader {
+        old_start: n,
+        old_lines: 1,
+        new_start: n,
+        new_lines: 1,
+    };
+    assert_eq!(hunks.taken, [line(2)], "line 2 merges in");
+    assert_eq!(
+        hunks.left_out,
+        [line(8)],
+        "line 8 conflicts, and forcing ours kept the destination's"
+    );
+    Ok(())
+}
