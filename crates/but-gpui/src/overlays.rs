@@ -37,6 +37,9 @@ pub struct ContextMenu {
     highlighted: Option<usize>,
     /// What had the keys before it took them, which its items run from.
     restore_focus: Option<FocusHandle>,
+    /// What gets the keys instead when it closes without running an item: the line being
+    /// typed in, for a file's menu opened from the diff.
+    dismissed_to: Option<FocusHandle>,
 }
 
 /// What a list draws as having the keys: what has the focus, or what the open context menu
@@ -387,6 +390,7 @@ impl AppView {
             acting_on: self.store.read(cx).acting_on(),
             highlighted: None,
             restore_focus: None,
+            dismissed_to: None,
         });
         cx.notify();
     }
@@ -394,6 +398,7 @@ impl AppView {
     /// Open the menu waiting on the frame drawn since, with only the commands offered now,
     /// and give it the keys.
     pub(crate) fn open_pending_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let returns_to = self.menu_returns_to.take();
         let Some(mut menu) = self.pending_menu.take() else {
             return;
         };
@@ -406,6 +411,7 @@ impl AppView {
             true => self.menu.take().and_then(|open| open.restore_focus),
             false => window.focused(cx),
         };
+        menu.dismissed_to = returns_to;
         window.focus(&self.menu_focus, cx);
         self.menu = Some(menu);
         cx.notify();
@@ -417,7 +423,7 @@ impl AppView {
             return;
         };
         if self.menu_focus.is_focused(window) {
-            self.give_back_focus(menu.restore_focus, window, cx);
+            self.give_back_focus(menu.dismissed_to.or(menu.restore_focus), window, cx);
         }
         cx.notify();
     }
@@ -428,6 +434,10 @@ impl AppView {
         let handler = (self.menu.as_ref())
             .and_then(|menu| menu.items.get(ix))
             .map(|item| item.handler.clone());
+        // From where the keys were, as its command needs.
+        if let Some(menu) = &mut self.menu {
+            menu.dismissed_to = None;
+        }
         self.close_menu(window, cx);
         if let Some(handler) = handler {
             Self::once_drawn(window, cx, move |this, window, cx| {

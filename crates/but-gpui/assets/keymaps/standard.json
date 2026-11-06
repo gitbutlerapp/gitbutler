@@ -249,7 +249,28 @@
   },
   {
     "context": "Diff && !TextInput",
-    "bindings": { "/": "find::FindInDiff", "secondary-f": "diff::FilterFiles", "home": "diff::FirstFile", "end": "diff::LastFile", "pagedown": "diff::PageDown", "pageup": "diff::PageUp", "o": "open_in::OpenInEditor" }
+    "bindings": { "/": "find::FindInDiff", "secondary-f": "diff::FilterFiles", "home": "diff::FirstFile", "end": "diff::LastFile", "pagedown": "diff::PageDown", "pageup": "diff::PageUp", "o": "open_in::OpenInEditor", "i": "diff::EditLines", "secondary-s": "diff::SaveEdits" }
+  },
+  // A file typed in in the diff: Esc puts the caret away, keeping what's typed, rather than go
+  // back.
+  {
+    "context": "Diff && Editing",
+    "bindings": { "escape": "diff::FinishEdit" }
+  },
+  // A line of a file edited in the diff, as an editor's: Tab indents and ⇧Tab outdents, ⌥↑ and
+  // ⌥↓ move the line, ⇧⌘K deletes it, and ⇧⌥↑ and ⇧⌥↓ select by line, as macOS selects by
+  // paragraph. Any other field keeps Tab for going on.
+  {
+    "context": "TextInput && LineEditor",
+    "bindings": {
+      "tab": "text_input::Indent",
+      "shift-tab": "text_input::Outdent",
+      "alt-up": "text_input::MoveLineUp",
+      "alt-down": "text_input::MoveLineDown",
+      "secondary-shift-k": "text_input::DeleteLine",
+      "alt-shift-up": "text_input::SelectParagraphBackward",
+      "alt-shift-down": "text_input::SelectParagraphForward"
+    }
   },
   {
     "context": "(Files || List) && !TextInput",

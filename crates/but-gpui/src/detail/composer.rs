@@ -1543,7 +1543,10 @@ impl Detail {
             .map(|file| file.path.as_str())
             .collect();
         let mut paths = self.listed_paths(cx);
-        paths.retain(|path| !left_out.contains(path.as_str()));
+        // Only changes: a file opened to edit with none is listed too.
+        paths.retain(|path| {
+            !left_out.contains(path.as_str()) && files.iter().any(|file| file.path == *path)
+        });
         paths
     }
 

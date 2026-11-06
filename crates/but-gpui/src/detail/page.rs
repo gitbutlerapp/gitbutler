@@ -142,6 +142,9 @@ pub(super) struct RowPlace {
     /// How many gaps it's below the row asked for, as gaps all look alike and a gap is found by
     /// the row after it.
     gaps: usize,
+    /// The line of its file's new side it shows, if any, which finds it again shown another
+    /// way, as a line an edit showed in the whole file shows among the unchanged lines after.
+    new_line: Option<u32>,
 }
 
 impl RowPlace {
@@ -154,7 +157,13 @@ impl RowPlace {
             Some(file) => Some(FilePlace::of(diff.files.get(file)?)),
             None => None,
         };
-        Some(RowPlace { row, file, gaps })
+        let new_line = new_line_of(row, &diff.files);
+        Some(RowPlace {
+            row,
+            file,
+            gaps,
+            new_line,
+        })
     }
 
     /// The row in `files`: by its file's path, as a reload can add or drop files before it, and
@@ -180,12 +189,31 @@ impl RowPlace {
         let row = self.in_files(files)?;
         let found =
             (rows.iter().position(|r| r.same_place(row))).and_then(|ix| ix.checked_sub(self.gaps));
+        // The same line of the file shown another way.
+        let found = found.or_else(|| {
+            let (file, line) = (row.file()?, self.new_line?);
+            (rows.iter())
+                .position(|r| r.file() == Some(file) && new_line_of(*r, files) == Some(line))
+        });
         match found {
             Some(ix) => Some((ix, true)),
             None => (row.file())
                 .and_then(|file| rows.iter().position(|r| *r == DiffRow::File(file)))
                 .map(|ix| (ix, false)),
         }
+    }
+}
+
+/// The line of its file's new side `row` of `files` shows: an unchanged one, or a hunk's that
+/// isn't removed.
+fn new_line_of(row: DiffRow, files: &[FileDiff]) -> Option<u32> {
+    match row {
+        DiffRow::Context { new, .. } => Some(new),
+        DiffRow::Line { file, hunk, line } => {
+            let found = files.get(file)?.hunks().get(hunk)?.lines.get(line)?;
+            (found.kind != crate::backend::LineKind::Removed).then_some(found.new?)
+        }
+        _ => None,
     }
 }
 
@@ -887,7 +915,36 @@ mod tests {
             row,
             file: Some(FilePlace::of(was)),
             gaps: 0,
+            new_line: None,
         }
+    }
+
+    #[test]
+    fn a_line_shown_another_way_is_found_by_its_number() {
+        let was = file("a.rs", &[1]);
+        let place = RowPlace {
+            new_line: Some(7),
+            ..row_in(line_of(0, 0), &was)
+        };
+        let now = [file("a.rs", &[1])];
+        let rows = [
+            DiffRow::File(0),
+            DiffRow::Context {
+                file: 0,
+                old: 6,
+                new: 6,
+            },
+            DiffRow::Context {
+                file: 0,
+                old: 7,
+                new: 7,
+            },
+        ];
+        assert_eq!(
+            place.find(&rows, &now),
+            Some((2, true)),
+            "the line an edit showed in its hunk is found among the unchanged lines"
+        );
     }
 
     #[test]

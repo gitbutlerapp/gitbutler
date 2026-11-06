@@ -845,7 +845,11 @@ const WHOLE_HIGHLIGHT_LIMIT: usize = 512 * 1024;
 
 /// The contents of one side of a change at `path`: a side that isn't in the object database
 /// is the file in the worktree.
-fn read_side(repo: &gix::Repository, state: but_core::ChangeState, path: &BStr) -> Result<Vec<u8>> {
+pub(super) fn read_side(
+    repo: &gix::Repository,
+    state: but_core::ChangeState,
+    path: &BStr,
+) -> Result<Vec<u8>> {
     if state.id.is_null() {
         let workdir = repo.workdir().context("the repository has no worktree")?;
         Ok(std::fs::read(workdir.join(gix::path::from_bstr(path)?))?)

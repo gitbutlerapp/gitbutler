@@ -203,6 +203,9 @@ pub struct AppView {
     /// A menu with commands in it, waiting for the frame that registers the actions of the
     /// selection it opened on, to say which it offers.
     pub pending_menu: Option<ContextMenu>,
+    /// What the next menu gives the keys to when it closes without running an item, rather than
+    /// what had them as it opened: the line being typed in, for a file's menu from the diff.
+    pub(crate) menu_returns_to: Option<gpui::FocusHandle>,
     /// The open menu's, which takes the keys from what had them.
     pub(crate) menu_focus: FocusHandle,
     pub prompt: Option<Prompt>,
@@ -623,6 +626,7 @@ impl AppView {
             navigator,
             menu: None,
             pending_menu: None,
+            menu_returns_to: None,
             menu_focus: cx.focus_handle(),
             prompt: None,
             icon_picker: None,
@@ -1654,6 +1658,8 @@ impl AppView {
     /// closed and what's shown stays as it is: Return, or this again, commits it all there
     /// without a message.
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
+        // What's typed in the diff goes in too, not only what's saved of it yet.
+        (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
         if let Some(moving) = (self.store.read(cx).moving.clone()).filter(|m| m.op == Op::Commit) {
             // From the composer, with its message, written first; without it, as where the
             // navigator came out for the commit, as it is, the navigator going back once it's
@@ -1677,6 +1683,7 @@ impl AppView {
     /// out of sight, the composer stays closed: Return, or this again, amends it with all of
     /// them, keeping its message.
     fn start_amend(&mut self, _: &StartAmend, window: &mut Window, cx: &mut Context<Self>) {
+        (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
         // Not from what's open over it.
         if self.covered() {
             return;
@@ -5315,11 +5322,17 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.
-fn copied(text: &str) -> String {
+pub(crate) fn copied(text: &str) -> String {
+    took("Copied", text)
+}
+
+/// What the snackbar says after `verb`, as "Copied" or "Cut", took `text`: the text itself
+/// when it's short, else how much of it.
+pub(crate) fn took(verb: &str, text: &str) -> String {
     match text.lines().count() {
-        0 | 1 if text.chars().count() <= 64 => format!("Copied {text}"),
-        0 | 1 => "Copied the selection".to_owned(),
-        lines => format!("Copied {lines} lines"),
+        0 | 1 if text.chars().count() <= 64 => format!("{verb} {text}"),
+        0 | 1 => format!("{verb} the selection"),
+        lines => format!("{verb} {lines} lines"),
     }
 }
 

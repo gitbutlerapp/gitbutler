@@ -11,6 +11,7 @@ pub(crate) use brief::{
 mod composer;
 mod conversation;
 mod diff_view;
+mod edit_lines;
 mod file_list;
 mod file_tree;
 mod find;
@@ -117,6 +118,12 @@ actions!(
         CheckAll,
         UncheckAll,
         WriteMessage,
+        /// Edit the lines of the uncommitted file the cursor's in, in place.
+        EditLines,
+        /// Save the file being edited now, rather than once typing rests.
+        SaveEdits,
+        /// Keep what's typed in the file being edited, and stop editing it.
+        FinishEdit,
     ]
 );
 
@@ -385,6 +392,11 @@ impl From<CodePlace> for PendingFile {
 /// widest of them in columns.
 type FileLines = (u64, Arc<Vec<DiffLine>>, u32);
 
+/// What [`FileLines`] hold in place of a patch's fingerprint for a file's lines as its edit
+/// left them: shown whole as they are until they're read again, so ending the edit moves
+/// nothing.
+const AS_TYPED: u64 = u64::MAX;
+
 /// The files checked for the next commit changed.
 pub struct ChecksChanged;
 
@@ -562,6 +574,15 @@ pub struct Detail {
     find_input: Entity<TextInput>,
     /// What's picked for the shown commit's conflicts, until it's applied.
     resolving: resolve::Resolving,
+    /// The uncommitted file being edited in the diff, until it's saved or discarded, and
+    /// the read of its sides to start from.
+    file_edit: Option<edit_lines::FileEdit>,
+    _read_sides: Task<()>,
+    /// Waiting for a checkout's changes to show, to open a file there.
+    _open_when_shown: Option<Subscription>,
+    /// Where a press on a line's text began that edits there once it's let go: a double click,
+    /// or in a file being edited, a click let go where it began. With whether it was double.
+    edit_press: Option<(TextPoint, bool)>,
     /// Each project page's target history, by project, kept so going back to one shows it
     /// at once, while it's read again.
     upstream: HashMap<ProjectId, upstream::Upstream>,
@@ -930,6 +951,10 @@ impl Detail {
             find: None,
             find_input,
             resolving: Default::default(),
+            file_edit: None,
+            _read_sides: Task::ready(()),
+            _open_when_shown: None,
+            edit_press: None,
             upstream: HashMap::new(),
             upstream_scroll: panes::side_list_state(),
             _upstream_load: Task::ready(()),
@@ -971,8 +996,10 @@ impl Detail {
         });
         // Words being written outlast the tile that closes or the app that quits around them.
         cx.on_release(|this, _| this.keep_brief_writing()).detach();
-        cx.on_app_quit(|this, _| {
+        cx.on_app_quit(|this, cx| {
             this.keep_brief_writing();
+            // Typed in a file and not saved yet.
+            this.save_at_quit(cx);
             async {}
         })
         .detach();
@@ -1968,13 +1995,7 @@ impl Detail {
         // in a tree, folder by folder. Copied only when that's not how they came.
         let prefs = &self.store.read(cx).prefs;
         let (tree, sort) = (prefs.file_view == FileView::Tree, prefs.file_sort);
-        let order = |a: &FileDiff, b: &FileDiff| {
-            let folders = match tree {
-                true => file_tree::folder_order(&a.file.path, &b.file.path),
-                false => Ordering::Equal,
-            };
-            folders.then_with(|| file_tree::file_order(sort, &a.file, &b.file))
-        };
+        let order = self.diff_file_order(cx);
         let files = match files.is_sorted_by(|a, b| order(a, b).is_le()) {
             true => files,
             false => {
@@ -1983,6 +2004,7 @@ impl Detail {
                 Arc::new(sorted)
             }
         };
+        let files = self.live_files(&key, files, cx);
         // Before the rows, which can show the cursor's file alone. The file scrolled to is
         // found again in the new files once they're drawn. A page shown again goes back to
         // where it was left.
@@ -2401,7 +2423,13 @@ impl Detail {
             |file, hunk, line| {
                 parts_of(file).is_some_and(|keys| keys.iter().any(|key| key.takes(hunk, line)))
             },
-            |file| (self.whole_lines(file)).map(|(_, lines, _)| lines.len() as u32),
+            // A file being edited shows whole as typed, from its own lines.
+            |file| {
+                (!self.edits_file(file))
+                    .then(|| self.whole_lines(file))
+                    .flatten()
+                    .map(|(_, lines, _)| lines.len() as u32)
+            },
             store.prefs.split && !unfolded,
             |file, conflict| self.conflict_view(&file.file.path, conflict),
         );
@@ -3162,14 +3190,37 @@ impl Detail {
 
     /// The loaded diff when it's of a checkout's uncommitted changes, the ones the composer
     /// commits: the project's own or a linked worktree's.
+    /// The order the diff has its files in, as the list shows them: in the order picked, and in
+    /// a tree, folder by folder.
+    fn diff_file_order(&self, cx: &App) -> impl Fn(&FileDiff, &FileDiff) -> Ordering + use<> {
+        let prefs = &self.store.read(cx).prefs;
+        let (tree, sort) = (prefs.file_view == FileView::Tree, prefs.file_sort);
+        move |a: &FileDiff, b: &FileDiff| {
+            let folders = match tree {
+                true => file_tree::folder_order(&a.file.path, &b.file.path),
+                false => Ordering::Equal,
+            };
+            folders.then_with(|| file_tree::file_order(sort, &a.file, &b.file))
+        }
+    }
+
     fn worktree_diff(&self) -> Option<&LoadedDiff> {
         (self.diff.as_ref()).filter(|diff| diff.key.checkout().is_some())
     }
 
     /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
+    /// A file opened to edit with no changes yet isn't among them, though the diff shows it.
     fn shows_worktree(&self, files: &[FileChange]) -> bool {
-        (self.worktree_diff())
-            .is_some_and(|diff| same_files(diff.files.iter().map(|shown| &shown.file), files))
+        (self.worktree_diff()).is_some_and(|diff| {
+            let shown: Vec<&FileChange> = (diff.files.iter())
+                .map(|shown| &shown.file)
+                .filter(|shown| {
+                    !self.opened_unchanged(shown)
+                        || files.iter().any(|now| now.change.path == shown.change.path)
+                })
+                .collect();
+            same_files(shown.into_iter(), files)
+        })
     }
 
     /// Open the file under the cursor in the editor, at its hunk.
@@ -4302,6 +4353,11 @@ impl Render for Detail {
             }))
             .on_action(cx.listener(|this, _: &ShowBrief, window, cx| this.show_brief(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
+            .on_action(
+                cx.listener(|this, _: &EditLines, window, cx| this.edit_cursor_hunk(window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &SaveEdits, _, cx| this.save_now(cx)))
+            .on_action(cx.listener(|this, _: &FinishEdit, window, cx| this.leave_edit(window, cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))
             .on_action(cx.listener(|this, _: &ToggleSplit, _, cx| this.toggle_split(cx)))
             .on_action(

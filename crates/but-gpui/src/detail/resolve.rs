@@ -116,7 +116,7 @@ impl Detail {
     }
 
     /// The key context of the detail: with conflicts to pick, and with picks to apply, while
-    /// the composer's open, or while a commit or an amend is placed without it, as with the
+    /// a file is edited in the diff, while the composer's open, or while a commit or an amend is placed without it, as with the
     /// navigator hidden.
     pub(super) fn key_context(&self, cx: &App) -> &'static str {
         let store = self.store.read(cx);
@@ -124,6 +124,8 @@ impl Detail {
         let placing = matches!(held, Some(Move { op: Op::Commit, .. }));
         let amending = held.is_some_and(Move::amending);
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
+            // Esc puts the caret away, or closes the file it's away from, rather than go back.
+            (None, _) if self.has_caret() || self.esc_closes_edit() => "Diff Editing",
             (None, _) if self.composing => "Diff Composer",
             (None, _) if placing => "Diff Committing",
             (None, _) if amending => "Diff Amending",
