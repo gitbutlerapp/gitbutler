@@ -1134,16 +1134,15 @@ impl Transfer {
                         .filter(|_| !worktree.is_linked())
                         .zip(workspace.landing_into(*into))
                         .map(|(locks, landing)| locks.fit(workspace, files, landing));
-                    let (restack, conflicts) =
-                        fit.map_or((None, false), |fit| (fit.restack, fit.conflicts));
+                    let (restack, conflicts) = fit
+                        .map_or((None, backend::Conflicts::Reject), |fit| {
+                            (fit.restack, fit.conflicts)
+                        });
                     Transfer::Amend {
                         into: *into,
                         files: files.clone(),
                         worktree: worktree.clone(),
-                        conflicts: match conflicts {
-                            true => backend::Conflicts::Keep,
-                            false => backend::Conflicts::Reject,
-                        },
+                        conflicts,
                         restack,
                     }
                 }

@@ -11,7 +11,8 @@ use but_core::{HunkHeader, TreeChange};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 
 use super::{
-    Branch, Checkout, CommitId, CommitState, FullName, Lane, Selected, Stacking, Workspace,
+    Branch, Checkout, CommitId, CommitState, Conflicts, FullName, Lane, Selected, Stacking,
+    Workspace,
 };
 
 /// The main checkout's hunks that build on commits, by their file's path.
@@ -90,9 +91,10 @@ pub struct Fit {
     /// The stacking that puts every other stack they build on below the one they land in, if
     /// one has to go there: the first stays, the rest go on it whole, the landing's own last.
     pub restack: Option<Stacking>,
-    /// Whether one they build on is above where they land in its own lane, or in a stack
-    /// that can't go below it, which leaves the commit they land in conflicted.
-    pub conflicts: bool,
+    /// Whether what doesn't merge where they land is kept, leaving the commit they land in
+    /// conflicted, as one they build on is above it in its own lane, or in a stack that can't
+    /// go below it.
+    pub conflicts: Conflicts,
 }
 
 impl Locks {
@@ -124,7 +126,10 @@ impl Locks {
             (Some(_), true) | (None, _) => None,
         };
         Fit {
-            conflicts: conflicts || (!below.is_empty() && restack.is_none()),
+            conflicts: match conflicts || (!below.is_empty() && restack.is_none()) {
+                true => Conflicts::Keep,
+                false => Conflicts::Reject,
+            },
             restack,
         }
     }
@@ -256,7 +261,7 @@ mod tests {
                     stacking.top.shorten()
                 )
             });
-            (restack, fit.conflicts)
+            (restack, fit.conflicts == super::Conflicts::Keep)
         };
         assert_eq!(fit("ui", 2), (None, false), "into what it builds on");
         assert_eq!(fit("ui", 3), (None, false), "and above it");
