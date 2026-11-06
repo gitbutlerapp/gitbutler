@@ -747,6 +747,18 @@ impl Move {
         self.commit_in(store.workspace(&self.project)?)
     }
 
+    /// How committing where it's at sits with what its changes build on.
+    pub fn commit_fit(&self, store: &Store) -> Option<backend::locks::Fit> {
+        let Moving::Files(Changes {
+            worktree, files, ..
+        }) = &self.what
+        else {
+            return None;
+        };
+        let to = self.commit_to(store)?;
+        store.landing_fit(&self.project, worktree, files, |ws| ws.landing(&to))
+    }
+
     /// [`Self::commit_to`] in `workspace`.
     fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {
@@ -838,9 +850,13 @@ impl Move {
             (Op::Move, _) => "move here",
             (Op::CherryPick, _) => "cherry-pick here",
             // Once there's a message, Return commits; till then it goes to writing one.
-            (Op::Commit, _) => match self.describe(store).is_empty() {
-                true => "write the message",
-                false => "commit",
+            (Op::Commit, _) => match (self.describe(store).is_empty(), self.commit_fit(store)) {
+                (true, _) => "write the message",
+                (false, Some(fit)) if fit.restack.is_some() => "restack and commit",
+                (false, Some(fit)) if fit.conflicts == backend::Conflicts::Keep => {
+                    "commit with conflicts"
+                }
+                (false, _) => "commit",
             },
             (
                 Op::Squash(_),

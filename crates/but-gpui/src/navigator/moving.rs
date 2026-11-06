@@ -17,7 +17,7 @@ use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
 use crate::backend::{
-    Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
+    Checkout, Commit, CommitId, Conflicts, Destination, FullName, Messages, Workspace, short_ref,
 };
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
@@ -1822,13 +1822,19 @@ pub(super) fn new_commit_row(
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
+    let moving = shown(store, project);
+    let conflicts = (moving.and_then(|moving| moving.commit_fit(store)))
+        .is_some_and(|fit| fit.conflicts == Conflicts::Keep);
     let style = RowStyle {
         held: true,
-        mark: Op::Commit.colour(theme),
+        mark: match conflicts {
+            true => theme.warn,
+            false => Op::Commit.colour(theme),
+        },
         blink,
         ..RowStyle::plain(theme, inset)
     };
-    let title = shown(store, project).and_then(|moving| moving.commit_title(store));
+    let title = moving.and_then(|moving| moving.commit_title(store));
     // Untitled till its message is written, quiet as an empty title is.
     let title = match title {
         Some(title) => div().child(title.to_owned()),
