@@ -70,17 +70,25 @@ impl Store {
         }
         self.brief_answers.asked.insert(id.clone());
         let project = id.clone();
+        // An answer that lands once someone else is signed in was theirs, and goes.
+        let user = self.account.user.clone();
         cx.spawn(async move |this, cx| {
             let known = {
                 let path = path.clone();
                 run(move || briefs::known(&path)).await
             };
-            this.update(cx, |store, cx| store.took_briefs(&project, known, cx))
-                .ok();
+            this.update(cx, |store, cx| {
+                if store.account.user == user {
+                    store.took_briefs(&project, known, cx);
+                }
+            })
+            .ok();
             let asked = run(move || briefs::refresh_project(&path, applied)).await;
             this.update(cx, |store, cx| {
-                store.brief_answers.asking.remove(&project);
-                store.took_briefs(&project, asked, cx);
+                if store.account.user == user {
+                    store.brief_answers.asking.remove(&project);
+                    store.took_briefs(&project, asked, cx);
+                }
             })
             .ok();
         })

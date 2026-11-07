@@ -1211,7 +1211,8 @@ impl Navigator {
                 | (Op::Squash(_), Op::Squash(_))
                 | (Op::CherryPick, Op::CherryPick)
         );
-        if same_op || !moving.of_commits() {
+        // A drag's op is where the pointer holds it, so the keys don't switch it.
+        if same_op || !moving.of_commits() || moving.dragged(self.store.read(cx)) {
             return;
         }
         let Move {

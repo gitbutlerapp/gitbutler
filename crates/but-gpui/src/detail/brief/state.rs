@@ -10,6 +10,7 @@ use gpui::{Bounds, Entity, ListAlignment, ListOffset, ListState, Pixels, Subscri
 
 use super::ReadKey;
 use super::test_facts::TestFacts;
+use crate::backend::accounts::GitButlerUser;
 use crate::backend::briefs::{Activity, BriefAnchor, BriefPage, CommentTo, Found, Note};
 use crate::detail::DiffKey;
 use crate::ui::fixed;
@@ -19,6 +20,9 @@ use crate::ui::text_input::TextInput;
 pub(in crate::detail) struct BriefView {
     /// The branch the page last showed, and the asking about it: see `Detail::ask_briefs`.
     pub(in crate::detail) asked: Option<BriefAnchor>,
+    /// Who was signed in then. Another account's answer isn't this one's, so someone else signing
+    /// in asks again, which drops the ask under way.
+    pub(super) asked_as: Option<GitButlerUser>,
     pub(super) _ask: Task<()>,
     /// The version of a brief being read for the tab, and the reading.
     pub(in crate::detail) reading: Option<(ReadKey, Task<()>)>,
@@ -44,6 +48,7 @@ impl BriefView {
     pub(in crate::detail) fn new() -> Self {
         Self {
             asked: None,
+            asked_as: None,
             _ask: Task::ready(()),
             reading: None,
             sending: false,

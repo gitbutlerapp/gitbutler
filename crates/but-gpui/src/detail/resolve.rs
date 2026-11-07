@@ -239,7 +239,10 @@ impl Detail {
         let switched = now != self.resolving.of;
         if switched {
             let mut others = std::mem::take(&mut self.resolving.others);
-            let left = std::mem::take(&mut self.resolving);
+            let mut left = std::mem::take(&mut self.resolving);
+            // A suggestion streams into what's shown, so one under way stops here, or it would
+            // land in this one, or show as under way forever on coming back.
+            left.suggesting.clear();
             if let Some(of) = left.of.clone().filter(|_| !left.keeping.is_empty()) {
                 others.insert(of, left);
             }
@@ -543,12 +546,22 @@ impl Detail {
             .map(|(file, c, _)| key(&file.path, c))
             .collect();
         let detail = cx.entity().downgrade();
+        let of = self.resolving.of.clone();
         let forget = move |cx: &mut App| {
             (detail.update(cx, |detail, _| {
+                // Of those applied, as another may be shown by now.
+                let shown = &mut detail.resolving;
+                let resolving = match shown.of == of {
+                    true => shown,
+                    false => match of.as_ref().and_then(|of| shown.others.get_mut(of)) {
+                        Some(left) => left,
+                        None => return,
+                    },
+                };
                 for id in &applied {
-                    detail.resolving.keeping.remove(id);
-                    detail.resolving.suggesting.remove(id);
-                    detail.resolving.ancestors.remove(id);
+                    resolving.keeping.remove(id);
+                    resolving.suggesting.remove(id);
+                    resolving.ancestors.remove(id);
                 }
             }))
             .ok();
