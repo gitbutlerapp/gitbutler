@@ -10,7 +10,7 @@ import { Icon } from "./Icon.tsx";
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
 const meta = stories({
-	title: "Content & status/FileList",
+	title: "Files & diffs/FileList",
 	id: "components-filelist",
 	component: FileListItem,
 	parameters: {

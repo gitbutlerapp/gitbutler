@@ -15,6 +15,8 @@ const groups = [
 	"Inputs",
 	"Overlays",
 	"Content & status",
+	"Files & diffs",
+	"Illustrations",
 	"Preview",
 	"Sidebar",
 	"Icons",

@@ -4,7 +4,7 @@ import { Badge } from "./Badge.tsx";
 import { DiffFileHeader, type DiffFileReviewState } from "./DiffFileHeader.tsx";
 
 const meta = stories({
-	title: "Content & status/DiffFileHeader",
+	title: "Files & diffs/DiffFileHeader",
 	id: "components-difffileheader",
 	component: DiffFileHeader,
 	parameters: {

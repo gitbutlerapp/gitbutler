@@ -44,7 +44,7 @@ const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 );
 
 const meta = stories({
-	title: "Content & status/DiffFile",
+	title: "Files & diffs/DiffFile",
 	id: "components-difffile",
 	component: DiffFile,
 	parameters: {

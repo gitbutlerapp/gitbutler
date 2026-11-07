@@ -4,7 +4,7 @@ import { DiffFileHeader } from "./DiffFileHeader.tsx";
 import { DiffFileList } from "./DiffFileList.tsx";
 
 const meta = stories({
-	title: "Content & status/DiffFileList",
+	title: "Files & diffs/DiffFileList",
 	id: "components-difffilelist",
 	component: DiffFileList,
 	parameters: {

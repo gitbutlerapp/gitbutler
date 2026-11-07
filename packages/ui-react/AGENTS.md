@@ -81,12 +81,15 @@ holds the system and everything drawn with it, as a monorepo holds packages:
   package's components under 🎛️ Components, one section per component. It is
   the source of truth for tokens; for components, code is, and the drawing
   follows it. The components are on pages by what they are for: Actions,
-  Inputs, Overlays, Content & status, Preview (a details view's header and
-  the bar above it), and Sidebar. A new component's section goes at the end
-  of its group's page, with its examples section under it. The docs site
-  shelves the stories in the same groups (plus Icons, which Figma keeps on
-  its own page): a stories file names its group in `title` and keeps its old
-  `id`, so the addresses below don't change when a component moves group.
+  Inputs, Overlays, Content & status, Files & diffs, Illustrations, Preview
+  (a details view's header and the bars around it), and Sidebar. A new
+  component's section goes at the end of its group's page, with its examples
+  section under it. Only these pages define the library's components; the
+  showcases and drafts use instances of them. The docs site shelves the
+  stories in the same groups, in the same order (plus Icons, which Figma
+  keeps on its own page): a stories file names its group in `title` and
+  keeps its old `id`, so the addresses below don't change when a component
+  moves group.
 - **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the
   pages under them, are the app's screens and surfaces built from the
   library. The designer moves work here once it's settled.

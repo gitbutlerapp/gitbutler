@@ -7,7 +7,7 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 );
 
 const meta = stories({
-	title: "Content & status/Illustration",
+	title: "Illustrations/Illustration",
 	id: "components-illustration",
 });
 
