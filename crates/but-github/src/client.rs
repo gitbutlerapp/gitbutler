@@ -160,7 +160,9 @@ impl GitHubClient {
         Ok(response.json().await?)
     }
 
-    /// Fetch CI checks for a branch ref, paginated and deduped by name.
+    /// Fetch CI checks for a branch ref: its check runs, paginated and deduped
+    /// by name, followed by the latest commit status of each context, which
+    /// CI systems like Jenkins report through instead of check runs.
     pub async fn list_checks_for_ref(
         &self,
         owner: &str,
@@ -198,7 +200,62 @@ impl GitHubClient {
             check_runs.extend(result.check_runs);
         }
 
-        Ok(dedupe_latest_by_name(check_runs))
+        let mut checks = dedupe_latest_by_name(check_runs);
+        match self.list_commit_statuses(owner, repo, reference).await {
+            Ok(statuses) => checks.extend(statuses),
+            // A fine-grained token can be allowed to read checks but not commit statuses.
+            Err(err)
+                if err
+                    .downcast_ref::<HttpStatusError>()
+                    .is_some_and(|http_err| http_err.status == reqwest::StatusCode::FORBIDDEN) =>
+            {
+                tracing::warn!("Failed to list commit statuses, showing check runs only: {err:#}");
+            }
+            Err(err) => return Err(err),
+        }
+        Ok(checks)
+    }
+
+    /// Fetch the latest commit status of each context on a ref, as check runs.
+    async fn list_commit_statuses(
+        &self,
+        owner: &str,
+        repo: &str,
+        reference: &str,
+    ) -> Result<Vec<CheckRun>> {
+        #[derive(Deserialize)]
+        struct CombinedStatusResponse {
+            sha: String,
+            total_count: usize,
+            statuses: Vec<CommitStatus>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/status",
+            self.base_url, owner, repo, reference
+        );
+
+        let mut checks = Vec::new();
+        for page in 1.. {
+            let response = self
+                .client
+                .get(&url)
+                .query(&[("per_page", "100"), ("page", &page.to_string())])
+                .send()
+                .await?;
+            let result: CombinedStatusResponse = ensure_success(response).await?.json().await?;
+            let last_page = result.statuses.is_empty();
+            checks.extend(
+                result
+                    .statuses
+                    .into_iter()
+                    .map(|status| status.into_check_run(&result.sha)),
+            );
+            if last_page || checks.len() >= result.total_count {
+                break;
+            }
+        }
+        Ok(checks)
     }
 
     /// Fetch every page of a GitHub list endpoint, 100 items per page,
@@ -1487,6 +1544,46 @@ pub struct CheckRun {
     pub details_url: Option<String>,
 }
 
+/// A status reported through GitHub's legacy commit statuses API.
+#[derive(Deserialize)]
+struct CommitStatus {
+    id: i64,
+    state: String,
+    context: String,
+    #[serde(default)]
+    target_url: Option<String>,
+    #[serde(default)]
+    url: Option<String>,
+    #[serde(default)]
+    created_at: Option<String>,
+    #[serde(default)]
+    updated_at: Option<String>,
+}
+
+impl CommitStatus {
+    fn into_check_run(self, sha: &str) -> CheckRun {
+        // Check runs have no `error` conclusion; GitHub treats it as a failure too.
+        let (status, conclusion) = match self.state.as_str() {
+            "pending" => ("in_progress", None),
+            "success" => ("completed", Some("success")),
+            "failure" | "error" => ("completed", Some("failure")),
+            _ => ("unknown", None),
+        };
+        CheckRun {
+            id: self.id,
+            name: self.context,
+            status: status.to_owned(),
+            conclusion: conclusion.map(String::from),
+            completed_at: conclusion.and(self.updated_at),
+            html_url: self.target_url.clone(),
+            head_sha: Some(sha.to_owned()),
+            started_at: self.created_at,
+            url: self.url,
+            details_url: self.target_url,
+        }
+    }
+}
+
 /// GitHub returns check runs from every suite attached to a commit —
 /// including superseded suites from force-push-cancelled runs — so an
 /// orphaned `failure` (e.g. an aggregator that detects its deps got
@@ -2397,6 +2494,92 @@ mod tests {
             }
         });
         (base_url, server)
+    }
+
+    #[tokio::test]
+    async fn checks_for_ref_include_commit_statuses() {
+        // A GitHub Actions check run has passed, but Jenkins still reports a
+        // pending status through the legacy commit statuses API.
+        let check_runs = r#"{"total_count":1,"check_runs":[{"id":1,"name":"build","status":"completed","conclusion":"success"}]}"#;
+        let statuses = r#"{"sha":"abc","total_count":3,"statuses":[
+            {"id":2,"state":"pending","context":"jenkins","target_url":"https://ci/1","created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:00:00Z"},
+            {"id":3,"state":"error","context":"lint","target_url":null,"created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:05:00Z"},
+            {"id":4,"state":"success","context":"deploy","created_at":"2026-06-04T18:00:00Z","updated_at":"2026-06-04T18:06:00Z"}
+        ]}"#;
+        let (base_url, server) = serve(vec![
+            (
+                "GET /repos/o/r/commits/feature/check-runs?",
+                "200 OK",
+                check_runs,
+            ),
+            ("GET /repos/o/r/commits/feature/status?", "200 OK", statuses),
+        ]);
+        let client = GitHubClient {
+            client: reqwest::Client::new(),
+            base_url,
+        };
+
+        let checks = client.list_checks_for_ref("o", "r", "feature").await;
+        server.join().unwrap();
+
+        let checks = checks.unwrap();
+        let summary: Vec<_> = checks
+            .iter()
+            .map(|c| {
+                (
+                    c.name.as_str(),
+                    c.status.as_str(),
+                    c.conclusion.as_deref(),
+                    c.details_url.as_deref(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("build", "completed", Some("success"), None),
+                ("jenkins", "in_progress", None, Some("https://ci/1")),
+                ("lint", "completed", Some("failure"), None),
+                ("deploy", "completed", Some("success"), None),
+            ],
+            "commit statuses follow the check runs, a pending one stays unfinished and `error` reads as a failure"
+        );
+        assert_eq!(
+            checks[1].head_sha.as_deref(),
+            Some("abc"),
+            "a status carries the commit the ref resolved to"
+        );
+    }
+
+    #[tokio::test]
+    async fn checks_for_ref_without_commit_status_access_keep_the_check_runs() {
+        let check_runs = r#"{"total_count":1,"check_runs":[{"id":1,"name":"build","status":"completed","conclusion":"success"}]}"#;
+        let (base_url, server) = serve(vec![
+            (
+                "GET /repos/o/r/commits/feature/check-runs?",
+                "200 OK",
+                check_runs,
+            ),
+            (
+                "GET /repos/o/r/commits/feature/status?",
+                "403 Forbidden",
+                r#"{"message":"Resource not accessible by personal access token"}"#,
+            ),
+        ]);
+        let client = GitHubClient {
+            client: reqwest::Client::new(),
+            base_url,
+        };
+
+        let checks = client.list_checks_for_ref("o", "r", "feature").await;
+        server.join().unwrap();
+
+        let names: Vec<_> = checks.unwrap().into_iter().map(|c| c.name).collect();
+        assert_eq!(
+            names,
+            ["build"],
+            "a token without the commit statuses permission still sees its check runs"
+        );
     }
 
     #[tokio::test(start_paused = true)]
