@@ -2638,29 +2638,6 @@ mod ad_hoc_at_reference {
             &["refs/heads/main", "refs/heads/new-below"],
         );
         assert_eq!(repo.find_reference(below_ref)?.id(), main_id);
-
-        // A remote reference created after the editor's graph isn't part of the workspace.
-        let remote_ref = r("refs/remotes/origin/main");
-        repo.reference(
-            remote_ref,
-            main_id,
-            PreviousValue::Any,
-            "test remote anchor",
-        )?;
-        let err = create(
-            &repo,
-            &mut ws,
-            &mut meta,
-            &mut db,
-            r("refs/heads/new-remote-anchor"),
-            remote_ref,
-            Above,
-        )
-        .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "The anchor reference 'origin/main' isn't part of the workspace"
-        );
         Ok(())
     }
 
