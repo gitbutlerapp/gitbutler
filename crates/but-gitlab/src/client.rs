@@ -834,16 +834,24 @@ impl GitLabClient {
         #[serde(rename_all = "camelCase")]
         struct MergeRequestHead {
             diff_head_sha: Option<String>,
-            head_pipeline: Option<PipelineId>,
+            pipelines: Pipelines,
+        }
+        #[derive(Deserialize)]
+        struct Pipelines {
+            nodes: Vec<PipelineId>,
         }
         #[derive(Deserialize)]
         struct PipelineId {
             id: String,
         }
         let url = format!("{}/api/graphql", self.base_url.trim_end_matches("/api/v4"));
-        let query = "query($project: ID!, $iid: String!) { project(fullPath: $project) { mergeRequest(iid: $iid) { diffHeadSha headPipeline { id } } } }";
-        let variables =
-            serde_json::json!({"project": project_id.full_path(), "iid": iid}).to_string();
+        let query = "query($project: ID!, $iid: String!, $sha: String!) { project(fullPath: $project) { mergeRequest(iid: $iid) { diffHeadSha pipelines(first: 1, sha: $sha) { nodes { id } } } } }";
+        let variables = serde_json::json!({
+            "project": project_id.full_path(),
+            "iid": iid,
+            "sha": pipeline.sha,
+        })
+        .to_string();
         let response = self
             .client
             .get(url)
@@ -879,10 +887,11 @@ impl GitLabClient {
         let Some(diff_head_sha) = mr.diff_head_sha else {
             return Ok(PipelineLookup::Unresolved);
         };
-        let current = diff_head_sha == head
-            && mr.head_pipeline.is_some_and(|current| {
-                current.id == format!("gid://gitlab/Ci::Pipeline/{}", pipeline.id)
-            });
+        let current =
+            diff_head_sha == head
+                && mr.pipelines.nodes.iter().any(|current| {
+                    current.id == format!("gid://gitlab/Ci::Pipeline/{}", pipeline.id)
+                });
         Ok(PipelineLookup::Resolved(current.then_some(pipeline)))
     }
 
@@ -1326,9 +1335,9 @@ pub(crate) fn resolve_account(
 #[cfg(test)]
 mod tests {
     use super::{
-        GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MAX_MERGE_REQUEST_REQUESTS,
-        MergeRequest, merge_request_page_is_safe, next_page_from_headers, normalize_pipeline_jobs,
-        refusal, repo_owner_from_path_with_namespace, update_draft_state_in_title,
+        GitLabMergeRequest, MAX_MERGE_REQUEST_REQUESTS, MergeRequest, merge_request_page_is_safe,
+        next_page_from_headers, refusal, repo_owner_from_path_with_namespace,
+        update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
 
