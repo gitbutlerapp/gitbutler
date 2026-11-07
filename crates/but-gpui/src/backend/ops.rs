@@ -549,7 +549,10 @@ impl std::error::Error for Refused {}
 /// The commit refused for `rejected`, or, if nothing was rejected, for taking nothing.
 fn refused(rejected: Rejected, takes_others: bool) -> anyhow::Error {
     match rejected.is_empty() {
-        true => anyhow::anyhow!("Nothing could be committed."),
+        true => anyhow::anyhow!(but_error::Context::new_static(
+            but_error::Code::PreconditionFailed,
+            "Nothing could be committed."
+        )),
         false => anyhow::Error::new(Refused {
             rejected,
             takes_others,
@@ -1512,8 +1515,11 @@ impl Intent for Amend {
             DynamicOutcome::Commit(amended) => amended,
             DynamicOutcome::Rollback(rejected) => {
                 bail!(
-                    "Nothing could be amended.\n{}",
-                    left_out(&rejected).join("\n")
+                    but_error::Context::new(format!(
+                        "Nothing could be amended.\n{}",
+                        left_out(&rejected).join("\n")
+                    ))
+                    .with_code(but_error::Code::PreconditionFailed)
                 )
             }
         };
@@ -3084,6 +3090,12 @@ pub(super) mod tests {
             assert!(
                 err.to_string().contains("Nothing could be amended"),
                 "the file changes nothing: {err}"
+            );
+            assert_eq!(
+                err.downcast_ref::<but_error::Context>()
+                    .map(|context| context.code),
+                Some(but_error::Code::PreconditionFailed),
+                "a refusal is the user's to act on, not a bug"
             );
             assert_eq!(entries_since(path, before), "", "the amend rolled back");
         })

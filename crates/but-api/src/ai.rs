@@ -5,6 +5,7 @@
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_core::git_config::edit_config;
+use but_error::{Code, Context};
 use but_llm::{
     AI_ANTHROPIC_SECRET_HANDLE, AI_OPENAI_SECRET_HANDLE, AiConfiguration as DomainConfiguration,
     AnthropicConfiguration, CredentialsKeyOption, GITBUTLER_ACCESS_TOKEN_HANDLE, LLMProviderKind,
@@ -209,7 +210,10 @@ pub fn get_ai_configuration() -> Result<AiConfiguration> {
 pub fn update_ai_configuration(update: AiConfigurationUpdate) -> Result<AiConfiguration> {
     let openai_has_key = has_secret(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?;
     let anthropic_has_key = has_secret(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?;
-    validate_update(&update, openai_has_key, anthropic_has_key)?;
+    // What it turns down is input for the user to correct, not a fault.
+    validate_update(&update, openai_has_key, anthropic_has_key).map_err(|err| {
+        anyhow::anyhow!(Context::new(format!("{err:#}")).with_code(Code::Validation))
+    })?;
 
     if let Some(value) = submitted_key(update.openai_api_key.clone()) {
         secret::persist(
