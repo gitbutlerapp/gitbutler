@@ -1,14 +1,24 @@
 .avatar {
-	display: inline-block;
+	display: inline-grid;
 	position: relative;
 	flex: none;
+	place-items: center;
 	width: var(--avatar-size);
 	height: var(--avatar-size);
 	overflow: hidden;
 	border-radius: var(--radius-full);
+	color: var(--text-1);
 }
 
-/* The glitch, and the picture over it once it loads. */
+.initial {
+	font-weight: var(--font-weight-semibold);
+	/* stylelint-disable-next-line declaration-property-value-allowed-list -- a letter inside a 14–18px circle, scaled with it; 11px would fill the 14px one */
+	font-size: calc(var(--avatar-size) * 0.56);
+	line-height: 1;
+	user-select: none;
+}
+
+/* The picture, over the initial once it loads. */
 .layer {
 	display: block;
 	position: absolute;

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 /**
  * What to draw for a person: their picture, else the real Gravatar photo for an email seed,
- * else nothing, and the caller shows the person's glitch on `tint`, as it does under a
+ * else nothing, and the caller shows the person's colour, `tint`, as it does under a
  * picture while it loads. Generated faces are never asked for, so no one gets an 8-bit stand-in. It
  * remembers the sources that failed rather than a flag, so a new picture gets its own try
  * without an effect to reset anything.
@@ -22,7 +22,7 @@ export const usePicture = (
 	const url = candidates.find((candidate) => !failed.includes(candidate)) ?? null;
 	return {
 		url,
-		tint: personColour(seed).ground,
+		tint: personColour(seed),
 		onError: () => url !== null && setFailed((was) => [...was, url]),
 	};
 };

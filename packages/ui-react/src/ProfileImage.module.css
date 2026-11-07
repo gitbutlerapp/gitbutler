@@ -50,23 +50,15 @@
 	}
 }
 
-/* The account's glitch, alone or under a picture while it loads. */
-.glitch {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	inset: 0;
-}
-
 /* Without any picture, the camera stays: choosing one is all there is to do here. Positioned,
-   so it paints over the glitch and the wash rather than under them. */
+   so it paints over the wash rather than under it. */
 .camera {
 	position: relative;
 	transition: color var(--transition-fast);
 }
 
 .image {
-	/* Positioned, so it covers the glitch once it loads. */
+	/* Positioned, so it covers the colour and the wash once it loads. */
 	position: relative;
 	width: 100%;
 	height: 100%;

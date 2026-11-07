@@ -18,10 +18,10 @@ const meta = stories({
 	},
 });
 
-/** No picture and no Gravatar: the account's glitch, with the camera on it. */
+/** No picture and no Gravatar: the account's colour, with the camera on it. */
 export const Default = meta.story({ args: { src: null } });
 
-/** Each account gets its own colour and glitch, the same one every time. */
+/** Each account gets a colour picked from its login, the same one every time. */
 export const Accounts = meta.story({
 	args: { src: null },
 	render: (args) => (
@@ -48,5 +48,5 @@ export const Picture = meta.story({});
 /** A picture the host can remove: the corner button shows with the camera. */
 export const Removable = meta.story({ args: { onRemove: () => {} } });
 
-/** A picture that fails to load: the glitch takes its place, not a broken image. */
+/** A picture that fails to load: the colour takes its place, not a broken image. */
 export const Broken = meta.story({ args: { src: "https://example.invalid/missing.png" } });

@@ -20,10 +20,10 @@ language/filetype glyphs in their brand colors (the Rust gear, the TypeScript
 square), the only icons that don't inherit `currentColor`. Use them for files
 and file-shaped things only.
 
-**A person without a picture gets their glitch, never a blank.** `Avatar` and
+**A person without a picture gets their initial, never a blank.** `Avatar` and
 `ProfileImage` are one design at two sizes: the person's picture, else the
-real Gravatar photo for their email, else their glitch — a quiet pattern of big
-blocks in their colour's next step on their colour, both picked from their
-email or login so a person looks the same everywhere. The glitch also shows
-while a picture loads. No generated faces: Gravatar URLs from the server and
-the backend ask for the real photo only.
+real Gravatar photo for their email, else their colour, picked from their email
+or login so a person looks the same everywhere. `Avatar` puts their initial on
+it in `--text-1`; `ProfileImage` puts the camera there instead. The colour also
+shows while a picture loads. No generated faces: Gravatar URLs from the server
+and the backend ask for the real photo only.
