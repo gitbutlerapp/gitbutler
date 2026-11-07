@@ -10,7 +10,7 @@
 	"useDTCG": true,
 	"includeValueStringKeyToAlias": false,
 	"includeFigmaMetaData": false,
-	"usePercentageOpacity": false,
+	"usePercentageOpacity": true,
 	"colorMode": "hex",
 	"storeStyleInCollection": "none",
 	"splitByCollection": true,

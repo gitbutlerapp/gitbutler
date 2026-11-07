@@ -1167,24 +1167,24 @@
       },
       "control": {
         "$type": "dimension",
-        "$value": "{core.radius.sm}",
-        "$description": "Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 8 minus a 4px inset). Tags and badges take radius/full.",
+        "$value": "{core.radius.md}",
+        "$description": "Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 10 minus a 4px inset). Tags and badges take radius/full.",
         "$extensions": {
           "mode": {}
         }
       },
       "card": {
         "$type": "dimension",
-        "$value": "{core.radius.md}",
-        "$description": "A card or bordered group. On the section ladder (14 → 10 → 6 → 2) it is two steps in, so a card 4px inside a 10 corner stays concentric.",
+        "$value": "{core.radius.lg}",
+        "$description": "A card or bordered group: 8, a step rounder than a control (6) and a step less than a popup (10).",
         "$extensions": {
           "mode": {}
         }
       },
       "popup": {
         "$type": "dimension",
-        "$value": "{core.radius.lg}",
-        "$description": "Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (4), so the corners stay concentric.",
+        "$value": "{core.radius.xl}",
+        "$description": "Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (6), so the corners stay concentric.",
         "$extensions": {
           "mode": {}
         }
@@ -1289,7 +1289,7 @@
           "core",
           "semantic"
         ],
-        "createdAt": "2026-11-04T22:25:59.919Z"
+        "createdAt": "2026-11-07T22:54:18.490Z"
       }
     }
   }

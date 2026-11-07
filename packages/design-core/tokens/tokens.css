@@ -292,18 +292,18 @@
   --padding-row: var(--space-2xl);
   /* Step of the radius scale. Prefer radius/section, which points here and names the job. */
   --radius-2xl: 0.875rem;
-  /* A card or bordered group. On the section ladder (14 → 10 → 6 → 2) it is two steps in, so a card 4px inside a 10 corner stays concentric. */
-  --radius-card: var(--radius-md);
-  /* Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 8 minus a 4px inset). Tags and badges take radius/full. */
-  --radius-control: var(--radius-sm);
+  /* A card or bordered group: 8, a step rounder than a control (6) and a step less than a popup (10). */
+  --radius-card: var(--radius-lg);
+  /* Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 10 minus a 4px inset). Tags and badges take radius/full. */
+  --radius-control: var(--radius-md);
   /* As round as the element can get: a pill on a wide element, a circle on a square one. For badges, switches, tags, avatars. */
   --radius-full: 62.4375rem;
   /* Step of the radius scale. Prefer radius/popup, which points here and names the job. Also a drop target's outline. */
   --radius-lg: 0.5rem;
   /* Step of the radius scale. Prefer radius/card, which points here and names the job. */
   --radius-md: 0.375rem;
-  /* Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (4), so the corners stay concentric. */
-  --radius-popup: var(--radius-lg);
+  /* Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (6), so the corners stay concentric. */
+  --radius-popup: var(--radius-xl);
   /* A large panel of the app window: the changes list, the diff, the workspace. Things sitting 4px inside it take 10 (radius/xl), so the corners stay concentric. */
   --radius-section: var(--radius-2xl);
   /* Step of the radius scale. Prefer radius/control, which points here and names the job. */
