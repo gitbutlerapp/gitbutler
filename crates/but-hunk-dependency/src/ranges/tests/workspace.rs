@@ -716,25 +716,67 @@ fn split_reorder_adjacent_to_scattered_deletions() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// A pure insertion of completely new content adjacent to a commit's modification range.
-/// In a real 3-way merge, git would cleanly insert these new lines — there's no content
-/// overlap or reorder, just fresh lines added right after the commit's changed region.
-///
-/// Adjacency is only extended for pure insertions when the commit range is also a
-/// deletion point (lines == 0), because that's when the merge algorithm loses its
-/// anchor. Normal modification spans have clear boundaries, so insertions outside
-/// them apply cleanly.
+/// gix reports a pure insertion with `old_start` pointing at the line *before which* the
+/// new lines go (git's `@@ -12,0 @@` arrives as `old_start: 13`). An insertion directly below
+/// a modified span therefore has `old_start == hr.start + hr.lines` and must lock to it,
+/// otherwise the change can be committed below that commit and conflict (#15973).
 #[test]
-fn pure_insertion_of_new_content_adjacent_to_modification_is_not_locked() -> anyhow::Result<()> {
+fn pure_insertion_directly_below_modification_is_locked() -> anyhow::Result<()> {
     let path = BString::from("file.txt");
-    let stack_id = HunkLockTarget::Stack(StackId::generate());
+    let (workspace_ranges, commit_b) = ranges_with_modification_at_10_to_12(&path)?;
+
+    // Worktree: insert two new lines right after commit B's last line (12).
+    let insertion_hunk = DiffHunk {
+        old_start: 13,
+        old_lines: 0,
+        new_start: 13,
+        new_lines: 2,
+        diff: "@@ -12,0 +13,2 @@\n+completely_new_line_1\n+completely_new_line_2\n".into(),
+    };
+    let locks = workspace_ranges
+        .intersection(&path, &insertion_hunk)
+        .unwrap_or_default();
+    let lock_commits: Vec<_> = locks.iter().map(|h| h.commit_id).collect();
+    assert!(
+        lock_commits.contains(&commit_b),
+        "insertion directly below B's range must lock to B, got: {lock_commits:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn pure_insertion_one_line_below_modification_is_not_locked() -> anyhow::Result<()> {
+    let path = BString::from("file.txt");
+    let (workspace_ranges, commit_b) = ranges_with_modification_at_10_to_12(&path)?;
+
+    // Insert after line 13, leaving untouched line 13 between B's range and the insertion.
+    let insertion_hunk = DiffHunk {
+        old_start: 14,
+        old_lines: 0,
+        new_start: 14,
+        new_lines: 2,
+        diff: "@@ -13,0 +14,2 @@\n+completely_new_line_1\n+completely_new_line_2\n".into(),
+    };
+    let locks = workspace_ranges
+        .intersection(&path, &insertion_hunk)
+        .unwrap_or_default();
+    let lock_commits: Vec<_> = locks.iter().map(|h| h.commit_id).collect();
+    assert!(
+        !lock_commits.contains(&commit_b),
+        "insertion separated from B by an unchanged line should not lock to B, got: {lock_commits:?}"
+    );
+    Ok(())
+}
+
+/// Commit A creates a 20-line file, commit B modifies lines 10-12.
+fn ranges_with_modification_at_10_to_12(
+    path: &BString,
+) -> anyhow::Result<(WorkspaceRanges, gix::ObjectId)> {
     let commit_a = id_from_hex_char('a');
     let commit_b = id_from_hex_char('b');
-
-    let workspace_ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
-        target: stack_id,
+    let ranges = WorkspaceRanges::try_from_stacks(vec![InputStack {
+        target: HunkLockTarget::Stack(StackId::generate()),
         commits_from_base_to_tip: vec![
-            // Commit A: creates a 20-line file.
             InputCommit {
                 commit_id: commit_a,
                 files: vec![InputFile {
@@ -748,7 +790,6 @@ fn pure_insertion_of_new_content_adjacent_to_modification_is_not_locked() -> any
                     }],
                 }],
             },
-            // Commit B: modifies lines 10-12 (e.g. a substitution).
             InputCommit {
                 commit_id: commit_b,
                 files: vec![InputFile {
@@ -764,31 +805,5 @@ fn pure_insertion_of_new_content_adjacent_to_modification_is_not_locked() -> any
             },
         ],
     }])?;
-
-    // Worktree: insert two completely new lines right after commit B's range (after line 13).
-    // old_start=13 means "insert after line 13" — one past commit B's last line (12).
-    // This is a pure insertion (old_lines=0) with content that has nothing to do with
-    // commit B's changes. A 3-way merge would apply this cleanly.
-    let insertion_hunk = DiffHunk {
-        old_start: 13,
-        old_lines: 0,
-        new_start: 14,
-        new_lines: 2,
-        diff: "@@ -13,0 +14,2 @@\n+completely_new_line_1\n+completely_new_line_2\n".into(),
-    };
-
-    let locks = workspace_ranges
-        .intersection(&path, &insertion_hunk)
-        .unwrap_or_default();
-    let lock_commits: Vec<_> = locks.iter().map(|h| h.commit_id).collect();
-
-    // Commit A (file creation) will match because the insertion is inside its range.
-    // But commit B should NOT match — it's a normal modification span (lines > 0),
-    // and the insertion is adjacent, not overlapping. A 3-way merge handles this cleanly.
-    assert!(
-        !lock_commits.contains(&commit_b),
-        "Pure insertion of new content adjacent to a modification span should NOT lock to B, got: {lock_commits:?}"
-    );
-
-    Ok(())
+    Ok((ranges, commit_b))
 }
