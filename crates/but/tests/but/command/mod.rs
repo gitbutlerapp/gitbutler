@@ -9,6 +9,8 @@ mod agent;
 mod alias;
 #[cfg(feature = "legacy")]
 mod amend;
+#[cfg(all(feature = "nightly", unix))]
+pub(crate) mod app;
 #[cfg(feature = "legacy")]
 mod branch;
 #[cfg(feature = "legacy")]

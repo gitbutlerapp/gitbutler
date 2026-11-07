@@ -687,6 +687,16 @@ async fn dispatch_subcommand(
             command::gui::open(&path, new_window)?;
             return Ok(DispatchOutcome::Return);
         }
+        #[cfg(feature = "nightly")]
+        Subcommands::_View => {
+            out.print_cli_output(command::app::view()?)?;
+            return Ok(DispatchOutcome::Return);
+        }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Wait { after, timeout } => {
+            out.print_cli_output(command::app::wait(after, timeout)?)?;
+            return Ok(DispatchOutcome::Return);
+        }
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell)?;
             return Ok(DispatchOutcome::Return);
@@ -981,20 +991,21 @@ async fn dispatch_subcommand(
             unreachable!("handled above")
         }
         #[cfg(feature = "nightly")]
+        Subcommands::_View | Subcommands::_Wait { .. } => unreachable!("handled above"),
+        #[cfg(feature = "nightly")]
         Subcommands::_Open {
             sources,
             program_id,
             gui,
             dry_run,
+            say,
         } => {
             use crate::utils::IntermediateChannel;
 
             let invoked_from = InvokedFrom::discover(&args.current_dir)?;
             if gui {
-                let link = command::open::gui::open(&ctx, sources, dry_run, &invoked_from)?;
-                if let Some(link) = link {
-                    out.print_cli_output(link)?;
-                }
+                let outcome = command::open::gui::open(&ctx, sources, dry_run, say, &invoked_from)?;
+                out.print_cli_output(outcome)?;
             } else {
                 let out = IntermediateChannel::new(out);
                 command::open::open(&ctx, out, sources, program_id, &invoked_from)?;

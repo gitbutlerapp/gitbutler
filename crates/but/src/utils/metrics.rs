@@ -113,6 +113,10 @@ impl Subcommands {
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "nightly")]
             Subcommands::_Open { .. } => Open,
+            #[cfg(feature = "nightly")]
+            Subcommands::_View => View,
+            #[cfg(feature = "nightly")]
+            Subcommands::_Wait { .. } => Wait,
             #[cfg(feature = "legacy")]
             Subcommands::Commit(..) => Commit,
             #[cfg(feature = "legacy")]

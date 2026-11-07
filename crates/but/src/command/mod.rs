@@ -4,6 +4,8 @@ pub mod legacy;
 
 pub mod agent;
 pub mod alias;
+#[cfg(feature = "nightly")]
+pub mod app;
 pub mod branch;
 pub mod comment;
 pub mod completions;

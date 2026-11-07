@@ -2,11 +2,17 @@
 //! `but://open` link that names it. IDs resolve as they do for the editor, and a hunk opens at the
 //! line the editor would. A place with no CLI ID, as a project's graph, is given as the link's own
 //! parameters, which the GUI reads.
+//!
+//! A GUI running is asked over its socket, which says where it went. With none, the link starts
+//! one, which then gets the step of a walkthrough `--say` has for it once it listens.
+
+use std::time::{Duration, Instant};
 
 use but_core::SingleHunk;
 use but_ctx::Context;
 use but_path::{
     AppChannel,
+    app::{self, Open, Opened, Place, method},
     link::{Changes, FileAt, OpenLink},
 };
 
@@ -22,15 +28,23 @@ use crate::{
     },
 };
 
-/// Open what one ID names in the GitButler GUI, or with `dry_run`, return its link.
+/// How long a GUI has to go where it's asked, its project loaded.
+const OPEN_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// How long a GUI the link started has to listen, for the step of a walkthrough to reach it.
+const START_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Open what one ID names in the GitButler GUI, with `say` beside it for the user to read, or
+/// with `dry_run`, return its link.
 pub(crate) fn open(
     ctx: &Context,
     sources: Vec<CliIdArg>,
     dry_run: bool,
+    say: Option<String>,
     invoked_from: &InvokedFrom,
-) -> CliResult<Option<GuiOutcome>> {
+) -> CliResult<GuiOutcome> {
     let link = resolve(ctx, sources, invoked_from)?;
-    Ok(run(link, dry_run)?)
+    Ok(run(link, dry_run, say)?)
 }
 
 fn resolve(
@@ -141,16 +155,43 @@ fn file_at(repo: &gix::Repository, hunk: &SingleHunk, whole: bool) -> anyhow::Re
     })
 }
 
-fn run(link: OpenLink, dry_run: bool) -> anyhow::Result<Option<GuiOutcome>> {
+fn run(link: OpenLink, dry_run: bool, say: Option<String>) -> anyhow::Result<GuiOutcome> {
     let channel = AppChannel::new();
     if dry_run {
-        return Ok(Some(GuiOutcome(channel.link_url(&link)?.into())));
+        return Ok(GuiOutcome::Link(channel.link_url(&link)?.into()));
+    }
+    let open = Open {
+        path: link.path.clone(),
+        new_window: link.new_window,
+        at: Place(link.at.clone()),
+        say,
+    };
+    if let Some(opened) = app::call(channel, method::OPEN, &open, Some(OPEN_TIMEOUT))? {
+        return Ok(GuiOutcome::Opened(opened));
     }
     channel.open(&link)?;
-    Ok(None)
+    if open.say.is_none() {
+        return Ok(GuiOutcome::Started);
+    }
+    // The link opens the place; the step needs the socket, once the GUI listens.
+    let started = Instant::now();
+    while started.elapsed() < START_TIMEOUT {
+        std::thread::sleep(Duration::from_millis(250));
+        if let Some(opened) = app::call(channel, method::OPEN, &open, Some(OPEN_TIMEOUT))? {
+            return Ok(GuiOutcome::Opened(opened));
+        }
+    }
+    Ok(GuiOutcome::Started)
 }
 
-pub(crate) struct GuiOutcome(String);
+pub(crate) enum GuiOutcome {
+    /// The link, as `--dry-run` prints it.
+    Link(String),
+    /// Where the GUI went, as it said once there.
+    Opened(Opened),
+    /// No GUI was running, so the link started one, which says nothing back.
+    Started,
+}
 
 impl CliOutputHuman for GuiOutcome {
     fn on_human(
@@ -159,7 +200,26 @@ impl CliOutputHuman for GuiOutcome {
         _agent: bool,
         _theme: &'static Theme,
     ) -> anyhow::Result<()> {
-        writeln!(out, "{}", self.0)?;
+        match self {
+            GuiOutcome::Link(link) => writeln!(out, "{link}")?,
+            GuiOutcome::Opened(Opened {
+                landed: true, view, ..
+            }) => writeln!(
+                out,
+                "GitButler shows {}",
+                crate::command::app::view_line(&view)
+            )?,
+            GuiOutcome::Opened(Opened {
+                landed: false,
+                warning,
+                view,
+            }) => {
+                let why = warning.as_deref().unwrap_or("it isn't there");
+                writeln!(out, "GitButler couldn't go there: {why}")?;
+                writeln!(out, "It shows {}", crate::command::app::view_line(&view))?;
+            }
+            GuiOutcome::Started => writeln!(out, "Started GitButler on it")?,
+        }
         Ok(())
     }
 }
@@ -167,10 +227,17 @@ impl CliOutputHuman for GuiOutcome {
 impl CliOutput for GuiOutcome {
     fn on_json(self) -> impl serde::Serialize {
         #[derive(serde::Serialize)]
-        struct Output {
-            link: String,
+        #[serde(untagged)]
+        enum Output {
+            Link { link: String },
+            Opened(Opened),
+            Started { started: bool },
         }
 
-        Output { link: self.0 }
+        match self {
+            GuiOutcome::Link(link) => Output::Link { link },
+            GuiOutcome::Opened(opened) => Output::Opened(opened),
+            GuiOutcome::Started => Output::Started { started: true },
+        }
     }
 }

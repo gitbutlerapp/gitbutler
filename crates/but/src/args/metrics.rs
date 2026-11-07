@@ -29,6 +29,8 @@ pub enum CommandName {
     Redo,
     Gui,
     Open,
+    View,
+    Wait,
     BaseFetch,
     BaseCheck,
     Pull,

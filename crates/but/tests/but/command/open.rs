@@ -1083,6 +1083,63 @@ Hint: run `but help` for all commands
 "#]]);
 }
 
+#[cfg(unix)]
+#[test]
+fn open_in_the_gui_asks_the_running_gui_and_says_where_it_went() {
+    use serde_json::json;
+
+    use crate::command::app::{App, shown};
+
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    let app = App::answering(2, |_, params| match params["at"]["to"].as_str() {
+        Some("branch") => json!({"landed": true, "view": shown()}),
+        _ => json!({
+            "landed": false,
+            "warning": "The link's worktree has nothing uncommitted now",
+            "view": shown(),
+        }),
+    });
+    app.but(&env, "_open br --gui --say 'Here the change starts'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+GitButler shows shop: to=branch branch=refs/heads/feature 'file=src/a b.rs' line=4 in /work/shop
+
+"#]]);
+    // The app says why it went elsewhere, as it told the user.
+    app.but(&env, "_open uv --gui")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+GitButler couldn't go there: The link's worktree has nothing uncommitted now
+It shows shop: to=branch branch=refs/heads/feature 'file=src/a b.rs' line=4 in /work/shop
+
+"#]]);
+    let asked = app.asked();
+    assert_eq!(
+        (
+            asked[0]["open"]["at"].clone(),
+            asked[0]["open"]["say"].clone()
+        ),
+        (
+            json!({"to": "branch", "branch": "refs/heads/a-branch-1"}),
+            json!("Here the change starts")
+        ),
+        "the app is asked to open the place the ID names, with the step to show beside it"
+    );
+    assert_eq!(
+        asked[1]["open"]["at"],
+        json!({"to": "uncommitted", "file": "file.txt"}),
+        "a file's place is the uncommitted changes at that file"
+    );
+    assert!(
+        asked[0]["open"]["path"]
+            .as_str()
+            .is_some_and(|path| std::path::Path::new(path).is_absolute()),
+        "the project goes by its absolute path"
+    );
+}
+
 #[test]
 fn open_in_the_gui_takes_a_links_own_parameters() {
     let env = setup_multi_hunk_uncommitted_changes("file.txt");

@@ -151,6 +151,8 @@ impl Sandbox {
 
     pub fn with_updated_env(&self, cmd: snapbox::cmd::Command) -> snapbox::cmd::Command {
         isolate_snapbox_cmd_with_additional_removals(cmd, but::AGENT_ENVIRONMENT_VARIABLES)
+            // Run in a GitButler terminal, tests would otherwise ask the app running there.
+            .env_remove(but_path::app::SOCKET_ENV)
             .env("E2E_TEST_APP_DATA_DIR", self.app_data_dir())
             .current_dir(self.projects_root())
     }

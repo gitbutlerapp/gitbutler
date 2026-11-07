@@ -727,6 +727,39 @@ pub enum Subcommands {
         /// With `--gui`, print the link that opens it without opening it.
         #[clap(long = "dry-run", requires = "gui")]
         dry_run: bool,
+        /// With `--gui`, show this beside it for the user to read, as a step of a walkthrough:
+        /// the GUI's Next and Done reach `but _wait`.
+        #[clap(
+            long,
+            value_name = "TEXT",
+            requires = "gui",
+            conflicts_with = "dry_run"
+        )]
+        say: Option<String>,
+    },
+
+    /// Say what the GitButler GUI shows: its project, and the place in it, as `but _open --gui`
+    /// takes a place.
+    #[cfg(feature = "nightly")]
+    #[clap(hide = true, name = "_view")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    _View,
+
+    /// Wait for the user of the GitButler GUI to tell agents something, and print it: a note
+    /// asking about what they look at, or Next or Done on a walkthrough's step.
+    ///
+    /// It waits for what's said next, or with `--after`, prints what was said since then at once.
+    /// Each run prints the number to wait after next, so nothing said in between is missed.
+    #[cfg(feature = "nightly")]
+    #[clap(hide = true, name = "_wait")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    _Wait {
+        /// Print what was said after event `AFTER`, the number a previous wait printed.
+        #[clap(long)]
+        after: Option<u64>,
+        /// Stop waiting after this many seconds, with nothing said.
+        #[clap(long, value_name = "SECONDS")]
+        timeout: Option<u64>,
     },
 
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
