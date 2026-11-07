@@ -208,7 +208,7 @@ pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
 /// Every icon: the design system's, compiled in from `packages/ui-react` so they're the ones
-/// Lite and but.dev draw, and a build fails if one goes; then this app's own, under
+/// but.dev draws, and a build fails if one goes; then this app's own, under
 /// `assets/icons`, for what ui-react draws in code rather than from a file, or doesn't have.
 macro_rules! icons {
     (
@@ -1589,7 +1589,7 @@ pub fn keys_text(text: &str) -> String {
         .collect()
 }
 
-/// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
+/// Keys as ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
 /// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
     keycaps(text, 16., 11., theme.text_1.opacity(0.6), theme)

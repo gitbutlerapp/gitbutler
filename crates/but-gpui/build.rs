@@ -1,5 +1,5 @@
 //! Compiles in GitButler's file-type icons from the shared UI package, so this app draws the
-//! same marks as Lite and but.dev: a `match` from each icon's name to its SVG. On Windows, also
+//! same marks as but.dev: a `match` from each icon's name to its SVG. On Windows, also
 //! gives the executable the desktop app's icon and a larger main-thread stack.
 #![expect(
     clippy::disallowed_methods,

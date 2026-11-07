@@ -297,7 +297,7 @@ impl SettingsView {
         .detach();
     }
 
-    /// The GitButler account, which General leads with, as Lite's does.
+    /// The GitButler account, which General leads with.
     pub(super) fn gitbutler_row(&self, window: &Window, cx: &Context<Self>) -> Row {
         let theme = Theme::get(cx);
         let account = &self.store.read(cx).account;

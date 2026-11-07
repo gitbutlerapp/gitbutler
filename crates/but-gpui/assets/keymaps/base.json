@@ -6,7 +6,7 @@
   {
     "bindings": {
       "secondary-q": "app::Quit",
-      // As a browser zooms, and Lite and the desktop app with it.
+      // As a browser zooms, and the desktop app with it.
       "secondary-=": "app::ZoomIn",
       "secondary-+": "app::ZoomIn",
       "secondary--": "app::ZoomOut",

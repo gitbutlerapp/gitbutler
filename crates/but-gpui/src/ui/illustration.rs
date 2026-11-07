@@ -1,4 +1,4 @@
-//! The design system's empty-state drawings, shared with Lite and but.dev and drawn as
+//! The design system's empty-state drawings, shared with but.dev and drawn as
 //! `@gitbutler/ui-react` draws them: each at the size it was drawn, never scaled, its outline
 //! in `border-1` and its faces in the theme's own grounds.
 

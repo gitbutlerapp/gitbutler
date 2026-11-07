@@ -1,4 +1,4 @@
-//! A pull request's conversation, under its description, as Lite's activity: its comments and
+//! A pull request's conversation, under its description: its comments and
 //! reviews, newest first, each review with the threads it started on the diff. It's there to
 //! read. Answering, reacting and resolving happen on the forge, where a note's time opens it.
 
@@ -147,7 +147,7 @@ impl Detail {
         Some(h_flex().flex_wrap().gap(dp(6.)).children(pills))
     }
 
-    /// A comment or review as Lite's card, or a thread, set in under the review that started it.
+    /// A comment or review as a card, or a thread, set in under the review that started it.
     fn remark(&self, remark: &Remark, theme: &Theme, cx: &Context<Self>) -> Div {
         let card = card(theme).p(dp(14.)).gap(dp(8.));
         match remark {
@@ -172,7 +172,7 @@ impl Detail {
         markdown::render(&note.url, &note.body, Some(select), theme)
     }
 
-    /// A thread as Lite's: a row naming where it hangs that folds it, then the lines it's on
+    /// A thread: a row naming where it hangs that folds it, then the lines it's on
     /// and what was said there. It shows open unless it's resolved.
     fn thread(&self, thread: &Thread, theme: &Theme, cx: &Context<Self>) -> Div {
         let flipped =

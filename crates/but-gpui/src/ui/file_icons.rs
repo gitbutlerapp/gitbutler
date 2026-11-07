@@ -1,4 +1,4 @@
-//! GitButler's file-type marks, shared with Lite and but.dev: which one a file gets, by the
+//! GitButler's file-type marks, shared with but.dev: which one a file gets, by the
 //! same map and rule as `@gitbutler/ui-react`.
 
 use std::cell::RefCell;

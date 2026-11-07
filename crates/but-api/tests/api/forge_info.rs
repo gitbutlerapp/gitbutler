@@ -89,7 +89,7 @@ fn list_reviews_reports_an_unrecognized_forge_as_a_typed_state() -> Result<()> {
         assert_eq!(
             err.to_string(),
             "No forge could be determined for this repository branch",
-            "the message the CLI and Lite print stays the same"
+            "the message the CLI prints stays the same"
         );
         assert_eq!(
             err.custom_context_or_error_chain().code.to_string(),

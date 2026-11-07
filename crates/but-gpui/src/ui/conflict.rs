@@ -1,4 +1,4 @@
-//! A conflict inside its file's card, as Lite and but.dev draw one: what to keep above it, the
+//! A conflict inside its file's card, as but.dev draws one: what to keep above it, the
 //! new base's lines and the commit's below that, and once something is picked, what's kept.
 
 use std::rc::Rc;

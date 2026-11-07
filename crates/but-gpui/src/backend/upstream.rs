@@ -1014,7 +1014,7 @@ fn integrate_remote(
         perm.read_permission(),
     )?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
-    // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
+    // their new ones, so they're left out. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
     // from its sha when it first rebases it; or with neither having one, as after plain Git,
     // the same subject by the same author. The remote's new commits were made on those versions, so they go
