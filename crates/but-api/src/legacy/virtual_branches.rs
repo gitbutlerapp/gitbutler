@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DiffSpec, RefMetadata,
+    DiffSpec,
     ref_metadata::{StackId, StackKind, UnresolvedLegacyTargetRefError, WorkspaceStack},
     sync::{RepoExclusive, RepoShared},
 };
@@ -43,8 +43,8 @@ pub fn delete_local_branch(
 ) -> Result<()> {
     let branch_refname = local_branch_refname(refname, &given_name)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.legacy_meta_mut(guard.write_permission())?;
-    let (mut repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let (mut repo, mut ws, mut db) =
+        ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
 
     if ws
         .metadata
@@ -61,7 +61,7 @@ pub fn delete_local_branch(
         branch_refname.as_ref(),
         &mut repo,
         &ws,
-        &mut meta,
+        &mut db,
         but_workspace::branch::remove_reference::Options {
             avoid_anonymous_stacks: false,
             keep_metadata: false,
@@ -69,13 +69,14 @@ pub fn delete_local_branch(
     )? {
         drop(repo);
         drop(ws);
+        drop(db);
         ctx.update_workspace_cache(new_ws);
     } else {
         but_workspace::branch::remove_reference::delete_local_branch(
             &mut repo,
             branch_refname.as_ref(),
         )?;
-        meta.remove(branch_refname.as_ref())?;
+        db.meta_mut()?.remove(branch_refname.as_ref())?;
         if let Some(metadata) = &mut ws.metadata {
             metadata.remove_segment(branch_refname.as_ref());
         }
@@ -164,19 +165,16 @@ pub fn update_stack_order_with_perm(
 ) -> Result<()> {
     ensure_open_workspace_mode(ctx, perm.read_permission())
         .context("Updating branch order requires open workspace mode")?;
-
-    let mut meta = ctx.legacy_meta_mut(perm)?;
-    let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (_repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace_ref = ws
         .ref_name()
         .context("Updating stack order requires a managed workspace")?;
-    let mut workspace_metadata = meta.workspace(workspace_ref)?;
+    let mut workspace_metadata = db.meta().workspace(workspace_ref)?;
     let changed = apply_stack_order_updates(&mut workspace_metadata, stacks)?;
 
     if changed {
         let updated_metadata = (*workspace_metadata).clone();
-        meta.set_workspace(&workspace_metadata)?;
-        meta.set_changed_to_necessitate_write();
+        db.meta_mut()?.set_workspace(&workspace_metadata)?;
         ws.metadata = Some(updated_metadata);
         sort_projected_stacks_like_metadata(&mut ws.stacks, &workspace_metadata.stacks);
     }
@@ -450,10 +448,9 @@ fn unapply_stack_v3_with_perm(
 
     commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
 
-    let mut meta = ctx.legacy_meta_mut(perm)?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let was_ad_hoc = matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     but_workspace::branch::unapply_stack(
         editor,
         branch_to_unapply.as_ref(),
@@ -466,14 +463,13 @@ fn unapply_stack_v3_with_perm(
     if was_ad_hoc {
         // Collapsing a managed workspace retains its metadata after deleting its ref.
         // Don't resurrect the last unapplied branch when switching back to that workspace.
-        let mut remembered = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        let mut remembered = db
+            .meta()
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
         if remembered.unapply_branch(branch_to_unapply.as_ref()) {
-            meta.set_workspace(&remembered)?;
+            db.meta_mut()?.set_workspace(&remembered)?;
         }
     }
-    // Keeping the workspace merge commit can make legacy reconciliation infer the
-    // removed stack as applied again, so persist the explicit workspace metadata.
-    meta.write_unreconciled()?;
     drop((repo, db));
     ctx.update_workspace_cache(ws);
     Ok(())
@@ -548,9 +544,8 @@ fn commit_assigned_diffspec(
     }
 
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, &mut db)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
@@ -644,11 +639,14 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
         }
     };
     let project_meta = ctx.project_meta()?;
-    let mut meta = ctx.legacy_meta()?;
-    meta.garbage_collect(&*ctx.repo.get()?, &project_meta)?;
+    but_meta::garbage_collect(
+        &*ctx.repo.get()?,
+        &project_meta,
+        &mut *ctx.db.get_cache_mut()?,
+    )?;
 
     // Fetch is our out-of-band pruning point for ad-hoc branch-order metadata: reads are
-    // best-effort and never prune (see `Context::meta`), so we reconcile the DB against the
+    // best-effort and never prune, so we reconcile the DB against the
     // current set of local refs here, alongside the legacy metadata garbage collection.
     crate::workspace::prune_missing_branch_stack_order(ctx)?;
 

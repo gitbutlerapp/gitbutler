@@ -1,83 +1,71 @@
-795 cases: 679 like `git checkout`, 5 like `git checkout -m`, 111 different
+795 cases: 679 like `git checkout`, 14 like `git checkout -m`, 102 different
 
-## GitButler checks out where `git checkout` refuses (63)
+## GitButler checks out where `git checkout` refuses (54)
 
 HEAD nothing, target file; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  git -m:    refuses
   GitButler: index: p file target; worktree: p file target
 
 HEAD nothing, target file; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  git -m:    refuses
   GitButler: index: p file target; worktree: p file target
 
 HEAD nothing, target executable; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours executable target, theirs file staged); worktree: p executable with conflict markers
+  git -m:    refuses
   GitButler: index: p executable target; worktree: p executable target
 
 HEAD nothing, target executable; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours executable target, theirs file staged); worktree: p executable with conflict markers
+  git -m:    refuses
   GitButler: index: p executable target; worktree: p executable target
 
 HEAD nothing, target symlink; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours symlink to target), p~local conflict (theirs file staged); worktree: p symlink to target, p~local file staged
+  git -m:    refuses
   GitButler: index: p symlink to target; worktree: p symlink to target
 
 HEAD nothing, target symlink; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours symlink to target), p~local conflict (theirs file staged); worktree: p symlink to target, p~local file staged
+  git -m:    refuses
   GitButler: index: p symlink to target; worktree: p symlink to target
 
 HEAD nothing, target submodule; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours submodule at target), p~local conflict (theirs file staged); worktree: p/, p~local file staged
+  git -m:    refuses
   GitButler: index: p submodule at target; worktree: p/
 
 HEAD nothing, target submodule; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours submodule at target), p~local conflict (theirs file staged); worktree: p/, p/y file worktree, p~local file staged
+  git -m:    refuses
   GitButler: index: p submodule at target; worktree: p/, p/y file worktree
-
-HEAD file, target nothing; index as in HEAD; worktree directory with an untracked file
-  before:    index: p file head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
-
-HEAD file, target nothing; index as in HEAD; worktree ignored directory
-  before:    index: p file head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
 
 HEAD file, target nothing; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: nothing; worktree: nothing
+  git -m:    refuses
   GitButler: index: p file staged; worktree: nothing
 
 HEAD file, target nothing; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base file head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD file, target nothing; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base file head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD file, target nothing; index staged removal; worktree directory with an untracked file
@@ -86,28 +74,22 @@ HEAD file, target nothing; index staged removal; worktree directory with an untr
   git -m:    refuses
   GitButler: index: nothing; worktree: p/, p/y file worktree
 
-HEAD file, target directory; index as in HEAD; worktree directory with an untracked file
-  before:    index: p file head; worktree: p/, p/y file worktree
+HEAD file, target directory; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
-
-HEAD file, target directory; index as in HEAD; worktree ignored directory
-  before:    index: p file head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+  git -m:    refuses
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
 
 HEAD file, target directory; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base file head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD file, target directory; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base file head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD file, target directory; index staged removal; worktree directory with an untracked file
@@ -116,34 +98,22 @@ HEAD file, target directory; index staged removal; worktree directory with an un
   git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
-HEAD executable, target nothing; index as in HEAD; worktree directory with an untracked file
-  before:    index: p executable head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
-
-HEAD executable, target nothing; index as in HEAD; worktree ignored directory
-  before:    index: p executable head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
-
 HEAD executable, target nothing; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: nothing; worktree: nothing
+  git -m:    refuses
   GitButler: index: p file staged; worktree: nothing
 
 HEAD executable, target nothing; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base executable head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD executable, target nothing; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base executable head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD executable, target nothing; index staged removal; worktree directory with an untracked file
@@ -152,28 +122,22 @@ HEAD executable, target nothing; index staged removal; worktree directory with a
   git -m:    refuses
   GitButler: index: nothing; worktree: p/, p/y file worktree
 
-HEAD executable, target directory; index as in HEAD; worktree directory with an untracked file
-  before:    index: p executable head; worktree: p/, p/y file worktree
+HEAD executable, target directory; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
-
-HEAD executable, target directory; index as in HEAD; worktree ignored directory
-  before:    index: p executable head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+  git -m:    refuses
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
 
 HEAD executable, target directory; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base executable head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD executable, target directory; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base executable head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD executable, target directory; index staged removal; worktree directory with an untracked file
@@ -182,34 +146,22 @@ HEAD executable, target directory; index staged removal; worktree directory with
   git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
-HEAD symlink, target nothing; index as in HEAD; worktree directory with an untracked file
-  before:    index: p symlink to head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
-
-HEAD symlink, target nothing; index as in HEAD; worktree ignored directory
-  before:    index: p symlink to head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p/, p/y file worktree
-
 HEAD symlink, target nothing; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: nothing; worktree: nothing
+  git -m:    refuses
   GitButler: index: p file staged; worktree: nothing
 
 HEAD symlink, target nothing; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base symlink to head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD symlink, target nothing; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base symlink to head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD symlink, target nothing; index staged removal; worktree directory with an untracked file
@@ -218,28 +170,22 @@ HEAD symlink, target nothing; index staged removal; worktree directory with an u
   git -m:    refuses
   GitButler: index: nothing; worktree: p/, p/y file worktree
 
-HEAD symlink, target directory; index as in HEAD; worktree directory with an untracked file
-  before:    index: p symlink to head; worktree: p/, p/y file worktree
+HEAD symlink, target directory; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
-
-HEAD symlink, target directory; index as in HEAD; worktree ignored directory
-  before:    index: p symlink to head; worktree: p/, p/y file worktree
-  git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
-  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
+  git -m:    refuses
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
 
 HEAD symlink, target directory; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base symlink to head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD symlink, target directory; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base symlink to head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD symlink, target directory; index staged removal; worktree directory with an untracked file
@@ -248,28 +194,22 @@ HEAD symlink, target directory; index staged removal; worktree directory with an
   git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
-HEAD directory, target nothing; index as in HEAD; worktree untracked file
-  before:    index: p/x file head, p/x2 file head2; worktree: p file worktree
-  git:       refuses
-  git -m:    index: nothing; worktree: nothing
-  GitButler: index: nothing; worktree: p file worktree
-
-HEAD directory, target nothing; index as in HEAD; worktree directory moved behind a symlink
-  before:    index: p/x file head, p/x2 file head2; worktree: elsewhere/, elsewhere/x file head, elsewhere/x2 file head2, p symlink to elsewhere
+HEAD directory, target nothing; index staged file; worktree clean
+  before:    index: p file staged; worktree: p file staged
   git:       refuses
   git -m:    refuses
-  GitButler: index: nothing; worktree: elsewhere/, elsewhere/x file head, elsewhere/x2 file head2, p symlink to elsewhere
+  GitButler: index: p file staged; worktree: p file staged
 
 HEAD directory, target nothing; index staged file; worktree edited
   before:    index: p file staged; worktree: p file edited
   git:       refuses
-  git -m:    index: p file edited; worktree: p file edited
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p file edited
 
 HEAD directory, target nothing; index staged file; worktree untracked file
   before:    index: p file staged; worktree: p file worktree
   git:       refuses
-  git -m:    index: p file worktree; worktree: p file worktree
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p file worktree
 
 HEAD directory, target nothing; index staged file; worktree untracked symlink
@@ -305,79 +245,85 @@ HEAD directory, target nothing; index staged removal; worktree symlink to a dire
 HEAD directory, target file; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  git -m:    refuses
   GitButler: index: p file target; worktree: p file target
 
 HEAD directory, target file; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours file target, theirs file staged); worktree: p file with conflict markers
+  git -m:    refuses
   GitButler: index: p file target; worktree: p file target
 
 HEAD directory, target executable; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours executable target, theirs file staged); worktree: p executable with conflict markers
+  git -m:    refuses
   GitButler: index: p executable target; worktree: p executable target
 
 HEAD directory, target executable; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours executable target, theirs file staged); worktree: p executable with conflict markers
+  git -m:    refuses
   GitButler: index: p executable target; worktree: p executable target
 
 HEAD directory, target symlink; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours symlink to target), p~local conflict (theirs file staged); worktree: p symlink to target, p~local file staged
+  git -m:    refuses
   GitButler: index: p symlink to target; worktree: p symlink to target
 
 HEAD directory, target symlink; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours symlink to target), p~local conflict (theirs file staged); worktree: p symlink to target, p~local file staged
+  git -m:    refuses
   GitButler: index: p symlink to target; worktree: p symlink to target
 
 HEAD directory, target submodule; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: p conflict (ours submodule at target), p~local conflict (theirs file staged); worktree: p/, p~local file staged
+  git -m:    refuses
   GitButler: index: p submodule at target; worktree: p/
 
 HEAD directory, target submodule; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (ours submodule at target), p~local conflict (theirs file staged); worktree: p/, p/y file worktree, p~local file staged
+  git -m:    refuses
   GitButler: index: p submodule at target; worktree: p/, p/y file worktree
 
 HEAD submodule, target nothing; index staged file; worktree deleted
   before:    index: p file staged; worktree: nothing
   git:       refuses
-  git -m:    index: nothing; worktree: nothing
+  git -m:    refuses
   GitButler: index: p file staged; worktree: nothing
 
 HEAD submodule, target nothing; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: nothing; worktree: p/, p/y file worktree
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
 
 HEAD submodule, target nothing; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p conflict (base submodule at head, theirs file staged); worktree: p file staged
+  git -m:    refuses
   GitButler: index: p file staged; worktree: p/, p/y file worktree
+
+HEAD submodule, target directory; index staged file; worktree deleted
+  before:    index: p file staged; worktree: nothing
+  git:       refuses
+  git -m:    refuses
+  GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2
 
 HEAD submodule, target directory; index staged file; worktree directory with an untracked file
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base submodule at head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p/y file worktree, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 HEAD submodule, target directory; index staged file; worktree ignored directory
   before:    index: p file staged; worktree: p/, p/y file worktree
   git:       refuses
-  git -m:    index: p/x file target, p/x2 file target2, p~local conflict (base submodule at head, theirs file staged); worktree: p/, p/x file target, p/x2 file target2, p/y file worktree, p~local file staged
+  git -m:    refuses
   GitButler: index: p/x file target, p/x2 file target2; worktree: p/, p/x file target, p/x2 file target2, p/y file worktree
 
 ## GitButler refuses where `git checkout` checks out (48)

@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::branch::remove_reference;
 use gix::refs::{Category, transaction::PreviousValue};
@@ -14,7 +13,7 @@ use crate::{
 
 #[test]
 fn deletion_result_distinguishes_missing_refs_from_configuration_cleanup() -> anyhow::Result<()> {
-    let (_tmp, _, mut repo, _, _, _) = named_writable_scenario_with_args_and_description_and_graph(
+    let (_tmp, _, mut repo, _, _) = named_writable_scenario_with_args_and_description_and_graph(
         "single-branch-no-ws-commit-no-target",
         ["A"],
         |_| {},
@@ -46,7 +45,7 @@ fn deletion_result_distinguishes_missing_refs_from_configuration_cleanup() -> an
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, mut repo, mut meta, desc, mut db) =
+    let (_tmp, mut repo, desc, mut db) =
         crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B"],
@@ -66,10 +65,8 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
-        &repo, &meta, &mut db,
-    )?
-    .into_workspace()?;
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(&repo, &mut db)?
+        .into_workspace()?;
     // the workspace is empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -85,7 +82,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
                 &mut repo,
                 &ws,
-                &mut meta,
+                &mut db,
                 remove_reference::Options {
                     keep_metadata: true,
                     ..Default::default()
@@ -99,7 +96,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
                 Category::LocalBranch.to_full_name(name)?.as_ref(),
                 &mut repo,
                 &ws,
-                &mut meta,
+                &mut db,
                 remove_reference::Options {
                     keep_metadata: false,
                     ..Default::default()
@@ -117,7 +114,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &db.meta())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -131,13 +130,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 #[test]
 fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, mut repo, mut meta, desc, _db) =
-        named_writable_scenario_with_description_and_graph(
-            "single-branch-3-commits-no-ws-commit-more-branches",
-            |meta| {
-                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
-            },
-        )?;
+    let (_tmp, graph, mut repo, desc, mut db) = named_writable_scenario_with_description_and_graph(
+        "single-branch-3-commits-no-ws-commit-more-branches",
+        |meta| {
+            add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
+        },
+    )?;
     snapbox::assert_data_eq!(
         desc,
         snapbox::str![[r#"
@@ -176,7 +174,7 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
             r.as_ref(),
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             remove_reference::Options {
                 // This is what allows us to delete everything.
                 avoid_anonymous_stacks: false,
@@ -186,7 +184,9 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &db.meta())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -204,19 +204,18 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, mut repo, mut meta, desc, _db) =
-        named_writable_scenario_with_description_and_graph(
-            "single-branch-4-commits-more-branches",
-            |meta| {
-                add_stack_with_segments(
-                    meta,
-                    0,
-                    "A",
-                    StackState::InWorkspace,
-                    &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
-                );
-            },
-        )?;
+    let (_tmp, graph, mut repo, desc, mut db) = named_writable_scenario_with_description_and_graph(
+        "single-branch-4-commits-more-branches",
+        |meta| {
+            add_stack_with_segments(
+                meta,
+                0,
+                "A",
+                StackState::InWorkspace,
+                &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
+            );
+        },
+    )?;
 
     snapbox::assert_data_eq!(
         desc,
@@ -262,7 +261,7 @@ Two commits in main, target setup, ws commit, many more usable branches
             r.as_ref(),
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             remove_reference::Options {
                 // This causes "A1-1" to become the top of the stack.
                 avoid_anonymous_stacks: true,
@@ -291,7 +290,7 @@ Two commits in main, target setup, ws commit, many more usable branches
             r.as_ref(),
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             remove_reference::Options {
                 avoid_anonymous_stacks: true,
                 ..Default::default()
@@ -316,7 +315,7 @@ Two commits in main, target setup, ws commit, many more usable branches
         r("refs/heads/A1-3"),
         &mut repo,
         &ws,
-        &mut meta,
+        &mut db,
         remove_reference::Options {
             avoid_anonymous_stacks: true,
             ..Default::default()
@@ -334,13 +333,13 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, mut repo, mut meta, desc, mut db) =
+    let (_tmp, mut repo, desc, mut db) =
         crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_args_and_description(
             "single-branch-no-ws-commit-no-target",
             ["A", "B", "C", "D", "E"],
         )?;
-    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
-    add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E"]);
+    add_stack_with_segments(&mut db, 0, "A", StackState::InWorkspace, &["B", "C"]);
+    add_stack_with_segments(&mut db, 1, "D", StackState::InWorkspace, &["E"]);
     snapbox::assert_data_eq!(
         desc,
         snapbox::str![[r#"
@@ -356,10 +355,8 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 "#]]
     );
 
-    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(
-        &repo, &meta, &mut db,
-    )?
-    .into_workspace()?;
+    let ws = crate::ref_info::with_workspace_commit::utils::graph_with_cutoff_only(&repo, &mut db)?
+        .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -384,7 +381,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         ref_name,
         &mut repo,
         &ws,
-        &mut meta,
+        &mut db,
         remove_reference::Options {
             keep_metadata: true,
             ..Default::default()
@@ -420,7 +417,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &db.meta())?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -440,7 +439,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         ref_name,
         &mut repo,
         &ws,
-        &mut meta,
+        &mut db,
         remove_reference::Options::default(),
     )?
     .expect("we deleted something");
@@ -471,7 +470,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             ref_name,
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             remove_reference::Options::default(),
         )?
         .is_none()
@@ -488,7 +487,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
             r.as_ref(),
             &mut repo,
             &ws,
-            &mut meta,
+            &mut db,
             remove_reference::Options {
                 // This has no effect
                 avoid_anonymous_stacks: true,
@@ -506,7 +505,9 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = ws
+        .graph
+        .into_workspace_of_redone_traversal(&repo, &db.meta())?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
@@ -517,9 +518,12 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     );
 
     assert_eq!(
-        meta.iter().count(),
-        0,
-        "nothing is left in the metadata either"
+        db.meta()
+            .iter()
+            .map(|entry| entry.map(|(name, _)| name))
+            .collect::<anyhow::Result<Vec<_>>>()?,
+        [gix::refs::FullName::try_from(but_core::WORKSPACE_REF_NAME)?],
+        "only the explicit empty workspace remains in metadata"
     );
 
     Ok(())

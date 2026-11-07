@@ -1,6 +1,5 @@
 pub(super) mod function {
 
-    use but_core::RefMetadata;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
 
     use crate::graph_manipulation::DisconnectParameters;
@@ -32,11 +31,11 @@ pub(super) mod function {
     ///     Without a workspace commit there's no order to keep, and it's ignored.
     ///
     /// Returns the in memory rebase that can then used for materialisation.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch<'ws, 'meta>(
+        editor: Editor<'ws, 'meta>,
         subject_branch_name: &FullNameRef,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let order = order.into();
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
@@ -173,12 +172,12 @@ pub(super) mod function {
     /// what to cut (e.g. letting the clients decide what to cut).
     ///
     /// Returns the in memory rebase for potential materialisation.
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch<'ws, 'meta>(
+        editor: Editor<'ws, 'meta>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
 
@@ -199,7 +198,6 @@ pub(super) mod function {
                 successful_rebase,
                 source,
                 anchor,
-                subject_branch_name,
                 relative_to,
                 side,
             ),
@@ -220,14 +218,13 @@ pub(super) mod function {
     /// Move a branch in a single-branch (ad-hoc) workspace, where `HEAD` is on a plain local branch.
     ///
     /// `HEAD` follows the top of the reordered stack, so the whole stack stays projected.
-    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
-        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_single_branch_mode<'ws, 'meta>(
+        successful_rebase: SuccessfulRebase<'ws, 'meta>,
         source: SegmentInLane<'_>,
         anchor: Anchor<'_>,
-        subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let ((Lane::Stack(source_stack), subject_segment), Lane::Stack(destination_stack)) =
             (source, anchor.lane)
         else {
@@ -241,13 +238,6 @@ pub(super) mod function {
         if !subject_segment.commits.is_empty() && !same_stack(source_stack, destination_stack) {
             bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
-        let (_repo, meta) = successful_rebase.repo_and_meta_mut();
-        if !meta.can_persist_branch_stack_order() {
-            bail!(
-                "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
-            );
-        }
-
         let mut editor = successful_rebase.into_editor();
         let target_selector = relative_to
             .to_selector(&editor)
@@ -280,14 +270,14 @@ pub(super) mod function {
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
-    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
-        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_managed_workspace<'ws, 'meta>(
+        successful_rebase: SuccessfulRebase<'ws, 'meta>,
         workspace: &but_graph::Workspace,
         source: SegmentInLane<'_>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta>> {
         let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };

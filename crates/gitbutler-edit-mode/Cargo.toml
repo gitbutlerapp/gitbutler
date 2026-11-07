@@ -35,8 +35,8 @@ but-schemars = { workspace = true, optional = true }
 git-meta-lib.workspace = true
 
 [dev-dependencies]
+but-db.workspace = true
 but-testsupport.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 snapbox.workspace = true
 
 tempfile.workspace = true

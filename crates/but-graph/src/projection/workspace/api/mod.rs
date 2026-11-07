@@ -1,7 +1,7 @@
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{
-    RefMetadata, extract_remote_name_and_short_name,
+    extract_remote_name_and_short_name,
     ref_metadata::{ProjectedWorkspaceStack, StackId},
 };
 use petgraph::Direction;
@@ -40,11 +40,10 @@ impl Workspace {
     pub fn refresh_from_head(
         &mut self,
         repo: &gix::Repository,
-        meta: &impl RefMetadata,
         project_meta: but_core::ref_metadata::ProjectMeta,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, db, self.graph.options.clone())?;
+        let graph = Graph::from_head(repo, project_meta, db, self.graph.options.clone())?;
         *self = graph.into_workspace()?;
         Ok(())
     }

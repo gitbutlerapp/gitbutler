@@ -6,7 +6,6 @@ use anyhow::{Context, Result, bail};
 use bstr::ByteSlice;
 
 use but_core::{
-    RefMetadata,
     branch::{canned_refname, find_unique_refname_excluding},
     commit::SignCommit,
     ref_metadata::ProjectMeta,
@@ -56,11 +55,11 @@ pub struct ReviewIntegrationHint {
 }
 
 /// The outcome of integrating upstream
-pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct IntegrateUpstreamOutcome<'ws, 'meta> {
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
     /// The rebased outcome.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
 }
 
 #[derive(Clone, Debug)]
@@ -158,17 +157,15 @@ struct Stack {
 ///   `historically_integrated` with `None` steps.
 ///
 /// This variant uses no review hints; see [`integrate_upstream_with_hints()`] for those.
-pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_upstream<'ws, 'meta>(
     workspace: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
     project_meta: ProjectMeta,
     repo: &gix::Repository,
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
-) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+) -> Result<IntegrateUpstreamOutcome<'ws, 'meta>> {
     integrate_upstream_with_hints(
         workspace,
-        meta,
         project_meta,
         repo,
         db,
@@ -187,9 +184,8 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
 /// commits of its own, moves to the target too, which no update in `updates` can do as it's
 /// in no stack. Without it, the branch stays where it is, as when only linked worktrees update.
 #[allow(clippy::too_many_arguments)]
-pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_upstream_with_hints<'ws, 'meta>(
     workspace: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
     project_meta: ProjectMeta,
     repo: &gix::Repository,
     db: &'meta mut but_db::DbHandle,
@@ -197,7 +193,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     review_hints: &[ReviewIntegrationHint],
     sign_commit: SignCommit,
     follow_checked_out_target: bool,
-) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+) -> Result<IntegrateUpstreamOutcome<'ws, 'meta>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
     {
@@ -263,7 +259,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     // is reachable from HEAD and so is mutable by default.
     let mut editor = Editor::create_with_opts(
         workspace,
-        meta,
         repo,
         db,
         &GraphEditorOptions {
@@ -655,12 +650,12 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn collect_stacks<'ws, 'meta, M: RefMetadata>(
+fn collect_stacks<'ws, 'meta>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
     direct_checkout_head: Selector,
     worktree_heads: Vec<Selector>,
-    editor: &Editor<'ws, 'meta, M>,
+    editor: &Editor<'ws, 'meta>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
     target_sha: gix::ObjectId,
@@ -977,8 +972,8 @@ fn review_hints_match_pushed_branch(
 /// target, and preserves an empty branch if it sits on top of another local
 /// branch that is not itself target-integrated.
 #[allow(clippy::too_many_arguments)]
-fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn empty_local_reference_remote_tip_integrated<'ws, 'meta>(
+    editor: &Editor<'ws, 'meta>,
     selector: Selector,
     ref_name: &gix::refs::FullNameRef,
     reference_nodes: &HashMap<Selector, gix::refs::FullName>,
@@ -1085,8 +1080,8 @@ fn should_delete_integrated_local_branch(
 /// that commit and all stack-local ancestors below it have landed upstream.
 /// Commits above the hinted head are intentionally left local, which lets a
 /// branch keep extra post-merge commits while dropping the already-merged prefix.
-fn apply_review_integration_hints<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn apply_review_integration_hints(
+    editor: &Editor<'_, '_>,
     stack: &mut Stack,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<()> {
@@ -1139,8 +1134,8 @@ fn apply_review_integration_hints<M: RefMetadata>(
 /// already covers lower matched ancestors. Keeping only the highest heads avoids
 /// repeated ancestor walks while preserving independent matched branches in a
 /// multi-head stack.
-fn highest_review_heads<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn highest_review_heads(
+    editor: &Editor<'_, '_>,
     stack: &Stack,
     matching_heads: &[Selector],
 ) -> Result<Vec<Selector>> {
@@ -1182,8 +1177,8 @@ fn highest_review_heads<M: RefMetadata>(
 /// expected parentages after mutations in the editor.
 ///
 /// Prefer using the selectors if possible.
-fn commit_ids<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn commit_ids<'ws, 'meta>(
+    editor: &Editor<'ws, 'meta>,
     selectors: impl IntoIterator<Item = Selector>,
 ) -> Result<Vec<gix::ObjectId>> {
     selectors
@@ -1200,8 +1195,8 @@ fn commit_ids<'ws, 'meta, M: RefMetadata>(
         .collect()
 }
 
-fn selector_commit_id<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn selector_commit_id(
+    editor: &Editor<'_, '_>,
     selector: Selector,
 ) -> Result<Option<gix::ObjectId>> {
     Ok(match editor.lookup_step(selector)? {
@@ -1231,8 +1226,8 @@ fn selector_commit_id<M: RefMetadata>(
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
 /// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
 /// preserve the existing graph and avoid introducing a cycle.
-fn replace_checkout_ref_with_fallback<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn replace_checkout_ref_with_fallback(
+    editor: &mut Editor<'_, '_>,
     repo: &gix::Repository,
     head_ref_name: &gix::refs::FullNameRef,
     target_tip_selector: Selector,
@@ -1289,10 +1284,7 @@ fn replace_checkout_ref_with_fallback<M: RefMetadata>(
     Ok((head_ref_selector, fallback_ref_name))
 }
 
-fn preserve_pick_parents<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<()> {
+fn preserve_pick_parents(editor: &mut Editor<'_, '_>, selector: Selector) -> Result<()> {
     editor.update_pick(selector, |editor, mut pick| {
         let commit = editor.find_commit(pick.id)?;
         // TODO: Teach but-rebase to treat immutable reference parents as object

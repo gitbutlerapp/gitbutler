@@ -10,10 +10,9 @@ use crate::support::graph_dag;
 
 #[test]
 fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -67,10 +66,9 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
 
 #[test]
 fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -118,7 +116,7 @@ fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::R
 
 #[test]
 fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -143,7 +141,6 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
 
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -188,7 +185,7 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
 
 #[test]
 fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = repo.rev_parse_single("merged")?.detach();
     let a_id = repo.rev_parse_single("A")?.detach();
     let c_id = repo.rev_parse_single("C")?.detach();
@@ -201,7 +198,6 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
             Tip::reachable(a_id, None),
             Tip::reachable(c_id, None),
         ],
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -249,7 +245,7 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
 #[test]
 fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -> anyhow::Result<()>
 {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = repo.rev_parse_single("merged")?.detach();
     let a_id = repo.rev_parse_single("A")?.detach();
     let main_id = repo.rev_parse_single("main")?.detach();
@@ -261,7 +257,6 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
             Tip::reachable(a_id, None),
             Tip::integrated(main_id, None),
         ],
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -312,10 +307,9 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
 
 #[test]
 fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let mut graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -345,10 +339,9 @@ fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<(
 
 #[test]
 fn merge_base_apis_can_resolve_segments_by_first_commit_id() -> anyhow::Result<()> {
-    let (repo, meta, mut db) = read_only_in_memory_scenario("four-diamond")?;
+    let (repo, mut db) = read_only_in_memory_scenario("four-diamond")?;
     let graph = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),

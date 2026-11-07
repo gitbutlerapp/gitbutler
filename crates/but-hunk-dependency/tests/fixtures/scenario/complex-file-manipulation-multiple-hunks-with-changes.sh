@@ -3,7 +3,7 @@ set -eu -o pipefail
 
 source "${BASH_SOURCE[0]%/*}/shared.sh"
 
-init-repo-with-files-and-remote
+init-repo-with-files-and-target
 
 make-complex-file-manipulation-multiple-hunks-on-segment-no-workspace
   echo "added at the top

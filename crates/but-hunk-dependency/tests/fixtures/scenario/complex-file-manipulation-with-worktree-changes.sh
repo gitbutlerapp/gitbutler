@@ -3,7 +3,7 @@ set -eu -o pipefail
 
 source "${BASH_SOURCE[0]%/*}/shared.sh"
 
-init-repo-with-files-and-remote
+init-repo-with-files-and-target
 
 make-complex-file-manipulation-in-two-segments-no-workspace
   echo "d

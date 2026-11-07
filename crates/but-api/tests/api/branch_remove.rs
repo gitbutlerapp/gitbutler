@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_testsupport::{CommandExt, git_at_dir};
 use gitbutler_oplog::{OplogExt, RestoreKind};
 
@@ -166,7 +165,9 @@ fn branch_remove_deletes_middle_empty_branch_and_keeps_head() -> anyhow::Result<
     assert!(repo.try_find_reference(middle.as_ref())?.is_none());
     // The order relinks the tip straight onto the base.
     let order = ctx
-        .meta()?
+        .db
+        .get_cache()?
+        .meta()
         .branch_stack_order(tip.as_ref())?
         .expect("branch order still persisted");
     assert_eq!(
@@ -202,7 +203,9 @@ fn branch_remove_checked_out_empty_tip_moves_head_to_ref_below() -> anyhow::Resu
     assert_workspace_ref(&result.workspace, "refs/heads/middle");
 
     let order = ctx
-        .meta()?
+        .db
+        .get_cache()?
+        .meta()
         .branch_stack_order(middle.as_ref())?
         .expect("branch order still persisted");
     assert_eq!(

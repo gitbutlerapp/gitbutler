@@ -288,11 +288,9 @@ impl App {
                 };
 
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
 
                 let outcome = branch::new::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     NewOperation::NewStackedBranch(NewStackedBranchOperation {
                         name: None,
@@ -311,11 +309,9 @@ impl App {
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UncommittedFile { .. } => {
                 let mut guard = ctx.exclusive_worktree_access();
-                let mut meta = ctx.meta()?;
 
                 let outcome = branch::new::run(
                     ctx,
-                    &mut meta,
                     guard.write_permission(),
                     NewOperation::NewUnstackedBranch(NewUnstackedBranchOperation {
                         name: None,

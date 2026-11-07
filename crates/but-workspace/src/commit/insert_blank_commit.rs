@@ -1,18 +1,17 @@
 //! Insertion of a blank commit
 
 use anyhow::Result;
-use but_core::RefMetadata;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide},
 };
 
 /// Inserts a blank commit relative to either a reference or a commit
-pub fn insert_blank_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn insert_blank_commit<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     side: InsertSide,
     relative_to: impl ToSelector,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+) -> Result<(SuccessfulRebase<'ws, 'meta>, Selector)> {
     let commit = editor.empty_commit()?;
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
 

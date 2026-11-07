@@ -62,9 +62,8 @@ pub fn absorb_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let mut editor = Editor::create(&mut ws, &repo, &mut db)?;
 
     let mut total_rejected = 0;
     let mut consumed = Vec::new();

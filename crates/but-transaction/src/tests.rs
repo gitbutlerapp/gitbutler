@@ -1,4 +1,4 @@
-use but_core::{DiffSpec, DryRun, RefMetadata};
+use but_core::{DiffSpec, DryRun};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
@@ -59,15 +59,10 @@ fn squashing_three_commits() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
 
-    let _must_return_workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _must_return_workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             let new_two = tx.squash_commits(
                 Vec::from([three]),
                 two,
@@ -81,9 +76,8 @@ fn squashing_three_commits() {
             tx.reword_commit(new_one.id, "squashed".into())?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -112,22 +106,16 @@ fn rollback() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
 
-    let _must_return_unit: () = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _must_return_unit: () =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.squash_commits([three], two, MessageCombinationStrategy::KeepBoth)?;
             tx.squash_commits([two], one, MessageCombinationStrategy::KeepBoth)?;
 
             Ok(tx.rollback(()))
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -156,16 +144,11 @@ fn create_reference_without_creating_commits() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let refname = FullName::try_from("refs/heads/created-without-commits").unwrap();
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
@@ -173,9 +156,8 @@ fn create_reference_without_creating_commits() {
             )?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(
         Some(three),
@@ -196,12 +178,11 @@ fn name_segment_attaches_head_to_a_commit_rewritten_earlier_in_the_transaction()
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let refname = FullName::try_from("refs/heads/named").unwrap();
 
     let _workspace: WorkspaceState = with_transaction(
         &mut ctx,
-        &mut meta,
         SnapshotDetails::new(OperationKind::CreateBranch),
         DryRun::No,
         |mut tx| {
@@ -241,11 +222,10 @@ fn create_reference_at_commit_then_commit_and_checkout() {
         let mut ctx = Context::from_repo_for_testing(repo)
             .map(Context::with_memory_app_cache)
             .unwrap();
-        let mut meta = ctx.meta().unwrap();
+
         let new_branch = FullName::try_from("refs/heads/independent").unwrap();
         let outcome = with_transaction(
             &mut ctx,
-            &mut meta,
             SnapshotDetails::new(OperationKind::CreateBranch),
             dry_run,
             |mut tx| {
@@ -311,8 +291,10 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 "the new branch must start at the requested base, not the old HEAD"
             );
             assert!(
-                ctx.meta()
+                ctx.db
+                    .get_cache()
                     .unwrap()
+                    .meta()
                     .branch_stack_order(new_branch.as_ref())
                     .unwrap()
                     .is_none(),
@@ -347,11 +329,10 @@ fn create_reference_at_commit_failure_rolls_back_without_overwriting_existing_br
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let new_branch = FullName::try_from("refs/heads/independent").unwrap();
     let result = with_transaction(
         &mut ctx,
-        &mut meta,
         SnapshotDetails::new(OperationKind::CreateBranch),
         DryRun::No,
         |mut tx| {
@@ -390,23 +371,18 @@ fn create_reference_and_checkout_are_undoable_together() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let new_branch = FullName::try_from("refs/heads/checkout-in-transaction").unwrap();
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(
         ctx.repo
@@ -451,13 +427,12 @@ fn undo_deletes_a_reference_the_snapshot_names() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let new_branch = FullName::try_from("refs/heads/named-in-snapshot").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
     let _workspace: WorkspaceState = with_transaction_with_perm(
         &mut ctx,
-        &mut meta,
         guard.write_permission(),
         SnapshotDetails::new(OperationKind::CreateBranch),
         &[new_branch.as_ref()],
@@ -501,22 +476,16 @@ fn checkout_is_not_applied_when_transaction_rolls_back() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let new_branch = FullName::try_from("refs/heads/rolled-back-checkout").unwrap();
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(new_branch.as_ref(), None, None)?;
-            tx.checkout(new_branch.as_ref())?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.create_reference(new_branch.as_ref(), None, None)?;
+        tx.checkout(new_branch.as_ref())?;
 
-            Ok(tx.rollback("rolled back"))
-        },
-    )
+        Ok(tx.rollback("rolled back"))
+    })
     .unwrap();
 
     assert_eq!(outcome, "rolled back");
@@ -548,23 +517,18 @@ fn checkout_dry_run_only_previews_the_new_head() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let new_branch = FullName::try_from("refs/heads/dry-run-checkout").unwrap();
 
-    let _preview: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::Yes,
-        |mut tx| {
+    let _preview: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::Yes, |mut tx| {
             tx.create_reference(new_branch.as_ref(), None, None)?;
             tx.checkout(new_branch.as_ref())?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(
         ctx.repo
@@ -593,18 +557,14 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let main = FullName::try_from("refs/heads/main").unwrap();
     let new_branch = FullName::try_from("refs/heads/new-branch").unwrap();
     let main_target = ref_target(&env, main.as_ref()).unwrap();
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.create_reference(
                 new_branch.as_ref(),
                 Anchor::at_reference(main.as_ref(), Position::Above),
@@ -612,9 +572,8 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
             )?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(
         Some(main_target),
@@ -622,7 +581,12 @@ fn create_reference_records_branch_stack_order_in_single_branch_mode() {
         "single-branch transaction should persist the created reference"
     );
     assert_eq!(
-        meta.branch_stack_order(new_branch.as_ref()).unwrap(),
+        ctx.db
+            .get_cache()
+            .unwrap()
+            .meta()
+            .branch_stack_order(new_branch.as_ref())
+            .unwrap(),
         Some(vec![new_branch]),
         "single-branch transaction should persist the branch order, without the target branch"
     );
@@ -638,26 +602,20 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
+
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let main = FullName::try_from("refs/heads/main").unwrap();
     let new_branch = FullName::try_from("refs/heads/rolled-back").unwrap();
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(
-                new_branch.as_ref(),
-                Anchor::at_reference(main.as_ref(), Position::Above),
-                None,
-            )?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.create_reference(
+            new_branch.as_ref(),
+            Anchor::at_reference(main.as_ref(), Position::Above),
+            None,
+        )?;
 
-            Ok(tx.rollback("rolled back"))
-        },
-    )
+        Ok(tx.rollback("rolled back"))
+    })
     .unwrap();
 
     assert_eq!(outcome, "rolled back");
@@ -667,7 +625,12 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
         "rolled-back single-branch transaction should remove the created reference"
     );
     assert_eq!(
-        meta.branch_stack_order(main.as_ref()).unwrap(),
+        ctx.db
+            .get_cache()
+            .unwrap()
+            .meta()
+            .branch_stack_order(main.as_ref())
+            .unwrap(),
         None,
         "rolled-back single-branch transaction should not persist branch order"
     );
@@ -686,7 +649,6 @@ fn create_reference_relative_to_various_anchors() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let branch = FullName::try_from("refs/heads/branch").unwrap();
     let at_commit_above = FullName::try_from("refs/heads/at-commit-above").unwrap();
@@ -695,12 +657,8 @@ fn create_reference_relative_to_various_anchors() {
     let at_segment_below = FullName::try_from("refs/heads/at-segment-below").unwrap();
     let independent = FullName::try_from("refs/heads/independent").unwrap();
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             for (refname, anchor) in [
                 (
                     at_commit_above.as_ref(),
@@ -724,9 +682,8 @@ fn create_reference_relative_to_various_anchors() {
             }
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(Some(three), ref_target(&env, at_commit_above.as_ref()));
     assert_eq!(Some(two), ref_target(&env, at_commit_below.as_ref()));
@@ -752,16 +709,11 @@ fn create_reference_then_remove_it_in_same_transaction() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
     let refname = FullName::try_from("refs/heads/create-then-remove").unwrap();
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.create_reference(
                 refname.as_ref(),
                 Anchor::at_id(three, Position::Above),
@@ -770,9 +722,8 @@ fn create_reference_then_remove_it_in_same_transaction() {
             tx.remove_reference(refname.as_ref())?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     assert_eq!(
         None,
@@ -794,28 +745,21 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let branch = FullName::try_from("refs/heads/branch").unwrap();
     let refname = FullName::try_from("refs/heads/new-lower-branch").unwrap();
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(
-                refname.as_ref(),
-                Anchor::at_segment(branch.as_ref(), Position::Below),
-                None,
-            )?;
-            let new_commit =
-                tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.create_reference(
+            refname.as_ref(),
+            Anchor::at_segment(branch.as_ref(), Position::Below),
+            None,
+        )?;
+        let new_commit =
+            tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
 
-            Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
-        },
-    )
+        Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
+    })
     .unwrap();
 
     let DynamicOutcome::Commit((new_commit, _workspace)) = outcome else {
@@ -864,22 +808,15 @@ fn cherry_pick_then_reword_copied_commit() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CherryPick);
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            let copied =
-                tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above, false)?;
-            let reworded = tx.reword_commit(copied[0].id, "copied commit".into())?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        let copied =
+            tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above, false)?;
+        let reworded = tx.reword_commit(copied[0].id, "copied commit".into())?;
 
-            Ok(DynamicOutcome::<_, ()>::Commit(reworded))
-        },
-    )
+        Ok(DynamicOutcome::<_, ()>::Commit(reworded))
+    })
     .unwrap();
 
     let DynamicOutcome::Commit((reworded, _workspace)) = outcome else {
@@ -916,21 +853,14 @@ fn move_commits_then_commit_relative_to_moved_commit() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.move_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
-            let new_commit = tx.insert_blank_commit(RelativeTo::Commit(one), InsertSide::Above)?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.move_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
+        let new_commit = tx.insert_blank_commit(RelativeTo::Commit(one), InsertSide::Above)?;
 
-            Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
-        },
-    )
+        Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
+    })
     .unwrap();
 
     let DynamicOutcome::Commit((new_commit, _workspace)) = outcome else {
@@ -972,21 +902,15 @@ fn move_commits_reorders_multiple_subjects() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
 
-    let _workspace: WorkspaceState = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
+    let _workspace: WorkspaceState =
+        with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
             tx.move_commits([one, two], RelativeTo::Commit(three), InsertSide::Above)?;
 
             Ok(())
-        },
-    )
-    .unwrap();
+        })
+        .unwrap();
 
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -1014,27 +938,20 @@ fn create_reference_then_commit_relative_to_it() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let refname = FullName::try_from("refs/heads/new-branch").unwrap();
 
-    let new_commit = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(
-                refname.as_ref(),
-                Anchor::at_id(three, Position::Above),
-                None,
-            )?;
-            let new_commit =
-                tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+    let new_commit = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.create_reference(
+            refname.as_ref(),
+            Anchor::at_id(three, Position::Above),
+            None,
+        )?;
+        let new_commit =
+            tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
 
-            Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
-        },
-    )
+        Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
+    })
     .unwrap();
 
     let DynamicOutcome::Commit((new_commit, _workspace)) = new_commit else {
@@ -1060,25 +977,18 @@ fn create_reference_is_removed_on_rollback() {
         .map(Context::with_memory_app_cache)
         .unwrap();
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let refname = FullName::try_from("refs/heads/rolled-back").unwrap();
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.create_reference(
-                refname.as_ref(),
-                Anchor::at_id(three, Position::Above),
-                None,
-            )?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.create_reference(
+            refname.as_ref(),
+            Anchor::at_id(three, Position::Above),
+            None,
+        )?;
 
-            Ok(DynamicOutcome::<(), _>::Rollback("nope"))
-        },
-    )
+        Ok(DynamicOutcome::<(), _>::Rollback("nope"))
+    })
     .unwrap();
 
     assert!(matches!(outcome, DynamicOutcome::Rollback("nope")));
@@ -1104,25 +1014,18 @@ fn dynamic_rollback() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.squash_commits([three], two, MessageCombinationStrategy::KeepBoth)?;
-            tx.squash_commits([two], one, MessageCombinationStrategy::KeepBoth)?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.squash_commits([three], two, MessageCombinationStrategy::KeepBoth)?;
+        tx.squash_commits([two], one, MessageCombinationStrategy::KeepBoth)?;
 
-            if 2 == 4 {
-                Ok(DynamicOutcome::Commit(1))
-            } else {
-                Ok(DynamicOutcome::Rollback(2))
-            }
-        },
-    )
+        if 2 == 4 {
+            Ok(DynamicOutcome::Commit(1))
+        } else {
+            Ok(DynamicOutcome::Rollback(2))
+        }
+    })
     .unwrap();
 
     assert!(matches!(outcome, DynamicOutcome::Rollback(2)));
@@ -1168,22 +1071,15 @@ fn discarding_three_commits() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
 
-    with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.discard_commits([one])?;
-            tx.discard_commits([two])?;
-            tx.discard_commits([three])?;
+    with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.discard_commits([one])?;
+        tx.discard_commits([two])?;
+        tx.discard_commits([three])?;
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
     .unwrap();
 
     snapbox::assert_data_eq!(
@@ -1212,21 +1108,13 @@ fn discard_changes_from_commit() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::DiscardChanges);
 
-    let outcome = with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            let new_two =
-                tx.discard_changes_from_commit(two, vec![diff_spec_for_file("file-two")])?;
+    let outcome = with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        let new_two = tx.discard_changes_from_commit(two, vec![diff_spec_for_file("file-two")])?;
 
-            Ok(DynamicOutcome::<_, ()>::Commit(new_two))
-        },
-    )
+        Ok(DynamicOutcome::<_, ()>::Commit(new_two))
+    })
     .unwrap();
 
     let DynamicOutcome::Commit((new_two, _workspace)) = outcome else {
@@ -1264,14 +1152,12 @@ fn leaving_the_workspace_removes_its_metadata() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
 
     let a = FullName::try_from("refs/heads/A").unwrap();
     let [a_tip] = find_commits(&env, ["A"]);
 
     with_transaction(
         &mut ctx,
-        &mut meta,
         SnapshotDetails::new(OperationKind::SquashCommit),
         DryRun::No,
         |mut tx| {
@@ -1281,7 +1167,6 @@ fn leaving_the_workspace_removes_its_metadata() {
         },
     )
     .unwrap();
-    drop(meta);
 
     assert_eq!(
         env.invoke_git("symbolic-ref --short HEAD"),
@@ -1289,11 +1174,11 @@ fn leaving_the_workspace_removes_its_metadata() {
         "the workspace was left for the remaining stack"
     );
     let workspace_ref = FullName::try_from(but_core::WORKSPACE_REF_NAME).unwrap();
-    let workspace = ctx
-        .meta()
-        .unwrap()
-        .workspace(workspace_ref.as_ref())
+    let guard = ctx.shared_worktree_access();
+    let (_repo, _ws, db) = ctx
+        .workspace_and_db_with_perm(guard.read_permission())
         .unwrap();
+    let workspace = db.meta().workspace(workspace_ref.as_ref()).unwrap();
     assert!(
         workspace.stacks.is_empty(),
         "workspace metadata goes with the reference"
@@ -1313,7 +1198,6 @@ fn removing_the_last_two_stacks_together_leaves_the_workspace() {
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
-    let mut meta = ctx.meta().unwrap();
 
     let a = FullName::try_from("refs/heads/A").unwrap();
     let b = FullName::try_from("refs/heads/B").unwrap();
@@ -1321,7 +1205,6 @@ fn removing_the_last_two_stacks_together_leaves_the_workspace() {
 
     with_transaction(
         &mut ctx,
-        &mut meta,
         SnapshotDetails::new(OperationKind::SquashCommit),
         DryRun::No,
         |mut tx| {
@@ -1370,24 +1253,17 @@ fn remove_references() {
 
     assert_num_snapshots(&ctx, 0);
 
-    let mut meta = ctx.meta().unwrap();
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
 
     let refname = FullName::try_from("refs/heads/branch").unwrap();
 
-    with_transaction(
-        &mut ctx,
-        &mut meta,
-        snapshot_details,
-        DryRun::No,
-        |mut tx| {
-            tx.remove_reference(refname.as_ref())?;
+    with_transaction(&mut ctx, snapshot_details, DryRun::No, |mut tx| {
+        tx.remove_reference(refname.as_ref())?;
 
-            tx.discard_commits([one, two, three])?;
+        tx.discard_commits([one, two, three])?;
 
-            Ok(())
-        },
-    )
+        Ok(())
+    })
     .unwrap();
 
     snapbox::assert_data_eq!(

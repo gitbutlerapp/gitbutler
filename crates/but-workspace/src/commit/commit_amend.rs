@@ -1,7 +1,7 @@
 //! An action to amend an existing commit with selected changes.
 
 use anyhow::{Result, bail};
-use but_core::{DiffSpec, RefMetadata};
+use but_core::DiffSpec;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
 };
@@ -12,11 +12,11 @@ use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
-pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitAmendOutcome<'ws, 'meta> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'ws, 'meta>,
     /// Selector pointing to the amended commit, if the amend was
     /// successful.
     ///
@@ -51,13 +51,13 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn commit_amend<'ws, 'meta>(
+    mut editor: Editor<'ws, 'meta>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
-) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+) -> Result<CommitAmendOutcome<'ws, 'meta>> {
     let AmendInEditorOutcome {
         commit_selector,
         consumed,
@@ -86,8 +86,8 @@ pub struct AmendInEditorOutcome {
 
 /// Like [commit_amend()], but amends `commit` in `editor` without rebasing, and leaves it to the
 /// caller to pass [AmendInEditorOutcome::consumed] to [super::cancel_consumed_changes].
-pub fn amend_in_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub fn amend_in_editor(
+    editor: &mut Editor<'_, '_>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,

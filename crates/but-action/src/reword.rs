@@ -1,6 +1,6 @@
 use anyhow::bail;
 use bstr::ByteSlice as _;
-use but_core::RefMetadata;
+
 use but_rebase::graph_rebase::{Editor, LookupStep as _};
 
 #[derive(Debug, Clone)]
@@ -13,7 +13,7 @@ pub struct RewordInput {
 /// Generate and apply an AI commit-message reword for `input.commit_id`.
 ///
 /// `llm` produces the replacement message from the event summaries and the commit diff.
-/// `input` carries the commit and prompt context. `repo`, `ws`, and `meta` are supplied by the
+/// `input` carries the commit and prompt context. `repo`, `ws`, and `db` are supplied by the
 /// caller so this action does not acquire repository guards or rebuild workspace state itself.
 /// `context_lines` controls the amount of diff context shown to the message generator.
 pub fn commit(
@@ -21,7 +21,6 @@ pub fn commit(
     input: RewordInput,
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
-    meta: &mut impl RefMetadata,
     db: &mut but_db::DbHandle,
     context_lines: u32,
 ) -> anyhow::Result<(gix::ObjectId, String)> {
@@ -42,7 +41,7 @@ pub fn commit(
         bail!("commit message cannot be empty");
     }
 
-    let editor = Editor::create(ws, meta, repo, db)?;
+    let editor = Editor::create(ws, repo, db)?;
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, input.commit_id, message.as_bytes().as_bstr())?;
     let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;

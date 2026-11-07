@@ -1,13 +1,12 @@
 use anyhow::{Context as _, Result, anyhow};
 use bstr::BString;
 use but_core::{
-    RefMetadata, RepositoryExt,
+    RepositoryExt,
     ref_metadata::{
         ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
     },
 };
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
@@ -42,10 +41,10 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
 }
 
 fn seed_metadata(repo: &gix::Repository) -> Result<()> {
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
-    )?;
-    let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    let mut db = but_db::DbHandle::new_in_directory(repo.gitbutler_storage_path()?)?;
+    let mut ws = db
+        .meta()
+        .workspace("refs/heads/gitbutler/workspace".try_into()?)?;
     ws.stacks.clear();
     ws.stacks.push(WorkspaceStack {
         id: StackId::from_number_for_testing(1),
@@ -55,9 +54,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
-    meta.set_workspace(&ws)?;
-    meta.set_changed_to_necessitate_write();
-    meta.write_unreconciled()?;
+    db.meta_mut()?.set_workspace(&ws)?;
     ProjectMeta {
         target_ref: Some(but_core::ref_metadata::LocalRefName::new(
             "refs/heads/main".try_into()?,

@@ -298,6 +298,7 @@ fn open(size: Size) -> io::Result<(OwnedFd, OwnedFd)> {
     Ok((master, slave))
 }
 
+#[cfg(not(test))]
 fn shell() -> OsString {
     std::env::var_os("SHELL")
         .filter(|shell| !shell.is_empty())
@@ -309,6 +310,12 @@ fn shell() -> OsString {
             }
             .into()
         })
+}
+
+// The PTY tests send Bourne scripts, independently of the user's login shell.
+#[cfg(test)]
+fn shell() -> OsString {
+    gix_testtools::bash_program().as_os_str().to_owned()
 }
 
 fn shell_command(

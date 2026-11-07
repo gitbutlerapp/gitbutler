@@ -1,4 +1,3 @@
-use but_core::RefMetadata;
 use but_graph::Graph;
 use but_testsupport::visualize_commit_graph_all;
 
@@ -8,19 +7,13 @@ use crate::support::graph_dag;
 
 #[test]
 fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
-    add_workspace(&mut meta);
+    add_workspace(&mut db);
 
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
 
     assert!(ws.target_ref.is_some(), "fixture has a projected target");
     assert_eq!(
@@ -34,17 +27,11 @@ fn with_local_target_uses_fetch_remote() -> anyhow::Result<()> {
 
 #[test]
 fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
-    add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut db);
+    let mut ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
     ws.graph.project_meta.push_remote = Some("fork".into());
     assert_eq!(
         ws.push_remote_name(&repo)?,
@@ -56,17 +43,11 @@ fn explicit_push_remote_overrides_target_fetch_remote() -> anyhow::Result<()> {
 
 #[test]
 fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
-    add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut db);
+    let mut ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
     ws.graph.project_meta.target_ref = None;
     ws.target_ref
         .as_mut()
@@ -82,17 +63,11 @@ fn unconfigured_target_uses_projected_upstream_remote() -> anyhow::Result<()> {
 
 #[test]
 fn configured_target_without_remote_does_not_use_projected_upstream() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
-    add_workspace(&mut meta);
-    let mut ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut db);
+    let mut ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
     ws.graph.project_meta.target_ref = Some(but_core::ref_metadata::LocalRefName::new(
         "refs/heads/untracked".try_into()?,
     )?);
@@ -110,13 +85,12 @@ fn configured_target_without_remote_does_not_use_projected_upstream() -> anyhow:
 
 #[test]
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
-    add_workspace(&mut meta);
+    add_workspace(&mut db);
 
     let ws = Graph::from_head(
         &repo,
-        &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         &mut db,
         standard_options(),
@@ -136,8 +110,7 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 #[test]
 fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_tip()
 -> anyhow::Result<()> {
-    let (repo, mut meta, mut db) =
-        read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
+    let (repo, mut db) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -147,24 +120,18 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
 "#]]
     );
 
-    add_workspace(&mut meta);
+    add_workspace(&mut db);
     // This is the state left by unapplying the last workspace stack: the branch
     // is no longer applied, but its branch metadata still disambiguates the
     // same commit that `main` and `origin/main` also point to.
     let branch_name = "refs/heads/A";
-    let mut branch = meta.branch(branch_name.try_into()?)?;
+    let mut branch = db.meta().branch(branch_name.try_into()?)?;
     branch.update_times(false);
-    meta.set_branch(&branch)?;
+    db.meta_mut()?.set_branch(&branch)?;
 
-    let ws = Graph::from_head(
-        &repo,
-        &*meta,
-        target_meta(&repo),
-        &mut db,
-        standard_options(),
-    )?
-    .validated()?
-    .into_workspace()?;
+    let ws = Graph::from_head(&repo, target_meta(&repo), &mut db, standard_options())?
+        .validated()?
+        .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit
     snapbox::assert_data_eq!(
         graph_dag(&ws.graph),

@@ -3,7 +3,6 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
-use but_core::RefMetadata;
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{Editor, Selector, Step, StepGraph, StepGraphIndex, ToSelector};
@@ -97,7 +96,7 @@ pub(crate) fn all_until_optional_limit(
     Traversal::new(graph, start, excluded)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl Editor<'_, '_> {
     /// Every selector reachable from `start` following parent edges.
     pub fn reachable_from(
         &self,

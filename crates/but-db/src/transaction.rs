@@ -7,6 +7,7 @@ impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
         Transaction {
             inner: Some(trans),
             reset_to_blocking_on_drop: false,
+            metadata_changed: Default::default(),
         }
     }
 }
@@ -216,12 +217,15 @@ impl Transaction<'_> {
 
     /// Consume the transaction and commit it, without recovery.
     pub fn commit(mut self) -> Result<(), rusqlite::Error> {
+        let mirror = if self.metadata_changed.get() {
+            crate::legacy::prepare_mirror(self.inner())?
+        } else {
+            None
+        };
         let res = self.reset_connection_to_blocking_if_needed();
-        self.inner
-            .take()
-            .expect("BUG: always set")
-            .commit()
-            .and(res)
+        self.inner.take().expect("BUG: always set").commit()?;
+        crate::legacy::write_prepared_mirror(mirror)?;
+        res
     }
 
     /// Roll all changes so far back, making this instance unusable.
