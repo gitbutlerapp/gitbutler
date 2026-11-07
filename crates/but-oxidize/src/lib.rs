@@ -8,8 +8,22 @@ use gix::bstr::ByteSlice;
 /// Open the repository at `git_dir` with `git2` so that it finds every tree `gix` refers to.
 ///
 /// `gix` never stores the empty tree, and `libgit2` only knows the SHA-1 one without it being stored.
+/// A repository another user owns fails with [`but_error::Code::RepoOwnership`], as only the user
+/// can mark it safe.
 pub fn open_git2_repo(git_dir: &Path) -> anyhow::Result<git2::Repository> {
-    let repo = git2::Repository::open(git_dir)?;
+    let repo = git2::Repository::open(git_dir).map_err(|err| match err.code() {
+        git2::ErrorCode::Owner => {
+            // `safe.directory` names the worktree, a linked one too, which `gix` still finds.
+            let repo = gix::open(git_dir).ok();
+            let path = (repo.as_ref()).and_then(|repo| repo.workdir()).unwrap_or(git_dir);
+            anyhow::anyhow!(
+                "The git directory is considered unsafe as it's not owned by the current user. Use `git config --global --add safe.directory '{}'` to allow it",
+                path.display()
+            )
+            .context(but_error::Code::RepoOwnership)
+        }
+        _ => err.into(),
+    })?;
     if repo.object_format() != git2::ObjectFormat::Sha1 {
         store_empty_tree(&repo)?;
     }

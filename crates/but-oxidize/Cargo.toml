@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 anyhow.workspace = true
+but-error.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["merge"] }
 
