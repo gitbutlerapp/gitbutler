@@ -372,13 +372,16 @@ impl Store {
         .detach();
     }
 
-    /// Whether what was last read of `project` may stand in: nothing's been read of it this
-    /// run, and this machine is in the mesh, or not known yet not to be.
+    pub(super) fn mesh_connected_or_unread(&self) -> bool {
+        match self.mesh.state {
+            MeshState::Unknown | MeshState::Connected(_) => true,
+            MeshState::SignedOut | MeshState::Unavailable(_) => false,
+        }
+    }
+
+    /// Whether what was last read of `project` may stand in until this run reads it.
     fn mesh_may_show(&self, project: &ProjectId) -> bool {
-        matches!(
-            self.mesh.state,
-            MeshState::Unknown | MeshState::Connected(_)
-        ) && !self.mesh.checkouts.contains_key(project)
+        self.mesh_connected_or_unread() && !self.mesh.checkouts.contains_key(project)
     }
 
     /// `project`'s checkouts on other machines, as the mesh last said.

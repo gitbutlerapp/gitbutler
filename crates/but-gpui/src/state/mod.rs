@@ -984,8 +984,10 @@ impl Store {
             Selection::Stack(_, bottom) => workspace
                 .lane(bottom.as_ref())
                 .is_some_and(|lane| lane.branches.len() > 1),
-            // The mesh's reads keep it current.
-            Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
+            // The mesh's reads keep it current, while connected or not read yet.
+            Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => {
+                self.mesh_connected_or_unread()
+            }
             Selection::Section(_, Section::Upstream(ref_name)) => {
                 !workspace.upstream(ref_name).is_empty()
             }
