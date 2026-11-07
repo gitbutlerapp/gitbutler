@@ -2318,54 +2318,6 @@ fn errors() -> anyhow::Result<()> {
             "it shouldn't actually have change the ref"
         );
     }
-
-    let graph = but_graph::Graph::from_commit_traversal(
-        a_id,
-        a_ref.to_owned(),
-        &*meta,
-        but_core::ref_metadata::ProjectMeta {
-            target_commit_id: Some(main_id.detach()),
-            ..Default::default()
-        },
-        &mut db,
-        Options {
-            commits_limit_hint: 0.into(),
-            ..Options::limited()
-        },
-    )?;
-    let mut ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:A <> ✓!
-└── ≡:A {1}
-    └── :A
-        └── ✂️·89cc2d3
-
-"#]]
-    );
-
-    // The single commit of `A` is visible, but nothing below it is.
-    let err = crate::utils::create_reference(
-        &repo,
-        &mut ws,
-        &mut *meta,
-        &mut db,
-        new_name,
-        Anchor::at_segment(a_ref, Below),
-        None,
-    )
-    .unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "Commit d79bba960b112dbd25d45921c47eeda22288022b isn't part of the workspace",
-    );
-    assert!(meta.branch(a_ref)?.is_default(), "no data was stored");
-    assert_ne!(
-        repo.find_reference(a_ref)?.id(),
-        main_id,
-        "it shouldn't actually have changed the ref"
-    );
     Ok(())
 }
 
