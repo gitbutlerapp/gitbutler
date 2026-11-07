@@ -984,8 +984,8 @@ impl Store {
             Selection::Stack(_, bottom) => workspace
                 .lane(bottom.as_ref())
                 .is_some_and(|lane| lane.branches.len() > 1),
-            // The mesh's reads keep it current.
-            Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
+            // The mesh's reads keep it current, while this machine may be in it.
+            Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => self.may_be_in_mesh(),
             Selection::Section(_, Section::Upstream(ref_name)) => {
                 !workspace.upstream(ref_name).is_empty()
             }
