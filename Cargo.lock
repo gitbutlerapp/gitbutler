@@ -1945,6 +1945,9 @@ dependencies = [
  "anyhow",
  "dirs",
  "open",
+ "serde",
+ "serde_json",
+ "tempfile",
  "url",
 ]
 

@@ -21,6 +21,7 @@ use std::{env, path::PathBuf};
 
 use anyhow::Context;
 
+pub mod app;
 pub mod link;
 
 /// The directory to store application-wide data in, like logs, **one per channel**.
