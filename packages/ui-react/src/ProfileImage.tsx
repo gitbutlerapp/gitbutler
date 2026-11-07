@@ -1,6 +1,5 @@
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
-import { PersonGlitch } from "./Avatar.tsx";
 import { usePicture } from "./usePicture.ts";
 import { useRef, type FC } from "react";
 import styles from "./ProfileImage.module.css";
@@ -10,8 +9,8 @@ import styles from "./ProfileImage.module.css";
  * file, and with a picture set, hovering offers a remove button in its corner. It holds no
  * state and uploads nothing; the host gets the chosen file and decides what to do with it.
  *
- * Without a picture it shows the account's Gravatar photo, else the account's glitch, the
- * one `Avatar` draws, which also shows while a picture loads. On the glitch alone the camera
+ * Without a picture it shows the account's Gravatar photo, else the account's colour, the
+ * one `Avatar` draws, which also shows while a picture loads. On the colour alone the camera
  * always shows; over either, a dark wash comes on hover, the camera on it.
  * @import import { ProfileImage } from "@gitbutler/ui-react/ProfileImage.tsx";
  */
@@ -44,7 +43,6 @@ export const ProfileImage: FC<{
 				aria-label="Change profile picture"
 				onClick={() => input.current?.click()}
 			>
-				<PersonGlitch seed={seed} className={styles.glitch} />
 				{url !== null ? (
 					<>
 						<img src={url} alt="" className={styles.image} onError={onError} />

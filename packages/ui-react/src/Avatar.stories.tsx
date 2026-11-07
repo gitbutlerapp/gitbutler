@@ -18,7 +18,7 @@ const meta = stories({
 
 export const Default = meta.story({});
 
-/** No picture: the person's glitch, in a colour picked from the login, the same wherever they appear. */
+/** No picture: the person's initial on a colour picked from the login, the same wherever they appear. */
 export const NoPicture = meta.story({
 	args: { src: null },
 	render: (args) => (
@@ -63,5 +63,5 @@ export const Sizes = meta.story({
 	),
 });
 
-/** A picture that fails to load: the glitch takes its place, not a broken image. */
+/** A picture that fails to load: the initial takes its place, not a broken image. */
 export const Broken = meta.story({ args: { src: "https://example.invalid/missing.png" } });
