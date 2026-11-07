@@ -65,9 +65,9 @@ pub struct Theme {
     /// The letter for an added, modified, deleted and renamed file: design-core's
     /// change-status colours.
     pub change_status: [Hsla; 4],
-    /// The colours a person without a picture can be, as but.dev draws them: a ground and the
-    /// pattern on it.
-    pub person: [[Hsla; 2]; 5],
+    /// The colours a person without a picture can be, as but.dev draws them, under their
+    /// initial in `text_1`.
+    pub person: [Hsla; 5],
     pub ui_font: SharedString,
     pub mono_font: SharedString,
     /// What code in diffs shows in: `mono_font` unless another was picked.
@@ -374,15 +374,15 @@ impl Theme {
                 pick(0xe28576, 0xac3421),
                 pick(0xb287de, 0x8943d0),
             ],
-            // Design-core's pop, purple, safe, warn and danger: the 80 step under the 70.
+            // Design-core's pop, purple, safe, warn and danger, at the 70 step.
             person: [
-                [(0xd0f2f2, 0x115151), (0x9ee7e7, 0x177070)],
-                [(0xe7dbf3, 0x3e1964), (0xcfb5e9, 0x57238b)],
-                [(0xd4f1e5, 0x15543a), (0xa6e5cb, 0x1d744e)],
-                [(0xfae9d0, 0x724403), (0xf8d29e, 0x9d5d04)],
-                [(0xf4dad6, 0x621d13), (0xebb4ab, 0x87291a)],
+                (0x9ee7e7, 0x177070),
+                (0xcfb5e9, 0x57238b),
+                (0xa6e5cb, 0x1d744e),
+                (0xf8d29e, 0x9d5d04),
+                (0xebb4ab, 0x87291a),
             ]
-            .map(|steps| steps.map(|(light, dark_value)| pick(light, dark_value))),
+            .map(|(light, dark_value)| pick(light, dark_value)),
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
@@ -515,8 +515,7 @@ impl Theme {
             diff_removed_emph: color(removed).opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: color(text_3),
             change_status: [safe, blue, danger, purple].map(color),
-            person: [6, 5, 2, 3, 1]
-                .map(|index| [mix(bg, ansi(index), 0.25), mix(bg, ansi(index), 0.55)].map(color)),
+            person: [6, 5, 2, 3, 1].map(|index| color(mix(bg, ansi(index), 0.55))),
             syntax: [
                 text_3,
                 text(ansi(2), 4.5),
