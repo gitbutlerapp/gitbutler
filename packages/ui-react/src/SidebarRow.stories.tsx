@@ -20,7 +20,7 @@ import {
 } from "./SidebarRow.tsx";
 
 const core = (node: string) =>
-	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=${node}`;
+	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
 
 const meta = stories({
 	title: "Sidebar/SidebarRow",

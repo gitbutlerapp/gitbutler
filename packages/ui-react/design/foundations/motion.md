@@ -42,5 +42,5 @@ and blurs to `4px`; the arriving one does the reverse. It is a transition,
 not a keyframe, so it reverses cleanly mid-swap, for result and hover swaps
 alike.
 
-**The rules live in two places.** The token descriptions in ⚛️ Core carry the
+**The rules live in two places.** The token descriptions in 🍑 But UI carry the
 same tiers and pairings; change one and change the other.

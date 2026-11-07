@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
-/** The order of the sidebar's headings: the design notes, then ⚛️ Core's component pages. */
+/** The order of the sidebar's headings: the design notes, then 🍑 But UI's component pages. */
 const groups = [
 	"Design",
 	"Getting started",

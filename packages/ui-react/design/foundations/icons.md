@@ -1,6 +1,6 @@
 # Icons
 
-**Source.** Icons come from the ⚛️ Core Figma library. Don't draw new ones, and
+**Source.** Icons come from the 🍑 But UI Figma library. Don't draw new ones, and
 don't borrow from 💎 Core or the shared Svelte UI package, a different set for
 the Svelte desktop app.
 

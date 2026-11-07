@@ -6,7 +6,7 @@ import { Segment, SegmentedControl } from "./SegmentedControl.tsx";
 const figma = (nodeId: string) => ({
 	design: {
 		type: "figma" as const,
-		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=${nodeId}`,
+		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${nodeId}`,
 	},
 });
 

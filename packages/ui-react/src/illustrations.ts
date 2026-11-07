@@ -17,7 +17,7 @@ import waving from "./illustrations/waving.svg?raw";
  * and each maps to a token so one asset works in both themes:
  *
  * - strokes and solid shapes are `currentColor`, so the container sets them —
- *   `--border-1`, matching the ⚛️ Core library.
+ *   `--border-1`, matching the 🍑 But UI library.
  * - enclosed areas are `--bg-1`, the app's paper, so a shape occludes whatever
  *   it overlaps instead of staying white in the dark.
  * - shaded faces are `--bg-2`, the ground these illustrations sit on.
@@ -31,7 +31,7 @@ import waving from "./illustrations/waving.svg?raw";
  * for text. `terminal` has no shaded face at all: its screen is solid
  * `currentColor` with the prompt cut out of it in `--bg-1`.
  *
- * ⚛️ Core's Illustrations section is the source of truth: each colour here is
+ * 🍑 But UI's Illustrations section is the source of truth: each colour here is
  * the token Figma binds there, and a change is made in Figma first. Each asset
  * keeps the width and height Figma gave it and renders at that size, never
  * scaled.

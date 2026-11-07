@@ -16,7 +16,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2039-2321",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2039-2321",
 		},
 	},
 	args: {
@@ -39,7 +39,7 @@ export const Default = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6895",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2787-6895",
 		},
 	},
 });
@@ -49,7 +49,7 @@ export const WithValue = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2787-6896",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2787-6896",
 		},
 	},
 	args: { defaultValue: "terminal" },

@@ -24,7 +24,7 @@
 	opacity: 0.7;
 }
 
-/* The working robot's loop, after the robot's motion in ⚛️ Core: a second of its face, then its
+/* The working robot's loop, after the robot's motion in 🍑 But UI: a second of its face, then its
    eyes turn into two bars that wave out of step while the smile draws in to its middle, and it all
    settles back. A bar keeps centred on the screen as it grows, so it scales from its top and moves
    down; the smile is a path of length 1, drawn in with its dashes. */

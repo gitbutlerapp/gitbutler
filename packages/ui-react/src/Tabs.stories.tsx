@@ -11,7 +11,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2374-4526",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2374-4526",
 		},
 	},
 	decorators: [
@@ -63,7 +63,7 @@ export const PullRequest = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3091-977",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3091-977",
 		},
 	},
 	render: () => (

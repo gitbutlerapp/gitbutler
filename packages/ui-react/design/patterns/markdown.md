@@ -1,7 +1,7 @@
 # Markdown
 
 How rendered markdown — a pull request description, a comment — looks in any
-app. `Markdown` draws it; these are its rules, and ⚛️ Core's Markdown section
+app. `Markdown` draws it; these are its rules, and 🍑 But UI's Markdown section
 draws the same.
 
 **The rhythm is 12, 16, 4.** 12px between text blocks; 16px around anything

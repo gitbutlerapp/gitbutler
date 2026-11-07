@@ -3,7 +3,7 @@ import type { UserEvent } from "@testing-library/user-event";
 import type { ComponentType, FC, ReactNode } from "react";
 import { createElement } from "react";
 
-/** A story's link to its drawing in ⚛️ Core. */
+/** A story's link to its drawing in 🍑 But UI. */
 export type Design = { type: string; url: string };
 
 export type Parameters = {

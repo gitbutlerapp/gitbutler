@@ -16,7 +16,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2341-2564",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2341-2564",
 		},
 		width: 340,
 	},
@@ -150,7 +150,7 @@ export const Tree = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2344-2502",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2344-2502",
 		},
 	},
 	render: function Render() {
@@ -283,7 +283,7 @@ export const Filter = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2350-2896",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2350-2896",
 		},
 	},
 	render: function Render() {

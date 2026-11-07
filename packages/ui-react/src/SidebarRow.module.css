@@ -112,7 +112,7 @@
 	opacity: 0.5;
 }
 
-/* A row's glyph is drawn at 14, its box's size, as ⚛️ Core's rows draw them; an Icon is 16 unless told. */
+/* A row's glyph is drawn at 14, its box's size, as 🍑 But UI's rows draw them; an Icon is 16 unless told. */
 .icon {
 	--icon-size: 14px;
 

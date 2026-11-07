@@ -10,7 +10,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=1852-4694",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=1852-4694",
 		},
 	},
 	args: {
@@ -97,7 +97,7 @@ export const Tidy = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=3454-84770",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3454-84770",
 		},
 	},
 	args: {

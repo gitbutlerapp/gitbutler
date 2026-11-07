@@ -19,7 +19,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2800-14127",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2800-14127",
 		},
 		layout: "bar",
 	},
@@ -112,7 +112,7 @@ export const Branch = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14125",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14125",
 		},
 	},
 	args: {
@@ -131,7 +131,7 @@ export const SpelledOut = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3178-47285",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3178-47285",
 		},
 	},
 	args: {
@@ -169,7 +169,7 @@ export const BranchWithButtons = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3249-48559",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3249-48559",
 		},
 	},
 	args: {
@@ -246,7 +246,7 @@ export const BranchNotApplied = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14379",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14379",
 		},
 	},
 	args: {
@@ -263,7 +263,7 @@ export const Commit = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14583",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14583",
 		},
 	},
 	args: {
@@ -279,7 +279,7 @@ export const CommitLandedReview = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14697",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14697",
 		},
 	},
 	args: {
@@ -296,7 +296,7 @@ export const CommitConflicted = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14907",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14907",
 		},
 	},
 	args: {
@@ -317,7 +317,7 @@ export const Uncommitted = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15185",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15185",
 		},
 	},
 	args: {
@@ -331,7 +331,7 @@ export const Worktree = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15276",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15276",
 		},
 	},
 	args: {
@@ -347,7 +347,7 @@ export const Machine = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15368",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15368",
 		},
 	},
 	args: {
@@ -363,7 +363,7 @@ export const CloudSession = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15458",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15458",
 		},
 	},
 	args: {

@@ -17,7 +17,7 @@ type Props = {
 } & Omit<ComponentProps<"a">, "href">;
 
 /**
- * One part of a meta line, as ⚛️ Core's MetaPart draws it: a glyph, then the words, in a header's
+ * One part of a meta line, as 🍑 But UI's MetaPart draws it: a glyph, then the words, in a header's
  * meta line or a row's where {@link MetaCount} has no type for what the part says, such as "2 PRs
  * · 1 failing", "CLI 0.2.1662 outdated" or "Needs force push". Amber is work waiting on you, blue is
  * work to send, green is an agent at work or a state that is fine, red is something that failed;

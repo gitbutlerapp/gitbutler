@@ -14,7 +14,7 @@ type StatusBarProps = {
 } & Omit<ComponentProps<"footer">, "children">;
 
 /**
- * The window's footer, as ⚛️ Core's StatusBar draws it: what needs attention at the start, what
+ * The window's footer, as 🍑 But UI's StatusBar draws it: what needs attention at the start, what
  * you can do at the end. The start holds "Fetched 2m ago", then a {@link StatusAlert} with the
  * conflicts, then the other notes (1 unread, CI failed), then a {@link StatusLocation} or a
  * {@link StatusText}. While a drag, a cut or an operation is under way it holds a
