@@ -418,6 +418,8 @@ impl AppView {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
+            // Not read from the forge yet, so its state is a guess.
+            Some((review, _)) if review.title.is_empty() => el,
             Some((review, ReviewState::Open)) => {
                 let el = el.when(drafts, |el| {
                     el.on_action(cx.listener(Self::convert_to_draft))

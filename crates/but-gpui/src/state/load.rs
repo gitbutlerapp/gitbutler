@@ -201,6 +201,8 @@ impl Store {
             true => self.restored.clone(),
             false => std::mem::take(&mut self.restored),
         };
+        // The first listing, or the first with projects after empty ones.
+        let first_load = self.projects.is_empty();
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
         // The watched keep the order they were in, the first listing the saved one.
         let order: Vec<ProjectId> = (old.iter().filter(|entry| entry.expanded))
@@ -248,7 +250,6 @@ impl Store {
         self.order_projects(&order);
         // The listing has every project, loaded or not, so one it doesn't have was removed.
         self.forget_unlisted();
-        let first_load = !self.projects_loaded;
         // On the first launch, the project fetched last is watched, as the one GitButler was
         // last used in.
         if restored.fresh

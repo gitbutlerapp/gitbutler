@@ -577,6 +577,9 @@ pub struct Detail {
     /// The uncommitted file being edited in the diff, until it's saved or discarded, and
     /// the read of its sides to start from.
     file_edit: Option<edit_lines::FileEdit>,
+    /// What was typed in edits that ended while a write of them was under way, each written once
+    /// the write of its `read` lands.
+    write_after: Vec<(ProjectId, crate::backend::edit_lines::WriteFile)>,
     _read_sides: Task<()>,
     /// Waiting for a checkout's changes to show, to open a file there.
     _open_when_shown: Option<Subscription>,
@@ -952,6 +955,7 @@ impl Detail {
             find_input,
             resolving: Default::default(),
             file_edit: None,
+            write_after: Vec::new(),
             _read_sides: Task::ready(()),
             _open_when_shown: None,
             edit_press: None,
@@ -1733,17 +1737,14 @@ impl Detail {
                 this.update(cx, |_, cx| cx.notify()).ok();
             });
         }
-        // A load still running is of what was selected before, which mustn't land under this.
         let Some(path) = self.store.read(cx).path(&key.project) else {
-            self.loading = None;
-            return;
+            return self.wait_for_diff(&key, cx);
         };
         let worktree = key.uncommitted(self.store.read(cx)).map(<[_]>::to_vec);
         if key.source.live() && worktree.is_none() {
             // The workspace is still loading and lists the files itself; diffing now would run
             // a second status on the same repository, slowing both. Its `Loaded` brings us back.
-            self.loading = None;
-            return;
+            return self.wait_for_diff(&key, cx);
         }
         self.loading = Some(key.clone());
         let recent = self.recent_files(&key);
@@ -2688,6 +2689,17 @@ impl Detail {
         self.file_filter
             .update(cx, |input, cx| input.set_text("", cx));
         self.rebuild_rows(cx);
+    }
+
+    /// Wait for `key`'s diff, which can't load yet. A load still running is of what was
+    /// selected before, which mustn't land under it, and nothing may act on the files of another
+    /// diff shown meanwhile.
+    fn wait_for_diff(&mut self, key: &DiffKey, cx: &mut Context<Self>) {
+        self.loading = None;
+        if self.diff.as_ref().is_some_and(|diff| diff.key != *key) {
+            self.diff = None;
+            cx.notify();
+        }
     }
 
     /// The diff to draw: the loaded one, or while the next loads the previous one, until

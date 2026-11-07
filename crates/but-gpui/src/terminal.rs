@@ -193,6 +193,9 @@ impl Terminal {
         self.tty.set_shown(shown);
         if !shown {
             self.tty.set_focused(false);
+            // Its pointer listeners go with it, so no release would end a press it holds.
+            self.held = None;
+            self.autoscrolling = None;
         }
     }
 

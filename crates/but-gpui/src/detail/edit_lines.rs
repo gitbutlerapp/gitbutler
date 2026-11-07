@@ -13,6 +13,7 @@
 
 use std::cmp::Ordering;
 use std::ops::Range;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -1377,7 +1378,13 @@ impl Detail {
             return;
         };
         edit.writing = Some(write.text.clone());
-        let (project, text, started) = (edit.project.clone(), write.text.clone(), Instant::now());
+        Self::spawn_write(root, edit.project.clone(), write, cx);
+        cx.notify();
+    }
+
+    /// Write `write` to a file of `project`, at `root`, then take what it came to.
+    fn spawn_write(root: PathBuf, project: ProjectId, write: WriteFile, cx: &mut Context<Self>) {
+        let (text, started) = (write.text.clone(), Instant::now());
         cx.spawn(async move |this, cx| {
             let wrote = match backend::run(move || backend::apply(&root, write)).await {
                 Ok((true, ran)) => Wrote::Written {
@@ -1390,7 +1397,6 @@ impl Detail {
             (this.update(cx, |this, cx| this.wrote(project, text, wrote, started, cx))).ok();
         })
         .detach();
-        cx.notify();
     }
 
     /// What a write of `text` to the file of an edit in `project` came to.
@@ -1413,7 +1419,14 @@ impl Detail {
             .as_mut()
             .filter(|edit| edit.writing.as_ref() == Some(&text))
         else {
-            // The edit ended while it saved: the diff shows the file as written now.
+            // The edit ended while it saved: what was typed since goes now, and the diff shows
+            // the file as written.
+            if let Some(ix) = (self.write_after.iter()).position(|(_, write)| write.read == text) {
+                let (project, write) = self.write_after.swap_remove(ix);
+                if let Some(root) = self.store.read(cx).path(&project) {
+                    Self::spawn_write(root, project, write, cx);
+                }
+            }
             self.refresh_diff(false, cx);
             return;
         };
@@ -1468,6 +1481,21 @@ impl Detail {
             .map(|edit| edit.shown_path.clone());
         self.save_now(cx);
         let writing = (self.file_edit.as_ref()).is_some_and(|edit| edit.writing.is_some());
+        // Typed after a write already under way began, which goes once that lands. Not what's
+        // put back as read, as Don't save does, which would undo that write.
+        if let Some(edit) =
+            (self.file_edit.as_ref()).filter(|edit| edit.dirty() && !edit.changed_on_disk)
+            && let Some(written) = (edit.writing.clone()).filter(|written| *written != edit.text())
+        {
+            let write = WriteFile {
+                checkout: edit.checkout.clone(),
+                path: edit.path.clone(),
+                read: written,
+                text: edit.text(),
+                record: false,
+            };
+            self.write_after.push((edit.project.clone(), write));
+        }
         // Saved without ⌘S, so it says so.
         if let Some(path) = saving {
             let name = path.rsplit('/').next().unwrap_or(&path).to_owned();

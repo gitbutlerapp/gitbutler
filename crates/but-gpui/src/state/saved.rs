@@ -67,7 +67,8 @@ impl Store {
                 .map(|entry| entry.id.to_string())
                 .chain(self.restored.expanded.iter().cloned())
                 .collect(),
-            selection: self.selection.as_ref().map(|s| s.project().to_string()),
+            selection: (self.selection.as_ref().map(|s| s.project().to_string()))
+                .or_else(|| self.restored.selection.clone()),
             seen: self.seen.clone(),
             widths: self.widths.clone(),
             window: self.window.clone(),

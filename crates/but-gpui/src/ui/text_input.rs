@@ -468,6 +468,7 @@ impl TextInput {
         self.selected_range = self.content.len()..self.content.len();
         self.marked_range = None;
         (self.undo, self.redo) = (Vec::new(), Vec::new());
+        self.break_undo_run();
         cx.notify();
     }
 

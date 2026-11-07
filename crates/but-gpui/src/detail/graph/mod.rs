@@ -724,7 +724,10 @@ impl GraphView {
                                 this.keep_following(cx);
                             }
                         }
-                        Err(err) => this.failed = Some(format!("{err:#}").into()),
+                        Err(err) => {
+                            this.failed = Some(format!("{err:#}").into());
+                            this.deepening = None;
+                        }
                     }
                 }
                 if std::mem::take(&mut this.queued) {

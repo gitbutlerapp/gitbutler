@@ -238,8 +238,10 @@ impl Detail {
         {
             review.tab = PageTab::Brief;
         }
-        if anchor != self.brief.asked {
+        let user = self.store.read(cx).account.user.clone();
+        if anchor != self.brief.asked || user != self.brief.asked_as {
             self.brief.asked = anchor.clone();
+            self.brief.asked_as = user;
             self.brief._ask = match anchor.zip(project).filter(|_| stale) {
                 None => Task::ready(()),
                 Some((anchor, project)) => cx.spawn(async move |this, cx| {

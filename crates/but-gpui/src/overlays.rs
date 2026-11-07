@@ -654,10 +654,10 @@ impl AppView {
             (None, Some(open)) => open.restore_focus.clone(),
             (None, None) => window.focused(cx),
         };
-        // It takes the focus, so nothing else that would take the keys stays over it.
-        if self.palette.take().is_some() {
-            self.preview_scheme(None, window, cx);
-            (self.navigator).update(cx, |navigator, cx| navigator.stop_going(true, cx));
+        // It takes the focus, so nothing else that would take the keys stays over it. Focus is
+        // drawn once this update ends, so the palette's giving it back doesn't show.
+        if self.palette.is_some() {
+            self.close_palette(window, cx);
         }
         let subscription =
             cx.subscribe_in(
