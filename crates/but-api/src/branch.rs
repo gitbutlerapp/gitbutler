@@ -21,7 +21,7 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::branch::{
-    BranchIntegrationStrategy, InitialBranchIntegration,
+    BranchIntegrationStrategy, InitialBranchIntegration, apply::OutcomeStatus,
     integrate_branch_upstream::InteractiveIntegration,
 };
 use tracing::instrument;
@@ -100,22 +100,7 @@ pub mod json {
         ///
         /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
-        /// Stacks that conflicted while applying the branch.
-        pub conflicting_stacks: Vec<ConflictingStack>,
     }
-
-    /// A stack that conflicted while applying a branch.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
-    pub struct ConflictingStack {
-        /// The tip branch name of the stack.
-        pub ref_name: crate::json::FullRefName,
-        /// The shortened tip branch name, matching CLI display.
-        pub short_name: String,
-    }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(ConflictingStack);
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ApplyOutcome);
 
@@ -126,23 +111,12 @@ pub mod json {
                 workspace: _,
                 status,
                 applied_branches,
-                conflicting_stacks,
             } = value;
 
             ApplyOutcome {
                 status,
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
-                conflicting_stacks: conflicting_stacks
-                    .into_iter()
-                    .map(|stack| {
-                        let short_name = stack.ref_name.shorten().to_string();
-                        ConflictingStack {
-                            ref_name: stack.ref_name.into(),
-                            short_name,
-                        }
-                    })
-                    .collect(),
             }
         }
     }
@@ -852,26 +826,38 @@ pub fn apply_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let out = but_workspace::branch::apply(
-        existing_branch,
-        ws.clone(),
-        &repo,
-        &mut meta,
-        // NOTE: Options can later be passed as parameter, or we have a separate function for that.
-        //       Showing them off here while leaving defaults.
-        but_workspace::branch::apply::Options {
-            new_stack_id: None,
-            allow_applying_already_applied_branch_when_outside_workspace: false,
-        },
-    )?;
-
-    if out.status.persisted_mutation() {
-        drop(repo);
-        drop(ws);
-        ctx.update_workspace_cache(out.workspace.clone());
-    }
-    Ok(out)
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let (status, applied_branches) =
+        match but_workspace::branch::apply_stack(editor, existing_branch, None) {
+            Ok(but_workspace::branch::apply::ApplyStackOutcome {
+                rebase,
+                status,
+                applied_branches,
+                tracking,
+            }) => {
+                rebase.materialize(Default::default())?;
+                if let Some(tracking) = tracking {
+                    tracking.write(&repo)?;
+                }
+                (status, applied_branches)
+            }
+            Err(err)
+                if err
+                    .downcast_ref::<but_rebase::merge::ConflictErrorContext>()
+                    .is_some() =>
+            {
+                (OutcomeStatus::ConflictAborted, Vec::new())
+            }
+            Err(err) => return Err(err),
+        };
+    drop((repo, db));
+    ctx.update_workspace_cache(ws.clone());
+    Ok(but_workspace::branch::apply::Outcome {
+        workspace: ws,
+        status,
+        applied_branches,
+    })
 }
 
 /// Applies `existing_branch` using the behavior described by
@@ -895,7 +881,7 @@ pub fn apply(
 /// It behaves like [`apply_only_with_perm()`], but first prepares a best-effort
 /// oplog snapshot for a create-branch operation, annotated with the branch
 /// name, and commits that snapshot only if the apply succeeds. For lower-level
-/// implementation details, see [`but_workspace::branch::apply()`].
+/// implementation details, see [`but_workspace::branch::apply_stack()`].
 pub fn apply_with_perm(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,

@@ -129,8 +129,6 @@ export type ApplyOutcome = {
    * This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
    */
   appliedBranches: Array<FullRefName>;
-  /** Stacks that conflicted while applying the branch. */
-  conflictingStacks: Array<ConflictingStack>;
 };
 
 /** Represents the author of a commit. */
@@ -758,14 +756,6 @@ export type ConflictedFile = {
    * renderer that parses markers can address conflict N as hunk N+1.
    */
   mergedText: string;
-};
-
-/** A stack that conflicted while applying a branch. */
-export type ConflictingStack = {
-  /** The tip branch name of the stack. */
-  refName: FullRefName;
-  /** The shortened tip branch name, matching CLI display. */
-  shortName: string;
 };
 
 /** A linear run of detailed graph rows. */

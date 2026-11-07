@@ -100,7 +100,6 @@ impl CliOutput for ApplyOutcome {
             status: OutcomeStatus,
             workspace_changed: bool,
             applied_branches: Vec<String>,
-            conflicting_stacks: Vec<String>,
         }
 
         impl From<but_workspace::branch::apply::Outcome> for Output {
@@ -112,11 +111,6 @@ impl CliOutput for ApplyOutcome {
                         .applied_branches
                         .into_iter()
                         .map(|branch| branch.to_string())
-                        .collect(),
-                    conflicting_stacks: value
-                        .conflicting_stacks
-                        .into_iter()
-                        .map(|stack| stack.ref_name.to_string())
                         .collect(),
                 }
             }
@@ -139,28 +133,11 @@ pub struct ConflictAbortedOutcome {
 
 impl std::fmt::Display for ConflictAbortedOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !self.outcome.conflicting_stacks.is_empty() {
-            let short_name = self.requested_branch.shorten();
-            let conflicting_stack_names = self
-                .outcome
-                .conflicting_stacks
-                .iter()
-                .map(|stack| theme::Branch(&stack.ref_name).to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(
-                f,
-                "'{short_name}' conflicts with existing stack: {conflicting_stack_names}"
-            )
-        } else if matches!(self.outcome.status, OutcomeStatus::ConflictAborted) {
-            let short_name = self.requested_branch.shorten();
-            write!(
-                f,
-                "'{short_name}' could not be applied because it would cause conflicts"
-            )
-        } else {
-            Ok(())
-        }
+        let short_name = self.requested_branch.shorten();
+        write!(
+            f,
+            "'{short_name}' could not be applied because it would cause conflicts"
+        )
     }
 }
 
@@ -217,13 +194,6 @@ pub fn run(
     };
 
     let outcome = but_api::branch::apply_with_perm(ctx, reference.name.as_ref(), perm)?;
-
-    if !outcome.conflicting_stacks.is_empty() {
-        return Ok(ApplyOutcome::ConflictAborted(ConflictAbortedOutcome {
-            requested_branch: reference.name,
-            outcome,
-        }));
-    }
 
     match outcome.status {
         OutcomeStatus::Applied => Ok(ApplyOutcome::Applied {

@@ -99,7 +99,7 @@ fn single_branch() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8668d2f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
@@ -283,7 +283,7 @@ fn unapply_remote_tracking_branch() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   986265c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
