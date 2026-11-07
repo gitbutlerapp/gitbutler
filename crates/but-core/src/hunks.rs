@@ -310,6 +310,23 @@ pub fn apply_hunks(
         if selected_hunk.new_lines == 0 {
             let _explicit_skips = new_iter.by_ref().take(new_skips).count();
         } else {
+            // Terminate an unterminated last base line like its counterpart in `new_image`, so the
+            // selected lines don't join it. Like the diff, a fully shared line prefix decides it,
+            // and else it's the last matching line before the selection.
+            if !result_image.is_empty() && !result_image.ends_with(b"\n") {
+                let old_lines: Vec<_> = old_image.lines().collect();
+                let new_lines: Vec<_> = new_image.lines().collect();
+                let shared = old_lines.iter().zip(&new_lines).take_while(|(o, n)| o == n);
+                let (prefix, last) = (shared.count(), old_lines.len().saturating_sub(1));
+                if let Some(m) =
+                    (prefix.min(last)..selected_hunk.new_start as usize - 1).rfind(|&m| {
+                        new_lines.get(m) == old_lines.last() && (prefix <= last || m == last)
+                    })
+                    && let Some(line) = new_image.lines_with_terminator().nth(m)
+                {
+                    result_image.extend_from_slice(&line[new_lines[m].len()..]);
+                }
+            }
             let new_hunk_lines = new_iter
                 .by_ref()
                 .skip(new_skips)
