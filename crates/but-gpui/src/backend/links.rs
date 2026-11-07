@@ -163,10 +163,9 @@ pub fn hand_off() -> Option<IncomingLinks> {
 /// Hand `links` to the app listening, as notifications it doesn't answer: an `open` a link, or
 /// a `show` for a launch without one. The only code that hands the running app links.
 fn send_to_running_app(links: &[String]) -> anyhow::Result<()> {
-    let address = platform::socket_path()?;
-    let mut told = true;
+    let mut notifications = Vec::new();
     if links.is_empty() {
-        told = app::notify_at(&address, method::SHOW, &serde_json::json!({}))?;
+        notifications.push((method::SHOW, serde_json::json!({})));
     }
     for link in links.iter().filter_map(|link| OpenLink::parse(link)) {
         let open = Open {
@@ -175,9 +174,9 @@ fn send_to_running_app(links: &[String]) -> anyhow::Result<()> {
             at: Place(link.at),
             say: None,
         };
-        told &= app::notify_at(&address, method::OPEN, &open)?;
+        notifications.push((method::OPEN, serde_json::to_value(open)?));
     }
-    match told {
+    match app::notify_at(&platform::socket_path()?, &notifications)? {
         true => Ok(()),
         false => anyhow::bail!("no app listens"),
     }
@@ -322,7 +321,7 @@ mod tests {
                     .is_none(),
                 "a later launch finds the app listening"
             );
-            let (sender, incoming) = mpsc::unbounded();
+            let (sender, mut received) = mpsc::unbounded();
             let incoming_links = IncomingLinks {
                 links: vec![first.clone()],
                 listener: Some(listener),
@@ -334,8 +333,12 @@ mod tests {
                 "but://open?path=%2Fb&new_window=1".to_owned(),
             ];
             send_to_running_app(&links).expect("a launch with links hands them over");
+            let mut incoming =
+                futures::executor::block_on((&mut received).take(3).collect::<Vec<_>>());
+            // Launches connect on their own and are read side by side, so the next waits for
+            // this one's links to arrive.
             send_to_running_app(&[]).expect("a launch without one hands over itself");
-            let incoming = futures::executor::block_on(incoming.take(4).collect::<Vec<_>>());
+            incoming.extend(futures::executor::block_on(received.next()));
             assert_eq!(
                 incoming.iter().map(shown).collect::<Vec<_>>(),
                 [
@@ -348,7 +351,7 @@ mod tests {
                     json!({ "open": { "path": "/b", "new_window": true, "at": {} } }),
                     json!({ "show": {} }),
                 ],
-                "the app gets its own links first, then each later launch's in turn"
+                "the app gets its own links first, then a later launch's in the order it gave them"
             );
             assert!(
                 incoming.iter().all(|incoming| match incoming {

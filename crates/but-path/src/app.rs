@@ -291,24 +291,27 @@ pub fn call_at<P: Serialize, R: DeserializeOwned>(
         .with_context(|| format!("GitButler's answer to `{method}` isn't what was expected"))
 }
 
-/// Tell `channel`'s running app `method` with `params`, a notification it doesn't answer, or
-/// say `false` when no app listens.
-pub fn notify<P: Serialize>(channel: AppChannel, method: &str, params: &P) -> anyhow::Result<bool> {
-    notify_at(&socket_path(channel)?, method, params)
+/// Tell `channel`'s running app each of `notifications`, a method and its params, which it
+/// doesn't answer, or say `false` when no app listens.
+pub fn notify(channel: AppChannel, notifications: &[(&str, Value)]) -> anyhow::Result<bool> {
+    notify_at(&socket_path(channel)?, notifications)
 }
 
-/// [`notify`] the app listening at `address`.
-pub fn notify_at<P: Serialize>(address: &Path, method: &str, params: &P) -> anyhow::Result<bool> {
+/// [`notify`] the app listening at `address`. They go on one connection, whose lines the app
+/// reads in turn, so they arrive in order: separate connections are read side by side.
+pub fn notify_at(address: &Path, notifications: &[(&str, Value)]) -> anyhow::Result<bool> {
     let Some(mut stream) = transport::connect(address)? else {
         return Ok(false);
     };
-    let request = Request {
-        jsonrpc: "2.0".into(),
-        id: None,
-        method: method.into(),
-        params: serde_json::to_value(params)?,
-    };
-    send_line(&mut stream, &request)?;
+    for (method, params) in notifications {
+        let request = Request {
+            jsonrpc: "2.0".into(),
+            id: None,
+            method: (*method).into(),
+            params: params.clone(),
+        };
+        send_line(&mut stream, &request)?;
+    }
     Ok(true)
 }
 
