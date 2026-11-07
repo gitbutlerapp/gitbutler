@@ -17,7 +17,7 @@
 	let scrollToStackId = $state<string | undefined>(undefined);
 
 	// Read all local commits in the workspace for the given project
-	$effect(() => {
+	$effect.pre(() => {
 		stackService.allLocalCommits(projectId);
 	});
 
