@@ -73,28 +73,31 @@ square.
 
 ## Figma
 
-Two files, split the way the code is:
+One file, **🍑 But UI** —
+<https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI>,
+holds the system and everything drawn with it, as a monorepo holds packages:
 
-- **🍑 But UI** —
-  <https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI>,
-  the published library: tokens (Tokens page), icons (Icons page) and this
-  package's components, one section per component. It is the source of truth
-  for tokens; for components, code is, and the drawing follows it. The
-  components are on six pages, by what they are for: Actions, Inputs,
-  Overlays, Content & status, Preview (a details view's header and the bar
-  above it), and Sidebar. A new component's section goes at
-  the end of its group's page, with its examples section under it. The docs
-  site shelves the stories in the same groups (plus Icons, which Figma keeps
-  on its own page): a stories file names its group in `title` and keeps its
-  old `id`, so the addresses below don't change when a component moves group.
-- **Client**, the working file —
-  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: app
-  components on the ⚙️ Meta page, the full screens, and drafts on the
-  🚧 Drafts page and the pages under it. A new mockup or an exploration goes
-  here, never in the library.
+- **The library**, published: tokens (💎 Tokens), icons (💠 Icons) and this
+  package's components under 🎛️ Components, one section per component. It is
+  the source of truth for tokens; for components, code is, and the drawing
+  follows it. The components are on pages by what they are for: Actions,
+  Inputs, Overlays, Content & status, Preview (a details view's header and
+  the bar above it), and Sidebar. A new component's section goes at the end
+  of its group's page, with its examples section under it. The docs site
+  shelves the stories in the same groups (plus Icons, which Figma keeps on
+  its own page): a stories file names its group in `title` and keeps its old
+  `id`, so the addresses below don't change when a component moves group.
+- **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the
+  pages under them, are the app's screens and surfaces built from the
+  library. The designer moves work here once it's settled.
+- **⚙️ Meta**: app components, the ones whose code lives in an app.
+- **The 🚧 pages**: drafts and explorations. Anything an agent draws goes on
+  one of these, unless the designer names another place: a mockup, a
+  variant to compare, a try at a component. Build it from the file's own
+  components and variables.
 
-A component is drawn where its code lives: one in this package goes in
-🍑 But UI, one in an app on ⚙️ Meta. When a component moves between the two
+A component is drawn where its code lives: one in this package on its
+group's page, one in an app on ⚙️ Meta. When a component moves between the two
 in code, its drawing moves with it in the same piece of work, and the
 mockups' instances are swapped to the new one.
 
