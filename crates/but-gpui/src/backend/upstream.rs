@@ -766,7 +766,7 @@ pub(super) fn push(
     // the commit rewritten here, or has commits that weren't shown.
     if let Some(shown) = drops.filter(|_| needs_force(&info, branch)) {
         let tips = remote_tips(&ctx, &info, branch)?;
-        fetch(path)?;
+        fetch(path).map_err(remote_failure)?;
         // Opened again after the fetch, so the remote's tips are read as it left them.
         ctx = open(path)?;
         info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -820,10 +820,11 @@ pub(super) fn push(
             let root = err.root_cause().to_string();
             if let Some(output) = root.strip_prefix("pre-push hook failed: ") {
                 let output = super::ops::hook_output(output);
-                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}");
+                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}")
+                    .context(but_error::Code::PreconditionFailed);
             }
             if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitNonFastForward) {
-                return err;
+                return remote_failure(err);
             }
             tracing::warn!(?err, "push rejected");
             anyhow::anyhow!(match force {
@@ -831,6 +832,7 @@ pub(super) fn push(
                 true => "The remote refused the force push, as it does for a protected branch.",
                 false => "The remote has commits this branch doesn't. Fetch, then pull them in.",
             })
+            .context(but_error::Code::PreconditionFailed)
         })?;
     let (short, full) = (short_ref(ref_name), ref_name.to_string());
     let remote = (outcome.push.branch_to_remote.into_iter())
@@ -925,6 +927,25 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
         .filter(|line| !line.is_empty())
         .collect();
     Some(said.join("\n"))
+}
+
+/// `err` marked as not a fault here when Git couldn't reach the remote or the remote turned it
+/// down, as when the network is out, the repository moved or a server's hook refused. One that
+/// already says what it is keeps that.
+fn remote_failure(err: anyhow::Error) -> anyhow::Error {
+    use but_error::AnyhowContextExt as _;
+    if (err.custom_context()).is_some_and(|said| said.code != but_error::Code::Unknown) {
+        return err;
+    }
+    let text = format!("{err:#}");
+    let remote = (text.lines().map(str::trim))
+        .any(|line| line.starts_with("remote:") || line.starts_with("! [remote rejected]"))
+        || text.contains("Could not read from remote repository")
+        || text.contains("unable to access '");
+    match remote {
+        true => err.context(but_error::Code::PreconditionFailed),
+        false => err,
+    }
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
@@ -1312,7 +1333,7 @@ fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<sup
 mod tests {
     use super::{
         ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, day_start, overview,
-        push_refusal, pushed_with,
+        push_refusal, pushed_with, remote_failure,
     };
     use crate::backend::branches::ApplyBranch;
     use crate::backend::model::build::full;
@@ -1634,6 +1655,27 @@ refs/heads/wt
     }
 
     #[test]
+    fn a_push_git_cant_deliver_is_the_users_to_sort_out() {
+        without_askpass();
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let nowhere = tempfile::tempdir().unwrap();
+            let url = nowhere.path().join("moved.git");
+            git(
+                path,
+                &["remote", "set-url", "origin", url.to_str().unwrap()],
+            );
+
+            let err = super::push(path, &full("refs/heads/wt"), false, None, false)
+                .expect_err("there's no repository there");
+            assert_eq!(
+                err.downcast_ref::<but_error::Code>(),
+                Some(&but_error::Code::PreconditionFailed),
+                "Git couldn't reach the remote, which isn't a fault here: {err:#}"
+            );
+        })
+    }
+
+    #[test]
     fn a_worktree_started_on_the_workspace_commit_isnt_pushed() {
         without_askpass();
         crate::backend::lane_tests::linked_workspace(|path| {
@@ -1935,6 +1977,11 @@ refs/heads/wt
             push_refusal(&protected).as_deref(),
             Some("error: GH006: Protected branch update failed for refs/heads/main."),
             "the remote's own words, blank lines dropped"
+        );
+        assert_eq!(
+            push_refusal(&remote_failure(protected)).as_deref(),
+            Some("error: GH006: Protected branch update failed for refs/heads/main."),
+            "a refusal that says what it is keeps that past the remote's other failures"
         );
         let stale = refused(" ! [rejected] main -> main (stale info)");
         assert_eq!(

@@ -640,10 +640,12 @@ fn unexpected(err: &anyhow::Error) -> bool {
         .is_none_or(|context| context.code == but_error::Code::Unknown)
 }
 
-/// `err` for error tracking, grouped by `key` and what it says.
+/// `err` for error tracking, grouped by `key` and what it says: what Git said, when it ran Git,
+/// not the command it ran, so one failure stays one issue however it was asked for.
 fn report_error(kind: String, err: &anyhow::Error, key: &str, names: &HashSet<String>) {
     let value = redact(&format!("{err:#}"), names);
-    let fingerprint = format!("{:x}", md5::compute(format!("{key}\n{value}")));
+    let said = crate::ui::error_summary(&value);
+    let fingerprint = format!("{:x}", md5::compute(format!("{key}\n{said}")));
     let props = json!({
         "$exception_list": [{
             "type": kind,
