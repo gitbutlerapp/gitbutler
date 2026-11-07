@@ -746,38 +746,46 @@ fn ci_does_not_report_an_older_commits_pipeline_for_the_branch_head() {
 }
 
 #[test]
-fn ci_validates_synthetic_pipelines_against_the_current_mr_head_pipeline() {
+fn ci_validates_synthetic_pipelines_against_the_current_mr() {
     memory_keyring::install();
     run(async {
         for reference in [
             "refs/merge-requests/12/merge",
             "refs/merge-requests/12/train",
         ] {
-            for (head_sha, head_pipeline, current) in [
+            for (head_sha, pipelines, current) in [
                 (
                     "source-head",
-                    r#"{"id":"gid://gitlab/Ci::Pipeline/5"}"#,
+                    r#"[{"id":"gid://gitlab/Ci::Pipeline/5"}]"#,
                     true,
                 ),
-                ("source-head", "null", false),
-                (
-                    "source-head",
-                    r#"{"id":"gid://gitlab/Ci::Pipeline/6"}"#,
-                    false,
-                ),
+                ("source-head", "[]", false),
                 (
                     "old-source",
-                    r#"{"id":"gid://gitlab/Ci::Pipeline/5"}"#,
+                    r#"[{"id":"gid://gitlab/Ci::Pipeline/5"}]"#,
                     false,
                 ),
             ] {
                 let pipeline = format!(
                     r#"[{{"id":5,"sha":"synthetic-merge","status":"success","source":"merge_request_event","ref":"{reference}"}}]"#
                 );
+                let pipeline_nodes = serde_json::from_str::<serde_json::Value>(pipelines)
+                    .expect("test pipeline nodes must be valid JSON");
+                let validation = serde_json::json!({
+                    "data": {
+                        "project": {
+                            "mergeRequest": {
+                                "diffHeadSha": head_sha,
+                                "pipelines": { "nodes": pipeline_nodes },
+                            }
+                        }
+                    }
+                })
+                .to_string();
                 let fixture = stored_account(vec![
                     reply(200, pipeline),
                     reply(200, r#"{"commit":{"id":"source-head"}}"#),
-                    reply(200, format!(r#"{{"data":{{"project":{{"mergeRequest":{{"diffHeadSha":"{head_sha}","headPipeline":{head_pipeline}}}}}}}}}"#)),
+                    reply(200, validation),
                 ])
                 .await;
                 let (lookup, jobs) = but_gitlab::checks::latest_pipeline_for_branch(
@@ -787,13 +795,11 @@ fn ci_validates_synthetic_pipelines_against_the_current_mr_head_pipeline() {
                     &fixture.storage,
                 )
                 .await
-                .expect(
-                    "synthetic pipelines should be checked against the current MR head pipeline",
-                );
+                .expect("synthetic pipelines should be checked against the current MR");
                 assert_eq!(
                     matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))),
                     current,
-                    "{reference}: only the current MR head pipeline may report checks"
+                    "{reference}: only a pipeline associated with the current MR may report checks"
                 );
                 assert!(
                     jobs.is_empty(),
@@ -811,16 +817,47 @@ fn ci_validates_synthetic_pipelines_against_the_current_mr_head_pipeline() {
                     url.query_pairs().into_owned().collect();
                 assert_eq!(
                     query["query"],
-                    "query($project: ID!, $iid: String!) { project(fullPath: $project) { mergeRequest(iid: $iid) { diffHeadSha headPipeline { id } } } }",
-                    "headPipeline validates the pipeline's source SHA, unlike REST head_pipeline"
+                    "query($project: ID!, $iid: String!, $sha: String!) { project(fullPath: $project) { mergeRequest(iid: $iid) { diffHeadSha pipelines(first: 1, sha: $sha) { nodes { id } } } } }",
+                    "the MR pipeline list validates the candidate without conflating it with the source-branch pipeline"
                 );
                 assert_eq!(
                     serde_json::from_str::<serde_json::Value>(&query["variables"]).unwrap(),
-                    serde_json::json!({"project": "group/repo", "iid": "12"}),
-                    "the query must address the pipeline's MR in its project"
+                    serde_json::json!({"project": "group/repo", "iid": "12", "sha": "synthetic-merge"}),
+                    "the query must address the pipeline and its merge request"
                 );
             }
         }
+    });
+}
+
+#[test]
+fn ci_accepts_a_current_synthetic_pipeline_when_the_branch_head_pipeline_differs() {
+    memory_keyring::install();
+    run(async {
+        let fixture = stored_account(vec![
+            reply(200, SYNTHETIC_PIPELINES),
+            reply(200, PIPELINE_BRANCH),
+            reply(
+                200,
+                r#"{"data":{"project":{"mergeRequest":{"diffHeadSha":"0123456789abcdef","headPipeline":{"id":"gid://gitlab/Ci::Pipeline/6"},"pipelines":{"nodes":[{"id":"gid://gitlab/Ci::Pipeline/5"}]}}}}}"#,
+            ),
+        ])
+        .await;
+
+        let (lookup, _) = but_gitlab::checks::latest_pipeline_for_branch(
+            Some(&fixture.account),
+            GitLabProjectId::new("group", "repo"),
+            "topic",
+            &fixture.storage,
+        )
+        .await
+        .expect("a pipeline associated with the current merge request is valid");
+
+        assert!(
+            matches!(lookup, but_gitlab::PipelineLookup::Resolved(Some(_))),
+            "the source-branch head pipeline and a merged-result pipeline have different IDs"
+        );
+        fixture.server.finish();
     });
 }
 
@@ -841,7 +878,7 @@ fn ci_keeps_unavailable_or_partial_validation_from_becoming_no_checks() {
                 (200, r#"{"data":{"project":null}}"#, validate_mr),
                 (
                     200,
-                    r#"{"data":{"project":{"mergeRequest":{"diffHeadSha":null,"headPipeline":null}}}}"#,
+                    r#"{"data":{"project":{"mergeRequest":{"diffHeadSha":null,"pipelines":{"nodes":[]}}}}}"#,
                     validate_mr,
                 ),
             ] {
