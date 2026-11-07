@@ -1934,6 +1934,7 @@ name = "but-oxidize"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-error",
  "git2",
  "gix",
 ]
