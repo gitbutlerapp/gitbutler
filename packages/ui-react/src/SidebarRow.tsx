@@ -44,7 +44,9 @@ const Steps: FC<{
 	folded: boolean | "empty" | undefined;
 	onToggleFolded: (() => void) | undefined;
 	name: string;
-}> = ({ depth, folded, onToggleFolded, name }) =>
+	/** The row itself is the button that folds, so the chevron only says which way it is. */
+	rowFolds?: boolean;
+}> = ({ depth, folded, onToggleFolded, name, rowFolds = false }) =>
 	depth > 0 || folded !== undefined ? (
 		<span className={styles.steps}>
 			{Array.from({ length: depth }, (_, level) => (
@@ -55,7 +57,12 @@ const Steps: FC<{
 					<Icon size={12} name="bullet-disc" />
 				</span>
 			)}
-			{typeof folded === "boolean" && (
+			{typeof folded === "boolean" && rowFolds && (
+				<span className={classes(styles.step, styles.toggle)} aria-hidden>
+					<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
+				</span>
+			)}
+			{typeof folded === "boolean" && !rowFolds && (
 				// A tree moves with the arrow keys, so the chevron stays out of the tab order and takes
 				// its click on its own, leaving the rest of the row to open what it names.
 				<button
@@ -127,10 +134,12 @@ const Row: FC<
 		spinner?: ReactNode;
 		label: ReactNode;
 		rowClassName?: string;
+		rowFolds?: boolean;
 	}
 > = ({
 	name,
 	icon,
+	rowFolds,
 	spinner = <Icon name="spinner" />,
 	label,
 	busy = false,
@@ -154,7 +163,13 @@ const Row: FC<
 			onPointerEnter: measureRuns,
 			children: (
 				<>
-					<Steps depth={depth} folded={folded} onToggleFolded={onToggleFolded} name={name} />
+					<Steps
+						depth={depth}
+						folded={folded}
+						onToggleFolded={onToggleFolded}
+						name={name}
+						rowFolds={rowFolds}
+					/>
 					{busy ? (
 						// The spinner itself is hidden from a screen reader; its cell says what it means.
 						<output className={styles.icon} aria-label="Working">
@@ -640,25 +655,54 @@ export const GroupLabel: FC<
  * also marks with `aria-current="page"`. It sits in a card with its {@link GroupLabel}, never loose
  * on a panel's ground.
  *
+ * `leadingRow` is the row that heads a card of groups, such as the docs site's Docs and Components:
+ * its name a step louder, in 14 semibold, and a chevron (`folded`, `onToggleFolded`) that folds the
+ * whole card away. It sits alone above the card's first group, past a hairline. Rendered as a link
+ * it opens the card's own page, as Docs opens the overview, and only its chevron folds; with no page
+ * of its own, the whole row is the button that folds.
+ *
  * @import import { NavItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const NavItem: FC<
-	{ name: string; icon?: IconName } & Omit<
-		RowProps,
-		"folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy"
-	>
-> = ({ name, icon, tooltip, ...props }) => (
-	<Row
-		{...props}
-		name={name}
-		icon={icon === undefined ? undefined : <Icon name={icon} />}
-		label={
-			<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
-				{name}
-			</Name>
-		}
-	/>
-);
+	{
+		name: string;
+		icon?: IconName;
+		leadingRow?: boolean;
+		/** A leading row's chevron: `true` while its card's groups are hidden. */
+		folded?: boolean;
+		onToggleFolded?: () => void;
+	} & Omit<RowProps, "folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy">
+> = ({ name, icon, leadingRow = false, folded, onToggleFolded, tooltip, render, ...props }) => {
+	const folds = leadingRow && folded !== undefined;
+	const rowFolds = folds && render === undefined;
+	return (
+		<Row
+			{...props}
+			name={name}
+			folded={folds ? folded : undefined}
+			onToggleFolded={folds && !rowFolds ? onToggleFolded : undefined}
+			rowFolds={rowFolds}
+			render={
+				rowFolds ? (
+					// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
+					<button type="button" aria-expanded={!folded} onClick={onToggleFolded} />
+				) : (
+					render
+				)
+			}
+			rowClassName={rowFolds ? styles.foldButton : undefined}
+			icon={icon === undefined ? undefined : <Icon name={icon} />}
+			label={
+				<Name
+					tooltip={tooltip}
+					className={classes(leadingRow ? "text-14 text-semibold" : "text-13", styles.name)}
+				>
+					{name}
+				</Name>
+			}
+		/>
+	);
+};
 
 /**
  * Where rows should be and can't show, in their place: what failed (`message`, one sentence) under

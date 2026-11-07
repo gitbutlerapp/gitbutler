@@ -28,62 +28,140 @@ body[data-layout="centered"] {
 	background-color: var(--bg-2);
 }
 
+/* The search, the pages' cards and the theme, one under another on the window's ground. The search
+   and the theme are set in from the panel's sides as the cards are: the cards' room on each side is
+   the scroller's, so its scrollbar lies in the gutter beside them, never across their edge. */
 .docs-site-sidebar {
+	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background-color: var(--bg-2);
+	padding-block: var(--space-xl);
+	gap: var(--space-lg);
 	color: var(--text-1);
 	font-family: var(--fontfamily-base);
+
+	& > :not(.docs-site-scroll) {
+		margin-inline: var(--space-xl);
+	}
 }
 
-/* The sidebar scrolls as a whole, its scrollbar in the gutter beside the card rather than in it. */
+.docs-site-card {
+	flex-shrink: 0;
+	overflow: hidden;
+	border: 1px solid var(--border-section);
+	border-radius: var(--radius-card);
+	background-color: var(--bg-1);
+}
+
+/* The search alone in its card: the line a popup's search draws over its list would double the
+   card's edge. Two classes' weight, so it wins whatever order the sheets load in. */
+.docs-site-search > [class] {
+	border-bottom: none;
+}
+
+/* The cards scroll between the search and the theme, which stay put. */
 .docs-site-scroll {
 	flex: 1;
 	min-height: 0;
 }
 
 .docs-site-scroll-viewport {
-	padding: 0 var(--gap-stack);
+	padding-inline: var(--space-xl);
 }
 
-/* The pages in a card, as sidebar rows always are, never loose on the panel's ground, led by the
-   search full-bleed as a popup is. Scrolled, the search sticks at the top and the card's rounded
-   bottom at the bottom while the pages pass between them, as a machine's card does on but.dev: so
-   the card is drawn by its parts, the search its top, the pages its sides and a cap its bottom, and
-   the ground around each end fills the notches outside its corners. */
-.docs-site-pages-head {
+/* A card of pages, as but.dev's navigator draws a machine's: its leading row as the header, then
+   one group of pages after another, ruled off from the next.
+
+   Scrolled, the header sticks at the top while the pages pass under it, and as the card leaves it
+   shrinks from the bottom around the stuck header, so the frame stays whole. The card is drawn by
+   its parts for that: the header its top, the groups its sides, and a foot its bottom; a border on
+   the card would run on past a stuck header's rounded corners. The foot sticks the other way: a
+   card running on past the scroller's bottom keeps its bottom edge there, as the old single card
+   did, and over a header the card's end is cutting off it is that edge too. Over the card's last header height sticky
+   pushes the header up, the hold moves it down by as much, and the card clips it; over the last two
+   radii the corners flatten with it, so the top and bottom curves meet rather than cross. */
+@property --docs-section-roundness {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 1;
+}
+
+.docs-site-section {
+	--section-radius: calc(var(--radius-card) * var(--docs-section-roundness));
+	--section-head-height: calc(var(--size-control) + 2 * var(--padding-list) + 2px);
+
+	position: relative;
+	/* `clip` rather than `hidden`: hidden would make the card a scroller, and the header would stick
+	   to it instead. */
+	overflow: clip;
+	border-radius: var(--section-radius);
+	/* Measured against the scroller's own edge: a view timeline is otherwise inset by the
+	   scroller's scroll-padding. */
+	view-timeline: --docs-section block;
+	view-timeline-inset: 0;
+	animation: docs-section-flatten linear both;
+	animation-timeline: --docs-section;
+	animation-range: exit-crossing calc(100% - 2 * var(--radius-card)) exit-crossing 100%;
+
+	& + & {
+		margin-top: var(--space-lg);
+	}
+}
+
+/* Square, on the panel's ground: a stuck header's rounded corners sit over the pages scrolling
+   under it, and this fills the notches outside them. The rounded top of the card is the header
+   inside. */
+.docs-site-section-head {
 	z-index: 1;
 	position: sticky;
 	top: 0;
-	padding-top: var(--gap-stack);
 	background-color: var(--bg-2);
+	animation: docs-section-hold linear both;
+	animation-timeline: --docs-section;
+	animation-range: exit-crossing calc(100% - var(--section-head-height)) exit-crossing 100%;
 }
 
-.docs-site-pages-top {
-	overflow: hidden;
+.docs-site-section-top {
+	padding: var(--padding-list);
 	border: 1px solid var(--border-section);
-	border-bottom: 0;
-	border-radius: var(--radius-card) var(--radius-card) 0 0;
+	border-radius: var(--section-radius) var(--section-radius) 0 0;
 	background-color: var(--bg-1);
+
+	/* Folded, the header is the whole card. */
+	[data-folded] & {
+		border-radius: var(--section-radius);
+	}
 }
 
-.docs-site-pages {
-	border-inline: 1px solid var(--border-section);
+/* Each group's bottom edge is the hairline under it, but the last one's, which is the foot. A group
+   with another under it keeps a little more room before the line. */
+.docs-site-group {
+	display: flex;
+	flex-direction: column;
+	padding: var(--padding-list) var(--padding-list) var(--gap-stack);
+	gap: 1px;
+	border: 1px solid var(--border-section);
+	border-top: 0;
 	background-color: var(--bg-1);
+
+	&:has(+ .docs-site-section-foot) {
+		padding-bottom: var(--padding-list);
+		border-bottom: 0;
+	}
 }
 
-/* The card's bottom edge, laid over the last group's padding so the card ends where it did. The
-   edge is see-through, so the pages scroll right down to it; the ground is painted only outside its
-   rounded corners and below it. */
-.docs-site-pages-foot {
-	--corner: var(--radius-card);
+/* The card's bottom edge, laid over the last group's padding so the card ends where it would. It is
+   see-through, so the pages scroll right down to it; only the ground outside its rounded corners is
+   painted. Over the header, at the card's own end, it draws over it as the header is cut off. */
+.docs-site-section-foot {
+	--corner: var(--section-radius);
 
-	z-index: 1;
+	z-index: 2;
 	position: sticky;
 	bottom: 0;
+	height: var(--corner);
 	margin-top: calc(-1 * var(--corner));
-	padding-bottom: var(--gap-stack);
 	background:
 		radial-gradient(
 				circle at 100% 0,
@@ -96,51 +174,50 @@ body[data-layout="centered"] {
 				transparent calc(var(--corner) - 0.5px),
 				var(--bg-2) var(--corner)
 			)
-			right top / var(--corner) var(--corner) no-repeat,
-		linear-gradient(var(--bg-2), var(--bg-2)) bottom / 100% var(--gap-stack) no-repeat;
+			right top / var(--corner) var(--corner) no-repeat;
 	pointer-events: none;
-}
 
-.docs-site-pages-bottom {
-	height: var(--corner);
-	border: 1px solid var(--border-section);
-	border-top: 0;
-	border-radius: 0 0 var(--corner) var(--corner);
-}
-
-/* A hairline parts the groups. */
-.docs-site-group {
-	padding: var(--padding-list);
-
-	& + & {
-		border-top: 1px solid var(--border-section);
+	/* The edge itself, apart from the ground: a background is clipped by its own box's corners. */
+	&::before {
+		position: absolute;
+		inset: 0;
+		border: 1px solid var(--border-section);
+		border-top: 0;
+		border-radius: 0 0 var(--corner) var(--corner);
+		content: "";
 	}
 }
 
-.docs-site-card {
-	overflow: hidden;
+@keyframes docs-section-flatten {
+	to {
+		--docs-section-roundness: 0;
+	}
+}
+
+@keyframes docs-section-hold {
+	to {
+		translate: 0 var(--section-head-height);
+	}
+}
+
+/* The gap between the sidebar and the page is the scroller's gutter, so the handle takes no room:
+   its grab area lies just inside the page card's edge, clear of the sidebar's scrollbar, as
+   but.dev's does, with its grip 3px in. */
+.docs-site-handle {
+	z-index: 1;
+	margin-inline-end: -6px;
+}
+
+/* The page in a card of its own, set in from the window's edge as the sidebar's cards are, and from
+   them by the sidebar's gutter alone. The scrollbar's gutter is kept on a page too short to scroll,
+   so the column doesn't shift. */
+.docs-site-main {
+	box-sizing: border-box;
+	height: calc(100% - 2 * var(--space-xl));
+	margin: var(--space-xl) var(--space-xl) var(--space-xl) 0;
+	overflow: auto;
 	border: 1px solid var(--border-section);
 	border-radius: var(--radius-card);
-	background-color: var(--bg-1);
-}
-
-/* The theme stays put under the pages, past a hairline. */
-.docs-site-footer {
-	margin: 0 var(--gap-stack);
-	padding: var(--gap-stack) 0;
-	border-top: 1px solid var(--border-section);
-}
-
-.docs-site-theme {
-	display: flex;
-	flex-direction: column;
-	padding: var(--gap-stack);
-}
-
-/* The scrollbar's gutter is kept on a page too short to scroll, so the column doesn't shift. */
-.docs-site-main {
-	height: 100%;
-	overflow: auto;
 	background-color: var(--bg-1);
 	scrollbar-gutter: stable;
 }
