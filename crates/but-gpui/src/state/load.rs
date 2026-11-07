@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use futures::{StreamExt as _, channel::mpsc};
+use futures::{
+    StreamExt as _,
+    channel::{mpsc, oneshot},
+};
 use gpui::{Context, SharedString, Task, WindowId};
 
 use super::{CodePlace, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
@@ -39,8 +42,47 @@ pub(super) struct Reload {
 enum Asked {
     /// Add project.
     Add,
-    /// A `but://open` link, at the place in the project it names.
-    Link(Vec<(String, String)>),
+    /// A `but://open` link, at the place in the project it names, told where it lands.
+    Link(Vec<(String, String)>, Option<LinkLanding>),
+}
+
+/// Where a `but://open` link's landing is told once it's known: whether the window went where it
+/// points, and if not, what the user was told. A clone tells the same one, so the events on the
+/// way can carry it, and dropping the last tells it nothing landed, as a later link replacing it
+/// does.
+#[derive(Clone)]
+pub(crate) struct LinkLanding(Arc<parking_lot::Mutex<Option<oneshot::Sender<Landed>>>>);
+
+/// Where a link landed, as [`LinkLanding`] tells it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Landed {
+    pub landed: bool,
+    pub warning: Option<String>,
+}
+
+impl std::fmt::Debug for LinkLanding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("LinkLanding")
+    }
+}
+
+impl LinkLanding {
+    /// A landing, and where it's heard.
+    pub(crate) fn new() -> (Self, oneshot::Receiver<Landed>) {
+        let (sender, landed) = oneshot::channel();
+        (
+            Self(Arc::new(parking_lot::Mutex::new(Some(sender)))),
+            landed,
+        )
+    }
+
+    /// Tell where the link landed, unless that's been told: there, or not with `warning`.
+    pub(crate) fn tell(&self, landed: bool, warning: Option<&str>) {
+        if let Some(sender) = self.0.lock().take() {
+            let warning = warning.map(str::to_owned);
+            sender.send(Landed { landed, warning }).ok();
+        }
+    }
 }
 
 impl Reload {
@@ -317,14 +359,15 @@ impl Store {
     }
 
     /// Open the project at `path` as a `but://open` link asks, adding it first if it's new, at
-    /// the place in it `at` names.
-    pub fn open_from_link(
+    /// the place in it `at` names, telling `landing` where it lands.
+    pub(crate) fn open_from_link(
         &mut self,
         path: PathBuf,
         at: Vec<(String, String)>,
+        landing: Option<LinkLanding>,
         cx: &mut Context<Self>,
     ) {
-        self.add_or_open(path, Asked::Link(at), cx);
+        self.add_or_open(path, Asked::Link(at, landing), cx);
     }
 
     /// Add `path` and select it, as `asked`.
@@ -343,8 +386,8 @@ impl Store {
                     let id = ProjectId::from(id);
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
-                    if let Asked::Link(at) = asked {
-                        return store.link_opened(id, existed, at, cx);
+                    if let Asked::Link(at, landing) = asked {
+                        return store.link_opened(id, existed, at, landing, cx);
                     }
                     store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
                     match (existed, store.project(&id)) {
@@ -355,8 +398,15 @@ impl Store {
                         _ => store.added = Some(id),
                     }
                 }
-                Err(err) if err.is::<backend::NotARepository>() => store.offer_init(folder, cx),
-                Err(err) => store.failed("Couldn't add the project", &err, cx),
+                Err(err) => {
+                    if let Asked::Link(_, Some(landing)) = &asked {
+                        landing.tell(false, Some(&format!("{err:#}")));
+                    }
+                    match err.is::<backend::NotARepository>() {
+                        true => store.offer_init(folder, cx),
+                        false => store.failed("Couldn't add the project", &err, cx),
+                    }
+                }
             })
             .ok();
         })
@@ -370,6 +420,7 @@ impl Store {
         id: ProjectId,
         existed: bool,
         at: Vec<(String, String)>,
+        landing: Option<LinkLanding>,
         cx: &mut Context<Self>,
     ) {
         if !existed {
@@ -379,6 +430,7 @@ impl Store {
             project: id,
             existed,
             at,
+            landing,
         });
     }
 
@@ -390,10 +442,11 @@ impl Store {
         selection: Selection,
         place: Option<CodePlace>,
         missing: &'static str,
+        landing: Option<LinkLanding>,
         cx: &mut Context<Self>,
     ) {
         let project = selection.project().clone();
-        self.linked = Some((selection.clone(), missing));
+        self.linked = Some((selection.clone(), missing, landing));
         match place {
             Some(place) if self.still_there(&selection) => self.show_file(selection, place, cx),
             _ => self.select_by_hand(selection, cx),
@@ -415,16 +468,26 @@ impl Store {
     }
 
     /// Once `id` is read, say so if what a link selected in it isn't there, before it falls
-    /// back.
+    /// back, and tell the link's landing either way. A project that couldn't be read tells it
+    /// why.
     fn land_link(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.workspace(id).is_none() {
+        let failed = (self.project(id)).and_then(|entry| entry.error.clone());
+        if self.workspace(id).is_none() && failed.is_none() {
             return;
         }
-        let Some((linked, missing)) = self.linked.take_if(|(linked, _)| linked.project() == id)
+        let Some((linked, missing, landing)) =
+            self.linked.take_if(|(linked, ..)| linked.project() == id)
         else {
             return;
         };
-        if self.selection.as_ref() == Some(&linked) && !self.still_there(&linked) {
+        let there = self.workspace(id).is_some() && self.still_there(&linked);
+        if let Some(landing) = landing {
+            match &failed {
+                Some(failed) if self.workspace(id).is_none() => landing.tell(false, Some(failed)),
+                _ => landing.tell(there, (!there).then_some(missing)),
+            }
+        }
+        if self.selection.as_ref() == Some(&linked) && self.workspace(id).is_some() && !there {
             self.snack_warning(missing, cx);
         }
     }

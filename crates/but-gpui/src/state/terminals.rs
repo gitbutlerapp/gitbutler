@@ -185,9 +185,14 @@ impl Store {
         let run = self.prefs.terminal_run().map(str::to_owned);
         let asked = Instant::now();
         let via = backend::metrics::via();
+        // So an agent in it talks to this app, whichever channel's `but` it runs.
+        let socket = backend::links::listening();
         cx.spawn(async move |this, cx| {
             let started = backend::run(move || {
-                let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref())?;
+                let env: Vec<_> = (socket.iter())
+                    .map(|socket| (but_path::app::SOCKET_ENV, socket.as_os_str()))
+                    .collect();
+                let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref(), &env)?;
                 Ok((shell, Ghostty::load()))
             })
             .await;

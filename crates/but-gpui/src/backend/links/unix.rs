@@ -1,54 +1,55 @@
-//! A datagram socket in the channel's data directory, only for this user. As Zed's:
-//! <https://github.com/zed-industries/zed/blob/28d0a3547f16b9609b301b48ab363bfca649c864/crates/zed/src/zed/open_listener.rs>
+//! A stream socket in the channel's data directory, only for this user, each connection to it
+//! one conversation, as Neovim's server is:
+//! <https://github.com/neovim/neovim/blob/864f788/src/nvim/msgpack_rpc/server.c>
 
 use std::io;
 use std::os::unix::fs::PermissionsExt as _;
-use std::os::unix::net::UnixDatagram;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 
-pub type Listener = UnixDatagram;
-
-/// Room for a launch's message, links to the longest paths included.
-const MESSAGE_SIZE: usize = 64 * 1024;
+pub type Listener = UnixListener;
+pub type Connection = UnixStream;
 
 pub fn socket_path() -> io::Result<PathBuf> {
-    let dir = but_path::app_data_dir().map_err(io::Error::other)?;
-    Ok(dir.join("gpui-links.sock"))
+    but_path::app::socket_path(but_path::AppChannel::new()).map_err(io::Error::other)
 }
 
-/// Listen for later launches, or `None` where an app already does.
-pub fn listen() -> io::Result<Option<UnixDatagram>> {
+/// Listen for the CLI and later launches, or `None` where an app already does.
+pub fn listen() -> io::Result<Option<UnixListener>> {
     let path = socket_path()?;
-    match UnixDatagram::unbound()?.connect(&path) {
-        Ok(()) => return Ok(None),
-        // An app that quit left its socket behind.
-        Err(err) if err.kind() == io::ErrorKind::ConnectionRefused => {
-            std::fs::remove_file(&path)?;
-        }
-        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-        Err(err) => return Err(err),
-    }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let listener = UnixDatagram::bind(&path)?;
+    let listener = match UnixListener::bind(&path) {
+        Ok(listener) => listener,
+        // Connecting says which: an app answers, or one that quit left its socket behind. The
+        // app that answers sees a connection that asks nothing.
+        Err(err) if err.kind() == io::ErrorKind::AddrInUse => match UnixStream::connect(&path) {
+            Ok(_) => return Ok(None),
+            Err(err) if err.kind() == io::ErrorKind::ConnectionRefused => {
+                std::fs::remove_file(&path)?;
+                UnixListener::bind(&path)?
+            }
+            Err(err) => return Err(err),
+        },
+        Err(err) => return Err(err),
+    };
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     Ok(Some(listener))
 }
 
-pub fn send(message: &[u8]) -> io::Result<()> {
-    UnixDatagram::unbound()?.send_to(message, socket_path()?)?;
-    Ok(())
-}
-
-/// Hand `each` every message as it comes, until the socket fails.
-pub fn receive(listener: UnixDatagram, mut each: impl FnMut(Vec<u8>)) -> io::Result<()> {
-    let mut buffer = vec![0; MESSAGE_SIZE];
+/// The next connection, once one comes.
+pub fn accept(listener: &mut UnixListener) -> io::Result<UnixStream> {
     loop {
-        match listener.recv(&mut buffer) {
-            Ok(len) => each(buffer.iter().take(len).copied().collect()),
+        match listener.accept() {
+            Ok((stream, _)) => return Ok(stream),
             Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
             Err(err) => return Err(err),
         }
     }
+}
+
+/// `connection` twice, to read from one and write to the other.
+pub fn split(connection: UnixStream) -> io::Result<(UnixStream, UnixStream)> {
+    Ok((connection.try_clone()?, connection))
 }

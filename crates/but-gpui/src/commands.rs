@@ -160,6 +160,12 @@ commands! {
     Push => "Push" risky { phrase: push_phrase, listed: pushable },
     OpenPullRequest => "Open pull request" { listed: has_pull_request },
     Fetch => "Fetch",
+    crate::agents::AskAgents => "Ask agents" {
+        aliases: &["Ask the agent", "Ask agent about this", "Point and ask"],
+        listed: has_selection,
+    },
+    crate::agents::NextStep => "Next step" { listed: shows_walkthrough },
+    crate::agents::EndWalkthrough => "End walkthrough" { listed: shows_walkthrough },
     Pull => "Pull",
     UpdateFromTarget => "Update workspace and worktrees" {
         phrase: update_phrase,
@@ -486,6 +492,15 @@ fn target_moved(app: &AppView, cx: &App) -> bool {
 }
 
 /// A worktree's branch starts from the target, so not before there is one.
+fn has_selection(app: &AppView, cx: &App) -> bool {
+    app.store.read(cx).selection.is_some()
+}
+
+/// While an agent's walkthrough shows a step.
+fn shows_walkthrough(app: &AppView, _cx: &App) -> bool {
+    app.agents.guide.is_some()
+}
+
 fn has_target(app: &AppView, cx: &App) -> bool {
     selected_workspace(app, cx).is_some_and(|ws| ws.target.is_some())
 }

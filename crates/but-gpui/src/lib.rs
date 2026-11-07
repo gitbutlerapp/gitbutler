@@ -22,6 +22,7 @@
 // the file its snapshot is in.
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 
+mod agents;
 mod app;
 #[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;

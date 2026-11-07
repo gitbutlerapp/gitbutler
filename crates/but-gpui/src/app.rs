@@ -211,6 +211,8 @@ pub struct AppView {
     /// The open menu's, which takes the keys from what had them.
     pub(crate) menu_focus: FocusHandle,
     pub prompt: Option<Prompt>,
+    /// What the user told agents, the agents waiting to hear it, and an agent's walkthrough.
+    pub(crate) agents: crate::agents::Agents,
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
@@ -482,7 +484,11 @@ impl AppView {
                     project,
                     existed,
                     at,
-                } => crate::links::land(this, project.clone(), *existed, at, window, cx),
+                    landing,
+                } => {
+                    let landing = landing.clone();
+                    crate::links::land(this, project.clone(), *existed, at, landing, window, cx)
+                }
                 StoreEvent::TilingChanged => {
                     this.drop_stale_tile_drag(cx);
                     this.drop_stale_row_tile(cx);
@@ -633,6 +639,7 @@ impl AppView {
             menu_returns_to: None,
             menu_focus: cx.focus_handle(),
             prompt: None,
+            agents: Default::default(),
             icon_picker: None,
             navigator_open: true,
             navigator_slide: Slide::default(),
@@ -5083,6 +5090,17 @@ impl Render for AppView {
             .on_action(cx.listener(|this, _: &UpdateWorkspace, _, cx| {
                 this.update_selected_project(UpdateScope::Workspace, cx)
             }))
+            .on_action(
+                cx.listener(|this, _: &crate::agents::AskAgents, window, cx| {
+                    this.ask_agents(window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &crate::agents::NextStep, _, cx| this.next_step(cx)))
+            .on_action(
+                cx.listener(|this, _: &crate::agents::EndWalkthrough, _, cx| {
+                    this.end_walkthrough(cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &UpdateWorktrees, _, cx| {
                 this.update_selected_project(UpdateScope::Worktrees, cx)
             }))

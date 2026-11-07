@@ -1108,6 +1108,7 @@ impl AppView {
                     .right(dp(16.))
                     .gap(dp(8.))
                     .children(errors)
+                    .children(self.render_walkthrough(cx))
                     .children(self.render_update_card(cx)),
             )
             .children(snackbar.map(|snackbar| {
@@ -1128,6 +1129,56 @@ impl AppView {
 
     /// The update card, while the desktop app's update feed offers a newer version and Later
     /// hasn't put it off. Not over a modal, as What's new, which it opens, is one.
+    /// The step of a walkthrough an agent shows, while it shows one: what it says of the place
+    /// it opened, and Next and Done, which tell it. Next waits for the agent's next step.
+    fn render_walkthrough(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let theme = Theme::get(cx);
+        let guide = self.agents.guide.as_ref()?;
+        let next = match guide.asked_next {
+            true => button("walkthrough-next", "Next")
+                .small()
+                .disabled_because(Some("Waiting for the agent's next step")),
+            false => button("walkthrough-next", "Next")
+                .small()
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.next_step(cx))),
+        };
+        Some(
+            popover(theme)
+                .id("walkthrough")
+                .role(Role::Dialog)
+                .aria_label("A step of the agent's walkthrough")
+                .aria_description(guide.text.clone())
+                .w(dp(320.))
+                .p(dp(14.))
+                .gap(dp(8.))
+                .occlude()
+                .child(muted("The agent says", theme).text_size(dp(12.)))
+                // A long step wraps, and scrolls past the card's height.
+                .child(
+                    div()
+                        .id("walkthrough-text")
+                        .max_h(dp(240.))
+                        .overflow_y_scroll()
+                        .child(guide.text.clone()),
+                )
+                .child(
+                    h_flex()
+                        .gap(dp(6.))
+                        .justify_end()
+                        .child(
+                            button("walkthrough-done", "Done")
+                                .small()
+                                .style(ButtonStyle::Ghost)
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.end_walkthrough(cx)
+                                })),
+                        )
+                        .child(next),
+                )
+                .into_any_element(),
+        )
+    }
+
     fn render_update_card(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);

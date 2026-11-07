@@ -2274,6 +2274,28 @@ impl Detail {
         self.reading.unwrap_or(self.cursor.entry())
     }
 
+    /// Where the diff's cursor is in `selection`'s changes, as a `but://open` link names it: its
+    /// file, at the first line its hunk changes on the new side. None while the diff loaded is
+    /// another selection's, or the cursor's on the message.
+    pub(crate) fn link_place(&self, selection: &Selection) -> Option<CodePlace> {
+        let diff =
+            (self.diff.as_ref()).filter(|diff| diff.selection.as_ref() == Some(selection))?;
+        let file = diff.files.get(self.cursor.in_file()?)?;
+        let line = match (self.cursor.at, &file.body) {
+            (Stop::Hunk(hunk), backend::DiffBody::Hunks { hunks, .. }) => {
+                hunks.get(hunk).and_then(|hunk| {
+                    let changed = (hunk.lines.iter()).filter(|line| line.kind != LineKind::Context);
+                    changed.chain(&hunk.lines).find_map(|line| line.new)
+                })
+            }
+            _ => None,
+        };
+        Some(CodePlace::File {
+            path: file.file.path.clone(),
+            line,
+        })
+    }
+
     /// What acts on a whole file acts on: the current entry's file, none on the message. What
     /// acts on a hunk still acts on the cursor's.
     fn current_file(&self) -> Option<usize> {

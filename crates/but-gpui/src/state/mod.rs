@@ -32,6 +32,7 @@ mod tiling;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
+pub(crate) use load::{Landed, LinkLanding};
 pub use mesh::{MeshBranch, MeshPick, MeshPickKind, MeshState};
 use mutation::Running;
 pub use mutation::{
@@ -247,6 +248,7 @@ pub enum StoreEvent {
         project: ProjectId,
         existed: bool,
         at: Vec<(String, String)>,
+        landing: Option<load::LinkLanding>,
     },
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
@@ -389,8 +391,9 @@ pub struct Store {
     staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
-    /// What a link selected, and what to say if it isn't there, until its project's read.
-    linked: Option<(Selection, &'static str)>,
+    /// What a link selected, what to say if it isn't there, and where to tell that, until its
+    /// project's read.
+    linked: Option<(Selection, &'static str, Option<load::LinkLanding>)>,
     /// Whether the user was asked for Git's missing author since the app started: once is
     /// enough, as it's set for every repository.
     asked_author: bool,

@@ -176,6 +176,25 @@ anything else.
 - Background failures log at debug, keep the last good read and are tried again. Only what the
   user asked for, signing in or out and Apply here, shows an error.
 
+## Agents
+
+Agents talk to the running app through `but`, over the socket it listens at (`but_path::app`):
+they open a place, with a step of a walkthrough to read beside it, and read what the user looks
+at. The user asks agents about what they look at, and steps through a walkthrough, which the
+agents waiting on `but _wait` hear.
+
+- Its code stays in `agents.rs` and `backend/links.rs` with its `unix.rs` and `windows.rs`. A
+  place goes through `links::read` and `links::place_of`, the vocabulary `but://open` links
+  use, and what crosses the socket is `but_path::app`'s types, which the CLI builds with too.
+- What only reads, `view` and `wait`, never brings the window forward or takes the keys. What
+  shows something, `open` and `show`, does, as a link does.
+- Every request is answered once, through its `Reply`, an error included. An `open` answers
+  once its place lands or doesn't (`LinkLanding`), with what the window shows then.
+- Nothing reaches an agent but what the user sends with a key press or a click: Ask agents, and
+  a walkthrough's Next and Done. Agents only open and read here; they act with `but` as before.
+- The app's terminals set `GITBUTLER_APP_SOCKET` only while this app holds the socket, so an
+  agent in one never reaches another app.
+
 ## Briefs
 
 Briefs are the server's write-ups of a branch. The API and what it sends will change for a while,

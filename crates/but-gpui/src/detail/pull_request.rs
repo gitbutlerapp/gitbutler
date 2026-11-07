@@ -101,7 +101,7 @@ impl Detail {
     }
 
     /// The tab the page shows: the one picked, if it has that one.
-    fn shown_tab(&self, cx: &App) -> PageTab {
+    pub(crate) fn shown_tab(&self, cx: &App) -> PageTab {
         match (self.showing_review(cx), self.showing_brief()) {
             (true, _) => PageTab::Review,
             (false, true) => PageTab::Brief,

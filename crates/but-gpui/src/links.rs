@@ -20,8 +20,8 @@ use crate::backend::{Checkout, CommitId, FullName};
 use crate::detail::{PageTab, has_tabs, shows_its_diff};
 use crate::settings::{AppPage, Page};
 use crate::state::{
-    CodePlace, MeshPick, MeshPickKind, ProjectId, ProjectTab, Section, SectionKind, Selection,
-    SelectionKind,
+    CodePlace, LinkLanding, MeshPick, MeshPickKind, ProjectId, ProjectTab, Section, SectionKind,
+    Selection, SelectionKind,
 };
 
 /// Where a link takes the window.
@@ -47,6 +47,9 @@ pub enum Tab {
 /// `to=` for the app's settings and a project's, which aren't kinds of selection.
 const SETTINGS: &str = "settings";
 const PROJECT_SETTINGS: &str = "project-settings";
+
+/// What the app says of a link naming a place it can't read.
+const UNREAD: &str = "Couldn't read where the link points";
 
 /// What the app says when the place of `kind` a link named isn't there now. No wildcard: a new
 /// kind doesn't build until it has its own.
@@ -172,14 +175,93 @@ fn selection<'a>(
     })
 }
 
+/// The place a link names for `selection`, on `tab` and at `place` in its diff: what [`read`]
+/// reads back as them. A terminal, whose id lasts only while the app runs, and a branch with
+/// no name, which a link can't name, give their project.
+pub fn place_of(
+    selection: &Selection,
+    tab: Option<Tab>,
+    place: Option<&CodePlace>,
+) -> Vec<(String, String)> {
+    let project = || {
+        vec![(
+            "to".to_owned(),
+            <&str>::from(SelectionKind::Project).to_owned(),
+        )]
+    };
+    let mut at = vec![(
+        "to".to_owned(),
+        <&str>::from(SelectionKind::from(selection)).to_owned(),
+    )];
+    let mut add = |key: &str, value: String| at.push((key.to_owned(), value));
+    match selection {
+        Selection::Project(_) => {}
+        Selection::Section(_, section) => {
+            add(
+                "section",
+                <&str>::from(SectionKind::from(section)).to_owned(),
+            );
+            if let Section::Upstream(branch) = section {
+                add("branch", branch.as_bstr().to_string());
+            }
+        }
+        Selection::Checkout(_, checkout) | Selection::Uncommitted(_, checkout) => {
+            if let Checkout::Linked(name) = checkout {
+                add("worktree", name.to_string());
+            }
+        }
+        Selection::Terminal(..) | Selection::Branch(_, None) | Selection::Stack(_, None) => {
+            return project();
+        }
+        Selection::Branch(_, Some(branch)) | Selection::Stack(_, Some(branch)) => {
+            add("branch", branch.as_bstr().to_string());
+        }
+        Selection::Commit(_, commit) => add("commit", commit.0.to_string()),
+        Selection::Upstream(_, branch, commit) => {
+            add("branch", branch.as_bstr().to_string());
+            add("commit", commit.0.to_string());
+        }
+        Selection::Mesh(_, checkout, pick) => {
+            add("checkout", checkout.to_string());
+            add("pick", <&str>::from(MeshPickKind::from(pick)).to_owned());
+            match pick {
+                MeshPick::Checkout => {}
+                MeshPick::Branch(name) => add("name", name.clone()),
+                MeshPick::Commit(name, commit) => {
+                    add("name", name.clone());
+                    add("commit", commit.0.to_string());
+                }
+            }
+        }
+    }
+    match tab {
+        Some(Tab::Project(tab)) => add("tab", <&str>::from(tab).to_owned()),
+        Some(Tab::Page(tab)) => add("tab", <&str>::from(tab).to_owned()),
+        None => {}
+    }
+    match place {
+        Some(CodePlace::File { path, line }) => {
+            add("file", path.clone());
+            if let Some(line) = line {
+                add("line", line.to_string());
+            }
+        }
+        Some(CodePlace::Line { path, .. }) => add("file", path.clone()),
+        None => {}
+    }
+    at
+}
+
 /// Take `app`'s window where a link points in `project`, once the store has it open: `at`, as
 /// [`read`] reads it, or where the project opens by itself if `at` names nothing it can read,
-/// which it says. `existed` says whether the project was added before the link.
+/// which it says. `existed` says whether the project was added before the link. `landing` is
+/// told where it lands.
 pub fn land(
     app: &mut AppView,
     project: ProjectId,
     existed: bool,
     at: &[(String, String)],
+    landing: Option<LinkLanding>,
     window: &mut Window,
     cx: &mut Context<AppView>,
 ) {
@@ -192,6 +274,11 @@ pub fn land(
         }) => Some((selection.clone(), *tab)),
         _ => None,
     };
+    let tell = |landed: bool, warning: Option<&str>| {
+        if let Some(landing) = &landing {
+            landing.tell(landed, warning);
+        }
+    };
     let settings = (app.store).update(cx, |store, cx| match route {
         Some(Route::Select {
             selection: Selection::Project(id),
@@ -199,24 +286,27 @@ pub fn land(
             ..
         }) => {
             store.show_tab(id, tab, cx);
+            tell(true, None);
             None
         }
         Some(Route::Select {
             selection, place, ..
         }) => {
             let missing = missing(SelectionKind::from(&selection));
-            store.select_linked(selection, place, missing, cx);
+            store.select_linked(selection, place, missing, landing.clone(), cx);
             None
         }
         Some(Route::Settings(page)) => {
             store.select_opened(&project, existed, cx);
+            tell(true, None);
             Some(page)
         }
         None => {
             if !at.is_empty() {
-                store.snack_warning("Couldn't read where the link points", cx);
+                store.snack_warning(UNREAD, cx);
             }
             store.select_opened(&project, existed, cx);
+            tell(at.is_empty(), (!at.is_empty()).then_some(UNREAD));
             None
         }
     });
@@ -265,16 +355,26 @@ pub fn follow(
     .detach();
 }
 
-/// Open `incoming` in `app`'s window, as [`follow`] does each link that comes.
+/// Open `incoming` in `app`'s window, as [`follow`] does each link that comes, or answer the
+/// request it is. What shows something brings the window forward; reading it doesn't.
 pub fn open(incoming: Incoming, app: &mut AppView, window: &mut Window, cx: &mut Context<AppView>) {
-    if let Incoming::Link(url) = incoming {
-        let Some(link) = OpenLink::parse(&url) else {
-            // Not the whole link, which can carry a sign-in token.
-            let kind = url.split_once('?').map_or(&*url, |(kind, _)| kind);
-            tracing::warn!("ignoring a link the app doesn't open: {kind}");
-            return;
-        };
-        (app.store).update(cx, |store, cx| store.open_from_link(link.path, link.at, cx));
+    let shows = match incoming {
+        Incoming::Link(url) => {
+            let Some(link) = OpenLink::parse(&url) else {
+                // Not the whole link, which can carry a sign-in token.
+                let kind = url.split_once('?').map_or(&*url, |(kind, _)| kind);
+                tracing::warn!("ignoring a link the app doesn't open: {kind}");
+                return;
+            };
+            (app.store).update(cx, |store, cx| {
+                store.open_from_link(link.path, link.at, None, cx)
+            });
+            true
+        }
+        Incoming::Request(request) => crate::agents::answer(request, app, cx),
+    };
+    if !shows {
+        return;
     }
     // An open modal, as Settings a link opened, keeps them.
     if app.modal.is_none() {
@@ -437,6 +537,51 @@ mod tests {
                 "{link} takes the window where it names"
             );
         }
+    }
+
+    #[test]
+    fn every_place_the_window_can_be_reads_back_from_its_place() {
+        let read_back = |selection: &Selection, tab, place: Option<&CodePlace>| {
+            read(&place_of(selection, tab, place), &project())
+        };
+        for (link, selection) in shapes() {
+            assert_eq!(
+                read_back(&selection, None, None),
+                Some(Route::Select {
+                    selection: selection.clone(),
+                    tab: None,
+                    place: None,
+                }),
+                "{selection:?}, which {link} names, reads back as itself"
+            );
+        }
+        for tab in PageTab::iter() {
+            let branch = Selection::Branch(project(), Some(feature()));
+            let place = CodePlace::File {
+                path: "src/a b.rs".into(),
+                line: Some(4),
+            };
+            let place = (tab == PageTab::Changes).then_some(place);
+            assert_eq!(
+                read_back(&branch, Some(Tab::Page(tab)), place.as_ref()),
+                Some(Route::Select {
+                    selection: branch,
+                    tab: Some(Tab::Page(tab)),
+                    place,
+                }),
+                "a branch on its {tab:?} tab, at a file of its diff where the tab shows it"
+            );
+        }
+        let terminal = Selection::Terminal(project(), crate::terminal::TerminalId(1));
+        assert_eq!(
+            read_back(&terminal, None, None),
+            Some(Route::Select {
+                selection: Selection::Project(project()),
+                tab: None,
+                place: None,
+            }),
+            "a terminal's place is its project's, as no link names a terminal"
+        );
     }
 
     #[test]
