@@ -474,3 +474,17 @@
 		}
 	}
 }
+
+/* A leading NavItem with no page of its own is the button that folds its card, reset as a
+   GroupLabel's is, keeping the row's tint. */
+.foldButton {
+	width: 100%;
+	border: none;
+	background: none;
+	font: inherit;
+	text-align: start;
+
+	&:hover {
+		background-color: var(--bg-hover);
+	}
+}
