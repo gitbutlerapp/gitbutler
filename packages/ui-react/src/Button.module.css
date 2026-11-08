@@ -81,17 +81,17 @@
 
 :where(.pop) {
 	--button-border: none;
-	--button-bg: var(--scale-pop-70);
-	--button-fg: var(--scale-pop-10);
+	--button-bg: var(--but-primary-soft);
+	--button-fg: var(--but-primary-soft-foreground);
 	--button-icon-opacity: 0.7;
-	--button-hover-bg: color-mix(in srgb, var(--scale-pop-70), var(--scale-pop-50) 13%);
+	--button-hover-bg: var(--but-primary-soft-hover);
 }
 
 :where(.gray) {
 	--button-border: none;
 	--button-bg: var(--but-inverse);
 	--button-fg: var(--but-inverse-foreground);
-	--button-hover-bg: color-mix(in srgb, var(--but-inverse) 45%, var(--scale-gray-0));
+	--button-hover-bg: var(--but-inverse-hover);
 }
 
 :where(.ghost-inverted) {
@@ -117,12 +117,12 @@
 
 :where(.danger) {
 	--button-border: none;
-	--button-bg: color-mix(in srgb, var(--scale-danger-80) 60%, transparent);
-	--button-fg: var(--but-danger-text);
+	--button-bg: var(--but-danger-soft);
+	--button-fg: var(--but-danger-soft-foreground);
 	/* A step up from the rest: red on its pink ground loses an icon at 0.7. */
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
-	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 74%, transparent);
+	--button-hover-bg: var(--but-danger-soft-hover);
 }
 
 :where(.ghost) {

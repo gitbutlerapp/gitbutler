@@ -8,10 +8,10 @@ describe("personColour", () => {
 
 	// The GPUI client ports this; its `person.rs` checks the same seeds.
 	test("picks what the GPUI client picks", () => {
-		expect(personColour("Ada Agent")).toBe("var(--scale-danger-70)");
-		expect(personColour("Kiril Videlov")).toBe("var(--scale-safe-70)");
-		expect(personColour("é😀")).toBe("var(--scale-pop-70)");
-		expect(personColour("😀")).toBe("var(--scale-safe-70)");
+		expect(personColour("Ada Agent")).toBe("var(--but-category-5)");
+		expect(personColour("Kiril Videlov")).toBe("var(--but-category-3)");
+		expect(personColour("é😀")).toBe("var(--but-category-1)");
+		expect(personColour("😀")).toBe("var(--but-category-3)");
 	});
 });
 

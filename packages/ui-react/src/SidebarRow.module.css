@@ -35,7 +35,7 @@
 	--selection-inverted: true;
 
 	background-color: var(--but-selected);
-	color: var(--but-inverse-foreground);
+	color: var(--but-selected-foreground);
 
 	.icon,
 	.toggle {
