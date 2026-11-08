@@ -9,7 +9,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=699-584",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=699-584",
 		},
 	},
 });
@@ -49,13 +49,13 @@ export const OnATintedRow = meta.story({
 	render: () => (
 		<div
 			style={{
-				["--checkbox-bg" as string]: "var(--bg-2)",
+				["--checkbox-bg" as string]: "var(--but-muted)",
 				display: "flex",
 				gap: 8,
 				alignItems: "center",
 				padding: 8,
 				borderRadius: 6,
-				backgroundColor: "var(--bg-2)",
+				backgroundColor: "var(--but-muted)",
 			}}
 		>
 			<Checkbox checked={false} />

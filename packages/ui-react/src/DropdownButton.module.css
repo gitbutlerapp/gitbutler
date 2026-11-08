@@ -58,7 +58,7 @@
 		width: 1px;
 		background-color: var(--dropdown-button-separator);
 		content: "";
-		transition: opacity var(--transition-fast);
+		transition: opacity var(--but-transition-fast);
 	}
 }
 
@@ -77,11 +77,15 @@
 }
 
 .gray {
-	--dropdown-button-separator: color-mix(in srgb, var(--fill-gray-fg) 20%, var(--fill-gray-bg));
+	--dropdown-button-separator: color-mix(
+		in srgb,
+		var(--but-inverse-foreground) 20%,
+		var(--but-inverse)
+	);
 }
 
 /* Outline has no fill to divide, so the seam is its border, lighter so it sits
    inside the control rather than reading as a second edge. */
 .outline {
-	--dropdown-button-separator: color-mix(in srgb, var(--border-control) 60%, transparent);
+	--dropdown-button-separator: color-mix(in srgb, var(--but-input) 60%, transparent);
 }

@@ -13,9 +13,23 @@ package README has the pipeline in full. Run everything below from `packages/des
 
 Every route writes the same three files: `core`, `semantic` and `fx.tokens.json`.
 
-- **tokens-bruecke CLI.** Needs `FIGMA_API_KEY` (with `file_variables:read`, an Enterprise
-  plan feature; it expires every 90 days) and `FIGMA_FILE_KEY` in a `.env` here. Use 3.12
-  or later.
+- **A snapshot through the file API (the route that works on GitButler's plan).** Figma's
+  variables REST API is Enterprise-only, so the CLI's own fetch answers `403`. Instead, dump
+  the variables with the Figma MCP and convert them with the CLI's snapshot mode:
+  1. With `use_figma`, collect `getLocalVariableCollectionsAsync()`,
+     `getLocalVariablesAsync()` and `getLocalEffectStylesAsync()` as plain objects (the
+     fields in tokens-bruecke's `schemas/tokens-snapshot.schema.json`), and write the JSON
+     into a text layer on a new page named `tmp: tokens snapshot`. A `use_figma` result
+     can't carry it: it caps at 48 KB.
+  2. Fetch that layer with the regular file API, which any plan has:
+     `GET https://api.figma.com/v1/files/$FIGMA_FILE_KEY/nodes?ids=<node id>` with the
+     `X-Figma-Token` header from `.env`. The snapshot is the node's `characters`.
+  3. Decode the HTML entities in descriptions (Figma returns `&#39;`; the plugin decodes
+     them, snapshot mode doesn't), then delete the page.
+  4. `npx tokens-bruecke@latest --input snapshot.json -c figma-export.config.json -o tokens/json --split-by-collection`
+
+- **tokens-bruecke CLI, on an Enterprise plan.** Needs `FIGMA_API_KEY` (with
+  `file_variables:read`; it expires every 90 days) and `FIGMA_FILE_KEY` in a `.env` here.
 
   ```bash
   set -a && . ./.env && set +a
@@ -34,6 +48,11 @@ Every route writes the same three files: `core`, `semantic` and `fx.tokens.json`
 
 `figma-export.config.json` holds the settings the committed tokens were made with. Changing
 it rewrites every file, so don't, unless that is the point.
+
+A token's CSS name is its Figma path with dashes under `--but-` (`primary/soft/foreground`
+is `--but-primary-soft-foreground`); a group's own variable (`primary` beside
+`primary/foreground`) takes the group's name. The raw palettes, `clr/*` and `scale/*`, keep
+`--clr-*` and `--scale-*`. `cssVarName` in `scripts/terrazzo-css-helpers.mjs` is the one rule.
 
 ## 2. Check something changed
 
@@ -64,8 +83,11 @@ pnpm --filter @gitbutler/ui-react check:tokens
 ```
 
 It names every `var(--…)` nothing declares any more. Fix those in the same change, and
-search the rest of the repo too: `apps/`, `packages/but-mcp-app`, and the GPUI theme in
-`crates/but-gpui/src/theme.rs`, which copies values by hand. Projects outside the monorepo
+search the rest of the repo too: `packages/but-mcp-app`, the GPUI theme in
+`crates/but-gpui/src/theme.rs`, which copies values by hand, and
+`crates/but-gpui/src/ui/illustration.rs`, which colours ui-react's illustrations by the names
+in their SVGs. For a rename, `scripts/rename-tokens.mjs` reads `token-map.json`; add the old
+name and its replacement there and run it. Projects outside the monorepo
 (but-dev) pin a commit and pick the change up when they move it; mention removals to the
 user so they know.
 

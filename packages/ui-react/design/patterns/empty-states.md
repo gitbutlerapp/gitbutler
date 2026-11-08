@@ -1,6 +1,6 @@
 # Empty states
 
-**One component, in ⚛️ Core: "Empty state".** An illustration slot, a title, a
+**One component, in 🍑 But UI: "Empty state".** An illustration slot, a title, a
 body line, and an actions slot. Its Figma description carries the same rules;
 change one and change the other.
 

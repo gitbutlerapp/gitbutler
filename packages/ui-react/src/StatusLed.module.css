@@ -4,10 +4,10 @@
 	flex-shrink: 0;
 	width: 8px;
 	height: 8px;
-	border-radius: var(--radius-full);
-	background-color: var(--text-3);
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-subtle-foreground);
 }
 
 .online {
-	background-color: var(--text-safe);
+	background-color: var(--but-success-text);
 }

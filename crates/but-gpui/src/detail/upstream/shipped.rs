@@ -423,17 +423,17 @@ mod tests {
     fn sums_up_what_merged_on_the_days_and_by_the_person_picked() {
         // Newest first, as the target's line has them.
         let merges = [
-            merge(1, 10, true, 2, &["crates/but", "apps/lite"]),
+            merge(1, 10, true, 2, &["crates/but", "apps/desktop"]),
             merge(2, 9, true, 30, &["crates/but"]),
             merge(3, 9, false, 100, &["Top level"]),
-            merge(4, 5, true, 50, &["apps/lite"]),
+            merge(4, 5, true, 50, &["apps/desktop"]),
         ];
         let all = merged_then(&merges, None, None);
         assert_eq!(all.len(), 4, "nothing picked keeps everything");
         assert_eq!(
             area_counts(&all),
             [
-                ("apps/lite".to_owned(), 2),
+                ("apps/desktop".to_owned(), 2),
                 ("crates/but".to_owned(), 2),
                 ("Top level".to_owned(), 1)
             ],

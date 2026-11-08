@@ -11,7 +11,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2374-4526",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2374-4526",
 		},
 	},
 	decorators: [
@@ -63,7 +63,7 @@ export const PullRequest = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3091-977",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3091-977",
 		},
 	},
 	render: () => (
@@ -71,7 +71,7 @@ export const PullRequest = meta.story({
 			<Tab value="diff">Diff</Tab>
 			<Tab
 				value="pr"
-				icon={<Icon name="pr" style={{ color: "var(--text-safe)" }} />}
+				icon={<Icon name="pr" style={{ color: "var(--but-success-text)" }} />}
 				status={<CiStatus status="working" />}
 			>
 				PR #512
@@ -105,12 +105,12 @@ export const InAHeader = meta.story({
 	render: function Render() {
 		const [tab, setTab] = useState("changes");
 		return (
-			<div style={{ width: 480, border: "1px solid var(--border-2)" }}>
+			<div style={{ width: 480, border: "1px solid var(--but-border)" }}>
 				<div
 					style={{
 						paddingInline: 12,
 						paddingBlock: "6px 10px",
-						borderBlockEnd: "1px solid var(--border-2)",
+						borderBlockEnd: "1px solid var(--but-border)",
 					}}
 				>
 					<Tabs value={tab} onValueChange={setTab} aria-label="Worktree">

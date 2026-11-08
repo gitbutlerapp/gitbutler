@@ -8,13 +8,13 @@
 .header {
 	display: flex;
 	position: relative;
-	column-gap: var(--gap-icon-text);
+	column-gap: var(--but-gap-icon-text);
 	flex-shrink: 0;
 	align-items: center;
-	padding-inline: var(--space-3xl) var(--padding-panel);
+	padding-inline: var(--but-space-3xl) var(--but-padding-panel);
 	/* The panel's 12px in from its top and end, as the diff's bar beside it; the title starts 16px
 	   in, as the view header's above it. The rows start 10px under the buttons. */
-	padding-block: var(--padding-panel) var(--space-xl);
+	padding-block: var(--but-padding-panel) var(--but-space-xl);
 }
 
 /* The header's two faces trade places when the filter opens: the title steps aside, the field
@@ -22,12 +22,12 @@
    place as the actions fold away. Closing plays it back. */
 .label {
 	display: flex;
-	column-gap: var(--gap-icon-text);
+	column-gap: var(--but-gap-icon-text);
 	align-items: center;
 	min-width: 0;
 	transition:
-		opacity var(--transition-fast) ease-out,
-		translate var(--transition-fast) ease-out;
+		opacity var(--but-transition-fast) ease-out,
+		translate var(--but-transition-fast) ease-out;
 
 	.filtering & {
 		translate: -10px 0;
@@ -53,15 +53,15 @@
    before it. */
 .filterField {
 	position: absolute;
-	inset-block-start: var(--padding-panel);
-	inset-inline: 25% calc(var(--padding-panel) + var(--size-control) + var(--space-sm));
+	inset-block-start: var(--but-padding-panel);
+	inset-inline: 25% calc(var(--but-padding-panel) + var(--but-size-control) + var(--but-space-sm));
 	opacity: 0;
 	transition:
-		opacity var(--transition-fast) ease-out,
-		inset-inline-start var(--transition-fast) ease-out;
+		opacity var(--but-transition-fast) ease-out,
+		inset-inline-start var(--but-transition-fast) ease-out;
 
 	.filtering & {
-		inset-inline-start: var(--padding-panel);
+		inset-inline-start: var(--but-padding-panel);
 		opacity: 1;
 	}
 }
@@ -78,8 +78,8 @@
 	display: grid;
 	grid-template-columns: 1fr;
 	transition:
-		grid-template-columns var(--transition-fast) ease-out,
-		opacity var(--transition-fast) ease-out;
+		grid-template-columns var(--but-transition-fast) ease-out,
+		opacity var(--but-transition-fast) ease-out;
 
 	.filtering & {
 		grid-template-columns: 0fr;
@@ -104,9 +104,9 @@
 	display: flex;
 	grid-area: 1 / 1;
 	transition:
-		opacity var(--transition-fast) ease-out,
-		scale var(--transition-fast) ease-out,
-		filter var(--transition-fast) ease-out;
+		opacity var(--but-transition-fast) ease-out,
+		scale var(--but-transition-fast) ease-out,
+		filter var(--but-transition-fast) ease-out;
 }
 
 .toggleIconGone {
@@ -131,37 +131,37 @@
 	display: flex;
 	row-gap: 1px;
 	flex-direction: column;
-	padding-inline: var(--padding-panel);
-	padding-block-end: var(--padding-panel);
+	padding-inline: var(--but-padding-panel);
+	padding-block-end: var(--but-padding-panel);
 }
 
 /* The panel's own header leaves room under itself; one passed in, such as a popup's search, ends
    on a hairline, so the rows keep the inset they have at the other three edges. */
 .listOwnTop {
-	padding-block-start: var(--padding-panel);
+	padding-block-start: var(--but-padding-panel);
 }
 
 .item {
 	display: flex;
-	column-gap: var(--gap-icon-text);
+	column-gap: var(--but-gap-icon-text);
 	align-items: center;
-	min-height: var(--size-control);
+	min-height: var(--but-size-control);
 	/* Less on the end: the last cell centres its mark in 22px, which already sets it in from the
 	   edge, so 4px leaves it about as far from the edge as the icon is at the start. */
-	padding-inline: var(--space-lg) var(--space-sm);
-	border-radius: var(--radius-control);
-	color: var(--text-1);
+	padding-inline: var(--but-space-lg) var(--but-space-sm);
+	border-radius: var(--but-radius-control);
+	color: var(--but-foreground);
 	cursor: var(--control-cursor);
 
 	/* No transition: hover and selection share this ground, and selection moves with the arrow
 	   keys (design/foundations/states.md, "List rows snap"). */
 	&:where(:hover) {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	/* After hover, so a selected row reads the same under the pointer. */
 	&[data-selected] {
-		background-color: var(--bg-selected-inactive);
+		background-color: var(--but-selected-inactive);
 	}
 
 	&[inert] {
@@ -173,14 +173,14 @@
    where the cursor sits in every other list stays legible without competing. */
 :where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 	.item[data-selected] {
-	--checkbox-bg: var(--fill-gray-bg);
+	--checkbox-bg: var(--but-inverse);
 
-	background-color: var(--bg-selected);
-	color: var(--text-1-invert);
+	background-color: var(--but-selected);
+	color: var(--but-selected-foreground);
 
 	.directory,
 	.marks {
-		color: var(--text-2-invert);
+		color: var(--but-inverse-muted-foreground);
 	}
 
 	/* The ghost button's inverted variant. On the buttons themselves, since a variant declares
@@ -188,8 +188,8 @@
 	button {
 		--button-border: none;
 		--button-bg: transparent;
-		--button-fg: var(--text-1-invert);
-		--button-hover-bg: var(--bg-hover-invert);
+		--button-fg: var(--but-inverse-foreground);
+		--button-hover-bg: var(--but-inverse-ghost-hover);
 	}
 }
 
@@ -217,7 +217,7 @@
 	position: absolute;
 	width: 1px;
 	inset-block: 0 -1px;
-	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
 	content: "";
 }
 
@@ -225,11 +225,11 @@
 	padding: 0;
 	border: none;
 	background: none;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 
 	&:hover,
 	&:focus-visible {
-		color: var(--text-2);
+		color: var(--but-muted-foreground);
 	}
 }
 
@@ -250,7 +250,7 @@
 .icon {
 	width: 14px;
 	height: 14px;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 /* Opaque, so a checked box covers the icon under it. */
@@ -283,7 +283,7 @@
 }
 
 .directory {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .directoryTrail {
@@ -307,7 +307,7 @@
 	display: flex;
 	flex-shrink: 0;
 	align-items: center;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 /* The status and the actions share the row's last cell, both centred in it, so neither moves
@@ -346,13 +346,13 @@
 }
 
 .count {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	font-variant-numeric: tabular-nums;
 
 	:where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 		.item[data-selected]
 		& {
-		color: var(--text-2-invert);
+		color: var(--but-inverse-muted-foreground);
 	}
 }
 
@@ -362,6 +362,6 @@
 	display: flex;
 	justify-content: center;
 	width: 1.1em;
-	color: var(--fill-pop-bg);
+	color: var(--but-primary);
 	font-size: 11px;
 }

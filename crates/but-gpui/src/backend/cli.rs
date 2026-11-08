@@ -22,7 +22,7 @@ pub fn installed() -> Option<PathBuf> {
 pub fn install() -> Result<bool> {
     let path = cli::cli_path()?;
     // Run from its disk image, or from where macOS moves a downloaded app to run it, the app
-    // isn't there for long, and the link would break once it's gone. Lite refuses too.
+    // isn't there for long, and the link would break once it's gone.
     let home_apps = std::env::var_os("HOME").map(|home| Path::new(&home).join("Applications"));
     let in_applications = Path::new(&path).starts_with("/Applications")
         || home_apps.is_some_and(|apps| Path::new(&path).starts_with(apps));

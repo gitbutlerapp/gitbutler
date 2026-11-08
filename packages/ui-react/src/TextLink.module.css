@@ -1,11 +1,11 @@
 .link {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	text-decoration: underline;
 	text-decoration-color: color-mix(in srgb, currentcolor 40%, transparent);
 	text-underline-position: from-font;
 
 	&:hover {
-		color: var(--text-1);
+		color: var(--but-foreground);
 		text-decoration-color: currentcolor;
 	}
 }

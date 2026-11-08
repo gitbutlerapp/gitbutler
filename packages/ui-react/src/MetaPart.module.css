@@ -2,7 +2,7 @@
 	display: inline-flex;
 	column-gap: 4px;
 	align-items: center;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	line-height: 16px;
 	white-space: nowrap;
 }
@@ -20,19 +20,19 @@
 }
 
 .green {
-	color: var(--text-safe);
+	color: var(--but-success-text);
 }
 
 .amber {
-	color: var(--text-warn);
+	color: var(--but-warning-text);
 }
 
 .blue {
-	color: var(--text-blue);
+	color: var(--but-info-text);
 }
 
 .red {
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }
 
 /* Only a part that opens something is underlined: dotted, in its own colour. Under the pointer the
@@ -46,7 +46,7 @@
 	}
 
 	&:hover > * {
-		color: color-mix(in srgb, currentColor 55%, var(--text-1));
+		color: color-mix(in srgb, currentColor 55%, var(--but-foreground));
 	}
 }
 

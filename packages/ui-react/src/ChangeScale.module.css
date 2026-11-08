@@ -13,9 +13,9 @@
 }
 
 .added {
-	background-color: var(--text-safe);
+	background-color: var(--but-success-text);
 }
 
 .removed {
-	background-color: var(--text-danger);
+	background-color: var(--but-danger-text);
 }

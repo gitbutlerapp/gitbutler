@@ -1,4 +1,4 @@
-/* Spacing mirrors the "Empty state" component in ⚛️ Core: 24 under the
+/* Spacing mirrors the "Empty state" component in 🍑 But UI: 24 under the
    illustration, 8 between the two lines, 18 above the actions. Its `Tidy`
    variant, for a popup's list, closes those to 20, 6 and 12 to sit with small
    buttons.
@@ -127,12 +127,12 @@
 
 .title {
 	margin: 0;
-	color: var(--text-1);
+	color: var(--but-foreground);
 }
 
 .description {
 	margin: 0;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .actions {

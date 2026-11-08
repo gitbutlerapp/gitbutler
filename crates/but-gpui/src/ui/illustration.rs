@@ -1,4 +1,4 @@
-//! The design system's empty-state drawings, shared with Lite and but.dev and drawn as
+//! The design system's empty-state drawings, shared with but.dev and drawn as
 //! `@gitbutler/ui-react` draws them: each at the size it was drawn, never scaled, its outline
 //! in `border-1` and its faces in the theme's own grounds.
 
@@ -76,8 +76,9 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
 }
 
 /// `which` in `theme`'s colours, for the roles ui-react's drawings are made of: the outline is
-/// `currentColor`, set to `border-1`; enclosed areas the paper, `bg-1`; shaded faces the ground,
-/// `bg-2`; a darker face `border-2`; and what stands for text `text-2`.
+/// `currentColor`, set to `--but-border-hover`; enclosed areas the paper, `--but-background`;
+/// shaded faces the ground, `--but-muted`; a darker face `--but-border`; and what stands for text
+/// `--but-muted-foreground`.
 #[expect(
     clippy::expect_used,
     reason = "the drawings are compiled in, and a test draws each"
@@ -86,10 +87,10 @@ fn draw(renderer: &SvgRenderer, which: Illustration, theme: &Theme) -> Arc<Rende
     let (svg, ..) = which.source();
     let themed = [
         ("currentColor", theme.border_1),
-        ("var(--bg-1)", theme.bg_1),
-        ("var(--bg-2)", theme.bg_2),
-        ("var(--border-2)", theme.border_2),
-        ("var(--text-2)", theme.text_2),
+        ("var(--but-background)", theme.bg_1),
+        ("var(--but-muted)", theme.bg_2),
+        ("var(--but-border)", theme.border_2),
+        ("var(--but-muted-foreground)", theme.text_2),
     ]
     .into_iter()
     .fold(svg.to_owned(), |svg, (role, color)| {

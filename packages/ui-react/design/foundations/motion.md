@@ -1,17 +1,17 @@
 # Motion
 
 **Two speeds, both tokens.** Every duration comes from design-core.
-`--transition-fast` (80ms) is for a control changing state in place: hover and
+`--but-transition-fast` (80ms) is for a control changing state in place: hover and
 press on a button, a focused field's outline, a small opacity fade.
-`--transition-medium` (150ms) is for something that moves or changes shape: a
+`--but-transition-medium` (150ms) is for something that moves or changes shape: a
 switch thumb, a chevron turning, a section folding, the minimap fading in. No
 hand-written durations; if neither tier fits, add a tier in Figma.
 
-**Popups are the medium tier with a curve.** `--transition-popup` aliases
-medium, and `--easing-popup` is the one tokenised curve: a hard ease-out that
+**Popups are the medium tier with a curve.** `--but-transition-popup` aliases
+medium, and `--but-easing-popup` is the one tokenised curve: a hard ease-out that
 lands without overshoot, so a modal, dropdown or popover arrives rather than
 drifts in. They always go together —
-`transform var(--transition-popup) var(--easing-popup)` — and a modal's
+`transform var(--but-transition-popup) var(--but-easing-popup)` — and a modal's
 backdrop, a sibling that can't inherit, takes the same pair. Popups close the
 way they open.
 
@@ -42,5 +42,5 @@ and blurs to `4px`; the arriving one does the reverse. It is a transition,
 not a keyframe, so it reverses cleanly mid-swap, for result and hover swaps
 alike.
 
-**The rules live in two places.** The token descriptions in ⚛️ Core carry the
+**The rules live in two places.** The token descriptions in 🍑 But UI carry the
 same tiers and pairings; change one and change the other.

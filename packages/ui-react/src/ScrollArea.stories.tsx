@@ -9,7 +9,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2350-3012",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2350-3012",
 		},
 	},
 	args: { separator: false },
@@ -21,7 +21,10 @@ const rows = Array.from({ length: 40 }, (_, index) => `Row ${index + 1}`);
 export const Default = meta.story({
 	args: { separator: false },
 	render: (args) => (
-		<ScrollArea {...args} style={{ height: 240, width: 280, border: "1px solid var(--border-2)" }}>
+		<ScrollArea
+			{...args}
+			style={{ height: 240, width: 280, border: "1px solid var(--but-border)" }}
+		>
 			{rows.map((row) => (
 				<div key={row} className="text-13" style={{ padding: "6px 12px" }}>
 					{row}
@@ -44,7 +47,7 @@ export const WithSeparator = meta.story({
 				flexDirection: "column",
 				height: 280,
 				width: 280,
-				border: "1px solid var(--border-2)",
+				border: "1px solid var(--but-border)",
 			}}
 		>
 			<div className="text-13 text-bold" style={{ padding: "10px 12px" }}>
@@ -76,7 +79,7 @@ export const OnAnotherScroller = meta.story({
 					position: "relative",
 					height: 240,
 					width: 280,
-					border: "1px solid var(--border-2)",
+					border: "1px solid var(--but-border)",
 				}}
 			>
 				<div ref={setScroller} style={{ overflow: "auto", scrollbarWidth: "none" }}>

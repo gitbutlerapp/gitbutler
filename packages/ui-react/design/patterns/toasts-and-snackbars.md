@@ -4,14 +4,14 @@ Two ways of saying what just happened; choose by **where the news belongs**,
 not how bad it is.
 
 **A snackbar is a sentence next to the thing it is about.** One glyph, one line,
-no title, floated over the surface that caused it — `Snackbar.tsx`, ⚛️ Core
+no title, floated over the surface that caused it — `Snackbar.tsx`, 🍑 But UI
 node `1706-1682`. News that won't fit in a line read without stopping isn't a
 snackbar.
 
 **A toast is a card in the corner of the window.** A glyph, a title, a
 description that can hold real content — a list of rejected paths, an error
 message — at most one action under it, and a close button, in a 320px stack at
-the bottom right — `Toasts.tsx`, ⚛️ Core node `2805-61892`. It is for news that
+the bottom right — `Toasts.tsx`, 🍑 But UI node `2805-61892`. It is for news that
 outlives its source: a background failure, a half-succeeded operation, an
 uncaught error.
 
@@ -21,7 +21,7 @@ window's bottom-right corner, 16px in, and snackbars stack at the bottom centre,
 16px up. Neither moves to follow what caused it.
 
 **Raise snackbars through `Snackbars`.** `Snackbars.tsx` is the stack, drawn in
-⚛️ Core only as the single `Snackbar` it repeats: render it once with a manager
+🍑 But UI only as the single `Snackbar` it repeats: render it once with a manager
 of its own and raise one with `add({ title, type })`. They sit one below
 another, 8px apart, the newest at the bottom; each rises in and sinks out while
 the rest close the gap, and past three the oldest recedes until there is room. A

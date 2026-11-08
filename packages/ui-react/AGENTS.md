@@ -45,7 +45,7 @@ relatively.
 
 Tokens come from `@gitbutler/design-core`, imported by the host once.
 `src/base.css` declares the few variables components read that aren't tokens
-(`--focus-ring`, `--control-cursor`, `--transition-button`) and the control
+(`--but-focus-ring`, `--control-cursor`, `--transition-button`) and the control
 cursor rules; every host imports it right after design-core. A variable nothing declares doesn't error, the
 property quietly falls back, so a new shared variable goes in `base.css`, not
 in a host's stylesheet.
@@ -56,7 +56,7 @@ Icons are SVGs in `src/icons/`, inlined into the bundle as raw strings; the
 filename is the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
 To add one:
 
-1. Export it from Figma at 16×16 (⚛️ Core library) as SVG into `src/icons/`.
+1. Export it from Figma at 16×16 (🍑 But UI library) as SVG into `src/icons/`.
 2. Run `pnpm -F @gitbutler/ui-react optimize-icons`. It minifies the SVG,
    recolors it to `currentColor` and regenerates `src/iconNames.ts`.
 3. Commit both. `iconNames.ts` is generated; never hand-edit it.
@@ -66,35 +66,41 @@ colours and are deliberately not run through the script.
 
 `src/program-icons/` are the marks of editors and terminals, as PNGs at 2×.
 Their rounded corner is part of the image: export each from the "Programm"
-frame on ⚛️ Core's Icons page, where the mark is a 14px rectangle with
+frame on 🍑 But UI's Icons page, where the mark is a 14px rectangle with
 the corner on it, as PNG at 2× with the layer named as the file is
 (`vscode` → `vscode@2x.png`). No CSS rounds them, so a square export shows
 square.
 
 ## Figma
 
-Two files, split the way the code is:
+One file, **🍑 But UI** —
+<https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI>,
+holds the system and everything drawn with it, as a monorepo holds packages:
 
-- **⚛️ Core** —
-  <https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core>,
-  the published library: tokens (Tokens page), icons (Icons page) and this
-  package's components, one section per component. It is the source of truth
-  for tokens; for components, code is, and the drawing follows it. The
-  components are on six pages, by what they are for: Actions, Inputs,
-  Overlays, Content & status, Preview (a details view's header and the bar
-  above it), and Sidebar. A new component's section goes at
-  the end of its group's page, with its examples section under it. The docs
-  site shelves the stories in the same groups (plus Icons, which Figma keeps
-  on its own page): a stories file names its group in `title` and keeps its
-  old `id`, so the addresses below don't change when a component moves group.
-- **Client**, the working file —
-  <https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client>: app
-  components on the ⚙️ Meta page, the full screens, and drafts on the
-  🚧 Drafts page and the pages under it. A new mockup or an exploration goes
-  here, never in the library.
+- **The library**, published: tokens (💎 Tokens), icons (💠 Icons) and this
+  package's components under 🎛️ Components, one section per component. It is
+  the source of truth for tokens; for components, code is, and the drawing
+  follows it. The components are on pages by what they are for: Actions,
+  Inputs, Overlays, Content & status, Files & diffs, Illustrations, Preview
+  (a details view's header and the bars around it), and Sidebar. A new
+  component's section goes at the end of its group's page, with its examples
+  section under it. Only these pages define the library's components; the
+  showcases and drafts use instances of them. The docs site shelves the
+  stories in the same groups, in the same order (plus Icons, which Figma
+  keeps on its own page): a stories file names its group in `title` and
+  keeps its old `id`, so the addresses below don't change when a component
+  moves group.
+- **The showcases**: 📱 Panel, 🖼️ Preview, 🎴 Overlays and 🪟 Modals, with the
+  pages under them, are the app's screens and surfaces built from the
+  library. The designer moves work here once it's settled.
+- **⚙️ Meta**: app components, the ones whose code lives in an app.
+- **The 🚧 pages**: drafts and explorations. Anything an agent draws goes on
+  one of these, unless the designer names another place: a mockup, a
+  variant to compare, a try at a component. Build it from the file's own
+  components and variables.
 
-A component is drawn where its code lives: one in this package goes in
-⚛️ Core, one in an app on ⚙️ Meta. When a component moves between the two
+A component is drawn where its code lives: one in this package on its
+group's page, one in an app on ⚙️ Meta. When a component moves between the two
 in code, its drawing moves with it in the same piece of work, and the
 mockups' instances are swapped to the new one.
 
@@ -215,7 +221,7 @@ A surface built from several components is an example of the outermost one:
 the upload confirmation is Modal's, the project picker is Popup's (a
 combobox dressed in its parts), the command palette is PickerDialog's.
 
-In ⚛️ Core the examples sit in a section named `<Component> examples`
+In 🍑 But UI the examples sit in a section named `<Component> examples`
 directly under the component's own section, on its group's page, one
 instance per story, named as the story is; an example story links its
 instance through the `design` parameter.

@@ -6,7 +6,7 @@
         "$value": [
           {
             "inset": false,
-            "color": "{semantic.shadow-clr}",
+            "color": "{semantic.shadow}",
             "offsetX": {
               "value": 0,
               "unit": "px"
@@ -31,7 +31,7 @@
         "$value": [
           {
             "inset": false,
-            "color": "{semantic.shadow-clr}",
+            "color": "{semantic.shadow}",
             "offsetX": {
               "value": 0,
               "unit": "px"
@@ -56,7 +56,7 @@
         "$value": [
           {
             "inset": false,
-            "color": "{semantic.shadow-clr}",
+            "color": "{semantic.shadow}",
             "offsetX": {
               "value": 0,
               "unit": "px"
@@ -81,7 +81,7 @@
         "$value": [
           {
             "inset": false,
-            "color": "{semantic.shadow-clr}",
+            "color": "{semantic.shadow}",
             "offsetX": {
               "value": 0,
               "unit": "px"
@@ -101,7 +101,7 @@
           },
           {
             "inset": false,
-            "color": "{semantic.component.tooltip.border}",
+            "color": "{semantic.popover.border}",
             "offsetX": {
               "value": 0,
               "unit": "px"
@@ -131,7 +131,7 @@
           "core",
           "semantic"
         ],
-        "createdAt": "2026-09-29T18:00:22.059Z"
+        "createdAt": "2026-11-08T00:18:37.194Z"
       }
     }
   }

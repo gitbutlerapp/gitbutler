@@ -5,16 +5,16 @@
  */
 
 /**
- * The colours a person can be: each the theme's 70 step, a mid tint in light and a deep one
- * in dark, so `--text-1` reads on all of them. Written out whole, so the token check can see
- * every one.
+ * The colours a person can be: the first five categories, each a hue's 70 step, a mid tint
+ * in light and a deep one in dark, so `--but-foreground` reads on all of them. Written out
+ * whole, so the token check can see every one.
  */
 const COLOURS = [
-	"var(--scale-pop-70)",
-	"var(--scale-purple-70)",
-	"var(--scale-safe-70)",
-	"var(--scale-warn-70)",
-	"var(--scale-danger-70)",
+	"var(--but-category-1)",
+	"var(--but-category-2)",
+	"var(--but-category-3)",
+	"var(--but-category-4)",
+	"var(--but-category-5)",
 ] as const;
 
 /** FNV-1a: spreads a short login across all 32 bits. */

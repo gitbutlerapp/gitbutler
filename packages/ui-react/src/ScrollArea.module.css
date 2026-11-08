@@ -51,7 +51,7 @@
 	justify-content: flex-end;
 	padding: 2px;
 	opacity: 0;
-	transition: opacity var(--transition-medium);
+	transition: opacity var(--but-transition-medium);
 
 	&:hover,
 	&:has(.thumb:active) {
@@ -82,24 +82,24 @@
 }
 
 .thumb {
-	border-radius: var(--radius-full);
-	background-color: color-mix(in srgb, var(--text-1) 15%, transparent);
+	border-radius: var(--but-radius-full);
+	background-color: color-mix(in srgb, var(--but-foreground) 15%, transparent);
 
 	&[data-orientation="vertical"] {
 		width: var(--thumb-size);
 		height: var(--scroll-area-thumb-height);
-		transition: width var(--transition-fast) ease-out;
+		transition: width var(--but-transition-fast) ease-out;
 	}
 
 	&[data-orientation="horizontal"] {
 		width: var(--scroll-area-thumb-width);
 		height: var(--thumb-size);
-		transition: height var(--transition-fast) ease-out;
+		transition: height var(--but-transition-fast) ease-out;
 	}
 
 	&:hover,
 	&:active {
-		background-color: color-mix(in srgb, var(--text-1) 25%, transparent);
+		background-color: color-mix(in srgb, var(--but-foreground) 25%, transparent);
 	}
 }
 
@@ -110,11 +110,11 @@
 	position: absolute;
 	inset-inline: 0;
 	top: 0;
-	border-top: 1px solid var(--border-section);
+	border-top: 1px solid var(--but-border-subtle);
 	content: "";
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 }
 
 .separator[data-overflow-y-start]::before {

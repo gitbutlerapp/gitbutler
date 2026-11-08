@@ -15,7 +15,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3382-53021",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3382-53021",
 		},
 		layout: "bar",
 	},
@@ -67,10 +67,10 @@ const Back: FC = () => (
 const Elsewhere: FC = () => (
 	<span style={{ display: "inline-flex", alignItems: "center", columnGap: 4 }}>
 		Also in 2 places
-		<span aria-hidden style={{ color: "var(--text-3)" }}>
+		<span aria-hidden style={{ color: "var(--but-subtle-foreground)" }}>
 			·
 		</span>
-		<span style={{ color: "var(--text-warn)" }}>1 differs</span>
+		<span style={{ color: "var(--but-warning-text)" }}>1 differs</span>
 		<CrumbMenuButton aria-label="Other places" />
 	</span>
 );

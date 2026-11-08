@@ -1,6 +1,6 @@
 # Modals
 
-**Three parts, in code and in ⚛️ Core.** `ModalHeader`, `ModalBody` and
+**Three parts, in code and in 🍑 But UI.** `ModalHeader`, `ModalBody` and
 `ModalFooter` inside `Modal`; in Figma, `Modal / Header`, `Modal / Body` and
 `Modal / Footer` on the popup container. Their descriptions carry the rules
 below that the code can hold; change one and change the other.
@@ -8,7 +8,7 @@ below that the code can hold; change one and change the other.
 **Copy a whole one.** Modal's stories, after `Default`, are the
 confirmation, the form and the destructive question these notes describe,
 opened and written as the app writes them, and the Modal examples beside the
-Modal section in ⚛️ Core draw the same three. Start from the closest and
+Modal section in 🍑 But UI draw the same three. Start from the closest and
 change the words.
 
 **Pick the kind before the layout.** A prompt, a confirmation or a short form

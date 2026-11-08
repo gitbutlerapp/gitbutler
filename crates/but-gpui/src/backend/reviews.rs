@@ -624,7 +624,7 @@ fn emoji(kind: &str) -> Option<&'static str> {
     })
 }
 
-/// `comments`, `reviews` and `threads` as the conversation shows them, newest first, as Lite's,
+/// `comments`, `reviews` and `threads` as the conversation shows them, newest first,
 /// those without a time last: each review followed by the threads it started, each a remark of
 /// its own so a long review draws only what's on screen, and nothing that says nothing, as a
 /// comment of only HTML comments, or the empty review GitHub makes of an answer in a thread,

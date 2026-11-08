@@ -15,7 +15,7 @@ import tower from "./machines/tower.webp";
 import vm from "./machines/vm.webp";
 
 /**
- * The machine pictures, exported at 76px (the 38px avatar at 2×) from the Machines set on ⚛️ Core's
+ * The machine pictures, exported at 76px (the 38px avatar at 2×) from the Machines set on 🍑 But UI's
  * Icons page, in the order but.dev's picker offers them, so the stories show the picker as but.dev
  * fills it. The pictures are but.dev's to own; the library only lays them out.
  */

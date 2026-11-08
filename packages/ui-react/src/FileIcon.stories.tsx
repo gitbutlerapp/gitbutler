@@ -19,7 +19,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=229-2589",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=229-2589",
 		},
 	},
 });
@@ -27,7 +27,7 @@ const meta = stories({
 /** Type a file name; the icon follows its name or extension, and a type it doesn't know gets `document`. */
 export const Default = meta.story({});
 
-/** Every icon a file name can reach, under the icon's name in ⚛️ Core. */
+/** Every icon a file name can reach, under the icon's name in 🍑 But UI. */
 export const AllIcons = meta.story({
 	parameters: { layout: "wide" },
 	render: () => (

@@ -35,11 +35,11 @@
 	/* A new toast slides up from below the window's edge. An animation rather than the transition,
 	   since arriving and folding both end at rest and a transition can't time them apart; on
 	   `translate`, so it adds to the stack's transform instead of replacing it. */
-	animation: enter 0.45s var(--easing-popup);
+	animation: enter 0.45s var(--but-easing-popup);
 	/* The popup's easing, which starts fast and settles, so folding back feels immediate. */
 	transition:
-		transform 0.35s var(--easing-popup),
-		height 0.35s var(--easing-popup),
+		transform 0.35s var(--but-easing-popup),
+		height 0.35s var(--but-easing-popup),
 		opacity 0.2s ease;
 
 	/* Unfolding takes its time so the eye can follow each toast to its place; folding back stays
@@ -48,8 +48,8 @@
 		--height: var(--toast-height);
 		transform: translateY(calc(-1 * (var(--toast-offset-y) + var(--toast-index) * var(--gap))));
 		transition:
-			transform 0.45s var(--easing-popup),
-			height 0.45s var(--easing-popup),
+			transform 0.45s var(--but-easing-popup),
+			height 0.45s var(--but-easing-popup),
 			opacity 0.2s ease;
 	}
 
@@ -83,20 +83,20 @@
 
 .surface {
 	height: 100%;
-	padding: var(--padding-modal);
+	padding: var(--but-padding-modal);
 }
 
 /* A toast sits at the window's edge, where the popup's larger shadow would mostly fall off it, so it
    takes the closer one snackbars use. Scoped to the toast so it outranks the popup surface's own. */
 .root > .surface {
-	box-shadow: var(--shadow-md);
+	box-shadow: var(--but-shadow-md);
 }
 
 /* The glyph, the words and the close button side by side, all hung from the top edge so a long
    description grows the card downwards without moving them. The popup surface stays a column. */
 .row {
 	display: flex;
-	column-gap: var(--space-2xl);
+	column-gap: var(--but-space-2xl);
 	align-items: flex-start;
 	transition: opacity 0.2s;
 
@@ -110,19 +110,19 @@
    glyph is the only thing saying how the news landed. */
 .icon {
 	flex: none;
-	color: var(--toast-icon, var(--text-3));
+	color: var(--toast-icon, var(--but-subtle-foreground));
 }
 
 .root[data-type="warning"] {
-	--toast-icon: var(--text-warn);
+	--toast-icon: var(--but-warning-text);
 }
 
 .root[data-type="error"] {
-	--toast-icon: var(--text-danger);
+	--toast-icon: var(--but-danger-text);
 }
 
 .root[data-type="success"] {
-	--toast-icon: var(--text-safe);
+	--toast-icon: var(--but-success-text);
 }
 
 /* The action sits under the words rather than beside the close button, so a long label never
@@ -132,7 +132,7 @@
 	flex: 1;
 	flex-direction: column;
 	min-width: 0;
-	gap: var(--space-2xl);
+	gap: var(--but-space-2xl);
 	/* Error messages carry URLs and identifiers longer than any word the card can hold; break
 	   them rather than overflow the card. */
 	overflow-wrap: anywhere;
@@ -141,11 +141,11 @@
 .text {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-md);
+	gap: var(--but-space-md);
 }
 
 .description {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 
 	/* A breakdown, such as the paths a commit left behind and why. */
 	& ul {
@@ -166,7 +166,7 @@
 	align-self: stretch;
 	width: 1px;
 	margin-inline: 8px -1px;
-	background-color: var(--border-2);
+	background-color: var(--but-border);
 	opacity: 0.4;
 }
 

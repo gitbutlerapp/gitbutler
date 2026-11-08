@@ -29,6 +29,6 @@ every button in that row is small.
 
 **The inverted pair.** `ghost-inverted` and `outline-inverted` are for a
 button on an inverted ground — a selected row, where the text turns to
-`--text-1-invert` — not for dark mode, which the tokens handle. A row can apply
+`--but-inverse-foreground` — not for dark mode, which the tokens handle. A row can apply
 these styles through CSS on selection rather than the variant, avoiding a
 re-render.

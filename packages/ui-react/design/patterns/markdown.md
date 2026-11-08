@@ -1,7 +1,7 @@
 # Markdown
 
 How rendered markdown — a pull request description, a comment — looks in any
-app. `Markdown` draws it; these are its rules, and ⚛️ Core's Markdown section
+app. `Markdown` draws it; these are its rules, and 🍑 But UI's Markdown section
 draws the same.
 
 **The rhythm is 12, 16, 4.** 12px between text blocks; 16px around anything
@@ -12,8 +12,8 @@ below, collapsing into the next block's margin. Margins collapse, so a box next
 to a paragraph gets 16, not 28.
 
 **Text reads narrow; media spreads wide.** Headings, paragraphs, lists, quotes
-and code keep to `--size-prose` (620px), a comfortable line. Tables, images,
-galleries and video take `--size-prose-wide` (820px), centred on the same axis,
+and code keep to `--but-size-prose` (620px), a comfortable line. Tables, images,
+galleries and video take `--but-size-prose-wide` (820px), centred on the same axis,
 so they break out of the text on both sides.
 
 **Type.** Text is 14 on a 160% line: design-core's `text-prose`, Figma's
@@ -34,12 +34,12 @@ lines keep their size class on the default line.
 a space. Prose links keep the kit's blue, so their hover is the underline going
 solid, not the text lifting.
 
-**A box gets an edge.** Code blocks and inline code sit on `--bg-2` in a 1px
-`--border-section` ring inset, at `--radius-card` and `--radius-control`
+**A box gets an edge.** Code blocks and inline code sit on `--but-muted` in a 1px
+`--but-border-subtle` ring inset, at `--but-radius-card` and `--but-radius-control`
 respectively, in mono 12; the ring gives code the same edge as a card beside it,
-and keeps it from vanishing on a `--bg-2` panel. A blockquote is
-a 3px `--border-2` bar with `--text-2` text. An image takes a 1px
-`--border-section` ring inset inside `--radius-card` corners, so a white
+and keeps it from vanishing on a `--but-muted` panel. A blockquote is
+a 3px `--but-border` bar with `--but-muted-foreground` text. An image takes a 1px
+`--but-border-subtle` ring inset inside `--but-radius-card` corners, so a white
 screenshot has an edge on a white panel, and opens externally on click. A
 table is a Table, as anywhere else in the app: the card `DescriptionList`
-draws, column names in `--text-2`, a hairline under each row but the last.
+draws, column names in `--but-muted-foreground`, a hairline under each row but the last.

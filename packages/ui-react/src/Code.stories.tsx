@@ -5,7 +5,7 @@ import { EmptyState } from "./EmptyState.tsx";
 const figma = (nodeId: string) => ({
 	design: {
 		type: "figma",
-		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=${nodeId}`,
+		url: `https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${nodeId}`,
 	},
 });
 
@@ -26,7 +26,7 @@ export const Default = meta.story({
 export const InText = meta.story({
 	parameters: figma("4633-1011"),
 	render: () => (
-		<p className="text-13" style={{ color: "var(--text-2)" }}>
+		<p className="text-13" style={{ color: "var(--but-muted-foreground)" }}>
 			Run <Code>but config forge auth</Code> there to connect GitHub.
 		</p>
 	),

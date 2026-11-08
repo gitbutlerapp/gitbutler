@@ -5,14 +5,14 @@
 	width: var(--breadcrumbs-width, auto);
 	min-width: 0;
 	max-width: 100%;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 /* One line: the levels that don't fit fold into "…", and one still too long ends in an
    ellipsis. The clip leaves room for a focus ring. */
 .list {
 	display: flex;
-	column-gap: var(--space-md);
+	column-gap: var(--but-space-md);
 	align-items: center;
 	margin: 0;
 	padding: 0;
@@ -25,7 +25,7 @@
 /* Every level stands 18px tall, whatever it holds: a label, its ⌃⌄, or "…". */
 .level {
 	display: flex;
-	column-gap: var(--space-md);
+	column-gap: var(--but-space-md);
 	align-items: center;
 	min-width: 0;
 	height: 18px;
@@ -39,14 +39,14 @@
 	text-overflow: ellipsis;
 }
 
-/* A step darker under the pointer, not all the way to text-1: it is still a quiet trail. */
+/* A step darker under the pointer, not all the way to --but-foreground: it is still a quiet trail. */
 a.crumb:hover {
-	color: color-mix(in srgb, var(--text-2), var(--text-1) 50%);
+	color: color-mix(in srgb, var(--but-muted-foreground), var(--but-foreground) 50%);
 }
 
 .separator {
 	flex-shrink: 0;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 /* The folded levels: "…" in the trail's own type, on a quiet button that opens a menu of them.
@@ -64,7 +64,7 @@ a.crumb:hover {
 	margin-block: -2px;
 	padding: 0 4px;
 	border: none;
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	background: none;
 	color: inherit;
 	font: inherit;
@@ -72,11 +72,11 @@ a.crumb:hover {
 
 	&:hover,
 	&[data-popup-open] {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 	}
 }
 
@@ -93,7 +93,7 @@ a.crumb:hover {
 	margin-block: -2px;
 	padding: 0;
 	border: none;
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	background: none;
 	color: inherit;
 	cursor: var(--control-cursor);
@@ -104,7 +104,7 @@ a.crumb:hover {
 
 	&:hover,
 	&[data-popup-open] {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 
 		& [data-icon] {
 			opacity: 1;
@@ -112,7 +112,7 @@ a.crumb:hover {
 	}
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 	}
 }
 

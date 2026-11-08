@@ -7,7 +7,7 @@ const names = (Object.keys(illustrations) as Array<IllustrationName>).sort((a, b
 );
 
 const meta = stories({
-	title: "Content & status/Illustration",
+	title: "Illustrations/Illustration",
 	id: "components-illustration",
 });
 
@@ -20,7 +20,7 @@ export const AllIllustrations = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2124-1502",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2124-1502",
 		},
 		layout: "wide",
 	},
@@ -45,7 +45,7 @@ export const AllIllustrations = meta.story({
 					}}
 				>
 					{/* On the app's paper rather than the story's ground: an illustration's
-					    enclosed areas are --bg-1, so a swatch of anything else would hide
+					    enclosed areas are --but-background, so a swatch of anything else would hide
 					    where the fill ends and the page begins. */}
 					<div
 						style={{
@@ -54,7 +54,7 @@ export const AllIllustrations = meta.story({
 							width: "100%",
 							padding: 24,
 							borderRadius: 6,
-							backgroundColor: "var(--bg-2)",
+							backgroundColor: "var(--but-muted)",
 						}}
 					>
 						<Illustration name={name} />

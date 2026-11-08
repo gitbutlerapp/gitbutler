@@ -46,7 +46,7 @@ export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">>
 
 /**
  * How wide a modal opens, picked by what it holds rather than measured per caller. Each is a
- * design-core token, `--size-modal-xs` to `--size-modal-lg`:
+ * design-core token, `--but-size-modal-xs` to `--but-size-modal-lg`:
  *
  * - `xsmall` (320): a one-line question and its buttons — "Discard 3 files?".
  * - `small` (420): a prompt with a field or a short list, and pickers.

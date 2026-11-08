@@ -7,6 +7,6 @@ and don't let two extended targets overlap.
 
 **11px is for small UI, and nothing goes smaller.** Badges, counts, tags,
 keycaps and a file's status letter can set 11px; labels, body text, captions
-and hints are 12px or more. Nothing goes below 11px: if a ⚛️ Core token is
+and hints are 12px or more. Nothing goes below 11px: if a 🍑 But UI token is
 smaller, the token is wrong. Something that only works under 11px should be a
 tooltip, an icon, or left out.

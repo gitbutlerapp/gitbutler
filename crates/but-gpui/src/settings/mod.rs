@@ -1,4 +1,4 @@
-//! Settings: one large modal laid out as Lite's, its pages down the left, the app's and then
+//! Settings: one large modal, its pages down the left, the app's and then
 //! the project's, each a column of cards, with a search across all of them. Changes apply
 //! as they're made. What only this app uses is kept with its other
 //! state; fetching is GitButler's shared setting; a project's settings are its own.
@@ -1425,7 +1425,7 @@ impl SettingsView {
             .collect()
     }
 
-    /// A card as Lite's settings draw one: its heading outside it, then its rows divided by
+    /// A card: its heading outside it, then its rows divided by
     /// hairlines.
     fn render_card(card: Card, theme: &Theme) -> AnyElement {
         v_flex()

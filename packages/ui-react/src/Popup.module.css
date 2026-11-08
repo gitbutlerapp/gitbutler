@@ -7,26 +7,26 @@
 	/* The border is the container's edge, so content clips to it rather than squaring off the
 	   corners it sits in. */
 	overflow: hidden;
-	border: 1px solid var(--border-2);
-	border-radius: var(--radius-popup);
+	border: 1px solid var(--but-border);
+	border-radius: var(--but-radius-popup);
 	/* A popup takes focus as it opens, and the browser would paint its own accent-coloured ring on
 	   a container no app rule covers. What is inside shows the focus instead. */
 	outline: none;
-	background-color: var(--bg-1);
-	box-shadow: var(--shadow-lg);
+	background-color: var(--but-background);
+	box-shadow: var(--but-shadow-lg);
 }
 
 /* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
    once it holds more than one group of things. */
 .recessed {
-	background-color: var(--bg-2);
+	background-color: var(--but-muted);
 }
 
 .backdrop {
 	position: fixed;
 	inset: 0;
-	background-color: var(--bg-overlay);
-	transition: opacity var(--transition-popup) var(--easing-popup);
+	background-color: var(--but-overlay);
+	transition: opacity var(--but-transition-popup) var(--but-easing-popup);
 
 	&[data-starting-style],
 	&[data-ending-style] {
@@ -61,8 +61,8 @@
 	max-width: 100%;
 	max-height: 100%;
 	transition:
-		transform var(--transition-popup) var(--easing-popup),
-		opacity var(--transition-popup) var(--easing-popup);
+		transform var(--but-transition-popup) var(--but-easing-popup),
+		opacity var(--but-transition-popup) var(--but-easing-popup);
 
 	/* Only reached when the caller keeps the modal mounted and toggles `open`. A caller that
 	   renders it already open — `{shown && <Picker open />}` — mounts past the starting state, and
@@ -75,19 +75,19 @@
 }
 
 .sizeXsmall {
-	width: var(--size-modal-xs);
+	width: var(--but-size-modal-xs);
 }
 
 .sizeSmall {
-	width: var(--size-modal-sm);
+	width: var(--but-size-modal-sm);
 }
 
 .sizeMedium {
-	width: var(--size-modal-md);
+	width: var(--but-size-modal-md);
 }
 
 .sizeLarge {
-	width: var(--size-modal-lg);
+	width: var(--but-size-modal-lg);
 }
 
 /* A form wrapping a modal's parts, so Enter submits, lays out as the modal itself would. */
@@ -100,14 +100,14 @@
 /* Header, body and footer each pad themselves, so the modal's own padding holds at the edges and
    one stack gap separates any two of them, whichever are present. */
 .modalPart {
-	padding: var(--gap-stack) var(--padding-modal) 0;
+	padding: var(--but-gap-stack) var(--but-padding-modal) 0;
 
 	&:first-child {
-		padding-top: var(--padding-modal);
+		padding-top: var(--but-padding-modal);
 	}
 
 	&:last-child {
-		padding-bottom: var(--padding-modal);
+		padding-bottom: var(--but-padding-modal);
 	}
 }
 
@@ -116,17 +116,17 @@
 	display: flex;
 	flex: none;
 	flex-direction: column;
-	gap: var(--space-2xl);
+	gap: var(--but-space-2xl);
 }
 
 /* A drilled-in step's Back button, then its title, on one line. */
 .modalTitleRow {
 	display: flex;
 	align-items: center;
-	gap: var(--gap-icon-text);
+	gap: var(--but-gap-icon-text);
 }
 
-/* A full-size button in a 24px place, as ⚛️ Core's Back container holds it: pulled 4px out to the
+/* A full-size button in a 24px place, as 🍑 But UI's Back container holds it: pulled 4px out to the
    start so its arrow sits on the content's edge, and 2px into the line above and below so the
    title row stays 24 tall. */
 .modalBack {
@@ -136,13 +136,13 @@
 
 .modalTitle {
 	margin: 0;
-	color: var(--text-1);
+	color: var(--but-foreground);
 	overflow-wrap: anywhere;
 }
 
 .modalDescription {
 	margin: 0;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	overflow-wrap: anywhere;
 }
 
@@ -159,11 +159,11 @@
 	z-index: 1;
 	position: absolute;
 	inset-inline: 0;
-	border-top: 1px solid var(--border-section);
+	border-top: 1px solid var(--but-border-subtle);
 	content: "";
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 }
 
 .modalBodyArea::before {
@@ -191,24 +191,24 @@
 .modalBody {
 	display: flex;
 	flex-direction: column;
-	padding: var(--gap-stack) var(--padding-modal) 0;
-	gap: var(--space-3xl);
-	color: var(--text-1);
+	padding: var(--but-gap-stack) var(--but-padding-modal) 0;
+	gap: var(--but-space-3xl);
+	color: var(--but-foreground);
 }
 
 .modalBodyArea:first-child > .modalBody {
-	padding-top: var(--padding-modal);
+	padding-top: var(--but-padding-modal);
 }
 
 .modalBodyArea:last-child > .modalBody {
-	padding-bottom: var(--padding-modal);
+	padding-bottom: var(--but-padding-modal);
 }
 
 /* Over a body, the header holds the room to it itself, so the hairline the scrolled body draws
    under it keeps that room rather than sitting on the description. A step more than the gap
    inside the header, so the description reads as the header's and the content as its own. */
 .modalHeader:has(+ .modalBodyArea) {
-	padding-bottom: var(--space-3xl);
+	padding-bottom: var(--but-space-3xl);
 }
 
 .modalHeader + .modalBodyArea > .modalBody {
@@ -219,7 +219,7 @@
 	display: flex;
 	flex: none;
 	justify-content: flex-end;
-	gap: var(--gap-buttons);
+	gap: var(--but-gap-buttons);
 }
 
 /* Dropdown's own: at least as wide as its trigger, wider when its content asks. Not on
@@ -232,8 +232,8 @@
 .dropdown {
 	transform-origin: var(--transform-origin);
 	transition:
-		transform var(--transition-popup) var(--easing-popup),
-		opacity var(--transition-popup) var(--easing-popup);
+		transform var(--but-transition-popup) var(--but-easing-popup),
+		opacity var(--but-transition-popup) var(--but-easing-popup);
 
 	&[data-starting-style],
 	&[data-ending-style] {
@@ -251,7 +251,7 @@
 	height: 36px;
 	padding-inline: 12px;
 	gap: 8px;
-	border-bottom: 1px solid var(--border-3);
+	border-bottom: 1px solid var(--but-border-subtle);
 }
 
 .searchInput {
@@ -259,10 +259,10 @@
 	min-width: 0;
 	border: none;
 	background: none;
-	color: var(--text-1);
+	color: var(--but-foreground);
 
 	&::placeholder {
-		color: var(--text-3);
+		color: var(--but-subtle-foreground);
 	}
 
 	/* The popup is already the focus ring; a second one around a borderless input reads as
@@ -274,7 +274,7 @@
 
 .searchIcon {
 	flex: none;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 /* Takes the magnifier's place once there is a query, and carries a little more weight than it
@@ -283,10 +283,10 @@
 	display: flex;
 	flex: none;
 	align-items: center;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 
 	&:hover {
-		color: var(--text-1);
+		color: var(--but-foreground);
 	}
 }
 
@@ -299,27 +299,27 @@
 /* Sections divide from each other rather than closing themselves off, so the last one in a popup
    never draws a line against the container's own edge. */
 .section + .section {
-	border-top: 1px solid var(--border-3);
+	border-top: 1px solid var(--but-border-subtle);
 }
 
 /* The heading carries the inset its rows open with, so it is the same box whether a section wraps
    it or a virtualised list renders it as a row of its own. */
 .sectionLabel {
-	padding: 8px 10px var(--padding-menu);
-	color: var(--text-3);
+	padding: 8px 10px var(--but-padding-menu);
+	color: var(--but-subtle-foreground);
 }
 
 /* A row of its own has no section to draw the divider on, so the heading below the line hosts it
    inside its own box. The previous section's inset, the divider, then this heading's own inset. */
 .sectionLabelDivided {
 	position: relative;
-	padding-top: calc(var(--padding-menu) + 1px + 8px);
+	padding-top: calc(var(--but-padding-menu) + 1px + 8px);
 
 	&::before {
 		position: absolute;
 		inset-inline: 0;
-		top: var(--padding-menu);
-		border-top: 1px solid var(--border-3);
+		top: var(--but-padding-menu);
+		border-top: 1px solid var(--but-border-subtle);
 		content: "";
 	}
 }
@@ -327,7 +327,7 @@
 .sectionItems {
 	display: flex;
 	flex-direction: column;
-	padding: var(--padding-menu);
+	padding: var(--but-padding-menu);
 }
 
 /* A heading above already opens the rows by the inset. */
@@ -344,9 +344,9 @@
 	padding-inline: 8px;
 	gap: 8px;
 	border: none;
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	background: none;
-	color: var(--text-1);
+	color: var(--but-foreground);
 	text-align: start;
 	/* A row can render as a link, as a breadcrumb's folded levels do: it still reads as a row. */
 	text-decoration: none;
@@ -356,12 +356,12 @@
 	   takes no tint. */
 	&:hover:not(:disabled, [data-disabled]),
 	&[data-highlighted]:not([data-disabled]) {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	&:disabled,
 	&[data-disabled] {
-		opacity: var(--opacity-disabled);
+		opacity: var(--but-opacity-disabled);
 	}
 }
 
@@ -376,10 +376,10 @@
 
 .itemIcon {
 	flex: none;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .itemKbd {
 	flex: none;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }

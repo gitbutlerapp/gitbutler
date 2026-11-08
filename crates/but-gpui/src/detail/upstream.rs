@@ -80,8 +80,8 @@ fn target_text(commit: &TargetCommit) -> String {
     shown.trim().to_owned()
 }
 
-/// What a target commit is called: the pull request it merged, by its title, as Lite names
-/// it, or else the commit's own title.
+/// What a target commit is called: the pull request it merged, by its title,
+/// or else the commit's own title.
 pub(super) fn label(commit: &TargetCommit) -> SharedString {
     match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
         Some(review) => review.title.clone().into(),
@@ -2025,7 +2025,7 @@ impl Detail {
                                 (false, true) => theme.warn,
                                 (false, false) => theme.purple,
                             };
-                            // One that merged a pull request by the request, as Lite names it,
+                            // One that merged a pull request by the request,
                             // its number, merge commit and ID on hover.
                             let tip = (commit.review.as_ref()).map(|review| {
                                 let short = id.short();

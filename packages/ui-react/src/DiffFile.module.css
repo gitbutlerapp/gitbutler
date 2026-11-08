@@ -1,4 +1,4 @@
-/* How round the card's corners are, as a share of --radius-card: 1, easing to
+/* How round the card's corners are, as a share of --but-radius-card: 1, easing to
    0 as the card leaves. Registered so the scroll-driven animation below eases
    it rather than jumping between values. */
 @property --diff-file-roundness {
@@ -23,24 +23,24 @@
 	/* `clip` rather than `hidden`: hidden would make the card a scroller, and
 	   the header would stick to it instead of to the page. */
 	overflow: clip;
-	border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+	border-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
 	view-timeline: --diff-file block;
 	animation: flatten linear both;
 	animation-timeline: --diff-file;
 	animation-range: exit-crossing
-		calc(100% - var(--diff-file-sticky-top, 0px) - 2 * var(--radius-card)) exit-crossing
+		calc(100% - var(--diff-file-sticky-top, 0px) - 2 * var(--but-radius-card)) exit-crossing
 		calc(100% - var(--diff-file-sticky-top, 0px));
 
 	/* The card's bottom edge, over a header the edge is cutting off. */
 	&::after {
 		z-index: 2;
 		position: absolute;
-		height: calc(var(--radius-card) * var(--diff-file-roundness));
+		height: calc(var(--but-radius-card) * var(--diff-file-roundness));
 		inset: auto 0 0;
-		border: 1px solid var(--border-2);
+		border: 1px solid var(--but-border);
 		border-top: none;
-		border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
-		border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+		border-bottom-right-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
+		border-bottom-left-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
 		content: "";
 		pointer-events: none;
 	}
@@ -53,7 +53,7 @@
 	z-index: 1;
 	position: sticky;
 	top: var(--diff-file-sticky-top, 0px);
-	background-color: var(--bg-1);
+	background-color: var(--but-background);
 	animation: header-hold linear both;
 	animation-timeline: --diff-file;
 	animation-range: exit-crossing
@@ -64,26 +64,26 @@
 		/* Keeps a host's marks inside the header, such as a selection bar, to the
 		   rounded corners. */
 		overflow: clip;
-		border: 1px solid var(--border-2);
-		border-radius: calc(var(--radius-card) * var(--diff-file-roundness))
-			calc(var(--radius-card) * var(--diff-file-roundness)) 0 0;
+		border: 1px solid var(--but-border);
+		border-radius: calc(var(--but-radius-card) * var(--diff-file-roundness))
+			calc(var(--but-radius-card) * var(--diff-file-roundness)) 0 0;
 		/* Divides the header from the diff under it, and stays with the header
 		   while it sticks, where a line on the diff would scroll away. */
-		border-bottom-color: var(--border-3);
+		border-bottom-color: var(--but-border-subtle);
 	}
 
 	/* Folded: the header is the whole card. */
 	&:last-child > * {
-		border-radius: calc(var(--radius-card) * var(--diff-file-roundness));
-		border-bottom-color: var(--border-2);
+		border-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
+		border-bottom-color: var(--but-border);
 	}
 }
 
 .body {
-	border: 1px solid var(--border-2);
+	border: 1px solid var(--but-border);
 	border-top: none;
-	border-bottom-right-radius: calc(var(--radius-card) * var(--diff-file-roundness));
-	border-bottom-left-radius: calc(var(--radius-card) * var(--diff-file-roundness));
+	border-bottom-right-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
+	border-bottom-left-radius: calc(var(--but-radius-card) * var(--diff-file-roundness));
 }
 
 @keyframes flatten {

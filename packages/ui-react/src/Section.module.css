@@ -7,5 +7,5 @@
 /* Inset a hair, so the title sits in from the card's rounded corner below it. */
 .title {
 	padding-left: 2px;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }

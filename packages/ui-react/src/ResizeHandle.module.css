@@ -1,5 +1,5 @@
 .resizeHandle {
-	background-color: var(--border-section);
+	background-color: var(--but-border-subtle);
 
 	/* A horizontal group (side-by-side panels) reports a vertical separator. */
 	&[aria-orientation="vertical"] {
@@ -12,7 +12,7 @@
 
 	&[data-separator="hover"],
 	&[data-separator="active"] {
-		background-color: var(--border-1);
+		background-color: var(--but-border-hover);
 	}
 }
 
@@ -32,13 +32,13 @@
 		width: 1px;
 		inset-block: 0;
 		inset-inline-start: 0;
-		background-color: var(--border-section);
+		background-color: var(--but-border-subtle);
 		content: "";
 	}
 
 	&[data-separator="hover"]::before,
 	&[data-separator="active"]::before {
-		background-color: var(--border-1);
+		background-color: var(--but-border-hover);
 	}
 }
 
@@ -62,17 +62,17 @@
 		margin: auto;
 		inset: 0;
 		scale: 0.75;
-		border-radius: var(--radius-full);
+		border-radius: var(--but-radius-full);
 		background-color: transparent;
 		content: "";
 		transition:
-			background-color var(--transition-fast),
-			scale var(--transition-medium) ease-out,
-			width var(--transition-medium) ease-out,
-			height var(--transition-medium) ease-out;
+			background-color var(--but-transition-fast),
+			scale var(--but-transition-medium) ease-out,
+			width var(--but-transition-medium) ease-out,
+			height var(--but-transition-medium) ease-out;
 
 		@media (prefers-reduced-motion: reduce) {
-			transition: background-color var(--transition-fast);
+			transition: background-color var(--but-transition-fast);
 		}
 	}
 
@@ -97,11 +97,11 @@
 	&:focus-visible::before,
 	&[data-separator="active"]::before {
 		scale: 1;
-		background-color: var(--border-2);
+		background-color: var(--but-border);
 	}
 
 	&[data-separator="active"]::before {
-		background-color: var(--border-1);
+		background-color: var(--but-border-hover);
 	}
 
 	&[aria-orientation="vertical"][data-separator="active"]::before {

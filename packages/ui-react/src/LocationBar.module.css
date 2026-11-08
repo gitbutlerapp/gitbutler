@@ -3,19 +3,19 @@
 .bar {
 	box-sizing: border-box;
 	display: flex;
-	column-gap: var(--space-2xl);
+	column-gap: var(--but-space-2xl);
 	align-items: center;
 	min-width: 0;
 	height: 40px;
-	padding: 0 var(--padding-panel);
-	border-bottom: 1px solid var(--border-section);
-	background-color: var(--bg-2);
+	padding: 0 var(--but-padding-panel);
+	border-bottom: 1px solid var(--but-border-subtle);
+	background-color: var(--but-muted);
 }
 
 /* Its gaps are the bar's, so a divider inside it sits as far from its buttons as the one after it. */
 .leading {
 	display: flex;
-	column-gap: var(--space-2xl);
+	column-gap: var(--but-space-2xl);
 	flex-shrink: 0;
 	align-items: center;
 }
@@ -32,7 +32,7 @@
 	flex-shrink: 0;
 	width: 1px;
 	height: 16px;
-	background-color: var(--border-section);
+	background-color: var(--but-border-subtle);
 }
 
 /* The trail takes what is left, so it is the part that folds when the bar narrows. */
@@ -43,9 +43,9 @@
 
 .state {
 	display: flex;
-	column-gap: var(--space-2xl);
+	column-gap: var(--but-space-2xl);
 	flex-shrink: 0;
 	align-items: center;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	white-space: nowrap;
 }

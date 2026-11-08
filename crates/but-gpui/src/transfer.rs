@@ -71,7 +71,7 @@ pub enum Transfer {
         files: Arc<[Selected]>,
     },
     /// Uncommitted files the composer can't take, a linked worktree's or bound for one,
-    /// committed on a branch with no message yet, as Lite does.
+    /// committed on a branch with no message yet.
     CommitOnBranch {
         branch: FullName,
         files: Arc<[Selected]>,

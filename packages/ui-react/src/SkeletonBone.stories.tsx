@@ -1,7 +1,7 @@
 import { stories } from "../docs/stories.ts";
 import { SkeletonBone } from "./SkeletonBone.tsx";
 
-const FIGMA = "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core";
+const FIGMA = "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI";
 
 const meta = stories({
 	title: "Content & status/SkeletonBone",

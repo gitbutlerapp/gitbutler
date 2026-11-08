@@ -5,7 +5,7 @@
         "0": {
           "$type": "color",
           "$value": "#000000",
-          "$description": "Gray step 0 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/0, which flips with the theme.",
+          "$description": "Gray step 0 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/0, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -13,7 +13,7 @@
         "5": {
           "$type": "color",
           "$value": "#1e1e1e",
-          "$description": "Gray step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/5, which flips with the theme.",
+          "$description": "Gray step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -21,7 +21,7 @@
         "10": {
           "$type": "color",
           "$value": "#292929",
-          "$description": "Gray step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/10, which flips with the theme.",
+          "$description": "Gray step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -29,7 +29,7 @@
         "20": {
           "$type": "color",
           "$value": "#434343",
-          "$description": "Gray step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/20, which flips with the theme.",
+          "$description": "Gray step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -37,7 +37,7 @@
         "30": {
           "$type": "color",
           "$value": "#565656",
-          "$description": "Gray step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/30, which flips with the theme.",
+          "$description": "Gray step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -45,7 +45,7 @@
         "40": {
           "$type": "color",
           "$value": "#6d6d6d",
-          "$description": "Gray step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/40, which flips with the theme.",
+          "$description": "Gray step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -53,7 +53,7 @@
         "50": {
           "$type": "color",
           "$value": "#888888",
-          "$description": "Gray step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/50, which flips with the theme.",
+          "$description": "Gray step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -61,7 +61,7 @@
         "60": {
           "$type": "color",
           "$value": "#b2b2b2",
-          "$description": "Gray step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/60, which flips with the theme.",
+          "$description": "Gray step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -69,7 +69,7 @@
         "70": {
           "$type": "color",
           "$value": "#cccccc",
-          "$description": "Gray step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/70, which flips with the theme.",
+          "$description": "Gray step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -77,7 +77,7 @@
         "80": {
           "$type": "color",
           "$value": "#dddddc",
-          "$description": "Gray step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/80, which flips with the theme.",
+          "$description": "Gray step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -85,7 +85,7 @@
         "90": {
           "$type": "color",
           "$value": "#f2f2f2",
-          "$description": "Gray step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/90, which flips with the theme.",
+          "$description": "Gray step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -93,7 +93,7 @@
         "95": {
           "$type": "color",
           "$value": "#f8f8f8",
-          "$description": "Gray step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/95, which flips with the theme.",
+          "$description": "Gray step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -101,7 +101,7 @@
         "100": {
           "$type": "color",
           "$value": "#ffffff",
-          "$description": "Gray step 100 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/, text/, border/, fill/gray/) or scale/gray/100, which flips with the theme.",
+          "$description": "Gray step 100 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (background, foreground, border, inverse) or scale/gray/100, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -111,7 +111,7 @@
         "5": {
           "$type": "color",
           "$value": "#082626",
-          "$description": "Accent (pop) step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/5, which flips with the theme.",
+          "$description": "Accent (pop) step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -119,7 +119,7 @@
         "10": {
           "$type": "color",
           "$value": "#0b3636",
-          "$description": "Accent (pop) step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/10, which flips with the theme.",
+          "$description": "Accent (pop) step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -127,7 +127,7 @@
         "20": {
           "$type": "color",
           "$value": "#115151",
-          "$description": "Accent (pop) step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/20, which flips with the theme.",
+          "$description": "Accent (pop) step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -135,7 +135,7 @@
         "30": {
           "$type": "color",
           "$value": "#177070",
-          "$description": "Accent (pop) step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/30, which flips with the theme.",
+          "$description": "Accent (pop) step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -143,7 +143,7 @@
         "40": {
           "$type": "color",
           "$value": "#1e8e8e",
-          "$description": "Accent (pop) step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/40, which flips with the theme.",
+          "$description": "Accent (pop) step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -151,7 +151,7 @@
         "50": {
           "$type": "color",
           "$value": "#25b1b1",
-          "$description": "Accent (pop) step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/50, which flips with the theme.",
+          "$description": "Accent (pop) step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -159,7 +159,7 @@
         "60": {
           "$type": "color",
           "$value": "#61dddd",
-          "$description": "Accent (pop) step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/60, which flips with the theme.",
+          "$description": "Accent (pop) step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -167,7 +167,7 @@
         "70": {
           "$type": "color",
           "$value": "#9ee7e7",
-          "$description": "Accent (pop) step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/70, which flips with the theme.",
+          "$description": "Accent (pop) step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -175,7 +175,7 @@
         "80": {
           "$type": "color",
           "$value": "#d0f2f2",
-          "$description": "Accent (pop) step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/80, which flips with the theme.",
+          "$description": "Accent (pop) step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -183,7 +183,7 @@
         "90": {
           "$type": "color",
           "$value": "#e5f8f8",
-          "$description": "Accent (pop) step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/90, which flips with the theme.",
+          "$description": "Accent (pop) step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -191,7 +191,7 @@
         "95": {
           "$type": "color",
           "$value": "#f2fbfb",
-          "$description": "Accent (pop) step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/pop, text/pop, fill/pop/) or scale/pop/95, which flips with the theme.",
+          "$description": "Accent (pop) step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (primary, primary/text, primary/muted) or scale/pop/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -201,7 +201,7 @@
         "5": {
           "$type": "color",
           "$value": "#2f0e09",
-          "$description": "Danger step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/5, which flips with the theme.",
+          "$description": "Danger step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -209,7 +209,7 @@
         "10": {
           "$type": "color",
           "$value": "#41140c",
-          "$description": "Danger step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/10, which flips with the theme.",
+          "$description": "Danger step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -217,7 +217,7 @@
         "20": {
           "$type": "color",
           "$value": "#621d13",
-          "$description": "Danger step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/20, which flips with the theme.",
+          "$description": "Danger step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -225,7 +225,7 @@
         "30": {
           "$type": "color",
           "$value": "#87281a",
-          "$description": "Danger step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/30, which flips with the theme.",
+          "$description": "Danger step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -233,7 +233,7 @@
         "40": {
           "$type": "color",
           "$value": "#ac3421",
-          "$description": "Danger step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/40, which flips with the theme.",
+          "$description": "Danger step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -241,7 +241,7 @@
         "50": {
           "$type": "color",
           "$value": "#d64029",
-          "$description": "Danger step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/50, which flips with the theme.",
+          "$description": "Danger step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -249,7 +249,7 @@
         "60": {
           "$type": "color",
           "$value": "#e28576",
-          "$description": "Danger step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/60, which flips with the theme.",
+          "$description": "Danger step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -257,7 +257,7 @@
         "70": {
           "$type": "color",
           "$value": "#ebb3ab",
-          "$description": "Danger step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/70, which flips with the theme.",
+          "$description": "Danger step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -265,7 +265,7 @@
         "80": {
           "$type": "color",
           "$value": "#f4dad6",
-          "$description": "Danger step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/80, which flips with the theme.",
+          "$description": "Danger step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -273,7 +273,7 @@
         "90": {
           "$type": "color",
           "$value": "#f9ebe9",
-          "$description": "Danger step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/90, which flips with the theme.",
+          "$description": "Danger step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -281,7 +281,7 @@
         "95": {
           "$type": "color",
           "$value": "#fcf5f4",
-          "$description": "Danger step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/danger, text/danger, fill/danger/) or scale/danger/95, which flips with the theme.",
+          "$description": "Danger step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (danger, danger/text, danger/muted) or scale/danger/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -291,7 +291,7 @@
         "5": {
           "$type": "color",
           "$value": "#362001",
-          "$description": "Warning step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/5, which flips with the theme.",
+          "$description": "Warning step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -299,7 +299,7 @@
         "10": {
           "$type": "color",
           "$value": "#4c2d02",
-          "$description": "Warning step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/10, which flips with the theme.",
+          "$description": "Warning step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -307,7 +307,7 @@
         "20": {
           "$type": "color",
           "$value": "#724403",
-          "$description": "Warning step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/20, which flips with the theme.",
+          "$description": "Warning step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -315,7 +315,7 @@
         "30": {
           "$type": "color",
           "$value": "#9d5d04",
-          "$description": "Warning step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/30, which flips with the theme.",
+          "$description": "Warning step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -323,7 +323,7 @@
         "40": {
           "$type": "color",
           "$value": "#c87705",
-          "$description": "Warning step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/40, which flips with the theme.",
+          "$description": "Warning step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -331,7 +331,7 @@
         "50": {
           "$type": "color",
           "$value": "#f99406",
-          "$description": "Warning step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/50, which flips with the theme.",
+          "$description": "Warning step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -339,7 +339,7 @@
         "60": {
           "$type": "color",
           "$value": "#f8b960",
-          "$description": "Warning step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/60, which flips with the theme.",
+          "$description": "Warning step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -347,7 +347,7 @@
         "70": {
           "$type": "color",
           "$value": "#f8d39e",
-          "$description": "Warning step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/70, which flips with the theme.",
+          "$description": "Warning step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -355,7 +355,7 @@
         "80": {
           "$type": "color",
           "$value": "#fae9d0",
-          "$description": "Warning step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/80, which flips with the theme.",
+          "$description": "Warning step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -363,7 +363,7 @@
         "90": {
           "$type": "color",
           "$value": "#fcf3e5",
-          "$description": "Warning step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/90, which flips with the theme.",
+          "$description": "Warning step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -371,7 +371,7 @@
         "95": {
           "$type": "color",
           "$value": "#fef9f2",
-          "$description": "Warning step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/warn, text/warn, fill/warn/) or scale/warn/95, which flips with the theme.",
+          "$description": "Warning step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (warning, warning/text, warning/muted) or scale/warn/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -381,7 +381,7 @@
         "5": {
           "$type": "color",
           "$value": "#0a281b",
-          "$description": "Success step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/5, which flips with the theme.",
+          "$description": "Success step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -389,7 +389,7 @@
         "10": {
           "$type": "color",
           "$value": "#0e3826",
-          "$description": "Success step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/10, which flips with the theme.",
+          "$description": "Success step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -397,7 +397,7 @@
         "20": {
           "$type": "color",
           "$value": "#15543a",
-          "$description": "Success step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/20, which flips with the theme.",
+          "$description": "Success step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -405,7 +405,7 @@
         "30": {
           "$type": "color",
           "$value": "#1d744f",
-          "$description": "Success step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/30, which flips with the theme.",
+          "$description": "Success step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -413,7 +413,7 @@
         "40": {
           "$type": "color",
           "$value": "#259465",
-          "$description": "Success step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/40, which flips with the theme.",
+          "$description": "Success step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -421,7 +421,7 @@
         "50": {
           "$type": "color",
           "$value": "#2eb87e",
-          "$description": "Success step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/50, which flips with the theme.",
+          "$description": "Success step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -429,7 +429,7 @@
         "60": {
           "$type": "color",
           "$value": "#6fdaad",
-          "$description": "Success step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/60, which flips with the theme.",
+          "$description": "Success step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -437,7 +437,7 @@
         "70": {
           "$type": "color",
           "$value": "#a6e5cb",
-          "$description": "Success step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/70, which flips with the theme.",
+          "$description": "Success step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -445,7 +445,7 @@
         "80": {
           "$type": "color",
           "$value": "#d4f1e5",
-          "$description": "Success step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/80, which flips with the theme.",
+          "$description": "Success step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -453,7 +453,7 @@
         "90": {
           "$type": "color",
           "$value": "#e8f7f1",
-          "$description": "Success step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/90, which flips with the theme.",
+          "$description": "Success step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -461,7 +461,7 @@
         "95": {
           "$type": "color",
           "$value": "#f3fbf8",
-          "$description": "Success step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/safe, text/safe, fill/safe/) or scale/safe/95, which flips with the theme.",
+          "$description": "Success step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (success, success/text, success/muted) or scale/safe/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -471,7 +471,7 @@
         "5": {
           "$type": "color",
           "$value": "#1e0c30",
-          "$description": "Purple step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/5, which flips with the theme.",
+          "$description": "Purple step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -479,7 +479,7 @@
         "10": {
           "$type": "color",
           "$value": "#2a1143",
-          "$description": "Purple step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/10, which flips with the theme.",
+          "$description": "Purple step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -487,7 +487,7 @@
         "20": {
           "$type": "color",
           "$value": "#3f1964",
-          "$description": "Purple step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/20, which flips with the theme.",
+          "$description": "Purple step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -495,7 +495,7 @@
         "30": {
           "$type": "color",
           "$value": "#57238b",
-          "$description": "Purple step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/30, which flips with the theme.",
+          "$description": "Purple step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -503,7 +503,7 @@
         "40": {
           "$type": "color",
           "$value": "#6f2cb1",
-          "$description": "Purple step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/40, which flips with the theme.",
+          "$description": "Purple step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -511,7 +511,7 @@
         "50": {
           "$type": "color",
           "$value": "#8a43d0",
-          "$description": "Purple step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/50, which flips with the theme.",
+          "$description": "Purple step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -519,7 +519,7 @@
         "60": {
           "$type": "color",
           "$value": "#b387de",
-          "$description": "Purple step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/60, which flips with the theme.",
+          "$description": "Purple step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -527,7 +527,7 @@
         "70": {
           "$type": "color",
           "$value": "#cfb5e9",
-          "$description": "Purple step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/70, which flips with the theme.",
+          "$description": "Purple step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -535,7 +535,7 @@
         "80": {
           "$type": "color",
           "$value": "#e7dbf3",
-          "$description": "Purple step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/80, which flips with the theme.",
+          "$description": "Purple step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -543,7 +543,7 @@
         "90": {
           "$type": "color",
           "$value": "#f2ebf9",
-          "$description": "Purple step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/90, which flips with the theme.",
+          "$description": "Purple step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -551,7 +551,7 @@
         "95": {
           "$type": "color",
           "$value": "#f8f5fc",
-          "$description": "Purple step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (bg/purple, text/purple, fill/purple/) or scale/purple/95, which flips with the theme.",
+          "$description": "Purple step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (done, done/text, done/muted) or scale/purple/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -561,7 +561,7 @@
         "5": {
           "$type": "color",
           "$value": "#031a3f",
-          "$description": "Blue step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/5, which flips with the theme.",
+          "$description": "Blue step 5 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/5, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -569,7 +569,7 @@
         "10": {
           "$type": "color",
           "$value": "#042459",
-          "$description": "Blue step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/10, which flips with the theme.",
+          "$description": "Blue step 10 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/10, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -577,7 +577,7 @@
         "20": {
           "$type": "color",
           "$value": "#063685",
-          "$description": "Blue step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/20, which flips with the theme.",
+          "$description": "Blue step 20 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/20, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -585,7 +585,7 @@
         "30": {
           "$type": "color",
           "$value": "#084bb8",
-          "$description": "Blue step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/30, which flips with the theme.",
+          "$description": "Blue step 30 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/30, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -593,7 +593,7 @@
         "40": {
           "$type": "color",
           "$value": "#0b60eb",
-          "$description": "Blue step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/40, which flips with the theme.",
+          "$description": "Blue step 40 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/40, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -601,7 +601,7 @@
         "50": {
           "$type": "color",
           "$value": "#3b82f6",
-          "$description": "Blue step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/50, which flips with the theme.",
+          "$description": "Blue step 50 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/50, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -609,7 +609,7 @@
         "60": {
           "$type": "color",
           "$value": "#84aff5",
-          "$description": "Blue step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/60, which flips with the theme.",
+          "$description": "Blue step 60 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/60, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -617,7 +617,7 @@
         "70": {
           "$type": "color",
           "$value": "#b3cdf7",
-          "$description": "Blue step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/70, which flips with the theme.",
+          "$description": "Blue step 70 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/70, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -625,7 +625,7 @@
         "80": {
           "$type": "color",
           "$value": "#dae6fa",
-          "$description": "Blue step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/80, which flips with the theme.",
+          "$description": "Blue step 80 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/80, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -633,7 +633,7 @@
         "90": {
           "$type": "color",
           "$value": "#ebf2fc",
-          "$description": "Blue step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/90, which flips with the theme.",
+          "$description": "Blue step 90 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/90, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -641,7 +641,7 @@
         "95": {
           "$type": "color",
           "$value": "#f5f8fe",
-          "$description": "Blue step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic token (text/blue, fill/blue/) or scale/blue/95, which flips with the theme.",
+          "$description": "Blue step 95 of the raw palette. The same in light and dark, so not for UI directly: use a semantic name (info, info/text, info/muted) or scale/blue/95, which flips with the theme.",
           "$extensions": {
             "mode": {}
           }
@@ -1167,24 +1167,24 @@
       },
       "control": {
         "$type": "dimension",
-        "$value": "{core.radius.sm}",
-        "$description": "Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 8 minus a 4px inset). Tags and badges take radius/full.",
+        "$value": "{core.radius.md}",
+        "$description": "Controls: buttons, inputs, selects, toggles, and the rows inside a popup (its 10 minus a 4px inset). Tags and badges take radius/full.",
         "$extensions": {
           "mode": {}
         }
       },
       "card": {
         "$type": "dimension",
-        "$value": "{core.radius.md}",
-        "$description": "A card or bordered group. On the section ladder (14 → 10 → 6 → 2) it is two steps in, so a card 4px inside a 10 corner stays concentric.",
+        "$value": "{core.radius.lg}",
+        "$description": "A card or bordered group: 8, a step rounder than a control (6) and a step less than a popup (10).",
         "$extensions": {
           "mode": {}
         }
       },
       "popup": {
         "$type": "dimension",
-        "$value": "{core.radius.lg}",
-        "$description": "Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (4), so the corners stay concentric.",
+        "$value": "{core.radius.xl}",
+        "$description": "Modals, dropdowns, the toolbox: every popup container. Rows inset 4px inside it take radius/control (6), so the corners stay concentric.",
         "$extensions": {
           "mode": {}
         }
@@ -1213,7 +1213,7 @@
       "bg-hover": {
         "$type": "string",
         "$value": "5%",
-        "$description": "How much fill/gray/bg to mix into a surface on hover: a list row, a field. Mix it with color-mix over the surface, not as an overlay.",
+        "$description": "How much inverse to mix into a surface on hover: a list row, a field. Mix it with color-mix over the surface, not as an overlay.",
         "$extensions": {
           "mode": {},
           "figmaScopes": [
@@ -1224,7 +1224,7 @@
       "bg-selected-inactive": {
         "$type": "string",
         "$value": "10%",
-        "$description": "How much fill/gray/bg a selected row keeps while its list doesn't have focus, so the selection stays legible from elsewhere. Used by bg/selected-inactive.",
+        "$description": "How much inverse a selected row keeps while its list doesn&#39;t have focus, so the selection stays legible from elsewhere. Used by selected/inactive.",
         "$extensions": {
           "mode": {},
           "figmaScopes": [
@@ -1289,7 +1289,7 @@
           "core",
           "semantic"
         ],
-        "createdAt": "2026-11-04T22:25:59.919Z"
+        "createdAt": "2026-11-08T00:18:37.194Z"
       }
     }
   }

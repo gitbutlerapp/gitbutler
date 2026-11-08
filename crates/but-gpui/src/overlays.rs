@@ -1139,7 +1139,7 @@ impl AppView {
         let installing = progress.is_some().then(|| format!("Installing {version}"));
         let status = progress.unwrap_or_else(|| "The app restarts once it's installed.".into());
         let title = format!("GitButler {version} is here");
-        // Lite's update icon on a tile of the accent, the card's one touch of colour beside its
+        // The update icon on a tile of the accent, the card's one touch of colour beside its
         // Update button.
         let tile = div()
             .flex()

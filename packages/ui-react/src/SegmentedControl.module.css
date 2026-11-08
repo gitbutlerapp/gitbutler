@@ -1,5 +1,5 @@
 .control {
-	--segment-height: var(--size-control);
+	--segment-height: var(--but-size-control);
 	--segment-padding-inline: 10px;
 	--segment-gap: 6px;
 	--segment-icon-size: 16px;
@@ -8,9 +8,9 @@
 	position: relative;
 	align-items: center;
 	/* The picked segment fills the track's height, so the two share a corner. */
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	/* A faint tint of the ground it sits on, so the track reads on any panel. */
-	background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
+	background-color: color-mix(in srgb, var(--but-inverse) var(--but-opacity-bg-hover), transparent);
 
 	/* The raised ground under the picked segment: one per control, placed by the component from
 	   the segment's box, so it can slide to the next. */
@@ -22,17 +22,17 @@
 		width: var(--picked-width);
 		height: 100%;
 		translate: var(--picked-left) 0;
-		border: 1px solid var(--border-control);
-		border-radius: var(--radius-control);
-		background-color: var(--bg-1);
+		border: 1px solid var(--but-input);
+		border-radius: var(--but-radius-control);
+		background-color: var(--but-background);
 		content: "";
 	}
 
 	/* Only once placed, so a control doesn't slide in as it first appears. */
 	&[data-sliding]::before {
 		transition:
-			translate var(--transition-medium) ease-out,
-			width var(--transition-medium) ease-out;
+			translate var(--but-transition-medium) ease-out,
+			width var(--but-transition-medium) ease-out;
 	}
 }
 
@@ -70,13 +70,13 @@
 	/* The picked ground's border lies over this one, and takes 1px of the inset. */
 	padding-inline: calc(var(--segment-padding-inline) - 1px);
 	border: 1px solid transparent;
-	border-radius: var(--radius-control);
-	color: var(--text-1);
+	border-radius: var(--but-radius-control);
+	color: var(--but-foreground);
 	white-space: nowrap;
 	cursor: var(--control-cursor);
 	transition:
 		var(--transition-button),
-		border-color var(--transition-fast);
+		border-color var(--but-transition-fast);
 
 	/* The hover ground: the segment's own box, growing a little as it fades in. Under the
 	   pointer only, never on the picked segment, which has the raised ground. */
@@ -85,13 +85,13 @@
 		/* Out over the border, so the ground fills the segment edge to edge. */
 		inset: -1px;
 		scale: 0.92;
-		border-radius: var(--radius-control);
-		background-color: var(--bg-hover);
+		border-radius: var(--but-radius-control);
+		background-color: var(--but-hover);
 		content: "";
 		opacity: 0;
 		transition:
-			opacity var(--transition-fast) ease-out,
-			scale var(--transition-fast) ease-out;
+			opacity var(--but-transition-fast) ease-out,
+			scale var(--but-transition-fast) ease-out;
 	}
 
 	&:hover:not([data-pressed], [data-disabled])::before {
@@ -113,9 +113,9 @@
 		width: 1px;
 		height: 12px;
 		translate: -50% -50%;
-		background-color: var(--border-2);
+		background-color: var(--but-border);
 		content: "";
-		transition: opacity var(--transition-medium) ease-out;
+		transition: opacity var(--but-transition-medium) ease-out;
 	}
 
 	&:is([data-pressed], :hover:not([data-disabled]))::after,
@@ -133,7 +133,7 @@
 	}
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 	}
 }
 
@@ -141,7 +141,7 @@
 .icon {
 	display: flex;
 	opacity: 0.6;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 
 	& > svg {
 		width: var(--segment-icon-size);
@@ -170,7 +170,7 @@
 
 .text {
 	opacity: 0.7;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 
 	:is(.segment[data-pressed], .segment:hover:not([data-disabled]), .segment[data-disabled]) & {
 		opacity: 0.9;
@@ -180,7 +180,7 @@
 @media (prefers-reduced-motion: reduce) {
 	.segment::before {
 		scale: 1;
-		transition: opacity var(--transition-fast);
+		transition: opacity var(--but-transition-fast);
 	}
 
 	.segment::after {

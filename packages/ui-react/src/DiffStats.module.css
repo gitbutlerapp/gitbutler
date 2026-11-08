@@ -9,9 +9,9 @@
 }
 
 .added {
-	color: var(--text-safe);
+	color: var(--but-success-text);
 }
 
 .removed {
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }

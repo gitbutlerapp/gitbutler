@@ -1,18 +1,13 @@
+import { cssVarName, stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const FX_TOKENS_PATH = resolve("tokens/json/fx.tokens.json");
 
 function resolveTokenRef(ref) {
-	// Converts "{semantic.shadow-clr}" -> "var(--shadow-clr)"
+	// Converts "{semantic.shadow}" -> "var(--but-shadow)"
 	const inner = ref.replace(/^\{|\}$/g, "");
-	const collections = ["semantic.component", "semantic", "core"];
-	for (const col of collections) {
-		if (inner.startsWith(col + ".")) {
-			return `var(--${inner.slice(col.length + 1).replaceAll(".", "-")})`;
-		}
-	}
-	return `var(--${inner.replaceAll(".", "-")})`;
+	return `var(${stripCollectionPrefix(inner) ?? cssVarName(inner)})`;
 }
 
 function formatDimension(dim) {
@@ -50,11 +45,12 @@ function collectShadowTokens(node, path = [], out = []) {
 	return out;
 }
 
-// "shadow.sm" -> --shadow-sm, "popup" -> --shadow-popup: every effect style
-// lives in the --shadow-* namespace regardless of how it is grouped in Figma.
+// "shadow.sm" -> --but-shadow-sm, "popup" -> --but-shadow-popup: every effect
+// style lives in the --but-shadow-* namespace regardless of how it is grouped
+// in Figma. (--but-shadow itself is the shadow's colour.)
 function shadowVarName(path) {
 	const name = path.join("-");
-	return name.startsWith("shadow-") || name === "shadow" ? `--${name}` : `--shadow-${name}`;
+	return cssVarName(name.startsWith("shadow-") ? name : `shadow-${name}`);
 }
 
 export function generateShadowVars(css) {

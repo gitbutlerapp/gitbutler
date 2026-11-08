@@ -46,7 +46,7 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 	const ground =
 		width === undefined
 			? undefined
-			: { width: `max(min(100%, var(--size-prose)), ${width + 48}px)`, maxWidth: "none" };
+			: { width: `max(min(100%, var(--but-size-prose)), ${width + 48}px)`, maxWidth: "none" };
 	return (
 		<section className="docs-page-example">
 			<h2 className="docs-page-example-title text-h3">{entry.name}</h2>

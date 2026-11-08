@@ -607,7 +607,7 @@ pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div
     )
 }
 
-/// The header at the top of the card of file `ix`, as Lite and but.dev draw it: the fold
+/// The header at the top of the card of file `ix`, as but.dev draws it: the fold
 /// chevron, the file's mark, name and folder, and the lines it changed.
 pub fn file_header(
     ix: usize,

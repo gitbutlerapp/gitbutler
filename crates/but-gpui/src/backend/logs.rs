@@ -26,7 +26,7 @@ pub fn dir() -> Result<PathBuf> {
 /// waits on either. `RUST_LOG` picks what's logged, as `but_gpui=debug`. Without it
 /// `LOG_LEVEL`, the desktop app's variable, does: GitButler's own crates at that level, `info`
 /// by default, and other crates' warnings and errors, as GPUI's own about the GPU or the
-/// display. Spans opening and closing aren't logged. Those lines made up two thirds of Lite's
+/// display. Spans opening and closing aren't logged. Those lines made up two thirds of the
 /// log.
 pub fn init() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {

@@ -22,7 +22,7 @@
 	transform-origin: bottom center;
 	translate: -50% 0;
 	transition:
-		transform 0.35s var(--easing-popup),
+		transform 0.35s var(--but-easing-popup),
 		opacity 0.3s ease;
 
 	/* Past Base UI's limit of three, the oldest recedes where it stands: it shrinks toward its own

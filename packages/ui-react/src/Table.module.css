@@ -12,8 +12,8 @@
    ones padding/row in from the card, from the same inset on both sides of every cell. */
 .cell {
 	height: 40px;
-	padding: 10px var(--padding-row);
-	color: var(--text-1);
+	padding: 10px var(--but-padding-row);
+	color: var(--but-foreground);
 	font-weight: inherit;
 	text-align: start;
 	vertical-align: middle;
@@ -27,11 +27,11 @@
 /* The hairline above each body row, so the last has none and the card's border closes the table.
    Inset, so it takes no height. */
 tbody .cell {
-	box-shadow: inset 0 1px 0 var(--border-section);
+	box-shadow: inset 0 1px 0 var(--but-border-subtle);
 }
 
 .header {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .end {

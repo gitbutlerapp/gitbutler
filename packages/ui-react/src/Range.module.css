@@ -8,9 +8,9 @@
 	--thumb-hover-width: 16px;
 
 	display: flex;
-	row-gap: var(--space-sm);
+	row-gap: var(--but-space-sm);
 	flex-direction: column;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 
 	&[data-disabled] {
 		opacity: var(--disabled-opacity);
@@ -29,13 +29,13 @@
 
 .label {
 	overflow: hidden;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	text-overflow: ellipsis;
 }
 
 .value {
 	flex: none;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	text-align: end;
 }
 
@@ -63,14 +63,14 @@
 .track {
 	width: 100%;
 	height: var(--track-height);
-	border-radius: var(--radius-control);
-	background-color: var(--border-2);
+	border-radius: var(--but-radius-control);
+	background-color: var(--but-border);
 }
 
 .indicator {
 	height: 100%;
-	border-radius: var(--radius-control);
-	background-color: var(--fill-gray-bg);
+	border-radius: var(--but-radius-control);
+	background-color: var(--but-inverse);
 }
 
 /* The thumb's box is the card at rest and never changes, so the inset Base UI measures from it
@@ -101,24 +101,24 @@
 		box-sizing: border-box;
 		width: var(--thumb-width);
 		height: var(--thumb-height);
-		border: 1.5px solid var(--fill-gray-bg);
-		border-radius: var(--radius-xs);
-		background-color: var(--bg-1);
+		border: 1.5px solid var(--but-inverse);
+		border-radius: var(--but-radius-xs);
+		background-color: var(--but-background);
 		transition:
-			width var(--transition-fast),
-			outline-color var(--transition-fast);
+			width var(--but-transition-fast),
+			outline-color var(--but-transition-fast);
 	}
 
 	&::after {
 		width: 3px;
 		height: 6px;
-		border-inline: 1px solid var(--text-3);
+		border-inline: 1px solid var(--but-subtle-foreground);
 		opacity: 0;
-		transition: opacity var(--transition-fast);
+		transition: opacity var(--but-transition-fast);
 	}
 
 	&:has(:focus-visible)::before {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 		outline-offset: 1px;
 	}
 
@@ -139,7 +139,7 @@
 	position: relative;
 	height: 16px;
 	margin-top: -2px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 /* Each mark is centred under where the thumb's centre sits at that value. The thumb is inset by

@@ -4,7 +4,7 @@
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
 	min-width: 14px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	line-height: 16px;
 	white-space: nowrap;
 
@@ -24,7 +24,7 @@
 	opacity: 0.7;
 }
 
-/* The working robot's loop, after the robot's motion in ⚛️ Core: a second of its face, then its
+/* The working robot's loop, after the robot's motion in 🍑 But UI: a second of its face, then its
    eyes turn into two bars that wave out of step while the smile draws in to its middle, and it all
    settles back. A bar keeps centred on the screen as it grows, so it scales from its top and moves
    down; the smile is a path of length 1, drawn in with its dashes. */
@@ -208,26 +208,26 @@
 .uncommitted,
 .agent-waiting,
 .working {
-	color: var(--text-warn);
+	color: var(--but-warning-text);
 }
 
 .empty,
 .head {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 .unpushed {
-	color: var(--text-blue);
+	color: var(--but-info-text);
 }
 
 .agent-working,
 .cpu,
 .passed {
-	color: var(--text-safe);
+	color: var(--but-success-text);
 }
 
 .conflicts,
 .cpu-danger,
 .failed {
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }

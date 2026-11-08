@@ -350,7 +350,7 @@ impl Detail {
         (!text.is_empty()).then_some(text)
     }
 
-    /// Merging, as Lite's Merge section: auto-merge as a switch and Merge with its method, each
+    /// The Merge section: auto-merge as a switch and Merge with its method, each
     /// saying in its tooltip why it can't be pressed when GitHub's merge box wouldn't offer it.
     /// A draft has to be ready for review first, so that's what its section offers.
     fn merge_section(&self, theme: &Theme, cx: &Context<Self>) -> Option<Div> {
@@ -496,7 +496,7 @@ impl Detail {
                     tab(
                         "tab-review",
                         Icon::Pr,
-                        // Its number, as Lite's tab names it.
+                        // The tab is named by its number.
                         match state {
                             ReviewState::Draft => format!("Draft #{}", review.number),
                             _ => format!("PR #{}", review.number),
@@ -565,7 +565,7 @@ impl Detail {
         }
     }
 
-    /// The pull request tab, as Lite lays it out: its title, who opened it, its description
+    /// The pull request tab: its title, who opened it, its description
     /// and its conversation, beside a panel of where it stands, each scrolling on its own.
     /// Narrower than [`TWO_COLUMNS`], the panel goes between the title and the description.
     /// The column is a list, so a long conversation draws only what's on screen.
@@ -800,7 +800,7 @@ impl Detail {
         Some(h_flex().gap(dp(6.)).children(age).child(button))
     }
 
-    /// The panel of where the pull request stands, the facts as Lite's card has them: merging, the
+    /// The panel of where the pull request stands, its facts: merging, the
     /// state and a link to it, the checks, who's asked to review, labels, branches and when it
     /// was opened.
     fn side(&self, project: &ProjectId, review: &Review, theme: &Theme, cx: &Context<Self>) -> Div {
@@ -1039,7 +1039,7 @@ impl Detail {
 /// description: where the column, beside the narrowest panel, would get under about 300.
 pub(super) const TWO_COLUMNS: f32 = 640.;
 
-/// How wide the panel beside the description gets, as Lite's.
+/// How wide the panel beside the description gets.
 const PANEL_WIDTH: f32 = 315.;
 
 /// How narrow the panel beside the description gets in a narrow pane: as narrow as the merge
@@ -1055,7 +1055,7 @@ pub(super) const COLUMN_MAX_WIDTH: f32 = 840.;
 /// conversation's heading.
 const LEAD: usize = 4;
 
-/// What the merge button says, merging by `method`, as Lite's.
+/// What the merge button says, merging by `method`.
 fn merge_label(method: Option<MergeMethod>) -> &'static str {
     match method {
         Some(MergeMethod::Squash) => "Squash and merge",
@@ -1075,7 +1075,7 @@ fn headline(merge: &Mergeability) -> SharedString {
     }
 }
 
-/// Auto-merge as Lite's outlined switch button: on while it merges by itself, pressable unless
+/// Auto-merge as an outlined switch button: on while it merges by itself, pressable unless
 /// `why_not` says otherwise.
 fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> Stateful<Div> {
     use gpui::AnimationExt as _;
@@ -1138,7 +1138,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
     }
 }
 
-/// Who opened it, and when it last changed when that's later, as Lite's line under the title.
+/// Who opened it, and when it last changed when that's later, as a line under the title.
 fn byline(review: &Review, theme: &Theme) -> Option<Div> {
     // The forge stamps an update on any activity, opening included, so only a later one is
     // worth saying.
@@ -1187,7 +1187,7 @@ fn description_id(review: &Review) -> String {
     format!("review-{}", review.number)
 }
 
-/// The description, on a wash just wider than its text, as Lite's card; or that there's none.
+/// The description, on a wash just wider than its text; or that there's none.
 fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div {
     let body = markdown::parse(&review.body);
     if body.is_empty() {
@@ -1201,7 +1201,7 @@ fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div 
         .px(dp(12.))
         .py(dp(10.))
         .rounded(dp(6.))
-        // Halfway from the page to the first grey step, as Lite's: a passage, not a panel.
+        // Halfway from the page to the first grey step: a passage, not a panel.
         .bg(theme.bg_1.blend(theme.bg_2.opacity(0.5)))
         .child(markdown::render(
             &description_id(review),
@@ -1228,7 +1228,7 @@ fn scrolling(
     scrolled(column, bar, Scroll::Div(scroll.clone()), theme).h_full()
 }
 
-/// A card of the side panel or the conversation, as Lite's.
+/// A card of the side panel or the conversation.
 pub(super) fn card(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(6.))
@@ -1260,7 +1260,7 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
         )
 }
 
-/// A badge of a word or two on a ground tinted `color`, as Lite's: a pull request's state, a
+/// A badge of a word or two on a ground tinted `color`: a pull request's state, a
 /// review's verdict.
 pub(super) fn tag(color: Hsla) -> Div {
     h_flex()
@@ -1341,7 +1341,7 @@ fn reviewers_section(review: &Review, github: bool, theme: &Theme) -> Option<Div
     Some(side_section("Reviewers", None, theme).children(rows))
 }
 
-/// Its labels as Lite's tags: an outlined pill with the label's colour as a dot.
+/// Its labels as tags: an outlined pill with the label's colour as a dot.
 fn labels_section(review: &Review, theme: &Theme) -> Option<Div> {
     if review.labels.is_empty() {
         return None;
@@ -1448,7 +1448,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .child(aside)
         .when(link, |el| {
             let url = run.url.clone();
-            // The arrow says where a click goes, as Lite's rows do.
+            // The arrow says where a click goes.
             el.hover(move |el| el.bg(hover))
                 .role(Role::Link)
                 .aria_label(format!("Open the log of {}", run.name))

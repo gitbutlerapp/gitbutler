@@ -14,16 +14,16 @@
 	display: inline-flex;
 	column-gap: 6px;
 	align-items: center;
-	height: var(--size-control);
+	height: var(--but-size-control);
 	padding-inline: var(--tab-padding-inline);
-	border-radius: var(--radius-control);
-	color: var(--text-1);
+	border-radius: var(--but-radius-control);
+	color: var(--but-foreground);
 	white-space: nowrap;
 	cursor: var(--control-cursor);
-	transition: background-color var(--transition-fast);
+	transition: background-color var(--but-transition-fast);
 
 	&:hover:not([data-active], [data-disabled]) {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	/* Unavailable for now: it stays faded under the pointer, and its label says why. */
@@ -32,7 +32,7 @@
 	}
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 	}
 }
 
@@ -82,10 +82,10 @@
 	width: calc(var(--active-tab-width) - 2 * var(--tab-padding-inline));
 	height: 4px;
 	translate: calc(var(--active-tab-left) + var(--tab-padding-inline)) 0;
-	background-color: var(--fill-gray-bg);
+	background-color: var(--but-inverse);
 	transition:
-		translate var(--transition-medium) ease-out,
-		width var(--transition-medium) ease-out;
+		translate var(--but-transition-medium) ease-out,
+		width var(--but-transition-medium) ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

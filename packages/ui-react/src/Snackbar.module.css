@@ -15,12 +15,12 @@
 	   it. The border stays, transparent, to keep the measurements the light one had. */
 	border: 1px solid transparent;
 	/* It floats over the page, so it wears the popup radius. */
-	border-radius: var(--radius-popup);
+	border-radius: var(--but-radius-popup);
 	background-color: var(--scale-gray-10);
-	box-shadow: var(--shadow-md);
-	color: var(--text-1-invert);
+	box-shadow: var(--but-shadow-md);
+	color: var(--but-inverse-foreground);
 	white-space: nowrap;
-	animation: enter 0.3s var(--easing-popup);
+	animation: enter 0.3s var(--but-easing-popup);
 
 	@media (prefers-reduced-motion: reduce) {
 		animation: none;
@@ -43,19 +43,19 @@
 }
 
 .info {
-	--snackbar-icon: var(--text-2-invert);
+	--snackbar-icon: var(--but-inverse-muted-foreground);
 }
 
 .warning {
-	--snackbar-icon: var(--fill-warn-bg);
+	--snackbar-icon: var(--but-warning);
 }
 
 .danger {
-	--snackbar-icon: var(--fill-danger-bg);
+	--snackbar-icon: var(--but-danger);
 }
 
 .safe {
-	--snackbar-icon: var(--fill-safe-bg);
+	--snackbar-icon: var(--but-success);
 }
 
 /* Takes the width it needs and gives it back before the snackbar grows past its container: a long
@@ -79,7 +79,7 @@
 	width: 1px;
 	min-height: 20px;
 	margin-inline: 3.5px -0.5px;
-	background-color: var(--border-3);
+	background-color: var(--but-border-subtle);
 	opacity: 0.3;
 }
 

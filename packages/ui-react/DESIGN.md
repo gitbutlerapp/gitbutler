@@ -6,7 +6,7 @@ rules hold for any app; the examples are GitButler's own surfaces. What one app
 decides for itself lives in its own design notes; the tooling that enforces
 the rules lives in `AGENTS.md` beside this file.
 
-The Figma library is ⚛️ Core, the library for every app. 💎 Core is a
+The Figma library is 🍑 But UI, the library for every app. 💎 Core is a
 different library, for the Svelte desktop app.
 
 The notes are one page per topic, in `design/` beside this file. Read the pages

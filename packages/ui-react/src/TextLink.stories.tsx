@@ -8,7 +8,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2118-1509",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2118-1509",
 		},
 	},
 	args: {
@@ -23,7 +23,7 @@ export const Default = meta.story({});
 
 export const InText = meta.story({
 	render: (args) => (
-		<p className="text-12" style={{ color: "var(--text-2)" }}>
+		<p className="text-12" style={{ color: "var(--but-muted-foreground)" }}>
 			We’d love to hear what you think. <TextLink {...args}>Share feedback on Discord</TextLink>
 		</p>
 	),

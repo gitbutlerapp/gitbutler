@@ -21,7 +21,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2790-13820",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2790-13820",
 		},
 	},
 	args: {
@@ -46,7 +46,7 @@ export const Default = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2791-14242",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2791-14242",
 		},
 	},
 	args: {
@@ -111,7 +111,7 @@ export const ViewOptions = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2791-14320",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2791-14320",
 		},
 	},
 	render: (args) => <ViewOptionsMenu {...args} />,
@@ -122,7 +122,7 @@ export const OnRightClick = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2791-14441",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2791-14441",
 		},
 	},
 	render: () => (
@@ -133,9 +133,9 @@ export const OnRightClick = meta.story({
 					className="text-13"
 					style={{
 						padding: "24px 32px",
-						border: "1px dashed var(--border-2)",
-						borderRadius: "var(--radius-card)",
-						color: "var(--text-2)",
+						border: "1px dashed var(--but-border)",
+						borderRadius: "var(--but-radius-card)",
+						color: "var(--but-muted-foreground)",
 					}}
 				>
 					Right-click here

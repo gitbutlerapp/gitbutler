@@ -20,7 +20,11 @@ const sampleLines: Array<Line> = [
 	{ kind: " ", text: "}" },
 ];
 
-const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-danger)" };
+const lineBackground = {
+	" ": undefined,
+	"+": "var(--but-success-muted)",
+	"-": "var(--but-danger-muted)",
+};
 
 /**
  * Stands in for the host's diff renderer (Pierre in but.dev), which
@@ -29,7 +33,7 @@ const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-d
 const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 	<pre
 		className="text-12"
-		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--font-family-mono)" }}
+		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--but-font-family-mono)" }}
 	>
 		{lines.map((line, index) => (
 			<div
@@ -44,13 +48,13 @@ const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 );
 
 const meta = stories({
-	title: "Content & status/DiffFile",
+	title: "Files & diffs/DiffFile",
 	id: "components-difffile",
 	component: DiffFile,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2415-6323",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2415-6323",
 		},
 		layout: "wide",
 	},

@@ -5,13 +5,13 @@
    size and renders at it, and is never scaled to fit
    (design/patterns/empty-states.md).
 
-   `--border-1` rather than a text colour: the strokes are the drawing's
-   outline, and this is the token ⚛️ Core binds them to. */
+   `--but-border-hover` rather than a text colour: the strokes are the drawing's
+   outline, and this is the token 🍑 But UI binds them to. */
 .illustration {
 	display: block;
 	flex-shrink: 0;
 	width: fit-content;
-	color: var(--border-1);
+	color: var(--but-border-hover);
 
 	& > svg {
 		display: block;

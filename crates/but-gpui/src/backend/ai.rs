@@ -1,6 +1,5 @@
 //! Writing commit messages and pull request descriptions with the AI provider set up in
-//! Settings, streamed so the text appears as it's written. The prompts are Lite's, so the
-//! apps write alike.
+//! Settings, streamed so the text appears as it's written.
 
 use anyhow::{Context as _, Result};
 use but_llm::{ChatMessage, LLMProvider};

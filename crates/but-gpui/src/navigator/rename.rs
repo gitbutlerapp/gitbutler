@@ -1,4 +1,4 @@
-//! A branch's or a terminal's name, or a commit's title, edited in its row, as Lite does, rather
+//! A branch's or a terminal's name, or a commit's title, edited in its row rather
 //! than in a prompt.
 
 use gpui::{

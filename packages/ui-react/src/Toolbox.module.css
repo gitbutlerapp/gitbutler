@@ -11,8 +11,8 @@
 .toolbox {
 	flex: none;
 	transition:
-		transform var(--transition-popup) var(--easing-popup),
-		opacity var(--transition-popup) var(--easing-popup);
+		transform var(--but-transition-popup) var(--but-easing-popup),
+		opacity var(--but-transition-popup) var(--but-easing-popup);
 
 	/* A modal and a dropdown animate against the states Base UI stamps on them as it opens and
 	   closes one. Nothing manages this bar's lifecycle — it is rendered while a selection exists
@@ -34,9 +34,9 @@
 	min-block-size: calc(1lh + 8px + 8px + 1px);
 	padding: 8px 10px;
 	overflow: hidden;
-	border-bottom: 1px solid var(--border-2);
-	background-color: var(--bg-2);
-	color: var(--text-2);
+	border-bottom: 1px solid var(--but-border);
+	background-color: var(--but-muted);
+	color: var(--but-muted-foreground);
 	white-space: nowrap;
 
 	/* Centre the strip on the cap band rather than on the line box, so the row reads evenly
@@ -51,14 +51,14 @@
 	   the surrounding mute to pick its own words out. */
 	& strong {
 		flex-shrink: 0;
-		color: var(--text-1);
+		color: var(--but-foreground);
 		font-weight: inherit;
 	}
 }
 
 .metaIcon {
 	flex-shrink: 0;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 /* Each stretch of the sentence takes the width it needs and gives it back before the words around
@@ -82,17 +82,17 @@
 	flex-shrink: 0;
 	margin-inline-start: auto;
 	padding-inline-start: 8px;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 .section {
 	display: flex;
-	column-gap: var(--gap-buttons-compact);
+	column-gap: var(--but-gap-buttons-compact);
 	align-items: center;
 	padding: 10px;
 
 	& + & {
-		border-top: 1px solid var(--border-3);
+		border-top: 1px solid var(--but-border-subtle);
 	}
 
 	&:where(.confirm) {
@@ -109,5 +109,5 @@
 	align-self: stretch;
 	width: 1px;
 	margin-inline: 6px;
-	background-color: var(--border-3);
+	background-color: var(--but-border-subtle);
 }

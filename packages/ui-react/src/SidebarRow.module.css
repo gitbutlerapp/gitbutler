@@ -1,29 +1,29 @@
 .row {
 	display: flex;
 	position: relative;
-	column-gap: var(--gap-icon-text);
+	column-gap: var(--but-gap-icon-text);
 	align-items: center;
-	min-height: var(--size-control);
+	min-height: var(--but-size-control);
 	/* Less on the end: a menu button sets itself in from the edge already. */
-	padding-inline: var(--space-lg) var(--space-sm);
-	border-radius: var(--radius-control);
-	color: var(--text-1);
+	padding-inline: var(--but-space-lg) var(--but-space-sm);
+	border-radius: var(--but-radius-control);
+	color: var(--but-foreground);
 	text-decoration: none;
 	cursor: var(--control-cursor);
 
 	/* No transition: hover and selection share this ground, and selection moves with the arrow
 	   keys (design/foundations/states.md, "List rows snap"). */
 	&:where(:hover) {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	/* After hover, so a selected row reads the same under the pointer. */
 	&[data-selected] {
-		background-color: var(--bg-selected-inactive);
+		background-color: var(--but-selected-inactive);
 	}
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 		outline-offset: -1px;
 	}
 }
@@ -34,12 +34,12 @@
 	.row[data-selected] {
 	--selection-inverted: true;
 
-	background-color: var(--bg-selected);
-	color: var(--text-1-invert);
+	background-color: var(--but-selected);
+	color: var(--but-selected-foreground);
 
 	.icon,
 	.toggle {
-		color: var(--text-2-invert);
+		color: var(--but-inverse-muted-foreground);
 	}
 
 	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
@@ -59,10 +59,10 @@
 	   outline's colour; a ghost has no edge for it to colour. */
 	button {
 		--button-bg: transparent;
-		--button-fg: var(--text-1-invert);
-		--button-hover-bg: var(--bg-hover-invert);
+		--button-fg: var(--but-inverse-foreground);
+		--button-hover-bg: var(--but-inverse-ghost-hover);
 
-		border-color: color-mix(in srgb, var(--fill-gray-fg) 26%, transparent);
+		border-color: color-mix(in srgb, var(--but-inverse-foreground) 26%, transparent);
 	}
 }
 
@@ -89,7 +89,7 @@
 	position: absolute;
 	width: 1px;
 	inset-block: 0 -1px;
-	background-color: color-mix(in srgb, var(--text-2) 20%, transparent);
+	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
 	content: "";
 }
 
@@ -97,22 +97,22 @@
 	padding: 0;
 	border: none;
 	background: none;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	cursor: var(--control-cursor);
 
 	&:hover,
 	&:focus-visible {
-		color: var(--text-2);
+		color: var(--but-muted-foreground);
 	}
 }
 
 /* Where the chevron would be on a row with nothing to unfold. */
 .empty {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	opacity: 0.5;
 }
 
-/* A row's glyph is drawn at 14, its box's size, as ⚛️ Core's rows draw them; an Icon is 16 unless told. */
+/* A row's glyph is drawn at 14, its box's size, as 🍑 But UI's rows draw them; an Icon is 16 unless told. */
 .icon {
 	--icon-size: 14px;
 
@@ -122,12 +122,12 @@
 	justify-content: center;
 	width: 14px;
 	height: 14px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .label {
 	display: flex;
-	column-gap: var(--space-md);
+	column-gap: var(--but-space-md);
 	align-items: center;
 	/* Gives way to the state beside it, never under it: a badge too wide for what is left is cut
 	   rather than drawn over the counts. */
@@ -219,7 +219,7 @@
 
 .meta {
 	display: flex;
-	column-gap: var(--space-md);
+	column-gap: var(--but-space-md);
 	flex-shrink: 0;
 	align-items: center;
 }
@@ -227,7 +227,7 @@
 /* A TargetItem keeps Update beside its count rather than in its place: a step more room tells the
    button from the count. */
 .target .meta {
-	column-gap: var(--space-lg);
+	column-gap: var(--but-space-lg);
 }
 
 /* Each picture tucks under the one before it, cut where that one sits with a sliver of gap, rather
@@ -267,7 +267,7 @@
 .hover {
 	display: flex;
 	visibility: hidden;
-	column-gap: var(--space-sm);
+	column-gap: var(--but-space-sm);
 	align-items: center;
 
 	.row:is(:hover, :focus-visible, :has(:focus-visible), :has([aria-haspopup][aria-expanded="true"]))
@@ -322,22 +322,22 @@
 
 /* A pull request's state in its glyph. */
 .branchGlyph.open {
-	color: var(--text-safe);
+	color: var(--but-success-text);
 }
 
 .branchGlyph.closed {
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }
 
 .branchGlyph.merged {
-	color: var(--text-purple);
+	color: var(--but-done-text);
 }
 
 /* A conflicted commit's warning, in its glyph's place. Flex, so the wrapper that names it takes
    no line box of its own, which would sit the icon on a text baseline above the row's centre. */
 .conflicted {
 	display: flex;
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }
 
 .badge {
@@ -346,7 +346,7 @@
 
 /* A merged request is done with: its title recedes, until the row is the one picked. */
 .merged .title {
-	color: var(--text-purple);
+	color: var(--but-done-text);
 	opacity: 0.6;
 }
 
@@ -361,7 +361,7 @@
 /* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
    beyond showing its menu. */
 .caption {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	cursor: default;
 
 	&:where(:hover) {
@@ -369,7 +369,7 @@
 	}
 
 	.icon {
-		color: var(--text-3);
+		color: var(--but-subtle-foreground);
 	}
 }
 
@@ -378,32 +378,32 @@
 	cursor: var(--control-cursor);
 
 	&:where(:hover) {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 }
 
 /* "Stack" keeps its width, a step above the muted tip after it, which gives way. */
 .word {
 	flex-shrink: 0;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .more {
 	width: 100%;
 	border: none;
 	background: none;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	font: inherit;
 	text-align: start;
 
 	/* The row's own tint, which the button's reset above would otherwise clear; the label keeps its
 	   colour, so the tail stays quieter than the rows it hides. */
 	&:hover {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	.icon {
-		color: var(--text-3);
+		color: var(--but-subtle-foreground);
 	}
 
 	.label {
@@ -413,20 +413,20 @@
 
 .divider {
 	display: flex;
-	column-gap: var(--gap-icon-text);
+	column-gap: var(--but-gap-icon-text);
 	align-items: center;
 	height: 20px;
-	padding-inline: var(--space-lg);
+	padding-inline: var(--but-space-lg);
 }
 
 .line {
 	flex-grow: 1;
-	border-top: 1px dashed var(--border-3);
+	border-top: 1px dashed var(--but-border-subtle);
 }
 
 /* A NoticeItem says what its rows would have, in the quiet grey of a hint. */
 .notice {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 /* Its way out reads as a link, as TextLink does, though it stays in the app. */
@@ -442,13 +442,13 @@
 	cursor: pointer;
 
 	&:hover {
-		color: var(--text-1);
+		color: var(--but-foreground);
 		text-decoration-color: currentcolor;
 	}
 
 	&:focus-visible {
-		border-radius: var(--radius-control);
-		outline: var(--focus-ring);
+		border-radius: var(--but-radius-control);
+		outline: var(--but-focus-ring);
 	}
 }
 
@@ -458,12 +458,12 @@
 	width: 100%;
 	border: none;
 	background: none;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	font: inherit;
 	text-align: start;
 
 	&:is(button):hover {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	&:not(button) {
@@ -485,6 +485,6 @@
 	text-align: start;
 
 	&:hover {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 }

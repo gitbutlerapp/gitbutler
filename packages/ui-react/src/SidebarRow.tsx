@@ -612,7 +612,7 @@ export const MoreItem: FC<
  * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
  * button that hides and shows them, its chevron saying which; without, it only names them. Its
  * pages sit one level under it, as {@link NavItem}s at `depth={1}`. Like every sidebar row, the
- * label and its pages sit in a card (`--bg-1` in a `--border-section` ring at `--radius-card`),
+ * label and its pages sit in a card (`--but-background` in a `--but-border-subtle` ring at `--but-radius-card`),
  * never loose on a panel's ground.
  *
  * @import import { GroupLabel } from "@gitbutler/ui-react/SidebarRow.tsx";

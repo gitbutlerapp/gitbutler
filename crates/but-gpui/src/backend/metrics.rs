@@ -29,7 +29,7 @@ use serde_json::{Map, Value, json};
 use super::{Checkout, Workspace};
 
 const HOST: &str = "https://eu.i.posthog.com";
-/// Tells this app's events from the desktop app's, the CLI's and Lite's.
+/// Tells this app's events from the desktop app's and the CLI's.
 const APP_NAME: &str = "gitbutler-gpui";
 /// The longest quitting waits for what's queued to go out.
 const SHUTDOWN: Duration = Duration::from_secs(2);
@@ -482,7 +482,7 @@ fn open(version: Option<String>) -> Result<Option<Metrics>> {
     };
     context.insert("$os".into(), os.into());
     context.insert("Arch".into(), std::env::consts::ARCH.into());
-    // Nothing is sampled, but the CLI and Lite stamp every event, and totals divide by it.
+    // Nothing is sampled, but the CLI stamps every event, and totals divide by it.
     context.insert("samplingRate".into(), 1.into());
     context.insert(
         "$session_id".into(),

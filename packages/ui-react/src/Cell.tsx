@@ -52,7 +52,7 @@ export const Cell: FC<
 		leading?: ReactNode;
 		/** What ends the row, on the title's line: `"chevron"` for a row that opens something, or
 		 * a control. */
-		// oxlint-disable-next-line typescript/no-redundant-type-constituents -- Names the one string the row draws itself, as ⚛️ Core's trailing=chevron; any other node is the control.
+		// oxlint-disable-next-line typescript/no-redundant-type-constituents -- Names the one string the row draws itself, as 🍑 But UI's trailing=chevron; any other node is the control.
 		trailing?: "chevron" | ReactNode;
 		disabled?: boolean;
 	} & Omit<useRender.ComponentProps<"div">, "title">
@@ -93,7 +93,7 @@ export const Cell: FC<
 							</span>
 							{badge !== undefined && <span className={styles.badge}>{badge}</span>}
 							{
-								// On the title's line itself rather than in the trailing column, as ⚛️ Core draws
+								// On the title's line itself rather than in the trailing column, as 🍑 But UI draws
 								// it: a step after the badge, with the description free to run under it.
 								trailing === "chevron" && <Icon name="chevron-right" className={styles.icon} />
 							}

@@ -4,13 +4,13 @@ import { DiffFileHeader } from "./DiffFileHeader.tsx";
 import { DiffFileList } from "./DiffFileList.tsx";
 
 const meta = stories({
-	title: "Content & status/DiffFileList",
+	title: "Files & diffs/DiffFileList",
 	id: "components-difffilelist",
 	component: DiffFileList,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=2425-6005",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2425-6005",
 		},
 		layout: "wide",
 	},
@@ -45,7 +45,7 @@ export const Default = meta.story({
 				>
 					<pre
 						className="text-12"
-						style={{ margin: 0, padding: "4px 12px", fontFamily: "var(--font-family-mono)" }}
+						style={{ margin: 0, padding: "4px 12px", fontFamily: "var(--but-font-family-mono)" }}
 					>
 						{"const router = useRouter()\nconst theme = useTheme()"}
 					</pre>

@@ -1,8 +1,8 @@
 # Links
 
 **A link looks like a link.** Text that opens a page is underlined, in
-`--text-2`, the underline at 40% of the text color, going solid on hover as the
-text lifts to `--text-1`. Nothing else changes. `TextLink` is that link; the
+`--but-muted-foreground`, the underline at 40% of the text color, going solid on hover as the
+text lifts to `--but-foreground`. Nothing else changes. `TextLink` is that link; the
 pull request number in a branch row and in the pull request panel are the
 reference.
 

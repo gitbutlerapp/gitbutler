@@ -20,7 +20,7 @@ import {
 } from "./SidebarRow.tsx";
 
 const core = (node: string) =>
-	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=${node}`;
+	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
 
 const meta = stories({
 	title: "Sidebar/SidebarRow",
@@ -100,13 +100,13 @@ const Card: FC<{ children: ReactNode; focused?: boolean; header: ReactNode; labe
 			width: 334,
 			flexShrink: 0,
 			overflow: "hidden",
-			border: "1px solid var(--border-section)",
-			borderRadius: "var(--radius-card)",
-			backgroundColor: "var(--bg-1)",
+			border: "1px solid var(--but-border-subtle)",
+			borderRadius: "var(--but-radius-card)",
+			backgroundColor: "var(--but-background)",
 		}}
 		data-selection-focused={focused ? "true" : undefined}
 	>
-		<div style={{ padding: 8, borderBottom: "1px solid var(--border-section)" }}>{header}</div>
+		<div style={{ padding: 8, borderBottom: "1px solid var(--but-border-subtle)" }}>{header}</div>
 		{children}
 	</section>
 );
@@ -119,7 +119,7 @@ const Repository: FC<{ children: ReactNode; last?: boolean }> = ({ children, las
 			flexDirection: "column",
 			gap: 1,
 			padding: 8,
-			borderBottom: last ? undefined : "1px solid var(--border-section)",
+			borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
 		}}
 	>
 		{children}
@@ -1431,9 +1431,9 @@ const DocsNavigation: FC = () => {
 			aria-label="Pages"
 			style={{
 				overflow: "hidden",
-				border: "1px solid var(--border-section)",
-				borderRadius: "var(--radius-card)",
-				backgroundColor: "var(--bg-1)",
+				border: "1px solid var(--but-border-subtle)",
+				borderRadius: "var(--but-radius-card)",
+				backgroundColor: "var(--but-background)",
 			}}
 		>
 			<div style={{ padding: 8 }}>
@@ -1456,7 +1456,7 @@ const DocsNavigation: FC = () => {
 						flexDirection: "column",
 						gap: 1,
 						padding: 8,
-						borderTop: "1px solid var(--border-section)",
+						borderTop: "1px solid var(--but-border-subtle)",
 					}}
 				>
 					<GroupLabel

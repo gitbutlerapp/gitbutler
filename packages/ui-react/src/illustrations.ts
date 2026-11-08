@@ -17,21 +17,21 @@ import waving from "./illustrations/waving.svg?raw";
  * and each maps to a token so one asset works in both themes:
  *
  * - strokes and solid shapes are `currentColor`, so the container sets them —
- *   `--border-1`, matching the ⚛️ Core library.
- * - enclosed areas are `--bg-1`, the app's paper, so a shape occludes whatever
+ *   `--but-border-hover`, matching the 🍑 But UI library.
+ * - enclosed areas are `--but-background`, the app's paper, so a shape occludes whatever
  *   it overlaps instead of staying white in the dark.
- * - shaded faces are `--bg-2`, the ground these illustrations sit on.
+ * - shaded faces are `--but-muted`, the ground these illustrations sit on.
  *
- * An illustration works on either ground. On `--bg-2` (the sidebar's panels,
- * the details pane's empty state) a `--bg-2` face paints in the ground's own
- * colour and shows only its outline, an open face; on `--bg-1` (a popup's
+ * An illustration works on either ground. On `--but-muted` (the sidebar's panels,
+ * the details pane's empty state) a `--but-muted` face paints in the ground's own
+ * colour and shows only its outline, an open face; on `--but-background` (a popup's
  * paper, a settings card) the same face reads as a light tint. Both are the
  * drawing as intended, so nothing is checked against its ground. `id-card`'s
- * asterisks are `--text-2`, a step darker than the outline, since they stand
+ * asterisks are `--but-muted-foreground`, a step darker than the outline, since they stand
  * for text. `terminal` has no shaded face at all: its screen is solid
- * `currentColor` with the prompt cut out of it in `--bg-1`.
+ * `currentColor` with the prompt cut out of it in `--but-background`.
  *
- * ⚛️ Core's Illustrations section is the source of truth: each colour here is
+ * 🍑 But UI's Illustrations section is the source of truth: each colour here is
  * the token Figma binds there, and a change is made in Figma first. Each asset
  * keeps the width and height Figma gave it and renders at that size, never
  * scaled.
