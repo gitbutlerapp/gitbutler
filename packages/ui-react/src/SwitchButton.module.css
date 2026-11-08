@@ -12,7 +12,7 @@
 
 	/* Focus lands on the switch, but the pill is what reads as the control. */
 	&:has([role="switch"]:focus-visible) {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 		outline-offset: -1px;
 	}
 

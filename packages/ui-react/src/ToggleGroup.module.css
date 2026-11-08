@@ -17,7 +17,7 @@
 	flex: 1;
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 	}
 
 	&:first-child {

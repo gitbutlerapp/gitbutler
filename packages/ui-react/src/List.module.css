@@ -5,8 +5,8 @@
 	flex-direction: column;
 	margin: 0;
 	padding: 0;
-	gap: var(--space-lg);
-	color: var(--text-1);
+	gap: var(--but-space-lg);
+	color: var(--but-foreground);
 	list-style: none;
 }
 
@@ -14,7 +14,7 @@
 	display: flex;
 	align-items: flex-start;
 	min-width: 0;
-	gap: var(--gap-icon-text);
+	gap: var(--but-gap-icon-text);
 }
 
 /* One line tall and one icon wide, so a dot, a file icon and an icon all sit centred on the first
@@ -27,15 +27,15 @@
 	flex: none;
 	align-items: center;
 	justify-content: center;
-	width: var(--size-icon);
+	width: var(--but-size-icon);
 	height: 1lh;
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 .dot {
 	width: 4px;
 	height: 4px;
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 	background-color: currentColor;
 }
 

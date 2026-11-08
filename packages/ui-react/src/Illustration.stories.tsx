@@ -45,7 +45,7 @@ export const AllIllustrations = meta.story({
 					}}
 				>
 					{/* On the app's paper rather than the story's ground: an illustration's
-					    enclosed areas are --bg-1, so a swatch of anything else would hide
+					    enclosed areas are --but-background, so a swatch of anything else would hide
 					    where the fill ends and the page begins. */}
 					<div
 						style={{
@@ -54,7 +54,7 @@ export const AllIllustrations = meta.story({
 							width: "100%",
 							padding: 24,
 							borderRadius: 6,
-							backgroundColor: "var(--bg-2)",
+							backgroundColor: "var(--but-muted)",
 						}}
 					>
 						<Illustration name={name} />

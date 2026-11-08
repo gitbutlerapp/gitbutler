@@ -23,7 +23,7 @@ export const Default = meta.story({});
 
 export const InText = meta.story({
 	render: (args) => (
-		<p className="text-12" style={{ color: "var(--text-2)" }}>
+		<p className="text-12" style={{ color: "var(--but-muted-foreground)" }}>
 			We’d love to hear what you think. <TextLink {...args}>Share feedback on Discord</TextLink>
 		</p>
 	),

@@ -60,8 +60,8 @@ export const Inverted = meta.story({
 				alignItems: "center",
 				padding: 8,
 				borderRadius: 6,
-				backgroundColor: "var(--fill-gray-bg)",
-				color: "var(--fill-gray-fg)",
+				backgroundColor: "var(--but-inverse)",
+				color: "var(--but-inverse-foreground)",
 			}}
 		>
 			<Badge variant="fillGray">fillGray</Badge>

@@ -133,9 +133,9 @@ export const OnRightClick = meta.story({
 					className="text-13"
 					style={{
 						padding: "24px 32px",
-						border: "1px dashed var(--border-2)",
-						borderRadius: "var(--radius-card)",
-						color: "var(--text-2)",
+						border: "1px dashed var(--but-border)",
+						borderRadius: "var(--but-radius-card)",
+						color: "var(--but-muted-foreground)",
 					}}
 				>
 					Right-click here

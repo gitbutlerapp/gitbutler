@@ -17,12 +17,12 @@
 	}
 
 	&:hover {
-		color: color-mix(in srgb, currentColor, var(--text-1));
+		color: color-mix(in srgb, currentColor, var(--but-foreground));
 	}
 
 	&:focus-visible {
-		border-radius: var(--radius-xs);
-		outline: var(--focus-ring);
+		border-radius: var(--but-radius-xs);
+		outline: var(--but-focus-ring);
 		outline-offset: 2px;
 	}
 }

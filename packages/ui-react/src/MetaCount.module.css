@@ -4,7 +4,7 @@
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
 	min-width: 14px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	line-height: 16px;
 	white-space: nowrap;
 
@@ -208,26 +208,26 @@
 .uncommitted,
 .agent-waiting,
 .working {
-	color: var(--text-warn);
+	color: var(--but-warning-text);
 }
 
 .empty,
 .head {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 .unpushed {
-	color: var(--text-blue);
+	color: var(--but-info-text);
 }
 
 .agent-working,
 .cpu,
 .passed {
-	color: var(--text-safe);
+	color: var(--but-success-text);
 }
 
 .conflicts,
 .cpu-danger,
 .failed {
-	color: var(--text-danger);
+	color: var(--but-danger-text);
 }

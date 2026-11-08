@@ -6,12 +6,12 @@
 	width: var(--avatar-size);
 	height: var(--avatar-size);
 	overflow: hidden;
-	border-radius: var(--radius-full);
-	color: var(--text-1);
+	border-radius: var(--but-radius-full);
+	color: var(--but-foreground);
 }
 
 .initial {
-	font-weight: var(--font-weight-semibold);
+	font-weight: var(--but-font-weight-semibold);
 	/* stylelint-disable-next-line declaration-property-value-allowed-list -- a letter inside a 14–18px circle, scaled with it; 11px would fill the 14px one */
 	font-size: calc(var(--avatar-size) * 0.56);
 	line-height: 1;

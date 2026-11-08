@@ -49,13 +49,13 @@ export const OnATintedRow = meta.story({
 	render: () => (
 		<div
 			style={{
-				["--checkbox-bg" as string]: "var(--bg-2)",
+				["--checkbox-bg" as string]: "var(--but-muted)",
 				display: "flex",
 				gap: 8,
 				alignItems: "center",
 				padding: 8,
 				borderRadius: 6,
-				backgroundColor: "var(--bg-2)",
+				backgroundColor: "var(--but-muted)",
 			}}
 		>
 			<Checkbox checked={false} />

@@ -6,7 +6,7 @@
 	row-gap: 16px;
 	flex-direction: column;
 	padding: 16px;
-	border-bottom: 1px solid var(--border-section);
+	border-bottom: 1px solid var(--but-border-subtle);
 
 	/* With tabs in the toolbar, their underline sits on the header's bottom edge. */
 	&:has(> .toolbar [role="tablist"]) {
@@ -97,8 +97,8 @@
 	grid-template-rows: 0fr;
 	margin-block: -10px 0;
 	transition:
-		grid-template-rows var(--transition-medium),
-		margin-block var(--transition-medium);
+		grid-template-rows var(--but-transition-medium),
+		margin-block var(--but-transition-medium);
 
 	> div {
 		min-height: 0;
@@ -123,7 +123,7 @@
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	white-space: nowrap;
 
 	> * {
@@ -154,21 +154,21 @@
 }
 
 .metaSeparator {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 }
 
 .divider {
 	align-self: center;
 	width: 1px;
 	height: 18px;
-	background-color: var(--border-2);
+	background-color: var(--but-border);
 }
 
 /* The view's buttons, in the header's top corner, centred on the title's line: the line's height,
    so a button taller than it hangs off it evenly above and below, whatever size it is. */
 .actions {
 	display: flex;
-	column-gap: var(--gap-buttons-compact);
+	column-gap: var(--but-gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
 	align-self: flex-start;

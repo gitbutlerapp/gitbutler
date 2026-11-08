@@ -45,7 +45,7 @@ export const Default = meta.story({
 				>
 					<pre
 						className="text-12"
-						style={{ margin: 0, padding: "4px 12px", fontFamily: "var(--font-family-mono)" }}
+						style={{ margin: 0, padding: "4px 12px", fontFamily: "var(--but-font-family-mono)" }}
 					>
 						{"const router = useRouter()\nconst theme = useTheme()"}
 					</pre>

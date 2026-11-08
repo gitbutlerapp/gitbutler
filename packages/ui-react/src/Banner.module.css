@@ -4,7 +4,7 @@
 	align-items: flex-start;
 	padding: 8px 8px 8px 10px;
 	/* Set into the layout like a card, not floated over it like a popup. */
-	border-radius: var(--radius-card);
+	border-radius: var(--but-radius-card);
 	background-color: var(--banner-bg);
 	color: var(--banner-fg);
 }
@@ -54,35 +54,35 @@
 	   text colour is darker than that gray, so it takes twice the share to show on the tint. */
 	--button-hover-bg: color-mix(
 		in srgb,
-		var(--banner-fg) calc(var(--opacity-bg-hover) * 2),
+		var(--banner-fg) calc(var(--but-opacity-bg-hover) * 2),
 		transparent
 	);
 }
 
 .warn {
-	--banner-bg: var(--bg-warn);
-	--banner-fg: var(--text-warn);
+	--banner-bg: var(--but-warning-muted);
+	--banner-fg: var(--but-warning-text);
 }
 
 .danger {
-	--banner-bg: var(--bg-danger);
-	--banner-fg: var(--text-danger);
+	--banner-bg: var(--but-danger-muted);
+	--banner-fg: var(--but-danger-text);
 }
 
 .pop {
-	--banner-bg: var(--bg-pop);
-	--banner-fg: var(--text-pop);
+	--banner-bg: var(--but-primary-muted);
+	--banner-fg: var(--but-primary-text);
 }
 
 .safe {
-	--banner-bg: var(--bg-safe);
-	--banner-fg: var(--text-safe);
+	--banner-bg: var(--but-success-muted);
+	--banner-fg: var(--but-success-text);
 }
 
 /* No hue to carry the verdict, so the title keeps the body colour and the rest steps down. */
 .gray {
-	--banner-bg: var(--bg-mute);
-	--banner-fg: var(--text-1);
-	--banner-icon: var(--text-2);
-	--banner-description: var(--text-2);
+	--banner-bg: var(--but-disabled);
+	--banner-fg: var(--but-foreground);
+	--banner-icon: var(--but-muted-foreground);
+	--banner-description: var(--but-muted-foreground);
 }

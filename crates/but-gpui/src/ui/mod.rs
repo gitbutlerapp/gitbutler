@@ -864,7 +864,7 @@ pub fn shown_when_focused(el: Stateful<Div>) -> Stateful<Div> {
 }
 
 /// How a switch's knob slides and its ground fades when it's turned: critically damped, most of
-/// the way in about 0.1s, as ui-react's Switch moves in `--transition-medium`. A spring, unlike
+/// the way in about 0.1s, as ui-react's Switch moves in `--but-transition-medium`. A spring, unlike
 /// `with_animation`, starts where it's going when first drawn, so opening a page moves nothing,
 /// and a second click mid-slide turns it back from where it is.
 const SWITCH_SPRING: gpui::SpringConfig = gpui::SpringConfig::new(1600., 80., 1.);

@@ -87,18 +87,18 @@ The reset is scoped to `@layer reset` to avoid specificity conflicts with applic
 - **Body defaults** — zero padding and margin, `overflow-x: hidden`, and base values for `color`, `font-family`, `font-weight`, and `line-height` pulled from design tokens.
 - **Form elements** — `input`, `textarea`, `select`, and `button` have their padding, border, and background stripped, and inherit `color` and `font` from the parent.
 - **Headings** — `h1`–`h6` have `margin-block` removed.
-- **Code & pre** — `code` and `pre` use `var(--fontfamily-mono)`.
+- **Code & pre** — `code` and `pre` use `var(--but-font-family-mono)`.
 - **Lists & paragraphs** — `ul` and `ol` have `padding-left` and `list-style` removed; `ul`, `pre`, and `p` have `margin-block` removed.
 
 #### Text Utilities
 
 Text classes are scoped to `@layer text`. The layer also sets three font-family custom properties on `:root`:
 
-| Property              | Value                                 |
-| --------------------- | ------------------------------------- |
-| `--fontfamily-base`   | `var(--font-family-base), sans-serif` |
-| `--fontfamily-mono`   | `var(--font-family-mono), monospace`  |
-| `--fontfamily-accent` | `var(--font-family-accent), serif`    |
+| Property                   | Value                                     |
+| -------------------------- | ----------------------------------------- |
+| `--but-font-family-base`   | `var(--but-font-family-base), sans-serif` |
+| `--but-font-family-mono`   | `var(--but-font-family-mono), monospace`  |
+| `--but-font-family-accent` | `var(--but-font-family-accent), serif`    |
 
 **Size classes** set `font-size`, `font-weight: regular`, `line-height`, and `font-family: base` as a self-contained unit:
 
@@ -120,11 +120,11 @@ Text classes are scoped to `@layer text`. The layer also sets three font-family 
 
 | Class             | Effect                                                                                     |
 | ----------------- | ------------------------------------------------------------------------------------------ |
-| `.text-semibold`  | `font-weight: var(--font-weight-semibold)`                                                 |
-| `.text-bold`      | `font-weight: var(--font-weight-bold)`                                                     |
+| `.text-semibold`  | `font-weight: var(--but-font-weight-semibold)`                                             |
+| `.text-bold`      | `font-weight: var(--but-font-weight-bold)`                                                 |
 | `.text-italic`    | `font-style: italic`                                                                       |
-| `.text-monospace` | Switches to `var(--fontfamily-mono)`                                                       |
-| `.text-body`      | Switches to the looser `var(--font-line-height-body)` line height                          |
+| `.text-monospace` | Switches to `var(--but-font-family-mono)`                                                  |
+| `.text-body`      | Switches to the looser `var(--but-font-line-height-body)` line height                      |
 | `.text-balance`   | `text-wrap: balance` — ideal for short headings                                            |
 | `.text-pre`       | `white-space: pre-wrap` + `word-break: break-word` — preserves whitespace without overflow |
 

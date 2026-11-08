@@ -67,10 +67,10 @@ const Back: FC = () => (
 const Elsewhere: FC = () => (
 	<span style={{ display: "inline-flex", alignItems: "center", columnGap: 4 }}>
 		Also in 2 places
-		<span aria-hidden style={{ color: "var(--text-3)" }}>
+		<span aria-hidden style={{ color: "var(--but-subtle-foreground)" }}>
 			·
 		</span>
-		<span style={{ color: "var(--text-warn)" }}>1 differs</span>
+		<span style={{ color: "var(--but-warning-text)" }}>1 differs</span>
 		<CrumbMenuButton aria-label="Other places" />
 	</span>
 );

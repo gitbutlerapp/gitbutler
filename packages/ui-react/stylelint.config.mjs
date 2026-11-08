@@ -17,7 +17,7 @@ export default {
 			{
 				/** @param {string} property */
 				message: (property) =>
-					`Raw colour in ${property}. Use a @gitbutler/design-core token, e.g. var(--text-2) or var(--fill-gray-bg); ` +
+					`Raw colour in ${property}. Use a @gitbutler/design-core token, e.g. var(--but-muted-foreground) or var(--but-inverse); ` +
 					"the only raw colours are the file icons' brand colours, in FileIcon.module.css (design/foundations/icons.md).",
 			},
 		],
@@ -34,7 +34,7 @@ export default {
 				// The type scale: 11 to 16, as Figma's Base/ and Body/ styles.
 				"font-size": ["/^1[1-6]px$/", "inherit", "/^var\\(/"],
 				// Radii come from the scale, or from a token with padding subtracted (design/foundations/radius.md).
-				"border-radius": ["/^var\\(--radius-/", "/^calc\\(/", "0", "inherit"],
+				"border-radius": ["/^var\\(--but-radius-/", "/^calc\\(/", "0", "inherit"],
 			},
 			{
 				/**
@@ -45,8 +45,8 @@ export default {
 					property === "font-size"
 						? `font-size ${value} is off the scale. Sizes are 11px to 16px, matching Figma's Base/ and Body/ styles; ` +
 							"prefer the text-NN class on the element (DESIGN.md)."
-						: `border-radius ${value} is not a token. Use var(--radius-xs|sm|md|lg|xl|2xl|full), a semantic one ` +
-							"(--radius-control, --radius-card, --radius-popup, --radius-section), calc() from one, or 0; a circle or a pill is --radius-full (design/foundations/radius.md).",
+						: `border-radius ${value} is not a token. Use var(--but-radius-xs|sm|md|lg|xl|2xl|full), a semantic one ` +
+							"(--but-radius-control, --but-radius-card, --but-radius-popup, --but-radius-section), calc() from one, or 0; a circle or a pill is --but-radius-full (design/foundations/radius.md).",
 			},
 		],
 	},

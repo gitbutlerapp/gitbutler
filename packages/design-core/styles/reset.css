@@ -22,10 +22,10 @@
 		margin: 0;
 		padding: 0;
 		overflow-x: hidden;
-		color: var(--text-1);
-		font-weight: var(--font-weight-regular);
-		line-height: var(--font-line-height-default);
-		font-family: var(--fontfamily-base);
+		color: var(--but-foreground);
+		font-weight: var(--but-font-weight-regular);
+		line-height: var(--but-font-line-height-default);
+		font-family: var(--but-font-family-base);
 	}
 
 	input,
@@ -68,7 +68,7 @@
 
 	code,
 	pre {
-		font-family: var(--fontfamily-mono);
+		font-family: var(--but-font-family-mono);
 	}
 
 	ul,

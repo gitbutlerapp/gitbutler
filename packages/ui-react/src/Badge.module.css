@@ -5,7 +5,7 @@
 	/* A flex box fills a block container; a badge is as wide as its count. */
 	width: fit-content;
 	min-width: 16px;
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 	--badge-bg-opacity: 20%;
 
 	/* Selected rows set --selection-inverted; flipping to the opposite color
@@ -29,7 +29,7 @@
 }
 
 .large {
-	height: var(--size-tag);
+	height: var(--but-size-tag);
 	padding-inline: 7px;
 	gap: 4px;
 }
@@ -41,8 +41,8 @@
 }
 
 .fillGray {
-	background-color: var(--fill-gray-bg);
-	color: var(--fill-gray-fg);
+	background-color: var(--but-inverse);
+	color: var(--but-inverse-foreground);
 }
 
 /* On a light ground the tint is the text's own colour, lighter than the shared
@@ -71,38 +71,38 @@
 
 /* Gray rests lighter than the colours in both schemes. */
 .lightGray {
-	--_bg: var(--fill-gray-bg);
+	--_bg: var(--but-inverse);
 	--_light-share: 0.5;
 	--_dark-share: 0.8;
-	color: var(--text-1);
+	color: var(--but-foreground);
 }
 
 .safe {
-	--_bg: var(--fill-safe-bg);
-	color: var(--text-safe);
+	--_bg: var(--but-success);
+	color: var(--but-success-text);
 }
 
 .warn {
-	--_bg: var(--fill-warn-bg);
-	color: var(--text-warn);
+	--_bg: var(--but-warning);
+	color: var(--but-warning-text);
 }
 
 .danger {
-	--_bg: var(--fill-danger-bg);
-	color: var(--text-danger);
+	--_bg: var(--but-danger);
+	color: var(--but-danger-text);
 }
 
 .purple {
-	--_bg: var(--fill-purple-bg);
-	color: var(--text-purple);
+	--_bg: var(--but-done);
+	color: var(--but-done-text);
 }
 
 .blue {
-	--_bg: var(--fill-blue-bg);
-	color: var(--text-blue);
+	--_bg: var(--but-info);
+	color: var(--but-info-text);
 }
 
 .pop {
-	--_bg: var(--fill-pop-bg);
-	color: var(--text-pop);
+	--_bg: var(--but-primary);
+	color: var(--but-primary-text);
 }

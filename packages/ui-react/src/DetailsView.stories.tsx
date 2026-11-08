@@ -53,13 +53,17 @@ const lines: Array<Line> = [
 	{ kind: " ", text: "}" },
 ];
 
-const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-danger)" };
+const lineBackground = {
+	" ": undefined,
+	"+": "var(--but-success-muted)",
+	"-": "var(--but-danger-muted)",
+};
 
 /** Stands in for the host's diff renderer (Pierre in but.dev). */
 const SampleDiff: FC = () => (
 	<pre
 		className="text-12"
-		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--font-family-mono)" }}
+		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--but-font-family-mono)" }}
 	>
 		{lines.map((line, index) => (
 			<div
@@ -78,7 +82,12 @@ const Live: FC = () => (
 		<span style={{ display: "inline-flex", alignItems: "center", columnGap: 6 }}>
 			<span
 				aria-hidden
-				style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--text-safe)" }}
+				style={{
+					width: 6,
+					height: 6,
+					borderRadius: "50%",
+					backgroundColor: "var(--but-success-text)",
+				}}
 			/>
 			live
 		</span>
@@ -115,7 +124,7 @@ const Changes: FC = () => (
 				flexDirection: "column",
 				flexShrink: 0,
 				width: 318,
-				borderInlineEnd: "1px solid var(--border-section)",
+				borderInlineEnd: "1px solid var(--but-border-subtle)",
 			}}
 		>
 			<FileList
@@ -147,9 +156,9 @@ const Changes: FC = () => (
 			<div
 				style={{
 					display: "flex",
-					columnGap: "var(--gap-buttons-compact)",
+					columnGap: "var(--but-gap-buttons-compact)",
 					alignItems: "center",
-					padding: "var(--padding-panel) var(--padding-panel) 0",
+					padding: "var(--but-padding-panel) var(--but-padding-panel) 0",
 				}}
 			>
 				<Button variant="ghost" iconOnly aria-label="Hide the file list">
@@ -212,7 +221,7 @@ const Frame: FC<{ crumbs: Array<Crumb>; state: ReactNode; header: ReactNode }> =
 			width: 846,
 			height: 760,
 			overflow: "hidden",
-			backgroundColor: "var(--bg-1)",
+			backgroundColor: "var(--but-background)",
 		}}
 	>
 		<LocationBar
@@ -296,8 +305,8 @@ export const Worktree = meta.story({
 			]}
 			state={
 				<>
-					<span className="text-13" style={{ color: "var(--text-2)" }}>
-						Also in 2 places · <span style={{ color: "var(--text-warn)" }}>1 differs</span>
+					<span className="text-13" style={{ color: "var(--but-muted-foreground)" }}>
+						Also in 2 places · <span style={{ color: "var(--but-warning-text)" }}>1 differs</span>
 					</span>
 					<Live />
 				</>

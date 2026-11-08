@@ -6,7 +6,7 @@
 
 /**
  * The colours a person can be: each the theme's 70 step, a mid tint in light and a deep one
- * in dark, so `--text-1` reads on all of them. Written out whole, so the token check can see
+ * in dark, so `--but-foreground` reads on all of them. Written out whole, so the token check can see
  * every one.
  */
 const COLOURS = [

@@ -28,8 +28,8 @@
 	width: 72px;
 	height: 72px;
 	overflow: hidden;
-	border-radius: var(--radius-full);
-	color: var(--text-1);
+	border-radius: var(--but-radius-full);
+	color: var(--but-foreground);
 
 	&:hover .overlay,
 	&:focus-visible .overlay {
@@ -46,7 +46,7 @@
 	/* The same hover as over a picture: the wash comes in and the camera turns light on it. */
 	&:hover .camera,
 	&:focus-visible .camera {
-		color: var(--text-1-invert);
+		color: var(--but-inverse-foreground);
 	}
 }
 
@@ -54,7 +54,7 @@
    so it paints over the wash rather than under it. */
 .camera {
 	position: relative;
-	transition: color var(--transition-fast);
+	transition: color var(--but-transition-fast);
 }
 
 .image {
@@ -73,9 +73,9 @@
 	place-items: center;
 	inset: 0;
 	background-color: color-mix(in srgb, black 50%, transparent);
-	color: var(--text-1-invert);
+	color: var(--but-inverse-foreground);
 	opacity: 0;
-	transition: opacity var(--transition-fast);
+	transition: opacity var(--but-transition-fast);
 }
 
 /* The camera arrives the way the crossfade's incoming icon does (design/foundations/motion.md), but
@@ -88,9 +88,9 @@
 	filter: blur(4px);
 	opacity: 0;
 	transition:
-		opacity var(--transition-fast),
-		scale var(--transition-medium) ease-out,
-		filter var(--transition-medium) ease-out;
+		opacity var(--but-transition-fast),
+		scale var(--but-transition-medium) ease-out,
+		filter var(--but-transition-medium) ease-out;
 }
 
 /* On the picture's corner, the danger fill that says this one deletes. It shows with the
@@ -104,13 +104,13 @@
 	width: 24px;
 	height: 24px;
 	scale: 0.8;
-	border-radius: var(--radius-full);
-	background-color: var(--fill-danger-bg);
-	color: var(--fill-danger-fg);
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-danger);
+	color: var(--but-danger-foreground);
 	opacity: 0;
 	transition:
-		opacity var(--transition-fast),
-		scale var(--transition-medium) ease-out;
+		opacity var(--but-transition-fast),
+		scale var(--but-transition-medium) ease-out;
 }
 
 /* The real control is the picture; this only carries the file. */

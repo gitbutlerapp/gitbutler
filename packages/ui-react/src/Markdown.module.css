@@ -2,15 +2,15 @@
    anything with an edge, since a box lacks text's leading, and 4 between list items. Margins
    collapse, so a box next to a paragraph gets 16, not 28. */
 .markdown {
-	max-width: var(--size-prose-wide);
-	color: var(--text-1);
+	max-width: var(--but-size-prose-wide);
+	color: var(--but-foreground);
 	overflow-wrap: anywhere;
 
 	/* Text keeps to the prose column, centred, so wide blocks break out of it on both sides. */
 	& > * {
-		max-width: var(--size-prose);
+		max-width: var(--but-size-prose);
 		margin-inline: auto;
-		margin-block: var(--space-2xl);
+		margin-block: var(--but-space-2xl);
 	}
 
 	& > :first-child {
@@ -24,15 +24,15 @@
 	/* A heading takes twice the text gap above, a little less from h3 down, and sits close to what
 	   it heads. */
 	& > :is(h1, h2) {
-		margin-block: var(--space-5xl) var(--space-lg);
+		margin-block: var(--but-space-5xl) var(--but-space-lg);
 	}
 
 	& > :is(h3, h4, h5, h6) {
-		margin-block: var(--space-4xl) var(--space-lg);
+		margin-block: var(--but-space-4xl) var(--but-space-lg);
 	}
 
 	& :is(ul, ol) {
-		padding-inline-start: var(--space-5xl);
+		padding-inline-start: var(--but-space-5xl);
 	}
 
 	/* design-core's reset drops list markers app-wide, which suits the lists the UI is built from;
@@ -51,23 +51,23 @@
 
 	& li + li,
 	& li > :is(ul, ol) {
-		margin-block-start: var(--space-sm);
+		margin-block-start: var(--but-space-sm);
 	}
 
 	& li::marker {
-		color: var(--text-2);
+		color: var(--but-muted-foreground);
 	}
 
 	/* A task's box stands in the marker's gutter. */
 	& li:has(> .task) {
-		margin-inline-start: calc(-1 * var(--space-5xl));
+		margin-inline-start: calc(-1 * var(--but-space-5xl));
 		list-style: none;
 	}
 
 	& blockquote {
-		padding-inline-start: var(--space-2xl);
-		border-inline-start: 3px solid var(--border-2);
-		color: var(--text-2);
+		padding-inline-start: var(--but-space-2xl);
+		border-inline-start: 3px solid var(--but-border);
+		color: var(--but-muted-foreground);
 
 		& > :first-child {
 			margin-block-start: 0;
@@ -81,26 +81,26 @@
 	& hr {
 		width: 100%;
 		border: none;
-		border-block-start: 1px solid var(--border-section);
+		border-block-start: 1px solid var(--but-border-subtle);
 	}
 
 	& > :is(blockquote, hr, .box, p:has(> .image:only-child), p:has(> a:only-child > .image)) {
-		margin-block: var(--space-3xl);
+		margin-block: var(--but-space-3xl);
 	}
 
 	& > :is(.wide, p:has(> .image:only-child), p:has(> a:only-child > .image)) {
-		max-width: var(--size-prose-wide);
+		max-width: var(--but-size-prose-wide);
 	}
 
 	& strong {
-		font-weight: var(--font-weight-semibold);
+		font-weight: var(--but-font-weight-semibold);
 	}
 }
 
 /* An 18 column for the 14 box and a 6 gap, so the text starts where a list item's does. */
 .task {
 	display: inline-flex;
-	margin-inline: 2px var(--space-lg);
+	margin-inline: 2px var(--but-space-lg);
 	vertical-align: -2px;
 }
 
@@ -109,8 +109,8 @@
 	display: block;
 	max-width: 100%;
 	height: auto;
-	border-radius: var(--radius-card);
-	outline: 1px solid var(--border-section);
+	border-radius: var(--but-radius-card);
+	outline: 1px solid var(--but-border-subtle);
 	outline-offset: -1px;
 }
 
@@ -119,5 +119,5 @@
 }
 
 .wide {
-	max-width: var(--size-prose-wide);
+	max-width: var(--but-size-prose-wide);
 }

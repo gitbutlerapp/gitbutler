@@ -53,7 +53,7 @@
 	flex-shrink: 0;
 	width: 1px;
 	height: 18px;
-	background-color: var(--border-3);
+	background-color: var(--but-border-subtle);
 }
 
 .nav {

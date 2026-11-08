@@ -1,5 +1,5 @@
 //! Folds that open and close over a moment rather than at once, as ui-react's sections fold
-//! in `--transition-medium`: what a fold holds grows down from its heading as one curtain, or
+//! in `--but-transition-medium`: what a fold holds grows down from its heading as one curtain, or
 //! shrinks back up into it, its chevron turning as it goes. What's closing stays drawn till
 //! it's shut, taking no clicks. Panes beside the others slide open and shut over the same
 //! moment ([`Slide`]), and a list's rows slide to where a reorder puts them ([`Reorder`]).
@@ -21,7 +21,7 @@ use gpui::{
 use super::{Icon, fixed, small_icon, switch_spring};
 use crate::clock;
 
-/// How long a fold takes to open or close: design-core's `--transition-medium`.
+/// How long a fold takes to open or close: design-core's `--but-transition-medium`.
 pub const FOLD: Duration = Duration::from_millis(150);
 
 /// The most rows a list's fold moves, which is more than a window shows: those past them

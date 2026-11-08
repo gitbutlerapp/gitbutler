@@ -8,7 +8,7 @@
 
 	justify-content: flex-start;
 	width: 100%;
-	font-weight: var(--font-weight-regular);
+	font-weight: var(--but-font-weight-regular);
 
 	&:not(:disabled, [data-disabled])[data-popup-open] {
 		background-color: var(--button-hover-bg);
@@ -26,7 +26,7 @@
 	white-space: nowrap;
 
 	&[data-placeholder] {
-		color: var(--text-3);
+		color: var(--but-subtle-foreground);
 	}
 }
 
@@ -43,12 +43,12 @@
 .list {
 	flex: 1;
 	min-height: 0;
-	padding: var(--padding-menu);
+	padding: var(--but-padding-menu);
 	overflow: auto;
 
 	/* Reads as the placeholder does on the trigger: a row that stands for no choice. */
 	& .placeholderItem {
-		color: var(--text-3);
+		color: var(--but-subtle-foreground);
 	}
 
 	/* Every row carries the tick, and only the chosen one shows it — which row that is changes
@@ -67,7 +67,7 @@
 }
 
 .listViewport:focus-visible {
-	outline: var(--focus-ring);
+	outline: var(--but-focus-ring);
 	outline-offset: -1px;
 }
 
@@ -93,5 +93,5 @@
 .empty {
 	padding-inline: 10px;
 	padding-block: 8px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }

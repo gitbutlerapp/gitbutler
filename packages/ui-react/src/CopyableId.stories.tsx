@@ -8,7 +8,7 @@ const meta = stories({
 	// It takes its line's colour, so it is shown in a meta line, as a header has it.
 	decorators: [
 		(Story) => (
-			<div className="text-13" style={{ color: "var(--text-2)" }}>
+			<div className="text-13" style={{ color: "var(--but-muted-foreground)" }}>
 				<Story />
 			</div>
 		),

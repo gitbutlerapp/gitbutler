@@ -20,7 +20,11 @@ const sampleLines: Array<Line> = [
 	{ kind: " ", text: "}" },
 ];
 
-const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-danger)" };
+const lineBackground = {
+	" ": undefined,
+	"+": "var(--but-success-muted)",
+	"-": "var(--but-danger-muted)",
+};
 
 /**
  * Stands in for the host's diff renderer (Pierre in but.dev), which
@@ -29,7 +33,7 @@ const lineBackground = { " ": undefined, "+": "var(--bg-safe)", "-": "var(--bg-d
 const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 	<pre
 		className="text-12"
-		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--font-family-mono)" }}
+		style={{ margin: 0, paddingBlock: 4, fontFamily: "var(--but-font-family-mono)" }}
 	>
 		{lines.map((line, index) => (
 			<div

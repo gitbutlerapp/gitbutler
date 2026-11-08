@@ -2,7 +2,7 @@
 .list {
 	display: flex;
 	flex-direction: column;
-	background-color: var(--bg-1);
+	background-color: var(--but-background);
 
 	/* The space above the first card, kept while the diff scrolls: it sticks
 	   over the code passing above the stuck headers, which stick just below it.
@@ -14,7 +14,7 @@
 		flex-shrink: 0;
 		height: var(--diff-file-top);
 		margin-bottom: calc(-1 * var(--diff-file-gap));
-		background-color: var(--bg-1);
+		background-color: var(--but-background);
 		content: "";
 	}
 }

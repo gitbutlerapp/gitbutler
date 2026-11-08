@@ -4,14 +4,14 @@
 	flex-direction: column;
 	margin: 0;
 	padding: 0;
-	gap: var(--space-3xl);
+	gap: var(--but-space-3xl);
 	list-style: none;
 	counter-reset: step;
 }
 
 .step {
 	display: flex;
-	gap: var(--space-2xl);
+	gap: var(--but-space-2xl);
 	counter-increment: step;
 }
 
@@ -22,7 +22,7 @@
 	flex-direction: column;
 	align-items: center;
 	width: 20px;
-	gap: var(--space-lg);
+	gap: var(--but-space-lg);
 }
 
 .marker {
@@ -34,7 +34,7 @@
 	justify-content: center;
 	width: 20px;
 	height: 20px;
-	border-radius: var(--radius-full);
+	border-radius: var(--but-radius-full);
 }
 
 .number::before {
@@ -43,18 +43,18 @@
 
 /* The text's own colour, faint, as the line under it is. */
 .lightGray {
-	background-color: color-mix(in srgb, var(--text-1) 10%, transparent);
-	color: var(--text-1);
+	background-color: color-mix(in srgb, var(--but-foreground) 10%, transparent);
+	color: var(--but-foreground);
 }
 
 .fillGray {
-	background-color: var(--fill-gray-bg);
-	color: var(--fill-gray-fg);
+	background-color: var(--but-inverse);
+	color: var(--but-inverse-foreground);
 }
 
 .safe {
-	background-color: var(--fill-safe-bg);
-	color: var(--fill-safe-fg);
+	background-color: var(--but-success);
+	color: var(--but-success-foreground);
 }
 
 /* Runs on through the gap between steps to stop as far above the next marker as it starts below
@@ -62,8 +62,8 @@
 .connector {
 	flex: 1;
 	width: 2px;
-	margin-bottom: calc(var(--space-lg) - var(--space-3xl));
-	background-color: color-mix(in srgb, var(--text-1) 10%, transparent);
+	margin-bottom: calc(var(--but-space-lg) - var(--but-space-3xl));
+	background-color: color-mix(in srgb, var(--but-foreground) 10%, transparent);
 
 	.step:last-child & {
 		display: none;
@@ -77,19 +77,19 @@
 	flex-direction: column;
 	min-width: 0;
 	padding-block: 2px;
-	gap: var(--space-3xl);
+	gap: var(--but-space-3xl);
 }
 
 .header {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-lg);
+	gap: var(--but-space-lg);
 }
 
 .title {
-	color: var(--text-1);
+	color: var(--but-foreground);
 }
 
 .description {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }

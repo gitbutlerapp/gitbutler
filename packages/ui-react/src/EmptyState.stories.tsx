@@ -26,7 +26,7 @@ const meta = stories({
 				style={{
 					width: 360,
 					height: 520,
-					backgroundColor: "var(--bg-2)",
+					backgroundColor: "var(--but-muted)",
 					borderRadius: 6,
 				}}
 			>

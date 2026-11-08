@@ -1,6 +1,6 @@
-/* In --text-2, a step quieter than what it copies, and solid under the pointer. */
+/* In --but-muted-foreground, a step quieter than what it copies, and solid under the pointer. */
 .copy {
-	--button-fg: var(--text-2);
+	--button-fg: var(--but-muted-foreground);
 	--button-hover-icon-opacity: 1;
 
 	flex-shrink: 0;

@@ -548,7 +548,7 @@ impl Theme {
         self.fill_gray.opacity(0.05)
     }
 
-    /// The ring of a focused field, as design-core's `--border-focus`.
+    /// The ring of a focused field, as design-core's `--but-ring`.
     pub fn focus_border(&self) -> Hsla {
         self.fill_gray.opacity(0.7)
     }
@@ -560,7 +560,7 @@ impl Theme {
         self.bg_1.blend(self.fill_gray.opacity(0.4))
     }
 
-    /// The border of a control, as design-core's `--border-control`.
+    /// The border of a control, as design-core's `--but-input`.
     pub fn control_border(&self) -> Hsla {
         self.fill_gray.opacity(0.26)
     }

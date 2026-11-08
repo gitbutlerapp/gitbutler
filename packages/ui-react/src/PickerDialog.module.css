@@ -12,7 +12,7 @@
 	scroll-padding-block: 0.25rem;
 
 	&:focus-visible {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 		outline-offset: -1px;
 	}
 }
@@ -44,17 +44,17 @@
 	/* Inset from the list's edge, the way a `PopupSection` insets the rows it holds. A heading
 	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
 	   2px the design gives them. */
-	margin-inline: var(--padding-menu);
+	margin-inline: var(--but-padding-menu);
 	padding-inline: 8px;
 	gap: 8px;
-	border-radius: var(--radius-control);
+	border-radius: var(--but-radius-control);
 	outline: 0;
 	font-size: 13px;
-	scroll-margin-block: var(--padding-menu);
+	scroll-margin-block: var(--but-padding-menu);
 	user-select: none;
 
 	&[data-highlighted] {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 }
 
@@ -66,7 +66,7 @@
 }
 
 .itemType {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	font-size: 12px;
 	white-space: nowrap;
 }
@@ -80,7 +80,7 @@
 	justify-content: center;
 	min-height: 8rem;
 	padding: 1rem;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	font-size: 13px;
 }
 
@@ -95,15 +95,15 @@
 	height: 36px;
 	padding-inline: 12px;
 	gap: 12px;
-	border-top: 1px solid var(--border-3);
-	background-color: var(--bg-2);
+	border-top: 1px solid var(--but-border-subtle);
+	background-color: var(--but-muted);
 }
 
 .hints {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	font-size: 12px;
 }
 
@@ -119,7 +119,7 @@
 /* The glyph is the quieter half: what it does is the part being read, the key is what you already
    know how to press. `kbd` is monospace by default, and these sit in a line of prose. */
 .hintKey {
-	color: var(--text-3);
+	color: var(--but-subtle-foreground);
 	font: inherit;
 }
 

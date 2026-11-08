@@ -71,7 +71,7 @@ export const PullRequest = meta.story({
 			<Tab value="diff">Diff</Tab>
 			<Tab
 				value="pr"
-				icon={<Icon name="pr" style={{ color: "var(--text-safe)" }} />}
+				icon={<Icon name="pr" style={{ color: "var(--but-success-text)" }} />}
 				status={<CiStatus status="working" />}
 			>
 				PR #512
@@ -105,12 +105,12 @@ export const InAHeader = meta.story({
 	render: function Render() {
 		const [tab, setTab] = useState("changes");
 		return (
-			<div style={{ width: 480, border: "1px solid var(--border-2)" }}>
+			<div style={{ width: 480, border: "1px solid var(--but-border)" }}>
 				<div
 					style={{
 						paddingInline: 12,
 						paddingBlock: "6px 10px",
-						borderBlockEnd: "1px solid var(--border-2)",
+						borderBlockEnd: "1px solid var(--but-border)",
 					}}
 				>
 					<Tabs value={tab} onValueChange={setTab} aria-label="Worktree">

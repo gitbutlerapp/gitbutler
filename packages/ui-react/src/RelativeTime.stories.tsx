@@ -50,7 +50,7 @@ export const Ages = meta.story({
 		>
 			{ages.map(([label, age]) => (
 				<div key={label} style={{ display: "contents" }}>
-					<span style={{ color: "var(--text-2)" }}>{label}</span>
+					<span style={{ color: "var(--but-muted-foreground)" }}>{label}</span>
 					<RelativeTime timestamp={now - age} now={now} />
 					<RelativeTime timestamp={now - age} now={now} compact />
 				</div>

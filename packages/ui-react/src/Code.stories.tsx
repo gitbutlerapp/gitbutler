@@ -26,7 +26,7 @@ export const Default = meta.story({
 export const InText = meta.story({
 	parameters: figma("4633-1011"),
 	render: () => (
-		<p className="text-13" style={{ color: "var(--text-2)" }}>
+		<p className="text-13" style={{ color: "var(--but-muted-foreground)" }}>
 			Run <Code>but config forge auth</Code> there to connect GitHub.
 		</p>
 	),

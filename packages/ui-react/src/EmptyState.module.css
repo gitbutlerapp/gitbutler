@@ -127,12 +127,12 @@
 
 .title {
 	margin: 0;
-	color: var(--text-1);
+	color: var(--but-foreground);
 }
 
 .description {
 	margin: 0;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .actions {

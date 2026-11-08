@@ -6,10 +6,10 @@
 	width: 100%;
 	margin: 0;
 	padding: 14px;
-	gap: var(--space-3xl);
+	gap: var(--but-space-3xl);
 	border: none;
 	background-color: transparent;
-	color: var(--text-1);
+	color: var(--but-foreground);
 	font: inherit;
 	text-align: start;
 	text-decoration: none;
@@ -19,18 +19,18 @@
 	   SwitchButton. */
 	&:focus-visible,
 	&:is(label):has(:focus-visible) {
-		outline: var(--focus-ring);
+		outline: var(--but-focus-ring);
 		outline-offset: -1.5px;
 	}
 
 	/* Only a row that does something tints; a static row's controls answer on their own. */
 	&:is(a[href], button:enabled, label):not([data-disabled]):hover {
-		background-color: var(--bg-hover);
+		background-color: var(--but-hover);
 	}
 
 	/* The ground stays whole and the content fades; the card's hairline above stays too. */
 	&[data-disabled] {
-		background-color: var(--bg-2);
+		background-color: var(--but-muted);
 
 		& > * {
 			opacity: 0.5;
@@ -47,7 +47,7 @@
 .leading {
 	display: flex;
 	flex-shrink: 0;
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 .text {
@@ -55,17 +55,17 @@
 	flex: 1;
 	flex-direction: column;
 	min-width: 0;
-	gap: var(--space-md);
+	gap: var(--but-space-md);
 }
 
 .titleLine {
 	display: flex;
 	align-items: center;
-	gap: var(--gap-icon-text);
+	gap: var(--but-gap-icon-text);
 }
 
 .icon {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 }
 
 /* Takes the line's slack, so the badge and the chevron sit at its end. */
@@ -74,7 +74,7 @@
 	align-items: center;
 	min-width: 0;
 	margin-inline-end: auto;
-	gap: var(--space-sm);
+	gap: var(--but-space-sm);
 }
 
 .title {
@@ -89,7 +89,7 @@
 }
 
 .description {
-	color: var(--text-2);
+	color: var(--but-muted-foreground);
 	text-wrap: pretty;
 }
 
@@ -99,8 +99,8 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--space-md);
-	color: var(--text-2);
+	gap: var(--but-space-md);
+	color: var(--but-muted-foreground);
 }
 
 /* As tall as the title's line (14px at 1.2), so a control centres on the title rather than on the

@@ -10,12 +10,12 @@
 	height: var(--switch-height);
 	padding: 0;
 	border: none;
-	border-radius: var(--radius-full);
-	background-color: var(--border-2);
-	transition: background-color var(--transition-medium);
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-border);
+	transition: background-color var(--but-transition-medium);
 
 	&[data-checked] {
-		background-color: var(--fill-pop-bg);
+		background-color: var(--but-primary);
 	}
 
 	&:disabled,
@@ -37,9 +37,9 @@
 	left: 2px;
 	width: calc(var(--switch-height) - 4px);
 	height: calc(var(--switch-height) - 4px);
-	border-radius: var(--radius-full);
-	background-color: var(--bg-1);
-	transition: left var(--transition-medium);
+	border-radius: var(--but-radius-full);
+	background-color: var(--but-background);
+	transition: left var(--but-transition-medium);
 
 	/* Mirror of the 2px resting inset: width − thumb − 2, and the thumb is
 	   itself height − 4. Spelled out so a resize carries the travel with it. */

@@ -6,7 +6,12 @@ import { ResizeHandle } from "./ResizeHandle.tsx";
 const Pane: FC<{ label: string }> = ({ label }) => (
 	<div
 		className="text-13"
-		style={{ display: "grid", height: "100%", placeItems: "center", color: "var(--text-2)" }}
+		style={{
+			display: "grid",
+			height: "100%",
+			placeItems: "center",
+			color: "var(--but-muted-foreground)",
+		}}
 	>
 		{label}
 	</div>
@@ -21,7 +26,7 @@ const meta = stories({
 /** Between two side-by-side panels. Drag the hairline to resize them. */
 export const Default = meta.story({
 	render: () => (
-		<Group orientation="horizontal" style={{ height: 240, border: "1px solid var(--border-2)" }}>
+		<Group orientation="horizontal" style={{ height: 240, border: "1px solid var(--but-border)" }}>
 			<Panel minSize={80}>
 				<Pane label="Sidebar" />
 			</Panel>
@@ -36,7 +41,7 @@ export const Default = meta.story({
 /** The same handle between stacked panels; it takes its axis from the group. */
 export const Vertical = meta.story({
 	render: () => (
-		<Group orientation="vertical" style={{ height: 320, border: "1px solid var(--border-2)" }}>
+		<Group orientation="vertical" style={{ height: 320, border: "1px solid var(--but-border)" }}>
 			<Panel minSize={60}>
 				<Pane label="Diff" />
 			</Panel>
@@ -54,7 +59,7 @@ export const Vertical = meta.story({
  */
 export const GrabAfter = meta.story({
 	render: () => (
-		<Group orientation="horizontal" style={{ height: 240, border: "1px solid var(--border-2)" }}>
+		<Group orientation="horizontal" style={{ height: 240, border: "1px solid var(--but-border)" }}>
 			<Panel minSize={80}>
 				<Pane label="Sidebar" />
 			</Panel>
@@ -68,9 +73,9 @@ export const GrabAfter = meta.story({
 
 const card = {
 	boxSizing: "border-box",
-	border: "1px solid var(--border-section)",
-	borderRadius: "var(--radius-xl)",
-	background: "var(--bg-1)",
+	border: "1px solid var(--but-border-subtle)",
+	borderRadius: "var(--but-radius-xl)",
+	background: "var(--but-background)",
 } as const;
 
 /**
@@ -82,7 +87,7 @@ export const Gap = meta.story({
 		<Group
 			orientation="horizontal"
 			resizeTargetMinimumSize={{ coarse: 1, fine: 1 }}
-			style={{ height: 240, padding: 6, background: "var(--bg-2)" }}
+			style={{ height: 240, padding: 6, background: "var(--but-muted)" }}
 		>
 			<Panel minSize={80} style={card}>
 				<Pane label="Sidebar" />
