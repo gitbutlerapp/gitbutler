@@ -179,7 +179,7 @@ pub(crate) struct Edge {
     /// Represents in which order the `parent` fields should be written out
     ///
     /// A child commit should have edges that all have unique orders. In order
-    /// to achive that we can employ the following semantics.
+    /// to achieve that we can employ the following semantics.
     order: usize,
 }
 
@@ -191,7 +191,7 @@ type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 /// `ToSelector` does _not_ normalize a selector.
 pub trait ToSelector {
     /// Converts a given object into a selector. Calling `to_selector` on an
-    /// object asserts that the reciever was a object that is selectable in the
+    /// object asserts that the receiver was a object that is selectable in the
     /// graph.
     fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -199,7 +199,7 @@ pub trait ToSelector {
 /// Convert a type to a selector, and ensures that it is type commit.
 pub trait ToCommitSelector {
     /// Converts a given object into a selector. Calling `to_commit_selector` on
-    /// an object asserts that the reciever has a selectable pick step in the
+    /// an object asserts that the receiver has a selectable pick step in the
     /// graph.
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -207,7 +207,7 @@ pub trait ToCommitSelector {
 /// Convert a type to a selector, and ensures that it is type reference.
 pub trait ToReferenceSelector {
     /// Converts a given object into a selector. Calling `to_reference_selector` on
-    /// an object asserts that the reciever has a selectable reference step in
+    /// an object asserts that the receiver has a selectable reference step in
     /// the graph.
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -800,9 +800,9 @@ impl RevisionHistory {
     }
 
     /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
-    /// If there is no entry whose old `to` that cooresponds with the new
+    /// If there is no entry whose old `to` that corresponds with the new
     /// `from`, then we just add a `to <- from` entry.
-    /// If there is an entry whose old `to` that cooresponds with the new
+    /// If there is an entry whose old `to` that corresponds with the new
     /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
     pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
         if let Some(value) = self.commit_mappings.remove(&from) {

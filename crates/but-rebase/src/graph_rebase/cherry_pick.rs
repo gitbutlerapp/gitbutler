@@ -36,11 +36,11 @@ pub enum CherryPickOutcome {
     /// Represents the cases where either the source or the target commits failed to
     /// merge cleanly.
     FailedToMergeBases {
-        /// Whther the merge operation performed on the list of bases failed.
+        /// Whether the merge operation performed on the list of bases failed.
         base_merge_failed: bool,
         /// The shas of the commits that we were trying to cherry pick from.
         bases: Option<Vec<gix::ObjectId>>,
-        /// Whther the merge operation performed on the list of ontos failed.
+        /// Whether the merge operation performed on the list of ontos failed.
         onto_merge_failed: bool,
         /// The shas of the commits that we were trying to cherry pick onto.
         ontos: Option<Vec<gix::ObjectId>>,

@@ -319,7 +319,7 @@ impl Graph {
     /// segment. They are not 'inline', and merely there as visual evidence of what
     /// happened here during debugging. For now, no algorithm discovers references
     /// by checking incoming connections, instead they are expected to be either
-    /// inline, i.e. virutal branch segments in a workspace, or they are
+    /// inline, i.e. virtual branch segments in a workspace, or they are
     /// named segments.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,

@@ -250,7 +250,7 @@ fn turn_labels(previews: &[String]) -> Vec<&'static str> {
     push_label_if(
         &mut labels,
         "next",
-        has_any(&text, &["what's next", "whats next", "next is"]),
+        has_any(&text, &["what's next", "what's next", "next is"]),
     );
     labels
 }

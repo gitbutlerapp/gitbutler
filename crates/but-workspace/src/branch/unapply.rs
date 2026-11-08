@@ -409,7 +409,7 @@ pub(crate) mod function {
         if !branch_removed_from_ws_meta {
             // The branch wasn't in workspace metadata, yet it was present, so also delete its branch metadata
             // as it could be used to disambiguate the segment.
-            // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
+            // TODO: this will actually be observable even if it doesn't work, unless it's run in a transaction, which right now it's not!
             //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
             meta.remove(branch)?;
             let graph = ws
@@ -425,7 +425,7 @@ pub(crate) mod function {
             return Ok(Outcome::new(Cow::Owned(workspace)));
         }
 
-        // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
+        // Everything past this point is strictly in non-dry-run mode and we may totally end up in intermediate states
         // if something fails.
         // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
         let ws = ws
