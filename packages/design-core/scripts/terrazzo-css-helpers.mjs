@@ -1,3 +1,5 @@
+const GENERIC_FAMILY = { base: "sans-serif", mono: "monospace", accent: "serif" };
+
 export function transformToken(token, mode) {
 	const modeValue = token.mode?.[mode];
 	if (!modeValue) return;
@@ -35,6 +37,16 @@ export function transformToken(token, mode) {
 				return `hsl(${hStr} ${sStr}% ${lStr}% / ${parseFloat(alpha.toFixed(2))})`;
 			}
 			return `hsl(${hStr} ${sStr}% ${lStr}%)`;
+		}
+	}
+
+	// Figma holds one family per token. The generic one after it is what shows
+	// while the font loads (fonts.css swaps) and where it is missing.
+	if (token.$type === "fontFamily") {
+		const generic = GENERIC_FAMILY[token.id.split(".").pop()];
+		if (generic) {
+			const families = [modeValue.$value].flat().map((family) => `"${family}"`);
+			return [...families, generic].join(", ");
 		}
 	}
 

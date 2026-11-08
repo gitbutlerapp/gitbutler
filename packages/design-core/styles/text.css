@@ -1,9 +1,3 @@
-:root {
-	--but-font-family-mono: var(--but-font-family-mono), monospace;
-	--but-font-family-base: var(--but-font-family-base), sans-serif;
-	--but-font-family-accent: var(--but-font-family-accent), serif;
-}
-
 @layer text {
 	/* text Base Classes */
 	.text-11 {
