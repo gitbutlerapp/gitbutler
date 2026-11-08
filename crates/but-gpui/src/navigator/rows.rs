@@ -991,6 +991,21 @@ pub(crate) fn lists_changes(
             .is_some_and(|files| !store.uncommitted_shown(project, checkout, files).is_empty())
 }
 
+/// Whether anything is listed under `project`'s `checkout`'s heading while it's open: its
+/// changes, a terminal, a branch or what its branches rest on. Without any, the heading
+/// doesn't fold, like a branch without commits.
+pub(super) fn checkout_holds(
+    store: &Store,
+    workspace: &Workspace,
+    project: &ProjectId,
+    checkout: &Checkout,
+) -> bool {
+    lists_changes(store, workspace, project, checkout)
+        || store.terminals.on(project, checkout).next().is_some()
+        || (workspace.lanes_in(checkout))
+            .any(|lane| !lane.branches.is_empty() || workspace.beneath(lane).next().is_some())
+}
+
 /// `project`'s `checkout`'s uncommitted changes' row, while [`lists_changes`] says it's listed.
 fn changes_row(
     store: &Store,
