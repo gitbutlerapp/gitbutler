@@ -45,9 +45,9 @@ jobs:
         with:
           filters: |
             ui:
-              - 'packages/ui-react/**'
+              - 'packages/but-ui-react/**'
               - 'packages/ui-svelte/**'
-              - 'packages/ui-react/DESIGN.md'
+              - 'packages/but-ui-react/DESIGN.md'
 
   request:
     needs: changes

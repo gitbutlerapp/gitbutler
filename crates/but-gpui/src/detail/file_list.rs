@@ -136,7 +136,7 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
         .text_size(dp(13.))
 }
 
-/// A tree row's indent, as ui-react's FileListItem draws it: a step per level, each with a
+/// A tree row's indent, as but-ui-react's FileListItem draws it: a step per level, each with a
 /// guide that joins the rows above and below into one line down its directory, and a
 /// directory's `chevron` in a step of its own, which a file's row keeps empty. A file's icon so
 /// sits a step in from its directory's, under its name.
@@ -1540,7 +1540,7 @@ impl Detail {
         // Not while the keys are on a folder, whose summary hides the diff's cursor.
         let on_folder = self.cursor_folder(cx).is_some();
         let (current, solid) = (current && !on_folder, solid && (picked || !on_folder));
-        // On the solid ground, as ui-react's FileList inverts a selected row's contents.
+        // On the solid ground, as but-ui-react's FileList inverts a selected row's contents.
         let muted = match solid {
             true => theme.muted_on_solid(),
             false => theme.text_2,

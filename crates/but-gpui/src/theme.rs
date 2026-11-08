@@ -1,4 +1,4 @@
-//! Colour and type tokens, taken from `@gitbutler/design-core` so this app reads like
+//! Colour and type tokens, taken from `@gitbutler/but-ui` so this app reads like
 //! the rest of GitButler, or from a Ghostty colour scheme, which the embedded terminals then
 //! draw with too.
 
@@ -47,8 +47,8 @@ pub struct Theme {
     /// The dark ground of a snackbar, in both themes.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
-    /// A warning snackbar's glyph, which says it went but not quite as asked: design-core's
-    /// fill-warn on the snackbar's ground, as ui-react's has it. For a glyph, so 3:1.
+    /// A warning snackbar's glyph, which says it went but not quite as asked: but-ui's
+    /// fill-warn on the snackbar's ground, as but-ui-react's has it. For a glyph, so 3:1.
     pub snackbar_warn: Hsla,
     /// A diff's changed lines as @pierre/diffs colours them in but.dev: the line numbers and
     /// the bar beside them, the ground of the line and its numbers, and behind the words that
@@ -62,7 +62,7 @@ pub struct Theme {
     /// The text of the box that stands for the unchanged lines between hunks, which an
     /// unchanged line's number shares.
     pub diff_muted: Hsla,
-    /// The letter for an added, modified, deleted and renamed file: design-core's
+    /// The letter for an added, modified, deleted and renamed file: but-ui's
     /// change-status colours.
     pub change_status: [Hsla; 4],
     /// The colours a person without a picture can be, as but.dev draws them, under their
@@ -349,7 +349,7 @@ impl Theme {
             pop_button: rgb(0x177070).into(),
             on_pop: gpui::white(),
             blue: pick(0x0b61eb, 0x84aff5),
-            // In light, design-core's safe 30 and danger 40, a step darker than its text-safe
+            // In light, but-ui's safe 30 and danger 40, a step darker than its text-safe
             // and text-danger, which read under 4.5:1 on `bg_2`.
             safe,
             warn: pick(0xa05f04, 0xf99406),
@@ -548,7 +548,7 @@ impl Theme {
         self.fill_gray.opacity(0.05)
     }
 
-    /// The ring of a focused field, as design-core's `--but-ring`.
+    /// The ring of a focused field, as but-ui's `--but-ring`.
     pub fn focus_border(&self) -> Hsla {
         self.fill_gray.opacity(0.7)
     }
@@ -560,7 +560,7 @@ impl Theme {
         self.bg_1.blend(self.fill_gray.opacity(0.4))
     }
 
-    /// The border of a control, as design-core's `--but-input`.
+    /// The border of a control, as but-ui's `--but-input`.
     pub fn control_border(&self) -> Hsla {
         self.fill_gray.opacity(0.26)
     }

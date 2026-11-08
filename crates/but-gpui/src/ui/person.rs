@@ -1,5 +1,5 @@
 //! A person without a picture, as GitButler's other apps draw them: their initial on a
-//! colour picked from their name. A port of `@gitbutler/ui-react`'s `personColour.ts`, so an
+//! colour picked from their name. A port of `@gitbutler/but-ui-react`'s `personColour.ts`, so an
 //! author looks the same here as on but.dev. An author with a GitHub or Gravatar photo gets it
 //! on top.
 

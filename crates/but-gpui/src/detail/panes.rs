@@ -236,7 +236,7 @@ impl Detail {
             crumbs.push((name.into(), None));
         }
         let last = crumbs.len().saturating_sub(1);
-        // As ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
+        // As but-ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
         h_flex()
             .h(dp(HEADER_HEIGHT))
@@ -1081,7 +1081,7 @@ impl Detail {
         self.id_chip(id.short(), id.0.to_string(), "Copy commit ID", theme)
     }
 
-    /// A commit's `short` ID in its line's ink, as ui-react's `CopyableId`, which copies `whole`
+    /// A commit's `short` ID in its line's ink, as but-ui-react's `CopyableId`, which copies `whole`
     /// on a click.
     fn id_chip(
         &self,
@@ -1497,7 +1497,7 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
 }
 
 /// One of a header's facts in its `meta_row`: its glyph at 0.7 of the line's ink, as
-/// ui-react's meta glyphs are, then what's added after.
+/// but-ui-react's meta glyphs are, then what's added after.
 pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
     h_flex().gap(dp(3.)).child(
         icon(glyph)

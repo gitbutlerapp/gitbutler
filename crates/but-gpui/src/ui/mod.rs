@@ -39,7 +39,7 @@ use illustration::{Illustration, illustration};
 pub const BASE_REM: f32 = 16.;
 
 /// `n` pixels as designed, at 100%, which the interface scale grows or shrinks: sizes from
-/// ui-react's pixels go in as they are. Only what must stay put, as a hairline or the room
+/// but-ui-react's pixels go in as they are. Only what must stay put, as a hairline or the room
 /// for macOS's traffic lights, is in plain pixels.
 pub fn dp(n: f32) -> Rems {
     rems(n / BASE_REM)
@@ -207,9 +207,9 @@ pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
 
-/// Every icon: the design system's, compiled in from `packages/ui-react` so they're the ones
+/// Every icon: the design system's, compiled in from `packages/but-ui-react` so they're the ones
 /// but.dev draws, and a build fails if one goes; then this app's own, under
-/// `assets/icons`, for what ui-react draws in code rather than from a file, or doesn't have.
+/// `assets/icons`, for what but-ui-react draws in code rather than from a file, or doesn't have.
 macro_rules! icons {
     (
         $($variant:ident => $name:literal),* $(,)?;
@@ -237,7 +237,7 @@ macro_rules! icons {
         fn icon_bytes(path: &str) -> Option<&'static [u8]> {
             match path {
                 $(concat!("icons/", $name, ".svg") => Some(include_bytes!(concat!(
-                    "../../../../packages/ui-react/src/icons/", $name, ".svg"
+                    "../../../../packages/but-ui-react/src/icons/", $name, ".svg"
                 ))),)*
                 $(concat!("icons/", $own_name, ".svg") => Some(include_bytes!(concat!(
                     "../../assets/icons/", $own_name, ".svg"
@@ -313,26 +313,26 @@ icons! {
     Tick => "tick",
     Undo => "undo",
     Warning => "warning";
-    // ui-react's FolderIcon, a component with its gradient in CSS.
+    // but-ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
-    // ui-svelte's keyboard, which ui-react doesn't have.
+    // ui-svelte's keyboard, which but-ui-react doesn't have.
     Keyboard => "keyboard",
-    // ui-react's sidebar-narrow, with the part a split makes filled in.
+    // but-ui-react's sidebar-narrow, with the part a split makes filled in.
     SplitRight => "split-right",
     SplitBelow => "split-below",
     TileZoom => "tile-zoom",
     TileUnzoom => "tile-unzoom",
     // A window coming off another, for what opens in a window of its own.
     PopOutWindow => "pop-out-window",
-    // ui-react's eye, struck through, for a project not watched.
+    // but-ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
-    // ui-react's folders with their top right corner cut away, for a dot there while a
+    // but-ui-react's folders with their top right corner cut away, for a dot there while a
     // worktree has uncommitted changes.
     FolderDot => "folder-dot",
     FolderCopyDot => "folder-copy-dot",
-    // Another machine, which ui-react has no glyph for, in the style of its folder.
+    // Another machine, which but-ui-react has no glyph for, in the style of its folder.
     Computer => "computer",
-    // The repo glyph filled as ui-react's `EntityGlyph` fills it, its gradient baked in, for a
+    // The repo glyph filled as but-ui-react's `EntityGlyph` fills it, its gradient baked in, for a
     // project's icon: one for each colour but the outline, which is `Repo`.
     RepoPop => "repo-pop",
     RepoSafe => "repo-safe",
@@ -414,7 +414,7 @@ pub fn small_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(dp(12.)).flex_none()
 }
 
-/// Icon toggles joined in a row, as ui-react's `ToggleGroupStyles` of outline toggles: one
+/// Icon toggles joined in a row, as but-ui-react's `ToggleGroupStyles` of outline toggles: one
 /// border round them and a rule between.
 pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
     let line = theme.control_border();
@@ -468,7 +468,7 @@ pub fn tab_after(len: usize, at: usize, forward: bool) -> Option<usize> {
     })
 }
 
-/// A choice of one, as ui-react's `SegmentedControl`: `segments` with whether each is the
+/// A choice of one, as but-ui-react's `SegmentedControl`: `segments` with whether each is the
 /// picked one, on a recessed track. The picked one is raised on the content ground, and a short
 /// rule parts two that aren't.
 pub fn segmented(
@@ -665,7 +665,7 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
 /// turning as that changes (see [`fold::chevron`]), or with nothing to fold (`None`) a dot at
-/// half strength, as ui-react's.
+/// half strength, as but-ui-react's.
 pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> Div {
     let step = div()
         .flex_none()
@@ -680,7 +680,7 @@ pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> 
     }
 }
 
-/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
+/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as but-ui-react's
 /// MoreItem: `glyph` at `icon_at` under the list's glyphs, the words at `text_at` under its
 /// titles.
 pub fn fold_row(
@@ -864,7 +864,7 @@ pub fn shown_when_focused(el: Stateful<Div>) -> Stateful<Div> {
 }
 
 /// How a switch's knob slides and its ground fades when it's turned: critically damped, most of
-/// the way in about 0.1s, as ui-react's Switch moves in `--but-transition-medium`. A spring, unlike
+/// the way in about 0.1s, as but-ui-react's Switch moves in `--but-transition-medium`. A spring, unlike
 /// `with_animation`, starts where it's going when first drawn, so opening a page moves nothing,
 /// and a second click mid-slide turns it back from where it is.
 const SWITCH_SPRING: gpui::SpringConfig = gpui::SpringConfig::new(1600., 80., 1.);
@@ -1272,7 +1272,7 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        // As ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
+        // As but-ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
         let (height, width, icon_size) = match self.small {
             true => (dp(20.), dp(22.), dp(14.)),
             false => (dp(28.), dp(28.), dp(16.)),
@@ -1346,7 +1346,7 @@ impl RenderOnce for Button {
     }
 }
 
-/// `action` joined to a chevron that opens its menu, as ui-react's `DropdownButton`: one
+/// `action` joined to a chevron that opens its menu, as but-ui-react's `DropdownButton`: one
 /// control split by a seam. The chevron, called `menu_label`, is disabled with the action.
 pub fn dropdown_button(
     action: Button,
@@ -1589,7 +1589,7 @@ pub fn keys_text(text: &str) -> String {
         .collect()
 }
 
-/// Keys as ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
+/// Keys as but-ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
 /// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
     keycaps(text, 16., 11., theme.text_1.opacity(0.6), theme)
@@ -1809,7 +1809,7 @@ pub fn blink_once(id: impl Into<ElementId>, shape: Div, wash: Hsla) -> impl Into
     )
 }
 
-/// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
+/// A surface with nothing in it, as but-ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as
 /// centred, and it caps its width so it stays a block in a wide pane. In a pane too short for
@@ -1857,7 +1857,7 @@ pub fn empty_state(
         .into_any_element()
 }
 
-/// How many, in a small grey pill, as ui-react's light grey `Badge`.
+/// How many, in a small grey pill, as but-ui-react's light grey `Badge`.
 pub fn count_badge(count: usize, theme: &Theme) -> Div {
     div()
         .flex_none()

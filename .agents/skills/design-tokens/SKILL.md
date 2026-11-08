@@ -1,13 +1,13 @@
 ---
 name: design-tokens
-description: "Use when pulling design tokens from Figma into `packages/design-core`, regenerating `tokens.css`, or reviewing a token change: sync/export/update tokens, a Figma variable was added, renamed or changed, or `pnpm check` says tokens.css is stale. Not for using tokens in components; that is the gitbutler-ui skill."
+description: "Use when pulling design tokens from Figma into `packages/but-ui`, regenerating `tokens.css`, or reviewing a token change: sync/export/update tokens, a Figma variable was added, renamed or changed, or `pnpm check` says tokens.css is stale. Not for using tokens in components; that is the gitbutler-ui skill."
 ---
 
 # Design tokens
 
-Figma variables are the source. `packages/design-core/tokens/json/*.tokens.json` is
+Figma variables are the source. `packages/but-ui/tokens/json/*.tokens.json` is
 their export and `tokens/tokens.css` is built from it; neither is edited by hand. The
-package README has the pipeline in full. Run everything below from `packages/design-core`.
+package README has the pipeline in full. Run everything below from `packages/but-ui`.
 
 ## 1. Export from Figma
 
@@ -68,7 +68,7 @@ No output: `git checkout -- tokens/json`, tell the user Figma has no changes, an
 
 ```bash
 pnpm build
-git show HEAD:packages/design-core/tokens/tokens.css > "$TMPDIR/tokens-before.css"
+git show HEAD:packages/but-ui/tokens/tokens.css > "$TMPDIR/tokens-before.css"
 node scripts/diff-css-vars.mjs "$TMPDIR/tokens-before.css" tokens/tokens.css
 ```
 
@@ -79,13 +79,13 @@ patching the CSS.
 ## 4. Fix what reads a removed or renamed variable
 
 ```bash
-pnpm --filter @gitbutler/ui-react check:tokens
+pnpm --filter @gitbutler/but-ui-react check:tokens
 ```
 
 It names every `var(--…)` nothing declares any more. Fix those in the same change, and
 search the rest of the repo too: `packages/but-mcp-app`, the GPUI theme in
 `crates/but-gpui/src/theme.rs`, which copies values by hand, and
-`crates/but-gpui/src/ui/illustration.rs`, which colours ui-react's illustrations by the names
+`crates/but-gpui/src/ui/illustration.rs`, which colours but-ui-react's illustrations by the names
 in their SVGs. For a rename, `scripts/rename-tokens.mjs` reads `token-map.json`; add the old
 name and its replacement there and run it. Projects outside the monorepo
 (but-dev) pin a commit and pick the change up when they move it; mention removals to the

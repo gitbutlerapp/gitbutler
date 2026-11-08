@@ -1,6 +1,6 @@
 # Fonts
 
-Inter and Geist Mono, GitButler's UI and code fonts, from `@gitbutler/design-core` (Inter 4.001,
+Inter and Geist Mono, GitButler's UI and code fonts, from `@gitbutler/but-ui` (Inter 4.001,
 Geist Mono 1.401). That package ships them as variable woff2 files; these are static instances,
 cut with fontTools:
 
@@ -9,7 +9,7 @@ fonttools ttLib.woff2 decompress Inter-Variable.woff2 -o Inter-Variable.ttf
 fonttools varLib.instancer Inter-Variable.ttf wght=400 --update-name-table -o Inter-Regular.ttf
 ```
 
-Each file is 60 lighter than the design-core weight it stands in for: Regular is 400 for 460,
+Each file is 60 lighter than the but-ui weight it stands in for: Regular is 400 for 460,
 Medium 440 for 500 and SemiBold 540 for 600. CoreGraphics, which GPUI rasterizes glyphs with,
 draws the same outlines with stems about half a pixel thicker than Chrome at 2x, in both themes,
 and 60 brought them level with but.dev when the client turned macOS font smoothing off, which it
@@ -23,8 +23,8 @@ screenshots taken at different scales.
 Design-core's Inter leaves out the symbols the app's keys are written with (⌘ ⌥ ⇧ ⌃ ↩ ⌫ ⌦ ⇥, and it
 has ← and → only for its `->` arrow), and without them CoreText draws those from another font,
 heavier and off the baseline. Each Inter file adds them from the full Inter 4.001
-(https://github.com/rsms/inter, the release design-core cut its file from), instanced at optical
-size 14, as design-core's is, and at the weight the file was cut at, leaving every other glyph as
+(https://github.com/rsms/inter, the release but-ui cut its file from), instanced at optical
+size 14, as but-ui's is, and at the weight the file was cut at, leaving every other glyph as
 it was:
 
 ```python
@@ -62,7 +62,7 @@ tar xf GeistMono.tar.xz GeistMonoNerdFontMono-Regular.otf GeistMonoNerdFontMono-
 ```
 
 TUIs draw borders with box-drawing characters and file icons from the Private Use Area, which
-design-core's Geist Mono leaves out. CoreText takes those from other fonts with other widths,
+but-ui's Geist Mono leaves out. CoreText takes those from other fonts with other widths,
 so rows drift off the grid, borders gap, and icons show as missing glyphs. The Mono variant
 keeps every glyph, icons included, one cell wide. Nerd Fonts ships only these fixed weights, so
 the terminal's bold is 600 rather than 540. CoreText names the family "GeistMono Nerd Font

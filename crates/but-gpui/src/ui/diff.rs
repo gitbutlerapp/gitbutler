@@ -586,7 +586,7 @@ pub fn copy_wash(theme: &Theme) -> gpui::Hsla {
     theme.pop.opacity(0.4)
 }
 
-/// Five squares split between green and red as a file's changed lines are, as ui-react's
+/// Five squares split between green and red as a file's changed lines are, as but-ui-react's
 /// ChangeScale does: a side that changed anything keeps a square.
 pub fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
     let total = added + removed;
@@ -867,7 +867,7 @@ pub fn hunk_header(
         .into_any_element()
 }
 
-/// What a conflicted file says before its actions, as ui-react's warn `Badge`.
+/// What a conflicted file says before its actions, as but-ui-react's warn `Badge`.
 fn conflicted_badge(theme: &Theme) -> gpui::Div {
     div()
         .flex_none()

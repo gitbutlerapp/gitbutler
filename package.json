@@ -8,7 +8,7 @@
 	"type": "module",
 	"packageManager": "pnpm@12.5.1",
 	"scripts": {
-		"dev:ui": "pnpm --filter @gitbutler/ui-react demos",
+		"dev:ui": "pnpm --filter @gitbutler/but-ui-react demos",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
 		"dev:desktop": "cross-env CARGO_TARGET_DIR=\"$PNPM_SCRIPT_SRC_DIR/target/tauri\" pnpm dev:desktop-with-env",
 		"dev:desktop-http": "cross-env VITE_BUTLER_PORT=6978 VITE_BUTLER_HOST=localhost VITE_BUILD_TARGET=web turbo watch dev --filter=...@gitbutler/desktop",

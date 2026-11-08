@@ -22,8 +22,8 @@ packages/but-sdk/src/generated
 packages/but-sdk/**/*.md
 
 # Auto-generated icon names union type
-packages/ui-react/src/iconNames.ts
+packages/but-ui-react/src/iconNames.ts
 
 # Generated from Figma by the token build
-packages/design-core/tokens/
-packages/design-core/.terrazzo/
+packages/but-ui/tokens/
+packages/but-ui/.terrazzo/

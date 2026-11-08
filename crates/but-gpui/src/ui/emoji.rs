@@ -128,7 +128,7 @@ const REPOSITORY: [(&str, &str, &str); 21] = [
     ("🤡", "clown", "circus joker"),
 ];
 
-/// The rest of the set, chosen to tell things apart at a glance, as ui-react's avatar picker
+/// The rest of the set, chosen to tell things apart at a glance, as but-ui-react's avatar picker
 /// offered them before but.dev took the picker over.
 const SHARED: [(&str, &str, &str); 84] = [
     ("🕹️", "joystick", "game arcade"),

@@ -1,5 +1,5 @@
 //! GitButler's file-type marks, shared with but.dev: which one a file gets, by the
-//! same map and rule as `@gitbutler/ui-react`.
+//! same map and rule as `@gitbutler/but-ui-react`.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -19,7 +19,7 @@ thread_local! {
 
 /// The icon names by whole file name, then by extension, from the UI package's map.
 static TYPES: LazyLock<[HashMap<&'static str, &'static str>; 2]> = LazyLock::new(|| {
-    let source = include_str!("../../../../packages/ui-react/src/file-icons/typeMap.ts");
+    let source = include_str!("../../../../packages/but-ui-react/src/file-icons/typeMap.ts");
     // File names follow extensions, as a test checks.
     let (extensions, names) = source
         .split_once("symbolFileNamesToIcons")
@@ -55,7 +55,7 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
     img(ImageSource::Render(drawn)).size(dp(14.)).flex_none()
 }
 
-/// A folder's mark, in colour and at its own 17 by 14 points, as ui-react's FolderIcon draws
+/// A folder's mark, in colour and at its own 17 by 14 points, as but-ui-react's FolderIcon draws
 /// it, in the box a file's mark has, which it runs a little past.
 pub fn folder_icon() -> Div {
     div()

@@ -1,5 +1,5 @@
 //! A window of the shared controls in `ui`, each in its states side by side, in light or dark
-//! and at a few interface scales, as ui-react's docs site shows its components. Built only
+//! and at a few interface scales, as but-ui-react's docs site shows its components. Built only
 //! with `--features stories`, as `gitbutler-gpui-stories`. `GITBUTLER_GPUI_STORY=<name>`
 //! opens it on one story, and with `dev-script` too a script drives it as it does the app
 //! (`scripts/drive.sh --stories`).

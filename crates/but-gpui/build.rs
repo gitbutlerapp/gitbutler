@@ -9,11 +9,11 @@
 use std::{env, fs, path::Path};
 
 fn main() {
-    let dir = Path::new("../../packages/ui-react/src/file-icons");
+    let dir = Path::new("../../packages/but-ui-react/src/file-icons");
     println!("cargo:rerun-if-changed={}", dir.display());
     let out = env::var("OUT_DIR").expect("cargo sets OUT_DIR");
     let mut names: Vec<String> = fs::read_dir(dir.join("svg"))
-        .expect("the file icons are in packages/ui-react")
+        .expect("the file icons are in packages/but-ui-react")
         .filter_map(|entry| {
             let path = entry.ok()?.path();
             let name = path.file_stem()?.to_str()?.to_owned();
