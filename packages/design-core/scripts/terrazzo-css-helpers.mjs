@@ -49,11 +49,20 @@ export function transformToken(token, mode) {
 	}
 }
 
+// A token's CSS name: its path with dashes, under the but- prefix. The raw
+// palettes keep their own names (--clr-*, --scale-*): they are steps, not roles,
+// and components don't read them. A group's own token ($root, as primary is to
+// primary/foreground) takes the group's name.
+export function cssVarName(path) {
+	const name = path.replaceAll(".$root", "").replaceAll(".", "-");
+	return /^(clr|scale)-/.test(name) ? `--${name}` : `--but-${name}`;
+}
+
 export function stripCollectionPrefix(id) {
-	const collections = ["core", "semantic.component", "semantic"];
+	const collections = ["core", "semantic"];
 	for (const collection of collections) {
 		if (id.startsWith(collection + ".")) {
-			return "--" + id.slice(collection.length + 1).replaceAll(".", "-");
+			return cssVarName(id.slice(collection.length + 1));
 		}
 	}
 }

@@ -2,8 +2,8 @@
 // top. tokens-bruecke exports that as { components: "{ref}", alpha: n | "{ref}" },
 // which isn't DTCG, and Terrazzo rejects it ("Missing required property
 // colorSpace"). So these tokens are lifted out of the JSON before Terrazzo runs
-// and written back as color-mix(), which keeps both links: --bg-hover follows
-// --fill-gray-bg and --opacity-bg-hover rather than freezing their values.
+// and written back as color-mix(), which keeps both links: --but-hover follows
+// --but-inverse and --but-opacity-bg-hover rather than freezing their values.
 
 import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -39,7 +39,8 @@ export function liftComposedColors(paths, outDir) {
 		const json = JSON.parse(readFileSync(path, "utf8"));
 		function walk(node, keys) {
 			for (const [key, child] of Object.entries(node)) {
-				if (key.startsWith("$") || child === null || typeof child !== "object") continue;
+				if ((key.startsWith("$") && key !== "$root") || child === null || typeof child !== "object")
+					continue;
 				if (child.$type === "color" && isComposed(child.$value)) {
 					const modes = child.$extensions?.mode ?? {};
 					const light = toColorMix(modes.light ?? child.$value);
