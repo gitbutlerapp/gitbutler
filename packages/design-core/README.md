@@ -102,13 +102,7 @@ The reset is scoped to `@layer reset` to avoid specificity conflicts with applic
 
 #### Text Utilities
 
-Text classes are scoped to `@layer text`. The layer also sets three font-family custom properties on `:root`:
-
-| Property                   | Value                                     |
-| -------------------------- | ----------------------------------------- |
-| `--but-font-family-base`   | `var(--but-font-family-base), sans-serif` |
-| `--but-font-family-mono`   | `var(--but-font-family-mono), monospace`  |
-| `--but-font-family-accent` | `var(--but-font-family-accent), serif`    |
+Text classes are scoped to `@layer text`. They read the font-family tokens, which carry their generic fallback (`--but-font-family-base` is `"Inter", sans-serif`; mono ends in `monospace`, accent in `serif`), so the text shows in the right kind of font while the font file loads.
 
 **Size classes** set `font-size`, `font-weight: regular`, `line-height`, and `font-family: base` as a self-contained unit:
 

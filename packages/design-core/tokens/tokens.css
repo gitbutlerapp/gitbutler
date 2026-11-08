@@ -74,11 +74,11 @@
   /* Popup curve. A hard ease-out that lands quickly and settles without overshoot, so popups arrive rather than drift in. Use only with transition/popup for the scale and opacity of modals, dropdowns, and the toolbox. */
   --but-easing-popup: cubic-bezier(0.45, 1, 0, 1);
   /* Brand display type. Not for app UI. */
-  --but-font-family-accent: "But Head";
+  --but-font-family-accent: "But Head", serif;
   /* The UI font, for all interface text. */
-  --but-font-family-base: "Inter";
+  --but-font-family-base: "Inter", sans-serif;
   /* Code, commit hashes, paths and other monospaced content. */
-  --but-font-family-mono: "Geist Mono";
+  --but-font-family-mono: "Geist Mono", monospace;
   /* Brand display type. */
   --but-font-line-height-accent: 94%;
   /* Running text of more than one line: descriptions, markdown. */
