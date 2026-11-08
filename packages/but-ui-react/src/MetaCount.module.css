@@ -197,6 +197,32 @@
 	text-overflow: ellipsis;
 }
 
+/* A count with something to do. Its ground reaches past the glyph and the value by the padding,
+   and the margin gives that back, so a pressable count sits exactly where a plain one does and the
+   row doesn't move when one turns into the other. Under the pointer its ground is its own colour at
+   14%, a tint its text still reads on, and the text keeps its colour. */
+.pressable {
+	margin: -2px -4px;
+	padding: 2px 4px;
+	border: none;
+	border-radius: var(--but-radius-control);
+	background-color: transparent;
+	font-family: inherit;
+	transition: var(--transition-button);
+
+	&:not(:disabled):hover {
+		background-color: var(--count-hover-bg, var(--but-hover));
+
+		& .glyph {
+			opacity: 0.8;
+		}
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
 /* The robot fills its 14px edge to edge where the other glyphs leave air around them, so it keeps
    1px more from the count before it. */
 .agent-working,
@@ -208,6 +234,7 @@
 .uncommitted,
 .agent-waiting,
 .working {
+	--count-hover-bg: color-mix(in srgb, var(--but-warning) 14%, transparent);
 	color: var(--but-warning-text);
 }
 
@@ -217,17 +244,20 @@
 }
 
 .unpushed {
+	--count-hover-bg: color-mix(in srgb, var(--but-info) 14%, transparent);
 	color: var(--but-info-text);
 }
 
 .agent-working,
 .cpu,
 .passed {
+	--count-hover-bg: color-mix(in srgb, var(--but-success) 14%, transparent);
 	color: var(--but-success-text);
 }
 
 .conflicts,
 .cpu-danger,
 .failed {
+	--count-hover-bg: color-mix(in srgb, var(--but-danger) 14%, transparent);
 	color: var(--but-danger-text);
 }

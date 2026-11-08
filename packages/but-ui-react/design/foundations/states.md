@@ -1,7 +1,7 @@
 # States
 
 **Every interactive component has a hover and a focus state.** A button, row,
-tab, field, menu item or clickable badge: if it responds to a click or a key,
+tab, field, menu item, clickable badge or count: if it responds to a click or a key,
 hover says "this reacts" and focus says "the keyboard is here". Hover alone is
 invisible to anyone not on a mouse. Neither is optional or a separate ticket.
 
@@ -16,11 +16,18 @@ lift to 0.8 on hover, so the label leads at rest and the button answers the
 pointer beyond its ground. One opacity rather than a muted colour per variant,
 because it works on every ground — gray, pop and danger have no quieter text
 token to reach for. Danger is the one exception, 0.8 lifting to 0.9: red on
-its pink ground is too faint at 0.7. The label never fades: hover changes its
-ground, not its colour.
+its pink ground is too faint at 0.7.
+
+**Hover changes the ground, never the text.** A label keeps its colour under
+the pointer, so it never fades and never jumps to another colour. A control
+drawn in a colour of its own, without a fill, as a pressable `MetaCount` is,
+takes that colour at 14% as its hover ground: a tint its `-text` colour still
+reads on, as Radix's and shadcn's soft buttons do. The soft fills
+(`--but-warning-soft`) are too strong for that: amber text on its soft ground is
+2.4 : 1.
 
 **Focus is the one ring.** `--but-focus-ring` (1.5px of `--but-ring`) is the
-only focus outline. The global stylesheet puts it on every `button` and `a`
+only focus outline. The host's global stylesheet puts it on every `button` and `a`
 under `:focus-visible`; a component that draws its own — a field, a switch, a
 segmented toggle — uses the same token, never a literal or the browser's accent
 ring. Buttons and rows use

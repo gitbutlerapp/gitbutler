@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from "react";
+import type { ComponentProps, FC, MouseEventHandler } from "react";
 import { classes } from "./classes.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
@@ -46,6 +46,15 @@ const glyph: Record<MetaCountType, IconName> = {
 	"cpu-danger": "cpu-danger",
 };
 
+type MetaCountProps = { type: MetaCountType } & (
+	| ({ onClick?: undefined } & Omit<ComponentProps<"span">, "onClick">)
+	// A button's own `type` (submit, reset) would clash with what the count counts.
+	| ({ onClick: MouseEventHandler<HTMLButtonElement> } & Omit<
+			ComponentProps<"button">,
+			"onClick" | "type"
+	  >)
+);
+
 /**
  * A glyph and a short value in a row's meta: a count, an age, a branch's name. The type sets both.
  * Amber is work waiting on you (`behind`, `uncommitted`, `agent-waiting`), blue is work to send
@@ -64,22 +73,43 @@ const glyph: Record<MetaCountType, IconName> = {
  * `aria-label`. A long value, such as a branch's name, ends in an ellipsis once its row runs out
  * of room.
  *
+ * With `onClick` the count is the button for its next step: ↓ `behind` updates, ↑ `unpushed`
+ * pushes. It looks the same at rest and takes up the same room; under the pointer it sits on its
+ * own colour at 14% (a grey one on the hover ground) and keeps its text, and keyboard focus shows
+ * the ring.
+ * Its `Tooltip` then says what pressing it does ("Push 4 commits"), not what it counts. The row
+ * under it still gets the click, so a host that selects rows stops it there.
+ *
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
-export const MetaCount: FC<{ type: MetaCountType } & ComponentProps<"span">> = ({
-	type,
-	children,
-	...props
-}) => (
-	<span {...props} className={classes(props.className, "text-13", styles.count, styles[type])}>
-		{type === "agent-working" ? (
-			<WorkingRobot />
-		) : (
-			<Icon name={glyph[type]} size={14} className={styles.glyph} />
-		)}
-		<span className={styles.value}>{children}</span>
-	</span>
-);
+export const MetaCount: FC<MetaCountProps> = (props) => {
+	const { type, children } = props;
+	const content = (
+		<>
+			{type === "agent-working" ? (
+				<WorkingRobot />
+			) : (
+				<Icon name={glyph[type]} size={14} className={styles.glyph} />
+			)}
+			<span className={styles.value}>{children}</span>
+		</>
+	);
+	const className = classes(props.className, "text-13", styles.count, styles[type]);
+	if (props.onClick === undefined) {
+		const { type: _type, children: _children, ...rest } = props;
+		return (
+			<span {...rest} className={className}>
+				{content}
+			</span>
+		);
+	}
+	const { type: _type, children: _children, ...rest } = props;
+	return (
+		<button type="button" {...rest} className={classes(className, styles.pressable)}>
+			{content}
+		</button>
+	);
+};
 
 /**
  * The robot of an agent at work, on a loop: after a second of its face, its eyes become two bars

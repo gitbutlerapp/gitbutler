@@ -1,5 +1,6 @@
 import { stories } from "../docs/stories.ts";
 import { CiStatus, MetaCount, type MetaCountType } from "./MetaCount.tsx";
+import { Tooltip } from "./Tooltip.tsx";
 
 const types: Array<MetaCountType> = [
 	"behind",
@@ -81,6 +82,37 @@ export const Kinds = meta.story({
 				<CiStatus status="passed" />
 				<CiStatus status="failed" />
 			</div>
+		</div>
+	),
+});
+
+/**
+ * Counts that do their next step: ↓ updates the branch, ↑ pushes it. They read as the counts beside
+ * them until the pointer reaches one, and each tooltip says what pressing it does.
+ */
+export const Pressable = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=4945-70998",
+		},
+	},
+	render: () => (
+		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+			<Tooltip content="Update from main">
+				<MetaCount type="behind" onClick={() => {}}>
+					2
+				</MetaCount>
+			</Tooltip>
+			<Tooltip content="Push 1 commit">
+				<MetaCount type="unpushed" onClick={() => {}}>
+					1
+				</MetaCount>
+			</Tooltip>
+			<MetaCount type="age">27d</MetaCount>
+			<MetaCount type="unpushed" onClick={() => {}} disabled aria-label="Pushing 4 commits">
+				4
+			</MetaCount>
 		</div>
 	),
 });
