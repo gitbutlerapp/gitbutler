@@ -53,6 +53,16 @@ import "@gitbutler/design-core/tokens";
 
 This provides CSS custom properties for colors, spacing, typography, and other design tokens with automatic light/dark mode support.
 
+### Names
+
+Every token is `--but-*`: roles for colour (`--but-background`, `--but-primary`, `--but-primary-soft-foreground`) and the scales for the rest (`--but-radius-control`, `--but-space-lg`). The CSS name is the Figma variable's path with dashes, so `primary/soft/foreground` in 🍑 But UI is `--but-primary-soft-foreground`. The raw palettes keep their own names, `--clr-*` and `--scale-*`: they are steps for building tokens, not for components to read.
+
+`token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
+
+```bash
+node packages/design-core/scripts/rename-tokens.mjs path/to/src
+```
+
 ### Fonts
 
 Import all font declarations:

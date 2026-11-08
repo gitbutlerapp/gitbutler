@@ -39,7 +39,7 @@
 	text-overflow: ellipsis;
 }
 
-/* A step darker under the pointer, not all the way to text-1: it is still a quiet trail. */
+/* A step darker under the pointer, not all the way to --but-foreground: it is still a quiet trail. */
 a.crumb:hover {
 	color: color-mix(in srgb, var(--but-muted-foreground), var(--but-foreground) 50%);
 }
