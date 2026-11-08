@@ -71,7 +71,7 @@ pub(crate) use rows::{lists_changes, worktrees_listed};
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
-    RowKey, Rows, in_checkout, in_inactive, inactive_open, row_keys, span_height,
+    RowKey, Rows, checkout_holds, in_checkout, in_inactive, inactive_open, row_keys, span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -3274,16 +3274,17 @@ impl Navigator {
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
+        let folds = checkout_holds(store, workspace, id, checkout);
         let toggle = {
             let (project, checkout) = (id.clone(), checkout.clone());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                 this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
-        // Its uncommitted changes are always listed under it, so it always folds.
+        // With nothing under it, a dot where the chevron goes, as for a branch without commits.
         let step = self.fold(
             ("worktree-fold", ix),
-            Some(open),
+            folds.then_some(open),
             style.quiet(),
             cx,
             toggle.clone(),
@@ -3295,7 +3296,7 @@ impl Navigator {
                 6.,
             )
             .aria_label(label.clone())
-            .aria_expanded(open)
+            .when(folds, |el| el.aria_expanded(open))
             .when(!open && unread, |el| {
                 el.relative().child(style.unread_line(false))
             })
@@ -3402,9 +3403,14 @@ impl Navigator {
             return cx.notify();
         }
         let store = self.store.read(cx);
+        let Some(workspace) = store.workspace(project) else {
+            return;
+        };
+        if !checkout_holds(store, workspace, project, &key.1) {
+            return;
+        }
         let inside = (store.selection.as_ref())
-            .zip(store.workspace(project))
-            .is_some_and(|(s, ws)| s.project() == project && in_checkout(store, s, ws, &key.1));
+            .is_some_and(|s| s.project() == project && in_checkout(store, s, workspace, &key.1));
         let heading = Selection::Checkout(project.clone(), key.1.clone());
         self.folded_worktrees.insert(key);
         match inside {
