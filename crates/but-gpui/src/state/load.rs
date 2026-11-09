@@ -356,8 +356,9 @@ impl Store {
                         _ => {
                             store.added = Some(id);
                             // A new user's first project opens the getting-started docs, as in
-                            // the desktop app. Any other project listed means the user isn't new.
-                            if store.projects.len() == 1 {
+                            // the desktop app. Any other project listed means the user isn't new,
+                            // and a dev build's user is one of us.
+                            if store.projects.len() == 1 && !backend::settings::dev_build() {
                                 let url = backend::metrics::with_did(crate::help::GETTING_STARTED);
                                 cx.open_url(&url);
                             }
