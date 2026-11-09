@@ -133,7 +133,6 @@ actions!(
         SplitBelow,
         NewTerminalRight,
         NewTerminalBelow,
-        CloseTile,
         ZoomTile,
         EqualizeTiles,
         NextTile,
@@ -1882,7 +1881,8 @@ impl AppView {
     }
 
     /// As the window's close button does: closing it quits, asking first while operations run
-    /// or terminals are open.
+    /// or terminals are open. A tile that can close and has the keys takes the action first and
+    /// closes instead.
     fn close_window(&mut self, _: &CloseWindow, window: &mut Window, cx: &mut Context<Self>) {
         if self.can_quit(window, cx) {
             cx.quit();
@@ -2588,7 +2588,8 @@ impl AppView {
         // detail draws the page in the home tile's area of it, under its bar while there are
         // others, and the diff and the terminal selected go over that.
         // A terminal there closes, a terminal pinned beside it taking its place, as terminals
-        // are alike.
+        // are alike. ⌘W closes it while it has the keys, as it does a pinned tile, and the
+        // window otherwise.
         let close_home = self.close_home(cx);
         let home_bar = drawn_home.and_then(|_| {
             let store = self.store.read(cx);
@@ -2597,7 +2598,7 @@ impl AppView {
             let close = close_home.clone().map(|close| {
                 icon_button("close-home", Icon::Cross)
                     .small()
-                    .tooltip_for("Close", &CloseTile)
+                    .tooltip_for("Close", &CloseWindow)
                     .on_click(move |_, window, cx| close(window, cx))
             });
             let grab = self.grab_tile(Tile::Home, cx);
@@ -2652,7 +2653,7 @@ impl AppView {
         // The detail draws the card under it; a terminal's edge is drawn over it here.
         let home = placed(home)
             .when_some(close_home, |el, close| {
-                el.on_action(move |_: &CloseTile, window, cx| close(window, cx))
+                el.on_action(move |_: &CloseWindow, window, cx| close(window, cx))
             })
             .child(tile_content().child(page).children(home_bar))
             .children(self.tile_edge(&Tile::Home, window, theme, cx))
@@ -2892,7 +2893,7 @@ impl AppView {
         let (on_key, on_click) = (close.clone(), close);
         let close = icon_button(id, Icon::Cross)
             .small()
-            .tooltip_for("Close", &CloseTile)
+            .tooltip_for("Close", &CloseWindow)
             .on_click(move |_, window, cx| on_click(window, cx));
         let buttons = tile_buttons.into_iter().chain(Some(close));
         let bar = tile_bar(kind, title, buttons, focus, grab, theme)
@@ -2923,7 +2924,7 @@ impl AppView {
                 // Over the home tile's detail, which spans the room under it, gaps and all.
                 .occlude()
                 .key_context("PinnedTile")
-                .on_action(move |_: &CloseTile, window, cx| on_key(window, cx))
+                .on_action(move |_: &CloseWindow, window, cx| on_key(window, cx))
                 .child(tile_card(theme))
                 .child(
                     (tile_content().flex().flex_col())

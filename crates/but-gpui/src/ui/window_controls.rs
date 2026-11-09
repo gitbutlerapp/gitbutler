@@ -134,8 +134,9 @@ fn caption_button(
                 .on_click(move |_, window, cx| match area {
                     WindowControlArea::Min => window.minimize_window(),
                     WindowControlArea::Max => window.zoom_window(),
-                    // Asks first, as closing the window does elsewhere, where it quits.
-                    _ => window.dispatch_action(Box::new(crate::app::CloseWindow), cx),
+                    // Asks first, as closing the window does elsewhere, where it quits. Not
+                    // `CloseWindow`, which the tile with the keys would take.
+                    _ => window.dispatch_action(Box::new(crate::app::Quit), cx),
                 }),
             false => el.w(fixed(WINDOW_CONTROLS_WIDTH / 3.)).h_full(),
         })
