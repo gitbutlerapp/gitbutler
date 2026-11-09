@@ -353,7 +353,15 @@ impl Store {
                             let name = entry.project.name.clone();
                             store.snack(format!("{name} is already added"), cx)
                         }
-                        _ => store.added = Some(id),
+                        _ => {
+                            store.added = Some(id);
+                            // A new user's first project opens the getting-started docs, as in
+                            // the desktop app. Any other project listed means the user isn't new.
+                            if store.projects.len() == 1 {
+                                let url = backend::metrics::with_did(crate::help::GETTING_STARTED);
+                                cx.open_url(&url);
+                            }
+                        }
                     }
                 }
                 Err(err) if err.is::<backend::NotARepository>() => store.offer_init(folder, cx),

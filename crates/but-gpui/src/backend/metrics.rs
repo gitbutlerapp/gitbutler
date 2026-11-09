@@ -446,6 +446,23 @@ pub fn signed_out() {
     }
 }
 
+/// `url`, a page on one of GitButler's sites, with the ID this app's events go out under as
+/// `did`, which the site keeps with the visit to join the two, as the desktop app's links do.
+/// Unchanged while usage metrics are off. `but_api::open::open_url` adds `did` only from an ID
+/// the settings store, and with none stored this app's events go out under the machine's.
+pub fn with_did(url: &str) -> String {
+    let id = (METRICS.get().and_then(Option::as_ref))
+        .filter(|metrics| metrics.usage.load(Ordering::Relaxed))
+        .map(|metrics| metrics.id.lock().clone());
+    match (id, reqwest::Url::parse(url)) {
+        (Some(id), Ok(mut tagged)) => {
+            tagged.query_pairs_mut().append_pair("did", &id);
+            tagged.into()
+        }
+        _ => url.to_owned(),
+    }
+}
+
 /// Whether the settings send usage metrics, then error reports, as Settings shows them.
 pub fn enabled() -> (bool, bool) {
     super::settings::app_settings()
