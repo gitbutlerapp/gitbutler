@@ -1104,12 +1104,12 @@
     "card": {
       "$root": {
         "$type": "color",
-        "$value": "{semantic.muted.$root}",
-        "$description": "A card or bordered group sitting on background. Text on it: card/foreground.",
+        "$value": "{semantic.background}",
+        "$description": "A card or bordered group: the background colour, on canvas. Text on it: card/foreground.",
         "$extensions": {
           "mode": {
-            "light": "{semantic.muted.$root}",
-            "dark": "{semantic.muted.$root}"
+            "light": "{semantic.background}",
+            "dark": "{semantic.background}"
           }
         }
       },
@@ -1445,7 +1445,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-09T15:16:56.710Z"
+        "createdAt": "2026-11-09T21:07:38.883Z"
       }
     }
   }

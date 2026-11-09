@@ -25,7 +25,7 @@ body[data-layout="centered"] {
 /* The sidebar and the page, side by side across the window's height (set inline, as the group
    sets its own height there); each scrolls on its own. */
 .docs-site {
-	background-color: var(--but-muted);
+	background-color: var(--but-canvas);
 }
 
 /* The search, the pages' cards and the theme, one under another on the window's ground. The search
@@ -116,7 +116,7 @@ body[data-layout="centered"] {
 	z-index: 1;
 	position: sticky;
 	top: 0;
-	background-color: var(--but-muted);
+	background-color: var(--but-canvas);
 	animation: docs-section-hold linear both;
 	animation-timeline: --docs-section;
 	animation-range: exit-crossing calc(100% - var(--section-head-height)) exit-crossing 100%;
@@ -166,13 +166,13 @@ body[data-layout="centered"] {
 		radial-gradient(
 				circle at 100% 0,
 				transparent calc(var(--corner) - 0.5px),
-				var(--but-muted) var(--corner)
+				var(--but-canvas) var(--corner)
 			)
 			left top / var(--corner) var(--corner) no-repeat,
 		radial-gradient(
 				circle at 0 0,
 				transparent calc(var(--corner) - 0.5px),
-				var(--but-muted) var(--corner)
+				var(--but-canvas) var(--corner)
 			)
 			right top / var(--corner) var(--corner) no-repeat;
 	pointer-events: none;

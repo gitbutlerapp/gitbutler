@@ -61,7 +61,7 @@
   --but-border-subtle: var(--but-gray-6);
   /* The window's ground, behind the sidebar and the cards: the app's outermost surface. Cards and panes sit on it in background. Text on it: foreground or muted/foreground. */
   --but-canvas: light-dark(var(--but-gray-3), var(--but-gray-2));
-  --but-card: var(--but-muted);
+  --but-card: var(--but-background);
   /* Text and icons on card. */
   --but-card-foreground: var(--but-foreground);
   /* Category 1 of 6, for things told apart by colour alone: avatars, repositories, agents. foreground reads on it in both themes. */

@@ -3,7 +3,7 @@
 	column-gap: 10px;
 	align-items: center;
 	padding: 8px 12px;
-	background-color: var(--but-muted);
+	background-color: var(--but-canvas);
 }
 
 /* The notes wrap onto a second line the start clips, so one that doesn't fit drops whole rather

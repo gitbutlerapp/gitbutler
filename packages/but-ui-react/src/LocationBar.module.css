@@ -1,4 +1,4 @@
-/* On the window's second ground, with its own bottom edge: the header under it starts on bg-1.
+/* On the window's ground, with its own bottom edge: the header under it starts on the background.
    40px tall, its edge included, with everything centred in what is left. */
 .bar {
 	box-sizing: border-box;
@@ -9,7 +9,7 @@
 	height: 40px;
 	padding: 0 var(--but-padding-panel);
 	border-bottom: 1px solid var(--but-border-subtle);
-	background-color: var(--but-muted);
+	background-color: var(--but-canvas);
 }
 
 /* Its gaps are the bar's, so a divider inside it sits as far from its buttons as the one after it. */
