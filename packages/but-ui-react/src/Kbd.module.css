@@ -14,7 +14,7 @@
 	min-width: 14px;
 	padding: 4px 3px;
 	border-radius: var(--but-radius-xs);
-	background-color: color-mix(in srgb, var(--scale-gray-60) 5%, transparent);
+	background-color: color-mix(in srgb, var(--but-subtle-foreground) 5%, transparent);
 	box-shadow: 0 0 0 1px var(--outline-color);
 	color: color-mix(in srgb, var(--but-foreground) 60%, transparent);
 	font-size: 11px;

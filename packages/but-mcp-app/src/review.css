@@ -85,20 +85,18 @@
 }
 
 .ci-status[data-state="success"] {
-	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background: color-mix(in srgb, var(--_bg) 25%, var(--but-background));
-	color: light-dark(var(--but-success-text), var(--clr-safe-60));
+	background: color-mix(in srgb, var(--but-success) 25%, var(--but-background));
+	color: var(--but-success-text);
 }
 
 .ci-status[data-state="failure"] {
-	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background: color-mix(in srgb, var(--_bg) 22%, var(--but-background));
-	color: light-dark(var(--but-danger-text), var(--clr-danger-60));
+	background: color-mix(in srgb, var(--but-danger) 22%, var(--but-background));
+	color: var(--but-danger-text);
 }
 
 .ci-status[data-state="actionRequired"] {
 	background: color-mix(in srgb, var(--but-warning) 18%, transparent);
-	color: var(--clr-warn-40);
+	color: var(--but-warning-text);
 }
 
 .ci-status[data-state="inProgress"] svg {
@@ -122,9 +120,8 @@
 }
 
 .review-status[data-state="open"] {
-	--_bg: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background: color-mix(in srgb, var(--_bg) 25%, var(--but-background));
-	color: light-dark(var(--but-success-text), var(--clr-safe-60));
+	background: color-mix(in srgb, var(--but-success) 25%, var(--but-background));
+	color: var(--but-success-text);
 }
 
 .review-status[data-state="merged"] {
@@ -133,9 +130,8 @@
 }
 
 .review-status[data-state="closed"] {
-	--_bg: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background: color-mix(in srgb, var(--_bg) 22%, var(--but-background));
-	color: light-dark(var(--but-danger-text), var(--clr-danger-60));
+	background: color-mix(in srgb, var(--but-danger) 22%, var(--but-background));
+	color: var(--but-danger-text);
 }
 
 .icon-button {
@@ -156,7 +152,7 @@
 }
 
 .icon-button:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+	background: color-mix(in srgb, var(--but-foreground) 5%, transparent);
 	color: var(--but-foreground);
 }
 
@@ -272,19 +268,19 @@
 }
 
 .review-button:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+	background: color-mix(in srgb, var(--but-foreground) 5%, transparent);
 	color: var(--but-foreground);
 }
 
 .review-button.primary {
 	border: 0;
-	background: var(--scale-pop-70);
-	color: var(--scale-pop-10);
+	background: var(--but-primary-soft);
+	color: var(--but-primary-soft-foreground);
 }
 
 .review-button.primary:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--scale-pop-70), var(--scale-pop-50) 13%);
-	color: var(--scale-pop-10);
+	background: var(--but-primary-soft-hover);
+	color: var(--but-primary-soft-foreground);
 }
 
 .review-button:disabled {
