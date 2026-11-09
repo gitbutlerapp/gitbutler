@@ -41,6 +41,7 @@ mod fps;
 mod help;
 mod keymap;
 mod links;
+mod menu_bar;
 mod navigator;
 mod open_in;
 mod overlays;

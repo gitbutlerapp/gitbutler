@@ -532,6 +532,9 @@ pub struct Prefs {
     /// The window's top right corner shows the frames drawn in the last second. Only Settings'
     /// Developer page, in a build of its own, turns it on.
     pub show_fps: bool,
+    /// The app draws its own menu bar on macOS too, as it does on Windows and Linux, to try it
+    /// there. Only Settings' Developer page, in a build of its own, turns it on.
+    pub menu_bar_everywhere: bool,
 }
 
 /// A part of the window a setting in Settings › Appearance can leave out.

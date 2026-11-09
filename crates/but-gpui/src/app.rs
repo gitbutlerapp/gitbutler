@@ -218,6 +218,10 @@ pub struct AppView {
     pub(crate) menu_returns_to: Option<gpui::FocusHandle>,
     /// The open menu's, which takes the keys from what had them.
     pub(crate) menu_focus: FocusHandle,
+    /// The menu bar's menu the open menu is, by its place in the bar: see `menu_bar`.
+    pub(crate) menu_bar: Option<usize>,
+    /// Where the menu bar's names were last drawn, for its menus to hang from.
+    pub(crate) menu_bar_names: Rc<std::cell::RefCell<Vec<Bounds<Pixels>>>>,
     pub prompt: Option<Prompt>,
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
@@ -653,6 +657,8 @@ impl AppView {
             pending_menu: None,
             menu_returns_to: None,
             menu_focus: cx.focus_handle(),
+            menu_bar: None,
+            menu_bar_names: Rc::default(),
             prompt: None,
             icon_picker: None,
             navigator_open: !navigator_on_top,
@@ -5154,6 +5160,9 @@ impl Render for AppView {
             .on_action(cx.listener(Self::go_to))
             .on_action(cx.listener(Self::go_to_terminal))
             .on_action(cx.listener(Self::show_context_menu))
+            .on_action(cx.listener(Self::open_menu_bar))
+            .on_action(cx.listener(Self::previous_menu))
+            .on_action(cx.listener(Self::next_menu))
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::new_terminal))
@@ -5512,6 +5521,7 @@ impl Render for AppView {
             .when(self.status_bar_shown(cx), |el| {
                 el.child(self.render_status_bar(window, cx))
             })
+            .children(self.render_menu_bar(window, cx))
             .children(self.render_modal(cx).map(overlay))
             // Above a modal: Git can ask for credentials while one is open.
             .children(self.render_prompt(window, cx).map(overlay))

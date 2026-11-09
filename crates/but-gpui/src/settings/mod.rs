@@ -1134,6 +1134,22 @@ impl SettingsView {
         .with_keywords("frames per second performance")
     }
 
+    fn menu_bar_row(&self, cx: &Context<Self>) -> Row {
+        let on = self.store.read(cx).prefs.menu_bar_everywhere;
+        Row::new(
+            "Draw the menu bar",
+            "The menu bar the app draws on Windows and Linux, a button in the window's top left \
+             corner that opens the menus, drawn here too, to try it.",
+            self.pref_switch(
+                "menu-bar-everywhere",
+                on,
+                |p| p.menu_bar_everywhere ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("menus windows linux")
+    }
+
     /// How dragging a tile by its bar feels, each a few values to try, for this run of the
     /// app.
     fn tile_drag_rows(&self, cx: &Context<Self>) -> Vec<Row> {
@@ -1345,7 +1361,7 @@ impl SettingsView {
                 )]
             }
             Page::App(AppPage::Developer) => vec![
-                Card::new(None, vec![self.fps_row(cx)]),
+                Card::new(None, vec![self.fps_row(cx), self.menu_bar_row(cx)]),
                 Card::new(Some("Tile dragging"), self.tile_drag_rows(cx)),
             ],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),

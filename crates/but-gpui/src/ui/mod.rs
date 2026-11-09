@@ -190,6 +190,11 @@ pub fn draws_window_controls(window: &Window) -> bool {
 /// Whether macOS's traffic lights are at the window's top left, where the headers leave room for
 /// them: not in full screen, where they come down with the menu bar, over the app.
 pub fn has_traffic_lights(window: &Window) -> bool {
+    // A dev script trying Linux's window buttons has the header laid out as Linux's.
+    #[cfg(feature = "dev-script")]
+    if crate::dev::linux_controls() {
+        return false;
+    }
     cfg!(target_os = "macos") && !window.is_fullscreen()
 }
 
@@ -324,6 +329,8 @@ icons! {
     TileUnzoom => "tile-unzoom",
     // A window coming off another, for what opens in a window of its own.
     PopOutWindow => "pop-out-window",
+    // Three lines, for the menu bar folded into a button, as Windows and Linux apps draw it.
+    Menu => "menu",
     // but-ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
     // but-ui-react's folders with their top right corner cut away, for a dot there while a

@@ -465,6 +465,21 @@
       "enter": "navigator::Confirm"
     }
   },
+  // The menu bar the app draws where the platform has none: F10 opens its first menu, as on
+  // Windows, and ← and → go to the menu beside the open one.
+  {
+    "context": "Workspace",
+    "bindings": {
+      "f10": "menu_bar::OpenMenuBar"
+    }
+  },
+  {
+    "context": "ContextMenu",
+    "bindings": {
+      "left": "menu_bar::PreviousMenu",
+      "right": "menu_bar::NextMenu"
+    }
+  },
   // Settings' pages, from its search box too, as the palette's list is.
   {
     "context": "((Navigator || Tabs || List) && !TextInput) || ContextMenu || (SettingsPages > TextInput)",
