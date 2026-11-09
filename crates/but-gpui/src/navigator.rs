@@ -4781,7 +4781,9 @@ fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowSt
     match review.filter(|(review, _)| !review.title.is_empty()) {
         Some((review, state)) => el
             .text_color(match style.solid {
-                true if state == ReviewState::Open => style.meta(theme.text_1),
+                true if matches!(state, ReviewState::Open | ReviewState::Draft) => {
+                    style.meta(theme.text_1)
+                }
                 true => style.muted(),
                 false => review::title_color(state, theme),
             })

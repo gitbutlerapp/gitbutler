@@ -16,12 +16,11 @@ pub fn state_glyph(state: ReviewState, theme: &Theme) -> (Icon, Hsla) {
     }
 }
 
-/// A pull request's title where it names its branch: muted while a draft, fainter once merged
-/// or closed.
+/// A pull request's title where it names its branch: plain while open or a draft, fainter once
+/// merged or closed.
 pub fn title_color(state: ReviewState, theme: &Theme) -> Hsla {
     match state {
-        ReviewState::Open => theme.text_1,
-        ReviewState::Draft => theme.text_2,
+        ReviewState::Open | ReviewState::Draft => theme.text_1,
         ReviewState::Merged | ReviewState::Closed => theme.text_3,
     }
 }
