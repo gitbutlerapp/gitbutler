@@ -703,6 +703,7 @@ impl SettingsView {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
         let status_bar = self.status_bar_row(cx);
+        let terminal_overview = self.terminal_overview_row(cx);
         let navigator_place = self.navigator_place_row(cx);
         let app = self.app.clone();
         let mut diff = vec![
@@ -894,7 +895,14 @@ impl SettingsView {
         vec![
             Card::new(
                 None,
-                vec![scheme, appearance, size, navigator_place, status_bar],
+                vec![
+                    scheme,
+                    appearance,
+                    size,
+                    navigator_place,
+                    status_bar,
+                    terminal_overview,
+                ],
             ),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts, folder_stops]),
@@ -1076,6 +1084,22 @@ impl SettingsView {
             ),
         )
         .with_keywords("sidebar tabs horizontal layout")
+    }
+
+    /// The terminal overview's switch, on while it shows.
+    fn terminal_overview_row(&self, cx: &Context<Self>) -> Row {
+        let shown = !self.store.read(cx).prefs.hide_terminal_overview;
+        Row::new(
+            "Show terminal overview",
+            "Every terminal open, on every project, under the navigator.",
+            self.pref_switch(
+                "terminal-overview",
+                shown,
+                |p| p.hide_terminal_overview ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("agents status sidebar panel")
     }
 
     /// The status bar's switch, on while it shows.

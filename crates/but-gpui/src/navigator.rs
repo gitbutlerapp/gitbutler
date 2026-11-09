@@ -68,8 +68,10 @@ mod order;
 mod rename;
 mod rows;
 mod tabs;
+mod terminals;
 pub(crate) use rows::{lists_changes, worktrees_listed};
 pub(crate) use tabs::NavigatorTabs;
+pub(crate) use terminals::TerminalOverview;
 
 use moving::Mark;
 use rows::{
@@ -1192,16 +1194,16 @@ impl Navigator {
 
     /// Select the project after (`forward`) or before the one the selection's in, past what's
     /// left of its card, as the keys go from tile to tile, at the row it was left on. Not while
-    /// something's being moved.
+    /// something's being moved. Whether there was a project that way.
     pub(crate) fn step_project(
         &mut self,
         forward: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let store = self.store.read(cx);
         if store.moving.is_some() {
-            return;
+            return true;
         }
         let items = self.items();
         let projects: Vec<&ProjectId> = (items.iter())
@@ -1211,18 +1213,19 @@ impl Navigator {
             })
             .collect();
         if projects.is_empty() {
-            return;
+            return false;
         }
         let at = (store.selection.as_ref())
             .and_then(|s| projects.iter().position(|project| *project == s.project()));
         let delta = if forward { 1 } else { -1 };
         let Some(Step::Item(next)) = step_to(at, projects.len(), None, false, delta) else {
-            return;
+            return false;
         };
         let Some(next) = projects.get(next).map(|project| (*project).clone()) else {
-            return;
+            return false;
         };
         self.select(self.left_in_project(&next, cx), window, cx);
+        true
     }
 
     /// What going back to `project` selects: the row it was left on, else its own.

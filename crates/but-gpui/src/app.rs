@@ -19,14 +19,14 @@ use crate::backend::{self, Checkout, short_ref};
 use crate::clock;
 use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
-use crate::navigator::{Navigator, NavigatorTabs};
+use crate::navigator::{Navigator, NavigatorTabs, TerminalOverview};
 use crate::overlays::{ContextMenu, MenuItem, Prompt, overlay};
 use crate::palette::{Choice, Palette};
 use crate::projects::pick_folder;
 use crate::state::{
     Area, Axis, Divider, DividerDrag, Drawn, FileView, Junction, Landing, MeshPick, NavigatorPlace,
-    Pane, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile, Tiling,
-    Zones, along_edge, snack, tile_beside, up_to_date,
+    Pane, Part, Prefs, ProjectId, ProjectTab, RowKey, Selection, Side, Store, StoreEvent, Tile,
+    Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
 use crate::theme::{ColorScheme, Theme, UiScale};
@@ -38,7 +38,7 @@ use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title,
     dp, fixed, gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane,
-    small_icon, tile_card, tile_content,
+    small_icon, tile_card, tile_content, v_flex,
 };
 
 // Named in the keymap as area::Action, by where they act.
@@ -62,6 +62,7 @@ actions!(
         FocusNavigator,
         FocusChanges,
         FocusDiff,
+        FocusTerminals,
         FocusNextPane,
         FocusPreviousPane,
         FocusPaneLeft,
@@ -75,6 +76,7 @@ actions!(
         ToggleNavigator,
         ToggleNavigatorPlace,
         ToggleDetail,
+        ToggleTerminalOverview,
         CommandPalette,
         ChangeTheme,
         ShowContextMenu,
@@ -206,6 +208,9 @@ pub struct AppView {
     pub(crate) navigator: Entity<Navigator>,
     /// The navigator across the window's top, in its place beside the panes.
     tabs: Entity<NavigatorTabs>,
+    /// The terminals of every project, under the navigator beside the panes, while Settings
+    /// shows it.
+    pub(crate) terminals: Entity<TerminalOverview>,
     /// Whether it's there, as Settings had it when last drawn, and it sliding down or back up.
     navigator_on_top: bool,
     tabs_slide: Slide,
@@ -269,6 +274,12 @@ pub struct AppView {
 /// How near the window's left edge the pointer brings the closed navigator out over the
 /// detail, as Arc's sidebar comes out.
 const PEEK_EDGE: f32 = 6.;
+/// How far the terminal overview's card is in from the column's edges, as the navigator's cards
+/// are, and the most of the column it takes fitting its rows, which scroll past that.
+const TERMINALS_MARGIN: f32 = 8.;
+const TERMINALS_MOST: f32 = 0.45;
+/// The most of the column it takes once its line's dragged, leaving the navigator its header.
+const TERMINALS_MOST_DRAGGED: f32 = 0.85;
 /// How far the navigator out over the detail floats from the window's edges.
 const PEEK_INSET: f32 = 6.;
 /// How far past its card the shadow of the navigator out over the detail reaches, which goes
@@ -461,6 +472,7 @@ impl AppView {
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
         let navigator =
             cx.new(|cx| Navigator::new(app.clone(), store.clone(), detail.clone(), window, cx));
+        let terminals = cx.new(|cx| TerminalOverview::new(app.clone(), store.clone(), cx));
         let tabs = cx.new(|cx| NavigatorTabs::new(app, store.clone(), navigator.clone(), cx));
         let strip_keys = tabs.read(cx).focus_handle().clone();
         navigator.update(cx, |navigator, _| navigator.set_strip_keys(strip_keys));
@@ -651,6 +663,7 @@ impl AppView {
             tile_room: Rc::default(),
             navigator,
             tabs,
+            terminals,
             navigator_on_top,
             tabs_slide: Slide::default(),
             menu: None,
@@ -886,6 +899,7 @@ impl AppView {
             navigator.list.remeasure();
             navigator.drawer_list.remeasure()
         });
+        self.terminals.read(cx).remeasure();
         cx.refresh_windows();
     }
 
@@ -1400,6 +1414,94 @@ impl AppView {
         }
     }
 
+    /// Show terminal `id` where it is, as the terminal overview and the terminal picker go to
+    /// it: its own row, or the row whose tiling it lives in a tile of, that tile the one of its
+    /// tiles that had the keys last. With `enter` the tile takes them, once it's drawn.
+    pub(crate) fn show_terminal(
+        &mut self,
+        id: TerminalId,
+        enter: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.covered() {
+            return;
+        }
+        let Some((selection, tile)) = self.store.read(cx).terminal_tile(id) else {
+            return;
+        };
+        (self.store).update(cx, |store, cx| {
+            if store.selection.as_ref() != Some(&selection) {
+                store.select(Some(selection), cx);
+            }
+            store.note_tile_with_keys(&tile);
+            cx.notify();
+        });
+        self.set_detail(true, window, cx);
+        if enter && self.peek.keyed {
+            self.close_peek(window, cx);
+        }
+        // Once the row's tiling is drawn, with the zoom it kept, which another tile's hides it.
+        Self::once_drawn(window, cx, move |this, window, cx| {
+            if this.zoomed().is_some_and(|zoomed| *zoomed != tile) {
+                this.zoom_out(cx);
+            }
+            if enter
+                && !this.covered()
+                && let Some(focus) = this.tile_focus(&tile, cx)
+            {
+                window.focus(&focus, cx);
+            }
+        });
+    }
+
+    /// Whether the terminal overview is drawn under the navigator beside the panes.
+    fn terminals_shown(&self, cx: &App) -> bool {
+        self.navigator_shown()
+            && !self.peek.open
+            && self.store.read(cx).prefs.shows(Part::TerminalOverview)
+    }
+
+    /// Give the terminal overview the keys, bringing the navigator it's under back beside the
+    /// panes and the overview into it, as Settings would.
+    fn focus_terminals(&mut self, _: &FocusTerminals, window: &mut Window, cx: &mut Context<Self>) {
+        // Across the top, there's no column for it.
+        if self.covered() || self.navigator_on_top {
+            return;
+        }
+        if !self.store.read(cx).prefs.shows(Part::TerminalOverview) {
+            (self.store).update(cx, |store, cx| {
+                store.set_prefs(|prefs| prefs.hide_terminal_overview = false, cx)
+            });
+        }
+        if !self.navigator_open {
+            self.set_navigator(true, window, cx);
+        }
+        let focus = self.terminals.focus_handle(cx);
+        // Not drawn yet if it just came in.
+        Self::once_drawn(window, cx, move |this, window, cx| {
+            if !this.covered() && this.terminals_shown(cx) {
+                window.focus(&focus, cx);
+            }
+        });
+    }
+
+    /// Show or hide the terminal overview, the keys going to the navigator if it had them.
+    fn toggle_terminal_overview(
+        &mut self,
+        _: &ToggleTerminalOverview,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let had_keys = self.terminals.focus_handle(cx).contains_focused(window, cx);
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.hide_terminal_overview ^= true, cx)
+        });
+        if had_keys {
+            window.focus(&self.navigator.focus_handle(cx), cx);
+        }
+    }
+
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
@@ -1540,9 +1642,13 @@ impl AppView {
             (KeyPlace::Navigator, KeyMove::TileBeside(Side::Top)) => false,
             _ => return false,
         };
-        (self.navigator).update(cx, |navigator, cx| {
+        let stepped = (self.navigator).update(cx, |navigator, cx| {
             navigator.step_project(forward, window, cx)
         });
+        // Past the last project is the terminal overview, as it's under them.
+        if !stepped && forward && self.terminals_shown(cx) {
+            window.focus(&self.terminals.focus_handle(cx), cx);
+        }
         true
     }
 
@@ -1605,6 +1711,9 @@ impl AppView {
         if strip || self.navigator.focus_handle(cx).contains_focused(window, cx) {
             return KeyPlace::Navigator;
         }
+        if self.terminals.focus_handle(cx).contains_focused(window, cx) {
+            return KeyPlace::Terminals;
+        }
         let tile = (self.zoomed().cloned()).unwrap_or_else(|| self.focused_tile(window, cx));
         let pane = self.tile_detail(&tile, cx);
         let pane = pane.map(|detail| detail.read(cx).pane_with_keys(window, cx));
@@ -1623,8 +1732,9 @@ impl AppView {
         let tiles = self.shown_tiles(cx);
         let strip = self.strip_is_navigator();
         let navigator = self.navigator_shown() || strip;
+        let terminals = self.terminals_shown(cx);
         let came_from = match from {
-            KeyPlace::Navigator => self.store.read(cx).last_tile_with_keys(),
+            KeyPlace::Navigator | KeyPlace::Terminals => self.store.read(cx).last_tile_with_keys(),
             KeyPlace::Tile(tile, _) => self.store.read(cx).tile_with_keys_before(tile),
         };
         let next = match by {
@@ -1634,10 +1744,13 @@ impl AppView {
             KeyMove::Beside(side) | KeyMove::TileBeside(side) => {
                 stop_beside(&from.stop(), side, &tiles, navigator, came_from.as_ref())
             }
-            KeyMove::Round { forward } => stop_round(&from.stop(), forward, &tiles, navigator),
+            KeyMove::Round { forward } => {
+                stop_round(&from.stop(), forward, &tiles, navigator, terminals)
+            }
         };
         match next? {
             KeyStop::Navigator => Some(KeyPlace::Navigator),
+            KeyStop::Terminals => Some(KeyPlace::Terminals),
             KeyStop::Tile(tile) => {
                 let alone = tile == Tile::Home && tiles.len() == 1;
                 self.place_in(tile, by, alone, cx)
@@ -1664,6 +1777,7 @@ impl AppView {
                 window.focus(&strip, cx)
             }
             KeyPlace::Navigator => window.focus(&self.navigator.focus_handle(cx), cx),
+            KeyPlace::Terminals => window.focus(&self.terminals.focus_handle(cx), cx),
             KeyPlace::Tile(tile, Some(pane)) => {
                 if let Some(detail) = self.tile_detail(tile, cx) {
                     detail.update(cx, |detail, cx| detail.focus_key_pane(*pane, window, cx));
@@ -2219,7 +2333,9 @@ impl AppView {
             self.navigator_slide.start(navigator_open, cx);
         }
         self.navigator_open = navigator_open;
-        if !navigator_open && self.navigator.focus_handle(cx).contains_focused(window, cx) {
+        let column_has_keys = self.navigator.focus_handle(cx).contains_focused(window, cx)
+            || self.terminals.focus_handle(cx).contains_focused(window, cx);
+        if !navigator_open && column_has_keys {
             self.focus_past_navigator(window, cx);
         } else if navigator_open && self.detail.read(cx).keys_stranded(window, cx) {
             window.focus(&self.navigator.focus_handle(cx), cx);
@@ -2699,8 +2815,22 @@ impl AppView {
         match self.arranging.as_ref() {
             Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop)),
             Some(_) => None,
-            None => (self.has_keys(tile, window, cx)).then(|| card_edge(theme.focus_edge())),
+            None => (self.has_keys(tile, window, cx) || self.overview_points_at(tile, window, cx))
+                .then(|| card_edge(theme.focus_edge())),
         }
+    }
+
+    /// Whether the terminal overview has the keys and `tile` shows the terminal it has
+    /// selected: the tile that takes them as Return gives them.
+    fn overview_points_at(&self, tile: &Tile, window: &Window, cx: &App) -> bool {
+        if !self.terminals.focus_handle(cx).contains_focused(window, cx) {
+            return false;
+        }
+        let store = self.store.read(cx);
+        let Some(shown) = store.terminal_shown() else {
+            return false;
+        };
+        (store.terminal_tile(shown)).is_some_and(|(_, shows)| shows == *tile)
     }
 
     /// A tile pinned beside the home tile, over `area` of the room below the header, edged
@@ -4327,11 +4457,10 @@ impl AppView {
         let sliding = self.detail_slide.openness(now).is_some();
         if let Some(narrowing) = self.narrowing.filter(|narrowing| !narrowing.settled) {
             let beside = narrowing.navigator * navigator_share;
-            let navigator = div().w(dp(narrowing.navigator)).h_full().child(
-                self.navigator
-                    .clone()
-                    .cached(StyleRefinement::default().size_full()),
-            );
+            let navigator = div()
+                .w(dp(narrowing.navigator))
+                .h_full()
+                .child(self.render_side_column(false, cx));
             return div()
                 .absolute()
                 .inset_0()
@@ -4372,11 +4501,7 @@ impl AppView {
             .when(
                 self.navigator_open || self.navigator_slide.closing(now) || sliding,
                 |el| {
-                    let navigator = div().size_full().child(
-                        self.navigator
-                            .clone()
-                            .cached(StyleRefinement::default().size_full()),
-                    );
+                    let navigator = div().size_full().child(self.render_side_column(false, cx));
                     el.child(
                         div()
                             .absolute()
@@ -4398,6 +4523,79 @@ impl AppView {
                         .w_full(),
                 )
             })
+    }
+
+    /// The column the navigator takes beside the panes, or the window with the details hidden:
+    /// the navigator, and under it, while Settings shows it, the terminal overview, as tall as
+    /// its rows up to a share of the column. `beside` the details, its right edge is in by as
+    /// much as the navigator's cards are.
+    fn render_side_column(&self, beside: bool, cx: &App) -> Div {
+        let navigator = (self.navigator.clone()).cached(StyleRefinement::default().size_full());
+        let store = self.store.read(cx);
+        let shown = store.prefs.shows(Part::TerminalOverview);
+        let theme = Theme::get(cx);
+        let terminals = shown.then(|| {
+            // As tall as its rows until its line is dragged, then as dragged.
+            let (height, most) = match store.dragged_width(Pane::Terminals) {
+                Some(height) => (height, TERMINALS_MOST_DRAGGED),
+                None => (self.terminals.read(cx).height(cx), TERMINALS_MOST),
+            };
+            let which = DividerDrag::Terminals;
+            let reset = {
+                let store = self.store.clone();
+                move |event: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
+                    if event.click_count() == 2 {
+                        store.update(cx, |store, cx| store.set_width(Pane::Terminals, None, cx))
+                    }
+                }
+            };
+            // The gap over its card, to the navigator's, drags its height, as the one beside
+            // the navigator drags that's width.
+            let divider = gap_divider(
+                "resize-terminals",
+                Axis::Down,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .left_0()
+            .right_0()
+            .top(dp(-TERMINALS_MARGIN - 2.))
+            .h(dp(TERMINALS_MARGIN + 4.))
+            .on_drag(Pane::Terminals, mark_dragged(&self.store, which))
+            .on_click(reset);
+            div()
+                .relative()
+                .flex_none()
+                .h(dp(height + TERMINALS_MARGIN))
+                .max_h(relative(most))
+                .pl(dp(TERMINALS_MARGIN))
+                .pr(dp(if beside {
+                    TERMINALS_MARGIN - 1.
+                } else {
+                    TERMINALS_MARGIN
+                }))
+                .pb(dp(TERMINALS_MARGIN))
+                .bg(theme.bg_2)
+                .child((self.terminals.clone()).cached(StyleRefinement::default().size_full()))
+                .child(divider)
+        });
+        let store = self.store.clone();
+        v_flex()
+            .size_full()
+            .on_drag_move(move |event: &DragMoveEvent<Pane>, _, cx| {
+                if *event.drag(cx) == Pane::Terminals {
+                    // From the column's bottom to the pointer, less the margin under the card.
+                    let height = f32::from(event.bounds.bottom() - event.event.position.y);
+                    let height = height / Theme::get(cx).scale - TERMINALS_MARGIN;
+                    store.update(cx, |store, cx| {
+                        store.set_width(Pane::Terminals, Some(height), cx)
+                    });
+                }
+            })
+            .child(div().flex_1().min_h_0().child(navigator))
+            .children(terminals)
     }
 
     /// The navigator out over the detail: a card sliding in from past the window's edge,
@@ -4569,6 +4767,8 @@ struct Page {
 #[derive(Debug, Clone, PartialEq)]
 enum KeyPlace {
     Navigator,
+    /// The terminal overview, under the navigator.
+    Terminals,
     /// A tile, at a pane of its page, or without one where it takes the keys whole: a terminal,
     /// or a page with no panes.
     Tile(Tile, Option<KeyPane>),
@@ -4578,6 +4778,7 @@ impl KeyPlace {
     fn stop(&self) -> KeyStop {
         match self {
             KeyPlace::Navigator => KeyStop::Navigator,
+            KeyPlace::Terminals => KeyStop::Terminals,
             KeyPlace::Tile(tile, _) => KeyStop::Tile(tile.clone()),
         }
     }
@@ -4587,6 +4788,7 @@ impl KeyPlace {
 #[derive(Debug, Clone, PartialEq)]
 enum KeyStop {
     Navigator,
+    Terminals,
     Tile(Tile),
 }
 
@@ -4597,10 +4799,14 @@ fn stop_round(
     forward: bool,
     tiles: &[(Tile, Area)],
     navigator: bool,
+    terminals: bool,
 ) -> Option<KeyStop> {
     let tiles = (tiles.iter()).map(|(tile, _)| KeyStop::Tile(tile.clone()));
     let navigator = navigator.then_some(KeyStop::Navigator);
-    let stops: Vec<KeyStop> = navigator.into_iter().chain(tiles).collect();
+    let terminals = terminals.then_some(KeyStop::Terminals);
+    let stops: Vec<KeyStop> = (navigator.into_iter().chain(terminals))
+        .chain(tiles)
+        .collect();
     let at = stops.iter().position(|stop| stop == from)?;
     let count = stops.len();
     let next = if forward { at + 1 } else { at + count - 1 };
@@ -4618,12 +4824,14 @@ fn stop_beside(
     came_from: Option<&Tile>,
 ) -> Option<KeyStop> {
     match from {
-        KeyStop::Navigator if side == Side::Right => {
+        KeyStop::Navigator | KeyStop::Terminals if side == Side::Right => {
             let along = along_edge(tiles, Side::Left);
             let back = (along.iter()).find(|tile| Some(**tile) == came_from);
             (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
         }
-        KeyStop::Navigator => None,
+        // The overview is under the navigator.
+        KeyStop::Terminals if side == Side::Top => Some(KeyStop::Navigator),
+        KeyStop::Navigator | KeyStop::Terminals => None,
         KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
             Some(beside) => Some(KeyStop::Tile(beside)),
             None if side == Side::Left && navigator => Some(KeyStop::Navigator),
@@ -4647,7 +4855,8 @@ fn stop_beside_strip(
             let back = (along.iter()).find(|tile| Some(**tile) == came_from);
             (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
         }
-        KeyStop::Navigator => None,
+        // Never there across the top.
+        KeyStop::Navigator | KeyStop::Terminals => None,
         KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
             Some(beside) => Some(KeyStop::Tile(beside)),
             None if side == Side::Top => Some(KeyStop::Navigator),
@@ -5323,6 +5532,8 @@ impl Render for AppView {
                 this.update_selected_project(UpdateScope::Worktrees, cx)
             }))
             .on_action(cx.listener(Self::toggle_navigator))
+            .on_action(cx.listener(Self::toggle_terminal_overview))
+            .on_action(cx.listener(Self::focus_terminals))
             .on_action(cx.listener(Self::toggle_navigator_place))
             .on_action(cx.listener(Self::toggle_detail))
             .on_action(cx.listener(Self::command_palette))
@@ -5504,11 +5715,10 @@ impl Render for AppView {
                                     // Sliding, it keeps its width and its place, so it's drawn
                                     // again only when it changes, not as it slides or the diff
                                     // changes: the detail beside it moves its edge across it.
-                                    let navigator = div().w(dp(width)).h_full().child(
-                                        self.navigator
-                                            .clone()
-                                            .cached(StyleRefinement::default().size_full()),
-                                    );
+                                    let navigator = div()
+                                        .w(dp(width))
+                                        .h_full()
+                                        .child(self.render_side_column(true, cx));
                                     el.child(
                                         div()
                                             .w(dp(width * navigator_share))
@@ -5829,7 +6039,7 @@ mod tests {
     #[test]
     fn going_round_the_navigator_comes_before_the_first_tile() {
         assert_eq!(
-            stop_round(&KeyStop::Navigator, true, &side_by_side(), true),
+            stop_round(&KeyStop::Navigator, true, &side_by_side(), true, false),
             Some(at(Tile::Home)),
             "Tab from the navigator goes to the first tile"
         );
@@ -5838,7 +6048,7 @@ mod tests {
     #[test]
     fn going_round_goes_tile_by_tile() {
         assert_eq!(
-            stop_round(&at(Tile::Home), true, &side_by_side(), true),
+            stop_round(&at(Tile::Home), true, &side_by_side(), true, false),
             Some(at(pinned())),
             "Tab past the home tile's last pane goes to the tile after it"
         );
@@ -5847,7 +6057,7 @@ mod tests {
     #[test]
     fn going_round_past_the_last_tile_reaches_the_navigator() {
         assert_eq!(
-            stop_round(&at(pinned()), true, &side_by_side(), true),
+            stop_round(&at(pinned()), true, &side_by_side(), true, false),
             Some(KeyStop::Navigator),
             "the navigator is between the last tile and the first"
         );
@@ -5856,7 +6066,7 @@ mod tests {
     #[test]
     fn going_round_back_from_the_navigator_reaches_the_last_tile() {
         assert_eq!(
-            stop_round(&KeyStop::Navigator, false, &side_by_side(), true),
+            stop_round(&KeyStop::Navigator, false, &side_by_side(), true, false),
             Some(at(pinned())),
             "⇧Tab from the navigator goes round to the last tile"
         );
@@ -5865,9 +6075,43 @@ mod tests {
     #[test]
     fn going_round_without_the_navigator_goes_from_the_last_tile_to_the_first() {
         assert_eq!(
-            stop_round(&at(pinned()), true, &side_by_side(), false),
+            stop_round(&at(pinned()), true, &side_by_side(), false, false),
             Some(at(Tile::Home)),
             "a hidden navigator isn't a stop"
+        );
+    }
+
+    #[test]
+    fn going_round_the_terminal_overview_comes_between_the_navigator_and_the_tiles() {
+        assert_eq!(
+            stop_round(&KeyStop::Navigator, true, &side_by_side(), true, true),
+            Some(KeyStop::Terminals),
+            "Tab from the navigator goes to the overview under it"
+        );
+        assert_eq!(
+            stop_round(&KeyStop::Terminals, true, &side_by_side(), true, true),
+            Some(at(Tile::Home)),
+            "and on from it to the first tile"
+        );
+    }
+
+    #[test]
+    fn above_the_terminal_overview_is_the_navigator_and_right_of_it_the_tiles() {
+        assert_eq!(
+            stop_beside(&KeyStop::Terminals, Side::Top, &side_by_side(), true, None),
+            Some(KeyStop::Navigator),
+            "the overview is under the navigator"
+        );
+        assert_eq!(
+            stop_beside(
+                &KeyStop::Terminals,
+                Side::Right,
+                &side_by_side(),
+                true,
+                Some(&pinned())
+            ),
+            Some(at(Tile::Home)),
+            "right of it is the tile along the left edge, as from the navigator"
         );
     }
 

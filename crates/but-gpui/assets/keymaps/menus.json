@@ -153,7 +153,8 @@
       },
       "app::FocusNavigator",
       "app::FocusChanges",
-      "app::FocusDiff"
+      "app::FocusDiff",
+      "app::FocusTerminals"
     ]
   },
   {
@@ -165,6 +166,8 @@
       "-",
       "app::ToggleNavigator",
       "app::ToggleDetail",
+      "app::ToggleTerminalOverview",
+      "-",
       "app::ToggleNavigatorPlace",
       "-",
       "diff::ToggleFiles",

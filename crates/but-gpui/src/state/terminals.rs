@@ -24,6 +24,19 @@ pub struct ProjectCheckout {
     pub checkout: Checkout,
 }
 
+/// A terminal as [`Terminals::all`] lists it.
+pub struct ListedTerminal<'a> {
+    pub id: TerminalId,
+    pub project: &'a ProjectId,
+    pub checkout: &'a Checkout,
+    pub title: &'a SharedString,
+    pub status: &'a Status,
+    /// When `status` last changed, or it opened.
+    pub since: Instant,
+    /// It lives in a tile alone, which the navigator doesn't list.
+    pub tiled: bool,
+}
+
 #[derive(Default)]
 pub struct Terminals {
     opened: u64,
@@ -64,6 +77,8 @@ struct Open {
     /// The name the user gave it, if they did.
     named: Option<SharedString>,
     status: Status,
+    /// When `status` last changed, or it opened.
+    since: Instant,
     /// It was opened in a tile or dragged into one, which it lives in alone: the navigator
     /// doesn't list it, and it closes with the tile.
     tiled: bool,
@@ -141,6 +156,20 @@ impl Terminals {
             })
     }
 
+    /// Every one open, on every project, in the order they opened, with where it's open, what
+    /// it's called and what it's at, tiled or not.
+    pub fn all(&self) -> impl Iterator<Item = ListedTerminal<'_>> {
+        (self.open.iter()).map(|open| ListedTerminal {
+            id: open.id,
+            project: &open.project,
+            checkout: &open.checkout,
+            title: open.named.as_ref().unwrap_or(&open.title),
+            status: &open.status,
+            since: open.since,
+            tiled: open.tiled,
+        })
+    }
+
     /// Whether terminal `id` lives in a tile alone.
     pub fn tiled(&self, id: TerminalId) -> bool {
         self.open.iter().any(|open| open.id == id && open.tiled)
@@ -158,6 +187,33 @@ impl Terminals {
 }
 
 impl Store {
+    /// Where terminal `id` shows: its own row, in the home tile, or the row whose tiling it
+    /// lives in a tile of, in that tile.
+    pub fn terminal_tile(&self, id: TerminalId) -> Option<(Selection, Tile)> {
+        let open = self.terminals.open.iter().find(|open| open.id == id)?;
+        let own = Selection::Terminal(open.project.clone(), id);
+        if !open.tiled {
+            return Some((own, Tile::Home));
+        }
+        let tile = Tile::Pinned(RowKey::Row(own));
+        let (row, _) = (self.tilings.iter()).find(|(_, tiling)| tiling.has(&tile))?;
+        Some((self.selection_of(row)?, tile))
+    }
+
+    /// The terminal in the selected row's tile that had the keys last, or the row's own, if
+    /// it's a terminal's: the one that shows as selected.
+    pub fn terminal_shown(&self) -> Option<TerminalId> {
+        match self.last_tile_with_keys() {
+            Some(Tile::Pinned(RowKey::Row(Selection::Terminal(_, id)))) => return Some(id),
+            Some(Tile::Pinned(_)) => return None,
+            Some(Tile::Home) | None => {}
+        }
+        match self.selection.as_ref()? {
+            Selection::Terminal(_, id) => Some(*id),
+            _ => None,
+        }
+    }
+
     /// What a terminal pastes of what's being dragged: a file, hunk or lines from the diff as
     /// their patch, as it was when the drag began ([`Store::dragged_patch`]), else the row
     /// ([`Moving::pasted`](crate::transfer::Moving::pasted)) as the store followed it, as an
@@ -275,6 +331,7 @@ impl Store {
             title,
             named,
             status,
+            since: Instant::now(),
             tiled: false,
             _events: events,
         });
@@ -367,8 +424,11 @@ impl Store {
     }
 
     fn restatus_terminal(&mut self, id: TerminalId, status: Status, cx: &mut Context<Self>) {
-        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id) {
+        if let Some(open) = self.terminals.open.iter_mut().find(|open| open.id == id)
+            && open.status != status
+        {
             open.status = status;
+            open.since = Instant::now();
         }
         cx.notify();
     }

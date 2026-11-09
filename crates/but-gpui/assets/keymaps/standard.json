@@ -44,7 +44,7 @@
     }
   },
   // ⌘P goes to anything, the TUI's branch picker for more than branches, ⌘1, ⌘2 and ⌘3 go to the
-  // navigator, the files and the diff, and ⌘B and ⌥⌘B show or hide the navigator and the
+  // navigator, the files and the diff, ⌘4 to the terminal overview under the navigator, and ⌘B and ⌥⌘B show or hide the navigator and the
   // details. ⌘J goes to a terminal, as VS Code's and Zed's open the
   // panel theirs are in, and ⌘T opens one, as a terminal app opens a tab. From a terminal too,
   // which takes the TUI's letters.
@@ -56,6 +56,7 @@
       "secondary-1": "app::FocusNavigator",
       "secondary-2": "app::FocusChanges",
       "secondary-3": "app::FocusDiff",
+      "secondary-4": "app::FocusTerminals",
       "secondary-b": "app::ToggleNavigator",
       "secondary-alt-b": "app::ToggleDetail",
       "secondary-o": "app::AddProject",
@@ -205,7 +206,7 @@
     "bindings": { "r": "edits::NameBranch", "f2": "edits::Reword" }
   },
   {
-    "context": "Navigator && !TextInput",
+    "context": "(Navigator || TerminalOverview) && !TextInput",
     "bindings": { "r": "edits::RenameTerminal", "f2": "edits::RenameTerminal" }
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, ⇧J and ⇧K a few lines,
@@ -229,7 +230,7 @@
   },
   // Discarding, one command for whatever has the keys, says what it takes as a menu offers it.
   {
-    "context": "(Navigator || Diff) && !TextInput",
+    "context": "(Navigator || Diff || TerminalOverview) && !TextInput",
     "bindings": { "secondary-backspace": "edits::Discard" }
   },
   // f shows or hides the file list, or the files beside a History or Branches list, as f shows
@@ -257,6 +258,20 @@
       "j": "navigator::SelectNext",
       "shift-l": "navigator::Expand",
       "shift-h": "navigator::Collapse"
+    }
+  },
+  // In the terminal overview, ↑ and ↓, or k and j, show the terminal above or below where it is,
+  // as the navigator's rows show theirs, and Return gives it the keys, as → does. On a status's
+  // heading, Return folds or unfolds it. r or F2 renames the terminal and ⌘⌫ closes it, as on
+  // its row in the navigator.
+  {
+    "context": "TerminalOverview && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext",
+      "enter": "navigator::Confirm"
     }
   },
   // On the drawer's bar, which folds but isn't the selection, the navigator's keys that move and
