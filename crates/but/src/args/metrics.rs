@@ -71,6 +71,8 @@ pub enum CommandName {
     #[cfg(feature = "nightly")]
     Expand,
     Comment,
+    #[cfg(feature = "nightly")]
+    Ui,
     Completions,
     Mcp,
     Metrics,

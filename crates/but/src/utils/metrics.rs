@@ -61,6 +61,8 @@ impl Subcommands {
         use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             Subcommands::_Comment(_) => Comment,
+            #[cfg(feature = "nightly")]
+            Subcommands::_Ui(_) => Ui,
             Subcommands::Completions { .. } => Completions,
             Subcommands::Mcp(_) => Mcp,
             Subcommands::Metrics { .. } => Metrics,

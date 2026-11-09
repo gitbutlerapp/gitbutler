@@ -1181,6 +1181,7 @@ dependencies = [
  "but-settings",
  "but-testsupport",
  "but-transaction",
+ "but-ui-control",
  "but-update",
  "but-utils",
  "but-workspace",
