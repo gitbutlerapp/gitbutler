@@ -4,7 +4,7 @@
 //! read leniently but written in one shape.
 
 use anyhow::{Context as _, Result};
-use gpui::{App, KeyContext, Menu, MenuItem, SharedString, SystemMenuType};
+use gpui::{App, KeyContext, Menu, MenuItem, OsAction, SharedString, SystemMenuType};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::title_of;
@@ -147,7 +147,7 @@ pub fn built(menus: &[BarMenu], cx: &App) -> Vec<Menu> {
                     Some(MenuItem::Action {
                         name: item.title().into(),
                         action: built,
-                        os_action: None,
+                        os_action: os_action(action),
                         checked: false,
                         disabled: false,
                     })
@@ -159,6 +159,18 @@ pub fn built(menus: &[BarMenu], cx: &App) -> Vec<Menu> {
             Menu::new(menu.name.clone()).items(items)
         })
         .collect()
+}
+
+/// The edit macOS's own panels take from the item for `action`, as the file picker's path field
+/// takes ⌘V only from an Edit menu's Paste.
+fn os_action(action: &str) -> Option<OsAction> {
+    match action {
+        "text_input::Cut" => Some(OsAction::Cut),
+        "text_input::Copy" => Some(OsAction::Copy),
+        "text_input::Paste" => Some(OsAction::Paste),
+        "text_input::SelectAll" => Some(OsAction::SelectAll),
+        _ => None,
+    }
 }
 
 /// Whether this build offers `action` in its menus.
@@ -203,15 +215,23 @@ pub fn shortcut(action: &str, cx: &App) -> Option<SharedString> {
 }
 
 /// `title` as macOS words menu items, each word capitalised but the short ones that join
-/// others: "Report an issue" is "Report an Issue".
+/// others, in a hyphenated word too: "Report an issue" is "Report an Issue", and
+/// "Side-by-side diff" "Side-by-Side Diff".
 pub fn title_case(title: &str) -> String {
     const JOINING: [&str; 13] = [
         "a", "an", "the", "and", "but", "or", "nor", "for", "of", "to", "at", "by", "as",
     ];
     let words: Vec<String> = (title.split(' ').enumerate())
-        .map(|(ix, word)| match ix > 0 && JOINING.contains(&word) {
-            true => word.to_owned(),
-            false => capitalised(word),
+        .map(|(ix, word)| {
+            let parts: Vec<String> = (word.split('-').enumerate())
+                .map(
+                    |(part_ix, part)| match (ix > 0 || part_ix > 0) && JOINING.contains(&part) {
+                        true => part.to_owned(),
+                        false => capitalised(part),
+                    },
+                )
+                .collect();
+            parts.join("-")
         })
         .collect();
     words.join(" ")
@@ -279,14 +299,18 @@ mod tests {
                 format!("{}: {}", menu.name, items.join(", "))
             })
             .collect();
-        // The menu bar the app had before it was read from a file, word for word.
+        // Each item as the menu bar words it, from the palette's titles or the file's own.
         snapbox::assert_data_eq!(
             text.join("\n"),
             snapbox::str![[r#"
-GitButler: About GitButler, Check for Updates, -, Settings, -, Services, -, Hide GitButler, Hide Others, Show All, -, Quit GitButler
-File: Add Project, Clone Repository, New Terminal, -, Close Window
-View: Actual Size, Zoom In, Zoom Out
-Window: Minimize, Zoom
+GitButler: About GitButler, Check for Updates, -, Settings…, -, Services, -, Hide GitButler, Hide Others, Show All, -, Quit GitButler
+File: Add Project…, Clone Repository…, New Terminal, -, Close Window
+Edit: Undo Operation, Redo Operation, -, Cut, Copy, Paste, Select All, -, Copy Selection, Copy More…
+Repository: Commit…, Amend…, -, Reword, Discard, Squash…, Move…, -, New Branch, New Branch Above, New Branch Below, New Worktree From Branch, -, Add Empty Commit Above, Add Empty Commit Below, -, Apply Branch, Unapply Stack, -, New Worktree, New Worktree With Name…, Archive Worktree, Unarchive Worktree…
+Remote: Push, Fetch, Pull, -, Create Pull Request…, Open Pull Request, Copy Pull Request Link, -, Update Workspace and Worktrees, Update Workspace, Update Worktrees
+Go: Command Palette…, -, Go to Anything…, Go to Navigator, Go to Files, Go to Diff
+View: Actual Size, Zoom In, Zoom Out, -, Toggle Navigator, Toggle Details, Move Navigator, -, Toggle Files, Wrap Long Lines, Fold File, Unfold File, Side-by-Side Diff, -, Change Theme…
+Window: Minimize, Zoom, -, Split Right, Split Below, -, Zoom Tile, Arrange Tiles, Equalize Tiles, Swap Tiles, Close Tile
 Help: GitButler Docs, What's New, Keyboard Shortcuts, -, Report an Issue, Show Settings Folder, Show Logs Folder
 "#]]
         );
@@ -404,6 +428,11 @@ Help: GitButler Docs, What's New, Keyboard Shortcuts, -, Report an Issue, Show S
             title_case("What's new (release notes)"),
             "What's New (Release Notes)"
         );
+    }
+
+    #[test]
+    fn each_part_of_a_hyphenated_word_is_capitalised() {
+        assert_eq!(title_case("Side-by-side diff"), "Side-by-Side Diff");
     }
 
     #[test]
