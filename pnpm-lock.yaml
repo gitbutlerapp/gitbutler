@@ -12577,7 +12577,7 @@ snapshots:
 
   '@typescript-eslint/utils@8.57.2(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
+      '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
       '@typescript-eslint/scope-manager': 8.57.2
       '@typescript-eslint/types': 8.57.2
       '@typescript-eslint/typescript-estree': 8.57.2(supports-color@8.1.1)(typescript@5.9.3)
@@ -18008,7 +18008,7 @@ snapshots:
       deepmerge-ts: 7.1.5
       https-proxy-agent: 7.0.6(supports-color@8.1.1)
       undici: 6.23.0
-      ws: 8.19.0
+      ws: 8.21.3
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
