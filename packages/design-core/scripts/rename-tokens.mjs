@@ -25,7 +25,9 @@ const roots = args.filter((a) => !a.startsWith("--"));
 const EXTENSIONS = new Set([".css", ".ts", ".tsx", ".js", ".mjs", ".svelte", ".md", ".svg"]);
 const SKIP = new Set(["node_modules", "dist", "build", ".svelte-kit", "json"]);
 
-const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape(s) {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 const pattern = new RegExp(
 	`(?<![\\w-])(${Object.keys(names)
 		.sort((a, b) => b.length - a.length)
@@ -65,10 +67,10 @@ for (const root of roots) {
 		if (count) {
 			writeFileSync(file, out);
 			total += count;
-			console.log(`${String(count).padStart(4)}  ${relative(process.cwd(), file)}`);
+			process.stdout.write(`${String(count).padStart(4)}  ${relative(process.cwd(), file)}\n`);
 		}
 	}
 }
-console.log(`\n${total} names rewritten.`);
+process.stdout.write(`\n${total} names rewritten.\n`);
 if (review.length)
-	console.log(`\nGiven the default; check where another fits:\n${review.join("\n")}`);
+	process.stdout.write(`\nGiven the default; check where another fits:\n${review.join("\n")}\n`);
