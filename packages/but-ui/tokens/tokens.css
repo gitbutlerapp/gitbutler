@@ -91,7 +91,7 @@
   /* A commit that's on the remote. */
   --but-commit-remote: var(--but-teal-9);
   /* A commit that's upstream and not yet here. */
-  --but-commit-upstream: var(--but-amber-9);
+  --but-commit-upstream: var(--but-amber-11);
   --but-danger: var(--but-red-9);
   /* Text and icons on danger. */
   --but-danger-foreground: hsl(0 0.0% 100.0%);

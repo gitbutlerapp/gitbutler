@@ -862,12 +862,12 @@
       },
       "upstream": {
         "$type": "color",
-        "$value": "{ramps.amber.9}",
+        "$value": "{ramps.amber.11}",
         "$description": "A commit that's upstream and not yet here.",
         "$extensions": {
           "mode": {
-            "light": "{ramps.amber.9}",
-            "dark": "{ramps.amber.9}"
+            "light": "{ramps.amber.11}",
+            "dark": "{ramps.amber.11}"
           }
         }
       },
@@ -1445,7 +1445,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-09T21:07:38.883Z"
+        "createdAt": "2026-11-09T22:24:22.683Z"
       }
     }
   }
