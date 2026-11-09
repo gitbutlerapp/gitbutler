@@ -2742,6 +2742,7 @@ pub(super) mod tests {
                 let delete = crate::backend::worktrees::DeleteWorktree {
                     name: "agent".into(),
                     lost: asked.to_vec(),
+                    keep_if_changed: false,
                 };
                 crate::backend::apply(path, delete)
             };
@@ -2753,6 +2754,16 @@ pub(super) mod tests {
             assert!(
                 linked.join("fresh").exists(),
                 "and leaves the worktree as it was"
+            );
+            let kept = crate::backend::worktrees::DeleteWorktree {
+                name: "agent".into(),
+                lost: Vec::new(),
+                keep_if_changed: true,
+            };
+            crate::backend::apply(path, kept).unwrap();
+            assert!(
+                linked.join("fresh").exists(),
+                "one an update found merged stays with its changes, and says nothing"
             );
 
             std::fs::remove_file(linked.join("fresh")).unwrap();

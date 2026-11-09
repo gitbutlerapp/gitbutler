@@ -1108,6 +1108,9 @@ pub enum UpdateOutcome {
         merged: Vec<super::FullName>,
         /// Checkouts whose uncommitted changes got conflict markers.
         marked: Vec<super::Checkout>,
+        /// The linked worktrees whose own work it found merged, with nothing uncommitted: see
+        /// [`super::worktrees::Heads::merged_with_own_work`].
+        merged_worktrees: Vec<bstr::BString>,
     },
 }
 
@@ -1150,26 +1153,38 @@ impl Update {
     fn rebase(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
             let info = but_api::legacy::workspace::head_info(ctx)?;
-            let behind = {
+            let (behind, measured) = {
                 let repo = ctx.repo.get()?;
                 let meta = ctx.project_meta()?;
                 match super::target_source(&repo, &meta)
                     .and_then(|source| super::ref_tip(&repo, source.as_ref()))
                 {
-                    Some(tip) => but_api::workspace::is_behind_target(
-                        &repo,
-                        &info,
-                        self.scope,
-                        tip,
-                        meta.resolve_target_commit(&repo)?,
-                    )?,
+                    Some(tip) => {
+                        let base = meta.resolve_target_commit(&repo)?;
+                        let behind = but_api::workspace::is_behind_target(
+                            &repo, &info, self.scope, tip, base,
+                        )?;
+                        (behind, Some((tip, base)))
+                    }
                     // Without a target to read, the update says what's wrong.
-                    None => true,
+                    None => (true, None),
                 }
             };
             if !behind {
                 return Ok(UpdateOutcome::UpToDate);
             }
+            // What the update measures merged branches from: the target's own commits since
+            // where the workspace stood, and that one; and where each worktree was.
+            let (main_line, heads) = {
+                let repo = ctx.repo.get()?;
+                let mut main_line = HashSet::new();
+                if let Some((tip, base)) = measured {
+                    let past = super::commits_past(&repo, tip, base);
+                    main_line = super::first_parent_line(&repo, tip, &past);
+                    main_line.insert(super::CommitId(base));
+                }
+                (main_line, super::worktrees::heads(&repo))
+            };
             let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
                 ctx,
                 &info,
@@ -1203,11 +1218,13 @@ impl Update {
                     .collect()
             };
             let remaining = names(&after);
+            let merged: Vec<_> = (names(&info).into_iter())
+                .filter(|name| !remaining.contains(name))
+                .collect();
             Ok(UpdateOutcome::Updated {
                 conflicted: newly_conflicted(&info, &updated.workspace_state.conflicted_commits),
-                merged: (names(&info).into_iter())
-                    .filter(|name| !remaining.contains(name))
-                    .collect(),
+                merged_worktrees: heads.merged_with_own_work(ctx, &merged, &main_line),
+                merged,
                 marked: marked(&updated.workspace_state.conflicted_checkouts),
             })
         })
@@ -1330,7 +1347,7 @@ fn marked(checkouts: &[but_rebase::graph_rebase::ConflictedCheckout]) -> Vec<sup
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::{
         ACTIVITY_DAYS, DAY, Update, UpdateOutcome, UpdateScope, day_of, day_start, overview,
         push_refusal, pushed_with, remote_failure,
@@ -1613,7 +1630,7 @@ mod tests {
 
     /// Pushes and the prune after an update go without the app's askpass broker, which a
     /// process can turn off only once.
-    fn without_askpass() {
+    pub(in crate::backend) fn without_askpass() {
         static ASKPASS: std::sync::Once = std::sync::Once::new();
         ASKPASS.call_once(but_askpass::disable);
     }

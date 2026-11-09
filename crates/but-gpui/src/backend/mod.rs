@@ -494,7 +494,7 @@ fn target(
         branch,
         local,
         untracked,
-        behind: first_parent_run(&repo, tip, &new),
+        behind: first_parent_line(&repo, tip, &new).len(),
         commits_behind,
         workspace_behind: behind(but_api::workspace::UpdateScope::Workspace)?,
         worktrees_behind: behind(but_api::workspace::UpdateScope::Worktrees)?,
@@ -716,22 +716,31 @@ fn new_commits(
             None => return HashSet::new(),
         },
     };
+    commits_past(repo, tip, hidden)
+}
+
+/// What `tip` has that `hidden` doesn't.
+fn commits_past(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    hidden: gix::ObjectId,
+) -> HashSet<gix::ObjectId> {
     (repo.rev_walk([tip]).with_hidden([hidden]).all())
         .map(|walk| walk.filter_map(Result::ok).map(|info| info.id).collect())
         .unwrap_or_default()
 }
 
-/// How many of `new` are on `tip`'s own line of history, each merge once, as `but status`
-/// counts them.
-fn first_parent_run(
+/// Those of `new` on `tip`'s own line of history, each merge once, as `but status` counts
+/// them.
+fn first_parent_line(
     repo: &gix::Repository,
     tip: gix::ObjectId,
     new: &HashSet<gix::ObjectId>,
-) -> usize {
-    let mut run = 0;
+) -> HashSet<CommitId> {
+    let mut run = HashSet::new();
     let mut at = Some(tip);
     while let Some(id) = at.filter(|id| new.contains(id)) {
-        run += 1;
+        run.insert(CommitId(id));
         at = (repo.find_commit(id).ok())
             .and_then(|commit| commit.parent_ids().next())
             .map(|id| id.detach());
@@ -1330,7 +1339,7 @@ mod behind_tests {
         let new = |meta: &ProjectMeta| {
             let repo = gix::open(path).unwrap();
             let new = super::new_commits(&repo, meta, tip);
-            (super::first_parent_run(&repo, tip, &new), new.len())
+            (super::first_parent_line(&repo, tip, &new).len(), new.len())
         };
 
         git(path, &["checkout", "-q", "feature"]);
