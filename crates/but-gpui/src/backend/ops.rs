@@ -700,7 +700,8 @@ pub struct Committed {
     pub hook_failed: Option<String>,
 }
 
-/// A new commit, with the change id a reload finds it by once an agent rewrote it.
+/// A new commit, or one a link names, with the change id a reload finds it by once an agent
+/// rewrote it.
 #[derive(Debug)]
 pub struct Made {
     pub id: CommitId,

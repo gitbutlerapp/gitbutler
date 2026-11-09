@@ -969,27 +969,27 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 
 "#]]);
     }
-    // A commit, its file and its hunk, by the commit's full hash. A hunk opens at its first
-    // added line, as `_open` opens an editor at it.
+    // A commit, its file and its hunk, by the commit's full hash and its change ID. A hunk opens
+    // at its first added line, as `_open` opens an editor at it.
     env.but("_open zon --gui --dry-run")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]
 
 "#]]);
     env.but("_open zon:u --gui --dry-run")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&file=file.txt
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]&file=file.txt
 
 "#]]);
     env.but("_open zo:u:f --gui --dry-run")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&file=file.txt&line=1
+[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]&file=file.txt&line=1
 
 "#]]);
     // Uncommitted changes, a file in them and each of its hunks.
@@ -1027,7 +1027,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "link": "[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]"
+  "link": "[..]://open?path=[..]&t=[..]&new_window=0&to=commit&commit=d7681b4[..]&change=zon[..]"
 }
 
 "#]]);

@@ -32,6 +32,8 @@ pub enum Route {
         selection: Selection,
         tab: Option<Tab>,
         place: Option<CodePlace>,
+        /// A commit's change id, which finds it once an agent amended or rebased it.
+        change: Option<String>,
     },
     /// A page of settings.
     Settings(Page),
@@ -114,10 +116,16 @@ fn select_route<'a>(
         }),
         Some(_) => return None,
     };
+    let change = match get("change") {
+        None => None,
+        Some(change) if matches!(selection, Selection::Commit(..)) => Some(change.to_owned()),
+        Some(_) => return None,
+    };
     Some(Route::Select {
         selection,
         tab,
         place,
+        change,
     })
 }
 
@@ -202,10 +210,13 @@ pub fn land(
             None
         }
         Some(Route::Select {
-            selection, place, ..
+            selection,
+            place,
+            change,
+            ..
         }) => {
             let missing = missing(SelectionKind::from(&selection));
-            store.select_linked(selection, place, missing, cx);
+            store.select_linked(selection, change, place, missing, cx);
             None
         }
         Some(Route::Settings(page)) => {
@@ -293,6 +304,7 @@ mod tests {
     use crate::settings::ProjectPage;
 
     const HASH: &str = "8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a";
+    const CHANGE: &str = "xrrnsmtyqworuxuywlkomlywrzkoupol";
 
     fn project() -> ProjectId {
         "a-project-id".into()
@@ -326,7 +338,9 @@ mod tests {
             SelectionKind::Terminal => return None,
             SelectionKind::Branch => "to=branch&branch=refs/heads/feature",
             SelectionKind::Stack => "to=stack&branch=refs/heads/feature",
-            SelectionKind::Commit => "to=commit&commit=8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a",
+            SelectionKind::Commit => {
+                "to=commit&commit=8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a&change=xrrnsmtyqworuxuywlkomlywrzkoupol"
+            }
             SelectionKind::Upstream => {
                 "to=upstream&branch=refs/heads/feature&commit=8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a"
             }
@@ -427,16 +441,33 @@ mod tests {
     #[test]
     fn every_shape_of_place_reads_whole() {
         for (link, selection) in shapes() {
+            // Only a commit's example names a change id.
+            let change = matches!(selection, Selection::Commit(..)).then(|| CHANGE.to_owned());
             assert_eq!(
                 route_of(&link),
                 Some(Route::Select {
                     selection,
                     tab: None,
                     place: None,
+                    change,
                 }),
                 "{link} takes the window where it names"
             );
         }
+    }
+
+    #[test]
+    fn a_commit_link_needs_no_change_id() {
+        assert_eq!(
+            route_of(&format!("to=commit&commit={HASH}")),
+            Some(Route::Select {
+                selection: Selection::Commit(project(), commit_id()),
+                tab: None,
+                place: None,
+                change: None,
+            }),
+            "by its hash alone, as links written without one"
+        );
     }
 
     #[test]
@@ -449,6 +480,7 @@ mod tests {
                     selection: Selection::Project(project()),
                     tab: Some(Tab::Project(tab)),
                     place: None,
+                    change: None,
                 }),
                 "the project's page on its {name} tab"
             );
@@ -461,6 +493,7 @@ mod tests {
                     selection: Selection::Branch(project(), Some(feature())),
                     tab: Some(Tab::Page(tab)),
                     place: None,
+                    change: None,
                 }),
                 "a branch's page on its {name} tab"
             );
@@ -477,6 +510,7 @@ mod tests {
                     path: "src/a b.rs".into(),
                     line,
                 }),
+                change: None,
             })
         };
         let link = "to=branch&branch=refs/heads/feature&file=src/a%20b.rs";
@@ -499,6 +533,7 @@ mod tests {
                     path: "src/a b.rs".into(),
                     line: None,
                 }),
+                change: None,
             }),
             "on the Changes tab, which shows the diff"
         );
@@ -552,6 +587,9 @@ mod tests {
             // A commit on another machine by the branch it's listed under.
             format!("to=mesh&checkout=x&pick=commit&commit={HASH}"),
             "to=mesh&checkout=x&pick=elsewhere".into(),
+            // Only a commit in the workspace has a change id to find it by.
+            format!("to=branch&branch=refs/heads/x&change={CHANGE}"),
+            format!("to=upstream&branch=refs/heads/x&commit={HASH}&change={CHANGE}"),
         ]);
         for link in links {
             assert_eq!(
@@ -617,6 +655,8 @@ The scheme is the build's: {schemes}.
 
 No link opens a {left_out}. `section=` is {sections}, and `pick=` is {picks}.
 
+A `commit`'s `change=` is its change ID, which finds it once it's amended or rebased.
+
 ## Tabs
 
 `tab=` opens a `project` on {project_tabs}. Added to the link above to a {page_tab_kinds},
@@ -665,18 +705,31 @@ the project's on {project_pages}.
         };
         for changes in [
             Changes::Branch("refs/heads/feature".into()),
-            Changes::Commit(HASH.into()),
+            Changes::Commit {
+                id: HASH.into(),
+                change: Some(CHANGE.into()),
+            },
+            Changes::Commit {
+                id: HASH.into(),
+                change: None,
+            },
             Changes::Uncommitted { worktree: None },
             Changes::Uncommitted {
                 worktree: Some("feature".into()),
             },
         ] {
-            let selection = match &changes {
-                Changes::Branch(_) => Selection::Branch(project(), Some(feature())),
-                Changes::Commit(_) => Selection::Commit(project(), commit_id()),
-                Changes::Uncommitted { worktree } => Selection::Uncommitted(
-                    project(),
-                    (worktree.clone()).map_or(Checkout::Main, |name| Checkout::Linked(name.into())),
+            let (selection, change) = match &changes {
+                Changes::Branch(_) => (Selection::Branch(project(), Some(feature())), None),
+                Changes::Commit { change, .. } => {
+                    (Selection::Commit(project(), commit_id()), change.clone())
+                }
+                Changes::Uncommitted { worktree } => (
+                    Selection::Uncommitted(
+                        project(),
+                        (worktree.clone())
+                            .map_or(Checkout::Main, |name| Checkout::Linked(name.into())),
+                    ),
+                    None,
                 ),
             };
             assert_eq!(
@@ -685,6 +738,7 @@ the project's on {project_pages}.
                     selection: selection.clone(),
                     tab: None,
                     place: None,
+                    change: change.clone(),
                 }),
                 "{changes:?}"
             );
@@ -697,6 +751,7 @@ the project's on {project_pages}.
                         path: "src/a.rs".into(),
                         line: Some(4),
                     }),
+                    change,
                 }),
                 "{changes:?} at a line of one of its files"
             );

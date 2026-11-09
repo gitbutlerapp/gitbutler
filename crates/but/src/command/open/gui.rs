@@ -94,16 +94,22 @@ fn resolve_changes(
             let name = branch.resolve_local_branch_name()?.to_string();
             (Changes::Branch(name), None)
         }
-        ResolvedCliIdArg::Commit(commit) => (Changes::Commit(commit.commit_id.to_string()), None),
+        ResolvedCliIdArg::Commit(commit) => (
+            commit_changes(commit.commit_id, commit.change_id.as_ref()),
+            None,
+        ),
         ResolvedCliIdArg::CommittedFile(committed_file) => (
-            Changes::Commit(committed_file.commit_id.to_string()),
+            commit_changes(committed_file.commit_id, committed_file.change_id.as_ref()),
             Some(FileAt {
                 path: committed_file.path.to_string(),
                 line: None,
             }),
         ),
         ResolvedCliIdArg::CommittedHunk(committed_hunk) => (
-            Changes::Commit(committed_hunk.committed_file.commit_id.to_string()),
+            commit_changes(
+                committed_hunk.committed_file.commit_id,
+                committed_hunk.committed_file.change_id.as_ref(),
+            ),
             Some(file_at(repo, &committed_hunk.hunk, false)?),
         ),
         ResolvedCliIdArg::UncommittedHunkOrFile(changes) => (
@@ -127,6 +133,15 @@ fn resolve_changes(
         }
     };
     Ok(resolved)
+}
+
+/// A commit's changes by its hash, and by its change ID, which finds it once it's amended or
+/// rebased.
+fn commit_changes(id: gix::ObjectId, change: Option<&but_core::ChangeId>) -> Changes {
+    Changes::Commit {
+        id: id.to_string(),
+        change: change.map(ToString::to_string),
+    }
 }
 
 /// At the line `_open` opens an editor at.
