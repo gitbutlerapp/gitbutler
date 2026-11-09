@@ -821,7 +821,7 @@ impl AppView {
                     .bg(theme.border_3)
                     .into_any_element()
             });
-            // As ui-react's menu sections head theirs.
+            // As but-ui-react's menu sections head theirs.
             let heading = item.heading.clone().map(|heading| {
                 div()
                     .px(dp(14.))

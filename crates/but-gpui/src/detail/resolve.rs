@@ -951,7 +951,7 @@ fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String
         .collect()
 }
 
-/// A condition on the warn ground, as ui-react's `Banner`: its line, beside the one fix.
+/// A condition on the warn ground, as but-ui-react's `Banner`: its line, beside the one fix.
 /// The sentence that explains it shows on hover, as the column it sits in is narrow.
 pub(super) fn warn_banner(
     title: impl Into<gpui::SharedString>,

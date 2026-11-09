@@ -226,7 +226,7 @@ and the feature may go, so it stays separate.
 
 ## Sizes
 
-- Give every size in `ui::dp(n)`: `n` pixels as designed, so ui-react's numbers go in as they
+- Give every size in `ui::dp(n)`: `n` pixels as designed, so but-ui-react's numbers go in as they
   are. It is in rems, and the window's rem follows the interface scale (⌘+ and ⌘−), so the
   whole app zooms as a browser does. Clippy refuses plain `gpui::px`; `ui::fixed` is for what
   must stay put, as a hairline, the room for the traffic lights, the scrollbar or window bounds.
@@ -277,13 +277,13 @@ and tests it.
 - In a prompt or a modal Tab goes round that dialog's tab stops, and `open_modal` gives a new
   modal this. Tab scrolls the control it reaches into view only inside
   `ui::scrollbar::scrolled`, so a dialog's scrolling list goes in one.
-- A colour comes from `Theme`, and a new one is a step on design-core's scales
-  (`packages/design-core/tokens/tokens.css`). Text needs 4.5:1 and a control's marks 3:1,
+- A colour comes from `Theme`, and a new one is a step on but-ui's scales
+  (`packages/but-ui/tokens/tokens.css`). Text needs 4.5:1 and a control's marks 3:1,
   on `bg_1` and `bg_2` in both themes.
 
 ## Conventions
 
-- Match the rules in `packages/ui-react/design/`. Adapt Tauri and but.dev rather than copy
+- Match the rules in `packages/but-ui-react/design/`. Adapt Tauri and but.dev rather than copy
   them, and leave out what GPUI has no data for.
 - Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not

@@ -115,7 +115,7 @@ const DRAWER_INSET: f32 = 3.;
 /// How tall the drawer's card is around its rows: its bar, and its edges.
 const DRAWER_CHROME: f32 = DRAWER_BAR_HEIGHT + 2. * DRAWER_INSET + 2.;
 
-/// How far a worktree's rows sit in from its heading, as ui-react's SidebarRow steps them:
+/// How far a worktree's rows sit in from its heading, as but-ui-react's SidebarRow steps them:
 /// their chevrons' middle under the heading's 16-point glyph's, the chevron's step, 14, the
 /// gap, 8, and half the glyph past the chevron's half.
 const STEP: f32 = 14. + 8. + 1.;
@@ -1955,7 +1955,7 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as ui-react's WorktreeDivider. Last in its card, the card's edge
+            // A dashed line, as but-ui-react's WorktreeDivider. Last in its card, the card's edge
             // rules it off, so it keeps only its room, which a worktree dragged counts.
             Some(Row::WorktreeDivider) => {
                 let last = matches!(self.rows.get(ix + 1), None | Some(Row::Gap));
@@ -3486,7 +3486,7 @@ impl Navigator {
         let holds_selected =
             (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch));
         let open = !closed || holds_selected;
-        // As ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
+        // As but-ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
         // branch without any has a dot there, keeping it in line with those that fold.
         let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
             this.set_open(ClickOpened::Here(key.clone()), !open, cx);

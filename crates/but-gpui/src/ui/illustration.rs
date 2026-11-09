@@ -1,5 +1,5 @@
 //! The design system's empty-state drawings, shared with but.dev and drawn as
-//! `@gitbutler/ui-react` draws them: each at the size it was drawn, never scaled, its outline
+//! `@gitbutler/but-ui-react` draws them: each at the size it was drawn, never scaled, its outline
 //! in `border-1` and its faces in the theme's own grounds.
 
 use std::cell::RefCell;
@@ -11,7 +11,7 @@ use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, pre
 use super::dp;
 use crate::theme::Theme;
 
-/// Which drawing, picked by what it means, as ui-react's empty states pick them.
+/// Which drawing, picked by what it means, as but-ui-react's empty states pick them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Illustration {
     /// A list with nothing in it.
@@ -29,22 +29,22 @@ impl Illustration {
     fn source(self) -> (&'static str, f32, f32) {
         match self {
             Illustration::Cactus => (
-                include_str!("../../../../packages/ui-react/src/illustrations/cactus.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/cactus.svg"),
                 96.,
                 82.,
             ),
             Illustration::Papers => (
-                include_str!("../../../../packages/ui-react/src/illustrations/papers.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/papers.svg"),
                 98.,
                 86.,
             ),
             Illustration::Waving => (
-                include_str!("../../../../packages/ui-react/src/illustrations/waving.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/waving.svg"),
                 186.,
                 215.,
             ),
             Illustration::Terminal => (
-                include_str!("../../../../packages/ui-react/src/illustrations/terminal.svg"),
+                include_str!("../../../../packages/but-ui-react/src/illustrations/terminal.svg"),
                 79.,
                 59.,
             ),
@@ -75,7 +75,7 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
         .max_w_full()
 }
 
-/// `which` in `theme`'s colours, for the roles ui-react's drawings are made of: the outline is
+/// `which` in `theme`'s colours, for the roles but-ui-react's drawings are made of: the outline is
 /// `currentColor`, set to `--but-border-hover`; enclosed areas the paper, `--but-background`;
 /// shaded faces the ground, `--but-muted`; a darker face `--but-border`; and what stands for text
 /// `--but-muted-foreground`.

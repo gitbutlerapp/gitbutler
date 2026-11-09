@@ -1226,7 +1226,7 @@ impl Store {
         );
     }
 
-    /// A snackbar for what went, but not quite as asked, as ui-react's warning one says it.
+    /// A snackbar for what went, but not quite as asked, as but-ui-react's warning one says it.
     pub fn snack_warning(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.notify_user(
             Notice::Snackbar {

@@ -1796,7 +1796,7 @@ impl AppView {
         cx.notify();
     }
 
-    /// As ui-react's `PickerDialog`: near the top, a search row, 28px rows, and a footer of hints.
+    /// As but-ui-react's `PickerDialog`: near the top, a search row, 28px rows, and a footer of hints.
     pub fn render_palette(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();

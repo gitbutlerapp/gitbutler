@@ -26,9 +26,9 @@ GPUI:
   - changed-files:
       - any-glob-to-any-file: packages/ui-svelte/**/*
 
-"@gitbutler/ui-react":
+"@gitbutler/but-ui-react":
   - changed-files:
-      - any-glob-to-any-file: packages/ui-react/**/*
+      - any-glob-to-any-file: packages/but-ui-react/**/*
 
 "@gitbutler/no-relative-imports":
   - changed-files:

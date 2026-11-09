@@ -145,7 +145,7 @@ impl Navigator {
         ]
     }
 
-    /// How the projects not expanded are listed, with headed choices as ui-react's view
+    /// How the projects not expanded are listed, with headed choices as but-ui-react's view
     /// options menu has them: their order, and which to show.
     pub(super) fn view_options(&self, cx: &App) -> Vec<MenuItem> {
         let prefs = &self.store.read(cx).prefs;

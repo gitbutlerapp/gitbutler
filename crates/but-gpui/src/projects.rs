@@ -330,7 +330,7 @@ pub struct IconPicker {
     _subscription: Subscription,
 }
 
-/// A choice's cell in the picker's grid, seven to a row, as ui-react's picker lays them out.
+/// A choice's cell in the picker's grid, seven to a row, as but-ui-react's picker lays them out.
 const CELL: f32 = 28.;
 
 impl AppView {

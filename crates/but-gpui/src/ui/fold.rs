@@ -1,4 +1,4 @@
-//! Folds that open and close over a moment rather than at once, as ui-react's sections fold
+//! Folds that open and close over a moment rather than at once, as but-ui-react's sections fold
 //! in `--but-transition-medium`: what a fold holds grows down from its heading as one curtain, or
 //! shrinks back up into it, its chevron turning as it goes. What's closing stays drawn till
 //! it's shut, taking no clicks. Panes beside the others slide open and shut over the same
@@ -21,7 +21,7 @@ use gpui::{
 use super::{Icon, fixed, small_icon, switch_spring};
 use crate::clock;
 
-/// How long a fold takes to open or close: design-core's `--but-transition-medium`.
+/// How long a fold takes to open or close: but-ui's `--but-transition-medium`.
 pub const FOLD: Duration = Duration::from_millis(150);
 
 /// The most rows a list's fold moves, which is more than a window shows: those past them
@@ -649,7 +649,7 @@ pub fn turned(
         })
 }
 
-/// CSS's `ease`, which design-core's transitions ride: a cubic Bézier through (0.25, 0.1) and
+/// CSS's `ease`, which but-ui's transitions ride: a cubic Bézier through (0.25, 0.1) and
 /// (0.25, 1), at `x` of the way through its time.
 fn ease(x: f32) -> f32 {
     let t = solve(x, |t| bezier(t, 0.25, 0.25));
