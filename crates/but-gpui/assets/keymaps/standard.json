@@ -1,5 +1,5 @@
 // The keymap, like the `but` TUI's. Its keys for moving around, copying, undoing, renaming,
-// committing, moving and squashing commits and adding an empty commit, Return to fold and unfold, f to show and hide the
+// committing, moving and squashing commits and adding an empty commit, Return or z to fold and unfold, f to show and hide the
 // files, / to filter or find, ⌘C to copy, ⌘K for the command palette, ⌘P to go to anything
 // and ⌘J to a terminal, ⌘T to open a terminal, ⌘R to fetch and ⇧⌘R to pull, ⌘1, ⌘2 and ⌘3 to go
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
@@ -160,7 +160,8 @@
   // adds an empty commit above the selected one, or on top of the selected branch. m moves the
   // selected commit, as the TUI's m does, and ⇧S squashes the uncommitted changes into it, as
   // the TUI's ⇧R does. Return folds or unfolds what the selected row heads: a card, a section,
-  // a worktree, a stack, a branch or a merge.
+  // a worktree, a stack, a branch or a merge. z does too, as vim's za does, before Return so
+  // Return is the key shown.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
@@ -169,6 +170,7 @@
       "n": "edits::AddEmptyCommitAbove",
       "m": "navigator::MoveSelection",
       "shift-s": "navigator::SquashIntoSelection",
+      "z": "navigator::ToggleFold",
       "enter": "navigator::ToggleFold"
     }
   },
@@ -211,7 +213,7 @@
   },
   // The TUI's details: j and k between hunks, ⌃D and ⌃U half a page, ⇧J and ⇧K a few lines,
   // from the file list too, whose keys stay there, g and ⇧G to the first and last file. Return
-  // on a file's header folds or unfolds it, as on its row in the file list.
+  // or z on a file's header folds or unfolds it, as on its row in the file list.
   {
     "context": "Diff && !TextInput",
     "bindings": {
@@ -225,6 +227,7 @@
       "shift-k": "diff::ScrollUp",
       "g": "diff::FirstFile",
       "shift-g": "diff::LastFile",
+      "z": "diff::ToggleFileFold",
       "enter": "diff::ToggleFileFold"
     }
   },
@@ -285,6 +288,7 @@
       "j": "navigator::SelectNext",
       "g": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
+      "z": "navigator::ToggleFold",
       "enter": "navigator::ToggleFold",
       "/": "navigator::FocusFilter",
       "home": "navigator::SelectFirst",
@@ -398,9 +402,9 @@
     }
   },
   // The History and Branches lists step and jump as the navigator does, and fold, the arrows
-  // last so menus show them. Return folds or unfolds as in the
+  // last so menus show them. Return and z fold or unfold as in the
   // navigator, the People card under a list too; on Operations history, where nothing folds,
-  // it restores to before the operation, after asking.
+  // they restore to before the operation, after asking.
   {
     "context": "List && !TextInput",
     "bindings": {
@@ -408,6 +412,7 @@
       "shift-right": "navigator::Expand",
       "shift-h": "navigator::Collapse",
       "shift-left": "navigator::Collapse",
+      "z": "navigator::ToggleFold",
       "enter": "navigator::ToggleFold"
     }
   },
