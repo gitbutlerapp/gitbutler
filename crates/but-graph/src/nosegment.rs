@@ -41,16 +41,31 @@ pub fn graph(
     target_upstream_ref: Option<&FullNameRef>,
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<WorkspaceGraph> {
-    let mut references = Vec::<(FullName, gix::ObjectId)>::new();
+    let mut workspace_ref_name = None;
+    let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
+    let mut ref_to_oid = HashMap::<FullName, gix::ObjectId>::new();
+    let mut add_reference = |full_name: FullName, id: gix::ObjectId| {
+        ref_to_oid.insert(full_name.clone(), id);
+        oid_to_refs.entry(id).or_default().push(full_name);
+    };
     for reference in repo
         .references()?
         .local_branches()?
         .chain(repo.references()?.remote_branches()?)
     {
         let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-        if let Some(id) = reference.try_id() {
-            references.push((reference.name().to_owned(), id.detach()));
+        let Some(id) = reference.try_id() else {
+            continue;
+        };
+        let full_name = reference.name().to_owned();
+        // Every remote-tracking branch is a head of the walk.
+        if full_name.category() == Some(gix::refs::Category::RemoteBranch) {
+            heads.push(id.detach());
         }
+        if workspace_ref_name.is_none() && is_workspace_ref_name(full_name.as_ref()) {
+            workspace_ref_name = Some(full_name.clone());
+        }
+        add_reference(full_name, id.detach());
     }
     if collect_tags {
         for reference in repo.references()?.tags()? {
@@ -58,23 +73,8 @@ pub fn graph(
             let Ok(commit) = reference.peel_to_commit() else {
                 continue;
             };
-            references.push((reference.name().to_owned(), commit.id));
+            add_reference(reference.name().to_owned(), commit.id);
         }
-    }
-    let workspace_ref_name = references
-        .iter()
-        .map(|(full_name, _)| full_name)
-        .find(|full_name| is_workspace_ref_name(full_name.as_ref()))
-        .cloned();
-    let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
-    let mut ref_to_oid = HashMap::<FullName, gix::ObjectId>::new();
-    for (full_name, id) in references {
-        // Every remote-tracking branch is a head of the walk.
-        if full_name.category() == Some(gix::refs::Category::RemoteBranch) {
-            heads.push(id);
-        }
-        ref_to_oid.insert(full_name.clone(), id);
-        oid_to_refs.entry(id).or_default().push(full_name);
     }
     // Workspace metadata may outlive the workspace reference, as in
     // single-branch mode, where it no longer says anything about the stacks.
