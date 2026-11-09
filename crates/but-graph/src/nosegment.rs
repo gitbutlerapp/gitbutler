@@ -44,28 +44,37 @@ pub fn graph(
     let mut workspace_ref_name = None;
     let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
     let mut ref_to_oid = HashMap::<FullName, gix::ObjectId>::new();
-    let mut add_reference = |full_name: FullName, id: gix::ObjectId| {
-        ref_to_oid.insert(full_name.clone(), id);
-        oid_to_refs.entry(id).or_default().push(full_name);
-    };
-    for reference in repo
-        .references()?
-        .local_branches()?
-        .chain(repo.references()?.remote_branches()?)
-    {
+    for reference in repo.references()?.local_branches()? {
         let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
         let Some(id) = reference.try_id() else {
             continue;
         };
         let full_name = reference.name().to_owned();
-        // Every remote-tracking branch is a head of the walk.
-        if full_name.category() == Some(gix::refs::Category::RemoteBranch) {
-            heads.push(id.detach());
-        }
-        if workspace_ref_name.is_none() && is_workspace_ref_name(full_name.as_ref()) {
+        if is_workspace_ref_name(full_name.as_ref()) {
             workspace_ref_name = Some(full_name.clone());
         }
-        add_reference(full_name, id.detach());
+        ref_to_oid.insert(full_name.clone(), id.detach());
+        oid_to_refs.entry(id.detach()).or_default().push(full_name);
+    }
+    let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
+    for reference in repo.references()?.remote_branches()? {
+        let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+        let Some(id) = reference.try_id() else {
+            continue;
+        };
+        let full_name = reference.name().to_owned();
+        if let Some((_remote, short_name)) =
+            but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
+            && let Some(local_id) =
+                ref_to_oid.get(&gix::refs::Category::LocalBranch.to_full_name(&short_name[..])?)
+        {
+            heads_on_reaching
+                .entry(*local_id)
+                .or_default()
+                .push(id.detach());
+        }
+        ref_to_oid.insert(full_name.clone(), id.detach());
+        oid_to_refs.entry(id.detach()).or_default().push(full_name);
     }
     if collect_tags {
         for reference in repo.references()?.tags()? {
@@ -73,9 +82,12 @@ pub fn graph(
             let Ok(commit) = reference.peel_to_commit() else {
                 continue;
             };
-            add_reference(reference.name().to_owned(), commit.id);
+            let full_name = reference.name().to_owned();
+            ref_to_oid.insert(full_name.clone(), commit.id);
+            oid_to_refs.entry(commit.id).or_default().push(full_name);
         }
     }
+
     // Workspace metadata may outlive the workspace reference, as in
     // single-branch mode, where it no longer says anything about the stacks.
     let segment_metadata = match &workspace_ref_name {
@@ -176,7 +188,7 @@ pub fn graph(
             .filter_map(|name| ref_to_oid.get(name)),
     );
     // History below the target commit is walked only while it leads somewhere.
-    let commit_ids = crate::topowalk::walk(repo, heads, target_commit_id)?;
+    let commit_ids = crate::topowalk::walk(repo, heads, &heads_on_reaching, target_commit_id)?;
 
     /// The children of each commit can be partitioned by stack lineages. The
     /// stack lineage determines whether a child points to a branch or directly
@@ -771,9 +783,10 @@ impl WorkspaceGraph {
 }
 
 impl crate::Workspace {
-    /// Produce a segment graph of all commits reachable from `heads`, along with all remote-tracking
-    /// branches and workspace stack branches known to `meta`, by first building a graph of commits
-    /// and references in topological order and then grouping it into segments.
+    /// Produce a segment graph of all commits reachable from `heads`, along with the workspace
+    /// stack branches known to `meta` and the remote-tracking branches of the local branches
+    /// reached, by first building a graph of commits and references in topological order and then
+    /// grouping it into segments.
     ///
     /// History below the workspace's target commit is only included while it leads to one of the
     /// tips, and ends in a commit whose parents are left out.

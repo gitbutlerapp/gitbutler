@@ -33,12 +33,15 @@ fn insert_untraversed(
 
 /// Return the commits reachable from `heads` in topological order, children first.
 ///
+/// Once the walk reaches a commit in `heads_on_reaching`, the heads it maps to are walked too.
+///
 /// The ancestry of `excludes` is walked only as long as there is something interesting left:
 /// commits not in it, or `heads` not yet reached. The commits of that ancestry that were walked are
 /// returned too, so the references on them stay visible.
 pub fn walk(
     repo: &gix::Repository,
     heads: impl IntoIterator<Item = gix::ObjectId>,
+    heads_on_reaching: &HashMap<gix::ObjectId, Vec<gix::ObjectId>>,
     excludes: impl IntoIterator<Item = gix::ObjectId>,
 ) -> anyhow::Result<Vec<gix::ObjectId>> {
     // Invariants:
@@ -113,6 +116,14 @@ pub fn walk(
                 parents: parents_cache,
             },
         );
+        for head_id in heads_on_reaching.get(&id).into_iter().flatten() {
+            if pushed_to_heads.insert(*head_id) {
+                heads.push_back(*head_id);
+                if !id_to_traversed.contains_key(head_id) {
+                    insert_untraversed(repo, *head_id, &mut untraversed, &mut untraversed_ids)?;
+                }
+            }
+        }
     }
 
     let mut outcome = Vec::new();
