@@ -1,0 +1,74 @@
+// The menu bar, menu by menu. macOS names the first after the app. An item is an action, titled
+// as the palette titles it, in title case, or {"action", "title"} to word it otherwise, "-" a
+// divider, and {"system": "services"} the menu macOS fills with what other apps offer. The
+// Menu bar tab of Edit commands writes this file.
+[
+  {
+    "name": "GitButler",
+    "items": [
+      "help::About",
+      "app::CheckForUpdates",
+      "-",
+      "settings::OpenSettings",
+      "-",
+      {
+        "system": "services"
+      },
+      "-",
+      {
+        "action": "app::Hide",
+        "title": "Hide GitButler"
+      },
+      "app::HideOthers",
+      "app::ShowAll",
+      "-",
+      {
+        "action": "app::Quit",
+        "title": "Quit GitButler"
+      }
+    ]
+  },
+  {
+    "name": "File",
+    "items": [
+      "app::AddProject",
+      {
+        "action": "projects::CloneRepository",
+        "title": "Clone Repository"
+      },
+      "terminal::NewTerminal",
+      "-",
+      "app::CloseWindow"
+    ]
+  },
+  {
+    "name": "View",
+    "items": [
+      "app::ActualSize",
+      "app::ZoomIn",
+      "app::ZoomOut"
+    ]
+  },
+  {
+    "name": "Window",
+    "items": [
+      "app::Minimize",
+      "app::Zoom"
+    ]
+  },
+  {
+    "name": "Help",
+    "items": [
+      "help::OpenDocs",
+      {
+        "action": "help::OpenReleaseNotes",
+        "title": "What's New"
+      },
+      "settings::OpenKeyboardShortcuts",
+      "-",
+      "help::ReportIssue",
+      "help::ShowConfigFolder",
+      "help::ShowLogsFolder"
+    ]
+  }
+]

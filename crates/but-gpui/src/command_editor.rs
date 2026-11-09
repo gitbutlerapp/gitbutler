@@ -1,7 +1,8 @@
 //! A window of every command and its keys, for a dev build. A key changed here is
 //! written to the keymap's file in the checkout and bound at once, so the files stay the one place
-//! keys are kept (`keymap::source_dir`).
+//! keys are kept (`keymap::source_dir`). Its Menu bar tab lays out the menu bar the same way.
 
+mod menu_bar;
 mod rows;
 
 use std::cell::Cell;
@@ -32,6 +33,7 @@ use crate::ui::{
     self, ButtonStyle, Icon, Tooltip, dp, field, fixed, h_flex, icon, icon_button, list_row,
     segmented, v_flex,
 };
+use menu_bar::MenuBarEditor;
 use rows::{AuditFilter, Command, Filter, Key, Place, Row, Sources};
 
 actions!(command_editor, [OpenCommandEditor]);
@@ -150,6 +152,24 @@ fn between(anchor: usize, head: usize) -> Range<usize> {
     anchor.min(head)..anchor.max(head)
 }
 
+/// What the window shows.
+#[derive(Clone, Copy, PartialEq)]
+enum Tab {
+    Keys,
+    MenuBar,
+}
+
+impl Tab {
+    const ALL: [Tab; 2] = [Tab::Keys, Tab::MenuBar];
+
+    fn label(self) -> &'static str {
+        match self {
+            Tab::Keys => "Keys",
+            Tab::MenuBar => "Menu bar",
+        }
+    }
+}
+
 /// What the table shows, in order.
 enum Line {
     Heading(SharedString),
@@ -165,6 +185,8 @@ enum Line {
 pub struct CommandEditor {
     store: Entity<Store>,
     focus: FocusHandle,
+    tab: Tab,
+    menu_bar: Entity<MenuBarEditor>,
     search: Entity<TextInput>,
     /// The key pressed to find what's bound to it, as keys are written.
     found_keys: Option<SharedString>,
@@ -214,9 +236,13 @@ impl CommandEditor {
             }),
         ]);
         window.focus(&search.read(cx).focus_handle(cx), cx);
+        let commands = commands(&keymap::bindings(cx), cx);
+        let menu_bar = cx.new(|cx| MenuBarEditor::new(commands, window, cx));
         let mut this = CommandEditor {
             store,
             focus: cx.focus_handle(),
+            tab: Tab::Keys,
+            menu_bar,
             search,
             found_keys: None,
             finding: None,
@@ -287,6 +313,13 @@ impl CommandEditor {
         if keep_place {
             self.list.scroll_to(place);
         }
+        cx.notify();
+    }
+
+    fn set_tab(&mut self, tab: Tab, cx: &mut Context<CommandEditor>) {
+        self.stop_recording(cx);
+        self.picking = None;
+        self.tab = tab;
         cx.notify();
     }
 
@@ -553,27 +586,40 @@ impl CommandEditor {
                 .on_click(cx.listener(move |this, _, _, cx| this.set_audit_filter(filter, cx)));
             (segment, self.audit_filter == filter)
         });
-        h_flex()
+        let tabs = Tab::ALL.map(|tab| {
+            let segment = div()
+                .id(tab.label())
+                .aria_label(tab.label())
+                .child(tab.label())
+                .on_click(cx.listener(move |this, _, _, cx| this.set_tab(tab, cx)));
+            (segment, self.tab == tab)
+        });
+        let bar = h_flex()
             .flex_none()
             .gap(dp(12.))
             .px(dp(SIDE_PAD))
             .py(dp(10.))
-            .child(div().flex_1().max_w(dp(300.)).min_w_0().child(field(
-                &self.search,
-                focused,
-                theme,
-            )))
-            .child(self.render_key_finder(theme, cx))
-            .child(segmented(true, theme, filters))
-            .child(segmented(true, theme, audit_filters))
-            .child(div().flex_1())
-            .child(
-                h_flex()
-                    .gap(dp(5.))
-                    .text_size(dp(SMALL_TEXT))
-                    .child(ui::dot(theme.pop))
-                    .child("Shown in menus"),
-            )
+            .child(segmented(true, theme, tabs));
+        match self.tab {
+            Tab::MenuBar => bar.border_b_1().border_color(theme.border_2),
+            Tab::Keys => bar
+                .child(div().flex_1().max_w(dp(300.)).min_w_0().child(field(
+                    &self.search,
+                    focused,
+                    theme,
+                )))
+                .child(self.render_key_finder(theme, cx))
+                .child(segmented(true, theme, filters))
+                .child(segmented(true, theme, audit_filters))
+                .child(div().flex_1())
+                .child(
+                    h_flex()
+                        .gap(dp(5.))
+                        .text_size(dp(SMALL_TEXT))
+                        .child(ui::dot(theme.pop))
+                        .child("Shown in tooltips and right-click menus"),
+                ),
+        }
     }
 
     /// Where a key is pressed to find what's bound to it, with that key once it has been.
@@ -1049,7 +1095,14 @@ impl CommandEditor {
 
     fn render_footer(&self, theme: &Theme, cx: &mut Context<CommandEditor>) -> impl IntoElement {
         let errors = (cx.try_global::<Loaded>()).map_or(Vec::new(), |loaded| loaded.errors.clone());
-        let (text, color) = match (&self.recording, errors.first(), &self.notice) {
+        let notice = match self.tab {
+            Tab::Keys => self.notice.as_ref(),
+            Tab::MenuBar => None,
+        };
+        let menu_warning = (self.tab == Tab::MenuBar)
+            .then(|| self.menu_bar.read(cx).warning.clone())
+            .flatten();
+        let (text, color) = match (&self.recording, errors.first(), notice) {
             _ if self.finding.is_some() => (
                 "Press a key to find what's bound to it. Click elsewhere to cancel.".to_owned(),
                 theme.text_1,
@@ -1061,10 +1114,18 @@ impl CommandEditor {
             (None, Some(error), _) => (error.clone(), theme.danger),
             (None, None, Some(Notice::Warning(text))) => (text.clone(), theme.warn),
             (None, None, Some(Notice::Done(text))) => (text.clone(), theme.text_1),
-            (None, None, None) => (
-                "Click keys to change them. Changes are saved as you make them.".to_owned(),
-                theme.text_1,
-            ),
+            (None, None, None) => match (self.tab, menu_warning) {
+                (Tab::MenuBar, Some(warning)) => (warning, theme.warn),
+                (Tab::MenuBar, None) => (
+                    "Drag commands into menus and around them. Changes are saved as you make them."
+                        .to_owned(),
+                    theme.text_1,
+                ),
+                (Tab::Keys, _) => (
+                    "Click keys to change them. Changes are saved as you make them.".to_owned(),
+                    theme.text_1,
+                ),
+            },
         };
         let platforms = self.render_platforms(theme, cx);
         // They take its place, as they're only there for the moment.
@@ -1326,13 +1387,15 @@ impl Render for CommandEditor {
             )
             .on_key_down(cx.listener(|this, event, _, cx| this.copy_action(event, cx)))
             .child(self.render_toolbar(&theme, window, cx))
-            .child(self.render_header(&theme))
-            .child(scrolled(
-                table,
-                "command-editor-scrollbar",
-                Scroll::List(self.list.clone()),
-                &theme,
-            ))
+            .map(|el| match self.tab {
+                Tab::Keys => el.child(self.render_header(&theme)).child(scrolled(
+                    table,
+                    "command-editor-scrollbar",
+                    Scroll::List(self.list.clone()),
+                    &theme,
+                )),
+                Tab::MenuBar => el.child(self.menu_bar.clone()),
+            })
             .child(self.render_footer(&theme, cx))
             .children(self.render_picker(&theme, cx))
             .when(client_frame, |el| {
