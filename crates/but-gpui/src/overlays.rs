@@ -382,6 +382,8 @@ impl AppView {
         if items.is_empty() {
             return;
         }
+        // Not the menu bar's, unless it says so after.
+        self.menu_bar = None;
         // Which commands are offered shows once the selection a right-click just moved has
         // registered its actions, when the frame it changed is drawn.
         self.pending_menu = Some(ContextMenu {
@@ -881,7 +883,8 @@ impl AppView {
             .max_h(window.viewport_size().height - fixed(16.))
             .overflow_y_scroll()
             .child(v_flex().py(dp(4.)).children(items));
-        Some(floating(menu.position, card, cx, Self::close_menu))
+        let position = self.bar_menu_position(theme).unwrap_or(menu.position);
+        Some(floating(position, card, cx, Self::close_menu))
     }
 
     pub(crate) fn render_prompt(

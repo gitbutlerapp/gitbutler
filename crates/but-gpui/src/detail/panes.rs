@@ -235,6 +235,7 @@ impl Detail {
             crumbs.push((name.into(), None));
         }
         let last = crumbs.len().saturating_sub(1);
+        let top_left = crate::menu_bar::top_left_room(window, &self.store.read(cx).prefs, theme);
         // As but-ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
         h_flex()
@@ -242,14 +243,14 @@ impl Detail {
             .flex_none()
             .overflow_hidden()
             .px(dp(12.))
-            // Clear of macOS's traffic lights while the navigator leaves them over the header,
-            // the toggle gliding up to them as it slides away.
-            .when(crate::ui::has_traffic_lights(window), |el| {
+            // Clear of macOS's traffic lights and the menu bar's button while the navigator leaves
+            // them over the header, the toggle gliding up to them as it slides away.
+            .when_some(top_left, |el, room| {
                 let navigator =
                     self.navigator_shown.get() * self.navigator_width(clock::now(), window, cx);
                 // The navigator's tabs over the header have them out of its way.
-                let lights = fixed(84.) * (1. - self.tabs_shown.get());
-                el.pl((lights - theme.scaled(navigator)).max(theme.scaled(12.)))
+                let room = room * (1. - self.tabs_shown.get());
+                el.pl((room - theme.scaled(navigator)).max(theme.scaled(12.)))
             })
             // Clear of the window's buttons, where the app draws them over its right end.
             .when(crate::ui::draws_window_controls(window), |el| {

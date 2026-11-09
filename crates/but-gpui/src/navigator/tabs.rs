@@ -1757,11 +1757,8 @@ impl Render for NavigatorTabs {
             None => "Tabs Navigator",
         };
 
-        let lights = crate::ui::has_traffic_lights(window);
-        let strip_left = match lights {
-            true => 84. / theme.scale,
-            false => CARD_MARGIN,
-        };
+        let top_left = crate::menu_bar::top_left_room(window, &self.store.read(cx).prefs, &theme);
+        let strip_left = top_left.map_or(CARD_MARGIN, |room| f32::from(room) / theme.scale);
         let card = self.draw_card(&rest, rest_offset, strip_left, now, window, cx);
 
         // The ground behind the tab the selection's in.
@@ -2007,10 +2004,7 @@ impl Render for NavigatorTabs {
             .relative()
             .bg(theme.bg_2)
             .map(crate::ui::drags_window)
-            .pl(match lights {
-                true => fixed(84.),
-                false => theme.scaled(CARD_MARGIN),
-            })
+            .pl(top_left.unwrap_or(theme.scaled(CARD_MARGIN)))
             .pr(dp(8.))
             .when(crate::ui::draws_window_controls(window), |el| {
                 el.pr(fixed(crate::ui::WINDOW_CONTROLS_WIDTH + 8.))

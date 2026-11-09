@@ -4853,19 +4853,19 @@ impl Render for Navigator {
         let store = self.store.read(cx);
         let empty = store.projects_loaded && store.projects.is_empty();
         let detail_shown = self.detail_shown.get();
+        let top_left = crate::menu_bar::top_left_room(window, &store.prefs, &theme);
         // Level with the location bar: the same height, from the window's top, and no rule
         // along its bottom as the cards scroll under it, as the bar has none either.
         let header = h_flex()
             .h(dp(HEADER_HEIGHT))
             .flex_none()
-            // Room for macOS's traffic lights; elsewhere the window's buttons are at its other end.
-            // A card out over the detail has them out of its way, and isn't the window's title bar.
-            .map(
-                |el| match crate::ui::has_traffic_lights(window) && !self.floating {
-                    true => el.pl(fixed(84.)),
-                    false => el.pl(dp(8.)),
-                },
-            )
+            // Room for macOS's traffic lights and the menu bar's button; the window's buttons are
+            // at its other end. A card out over the detail has them out of its way, and isn't the
+            // window's title bar.
+            .map(|el| match top_left.filter(|_| !self.floating) {
+                Some(room) => el.pl(room),
+                None => el.pl(dp(8.)),
+            })
             // Clear of the window's buttons, where the app draws them over its right end, as the
             // detail slides away from under them.
             .map(

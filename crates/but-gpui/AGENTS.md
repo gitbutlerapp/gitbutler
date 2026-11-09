@@ -258,8 +258,9 @@ and tests it.
   shows `Ctrl+Enter` on Windows and Linux.
 - Name platform things through one place: `ui::REVEAL` for the file manager,
   `std::env::consts::OS` for `but-api`'s per-platform lists, `EXE_SUFFIX` for a program's name.
-- Windows and Linux have no menu bar, so every command in `menus.json` also needs a palette
-  entry.
+- Windows and Linux have no native menu bar: the app draws `menus.json` itself (`menu_bar`), a
+  button in the window's top left corner, and Settings › Developer draws it on macOS too. Every
+  command in `menus.json` still needs a palette entry.
 - Git paths use `/`. Before showing, copying or revealing one joined onto a checkout, replace
   it with `MAIN_SEPARATOR_STR`.
 - A program the app starts gets `CREATE_NO_WINDOW` on Windows, so no console window opens with

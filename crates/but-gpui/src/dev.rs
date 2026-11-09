@@ -38,7 +38,7 @@
 //! pinch 900 400 0.5       # pinch a trackpad there, zooming in by half again, out below 0
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
 //! pref status-bar off     # show or hide a part, status-bar, headers or diff-controls, as
-//!                         # Settings › Appearance does
+//!                         # Settings › Appearance does, or menu-bar, as Settings › Developer
 //! navigator top           # put the navigator across the top, or at the `side`, as Settings
 //!                         # › Appearance does
 //! layout files on         # a layout command, as `scripts/control.sh` gives a dev build the
@@ -52,7 +52,8 @@
 //!                         # over it, so `fclick` in another acts as it would on screen
 //! close                   # the window's close button, as AppKit presses it: `QUIT` says
 //!                         # when that ends the app
-//! controls linux          # draw and handle GNOME's window buttons, on any platform
+//! controls linux          # draw and handle GNOME's window buttons, on any platform, with
+//!                         # no room for macOS's traffic lights
 //! shot /tmp/view.png      # render the current frame to a PNG, a pixel per logical pixel, so
 //!                         # a point read off it is one `click` takes
 //! shot /tmp/a.png 0 0 400 300  # only that region, in logical pixels, at the display's scale
@@ -1185,22 +1186,23 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         }
         "pref" => {
             let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
-            let hidden = match state.trim() {
-                "on" => false,
-                "off" => true,
+            let on = match state.trim() {
+                "on" => true,
+                "off" => false,
                 _ => bail!("pref takes a part, then on or off"),
             };
-            let flag: fn(&mut Prefs) -> &mut bool = match part {
-                "status-bar" => |p| &mut p.hide_status_bar,
-                "headers" => |p| &mut p.messages_in_diff,
-                "diff-controls" => |p| &mut p.hide_diff_controls,
-                _ => bail!("pref takes status-bar, headers or diff-controls"),
+            // Whether the flag says the part is left out, or that it's drawn.
+            let (flag, hides): (fn(&mut Prefs) -> &mut bool, bool) = match part {
+                "status-bar" => (|p| &mut p.hide_status_bar, true),
+                "headers" => (|p| &mut p.messages_in_diff, true),
+                "diff-controls" => (|p| &mut p.hide_diff_controls, true),
+                "menu-bar" => (|p| &mut p.menu_bar_everywhere, false),
+                _ => bail!("pref takes status-bar, headers, diff-controls or menu-bar"),
             };
+            let set = on != hides;
             let app = window.root::<AppView>().flatten().context("no app view")?;
             app.update(cx, |app, cx| {
-                (app.store).update(cx, |store, cx| {
-                    store.set_prefs(move |p| *flag(p) = hidden, cx)
-                })
+                (app.store).update(cx, |store, cx| store.set_prefs(move |p| *flag(p) = set, cx))
             });
         }
         "layout" => {
