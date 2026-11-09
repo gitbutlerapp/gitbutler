@@ -317,8 +317,12 @@ impl Theme {
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
-        let [safe, danger] = [pick(0x1d744e, 0x2eb87f), pick(0xac3421, 0xe28576)];
-        let [fill_gray, text_inverted] = [pick(0x434343, 0xf2f2f2), pick(0xf8f8f8, 0x1e1e1e)];
+        // but-ui's tokens, as `packages/but-ui/tokens/tokens.css` resolves them: each a step
+        // of the generated ramps (`tokens/ramps.json`), light then dark. Coloured text is a
+        // hue's step 11, which reads at 4.5:1 on the gray grounds.
+        let [safe, danger] = [pick(0x007947, 0x43d997), pick(0xc1270d, 0xf6907d)];
+        // --but-inverse and --but-inverse-foreground.
+        let [fill_gray, text_inverted] = [pick(0x1f1f1f, 0xf0f0f0), pick(0xfcfcfc, 0x141414)];
         let on_solid = |accent| {
             color(readable_on(
                 rgb_hex(accent),
@@ -330,34 +334,37 @@ impl Theme {
             code_text,
             code_line,
             scale: 1.,
-            bg_1: pick(0xffffff, 0x292929),
-            bg_2: pick(0xf2f2f2, 0x1e1e1e),
-            text_1: pick(0x1e1e1e, 0xf8f8f8),
-            // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
-            // details, on both grounds.
-            text_2: pick(0x6e6e6e, 0xb2b2b2),
-            text_3: pick(0x8a8a8a, 0x7d7d7d),
-            border_1: pick(0xb2b2b2, 0x6d6d6d),
-            border_2: pick(0xcccccc, 0x565656),
-            border_3: pick(0xdddddc, 0x434343),
+            // --but-background, the cards and panes, and --but-canvas, the window's ground.
+            bg_1: pick(0xfcfcfc, 0x141414),
+            bg_2: pick(0xefefef, 0x1d1d1d),
+            // --but-foreground, --but-muted-foreground and --but-subtle-foreground. Secondary
+            // text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised details, on both
+            // grounds.
+            text_1: pick(0x1f1f1f, 0xf0f0f0),
+            text_2: pick(0x606060, 0xbcbcbc),
+            text_3: pick(0x888888, 0x7a7a7a),
+            // --but-border-hover, --but-border and --but-border-subtle.
+            border_1: pick(0xb8b8b8, 0x6a6a6a),
+            border_2: pick(0xcccccc, 0x505050),
+            border_3: pick(0xd7d7d7, 0x414141),
             fill_gray,
             text_inverted,
-            pop: pick(0x177a7a, 0x25b1b1),
-            // Design-core's pop 40 and pop 30, darker than its fill-pop. A white tick on pop 40
-            // reads at 3:1, and a white label needs pop 30 for 4.5:1.
-            pop_bg: rgb(0x1e8e8e).into(),
-            pop_button: rgb(0x177070).into(),
+            // --but-primary-text, and --but-primary, which a white label and tick read on at
+            // 4.5:1, in both themes.
+            pop: pick(0x007374, 0x36d2d2),
+            pop_bg: rgb(0x008383).into(),
+            pop_button: rgb(0x008383).into(),
             on_pop: gpui::white(),
-            blue: pick(0x0b61eb, 0x84aff5),
-            // In light, but-ui's safe 30 and danger 40, a step darker than its text-safe
-            // and text-danger, which read under 4.5:1 on `bg_2`.
+            // --but-info-text, --but-success-text, --but-warning-text, --but-danger-text and
+            // --but-done-text.
+            blue: pick(0x2966c8, 0x88b6ff),
             safe,
-            warn: pick(0xa05f04, 0xf99406),
+            warn: pick(0x9a5100, 0xffb05f),
             danger,
-            purple: pick(0x6e2cb1, 0xb287de),
+            purple: pick(0x7d3dbd, 0xcb9bff),
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
-            purple_on_solid: pick(0xb287de, 0x6e2cb1),
+            purple_on_solid: pick(0xcb9bff, 0x7d3dbd),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
             snackbar_warn: rgb(0xf99406).into(),
@@ -368,19 +375,20 @@ impl Theme {
             diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: pick(0x696c70, 0x999da1),
+            // --but-change-status-addition, -modification, -deletion and -rename: step 9.
             change_status: [
-                pick(0x6fdaad, 0x1d744e),
-                pick(0x84aff5, 0x0b61eb),
-                pick(0xe28576, 0xac3421),
-                pick(0xb287de, 0x8943d0),
+                pick(0x008651, 0x008758),
+                pick(0x2570e3, 0x2a70e3),
+                pick(0xd5402a, 0xd43e27),
+                rgb(0x8a43d0).into(),
             ],
-            // Design-core's pop, purple, safe, warn and danger, at the 70 step.
+            // --but-category-1 to -5: teal, purple, green, amber and red at step 7.
             person: [
-                (0x9ee7e7, 0x177070),
-                (0xcfb5e9, 0x57238b),
-                (0xa6e5cb, 0x1d744e),
-                (0xf8d29e, 0x9d5d04),
-                (0xebb4ab, 0x87291a),
+                (0x6cc8c7, 0x1d6868),
+                (0xccaef6, 0x613e8a),
+                (0x79cda2, 0x2b6b4d),
+                (0xffae55, 0x7e4f1d),
+                (0xf1a697, 0x7f3124),
             ]
             .map(|(light, dark_value)| pick(light, dark_value)),
             // Embedded by `ui::fonts`.
