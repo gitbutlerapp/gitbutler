@@ -152,7 +152,7 @@ impl Navigator {
         };
         let title = input.read(cx).text().to_owned();
         // Where the header gives the keys back once it's done, as when it's started from here.
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
         let opened =
             (self.detail).update(cx, |detail, cx| detail.reword_in_full(&title, window, cx));
         if opened {

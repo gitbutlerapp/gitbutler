@@ -40,7 +40,8 @@ pub use mutation::{
 };
 pub use picks::Picks;
 pub use saved::{
-    BranchStatus, FileSort, FileView, Pane, Part, Prefs, ScopeLines, TerminalRuns, WatchedOrder,
+    BranchStatus, FileSort, FileView, NavigatorPlace, Pane, Part, Prefs, ScopeLines, TerminalRuns,
+    WatchedOrder,
 };
 use saved::{Restored, Saved};
 use seen::Seen;
@@ -375,6 +376,8 @@ pub struct Store {
     pub selection: Option<Selection>,
     /// The row selected last in each project the selection has left, to go back to.
     pub left_on: HashMap<ProjectId, Selection>,
+    /// The row selected last in each checkout the selection has left, likewise.
+    pub left_in: HashMap<(ProjectId, Checkout), Selection>,
     /// Commits picked along with the selected one (⌘- or ⇧-click, ⇧-arrows) to squash or
     /// uncommit together: two or more, or none, all in the selected commit's project.
     pub picked: Picks<CommitId>,
@@ -599,6 +602,7 @@ impl Store {
             projects_loaded: false,
             selection: None,
             left_on: HashMap::new(),
+            left_in: HashMap::new(),
             picked: Picks::default(),
             followed: None,
             made: None,
@@ -1070,6 +1074,15 @@ impl Store {
                 .is_none_or(|s| s.project() != left.project())
         {
             self.left_on.insert(left.project().clone(), left.clone());
+        }
+        if let Some(left) = &self.selection
+            && let Some(checkout) = self.checkout_of(left)
+            && selection.as_ref().is_none_or(|s| {
+                s.project() != left.project() || self.checkout_of(s).as_ref() != Some(&checkout)
+            })
+        {
+            let at = (left.project().clone(), checkout);
+            self.left_in.insert(at, left.clone());
         }
         self.selection = selection;
         self.show_terminals(cx);

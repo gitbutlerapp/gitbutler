@@ -32,10 +32,9 @@ use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
-    h_flex, icon, icon_button, list_row, plural, quiet, section_label, shortcut, side_row,
-    small_icon, v_flex,
+    Button, ButtonStyle, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag, age_column,
+    button, commit_title, dp, empty_state, faint, field, fixed, fold_row, h_flex, icon,
+    icon_button, list_row, plural, quiet, section_label, shortcut, side_row, small_icon, v_flex,
 };
 
 /// How wide a commit's message reads at most where it fills the pane: some 90 columns of its
@@ -239,15 +238,18 @@ impl Detail {
         // As but-ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
         h_flex()
-            .h(dp(HEADER_HEIGHT))
+            .h(dp(self.location_bar_height()))
             .flex_none()
+            .overflow_hidden()
             .px(dp(12.))
             // Clear of macOS's traffic lights while the navigator leaves them over the header,
             // the toggle gliding up to them as it slides away.
             .when(crate::ui::has_traffic_lights(window), |el| {
                 let navigator =
                     self.navigator_shown.get() * self.navigator_width(clock::now(), window, cx);
-                el.pl((fixed(84.) - theme.scaled(navigator)).max(theme.scaled(12.)))
+                // The navigator's tabs over the header have them out of its way.
+                let lights = fixed(84.) * (1. - self.tabs_shown.get());
+                el.pl((lights - theme.scaled(navigator)).max(theme.scaled(12.)))
             })
             // Clear of the window's buttons, where the app draws them over its right end.
             .when(crate::ui::draws_window_controls(window), |el| {

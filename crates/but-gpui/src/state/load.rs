@@ -921,6 +921,18 @@ impl Store {
         {
             (self.left_on).insert(id.clone(), Selection::Commit(id.clone(), new));
         }
+        // And what its checkouts were.
+        let followed: Vec<_> = (self.left_in.iter())
+            .filter(|((project, _), _)| project == id)
+            .filter_map(|(at, left)| match left {
+                Selection::Commit(_, commit) => {
+                    let new = follow_by_key(self.workspace(id), &workspace, *commit)?;
+                    Some((at.clone(), Selection::Commit(id.clone(), new)))
+                }
+                _ => None,
+            })
+            .collect();
+        self.left_in.extend(followed);
         // What's being dragged follows too, so letting go still lands it.
         if let Some(mut dragged) = self.dragging.take_if(|dragged| dragged.project == *id) {
             match follow_dragged(&mut dragged.what, self.workspace(id), &workspace) {

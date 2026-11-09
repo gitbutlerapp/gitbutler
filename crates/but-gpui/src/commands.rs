@@ -6,8 +6,9 @@ use gpui::{Action, App};
 use crate::app::{
     ActualSize, AddProject, AppView, ChangeTheme, CheckForUpdates, CopySelection, Fetch,
     FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, Pull,
-    Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator, Undo,
-    UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
+    Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator,
+    ToggleNavigatorPlace, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn,
+    ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
@@ -235,6 +236,7 @@ commands! {
     },
     crate::app::SquashIntoSelection => "Squash uncommitted changes into this",
     ToggleNavigator => "Toggle navigator",
+    ToggleNavigatorPlace => "Move navigator between side and top",
     ToggleDetail => "Toggle details",
     ZoomIn => "Zoom in",
     ZoomOut => "Zoom out",
@@ -252,6 +254,14 @@ commands! {
     crate::app::NextProjectPage => "Next project tab" { aliases: &["Next project page"] },
     crate::app::PreviousProjectPage => "Previous project tab" {
         aliases: &["Previous project page"]
+    },
+    crate::app::NextNavigatorTab => "Next navigator tab" {
+        aliases: &["Next worktree"],
+        listed: navigator_on_top
+    },
+    crate::app::PreviousNavigatorTab => "Previous navigator tab" {
+        aliases: &["Previous worktree"],
+        listed: navigator_on_top
     },
     crate::app::FocusNextPane => "Next pane",
     crate::app::FocusPreviousPane => "Previous pane",
@@ -402,6 +412,11 @@ fn picks(app: &AppView, cx: &App) -> Option<usize> {
     };
     let n = store.with_picks(project, *id).len();
     (n > 1).then_some(n)
+}
+
+/// Whether the navigator's tabs are across the top, the only place its tabs are.
+fn navigator_on_top(app: &AppView, cx: &App) -> bool {
+    app.store.read(cx).prefs.navigator_place == crate::state::NavigatorPlace::Top
 }
 
 fn on_branch(app: &AppView, cx: &App) -> bool {

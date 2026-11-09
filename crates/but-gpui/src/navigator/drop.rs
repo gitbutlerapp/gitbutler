@@ -155,17 +155,27 @@ impl Navigator {
         let moving = (store.moving.as_ref())
             .filter(|moving| moving.dragged(store) && moving.lands(store))?;
         let (ix, place) = divider_at(&self.rows, &moving.project, &moving.at)?;
-        let row = self.list.bounds_for_item(ix)?;
-        let edge = match place == Place::Above {
-            true => row.top(),
-            false => row.bottom(),
-        };
+        let above = place == Place::Above;
         let inset = self.insets.get(ix).copied().unwrap_or_default();
-        let (left, right) = self.card_margins();
+        // In the card under a tab, from the top of its rows, all of which are drawn.
+        let (edge, (left, right)) = match self.card_top.get() {
+            Some(_) => {
+                let rows = 0..ix + usize::from(!above);
+                (theme.scaled(span_height(&self.rows, rows)), (0., 0.))
+            }
+            None => {
+                let row = self.list.bounds_for_item(ix)?;
+                let edge = if above { row.top() } else { row.bottom() };
+                (
+                    edge - self.list.viewport_bounds().top(),
+                    self.card_margins(),
+                )
+            }
+        };
         let line = divider(moving.op.colour(theme))
             .left(dp(left + inset + 10.))
             .right(dp(right + 10.))
-            .top(edge - self.list.viewport_bounds().top() - theme.scaled(1.));
+            .top(edge - theme.scaled(1.));
         Some(
             div()
                 .absolute()

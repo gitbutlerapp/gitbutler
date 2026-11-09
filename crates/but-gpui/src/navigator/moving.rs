@@ -817,7 +817,7 @@ impl Navigator {
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
     }
 
     /// Start squashing the selected commit, with those picked with it, or the selected branch,
@@ -985,7 +985,7 @@ impl Navigator {
         self.reveal_selection = true;
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
         true
     }
 
@@ -1046,7 +1046,22 @@ impl Navigator {
         let Some(what) = self.amended_changes(&project, worktree, cx) else {
             return false;
         };
+        // The commit's branch may only be open for the selection, which has left it for the
+        // changes: it stays open, for the commit to be outlined.
+        if let Some(Stop::Into(Target::Commit(id))) = &start {
+            let name = (self.store.read(cx).workspace(&project))
+                .and_then(|workspace| workspace.find_commit(*id))
+                .and_then(|(branch, _)| branch.ref_name.clone());
+            if let Some(name) = name {
+                self.set_open(
+                    super::ClickOpened::Here((project.clone(), Some(name))),
+                    true,
+                    cx,
+                );
+            }
+        }
         self.reveal_selection = true;
+        self.reveal_source = true;
         self.squash(project, what, start, window, cx)
     }
 
@@ -1133,7 +1148,7 @@ impl Navigator {
         };
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
         true
     }
 
@@ -1196,7 +1211,7 @@ impl Navigator {
         self.reveal_selection = true;
         self.store
             .update(cx, |store, cx| store.set_moving(Some(moving), cx));
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
     }
 
     /// Squash what `moving` moves, or move or cherry-pick what it squashes, as `op` says: from
@@ -1345,7 +1360,7 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
         let store = self.store.read(cx);
         let Some(moving) = store.moving.as_ref() else {
             return;
@@ -1777,9 +1792,9 @@ pub(super) fn new_commit_row(
 /// What a squash goes into outlined over its row, as dropping on it outlines it but in a
 /// squash's colour, its top and bottom `edges` from the row's, as [`SquashOutline::edges`]
 /// says, over the rows it passes, blinking as copies of what's moving do.
-pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Theme) -> AnyElement {
+pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Theme) -> Div {
     let (top, bottom) = edges;
-    let outline = div()
+    div()
         .absolute()
         .top(dp(top))
         .bottom(dp(-bottom))
@@ -1792,8 +1807,7 @@ pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Th
         .when_some(blink, |el, n| {
             let shape = div().absolute().inset_0().rounded(dp(4.));
             el.child(blink_once(("blink", n), shape, theme.blue))
-        });
-    on_top(outline).priority(2).into_any_element()
+        })
 }
 
 /// Branch `name`'s row as a copy draws it, row `id`, in `style`: folded, as its own row is,
@@ -1813,6 +1827,7 @@ fn branch_copy(id: String, name: String, style: RowStyle) -> AnyElement {
 pub(super) fn stand_in(
     stand_in: &StandIn,
     (left, right): (f32, f32),
+    layer: usize,
     store: &Store,
     theme: &Theme,
 ) -> Div {
@@ -1849,11 +1864,14 @@ pub(super) fn stand_in(
         .left(dp(left))
         .right(dp(right))
         .px(fixed(1.))
-        .child(on_top(
-            (div().relative().bg(theme.bg_1).opacity(*shown))
-                .child(row)
-                .children(guides),
-        ))
+        .child(
+            on_top(
+                (div().relative().bg(theme.bg_1).opacity(*shown))
+                    .child(row)
+                    .children(guides),
+            )
+            .priority(layer),
+        )
 }
 
 /// The new branch commits being moved or made would land in at stop `at`, over their copies,

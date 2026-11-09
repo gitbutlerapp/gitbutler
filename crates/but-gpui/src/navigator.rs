@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::f32::consts::PI;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -66,7 +67,9 @@ mod moving;
 mod order;
 mod rename;
 mod rows;
+mod tabs;
 pub(crate) use rows::{lists_changes, worktrees_listed};
+pub(crate) use tabs::NavigatorTabs;
 
 use moving::Mark;
 use rows::{
@@ -239,6 +242,34 @@ const UPSTREAM_CHEVRON: f32 = ROW_LEFT + COMMIT_INDENT + 6.;
 
 /// Where the middle of a remote merge's chevron sits, a step in from its heading's.
 const MERGE_CHEVRON: f32 = UPSTREAM_CHEVRON + STEP;
+
+/// What a checkout's row and tab call the main worktree.
+pub(super) const MAIN_WORKTREE: &str = "Main worktree";
+
+/// What the projects not watched go by: all of them, `alone`, with none watched.
+pub(super) fn drawer_title(alone: bool) -> &'static str {
+    match alone {
+        true => "All projects",
+        false => "More projects",
+    }
+}
+
+/// The icon project `id` wears in its row and on its tab, in 16 points: the one picked, else the
+/// glyph's outline in `color`.
+pub(super) fn project_glyph(
+    store: &Store,
+    id: &ProjectId,
+    color: Hsla,
+    theme: &Theme,
+) -> AnyElement {
+    match ProjectIcon::parse(store.project_icon(id)) {
+        ProjectIcon::Glyph(Colour { fill: None, .. }) => icon(Icon::Repo)
+            .size(dp(16.))
+            .text_color(color)
+            .into_any_element(),
+        picked => picked.render(theme.scaled(16.), theme),
+    }
+}
 
 /// A foldable row's click handler: a double-click runs `toggle`, folding or unfolding the
 /// row as its chevron does (see [`Navigator::double_clicked`]), unless the filter lists what
@@ -492,6 +523,9 @@ pub struct Navigator {
     /// The selection changed, or where it'd be moved: scroll to it once the rows are up to
     /// date, to the copies of commits being moved where they'd land rather than to them.
     reveal_selection: bool,
+    /// An amend just started: the changes going in are scrolled to as well, and first, so
+    /// where they are and where they go both show.
+    reveal_source: bool,
     /// What the move shown, or landing, did when the rows were last brought up to date.
     shown_op: Option<Op>,
     /// The move shown then was one Return landed, until the reload shows where it went, which
@@ -535,6 +569,23 @@ pub struct Navigator {
     first_hit: Option<Selection>,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
+    /// What the card under a tab shows, while the rows it holds stand in for the navigator's
+    /// own: being drawn, or the keys stepping and folding them, as they do the navigator's.
+    scope: Option<tabs::TabKey>,
+    /// The selection the rows being drawn show in place of the store's, for a card on its way
+    /// out, which stays as it was left.
+    scoped_selection: Option<Option<Selection>>,
+    /// The tabs across the window's top have the keys, which stay there as rows are selected.
+    strip_has_keys: bool,
+    /// What takes the keys for the rows across the top, which is the tabs.
+    strip_keys: Option<FocusHandle>,
+    /// The tab the card's down from, whose rows a drag out of it goes by, and where the first of
+    /// them was last drawn.
+    card_key: Option<tabs::TabKey>,
+    card_top: Rc<Cell<Option<Pixels>>>,
+    /// What has the keys as those rows are drawn, where a press on them leaves them: the
+    /// navigator isn't drawn to take them.
+    scoped_keys: Option<FocusHandle>,
     /// Drawn out over the detail while it's closed, as a card of its own, which the app
     /// sizes, rather than beside it.
     floating: bool,
@@ -712,6 +763,7 @@ impl Navigator {
             footer: Cell::new((0., 0.)),
             on_drawer_bar: false,
             reveal_selection: false,
+            reveal_source: false,
             shown_op: None,
             shown_landing: false,
             squash_outline: None,
@@ -728,6 +780,13 @@ impl Navigator {
             filter,
             first_hit: None,
             pointer_over: false,
+            scope: None,
+            scoped_selection: None,
+            strip_has_keys: false,
+            strip_keys: None,
+            card_key: None,
+            card_top: Rc::default(),
+            scoped_keys: None,
             floating: false,
             detail_shown: Cell::new(1.),
             held_order: None,
@@ -782,7 +841,9 @@ impl Navigator {
     ) -> AnyElement {
         match open.is_some() && self.filtering(cx) {
             true => fold_glyph(id, Some(true), color).into_any_element(),
-            false => fold_button(id, open, color, &self.focus, cx, toggle).into_any_element(),
+            false => {
+                fold_button(id, open, color, self.pressed_keys(), cx, toggle).into_any_element()
+            }
         }
     }
 
@@ -818,7 +879,7 @@ impl Navigator {
 
     /// Give the rows the keys, the selection drawn solid again.
     fn focus_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        window.focus(&self.focus, cx);
+        self.take_keys(window, cx);
         cx.notify();
     }
 
@@ -905,7 +966,15 @@ impl Navigator {
         if self.store.read(cx).moving.is_some() {
             return self.click_move(&selection, window, cx);
         }
-        window.focus(&self.focus, cx);
+        match (self.strip_has_keys, self.takes_keys(cx)) {
+            (true, _) => {}
+            (false, true) => window.focus(&self.focus, cx),
+            // What the filter found, the keys go on from there, as they do here.
+            (false, false) if self.filter_has_keys(window, cx) => self.take_keys(window, cx),
+            (false, false) => (self.app).update_later(window, cx, |app, window, cx| {
+                app.focus_main(window, cx);
+            }),
+        }
         // Up to a section's heading, what the selection held open stays open, as a tree's
         // folder does over the row it was opened to show.
         if let Selection::Section(project, section) = &selection
@@ -1015,7 +1084,9 @@ impl Navigator {
     /// cards it's always open, and while the filter lists what it finds, they show as they
     /// are, as cards don't fold.
     fn drawer_toggles(&self, cx: &App) -> bool {
-        self.drawer.total > 0 && !self.rows.is_empty() && !self.filtering(cx)
+        // Under its tab the card shows it whole, with nothing to fold.
+        self.scope.is_none()
+            && (self.drawer.total > 0 && !self.rows.is_empty() && !self.filtering(cx))
     }
 
     /// Give the drawer's bar the keys, in view.
@@ -1151,15 +1222,23 @@ impl Navigator {
         let Some(next) = projects.get(next).map(|project| (*project).clone()) else {
             return;
         };
-        // Selecting a row holds its folds open, but a folded card stays folded. A project in the
-        // drawer has no rows, and the filter lists only what it finds.
-        let rows = !self.filtering(cx)
-            && !store.prefs.folded_projects.contains(next.as_ref())
-            && store.project(&next).is_some_and(|p| p.expanded);
-        let row = (store.left_on.get(&next))
+        self.select(self.left_in_project(&next, cx), window, cx);
+    }
+
+    /// What going back to `project` selects: the row it was left on, else its own.
+    pub(super) fn left_in_project(&self, project: &ProjectId, cx: &App) -> Selection {
+        let store = self.store.read(cx);
+        // Selecting a row holds its folds open, but a folded card stays folded, as tabs have no
+        // card to fold. A project in the drawer has no rows, and the filter lists only what it
+        // finds.
+        let folded = store.prefs.navigator_place != crate::state::NavigatorPlace::Top
+            && store.prefs.folded_projects.contains(project.as_ref());
+        let rows =
+            !self.filtering(cx) && !folded && store.project(project).is_some_and(|p| p.expanded);
+        (store.left_on.get(project))
             .filter(|row| rows && store.still_there(row))
-            .cloned();
-        self.select(row.unwrap_or(Selection::Project(next)), window, cx);
+            .cloned()
+            .unwrap_or_else(|| Selection::Project(project.clone()))
     }
 
     /// Whether `branch` shows its commits: as Settings start branches, unless folded or
@@ -1480,10 +1559,12 @@ impl Navigator {
         let list = &self.list;
         let view = list.viewport_bounds();
         let on_screen = |above: Option<usize>| {
-            above.is_none_or(|ix| {
-                (list.bounds_for_item(ix))
-                    .is_some_and(|row| row.bottom() > view.top() && row.bottom() < view.bottom())
-            })
+            self.scope.is_some()
+                || above.is_none_or(|ix| {
+                    (list.bounds_for_item(ix)).is_some_and(|row| {
+                        row.bottom() > view.top() && row.bottom() < view.bottom()
+                    })
+                })
         };
         let (mut changed, mut started) = (seen.len() != self.folds_seen.len(), false);
         for (fold, open, above) in seen {
@@ -1533,6 +1614,29 @@ impl Navigator {
     /// changed. Rows that didn't change keep their place on screen. When a load changed the
     /// cards' while the pointer is over them, so does the row under it: rows added above it,
     /// like an agent's new commit, push the rows above it up rather than it down.
+    /// Build the rows and bring the list up to date, as a frame does, for what reads them while
+    /// the navigator isn't drawn.
+    pub(crate) fn catch_up_rows(&mut self, window: &Window, cx: &App) {
+        let mut built = self.build_rows(cx);
+        if self.follow_folds(&built.folds, cx) {
+            built = self.build_rows(cx);
+        }
+        let Rows {
+            rows,
+            insets,
+            guides,
+            moving,
+            drawer,
+            first_hit,
+            ..
+        } = built;
+        self.moving = moving;
+        self.sync_list(rows, drawer, window, cx);
+        self.insets = insets;
+        self.guides = guides;
+        self.first_hit = first_hit;
+    }
+
     fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
         // Rows not drawn yet count as one row tall, which a project's row is.
         let row = Theme::get(cx).scaled(ROW_HEIGHT);
@@ -1666,33 +1770,278 @@ impl Navigator {
             }
         }
         let store = self.store.read(cx);
-        // Commits being moved show where they'd land, if that's elsewhere, and what a squash
-        // goes into is outlined.
-        let ghost = |row: &Row| match row {
-            Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
-            Row::Item(item) => moving::squashed_into(store, item),
-            _ => false,
-        };
-        if std::mem::take(&mut self.reveal_selection)
+        let ghost = |row: &Row| shows_where_it_lands(store, row);
+        // Not drawn yet, the list has no height to scroll a row into, which would leave the row
+        // just above its top, so what's to show waits for the frame after its first.
+        let drawn = self.list_drawn();
+        if drawn
+            && std::mem::take(&mut self.reveal_selection)
             && let Some(selection) = store.selection.clone()
-            && !self.scroll_to_row(ghost, row)
-            && !self.scroll_to_row(|row| matches!(row, Row::Item(it) if *it == selection), row)
         {
-            // A project just added has its rows once it's loaded.
-            self.reveal_selection =
-                (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
+            let selected = |row: &Row| matches!(row, Row::Item(it) if *it == selection);
+            if std::mem::take(&mut self.reveal_source) {
+                self.scroll_to_row(selected, row);
+            }
+            if !self.scroll_to_row(ghost, row) && !self.scroll_to_row(selected, row) {
+                // A project just added has its rows once it's loaded.
+                self.reveal_selection =
+                    (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
+            }
         }
         // Up from where Go to anything goes, as ⇧← steps, to the first row listed.
         let going_row = (self.going_to.clone()).and_then(|to| {
             std::iter::successors(Some(to), |item| holder(store, item))
                 .find(|item| self.listed(item))
         });
-        if going_row != self.going_row {
+        if drawn && going_row != self.going_row {
             if let Some(item) = &going_row {
                 self.scroll_to_row(|row| matches!(row, Row::Item(it) if it == item), row);
             }
             self.going_row = going_row;
         }
+    }
+
+    /// Whether the list has been drawn, which gives it its height.
+    fn list_drawn(&self) -> bool {
+        self.list.viewport_bounds().size.height > Pixels::ZERO
+    }
+
+    /// What the rows' keys do besides step and fold, there being a row for them to act on, for
+    /// the rows here and in the card under a tab alike.
+    pub(super) fn key_actions<E>(&self, el: E, cx: &mut Context<Self>) -> E
+    where
+        E: InteractiveElement + gpui::prelude::FluentBuilder,
+    {
+        let store = self.store.read(cx);
+        let moving = store.moving.is_some();
+        let squashing =
+            (store.moving.as_ref()).is_some_and(|moving| matches!(moving.op, Op::Squash(_)));
+        // A commit or a named branch of a workspace, not one only a remote or another machine
+        // has.
+        let commits = match &store.selection {
+            Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
+            Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
+                .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
+            _ => false,
+        };
+        let movable = commits
+            || match &store.selection {
+                Some(Selection::Project(project)) => {
+                    store.project(project).is_some_and(|p| p.expanded)
+                }
+                Some(Selection::Checkout(project, Checkout::Linked(name))) => (store
+                    .workspace(project))
+                .is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some()),
+                Some(Selection::Terminal(..)) => true,
+                _ => false,
+            };
+        // Those, or a worktree's uncommitted changes.
+        let squashable = commits
+            || match &store.selection {
+                Some(item @ Selection::Uncommitted(project, _)) => (store.checkout_of(item))
+                    .and_then(|checkout| store.workspace(project)?.uncommitted_in(&checkout))
+                    .is_some_and(|files| !files.is_empty()),
+                _ => false,
+            };
+        // Commits or a branch being moved squash instead, and being squashed, move instead;
+        // files only squash.
+        let moves_commits = (store.moving.as_ref()).is_some_and(Move::of_commits);
+        el.on_action(
+            cx.listener(|this, _: &SelectFirst, window, cx| this.step(isize::MIN / 2, window, cx)),
+        )
+        .on_action(
+            cx.listener(|this, _: &SelectLast, window, cx| this.step(isize::MAX / 2, window, cx)),
+        )
+        .on_action(cx.listener(|this, _: &PickPrevious, window, cx| this.pick_step(-1, window, cx)))
+        .on_action(cx.listener(|this, _: &PickNext, window, cx| this.pick_step(1, window, cx)))
+        .on_action(
+            cx.listener(|this, _: &PreviousSection, window, cx| {
+                this.jump_section(false, window, cx)
+            }),
+        )
+        .on_action(
+            cx.listener(|this, _: &NextSection, window, cx| this.jump_section(true, window, cx)),
+        )
+        .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
+            this.filter
+                .update(cx, |input, cx| input.select_all_text(cx));
+            window.focus(&this.filter.focus_handle(cx), cx);
+            cx.notify();
+        }))
+        .on_action(cx.listener(Self::confirm))
+        .when((movable && !moving) || (squashing && moves_commits), |el| {
+            el.on_action(cx.listener(Self::start_move))
+        })
+        .when(
+            (squashable && !moving) || (!squashing && moves_commits),
+            |el| el.on_action(cx.listener(Self::start_squash)),
+        )
+        .when(commits && !moving, |el| {
+            el.on_action(cx.listener(Self::start_squash_into))
+        })
+        .when(moving, |el| el.on_action(cx.listener(Self::move_here)))
+        .when(squashing, |el| {
+            el.on_action(cx.listener(Self::use_target_message))
+        })
+    }
+
+    /// What the rows are the rows of across the top: the tab the selection's in, as what the
+    /// keys do goes no further than the card under it.
+    fn top_scope(&self, cx: &App) -> Option<tabs::TabKey> {
+        let store = self.store.read(cx);
+        if store.prefs.navigator_place != crate::state::NavigatorPlace::Top {
+            return None;
+        }
+        (self.card_key.clone())
+            .filter(|_| store.dragging.is_some())
+            .or_else(|| NavigatorTabs::active_tab(store))
+    }
+
+    /// Say which tab the card's down from.
+    fn set_card_key(&mut self, key: Option<tabs::TabKey>) {
+        self.card_key = key;
+    }
+
+    /// Where the card's first row is drawn, which says so while it draws.
+    pub(super) fn card_top(&self) -> Rc<Cell<Option<Pixels>>> {
+        self.card_top.clone()
+    }
+
+    /// What's dragged over the card under a tab goes by its rows, as it does by the list here.
+    pub(super) fn takes_drags<E>(&self, el: E, cx: &mut Context<Self>) -> E
+    where
+        E: InteractiveElement + StatefulInteractiveElement,
+    {
+        el.on_drag_move(cx.listener(Self::follow_dragged))
+            .on_drop(cx.listener(Self::drop_dragged))
+    }
+
+    /// The filter, in the header here and over the rows in the card under a tab. Its clear button
+    /// is inside it, so typing the first letter doesn't narrow it.
+    pub(super) fn filter_field(
+        &self,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let focused = self.filter.focus_handle(cx).is_focused(window);
+        let filtering = !self.filter.read(cx).text().is_empty();
+        above_drag(
+            // Edged as the cards are, but while it has the keys.
+            field(&self.filter, focused, theme)
+                .when(!focused, |el| el.border_color(theme.border_3)),
+        )
+        .relative()
+        .flex_1()
+        .min_w_0()
+        .py(dp(3.))
+        .when(filtering, |el| {
+            el.pr(dp(26.)).child(
+                h_flex().absolute().top_0().bottom_0().right(dp(2.)).child(
+                    icon_button("clear-filter", Icon::Cross)
+                        .small()
+                        .tooltip("Clear the filter")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.filter.update(cx, |input, cx| input.set_text("", cx));
+                            this.filter_changed(cx);
+                        })),
+                ),
+            )
+        })
+        .into_any_element()
+    }
+
+    /// Whether the filter has the keys, which across the top it has for as long as it shows.
+    pub(super) fn filter_has_keys(&self, window: &Window, cx: &App) -> bool {
+        self.filter.focus_handle(cx).is_focused(window)
+    }
+
+    /// Empty the filter, as it can't be seen once it's left across the top.
+    pub(super) fn clear_filter(&mut self, cx: &mut Context<Self>) {
+        if self.filtering(cx) {
+            self.filter.update(cx, |input, cx| input.set_text("", cx));
+            self.filter_changed(cx);
+        }
+    }
+
+    /// `el` over the rows it's among, those of a higher `rank` over the rest.
+    fn over_rows(&self, el: impl IntoElement, rank: usize) -> AnyElement {
+        on_top(el).priority(self.layer(rank)).into_any_element()
+    }
+
+    /// The layer `rank` draws in over the rows, which in the card under a tab is over that card.
+    fn layer(&self, rank: usize) -> usize {
+        match self.scope {
+            Some(_) => tabs::CARD_ROWS_LAYER + rank,
+            None => rank,
+        }
+    }
+
+    /// Have what takes the keys for the rows take them.
+    pub(super) fn take_keys(&self, window: &mut Window, cx: &mut App) {
+        let keys = match self.takes_keys(cx) {
+            true => self.focus.clone(),
+            false => (self.strip_keys.clone()).unwrap_or_else(|| self.focus.clone()),
+        };
+        window.focus(&keys, cx);
+    }
+
+    /// Say what takes the keys for the rows across the top.
+    pub(crate) fn set_strip_keys(&mut self, keys: FocusHandle) {
+        self.strip_keys = Some(keys);
+    }
+
+    /// Whether something under way needs the rows in sight, which across the top keeps the card
+    /// down: a row's name being edited, something being placed or dragged but a project or a
+    /// worktree, which go along the tabs, or the filter being typed in.
+    pub(super) fn holds_card(&self, window: &Window, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        self.renaming.is_some()
+            || (store.moving.is_some() && tabs::moving_tab(store).is_none())
+            || store.dragging.is_some()
+            || self.filter_has_keys(window, cx)
+    }
+
+    /// Go on to the frame being drawn, here or in the card under a tab: what folds and slides,
+    /// and what stands in for rows that went, which fades as they close over it.
+    fn next_frame(&mut self) {
+        self.folds.frame();
+        self.reorder.frame();
+        let now = clock::now();
+        self.stand_ins.retain_mut(|stand_in| stand_in.fade(now));
+    }
+
+    /// With the rows at rest, a terminal crossing to another card has got there.
+    fn end_crossing(&mut self) {
+        if !self.reorder.any() {
+            self.crossing = None;
+        }
+    }
+
+    /// Bring the rows up to date for a frame of the card, where the navigator itself isn't
+    /// drawn, saying whether they go on sliding, and which to scroll to.
+    pub(super) fn frame_for_card(&mut self, window: &Window, cx: &App) -> (bool, Option<usize>) {
+        self.next_frame();
+        self.catch_up_rows(window, cx);
+        self.end_crossing();
+        self.reveal_source = false;
+        let reveal = std::mem::take(&mut self.reveal_selection)
+            .then(|| self.card_reveal(cx))
+            .flatten();
+        (self.reorder.any(), reveal)
+    }
+
+    /// Which row a reveal goes to in the card: where what's moving lands, else the selection.
+    fn card_reveal(&self, cx: &App) -> Option<usize> {
+        let store = self.store.read(cx);
+        let selection = store.selection.as_ref()?;
+        (self
+            .rows
+            .iter()
+            .position(|row| shows_where_it_lands(store, row)))
+        .or_else(|| {
+            (self.rows.iter()).position(|row| matches!(row, Row::Item(it) if it == selection))
+        })
     }
 
     /// Where `item`'s row, in the cards or the drawer, was last drawn while it shows.
@@ -1933,6 +2282,10 @@ impl Navigator {
     /// The row at `ix` of the list, drawn inside its card.
     fn row_in_card(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
+        // Only the navigator's own rows slide, which across the top are those of the tab the
+        // selection's in.
+        let sliding =
+            self.reorder.any() && (self.scope.is_none() || self.scope == self.top_scope(cx));
         let inset = self.insets.get(ix).copied().unwrap_or_default();
         // A row a fold is moving shows as far as the fold's open: inside its card, so the
         // card's edges stay where they are, and taking no clicks while it goes. Under the
@@ -2125,7 +2478,7 @@ impl Navigator {
             true if self.crossing.is_some() => {
                 (next_card_at(ix).unwrap_or_default() - slid).max(0.)
             }
-            true if self.reorder.any() => {
+            true if sliding => {
                 let card = (0..ix).rev().map_while(|above| match self.rows.get(above) {
                     Some(Row::Gap) | None => None,
                     Some(_) => Some(slid_at(above)),
@@ -2162,9 +2515,13 @@ impl Navigator {
         // over it.
         let key = self.row_keys.get(ix).and_then(Option::as_ref);
         let stand_ins = (self.stand_ins.iter())
-            .filter(|stand_in| self.reorder.any() && key == Some(&stand_in.under))
+            .filter(|stand_in| sliding && key == Some(&stand_in.under))
             .map(|stand_in| {
-                moving::stand_in(stand_in, self.card_margins(), self.store.read(cx), theme)
+                let margins = match self.scope {
+                    Some(_) => (0., 0.),
+                    None => self.card_margins(),
+                };
+                moving::stand_in(stand_in, margins, self.layer(0), self.store.read(cx), theme)
             });
         // What's being moved has its copy drawn over it while the move is at where it is, over
         // everything, as the copies elsewhere are, sliding out to them and back by its key, as
@@ -2192,23 +2549,24 @@ impl Navigator {
                             theme,
                         ))
                         .children(guides());
-                    on_top(copy).priority(2)
+                    self.over_rows(copy, 2)
                 })
             }
             _ => None,
         };
+        // Under a tab, the card they're in has edges of its own.
+        let edged = self.scope.is_none();
         let card = div()
             .relative()
             .bg(theme.bg_1)
             .border_color(edge)
-            .border_l_1()
-            .border_r_1()
-            .when(first, |el| {
+            .when(edged, |el| el.border_l_1().border_r_1())
+            .when(first && edged, |el| {
                 el.border_t_1()
                     .rounded_t(dp(CARD_CORNER))
                     .pt(dp(CARD_PADDING))
             })
-            .when(last, |el| {
+            .when(last && edged, |el| {
                 el.border_b_1()
                     .rounded_b(dp(CARD_CORNER))
                     .pb(dp(CARD_PADDING))
@@ -2219,20 +2577,27 @@ impl Navigator {
                     dp(height),
                     closing,
                 )),
-                None if self.reorder.any() => {
+                None if sliding => {
                     // Rounded at a card's ends, inside its corners, which square it'd cover a
                     // sliver of until the rows stop.
+                    let corner = match edged {
+                        true => 2.,
+                        false => POPOVER_RADIUS - CARD_PADDING,
+                    };
                     let over = (div().relative().bg(theme.bg_1).child(el))
-                        .when(first, |el| el.rounded_t(dp(2.)))
-                        .when(last, |el| el.rounded_b(dp(2.)))
+                        .when(first, |el| el.rounded_t(dp(corner)))
+                        .when(last, |el| el.rounded_b(dp(corner)))
                         .when(crossing, |el| el.top(dp(drawn_at(ix) - slid)));
-                    let over = on_top(over.children(guides())).priority(over_rank);
+                    let over = self.over_rows(over.children(guides()), over_rank);
                     card.children(guides()).child(over)
                 }
                 None => card.child(el).children(guides()),
             })
             .children(copy);
-        let (left, right) = self.card_margins();
+        let (left, right) = match edged {
+            true => self.card_margins(),
+            false => (0., 0.),
+        };
         let stretched = |height: f32| {
             div()
                 .absolute()
@@ -2241,8 +2606,7 @@ impl Navigator {
                 .h(dp(height))
                 .bg(theme.bg_1)
                 .border_color(edge)
-                .border_l_1()
-                .border_r_1()
+                .when(edged, |el| el.border_l_1().border_r_1())
                 .children(guides())
         };
         let below = (below > 0.).then(|| match last {
@@ -2250,8 +2614,7 @@ impl Navigator {
             // enough for its own corners to stay as round as it comes to nothing.
             true => stretched(below + 2. * CARD_CORNER)
                 .bottom(dp(-below))
-                .border_b_1()
-                .rounded_b(dp(CARD_CORNER)),
+                .when(edged, |el| el.border_b_1().rounded_b(dp(CARD_CORNER))),
             false => stretched(below).top(relative(1.)),
         });
         let above = (above > 0.).then(|| stretched(above).top(dp(-above)));
@@ -2267,8 +2630,8 @@ impl Navigator {
             .children(stand_ins);
         // The card being dragged goes over the cards it passes as they trade places, edges and
         // all, so it never runs into them, and what's in its rows over its slices.
-        let row = match held && self.reorder.any() {
-            true => on_top(row).priority(2).into_any_element(),
+        let row = match held && sliding {
+            true => self.over_rows(row, 2),
             false => row.into_any_element(),
         };
         // The list lays out the row it's given where it goes, so what slides is inside it.
@@ -2289,7 +2652,7 @@ impl Navigator {
             return div().into_any_element();
         };
         let store = self.store.read(cx);
-        let shown = store.selection.clone();
+        let shown = (self.scoped_selection.clone()).unwrap_or_else(|| store.selection.clone());
         let lit = |item: &Selection| {
             shown.as_ref() == Some(item)
                 || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
@@ -2401,6 +2764,7 @@ impl Navigator {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
                 let outline = moving::squash_outline(outline.edges(slid), blink, theme);
+                let outline = self.over_rows(outline, 2);
                 div().relative().child(el).child(outline).into_any_element()
             }
             None => el,
@@ -2545,10 +2909,10 @@ impl Navigator {
                 let range = held.shift.then(|| self.commit_order(project, *id, cx));
                 self.store
                     .update(cx, |store, cx| store.pick(project, *id, range, cx));
-                window.focus(&self.focus, cx);
+                window.focus(self.pressed_keys(), cx);
             }
             Selection::Commit(project, id) if self.store.read(cx).among_picks(project, *id) => {
-                window.focus(&self.focus, cx)
+                window.focus(self.pressed_keys(), cx)
             }
             _ => self.select(item.clone(), window, cx),
         }
@@ -2668,6 +3032,10 @@ impl Navigator {
     /// Whether the navigator has the keys, but not while typing in the filter, where they go
     /// to it.
     fn rows_have_keys(&self, window: &Window, cx: &App) -> bool {
+        if self.scope.is_some() {
+            // A card on its way out has left them behind.
+            return self.strip_has_keys && self.scoped_selection.is_none();
+        }
         keys_at(window, cx).is_some_and(|keys| {
             self.focus.contains(&keys, window) && keys != self.filter.focus_handle(cx)
         })
@@ -2865,10 +3233,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let Drawer { listed, total, .. } = self.drawer;
-        let title = match alone {
-            true => "All projects",
-            false => "More projects",
-        };
+        let title = drawer_title(alone);
         let count = match listed == total {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
@@ -3076,17 +3441,7 @@ impl Navigator {
                                 .flex()
                                 .justify_center()
                                 .text_size(dp(13.))
-                                .child(match ProjectIcon::parse(store.project_icon(id)) {
-                                    // Unpicked, it's quiet as the eye beside it, and takes the
-                                    // row's ink when it's selected.
-                                    ProjectIcon::Glyph(Colour { fill: None, .. }) => {
-                                        icon(Icon::Repo)
-                                            .size(dp(16.))
-                                            .text_color(style.muted())
-                                            .into_any_element()
-                                    }
-                                    picked => picked.render(theme.scaled(16.), theme),
-                                }),
+                                .child(project_glyph(store, id, style.muted(), theme)),
                         ),
                 )
                 // However narrow the navigator, the name stays: what the row sums up gives way
@@ -3233,10 +3588,7 @@ impl Navigator {
             _ => String::new(),
         };
         let checkout = checkout.map_or(String::new(), |checkout| {
-            format!(
-                " in {}",
-                checkout.linked().unwrap_or("Main worktree".into())
-            )
+            format!(" in {}", checkout.linked().unwrap_or(MAIN_WORKTREE.into()))
         });
         Some(format!("{name}{below_tip}{checkout}"))
     }
@@ -3259,7 +3611,7 @@ impl Navigator {
         let (label, path, uncommitted) = match worktree {
             Some(wt) => (wt.name.to_string(), &wt.path, &wt.uncommitted),
             None => (
-                "Main worktree".to_owned(),
+                MAIN_WORKTREE.to_owned(),
                 &entry.project.path,
                 &workspace.uncommitted,
             ),
@@ -3803,7 +4155,7 @@ impl Navigator {
                     || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
                         if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
                 let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                fold_button(fold, Some(open), warn, &self.focus, cx, toggle)
+                fold_button(fold, Some(open), warn, self.pressed_keys(), cx, toggle)
                     .mx(fixed(-1.))
                     .into_any_element()
             }
@@ -4444,12 +4796,20 @@ impl Focusable for Navigator {
     }
 }
 
+/// Whether `row` shows where what's moving goes: commits being moved show where they'd land, if
+/// that's elsewhere, and what a squash goes into is outlined.
+fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
+    match row {
+        Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
+        Row::Item(item) => moving::squashed_into(store, item),
+        _ => false,
+    }
+}
+
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.folds.frame();
-        self.reorder.frame();
-        let now = clock::now();
-        self.stand_ins.retain_mut(|stand_in| stand_in.fade(now));
+        self.card_top.set(None);
+        self.next_frame();
         let mut built = self.build_rows(cx);
         // A fold that just opened or shut is drawn moving from this frame on.
         if self.follow_folds(&built.folds, cx) {
@@ -4476,9 +4836,7 @@ impl Render for Navigator {
         self.guides = guides;
         self.held_card = self.held_card(self.store.read(cx));
         self.held_worktree = self.held_worktree(self.store.read(cx));
-        if !self.reorder.any() {
-            self.crossing = None;
-        }
+        self.end_crossing();
         self.slide_edges = self.reorder.any().then(|| {
             let first = self.list.logical_scroll_top().item_ix;
             let below = last_listed.map_or(first, |last| last.saturating_sub(ABOVE_LAST_LISTED));
@@ -4486,16 +4844,14 @@ impl Render for Navigator {
         });
         self.fit_folds(cx);
         // After the rows are up to date, as a reorder of them starts sliding there, and nothing
-        // else may draw the next frame.
-        if self.folds.any() || self.reorder.any() {
+        // else may draw the next frame, which what waits for the list's height needs too.
+        if self.folds.any() || self.reorder.any() || !self.list_drawn() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx).clone();
         self.first_hit = first_hit;
         let store = self.store.read(cx);
         let empty = store.projects_loaded && store.projects.is_empty();
-        let filter_focused = self.filter.focus_handle(cx).is_focused(window);
-        let filtering = !self.filter.read(cx).text().is_empty();
         let detail_shown = self.detail_shown.get();
         // Level with the location bar: the same height, from the window's top, and no rule
         // along its bottom as the cards scroll under it, as the bar has none either.
@@ -4522,31 +4878,7 @@ impl Render for Navigator {
             )
             .when(!self.floating, crate::ui::drags_window)
             .gap(dp(6.))
-            // Its clear button inside it, so typing the first letter doesn't narrow it.
-            .child(
-                above_drag(
-                    // Edged as the cards are, but while it has the keys.
-                    field(&self.filter, filter_focused, &theme)
-                        .when(!filter_focused, |el| el.border_color(theme.border_3)),
-                )
-                .relative()
-                .flex_1()
-                .min_w_0()
-                .py(dp(3.))
-                .when(filtering, |el| {
-                    el.pr(dp(26.)).child(
-                        h_flex().absolute().top_0().bottom_0().right(dp(2.)).child(
-                            icon_button("clear-filter", Icon::Cross)
-                                .small()
-                                .tooltip("Clear the filter")
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.filter.update(cx, |input, cx| input.set_text("", cx));
-                                    this.filter_changed(cx);
-                                })),
-                        ),
-                    )
-                }),
-            )
+            .child(self.filter_field(window, &theme, cx))
             .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
             .child(above_drag(div().child(self.view_button(cx))))
             .child(above_drag(div().child(self.settings_button(&theme, cx))));
@@ -4554,36 +4886,6 @@ impl Render for Navigator {
         let moving = store.moving.is_some();
         let squashing =
             (store.moving.as_ref()).is_some_and(|moving| matches!(moving.op, Op::Squash(_)));
-        // A commit or a named branch of a workspace, not one only a remote or another machine
-        // has.
-        let commits = match &store.selection {
-            Some(Selection::Commit(project, id)) => store.find_commit(project, *id).is_some(),
-            Some(Selection::Branch(project, ref_name @ Some(_))) => (store.workspace(project))
-                .is_some_and(|ws| ws.find_branch(ref_name.as_ref()).is_some()),
-            _ => false,
-        };
-        let movable = commits
-            || match &store.selection {
-                Some(Selection::Project(project)) => {
-                    store.project(project).is_some_and(|p| p.expanded)
-                }
-                Some(Selection::Checkout(project, Checkout::Linked(name))) => (store
-                    .workspace(project))
-                .is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some()),
-                Some(Selection::Terminal(..)) => true,
-                _ => false,
-            };
-        // Those, or a worktree's uncommitted changes.
-        let squashable = commits
-            || match &store.selection {
-                Some(item @ Selection::Uncommitted(project, _)) => (store.checkout_of(item))
-                    .and_then(|checkout| store.workspace(project)?.uncommitted_in(&checkout))
-                    .is_some_and(|files| !files.is_empty()),
-                _ => false,
-            };
-        // Commits or a branch being moved squash instead, and being squashed, move instead;
-        // files only squash.
-        let moves_commits = (store.moving.as_ref()).is_some_and(Move::of_commits);
 
         v_flex()
             .id("navigator")
@@ -4631,50 +4933,10 @@ impl Render for Navigator {
                 cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
             )
             .on_action(cx.listener(|this, _: &SelectNext, window, cx| this.step(1, window, cx)))
-            .on_action(cx.listener(|this, _: &SelectFirst, window, cx| {
-                this.step(isize::MIN / 2, window, cx)
-            }))
-            .on_action(
-                cx.listener(|this, _: &SelectLast, window, cx| {
-                    this.step(isize::MAX / 2, window, cx)
-                }),
-            )
-            .on_action(
-                cx.listener(|this, _: &PickPrevious, window, cx| this.pick_step(-1, window, cx)),
-            )
-            .on_action(cx.listener(|this, _: &PickNext, window, cx| this.pick_step(1, window, cx)))
-            .on_action(cx.listener(|this, _: &PreviousSection, window, cx| {
-                this.jump_section(false, window, cx)
-            }))
-            .on_action(
-                cx.listener(|this, _: &NextSection, window, cx| {
-                    this.jump_section(true, window, cx)
-                }),
-            )
-            .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
-                this.filter
-                    .update(cx, |input, cx| input.select_all_text(cx));
-                window.focus(&this.filter.focus_handle(cx), cx);
-                cx.notify();
-            }))
             .on_action(cx.listener(Self::expand))
             .on_action(cx.listener(Self::collapse))
-            .on_action(cx.listener(Self::confirm))
             .on_action(cx.listener(Self::toggle_fold))
-            .when((movable && !moving) || (squashing && moves_commits), |el| {
-                el.on_action(cx.listener(Self::start_move))
-            })
-            .when(
-                (squashable && !moving) || (!squashing && moves_commits),
-                |el| el.on_action(cx.listener(Self::start_squash)),
-            )
-            .when(commits && !moving, |el| {
-                el.on_action(cx.listener(Self::start_squash_into))
-            })
-            .when(moving, |el| el.on_action(cx.listener(Self::move_here)))
-            .when(squashing, |el| {
-                el.on_action(cx.listener(Self::use_target_message))
-            })
+            .map(|el| self.key_actions(el, cx))
             .size_full()
             .relative()
             .bg(theme.bg_2)
