@@ -1,13 +1,15 @@
 //! The app's keys, written in Zed's keymap format: a list of sections, each binding keys to
 //! actions by name in a key context. A section with `os` binds only on the platforms it names.
 //! `assets/keymaps/base.json` holds the few keys macOS gives every app, as ⌘Q, and a [`Keymap`]
-//! has a file of its own for the rest.
+//! has a file of its own for the rest. `assets/keymaps/menus.json` lays out the menu bar, which
+//! shows the keys ([`menus`]).
 //!
 //! The files ship in the binary. A dev build binds them from the checkout it was built from
 //! instead ([`source_dir`]), and reads them again as a window comes in front, so the command
 //! editor's changes and a hand's take effect without a build.
 
 pub mod edit;
+pub mod menus;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -35,21 +37,26 @@ pub fn platform_name(os: &str) -> &str {
     }
 }
 
-/// A file of keys.
+/// A file in `assets/keymaps`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeymapFile {
     Standard,
     /// The keys every keymap shares.
     Base,
+    /// The menu bar.
+    Menus,
 }
 
 impl KeymapFile {
-    pub const ALL: [KeymapFile; 2] = [KeymapFile::Standard, KeymapFile::Base];
+    pub const ALL: [KeymapFile; 3] = [KeymapFile::Standard, KeymapFile::Base, KeymapFile::Menus];
+    /// The files of keys.
+    const KEYS: [KeymapFile; 2] = [KeymapFile::Standard, KeymapFile::Base];
 
     fn name(self) -> &'static str {
         match self {
             KeymapFile::Standard => "standard.json",
             KeymapFile::Base => "base.json",
+            KeymapFile::Menus => "menus.json",
         }
     }
 
@@ -58,6 +65,15 @@ impl KeymapFile {
         match self {
             KeymapFile::Standard => include_str!("../assets/keymaps/standard.json"),
             KeymapFile::Base => include_str!("../assets/keymaps/base.json"),
+            KeymapFile::Menus => include_str!("../assets/keymaps/menus.json"),
+        }
+    }
+
+    /// Whether `text` can be this file.
+    fn check(self, text: &str) -> Result<()> {
+        match self {
+            KeymapFile::Standard | KeymapFile::Base => sections(text).map(drop),
+            KeymapFile::Menus => menus::parse(text).map(drop),
         }
     }
 }
@@ -136,8 +152,9 @@ impl Loaded {
         (self.texts.get(&file)).map_or(file.embedded(), String::as_str)
     }
 
-    /// What the files say now, on top of what they last said.
-    fn read(&self) -> Loaded {
+    /// What the files say now, on top of what they last said, and the menu bar's items that name
+    /// no action.
+    fn read(&self, cx: &App) -> Loaded {
         let mut read = Loaded::default();
         for file in KeymapFile::ALL {
             let last = self.text(file);
@@ -151,6 +168,9 @@ impl Loaded {
             });
             read.texts.insert(file, text);
         }
+        if let Ok(menus) = menus::parse(read.text(KeymapFile::Menus)) {
+            read.errors.extend(menus::unknown(&menus, cx));
+        }
         read
     }
 
@@ -162,7 +182,7 @@ impl Loaded {
     }
 }
 
-/// `file`'s text in `dir`, if it's a keymap.
+/// `file`'s text in `dir`, if it can be that file.
 #[expect(
     clippy::disallowed_methods,
     reason = "only a dev build gets here, for a small file in its own checkout"
@@ -170,7 +190,7 @@ impl Loaded {
 fn read_file(dir: &Path, file: KeymapFile) -> Result<String> {
     let reading = || format!("reading {}", file.name());
     let text = std::fs::read_to_string(dir.join(file.name())).with_context(reading)?;
-    sections(&text).with_context(reading)?;
+    file.check(&text).with_context(reading)?;
     Ok(text)
 }
 
@@ -206,6 +226,13 @@ fn text_of(file: KeymapFile, cx: &App) -> String {
         .to_owned()
 }
 
+/// The menu bar as last read. The shipped file always reads, and one that doesn't is never kept.
+pub fn bar_menus(cx: &App) -> Vec<menus::BarMenu> {
+    menus::parse(&text_of(KeymapFile::Menus, cx))
+        .inspect_err(|err| tracing::error!("couldn't read the menu bar: {err:#}"))
+        .unwrap_or_default()
+}
+
 /// One binding in a file, whatever the platform.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Binding {
@@ -228,7 +255,7 @@ impl Binding {
 
 /// Every binding of every file as last read, in each file's order.
 pub fn bindings(cx: &App) -> Vec<Binding> {
-    KeymapFile::ALL
+    KeymapFile::KEYS
         .into_iter()
         .flat_map(|file| file_bindings(file, &text_of(file, cx)))
         .collect()
@@ -269,7 +296,8 @@ pub fn edit(
     let path = dir.join(file.name());
     let text = std::fs::read_to_string(&path)?;
     let changed = change(&text)?;
-    sections(&changed).context("the change would break the file")?;
+    file.check(&changed)
+        .context("the change would break the file")?;
     std::fs::write(&path, changed)?;
     reload(cx);
     Ok(())
@@ -283,7 +311,7 @@ pub fn reload(cx: &mut App) {
     let Some(last) = cx.try_global::<Loaded>() else {
         return;
     };
-    let read = last.read();
+    let read = last.read(cx);
     if read.same_as(last) {
         return;
     }
@@ -301,7 +329,7 @@ pub fn reload(cx: &mut App) {
 /// Binds the keys of the keymap the store's prefs pick, and again each time they pick another,
 /// then sets the menus, as the menu bar takes its keys when it's set.
 pub fn bind(store: &Entity<Store>, set_menus: impl Fn(&mut App) + 'static, cx: &mut App) {
-    let read = Loaded::default().read();
+    let read = Loaded::default().read(cx);
     for error in &read.errors {
         tracing::error!("couldn't read a keymap: {error}");
     }

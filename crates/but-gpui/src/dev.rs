@@ -15,6 +15,8 @@
 //! move 120 300            # window coordinates in logical pixels; with the button held
 //!                         # after `press` or `drag … hold`, a drag's move; append `cmd`,
 //!                         # `alt` or `shift` to hold them
+//! leave 120 -10           # the pointer goes out of the window there, as macOS says only that
+//!                         # it left, with no move outside
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
 //! rclick 120 300         # the right button, and mclick the middle one; with the left
@@ -988,6 +990,18 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let at = at()?;
             let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
             window.dispatch_event(mouse_move(at, pressed, modifiers), cx);
+        }
+        "leave" => {
+            let at = at()?;
+            let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
+            window.dispatch_event(
+                PlatformInput::MouseExited(gpui::MouseExitEvent {
+                    position: at,
+                    pressed_button: pressed,
+                    modifiers,
+                }),
+                cx,
+            );
         }
         "press" => {
             let at = at()?;

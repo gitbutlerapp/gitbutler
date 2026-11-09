@@ -229,9 +229,7 @@ pub use stories::run as run_stories;
 pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
-    use gpui::{
-        App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, WindowBounds, prelude::*, size,
-    };
+    use gpui::{App, Bounds, QuitMode, WindowBounds, prelude::*, size};
 
     use crate::app::AppView;
     use crate::ui::fixed;
@@ -280,7 +278,6 @@ pub fn run(embedded: Option<Embedded>) {
             }
             #[cfg(target_os = "linux")]
             ui::prewarm_fonts(cx);
-            let has_update_feed = embedded.as_ref().is_some_and(|e| e.update_feed.is_some());
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
@@ -302,53 +299,11 @@ pub fn run(embedded: Option<Embedded>) {
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
-            // The standard macOS menus. AppKit fills a menu named "Window" with the window
-            // list and tiling, and "Services" with what other apps offer. Set again whenever
-            // the keymap changes, as the menu bar takes the keys when it's set.
-            let set_menus = move |cx: &mut App| {
-                let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
-                if has_update_feed {
-                    app_menu.push(MenuItem::action("Check for Updates", app::CheckForUpdates));
-                }
-                cx.set_menus([
-                    Menu::new("GitButler").items(app_menu.into_iter().chain([
-                        MenuItem::separator(),
-                        MenuItem::action("Settings", settings::OpenSettings),
-                        MenuItem::separator(),
-                        MenuItem::os_submenu("Services", SystemMenuType::Services),
-                        MenuItem::separator(),
-                        MenuItem::action("Hide GitButler", app::Hide),
-                        MenuItem::action("Hide Others", app::HideOthers),
-                        MenuItem::action("Show All", app::ShowAll),
-                        MenuItem::separator(),
-                        MenuItem::action("Quit GitButler", app::Quit),
-                    ])),
-                    Menu::new("File").items([
-                        MenuItem::action("Add Project", app::AddProject),
-                        MenuItem::action("Clone Repository", projects::CloneRepository),
-                        MenuItem::action("New Terminal", terminal::NewTerminal),
-                        MenuItem::separator(),
-                        MenuItem::action("Close Window", app::CloseWindow),
-                    ]),
-                    Menu::new("View").items([
-                        MenuItem::action("Actual Size", app::ActualSize),
-                        MenuItem::action("Zoom In", app::ZoomIn),
-                        MenuItem::action("Zoom Out", app::ZoomOut),
-                    ]),
-                    Menu::new("Window").items([
-                        MenuItem::action("Minimize", app::Minimize),
-                        MenuItem::action("Zoom", app::Zoom),
-                    ]),
-                    Menu::new("Help").items([
-                        MenuItem::action("GitButler Docs", help::OpenDocs),
-                        MenuItem::action("What's New", help::OpenReleaseNotes),
-                        MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
-                        MenuItem::separator(),
-                        MenuItem::action("Report an Issue", help::ReportIssue),
-                        MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
-                        MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
-                    ]),
-                ]);
+            // The menu bar, as `assets/keymaps/menus.json` lays it out. Set again whenever the
+            // keymap changes, as the menu bar takes the keys when it's set.
+            let set_menus = |cx: &mut App| {
+                let menus = keymap::menus::built(&keymap::bar_menus(cx), cx);
+                cx.set_menus(menus);
             };
 
             // A script drives a window no one sees, so its run keeps out of the Dock, the menu

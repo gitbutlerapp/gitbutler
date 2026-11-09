@@ -248,14 +248,17 @@ and tests it.
 - Keys live in `assets/keymaps`, in Zed's keymap format, written with `secondary-`, which is ⌘ on
   macOS and Ctrl elsewhere. `base.json` holds only the keys macOS gives every app; everything the
   app gives a meaning to, even ⌘C or ⌘Z, goes in `standard.json`. The last
-  binding for an action is the key menus and tooltips show.
+  binding for an action is the key tooltips and right-click menus show. The menu bar is laid
+  out in `menus.json`, and GPUI shows an action's first binding there that works in
+  `Workspace` (`keymap::menus::shortcut`).
   A dev build binds them from the checkout, and the Edit commands window (`command_editor`)
-  writes them there as text edits that keep their comments and order.
+  writes them there: keys as text edits that keep their comments and order, the menu bar as
+  the whole file.
 - Write keys in copy as macOS does (`⌘↩`) and pass the text through `ui::keys_text`, which
   shows `Ctrl+Enter` on Windows and Linux.
 - Name platform things through one place: `ui::REVEAL` for the file manager,
   `std::env::consts::OS` for `but-api`'s per-platform lists, `EXE_SUFFIX` for a program's name.
-- Windows and Linux have no menu bar, so every command in `cx.set_menus` also needs a palette
+- Windows and Linux have no menu bar, so every command in `menus.json` also needs a palette
   entry.
 - Git paths use `/`. Before showing, copying or revealing one joined onto a checkout, replace
   it with `MAIN_SEPARATOR_STR`.

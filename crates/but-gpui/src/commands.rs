@@ -236,7 +236,7 @@ commands! {
     },
     crate::app::SquashIntoSelection => "Squash uncommitted changes into this",
     ToggleNavigator => "Toggle navigator",
-    ToggleNavigatorPlace => "Move navigator between side and top",
+    ToggleNavigatorPlace => "Move navigator",
     ToggleDetail => "Toggle details",
     ZoomIn => "Zoom in",
     ZoomOut => "Zoom out",
@@ -293,7 +293,7 @@ commands! {
     crate::detail::ToggleWrap => "Wrap long lines",
     crate::detail::TogglePlainLines => "Toggle diff backgrounds",
     crate::detail::ToggleSplit => "Side-by-side diff",
-    crate::detail::ToggleFiles => "Show or hide the files" {
+    crate::detail::ToggleFiles => "Toggle files" {
         // In the single file diff the files stay beside the diff, and nothing hides them.
         listed: |app, cx| !app.detail.read(cx).single_file_diff(cx),
     },
