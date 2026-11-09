@@ -1403,11 +1403,31 @@ impl AppView {
     /// Focus the navigator, or the changes while the navigator isn't on screen, so keys
     /// always reach something visible. Out over the detail, it's on screen.
     pub(crate) fn focus_main(&self, window: &mut Window, cx: &mut App) {
+        self.focus_main_by(Detail::focus, window, cx)
+    }
+
+    /// [`AppView::focus_main`], but the page's file list takes the keys rather than its diff, or
+    /// its list on a page with one, as when they come down from the navigator's tabs across the
+    /// top. Of the page just selected there, which has a file list where the one before may not.
+    pub(crate) fn focus_page_files(&self, window: &mut Window, cx: &mut App) {
+        let focus = |detail: &mut Detail, window: &mut Window, cx: &mut Context<Detail>| {
+            detail.follow_selection(window, cx);
+            detail.focus_files(window, cx)
+        };
+        self.focus_main_by(focus, window, cx)
+    }
+
+    fn focus_main_by(
+        &self,
+        focus: fn(&mut Detail, &mut Window, &mut Context<Detail>),
+        window: &mut Window,
+        cx: &mut App,
+    ) {
         if self.navigator_open || self.peek.open {
             window.focus(&self.navigator.focus_handle(cx), cx);
         } else if !self.focus_cover(window, cx) {
             self.detail
-                .update(cx, |detail, cx| detail.focus(window, cx));
+                .update(cx, |detail, cx| focus(detail, window, cx));
         }
     }
 
@@ -2169,7 +2189,7 @@ impl AppView {
     pub(crate) fn keys_off_hidden_navigator(&self, window: &mut Window, cx: &mut Context<Self>) {
         let navigator = self.navigator.focus_handle(cx);
         if !self.peek.open && navigator.contains_focused(window, cx) {
-            self.focus_main(window, cx);
+            self.focus_page_files(window, cx);
         }
     }
 

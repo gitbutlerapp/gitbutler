@@ -1033,10 +1033,10 @@ impl NavigatorTabs {
         }
     }
 
-    /// Hand the keys to the page.
+    /// Hand the keys to the page, its file list first.
     fn leave_to_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.app.update_later(window, cx, |app, window, cx| {
-            app.focus_main(window, cx);
+            app.focus_page_files(window, cx);
         });
     }
 
