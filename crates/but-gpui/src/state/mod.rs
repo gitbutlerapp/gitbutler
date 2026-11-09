@@ -22,6 +22,7 @@ mod briefs;
 mod checkout;
 mod cli;
 mod load;
+mod locks;
 mod mesh;
 mod mutation;
 mod picks;
@@ -29,15 +30,14 @@ mod saved;
 mod seen;
 mod terminals;
 mod tiling;
-mod locks;
 
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshPickKind, MeshState};
 use mutation::Running;
 pub use mutation::{
-    Asked, BlockedCommit, Instead, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
-    marked_parts, up_to_date,
+    Asked, BlockedCommit, Instead, Label, NewAt, Overlay, Rereads, SLOW, branch_moved,
+    conflicted_parts, marked_parts, up_to_date,
 };
 pub use picks::Picks;
 pub use saved::{
