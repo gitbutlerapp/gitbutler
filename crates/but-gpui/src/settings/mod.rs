@@ -604,6 +604,21 @@ impl SettingsView {
         .with_keywords("ask prompt warning shell tile")
     }
 
+    fn screen_reader_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Screen reader support",
+            "Lets VoiceOver and other screen readers read the app. Takes effect when the app next \
+             starts. On a Mac with a Touch Bar, closing a window with this on can crash the app.",
+            self.pref_switch(
+                "screen-reader",
+                self.store.read(cx).prefs.screen_reader,
+                |p| p.screen_reader ^= true,
+                cx,
+            ),
+        )
+        .with_keywords("accessibility a11y voiceover")
+    }
+
     /// Save the command as typed, unless it's what's saved already.
     fn save_terminal_command(&self, cx: &mut App) {
         let command = self.terminal_command.read(cx).text().trim().to_owned();
@@ -1338,6 +1353,7 @@ impl SettingsView {
                 ),
                 // Only once it's been looked for, which only macOS does.
                 Card::new(None, self.cli_row(cx).into_iter().collect()),
+                Card::new(Some("Accessibility"), vec![self.screen_reader_row(cx)]),
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],

@@ -256,7 +256,11 @@ pub fn run(embedded: Option<Embedded>) {
     #[cfg(unix)]
     let handed = but_tty::handed();
 
-    let app = gpui_platform::application();
+    let platform = gpui_platform::current_platform(false);
+    let app = match state::screen_reader_on() {
+        true => gpui::Application::with_platform(platform),
+        false => gpui::Application::new_inaccessible(platform),
+    };
     // Before `run`, as the link that launched the app can arrive while it starts.
     let links = links::listen(&app, incoming_links);
     app.with_assets(ui::Assets)

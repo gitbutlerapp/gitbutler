@@ -41,7 +41,7 @@ pub use mutation::{
 pub use picks::Picks;
 pub use saved::{
     BranchStatus, FileSort, FileView, NavigatorPlace, Pane, Part, Prefs, ScopeLines, TerminalRuns,
-    WatchedOrder,
+    WatchedOrder, screen_reader_on,
 };
 use saved::{Restored, Saved};
 use seen::Seen;
