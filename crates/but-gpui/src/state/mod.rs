@@ -381,8 +381,9 @@ pub struct Store {
     /// The commit the selection was on and the one it moved to, when it last moved because
     /// an operation rewrote the commit.
     followed: Option<(CommitId, CommitId)>,
-    /// The new commit an operation selected, until the selection moves: a reload follows it by
-    /// change id, as the workspace before it never had the commit to follow.
+    /// The new commit an operation selected, or the commit a link did, until the selection
+    /// moves: a reload follows it by change id, as the workspace before it may never have had
+    /// the commit to follow.
     made: Option<backend::Made>,
     /// While an operation of a project the user has left finishes, which leaves the selection,
     /// and what's picked with it, where the user is.

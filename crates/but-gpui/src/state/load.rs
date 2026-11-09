@@ -384,21 +384,36 @@ impl Store {
     }
 
     /// Select `selection` as a `but://open` link asks, as a click on its row does, with its diff
-    /// open at `place` if it names one. A place the project doesn't have falls back as any
-    /// selection does, at once if the project's read, otherwise once it is, and says `missing`.
+    /// open at `place` if it names one. A commit with its change id `key` is found by it once
+    /// rewritten. A place the project doesn't have falls back as any selection does, at once if
+    /// the project's read, otherwise once it is, and says `missing`.
     pub(crate) fn select_linked(
         &mut self,
-        selection: Selection,
+        mut selection: Selection,
+        key: Option<String>,
         place: Option<CodePlace>,
         missing: &'static str,
         cx: &mut Context<Self>,
     ) {
         let project = selection.project().clone();
+        // Amended or rebased since the link was written, its commit is found by its change id:
+        // now if the project's read, or else by its first read, as one an operation made is.
+        let made = match (&selection, key) {
+            (Selection::Commit(_, id), Some(key)) => Some(backend::Made {
+                id: linked_commit(self.workspace(&project), *id, &key),
+                key,
+            }),
+            _ => None,
+        };
+        if let Some(made) = &made {
+            selection = Selection::Commit(project.clone(), made.id);
+        }
         self.linked = Some((selection.clone(), missing));
         match place {
             Some(place) if self.still_there(&selection) => self.show_file(selection, place, cx),
             _ => self.select_by_hand(selection, cx),
         };
+        self.made = made;
         // Unlike a click, a link can name what the project doesn't have, which then says so and
         // falls back now rather than at the project's next reload.
         self.land_link(&project, cx);
@@ -852,10 +867,7 @@ impl Store {
             Some(Selection::Commit(project, commit)) if project == id => {
                 let followed = follow_by_key(old, &workspace, *commit).or_else(|| {
                     let made = (self.made.as_ref()).filter(|made| made.id == *commit)?;
-                    workspace
-                        .commits()
-                        .find(|c| c.key == made.key)
-                        .map(|c| c.id)
+                    workspace.find_commit_by_key(&made.key).map(|c| c.id)
                 });
                 match followed {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
@@ -1109,6 +1121,15 @@ fn follow_from_workspace(
     }
 }
 
+/// The id a link's commit `id`, with change id `key`, goes by in `workspace`: its own while it's
+/// there, or once an agent amended or rebased it, that of the commit that kept `key`. With
+/// neither it stays `id`, which the link then says is gone, as it does until the project's read.
+fn linked_commit(workspace: Option<&Workspace>, id: CommitId, key: &str) -> CommitId {
+    (workspace.filter(|workspace| workspace.find_commit(id).is_none()))
+        .and_then(|workspace| workspace.find_commit_by_key(key))
+        .map_or(id, |commit| commit.id)
+}
+
 /// Where `old`'s commit `commit` is in `new`, if it's still there: under the same id, or
 /// under the new id that amending or rebasing it gave it, which keeps its key, or after Git
 /// rewrote it without the key, what Git kept, as unread marks pair them.
@@ -1117,7 +1138,7 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
         return Some(commit);
     }
     let (_, old) = old?.find_commit(commit)?;
-    (new.commits().find(|c| c.key == old.key))
+    (new.find_commit_by_key(&old.key))
         .or_else(|| new.commits().find(|c| c.authored == old.authored))
         .map(|c| c.id)
 }
@@ -1304,6 +1325,35 @@ mod tests {
         assert!(
             super::renamed(Some(&old), &deleted).is_empty(),
             "a branch whose commits went to one already there, or to no name, was deleted"
+        );
+    }
+
+    #[test]
+    fn a_links_commit_goes_by_its_hash_and_once_rewritten_by_its_change_id() {
+        let n = |n: u8| crate::backend::model::build::id(n);
+        // 1 amended into 9: a new id, the same change id.
+        let mut amended = branch("feat", &[9, 2]);
+        amended.commits.first_mut().expect("it has commits").key = "key1".into();
+        let ws = workspace(vec![vec![amended]], vec![]);
+        assert_eq!(
+            super::linked_commit(Some(&ws), n(1), "key1"),
+            n(9),
+            "its hash is gone, so the commit that kept its change id"
+        );
+        assert_eq!(
+            super::linked_commit(Some(&ws), n(2), "key1"),
+            n(2),
+            "its hash is there, so that, though another commit has the change id"
+        );
+        assert_eq!(
+            super::linked_commit(Some(&ws), n(3), "key3"),
+            n(3),
+            "both gone, it stays as named for the link to say so"
+        );
+        assert_eq!(
+            super::linked_commit(None, n(1), "key1"),
+            n(1),
+            "the project's not read yet, so its first read follows it"
         );
     }
 

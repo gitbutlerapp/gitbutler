@@ -584,8 +584,7 @@ impl Navigator {
                         let commit = (store.find_commit(project, *id).map(|(_, commit)| commit))
                             .or_else(|| {
                                 let key = key?;
-                                (store.workspace(project)?.commits())
-                                    .find(|commit| commit.key == key)
+                                store.workspace(project)?.find_commit_by_key(&key)
                             })?;
                         Gone::Commit(project.clone(), Box::new(commit.clone()))
                     }
