@@ -9,6 +9,7 @@ const TOKENS_CSS_PATH = resolve("tokens/tokens.css");
 const TOKEN_JSON_PATHS = [
 	resolve("tokens/json/core.tokens.json"),
 	resolve("tokens/json/semantic.tokens.json"),
+	resolve("tokens/json/ramps.tokens.json"),
 ];
 
 const isWatchMode = process.argv.includes("--watch");

@@ -129,9 +129,10 @@
         "colorMode": "hex",
         "variableCollections": [
           "core",
-          "semantic"
+          "semantic",
+          "ramps"
         ],
-        "createdAt": "2026-11-08T00:18:37.194Z"
+        "createdAt": "2026-11-09T15:16:56.710Z"
       }
     }
   }

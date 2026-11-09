@@ -15,12 +15,15 @@
 	},
 	"scripts": {
 		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs",
-		"check": "pnpm build && git diff --exit-code -- tokens/tokens.css",
+		"check": "node scripts/generate-ramps.mjs --check && pnpm build && git diff --exit-code -- tokens/tokens.css",
 		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
 	},
 	"devDependencies": {
+		"@radix-ui/colors": "3.0.0",
 		"@terrazzo/cli": "0.10.3",
 		"@terrazzo/parser": "0.10.4",
-		"@terrazzo/plugin-css": "0.10.4"
+		"@terrazzo/plugin-css": "0.10.4",
+		"culori": "4.0.2",
+		"dittotones": "0.13.0"
 	}
 }

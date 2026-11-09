@@ -773,6 +773,9 @@ importers:
 
   packages/but-ui:
     devDependencies:
+      '@radix-ui/colors':
+        specifier: 3.0.0
+        version: 3.0.0
       '@terrazzo/cli':
         specifier: 0.10.3
         version: 0.10.3(hono@4.12.32)
@@ -782,6 +785,12 @@ importers:
       '@terrazzo/plugin-css':
         specifier: 0.10.4
         version: 0.10.4(@terrazzo/cli@0.10.3(hono@4.12.32))
+      culori:
+        specifier: 4.0.2
+        version: 4.0.2
+      dittotones:
+        specifier: 0.13.0
+        version: 0.13.0
 
   packages/but-ui-react:
     dependencies:
@@ -3334,6 +3343,9 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@radix-ui/colors@3.0.0':
+    resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
+
   '@rails/actioncable@8.1.200':
     resolution: {integrity: sha512-on0DSb7AFUkq1ocxivDNQhhGW/RQpY91zvRVyyaEWP4gOOZWy33P/UyxjQk74IENWNrTqs8+zOGHwTjiiFruRw==}
 
@@ -5549,6 +5561,9 @@ packages:
   dir-glob@3.0.1:
     resolution: {integrity: sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==}
     engines: {node: '>=8'}
+
+  dittotones@0.13.0:
+    resolution: {integrity: sha512-QD7x288MvgcxVwt3/SM2NCHRzuywk/mbfKZB7m/e28vPIfRmgb2HP7zlqIQlk993f8NTF4I/J8HM4mRWFWB8jA==}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -11500,6 +11515,8 @@ snapshots:
       - react-native-b4a
       - supports-color
 
+  '@radix-ui/colors@3.0.0': {}
+
   '@rails/actioncable@8.1.200': {}
 
   '@reduxjs/toolkit@2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)':
@@ -13928,6 +13945,11 @@ snapshots:
   dir-glob@3.0.1:
     dependencies:
       path-type: 4.0.0
+
+  dittotones@0.13.0:
+    dependencies:
+      '@types/culori': 4.0.1
+      culori: 4.0.2
 
   dom-accessibility-api@0.5.16: {}
 
