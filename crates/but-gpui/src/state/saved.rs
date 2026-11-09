@@ -544,6 +544,10 @@ pub struct Prefs {
     /// The commit composer opens with every file left out, for what goes in to be checked,
     /// rather than with them all in.
     pub composer_starts_unchecked: bool,
+    /// Screen readers can read the app. Off unless picked: with it on, closing a window
+    /// crashes the app on a Mac with a Touch Bar (zed-industries/zed#64819). Read once, as
+    /// the app starts, by [`screen_reader_on`].
+    pub screen_reader: bool,
     /// The window's top right corner shows the frames drawn in the last second. Only Settings'
     /// Developer page, in a build of its own, turns it on.
     pub show_fps: bool,
@@ -633,6 +637,13 @@ pub(super) struct WindowPlace {
 pub(super) enum Fill {
     Maximized,
     FullScreen,
+}
+
+/// Whether Settings turned screen reader support on. GPUI fixes it as it builds the app,
+/// before the store loads, so this reads the saved state on its own and a change takes
+/// effect at the next launch.
+pub fn screen_reader_on() -> bool {
+    Saved::load(&Database::open()).0.prefs.screen_reader
 }
 
 impl Saved {
