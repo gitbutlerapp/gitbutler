@@ -31,7 +31,7 @@
 	}
 </script>
 
-<Modal bind:this={modal} width={524} noPadding>
+<Modal bind:this={modal} width={560} noPadding>
 	<div class="native-app">
 		<div class="native-app__illustration">
 			<div class="native-app__window">{@html windowSvg}</div>
