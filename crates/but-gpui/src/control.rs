@@ -4,8 +4,8 @@
 //!
 //! Each connection has a thread of its own, which reads a request, hands it to the UI thread
 //! and writes the answer once it's given, so a request that waits holds up only its own
-//! connection. Nothing here touches the app's state off the UI thread. No method is offered
-//! yet: each is added to [`dispatch`].
+//! connection. Nothing here touches the app's state off the UI thread. Each area of methods is
+//! routed in [`dispatch`], as `ui.*` to [`crate::app::ui_control`].
 
 use std::path::PathBuf;
 
@@ -31,7 +31,6 @@ impl Reply {
         (Reply { id, answer }, answered)
     }
 
-    #[expect(dead_code, reason = "the methods to come answer with it")]
     pub fn ok(self, result: impl Serialize) {
         self.answer.send(Response::ok(self.id, result)).ok();
     }
@@ -166,9 +165,17 @@ fn parse(line: &str) -> Result<Request, Response> {
 }
 
 /// Act on what a connection handed over, on the UI thread.
-fn dispatch(incoming: Incoming, _window: &mut Window, cx: &mut App) {
+fn dispatch(incoming: Incoming, window: &mut Window, cx: &mut App) {
     match incoming {
         Incoming::Listening(path) => cx.set_global(ControlSocket(path)),
+        Incoming::Request(request, reply) if request.method.starts_with("ui.") => {
+            crate::app::ui_control::handle(request, reply, window, cx)
+        }
+        // The window the user looks at, which an agent can lay out as asked in a dev build.
+        #[cfg(feature = "dev-script")]
+        Incoming::Request(request, reply) if request.method == "dev.layout" => {
+            crate::dev::layout(request, reply, window, cx)
+        }
         Incoming::Request(request, reply) => reply.err(RpcError::new(
             code::METHOD_NOT_FOUND,
             format!("The app has no method {}", request.method),

@@ -1,6 +1,8 @@
 //! The window's root: the project navigator on the left, details on the right, the keys,
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
+pub(crate) mod ui_control;
+
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;

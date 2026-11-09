@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context as _, bail};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+pub mod ui;
+
 /// The environment variable naming the socket, which wins over the default place.
 pub const SOCKET_ENV: &str = "GITBUTLER_GPUI_SOCKET";
 
@@ -124,6 +126,8 @@ pub mod code {
     pub const INTERNAL_ERROR: i64 = -32603;
     /// What the request names isn't there, as a repository the app hasn't open.
     pub const NOT_FOUND: i64 = -32001;
+    /// The action can't act where the keys are now.
+    pub const NOT_AVAILABLE: i64 = -32003;
 }
 
 /// A connection to the app, which sends requests one at a time and waits for each answer.

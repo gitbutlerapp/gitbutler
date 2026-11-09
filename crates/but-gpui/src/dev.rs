@@ -86,8 +86,7 @@
 
 mod control;
 
-#[cfg(unix)]
-pub(crate) use control::listen as listen_for_layout;
+pub(crate) use control::layout;
 
 use std::cell::Cell;
 use std::path::PathBuf;
