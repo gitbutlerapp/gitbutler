@@ -314,6 +314,9 @@ impl AppView {
             Vec::new()
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
+        } else if detail.on_folder_summary(window, cx) {
+            // The diff's keys go through the folder's files there.
+            vec![(&NextHunk, "next file")]
         } else if detail_focused && uncommitted {
             // This hint is for the picked lines or the hunk, which on a file's header or the box
             // above a hunk isn't.

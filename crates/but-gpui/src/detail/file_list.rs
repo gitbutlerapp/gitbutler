@@ -60,7 +60,7 @@ use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, 
 use crate::detail::Stop;
 use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
-use crate::state::{FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Store};
+use crate::state::{FileSort, FileView, Overlay, ProjectId, Rereads, Selection, Side, Store};
 use crate::theme::Theme;
 use crate::transfer::{Changes, Chip, DragPreview, Dragged, Moving};
 use crate::ui::diff;
@@ -69,8 +69,8 @@ use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
     Icon, ROW_HEIGHT, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state,
-    faint, fixed, h_flex, icon_button, list_row, matched, muted, plural, popover, shortcut,
-    side_row, small_icon, v_flex,
+    faint, fixed, h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row,
+    small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -1165,9 +1165,69 @@ impl Detail {
         }))
     }
 
+    /// Whether the diff's keys are on the summary of the folder the file list's keys stepped
+    /// onto, which takes them in the diff's place.
+    pub(crate) fn on_folder_summary(&self, window: &Window, cx: &App) -> bool {
+        self.cursor_folder(cx).is_some() && self.focus.is_focused(window)
+    }
+
+    /// Of `files`, the summary's, the place of the one the diff's keys are on.
+    fn summary_place(&self, files: &[usize]) -> usize {
+        let path = (self.page.files()).and_then(|files| files.cursor_dir.as_ref()?.file.as_ref());
+        let diff_files = self.diff.as_ref().map(|diff| &diff.files);
+        path.and_then(|path| {
+            (files.iter()).position(|ix| {
+                (diff_files.and_then(|files| files.get(*ix))).is_some_and(|f| f.file.path == *path)
+            })
+        })
+        .unwrap_or(0)
+    }
+
+    /// Step `delta` files through the summary of the folder the file list's keys are on, as the
+    /// diff's keys step through its hunks. A single step past its ends goes on from it.
+    pub(super) fn step_summary(
+        &mut self,
+        delta: isize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(dir) = self.cursor_folder(cx).map(str::to_owned) else {
+            return;
+        };
+        let files = self.folder_files(&dir, cx);
+        let at = self.summary_place(&files) as isize;
+        let to = (at.saturating_add(delta)).clamp(0, files.len() as isize - 1);
+        if to == at {
+            if delta.abs() == 1 {
+                let side = if delta > 0 { Side::Bottom } else { Side::Top };
+                self.leave(side, window, cx);
+            }
+            return;
+        }
+        let path = (files.get(to as usize))
+            .and_then(|ix| Some(self.diff.as_ref()?.files.get(*ix)?.file.path.clone()));
+        if let Some(cursor_dir) = (self.page.files_mut()).and_then(|f| f.cursor_dir.as_mut()) {
+            cursor_dir.file = path;
+        }
+        self.folder_rows.scroll_to_reveal_item(to as usize);
+        cx.notify();
+    }
+
+    /// Open the file the diff's keys are on in the folder's summary, as a click on its row does.
+    pub(super) fn open_summary_file(&mut self, cx: &mut Context<Self>) {
+        let Some(dir) = self.cursor_folder(cx).map(str::to_owned) else {
+            return;
+        };
+        let files = self.folder_files(&dir, cx);
+        if let Some(ix) = files.get(self.summary_place(&files)) {
+            self.scroll_to_file(*ix, true, cx);
+        }
+    }
+
     /// What fills the diff's pane while the file list's keys are on the tree's folder `dir`: a
     /// card as the diff's files have, its header the folder's as theirs is the file's, then a
-    /// row for each of its files, as the file list orders them, a click on which opens it.
+    /// row for each of its files, as the file list orders them, a click on which opens it. The
+    /// diff's keys go through them, the one they're on solid while they're here.
     pub(super) fn render_folder_summary(
         &self,
         dir: &str,
@@ -1218,6 +1278,7 @@ impl Detail {
             .children(diff::change_scale(added, removed, theme));
         let height = files.len() as f32 * ROW_HEIGHT + 8.;
         let prefix = format!("{dir}/");
+        let current = files.get(self.summary_place(&files)).copied();
         let files = std::rc::Rc::new(files);
         let rows = side_list(
             files.len(),
@@ -1225,13 +1286,14 @@ impl Detail {
             "folder-summary-scrollbar",
             cx,
             |_, _| None,
-            move |this, at, theme, _, cx| {
+            move |this, at, theme, window, cx| {
                 let ix = *files.get(at)?;
                 let file = this.diff.as_ref()?.files.get(ix)?;
                 let path = &file.file.path;
                 let (name, sub) = diff::split_path(path.strip_prefix(&prefix).unwrap_or(path));
                 let (added, removed) = file.stats();
-                let row = list_row(("folder-file", ix), false, theme)
+                let solid = current == Some(ix) && has_keys(&this.focus, window, cx);
+                let row = side_row(("folder-file", ix), solid, solid, theme)
                     .mx(dp(4.))
                     .pl(dp(8.))
                     .pr(dp(4.))
@@ -1248,11 +1310,14 @@ impl Detail {
                             .child(
                                 (div().min_w_0().overflow_hidden().whitespace_nowrap())
                                     .text_ellipsis_middle()
-                                    .text_color(theme.text_3)
+                                    .text_color(match solid {
+                                        true => theme.muted_on_solid(),
+                                        false => theme.text_3,
+                                    })
                                     .child(sub.to_owned()),
                             ),
                     )
-                    .child(diff::column_stats(added, removed, columns, false, theme))
+                    .child(diff::column_stats(added, removed, columns, solid, theme))
                     .child(
                         div()
                             .w(dp(MARK_WIDTH))

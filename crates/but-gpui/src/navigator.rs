@@ -972,7 +972,7 @@ impl Navigator {
             // What the filter found, the keys go on from there, as they do here.
             (false, false) if self.filter_has_keys(window, cx) => self.take_keys(window, cx),
             (false, false) => (self.app).update_later(window, cx, |app, window, cx| {
-                app.focus_main(window, cx);
+                app.focus_page_files(window, cx);
             }),
         }
         // Up to a section's heading, what the selection held open stays open, as a tree's

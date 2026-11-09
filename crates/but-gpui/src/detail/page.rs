@@ -50,9 +50,17 @@ pub(super) struct FilesState {
     pub(super) reworded: Option<String>,
     /// The pane the keys last left, which they go back to where several are on that side.
     pub(super) last_pane: Option<KeyPane>,
-    /// The tree's folder the file list's keys stepped onto, with where the diff's cursor was
-    /// then: it's the current one only while the cursor stays there.
-    pub(super) cursor_dir: Option<(String, Cursor)>,
+    /// The tree's folder the file list's keys stepped onto.
+    pub(super) cursor_dir: Option<CursorDir>,
+}
+
+/// The tree's folder the file list's keys stepped onto, with where the diff's cursor was then:
+/// it's the current one only while the cursor stays there.
+pub(super) struct CursorDir {
+    pub(super) dir: String,
+    pub(super) at: Cursor,
+    /// The file of its summary the diff's keys went to, by path, else they're on its first.
+    pub(super) file: Option<String>,
 }
 
 impl Default for FilesState {

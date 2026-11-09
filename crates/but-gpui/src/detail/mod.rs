@@ -2911,7 +2911,11 @@ impl Detail {
             ListStop::Entry(Entry::Message) => self.scroll_to_message(true, cx),
             ListStop::Folder(dir) => {
                 if let Some(files) = self.page.files_mut() {
-                    files.cursor_dir = Some((dir, cursor));
+                    files.cursor_dir = Some(page::CursorDir {
+                        dir,
+                        at: cursor,
+                        file: None,
+                    });
                 }
                 cx.notify();
             }
@@ -2984,7 +2988,7 @@ impl Detail {
         if !prefs.folder_stops || prefs.file_view != FileView::Tree {
             return None;
         }
-        let (dir, at) = self.page.files()?.cursor_dir.as_ref()?;
+        let page::CursorDir { dir, at, .. } = self.page.files()?.cursor_dir.as_ref()?;
         let holds = (self.diff.as_ref()?.files.iter()).any(|file| in_dir(&file.file.path, dir));
         (*at == self.cursor && holds).then_some(dir.as_str())
     }
@@ -3080,6 +3084,9 @@ impl Detail {
     pub(crate) fn move_hunk(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
         if self.showing_brief() {
             return self.step_brief(forward, window, cx);
+        }
+        if self.on_folder_summary(window, cx) {
+            return self.step_summary(if forward { 1 } else { -1 }, window, cx);
         }
         let past_end = if forward { Side::Bottom } else { Side::Top };
         // The keys go on to hunks that show, not a cursor out of sight. From a branch's pull
@@ -4319,12 +4326,18 @@ impl Render for Detail {
                     this.move_file(-1, folders, cx)
                 }
             }))
-            .on_action(
-                cx.listener(|this, _: &FirstFile, _, cx| this.move_file(isize::MIN / 2, false, cx)),
-            )
-            .on_action(
-                cx.listener(|this, _: &LastFile, _, cx| this.move_file(isize::MAX / 2, false, cx)),
-            )
+            .on_action(cx.listener(|this, _: &FirstFile, window, cx| {
+                match this.on_folder_summary(window, cx) {
+                    true => this.step_summary(isize::MIN / 2, window, cx),
+                    false => this.move_file(isize::MIN / 2, false, cx),
+                }
+            }))
+            .on_action(cx.listener(|this, _: &LastFile, window, cx| {
+                match this.on_folder_summary(window, cx) {
+                    true => this.step_summary(isize::MAX / 2, window, cx),
+                    false => this.move_file(isize::MAX / 2, false, cx),
+                }
+            }))
             .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
             .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
@@ -4339,6 +4352,9 @@ impl Render for Detail {
             // On its header, or its row in the file list, or scrolled to past the cursor, not
             // from inside one of its hunks.
             .on_action(cx.listener(|this, _: &ToggleFileFold, window, cx| {
+                if this.on_folder_summary(window, cx) {
+                    return this.open_summary_file(cx);
+                }
                 if let Some(dir) = this.cursor_folder(cx) {
                     return this.fold_dir(dir.to_owned(), None, cx);
                 }
