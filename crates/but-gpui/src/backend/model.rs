@@ -237,6 +237,27 @@ impl InactiveAfter {
     }
 }
 
+/// What happens to a linked worktree once an update finds its branch merged.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MergedWorktrees {
+    #[default]
+    Keep,
+    Archive,
+    Delete,
+}
+
+impl MergedWorktrees {
+    pub const ALL: [Self; 3] = [Self::Keep, Self::Archive, Self::Delete];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Keep => "Keep",
+            Self::Archive => "Archive",
+            Self::Delete => "Delete",
+        }
+    }
+}
+
 impl Workspace {
     /// Every commit shown, its linked worktrees' too.
     pub fn commits(&self) -> impl Iterator<Item = &Commit> {

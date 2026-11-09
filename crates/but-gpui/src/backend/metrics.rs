@@ -359,6 +359,7 @@ fn settings(state: &State) -> Props {
         ("projectsByActivity", json!(prefs.projects_by_activity)),
         ("activeProjectsOnly", json!(prefs.active_projects_only)),
         ("inactiveAfter", json!(prefs.inactive_after)),
+        ("mergedWorktrees", json!(prefs.merged_worktrees)),
         ("branchesStartOpen", json!(prefs.branches_start_open)),
         ("allBranchCommits", json!(prefs.all_branch_commits)),
         ("openBranchOnClick", json!(prefs.open_branch_on_click)),

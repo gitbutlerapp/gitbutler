@@ -76,10 +76,11 @@ pub struct Overlay {
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
 /// commit, and `name` the same without them, which the metrics know it by. A label that names
-/// nothing is both.
+/// nothing is both. One the app starts by itself, rather than the user, is `automatic`.
 pub struct Label {
     name: &'static str,
     text: SharedString,
+    automatic: bool,
 }
 
 impl Label {
@@ -87,6 +88,16 @@ impl Label {
         Self {
             name,
             text: text.into(),
+            automatic: false,
+        }
+    }
+
+    /// An operation the app starts by itself, as a setting asks, which goes uncounted in the
+    /// metrics and lets macOS slow it while the app is in the background.
+    fn automatic(text: &'static str) -> Self {
+        Self {
+            automatic: true,
+            ..Self::from(text)
         }
     }
 }
@@ -836,6 +847,7 @@ impl Store {
                         conflicted,
                         merged,
                         marked,
+                        merged_worktrees,
                     } => {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
@@ -846,10 +858,31 @@ impl Store {
                         if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
-                        store.snack_undoable(
-                            updated_message(&target, &conflicted, &merged, &marked),
-                            cx,
-                        )
+                        // Tidied once the update has ended.
+                        let action = store.prefs.merged_worktrees;
+                        let tidied = match action {
+                            backend::MergedWorktrees::Keep => Vec::new(),
+                            backend::MergedWorktrees::Archive
+                            | backend::MergedWorktrees::Delete => merged_worktrees,
+                        };
+                        let said = updated_message(
+                            &target,
+                            &conflicted,
+                            &merged,
+                            &marked,
+                            (action, &tidied),
+                        );
+                        store.snack_undoable(said, cx);
+                        if !tidied.is_empty() {
+                            let store = cx.entity().downgrade();
+                            cx.defer(move |cx| {
+                                store
+                                    .update(cx, |store, cx| {
+                                        store.tidy_merged_worktrees(&updated, action, tidied, cx)
+                                    })
+                                    .ok();
+                            });
+                        }
                     }
                 }
             },
@@ -1161,10 +1194,59 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            backend::worktrees::DeleteWorktree { name, lost },
+            backend::worktrees::DeleteWorktree {
+                name,
+                lost,
+                keep_if_changed: false,
+            },
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
+    }
+
+    /// Archive or delete project `id`'s linked worktrees `names`, whose work an update just
+    /// found merged, as `action` says, which the update's snackbar says it does. Only a failure
+    /// says more. Their terminals close with them. Deletes run beside the project's other
+    /// operations, each keeping a worktree written to meanwhile, and the archive waits for the
+    /// update to end.
+    fn tidy_merged_worktrees(
+        &mut self,
+        id: &ProjectId,
+        action: backend::MergedWorktrees,
+        names: Vec<bstr::BString>,
+        cx: &mut Context<Self>,
+    ) {
+        let overlay = |names: &[bstr::BString]| Overlay {
+            worktrees: names.iter().cloned().collect(),
+            ..Overlay::default()
+        };
+        match action {
+            backend::MergedWorktrees::Keep => {}
+            backend::MergedWorktrees::Archive => self.apply(
+                id,
+                Label::automatic("Archive merged worktrees"),
+                overlay(&names),
+                backend::worktrees::ArchiveWorktrees(names),
+                |_, (), _| {},
+                cx,
+            ),
+            backend::MergedWorktrees::Delete => {
+                for name in names {
+                    self.apply(
+                        id,
+                        Label::automatic("Delete merged worktree"),
+                        overlay(std::slice::from_ref(&name)),
+                        backend::worktrees::DeleteWorktree {
+                            name,
+                            lost: Vec::new(),
+                            keep_if_changed: true,
+                        },
+                        |_, (), _| {},
+                        cx,
+                    );
+                }
+            }
+        }
     }
 
     /// Move commits `ids` into a new branch of their own, in a stack of its own, before the
@@ -1421,7 +1503,11 @@ impl Store {
         }
         let beside = kind.beside();
         let remote_only = kind.remote_only();
-        let Label { name, text: label } = label.into();
+        let Label {
+            name,
+            text: label,
+            automatic,
+        } = label.into();
         let via = backend::metrics::via();
         let editing = (self.workspace(project)).is_some_and(|ws| ws.editing.is_some());
         let Some(path) = self.path(project) else {
@@ -1504,7 +1590,7 @@ impl Store {
         cx.spawn(async move |this, cx| {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
-            let _awake = cx.background_executor().prevent_app_nap(&reason);
+            let _awake = (!automatic).then(|| cx.background_executor().prevent_app_nap(&reason));
             let result = backend::run(move || backend::apply(&path, intent)).await;
             this.update(cx, |store, cx| {
                 // What was asked for while it ran too.
@@ -1512,13 +1598,15 @@ impl Store {
                     running.phase = Phase::Finished;
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
-                backend::metrics::operation(
-                    name,
-                    via,
-                    now.elapsed(),
-                    result.as_ref().err(),
-                    store.workspace(&project),
-                );
+                if !automatic {
+                    backend::metrics::operation(
+                        name,
+                        via,
+                        now.elapsed(),
+                        result.as_ref().err(),
+                        store.workspace(&project),
+                    );
+                }
                 let source = (project.clone(), label.clone());
                 match result {
                     Ok((value, ran)) => {
@@ -2201,6 +2289,7 @@ fn updated_message(
     conflicted: &[(Option<FullName>, usize)],
     merged: &[FullName],
     marked: &[Checkout],
+    (action, tidied): (backend::MergedWorktrees, &[bstr::BString]),
 ) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
@@ -2212,6 +2301,17 @@ fn updated_message(
             "{} branches were merged and removed",
             several.len()
         )),
+    }
+    // Started as this shows, so said as under way; one that fails gets a card of its own.
+    let doing = match action {
+        backend::MergedWorktrees::Keep => None,
+        backend::MergedWorktrees::Archive => Some("archiving"),
+        backend::MergedWorktrees::Delete => Some("deleting"),
+    };
+    match (doing, tidied) {
+        (None, _) | (_, []) => {}
+        (Some(doing), [only]) => said.push(format!("{doing} worktree {only}")),
+        (Some(doing), several) => said.push(format!("{doing} {} merged worktrees", several.len())),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
     said.join(", ")
@@ -2390,19 +2490,22 @@ mod tests {
 
     #[test]
     fn an_update_says_what_conflicted_and_what_merged() {
+        const KEEP: (backend::MergedWorktrees, &[bstr::BString]) =
+            (backend::MergedWorktrees::Keep, &[]);
         assert_eq!(
             updated_message(
                 "origin/main",
                 &[(Some(full("refs/heads/feature-a")), 2)],
                 &[full("refs/heads/feature-b")],
-                &[]
+                &[],
+                KEEP,
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
              feature-b was merged and removed",
             "each branch by its short name"
         );
         assert_eq!(
-            updated_message("origin/main", &[], &[], &[]),
+            updated_message("origin/main", &[], &[], &[], KEEP),
             "Updated from origin/main",
             "nothing else happened"
         );
@@ -2415,7 +2518,8 @@ mod tests {
                     full("refs/heads/b"),
                     full("refs/heads/c")
                 ],
-                &[]
+                &[],
+                KEEP,
             ),
             "Updated from origin/main, 3 branches were merged and removed",
             "several are counted so the snackbar stays one line"
@@ -2425,11 +2529,30 @@ mod tests {
                 "origin/main",
                 &[],
                 &[],
-                &[Checkout::Main, Checkout::Linked("harry".into())]
+                &[Checkout::Main, Checkout::Linked("harry".into())],
+                KEEP,
             ),
             "Updated from origin/main, uncommitted changes got conflict markers, \
              uncommitted changes in harry got conflict markers",
             "a linked worktree's markers say which worktree has them"
+        );
+        let merged = [full("refs/heads/done")];
+        let tidied = |action, names: &[bstr::BString]| {
+            updated_message("origin/main", &[], &merged, &[], (action, names))
+        };
+        assert_eq!(
+            tidied(backend::MergedWorktrees::Archive, &["wt-done".into()]),
+            "Updated from origin/main, done was merged and removed, archiving worktree wt-done",
+            "the worktree the merged branch was checked out in, by its name"
+        );
+        assert_eq!(
+            tidied(
+                backend::MergedWorktrees::Delete,
+                &["wt-a".into(), "wt-b".into()]
+            ),
+            "Updated from origin/main, done was merged and removed, deleting 2 merged \
+             worktrees",
+            "several are counted, as merged branches are"
         );
     }
 

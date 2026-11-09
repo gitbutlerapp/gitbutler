@@ -19,8 +19,8 @@ mod metrics;
 mod project;
 
 use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
-use crate::backend::InactiveAfter;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
+use crate::backend::{InactiveAfter, MergedWorktrees};
 use crate::overlays::MenuItem;
 use crate::state::{
     NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
@@ -951,6 +951,26 @@ impl SettingsView {
         )
     }
 
+    fn merged_worktrees_row(&self, cx: &Context<Self>) -> Row {
+        Row::new(
+            "Merged worktrees",
+            "When an update finds a linked worktree's branch merged, archive the worktree or \
+             delete its folder, closing its terminals. One with uncommitted files is left alone.",
+            self.choice(
+                "merged-worktrees",
+                self.store.read(cx).prefs.merged_worktrees.label(),
+                MergedWorktrees::ALL.map(|merged| (merged, merged.label().to_owned())),
+                |this, merged, _, cx| {
+                    this.store.update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.merged_worktrees = merged, cx)
+                    })
+                },
+                cx,
+            ),
+        )
+        .with_keywords("archive delete clean up")
+    }
+
     fn composer_row(&self, cx: &Context<Self>) -> Row {
         Row::new(
             "Start commits with nothing checked",
@@ -1387,6 +1407,7 @@ impl SettingsView {
             Page::App(AppPage::Git) => vec![
                 Card::new(None, vec![self.fetch_row(cx)]),
                 Card::new(Some("Commits"), vec![self.composer_row(cx)]),
+                Card::new(Some("Worktrees"), vec![self.merged_worktrees_row(cx)]),
             ],
             Page::App(AppPage::Integrations) => self.integration_cards(window, cx),
             Page::App(AppPage::Experimental) => {

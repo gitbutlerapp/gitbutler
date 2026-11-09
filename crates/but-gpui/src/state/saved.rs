@@ -521,6 +521,8 @@ pub struct Prefs {
     pub shown_inactive: HashSet<String>,
     /// How long a linked worktree with nothing uncommitted stays active after it last moved.
     pub inactive_after: crate::backend::InactiveAfter,
+    /// What happens to a linked worktree once an update finds its branch merged.
+    pub merged_worktrees: crate::backend::MergedWorktrees,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
     /// Each project's linked worktrees by name, archived ones too, by project id, in the
