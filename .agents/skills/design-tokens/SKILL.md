@@ -11,7 +11,7 @@ package README has the pipeline in full. Run everything below from `packages/but
 
 ## 1. Export from Figma
 
-Every route writes the same three files: `core`, `semantic` and `fx.tokens.json`.
+Every route writes the same four files: `core`, `semantic`, `ramps` and `fx.tokens.json`.
 
 - **A snapshot through the file API (the route that works on GitButler's plan).** Figma's
   variables REST API is Enterprise-only, so the CLI's own fetch answers `403`. Instead, dump
@@ -41,7 +41,7 @@ Every route writes the same three files: `core`, `semantic` and `fx.tokens.json`
   Stop and ask; never hand-edit the JSON instead.
 
 - **Figma agent.** `/export-tokens` in the tokens file, choosing hex, everything, one file
-  per collection; copy the three files into `tokens/json/`.
+  per collection; copy the four files into `tokens/json/`.
 
 - **A PR from the plugin's GitHub PR server.** It carries only the JSON: check out its
   branch and continue from step 2.
@@ -51,8 +51,8 @@ it rewrites every file, so don't, unless that is the point.
 
 A token's CSS name is its Figma path with dashes under `--but-` (`primary/soft/foreground`
 is `--but-primary-soft-foreground`); a group's own variable (`primary` beside
-`primary/foreground`) takes the group's name. The raw palettes, `clr/*` and `scale/*`, keep
-`--clr-*` and `--scale-*`. `cssVarName` in `scripts/terrazzo-css-helpers.mjs` is the one rule.
+`primary/foreground`) takes the group's name. The ramps follow the same rule
+(`ramps/teal/9` is `--but-teal-9`). `cssVarName` in `scripts/terrazzo-css-helpers.mjs` is the one rule.
 
 ## 2. Check something changed
 

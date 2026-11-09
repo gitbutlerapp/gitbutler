@@ -14,7 +14,7 @@ const invertedDemoStyle: React.CSSProperties = {
 	display: "inline-flex",
 	padding: 8,
 	borderRadius: 8,
-	backgroundColor: "var(--clr-gray-10)",
+	backgroundColor: "var(--but-inverse)",
 };
 
 export const Default = meta.story({

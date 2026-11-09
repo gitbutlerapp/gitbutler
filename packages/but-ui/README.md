@@ -55,7 +55,7 @@ This provides CSS custom properties for colors, spacing, typography, and other d
 
 ### Names
 
-Every token is `--but-*`: roles for colour (`--but-background`, `--but-primary`, `--but-primary-soft-foreground`) and the scales for the rest (`--but-radius-control`, `--but-space-lg`). The CSS name is the Figma variable's path with dashes, so `primary/soft/foreground` in 🍑 But UI is `--but-primary-soft-foreground`. The raw palettes keep their own names, `--clr-*` and `--scale-*`: they are steps for building tokens, not for components to read.
+Every token is `--but-*`: roles for colour (`--but-background`, `--but-primary`, `--but-primary-soft-foreground`) and the scales for the rest (`--but-radius-control`, `--but-space-lg`). The CSS name is the Figma variable's path with dashes, so `primary/soft/foreground` in 🍑 But UI is `--but-primary-soft-foreground`. The ramps, `--but-<hue>-<step>` (`--but-teal-9`), are the steps the roles are built from; components read the roles, not the steps.
 
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
@@ -185,7 +185,7 @@ pnpm check
 
 `pnpm run build` runs [`scripts/postprocess-light-dark.mjs`](./scripts/postprocess-light-dark.mjs), which:
 
-1. runs Terrazzo (`tz build`) over `core.tokens.json` and `semantic.tokens.json` — see [`terrazzo.config.js`](./terrazzo.config.js) — to write `tokens/tokens.css`. A color that aliases another and adds its own opacity (Figma's "opacity at scale") isn't valid DTCG, and Terrazzo rejects it, so [`scripts/composed-colors.mjs`](./scripts/composed-colors.mjs) first lifts those out of copies in `.terrazzo/`, and they come back in step 2 as `color-mix(in srgb, var(--base) var(--opacity), transparent)`, keeping both links;
+1. runs Terrazzo (`tz build`) over `core`, `semantic` and `ramps.tokens.json` — see [`terrazzo.config.js`](./terrazzo.config.js) — to write `tokens/tokens.css`. A color that aliases another and adds its own opacity (Figma's "opacity at scale") isn't valid DTCG, and Terrazzo rejects it, so [`scripts/composed-colors.mjs`](./scripts/composed-colors.mjs) first lifts those out of copies in `.terrazzo/`, and they come back in step 2 as `color-mix(in srgb, var(--base) var(--opacity), transparent)`, keeping both links;
 2. merges the `:root` and `:root.dark` blocks into single `light-dark(…)` declarations, so light and dark mode need no class switching, and adds the lifted colors;
 3. appends box-shadow custom properties generated from `fx.tokens.json` by [`scripts/generate-shadow-vars.mjs`](./scripts/generate-shadow-vars.mjs).
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token.
@@ -194,11 +194,12 @@ Aliases stay aliases: a variable that points at another in Figma comes out as `v
 
 ### Token files
 
-| File                               | Source                                                                        | Consumed by                |
-| ---------------------------------- | ----------------------------------------------------------------------------- | -------------------------- |
-| `tokens/json/core.tokens.json`     | `core` variable collection — raw palette, scales                              | Terrazzo                   |
-| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto core, with `light`/`dark` modes | Terrazzo                   |
-| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                             | `generate-shadow-vars.mjs` |
+| File                               | Source                                                                         | Consumed by                |
+| ---------------------------------- | ------------------------------------------------------------------------------ | -------------------------- |
+| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                   |
+| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                   |
+| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                   |
+| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs` |
 
 ### Pulling tokens from Figma
 
@@ -263,10 +264,6 @@ pins this package. Projects outside the monorepo pick a change up when they move
 There is no version to bump: `version` stays at 11.3.0, the last npm release, so peer
 ranges like `^11.3.0` keep resolving.
 
-## Color Tool
+## Colour ramps
 
-[hue-dini](https://github.com/gitbutlerapp/design-core/tree/main/tools/hue-dini) is the tool used to preview and export the GitButler color palette. It applies a single shared luminance scale across all hues — gray, accent, and semantic — so shades at the same step feel visually equivalent regardless of hue.
-
-**Live:** https://gitbutlerapp.github.io/design-core/
-
-It stayed in the but-ui repo and did not move here.
+Each hue is a ramp of twelve steps, in light and dark, made by [`scripts/generate-ramps.mjs`](./scripts/generate-ramps.mjs) on Radix Colors' curves (through dittoTones) and nudged until text and labels read. It writes `tokens/ramps.json`, which goes into 🍑 But UI's `ramps` collection; Figma stays the source the tokens are exported from. `pnpm check` fails when `ramps.json` is older than the script.

@@ -73,7 +73,11 @@
 /* Each variant divides its own fill, so the rule reads as a seam in the button
    rather than a line drawn on top of it. */
 .pop {
-	--dropdown-button-separator: color-mix(in srgb, var(--scale-pop-40) 20%, var(--scale-pop-70));
+	--dropdown-button-separator: color-mix(
+		in srgb,
+		var(--but-primary-soft-foreground) 20%,
+		var(--but-primary-soft)
+	);
 }
 
 .gray {

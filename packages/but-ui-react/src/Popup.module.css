@@ -19,7 +19,7 @@
 /* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
    once it holds more than one group of things. */
 .recessed {
-	background-color: var(--but-muted);
+	background-color: var(--but-canvas);
 }
 
 .backdrop {
