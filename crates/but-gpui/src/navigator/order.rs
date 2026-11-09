@@ -201,7 +201,7 @@ impl Navigator {
     /// Show project `id`'s card at `slot`, as the move of it under way does, starting one among
     /// the cards as they're listed now if there's none; or with `None` end that move, its card
     /// going back.
-    fn hold_card(&self, id: &ProjectId, slot: Option<CardSlot>, cx: &mut Context<Self>) {
+    pub(super) fn hold_card(&self, id: &ProjectId, slot: Option<CardSlot>, cx: &mut Context<Self>) {
         let held = |what: &Moving| matches!(what, Moving::Project(_));
         let listed = |store: &Store| {
             let order = self.watched(store).iter().map(|e| e.id.clone()).collect();
@@ -213,7 +213,7 @@ impl Navigator {
     /// Show linked worktree `name` of `project` at `slot`, as the move of it under way does,
     /// starting one among those listed with it now if there's none; or with `None` end that
     /// move, it going back.
-    fn hold_worktree(
+    pub(super) fn hold_worktree(
         &self,
         project: &ProjectId,
         name: &BStr,
@@ -604,7 +604,7 @@ fn worktree_end(rows: &[Row], heading: usize) -> usize {
 
 /// Those listed with linked worktree `name` of `project` as the move of it under way started,
 /// if it's moving.
-fn moving_worktree<'a>(
+pub(super) fn moving_worktree<'a>(
     store: &'a Store,
     project: &ProjectId,
     name: &BStr,
