@@ -189,8 +189,15 @@ impl Store {
             Pane::Files => list_fit,
             Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
             // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
-            Pane::BesideFiles => self.width(pane),
+            Pane::BesideFiles | Pane::Terminals => self.width(pane),
         }
+    }
+
+    /// The width `pane` was dragged to, if it was, as the terminal overview fits its rows
+    /// until it is.
+    pub fn dragged_width(&self, pane: Pane) -> Option<f32> {
+        let (min, max) = pane.limits();
+        (self.widths.get(&pane)).map(|width| width.clamp(min, max))
     }
 
     pub fn width(&self, pane: Pane) -> f32 {
@@ -260,7 +267,7 @@ impl Store {
     }
 }
 
-/// A pane whose width can be dragged.
+/// A pane whose width can be dragged, or its height, the one under another.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Pane {
     Navigator,
@@ -268,6 +275,8 @@ pub enum Pane {
     Files,
     /// The files between a list page's list and the diff.
     BesideFiles,
+    /// The terminal overview under the navigator, by its height.
+    Terminals,
 }
 
 impl Pane {
@@ -276,6 +285,8 @@ impl Pane {
             Pane::Navigator => 340.,
             Pane::Files => 300.,
             Pane::BesideFiles => 260.,
+            // Unless dragged, it fits its rows: see `dragged_width`.
+            Pane::Terminals => 240.,
         }
     }
 
@@ -285,6 +296,8 @@ impl Pane {
             // Wide enough for the composer's Cancel and Commit.
             Pane::Files => (240., 560.),
             Pane::BesideFiles => (200., 560.),
+            // Its bar and a row. The column's height limits it too.
+            Pane::Terminals => (72., 2000.),
         }
     }
 }
@@ -463,6 +476,8 @@ pub struct Prefs {
     pub navigator_place: NavigatorPlace,
     /// The bar along the window's bottom is left out.
     pub hide_status_bar: bool,
+    /// The terminals open on every project aren't listed under the navigator.
+    pub hide_terminal_overview: bool,
     /// Commit and branch pages list the messages first among their files, in place of their
     /// headers, and the uncommitted changes go without theirs.
     pub messages_in_diff: bool,
@@ -560,6 +575,9 @@ pub enum Part {
     /// A file header's changed line counts and its buttons, which its right-click menu and
     /// keys have too.
     FileHeaderControls,
+    /// The terminals open on every project, under the navigator beside the panes, which lists
+    /// them too, but for those living in a tile.
+    TerminalOverview,
 }
 
 impl Prefs {
@@ -569,6 +587,7 @@ impl Prefs {
             Part::StatusBar => !self.hide_status_bar,
             Part::BranchHeader | Part::CommitHeader | Part::ChangesHeader => !self.messages_in_diff,
             Part::DiffTools | Part::FileHeaderControls => !self.hide_diff_controls,
+            Part::TerminalOverview => !self.hide_terminal_overview,
         }
     }
 
