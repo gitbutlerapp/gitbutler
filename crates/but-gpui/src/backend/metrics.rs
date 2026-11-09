@@ -82,18 +82,14 @@ struct Active {
     views: Vec<(&'static str, u64)>,
 }
 
-/// What `app_active` says about the app as it is: the settings the desktop app reports too, by
-/// its names and values, how many projects there are, and the workspace being looked at.
+/// What `app_active` says about the app as it is: its settings, how many projects there are,
+/// and the workspace being looked at.
 pub struct State<'a> {
-    /// `system`, `light` or `dark`.
-    pub theme: &'static str,
-    /// `gitbutler`, `ghostty` or `named`, without the name.
-    pub color_scheme: &'static str,
-    /// The interface's scale, 1 at 100%.
-    pub zoom: f64,
-    /// The editor files open in, by the id the desktop app uses too, if one was picked.
-    pub editor: Option<&'a str>,
-    pub ligatures: bool,
+    pub prefs: &'a crate::state::Prefs,
+    /// Whether the project's commits run its hooks.
+    pub hooks: bool,
+    pub single_file_diff: bool,
+    pub briefs: bool,
     pub projects: usize,
     pub workspace: &'a Workspace,
 }
@@ -302,20 +298,84 @@ pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
         std::mem::take(&mut active.views)
     };
     let state = state();
-    let mut props = Props::new();
-    props.insert("theme".into(), state.theme.into());
-    props.insert("colorScheme".into(), state.color_scheme.into());
-    props.insert("zoom".into(), state.zoom.into());
-    if let Some(editor) = state.editor {
-        props.insert("defaultCodeEditor".into(), editor.into());
-    }
-    props.insert("diffLigatures".into(), state.ligatures.into());
+    let mut props = settings(&state);
     props.insert("projectCount".into(), state.projects.into());
     shape(state.workspace, &mut props);
     for (kind, count) in views {
         props.insert(format!("{kind}Views"), count.into());
     }
     queue(Kind::Usage, "app_active", props);
+}
+
+/// `state`'s settings by their property names, as the store holds them, so nothing is read for
+/// them. Never what the user wrote in one, as a font's name or a command. Enums go by the name
+/// the prefs save them under, and a program not picked yet as null.
+fn settings(state: &State) -> Props {
+    use crate::state::Part;
+    use crate::theme::{Appearance, ColorScheme};
+    let prefs = state.prefs;
+    [
+        // The desktop app's names and values.
+        (
+            "theme",
+            json!(match prefs.appearance {
+                Appearance::System => "system",
+                Appearance::Light => "light",
+                Appearance::Dark => "dark",
+            }),
+        ),
+        (
+            "colorScheme",
+            json!(match prefs.color_scheme {
+                ColorScheme::GitButler => "gitbutler",
+                ColorScheme::Ghostty => "ghostty",
+                ColorScheme::Named(_) => "named",
+            }),
+        ),
+        ("zoom", json!(f64::from(prefs.ui_scale.percent()) / 100.)),
+        ("defaultCodeEditor", json!(prefs.editor)),
+        ("diffLigatures", json!(prefs.ligatures)),
+        // This app's own.
+        ("codeSize", json!(prefs.code_size)),
+        ("splitDiff", json!(prefs.split)),
+        ("wrapLines", json!(prefs.wrap)),
+        ("plainLines", json!(prefs.plain_lines)),
+        ("semanticContext", json!(!prefs.no_semantic_context)),
+        ("scopeLines", json!(prefs.whole_scopes)),
+        ("customDiffFont", json!(prefs.diff_font.is_some())),
+        ("statusBar", json!(prefs.shows(Part::StatusBar))),
+        ("headers", json!(prefs.shows(Part::CommitHeader))),
+        ("diffControls", json!(prefs.shows(Part::DiffTools))),
+        ("fileView", json!(prefs.file_view)),
+        ("fileSort", json!(prefs.file_sort)),
+        ("folderLineCounts", json!(prefs.folder_line_counts)),
+        ("folderStops", json!(prefs.folder_stops)),
+        (
+            "composerStartsUnchecked",
+            json!(prefs.composer_starts_unchecked),
+        ),
+        ("navigatorPlace", json!(prefs.navigator_place)),
+        ("watchedOrder", json!(prefs.watched_order)),
+        ("projectsByActivity", json!(prefs.projects_by_activity)),
+        ("activeProjectsOnly", json!(prefs.active_projects_only)),
+        ("inactiveAfter", json!(prefs.inactive_after)),
+        ("branchesStartOpen", json!(prefs.branches_start_open)),
+        ("allBranchCommits", json!(prefs.all_branch_commits)),
+        ("openBranchOnClick", json!(prefs.open_branch_on_click)),
+        ("branchesLocalOnly", json!(prefs.branches_local_only)),
+        ("branchesStatus", json!(prefs.branches_status)),
+        ("defaultTerminal", json!(prefs.terminal)),
+        ("terminalRuns", json!(prefs.terminal_runs)),
+        ("customTerminalFont", json!(prefs.terminal_font.is_some())),
+        ("terminalTextSize", json!(prefs.terminal_text)),
+        ("confirmTerminalClose", json!(prefs.confirm_terminal_close)),
+        ("commitHooks", json!(state.hooks)),
+        ("singleFileDiff", json!(state.single_file_diff)),
+        ("briefs", json!(state.briefs)),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_owned(), value))
+    .collect()
 }
 
 /// A project that read can't be read any more, as after an agent's `git merge` onto the
