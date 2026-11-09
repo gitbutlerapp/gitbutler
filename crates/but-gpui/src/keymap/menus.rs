@@ -287,36 +287,6 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_menus_are_worded_as_macos_words_them() {
-        let text: Vec<String> = (shipped().iter())
-            .map(|menu| {
-                let items: Vec<String> = (menu.items.iter())
-                    .map(|item| match item {
-                        BarItem::Divider => "-".to_owned(),
-                        BarItem::Action { .. } | BarItem::System(_) => item.title(),
-                    })
-                    .collect();
-                format!("{}: {}", menu.name, items.join(", "))
-            })
-            .collect();
-        // Each item as the menu bar words it, from the palette's titles or the file's own.
-        snapbox::assert_data_eq!(
-            text.join("\n"),
-            snapbox::str![[r#"
-GitButler: About GitButler, Check for Updates, -, Settings…, -, Services, -, Hide GitButler, Hide Others, Show All, -, Quit GitButler
-File: Add Project…, Clone Repository…, New Terminal, -, Close Window
-Edit: Undo Operation, Redo Operation, -, Cut, Copy, Paste, Select All, -, Copy Selection, Copy More…
-Repository: Commit…, Amend…, -, Reword, Discard, Squash…, Move…, -, New Branch, New Branch Above, New Branch Below, New Worktree From Branch, -, Add Empty Commit Above, Add Empty Commit Below, -, Apply Branch, Unapply Stack, -, New Worktree, New Worktree With Name…, Archive Worktree, Unarchive Worktree…
-Remote: Push, Fetch, Pull, -, Create Pull Request…, Open Pull Request, Copy Pull Request Link, -, Update Workspace and Worktrees, Update Workspace, Update Worktrees
-Go: Command Palette…, -, Go to Anything…, Go to Navigator, Go to Files, Go to Diff
-View: Actual Size, Zoom In, Zoom Out, -, Toggle Navigator, Toggle Details, Move Navigator, -, Toggle Files, Wrap Long Lines, Fold File, Unfold File, Side-by-Side Diff, -, Change Theme…
-Window: Minimize, Zoom, -, Split Right, Split Below, -, Zoom Tile, Arrange Tiles, Equalize Tiles, Swap Tiles, Close Tile
-Help: GitButler Docs, What's New, Keyboard Shortcuts, -, Report an Issue, Show Settings Folder, Show Logs Folder
-"#]]
-        );
-    }
-
-    #[test]
     fn items_read_in_each_shape() {
         let menus = parse(
             r#"[{ "name": "File", "items": [

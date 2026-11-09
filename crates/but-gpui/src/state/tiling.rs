@@ -141,6 +141,8 @@ pub enum DividerDrag {
     /// Where the lines between tiles meet, by each line's division and the part it's after.
     Junction(Vec<(Vec<usize>, usize)>),
     Navigator,
+    /// The line over the terminal overview, under the navigator.
+    Terminals,
 }
 
 /// The line between two parts of a division, which dragging moves.

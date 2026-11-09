@@ -1197,7 +1197,10 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "headers" => (|p| &mut p.messages_in_diff, true),
                 "diff-controls" => (|p| &mut p.hide_diff_controls, true),
                 "menu-bar" => (|p| &mut p.menu_bar_everywhere, false),
-                _ => bail!("pref takes status-bar, headers, diff-controls or menu-bar"),
+                "terminal-overview" => (|p| &mut p.hide_terminal_overview, true),
+                _ => bail!(
+                    "pref takes status-bar, headers, diff-controls, menu-bar or terminal-overview"
+                ),
             };
             let set = on != hides;
             let app = window.root::<AppView>().flatten().context("no app view")?;

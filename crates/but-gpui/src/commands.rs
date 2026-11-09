@@ -5,10 +5,10 @@ use gpui::{Action, App};
 
 use crate::app::{
     ActualSize, AddProject, AppView, ChangeTheme, CheckForUpdates, CopySelection, Fetch,
-    FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, Pull,
-    Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree, ToggleNavigator,
-    ToggleNavigatorPlace, Undo, UpdateFromTarget, UpdateWorkspace, UpdateWorktrees, ZoomIn,
-    ZoomOut,
+    FocusChanges, FocusDiff, FocusNavigator, FocusTerminals, NewBranch, NewBranchOnTop,
+    OpenPullRequest, Pull, Push, Quit, Redo, StartAmend, StartCommit, ToggleDetail, ToggleFileTree,
+    ToggleNavigator, ToggleNavigatorPlace, ToggleTerminalOverview, Undo, UpdateFromTarget,
+    UpdateWorkspace, UpdateWorktrees, ZoomIn, ZoomOut,
 };
 use crate::backend::{FullName, Workspace};
 use crate::detail::{FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile};
@@ -235,12 +235,14 @@ commands! {
     ToggleNavigator => "Toggle navigator",
     ToggleNavigatorPlace => "Move navigator",
     ToggleDetail => "Toggle details",
+    ToggleTerminalOverview => "Toggle terminal overview",
     ZoomIn => "Zoom in",
     ZoomOut => "Zoom out",
     ActualSize => "Actual size",
     FocusNavigator => "Go to navigator",
     FocusChanges => "Go to files",
     FocusDiff => "Go to diff",
+    FocusTerminals => "Go to terminal overview",
     AddProject => "Add project",
     crate::projects::CloneRepository => "Clone a repository",
     crate::settings::OpenSettings => "Settings",

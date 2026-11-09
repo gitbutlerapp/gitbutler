@@ -204,9 +204,10 @@ impl Choice {
     }
 }
 
-/// What a terminal's program is at, as the terminal picker groups its rows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum StatusGroup {
+/// What a terminal's program is at, as the terminal picker and the terminal overview group
+/// their rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum StatusGroup {
     Blocked,
     Failed,
     Done,
@@ -224,7 +225,7 @@ impl StatusGroup {
         StatusGroup::Idle,
     ];
 
-    fn of(status: &Status) -> StatusGroup {
+    pub(crate) fn of(status: &Status) -> StatusGroup {
         match status {
             Status::Blocked(_) => StatusGroup::Blocked,
             Status::Failed(_) => StatusGroup::Failed,
@@ -234,7 +235,7 @@ impl StatusGroup {
         }
     }
 
-    fn label(self) -> &'static str {
+    pub(crate) fn label(self) -> &'static str {
         match self {
             StatusGroup::Blocked => "Blocked",
             StatusGroup::Failed => "Failed",
@@ -1119,6 +1120,73 @@ fn terminal_choice(
         .goes_to(goes_to)
 }
 
+/// A row of the picker the terminal overview's + opens: `checkout` of `entry`'s project, which
+/// a new terminal opens on, by its name, its branch beside it.
+fn terminal_place_choice(
+    entry: &ProjectEntry,
+    checkout: Checkout,
+    branch: Option<&FullName>,
+    several: bool,
+) -> Choice {
+    let id = entry.id.clone();
+    let label = match &checkout {
+        Checkout::Main => "Main worktree".to_owned(),
+        Checkout::Linked(name) => name.to_string(),
+    };
+    let icon = match checkout {
+        Checkout::Main => Icon::Folder,
+        Checkout::Linked(_) => Icon::FolderCopy,
+    };
+    let goes_to = Selection::Checkout(id.clone(), checkout.clone());
+    let gone = format!("{label} was archived or deleted meanwhile");
+    let branch = branch.map(short_ref);
+    let project = several.then_some(entry.project.name.as_str());
+    let choice = Choice::new(label, move |this, _, cx| {
+        let store = this.store.read(cx);
+        let there = match &checkout {
+            Checkout::Main => store.project(&id).is_some(),
+            Checkout::Linked(name) => {
+                (store.workspace(&id)).is_some_and(|ws| ws.find_worktree(name.as_ref()).is_some())
+            }
+        };
+        if !there {
+            return snack(&this.store, gone, cx);
+        }
+        (this.store).update(cx, |store, cx| store.open_terminal(id, checkout, cx));
+    });
+    let details = branch.as_deref().into_iter().chain(project);
+    choice.icon(icon).details(details).goes_to(goes_to)
+}
+
+/// The terminal picker's rows for the terminals living in a tile on a loaded project, which the
+/// navigator doesn't list: each goes to the row whose tiling it's in, and into its tile.
+fn tiled_terminal_choices(store: &Store, entry: &ProjectEntry, several: bool) -> Vec<Choice> {
+    (store.terminals.all())
+        .filter(|terminal| terminal.tiled && *terminal.project == entry.id)
+        .filter_map(|terminal| {
+            let (row, _) = store.terminal_tile(terminal.id)?;
+            let id = terminal.id;
+            let gone = format!("{} was closed meanwhile", terminal.title);
+            let worktree = (terminal.checkout.linked())
+                .map_or("Main worktree".to_owned(), |name| name.to_string());
+            let project = several.then_some(entry.project.name.as_str());
+            let choice = Choice::new(terminal.title.clone(), move |this, window, cx| {
+                if this.store.read(cx).terminals.get(id).is_none() {
+                    return snack(&this.store, gone, cx);
+                }
+                this.show_terminal(id, true, window, cx);
+            });
+            let details = std::iter::once(worktree.as_str()).chain(project);
+            let choice = choice
+                .icon(Icon::TextCode)
+                .details(details)
+                .status_of(Selection::Terminal(entry.id.clone(), id))
+                .goes_to(row);
+            Some(choice)
+        })
+        .collect()
+}
+
 /// Go to anything's row for a branch, as the navigator names it: a pull request by its title,
 /// its branch's name beside it, where typing either finds it.
 fn branch_choice(store: &Store, entry: &ProjectEntry, branch: &Branch, several: bool) -> Choice {
@@ -1516,6 +1584,45 @@ impl AppView {
         }
     }
 
+    /// Pick the worktree a new terminal opens on, of every loaded project's, on the selection's
+    /// to start with, as the terminal overview's + asks.
+    pub(crate) fn new_terminal_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let open = open_workspaces(store);
+        let several = open.len() > 1;
+        let choices: Vec<Choice> = (open.iter())
+            .filter(|(_, workspace)| workspace.editing.is_none())
+            .flat_map(|(entry, workspace)| {
+                let linked = (worktrees_listed(store, &entry.id, workspace).into_iter())
+                    .map(|wt| (Checkout::Linked(wt.name.clone()), wt.branch.as_ref()));
+                (std::iter::once((Checkout::Main, None)).chain(linked)).map(|(checkout, branch)| {
+                    terminal_place_choice(entry, checkout, branch, several)
+                })
+            })
+            .collect();
+        if choices.is_empty() {
+            return snack(&self.store, "No worktrees to open a terminal in", cx);
+        }
+        let here = (store.selection.as_ref()).and_then(|selection| {
+            let checkout = store.checkout_of(selection)?;
+            Some(Selection::Checkout(selection.project().clone(), checkout))
+        });
+        self.open_picker(None, "Open a terminal in", "Open", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            let at = (palette.found.iter()).position(|found| {
+                let goes_to = palette
+                    .choices
+                    .get(found.ix)
+                    .and_then(|c| c.goes_to.as_ref());
+                goes_to.is_some() && goes_to == here.as_ref()
+            });
+            if let Some(row) = at {
+                palette.select(row);
+            }
+        }
+        self.outline_choice(window, cx);
+    }
+
     /// Go to anything's terminals alone.
     pub fn go_to_terminal(
         &mut self,
@@ -1528,7 +1635,12 @@ impl AppView {
         let several = open.len() > 1;
         let mut choices: Vec<Choice> = (open.iter())
             .filter(|(_, workspace)| workspace.editing.is_none())
-            .flat_map(|(entry, workspace)| terminal_choices(store, entry, workspace, several))
+            .flat_map(|(entry, workspace)| {
+                let listed = terminal_choices(store, entry, workspace, several);
+                listed
+                    .into_iter()
+                    .chain(tiled_terminal_choices(store, entry, several))
+            })
             .collect();
         if choices.is_empty() {
             return snack(&self.store, "No terminals open", cx);
