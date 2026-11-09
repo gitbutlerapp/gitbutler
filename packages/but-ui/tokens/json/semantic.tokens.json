@@ -631,18 +631,18 @@
         "$type": "color",
         "$value": {
           "components": "{semantic.inverse.foreground}",
-          "alpha": "40%"
+          "alpha": "50%"
         },
         "$description": "Tertiary text on inverse.",
         "$extensions": {
           "mode": {
             "light": {
               "components": "{semantic.inverse.foreground}",
-              "alpha": "40%"
+              "alpha": "50%"
             },
             "dark": {
               "components": "{semantic.inverse.foreground}",
-              "alpha": "40%"
+              "alpha": "50%"
             }
           }
         }
@@ -1445,7 +1445,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-09T22:24:22.683Z"
+        "createdAt": "2026-11-09T22:47:20.799Z"
       }
     }
   }

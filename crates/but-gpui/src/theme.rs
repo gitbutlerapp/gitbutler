@@ -320,7 +320,7 @@ impl Theme {
         // but-ui's tokens, as `packages/but-ui/tokens/tokens.css` resolves them: each a step
         // of the generated ramps (`tokens/ramps.json`), light then dark. Coloured text is a
         // hue's step 11, which reads at 4.5:1 on the gray grounds.
-        let [safe, danger] = [pick(0x007947, 0x43d997), pick(0xc1270d, 0xf6907d)];
+        let [safe, danger] = [pick(0x007645, 0x43d997), pick(0xc1270d, 0xf6907d)];
         // --but-inverse and --but-inverse-foreground.
         let [fill_gray, text_inverted] = [pick(0x1f1f1f, 0xf0f0f0), pick(0xfcfcfc, 0x141414)];
         let on_solid = |accent| {
@@ -357,7 +357,7 @@ impl Theme {
             on_pop: gpui::white(),
             // --but-info-text, --but-success-text, --but-warning-text, --but-danger-text and
             // --but-done-text.
-            blue: pick(0x2966c8, 0x88b6ff),
+            blue: pick(0x2764c7, 0x88b6ff),
             safe,
             warn: pick(0x9a5100, 0xffb05f),
             danger,

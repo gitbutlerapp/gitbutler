@@ -254,7 +254,7 @@ check out its branch, run `pnpm build` and commit `tokens/tokens.css` before it 
 A token change is one pull request in this repo, made the usual way: export, `pnpm build`,
 commit `tokens/json` and `tokens/tokens.css` together. In the same PR:
 
-- CI's `pnpm check` rebuilds `tokens.css` and fails if the committed one is stale.
+- CI's `pnpm check` rebuilds `tokens.css` and fails if the committed one is stale, and [`scripts/check-contrast.mjs`](./scripts/check-contrast.mjs) fails when a pair meant to be read stops reading in light or dark: text on its grounds at 4.5:1, marks and faint details at 3:1.
 - `@gitbutler/but-ui-react`'s `check:tokens` fails on any `var(--…)` a component still reads but
   no stylesheet declares any more, so fix those components in that PR.
 

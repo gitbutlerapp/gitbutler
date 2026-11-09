@@ -64,6 +64,17 @@ const shift = (hex, dl) => {
 	const c = oklch(parse(hex));
 	return formatHex(clampChroma({ ...c, l: Math.min(1, Math.max(0, c.l + dl)) }, "oklch"));
 };
+// `hex` at `share` opacity over `ground`, as color-mix(in srgb, … share, transparent) paints it.
+const tint = (hex, ground, share) => {
+	const [a, b] = [rgb(hex), rgb(ground)];
+	return `#${a
+		.map((v, i) =>
+			Math.round(v * share + b[i] * (1 - share))
+				.toString(16)
+				.padStart(2, "0"),
+		)
+		.join("")}`;
+};
 // The first colour from `hex`, stepping its lightness by `dl`, for which `ok` holds.
 const until = (hex, dl, ok) => {
 	for (let i = 0; i <= 100; i++) {
@@ -111,7 +122,6 @@ for (const [hue, { seed, label }] of Object.entries(HUES)) {
 			...(mode === "light" ? ["#ffffff"] : []),
 		];
 		const before = { 9: s[8], 11: s[10] };
-		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
 		if (label) {
 			const reads = (on, fill) => wcag(on, fill) >= TEXT && apca(on, fill) >= LABEL_LC;
 			if (label === "white") {
@@ -128,6 +138,10 @@ for (const [hue, { seed, label }] of Object.entries(HUES)) {
 				s[9] = until(shift(s[8], 0.03), 0.005, (c) => reads(text, c));
 			}
 		}
+		// The status's -muted tint, its fill at 14% on the background, is a ground its text sits
+		// on too: a banner, a highlighted row. Settled after the fill, which the tint is made of.
+		grounds.push(tint(s[8], gray ? gray["1"] : s[0], 0.14));
+		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
 		ramps[hue][mode] = Object.fromEntries(s.map((c, i) => [String(i + 1), c]));
 		report.push({ hue, mode, moved9: before[9] !== s[8], moved11: before[11] !== s[10], s });
 	}

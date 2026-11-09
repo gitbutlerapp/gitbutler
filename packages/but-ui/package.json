@@ -15,7 +15,7 @@
 	},
 	"scripts": {
 		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs",
-		"check": "node scripts/generate-ramps.mjs --check && pnpm build && git diff --exit-code -- tokens/tokens.css",
+		"check": "node scripts/generate-ramps.mjs --check && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css",
 		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
 	},
 	"devDependencies": {
