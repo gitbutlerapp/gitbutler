@@ -14,7 +14,8 @@ use gpui::{
 use super::rows::GUIDE_AT;
 use super::{RowStyle, STEP, status_mark};
 use crate::app::{
-    AppHandle, AppView, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow, SplitRight,
+    AppHandle, AppView, CloseWindow, Confirm, FocusNavigator, SelectNext, SelectPrevious,
+    SplitBelow, SplitRight,
 };
 use crate::backend::Checkout;
 use crate::edits::{Discard, RenameTerminal};
@@ -295,14 +296,19 @@ impl TerminalOverview {
                 app.show_terminal(id, false, window, cx);
                 app.focus_navigator(&FocusNavigator, window, cx)
             }),
-            MenuItem::keyed("Close terminal", &Discard, cx, move |app, window, cx| {
-                let project = (app.store.read(cx).terminals.all())
-                    .find(|t| t.id == id)
-                    .map(|t| t.project.clone());
-                if let Some(project) = project {
-                    app.close_terminal(project, id, window, cx)
-                }
-            })
+            MenuItem::keyed(
+                "Close terminal",
+                &CloseWindow,
+                cx,
+                move |app, window, cx| {
+                    let project = (app.store.read(cx).terminals.all())
+                        .find(|t| t.id == id)
+                        .map(|t| t.project.clone());
+                    if let Some(project) = project {
+                        app.close_terminal(project, id, window, cx)
+                    }
+                },
+            )
             .danger(),
             MenuItem::keyed("Split right", &SplitRight, cx, split(Axis::Across)).separated(),
             MenuItem::keyed("Split below", &SplitBelow, cx, split(Axis::Down)),

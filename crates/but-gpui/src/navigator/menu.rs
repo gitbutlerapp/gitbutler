@@ -7,10 +7,10 @@ use gpui::{Action, App, Context, Div, Stateful, Window, actions, prelude::*};
 
 use super::{ClickOpened, Navigator};
 use crate::app::{
-    AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
-    CopyPath, CopyPullRequestLink, CopySelection, Expand, Fetch, MarkAllRead, MoveSelection,
-    NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Pull, Push, SplitBelow, SplitRight,
-    SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
+    AppView, BuildAndRestartFromHere, CloseWindow, Collapse, CopyBranchName, CopyCommitId,
+    CopyErrorMessage, CopyPath, CopyPullRequestLink, CopySelection, Expand, Fetch, MarkAllRead,
+    MoveSelection, NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Pull, Push, SplitBelow,
+    SplitRight, SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
 use crate::backend::{Checkout, CommitId};
@@ -310,7 +310,7 @@ impl Navigator {
             Selection::Terminal(..) => vec![
                 command(&RenameTerminal),
                 command(&MoveSelection),
-                MenuItem::discard_row(target, cx),
+                MenuItem::discard_row(target, cx).keys(&CloseWindow, cx),
             ],
             // A remote's commit can be copied into a branch here, its ID copied, and it can be
             // marked read or unread.
