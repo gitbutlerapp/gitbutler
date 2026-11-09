@@ -10,17 +10,9 @@ type NodeIndex = usize;
 
 #[derive(Debug)]
 enum NodeWeight {
-    Pick {
-        oid: gix::ObjectId,
-    },
-    /// Its first parent leads, through the other references on the same
-    /// commit, to the commit the reference points at.
-    Ref {
-        full_name: FullName,
-    },
-    ShallowPoint {
-        oid: gix::ObjectId,
-    },
+    Pick { oid: gix::ObjectId },
+    Ref { full_name: FullName },
+    ShallowPoint { oid: gix::ObjectId },
 }
 
 #[derive(Debug)]
@@ -34,7 +26,7 @@ pub struct WorkspaceGraph {
     nodes: Vec<Node>,
 }
 
-const PLACEHOLDER: NodeIndex = usize::MAX;
+const UNKNOWN_PARENT_NODE_INDEX: NodeIndex = usize::MAX;
 
 #[expect(clippy::too_many_arguments)]
 pub fn graph(
@@ -329,7 +321,7 @@ pub fn graph(
 
             nodes.push(Node {
                 weight: NodeWeight::Ref { full_name },
-                parents: vec![PLACEHOLDER],
+                parents: vec![UNKNOWN_PARENT_NODE_INDEX],
             });
         }
 
@@ -390,7 +382,7 @@ pub fn graph(
 
         nodes.push(Node {
             weight: NodeWeight::Pick { oid: commit_id },
-            parents: vec![PLACEHOLDER; parent_edges.len()],
+            parents: vec![UNKNOWN_PARENT_NODE_INDEX; parent_edges.len()],
         });
         for (parent_index, (parent_id, stack_lineage)) in parent_edges.into_iter().enumerate() {
             unassigned_oid_map
