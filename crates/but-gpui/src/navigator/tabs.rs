@@ -16,8 +16,9 @@ use std::time::{Duration, Instant};
 use but_tty::Status;
 use gpui::{
     AnyElement, App, ClickEvent, Context, DispatchPhase, Div, ElementId, Entity, FocusHandle,
-    MouseMoveEvent, Pixels, Point, Render, Role, ScrollHandle, SharedString, Task, TextRun, Window,
-    deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*, relative,
+    MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role, ScrollHandle, SharedString, Task,
+    TextRun, Window, deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*,
+    relative,
 };
 
 use super::rows::{CARD_PADDING, Rows};
@@ -399,6 +400,9 @@ pub struct NavigatorTabs {
     /// The tab under the pointer, and whether the card is.
     pointed: Option<TabKey>,
     over_card: bool,
+    /// The pointer's left the window. Hovers don't follow it out, so the two above still say
+    /// where it last was, until it moves in again ([`Self::pointing`]).
+    outside: bool,
     /// The card going to a tab once the pointer rests, or back once it's strayed.
     waiting: Option<(Option<TabKey>, Task<()>)>,
     /// Where the pointer was last, and a stride back, which say which way it's going.
@@ -465,6 +469,7 @@ impl NavigatorTabs {
             labels_scale: 0.,
             card: None,
             pointed: None,
+            outside: false,
             over_card: false,
             waiting: None,
             pointer: Default::default(),
@@ -624,8 +629,9 @@ impl NavigatorTabs {
         if self.keyed.is_some() {
             return None;
         }
-        let card = (self.card.as_ref()).filter(|card| card.open && self.over_card);
-        (self.pointed.as_ref()).or(card.map(|card| &card.pane.key))
+        let (pointed, over_card) = self.pointing();
+        let card = (self.card.as_ref()).filter(|card| card.open && over_card);
+        pointed.or(card.map(|card| &card.pane.key))
     }
 
     /// Shut the projects kept open for the pointer.
@@ -1035,18 +1041,27 @@ impl NavigatorTabs {
     }
 
     /// Follows the pointer over the whole window, as a tab's hover is told only that it came, to
-    /// say which way it's going when it does. Asks for no frame.
+    /// say which way it's going when it does, and out of it. Asks for no frame.
     fn watch_pointer(&self, cx: &Context<Self>) -> impl IntoElement + use<> {
         let this = cx.entity().downgrade();
         gpui::canvas(
             |_, _, _| {},
             move |_, (), window, _| {
+                let moved = this.clone();
                 window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
                     if phase == DispatchPhase::Capture {
-                        this.update(cx, |this, cx| {
-                            this.pointer_moved(event.position, window, cx)
-                        })
-                        .ok();
+                        moved
+                            .update(cx, |this, cx| {
+                                this.pointer_moved(event.position, window, cx)
+                            })
+                            .ok();
+                    }
+                });
+                let left = this;
+                window.on_mouse_event(move |_: &MouseExitEvent, phase, window, cx| {
+                    if phase == DispatchPhase::Capture {
+                        left.update(cx, |this, cx| this.pointer_left(window, cx))
+                            .ok();
                     }
                 });
             },
@@ -1056,6 +1071,11 @@ impl NavigatorTabs {
     }
 
     fn pointer_moved(&mut self, to: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        // Back in the window, maybe where it left: after the hovers this move changes, which say
+        // what it came onto.
+        if std::mem::take(&mut self.outside) {
+            cx.defer_in(window, |this, window, cx| this.follow_pointer(window, cx));
+        }
         let (at, back) = &mut self.pointer;
         if to == *at {
             return;
@@ -1068,6 +1088,21 @@ impl NavigatorTabs {
         // The hand's back on the pointer, so the tab under it means something again.
         if std::mem::take(&mut self.scrolled_away) {
             self.follow_pointer(window, cx);
+        }
+    }
+
+    /// The pointer left the window, from a tab or the card, so the card goes as it would if the
+    /// pointer had strayed from both inside it.
+    fn pointer_left(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.outside = true;
+        self.follow_pointer(window, cx);
+    }
+
+    /// The tab under the pointer, and whether the card is: neither while it's out of the window.
+    fn pointing(&self) -> (Option<&TabKey>, bool) {
+        match self.outside {
+            true => (None, false),
+            false => (self.pointed.as_ref(), self.over_card),
         }
     }
 
@@ -1110,7 +1145,9 @@ impl NavigatorTabs {
             .filter(|card| card.open)
             .map(|card| &card.pane.key);
         let going_down = heading_down(self.pointer.0 - self.pointer.1);
-        let (wanted, wait) = match &self.pointed {
+        let (pointed, over_card) = self.pointing();
+        let pointed = pointed.cloned();
+        let (wanted, wait) = match &pointed {
             Some(key) if showing == Some(key) => {
                 self.waiting = None;
                 return;
@@ -1121,7 +1158,7 @@ impl NavigatorTabs {
                 return self.show(key, cx);
             }
             Some(key) => (Some(key.clone()), POINTER_REST),
-            None if self.over_card || (showing.is_none() && !self.reveal_later) => {
+            None if over_card || (showing.is_none() && !self.reveal_later) => {
                 self.waiting = None;
                 return;
             }
