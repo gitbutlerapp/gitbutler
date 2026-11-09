@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use anyhow::Result;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, is_workspace_ref_name};
 use gix::refs::{FullName, FullNameRef};
 
 use crate::{CommitFlags, SegmentMetadata, init::Overlay};
@@ -13,10 +13,10 @@ enum NodeWeight {
     Pick {
         oid: gix::ObjectId,
     },
-    /// `oid` is the commit the reference points at.
+    /// Its first parent leads, through the other references on the same
+    /// commit, to the commit the reference points at.
     Ref {
         full_name: FullName,
-        oid: gix::ObjectId,
     },
     ShallowPoint {
         oid: gix::ObjectId,
@@ -36,8 +36,6 @@ pub struct WorkspaceGraph {
 
 const PLACEHOLDER: NodeIndex = usize::MAX;
 
-const WORKSPACE_REF: &str = "refs/heads/gitbutler/workspace";
-
 #[expect(clippy::too_many_arguments)]
 pub fn graph(
     repo: &gix::Repository,
@@ -51,7 +49,6 @@ pub fn graph(
     target_upstream_ref: Option<&FullNameRef>,
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<WorkspaceGraph> {
-    let workspace_ref_name = FullName::try_from(WORKSPACE_REF)?;
     let mut references = Vec::<(FullName, gix::ObjectId)>::new();
     for reference in repo
         .references()?
@@ -72,6 +69,11 @@ pub fn graph(
             references.push((reference.name().to_owned(), commit.id));
         }
     }
+    let workspace_ref_name = references
+        .iter()
+        .map(|(full_name, _)| full_name)
+        .find(|full_name| is_workspace_ref_name(full_name.as_ref()))
+        .cloned();
     let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
     let mut ref_to_oid = HashMap::<FullName, gix::ObjectId>::new();
     for (full_name, id) in references {
@@ -84,10 +86,9 @@ pub fn graph(
     }
     // Workspace metadata may outlive the workspace reference, as in
     // single-branch mode, where it no longer says anything about the stacks.
-    let segment_metadata = if ref_to_oid.contains_key(&workspace_ref_name) {
-        overlay_meta.workspace_opt(workspace_ref_name.as_ref())?
-    } else {
-        None
+    let segment_metadata = match &workspace_ref_name {
+        Some(workspace_ref_name) => overlay_meta.workspace_opt(workspace_ref_name.as_ref())?,
+        None => None,
     };
     let mut stacks = Vec::<Vec<FullName>>::new();
     // The stacks reachable from the workspace commit, in metadata order.
@@ -111,7 +112,10 @@ pub fn graph(
     // an empty lane of its own. Its branches then belong to whichever stack
     // reaches them.
     let mut managed_workspace_commit_id = None;
-    if let Some(&workspace_commit_id) = ref_to_oid.get(&workspace_ref_name) {
+    if let Some(&workspace_commit_id) = workspace_ref_name
+        .as_ref()
+        .and_then(|name| ref_to_oid.get(name))
+    {
         let workspace_commit = repo.find_commit(workspace_commit_id)?;
         if crate::workspace::commit::is_managed_workspace_by_message(
             workspace_commit.message_raw()?,
@@ -157,7 +161,7 @@ pub fn graph(
         // branches, branches in stack order, branches of no stack, and the
         // target branch and then tags below them.
         refs.sort_by_cached_key(|reference| {
-            if Some(reference.as_ref()) == head_ref || reference.as_bstr() == WORKSPACE_REF {
+            if Some(reference.as_ref()) == head_ref || is_workspace_ref_name(reference.as_ref()) {
                 return 0;
             }
             match reference.category() {
@@ -311,7 +315,7 @@ pub fn graph(
             }
             // Without a workspace commit, the workspace reference sits on top
             // of the branches on its commit, whichever stack they belong to.
-            if full_name.as_bstr() == WORKSPACE_REF {
+            if is_workspace_ref_name(full_name.as_ref()) {
                 new_stack_lineage.is_parent_of_workspace_commit = true;
             }
             new_map
@@ -324,10 +328,7 @@ pub fn graph(
             unassigned_oid_map.insert(commit_id, new_map);
 
             nodes.push(Node {
-                weight: NodeWeight::Ref {
-                    full_name,
-                    oid: commit_id,
-                },
+                weight: NodeWeight::Ref { full_name },
                 parents: vec![PLACEHOLDER],
             });
         }
@@ -500,6 +501,16 @@ struct PredecessorSegmentInfo {
 }
 
 impl WorkspaceGraph {
+    /// The commit node `i` is or, for a reference, points at.
+    fn commit_id_of(&self, mut i: NodeIndex) -> gix::ObjectId {
+        loop {
+            match &self.nodes[i].weight {
+                NodeWeight::Pick { oid } | NodeWeight::ShallowPoint { oid } => return *oid,
+                NodeWeight::Ref { .. } => i = self.nodes[i].parents[0],
+            }
+        }
+    }
+
     pub fn to_segment_graph(
         &self,
         repo: &gix::Repository,
@@ -541,7 +552,7 @@ impl WorkspaceGraph {
                 .remove(&i)
                 .unwrap_or_default();
             let reference = match &node.weight {
-                NodeWeight::Ref { full_name, oid } => Some((full_name, *oid)),
+                NodeWeight::Ref { full_name } => Some((full_name, self.commit_id_of(i))),
                 NodeWeight::Pick { .. } | NodeWeight::ShallowPoint { .. } => None,
             };
             if let Some((full_name, _)) = reference {
@@ -550,7 +561,7 @@ impl WorkspaceGraph {
                         .commit_flags
                         .insert(CommitFlags::NotInRemote);
                 }
-                if full_name.as_bstr() == WORKSPACE_REF {
+                if is_workspace_ref_name(full_name.as_ref()) {
                     predecessor_segment_info
                         .commit_flags
                         .insert(CommitFlags::InWorkspace);
@@ -682,19 +693,19 @@ impl WorkspaceGraph {
                         }
                     }
                 }
-                NodeWeight::Ref { full_name, oid } if continued_segment.is_some() => {
+                NodeWeight::Ref { full_name } if continued_segment.is_some() => {
                     forward_pending_refs(
                         &mut pending_commit_refs,
                         i,
                         node.parents[0],
                         Some(crate::RefInfo::from_ref(
                             full_name.clone(),
-                            Some(*oid),
+                            Some(self.commit_id_of(i)),
                             worktree_by_branch,
                         )),
                     );
                 }
-                NodeWeight::Ref { full_name, oid } => {
+                NodeWeight::Ref { full_name } => {
                     // References that reached this one still point at the same commit.
                     forward_pending_refs(&mut pending_commit_refs, i, node.parents[0], None);
                     match full_name.category() {
@@ -709,7 +720,7 @@ impl WorkspaceGraph {
                     }
                     inner_graph[segment_index].ref_info = Some(crate::RefInfo::from_ref(
                         full_name.clone(),
-                        Some(*oid),
+                        Some(self.commit_id_of(i)),
                         worktree_by_branch,
                     ));
                 }
