@@ -194,8 +194,7 @@
       "tiling::ZoomTile",
       "tiling::ArrangeTiles",
       "tiling::EqualizeTiles",
-      "tiling::SwapTiles",
-      "tiling::CloseTile"
+      "tiling::SwapTiles"
     ]
   },
   {

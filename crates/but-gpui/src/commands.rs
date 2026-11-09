@@ -343,7 +343,6 @@ commands! {
     crate::app::NewTerminalBelow => "New terminal below" {
         aliases: &["Split terminal below", "Split terminal down", "Terminal below"],
     },
-    crate::app::CloseTile => "Close tile" { aliases: &["Close pane", "Close split"] },
     crate::app::EqualizeTiles => "Equalize tiles" {
         aliases: &["Equalize splits", "Even out tiles", "Balance tiles", "Balance splits"],
     },
