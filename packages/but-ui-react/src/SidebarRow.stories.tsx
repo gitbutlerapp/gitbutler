@@ -350,7 +350,7 @@ export const ByMachine = meta.story({
  * pointer would.
  */
 export const Selection = meta.story({
-	parameters: { design: { type: "figma", url: core("2642-13680") } },
+	parameters: { design: { type: "figma", url: core("2594-15770") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
 			<Card label="pavel--macbook-pro-2" header={machine} focused>
@@ -526,7 +526,7 @@ const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded }) => (
  * it steps back. A click anywhere on it folds the stack.
  */
 export const StacksFolded = meta.story({
-	parameters: { design: { type: "figma", url: core("3688-8924") } },
+	parameters: { design: { type: "figma", url: core("4664-11727") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
 			<Card label="pavel--macbook-pro-2" header={machine}>
@@ -714,7 +714,7 @@ export const UncommittedChanges = meta.story({
  * is on, `empty` with nothing applied or `detached`.
  */
 export const Empty = meta.story({
-	parameters: { design: { type: "figma", url: core("2746-14577") } },
+	parameters: { design: { type: "figma", url: core("4664-11725") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
 			<Card label="pavel--macbook-pro-2" header={machine}>
@@ -1130,7 +1130,7 @@ const repository = <RepoItem name="but-dev" folded={false} menu={menu("Repositor
  * worktrees shows no age, as each says its own.
  */
 export const ByRepository = meta.story({
-	parameters: { design: { type: "figma", url: core("2642-10912") } },
+	parameters: { design: { type: "figma", url: core("4664-11724") } },
 	render: () => (
 		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
 			<Card label="but-dev" header={repository}>
@@ -1172,7 +1172,7 @@ export const Merging = meta.story({
  * done with: it shows its age, and Delete under the pointer.
  */
 export const Merged = meta.story({
-	parameters: { design: { type: "figma", url: core("4017-7390") } },
+	parameters: { design: { type: "figma", url: core("2572-3458") } },
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
 			<WorktreeItem
