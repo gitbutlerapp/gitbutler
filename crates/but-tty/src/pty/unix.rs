@@ -1,6 +1,6 @@
 //! The user's login shell on a pseudo-terminal, with what it writes read on its own thread.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
@@ -98,10 +98,15 @@ impl Pty {
     /// shell in `cwd`, sized `size`, running `command` with `-c` when there is one, still
     /// interactive so it reads the same config as at a prompt. The receiver yields what the shell
     /// writes, in chunks, and ends once it exits, though jobs it left still hold the terminal.
-    pub fn spawn(cwd: &Path, size: Size, command: Option<&str>) -> anyhow::Result<(Pty, Output)> {
+    pub fn spawn(
+        cwd: &Path,
+        size: Size,
+        command: Option<&str>,
+        env: &[(&str, &OsStr)],
+    ) -> anyhow::Result<(Pty, Output)> {
         let (master, slave) = open(size).context("Couldn't open a pseudo-terminal")?;
         let shell = shell();
-        let child = shell_command(&shell, command, cwd, &slave)?
+        let child = shell_command(&shell, command, cwd, env, &slave)?
             .spawn()
             .with_context(|| format!("Couldn't start {}", shell.display()))?;
         drop(slave);
@@ -315,6 +320,7 @@ fn shell_command(
     shell: &OsString,
     run: Option<&str>,
     cwd: &Path,
+    env: &[(&str, &OsStr)],
     slave: &OwnedFd,
 ) -> io::Result<Command> {
     let mut command = Command::new(shell);
@@ -336,6 +342,7 @@ fn shell_command(
         // shell starts would look there for its libraries first, taking ~20ms longer to start.
         .env_remove("DYLD_LIBRARY_PATH")
         .env_remove(crate::handoff::HANDED)
+        .envs(env.iter().copied())
         .stdin(Stdio::from(slave.try_clone()?))
         .stdout(Stdio::from(slave.try_clone()?))
         .stderr(Stdio::from(slave.try_clone()?));
@@ -459,7 +466,7 @@ mod tests {
 
     #[test]
     fn a_shell_outrunning_its_reader_waits_and_nothing_is_lost_when_its_kept() {
-        let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
+        let (mut pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None, &[]).unwrap();
         const LAST: u32 = 400_000;
         pty.write(format!("echo; seq 1 {LAST}; echo done-$((1+1))\n").as_bytes())
             .unwrap();
@@ -494,7 +501,7 @@ mod tests {
 
     /// All `command` writes, run in place of a prompt, once its output ends.
     fn run_to_end(command: &str) -> String {
-        let (_pty, output) = Pty::spawn(&std::env::temp_dir(), SIZE, Some(command)).unwrap();
+        let (_pty, output) = Pty::spawn(&std::env::temp_dir(), SIZE, Some(command), &[]).unwrap();
         let (ended, read) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let chunks = futures::executor::block_on(futures::StreamExt::collect::<Vec<_>>(output));
@@ -569,7 +576,7 @@ mod tests {
 
     #[test]
     fn a_kept_shell_answers_whoever_adopts_it() {
-        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
+        let (pty, mut output) = Pty::spawn(&std::env::temp_dir(), SIZE, None, &[]).unwrap();
         pty.write(b"echo $$-$((40+2))\n").unwrap();
         let before = wait_for_text(&mut output, "-42");
 

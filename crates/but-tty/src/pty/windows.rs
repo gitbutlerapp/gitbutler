@@ -52,7 +52,12 @@ impl Pty {
     /// Starts the user's shell (%COMSPEC%, else cmd.exe) in `cwd`, sized `size`, running
     /// `command` with `/c` when there is one. The receiver yields what the shell writes, in
     /// chunks, and ends once it exits, which closes the pseudoconsole on the jobs it left.
-    pub fn spawn(cwd: &Path, size: Size, command: Option<&str>) -> anyhow::Result<(Pty, Output)> {
+    pub fn spawn(
+        cwd: &Path,
+        size: Size,
+        command: Option<&str>,
+        env: &[(&str, &OsStr)],
+    ) -> anyhow::Result<(Pty, Output)> {
         let (input_read, input_write) = pipe().context("Couldn't open the shell's input")?;
         let (output_read, output_write) = pipe().context("Couldn't open the shell's output")?;
         let console =
@@ -65,7 +70,7 @@ impl Pty {
             .spawn(move || drain(output_read, queue))?;
 
         let shell = shell();
-        let process = start(&shell, command, cwd, &console)
+        let process = start(&shell, command, cwd, env, &console)
             .with_context(|| format!("Couldn't start {}", shell.display()))?;
         let console = Arc::new(Mutex::new(Some(console)));
 
@@ -160,10 +165,16 @@ fn shell() -> OsString {
         .unwrap_or_else(|| "cmd.exe".into())
 }
 
-fn start(shell: &OsStr, run: Option<&str>, cwd: &Path, console: &HPCON) -> io::Result<OwnedHandle> {
+fn start(
+    shell: &OsStr,
+    run: Option<&str>,
+    cwd: &Path,
+    env: &[(&str, &OsStr)],
+    console: &HPCON,
+) -> io::Result<OwnedHandle> {
     let mut command_line = command_line(shell, run)?;
     let cwd = wide(cwd.as_os_str())?;
-    let environment = environment();
+    let environment = environment(env);
     let mut attributes = Attributes::pseudoconsole(*console)?;
     let startup = STARTUPINFOEXW {
         StartupInfo: STARTUPINFOW {
@@ -224,7 +235,7 @@ fn command_line(program: &OsStr, run: Option<&str>) -> io::Result<Vec<u16>> {
 
 /// This process's environment as a terminal's, sorted by name without regard to case, as
 /// `CreateProcessW` wants it.
-fn environment() -> Vec<u16> {
+fn environment(env: &[(&str, &OsStr)]) -> Vec<u16> {
     let mut variables: BTreeMap<OsString, (OsString, OsString)> = std::env::vars_os()
         .map(|(name, value)| (name.to_ascii_uppercase(), (name, value)))
         .collect();
@@ -237,6 +248,10 @@ fn environment() -> Vec<u16> {
         ("TERM_PROGRAM_VERSION", "1.3.2"),
     ] {
         variables.insert(name.into(), (name.into(), value.into()));
+    }
+    for (name, value) in env {
+        let key = OsString::from(name).to_ascii_uppercase();
+        variables.insert(key, ((*name).into(), (*value).to_owned()));
     }
     let mut block = Vec::new();
     for (name, value) in variables.into_values() {
