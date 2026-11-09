@@ -3,6 +3,7 @@
 	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import NativeAppModal from "$components/shared/NativeAppModal.svelte";
 	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
 	import ProjectShortcutHandler from "$components/shared/ProjectShortcutHandler.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
@@ -354,6 +355,7 @@
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || mode.subject.branchName}
+				<NativeAppModal />
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
