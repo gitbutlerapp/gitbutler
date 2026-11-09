@@ -109,16 +109,16 @@ const LIST_TOP: f32 = 0.;
 /// from past its bottom, so it's drawn though the rows moved since.
 const ABOVE_LAST_LISTED: usize = 2;
 
-/// How tall the drawer's handle is, level with the commit footer beside it, and the space
-/// under its rows.
-const DRAWER_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
+/// How tall the bar of a card at the navigator's foot is, the drawer's level with the commit
+/// footer beside it, and the space under the drawer's rows.
+pub(super) const CARD_BAR_HEIGHT: f32 = crate::detail::FOOTER_HEIGHT;
 const DRAWER_PADDING: f32 = 6.;
 
-/// How far the drawer's bar sits in from its card's edges, as a row from a card's.
-const DRAWER_INSET: f32 = 3.;
+/// How far that bar sits in from its card's edges, as a row from a card's.
+pub(super) const CARD_BAR_INSET: f32 = 3.;
 
 /// How tall the drawer's card is around its rows: its bar, and its edges.
-const DRAWER_CHROME: f32 = DRAWER_BAR_HEIGHT + 2. * DRAWER_INSET + 2.;
+const DRAWER_CHROME: f32 = CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET + 2.;
 
 /// How far a worktree's rows sit in from its heading, as but-ui-react's SidebarRow steps them:
 /// their chevrons' middle under the heading's 16-point glyph's, the chevron's step, 14, the
@@ -247,6 +247,58 @@ const MERGE_CHEVRON: f32 = UPSTREAM_CHEVRON + STEP;
 
 /// What a checkout's row and tab call the main worktree.
 pub(super) const MAIN_WORKTREE: &str = "Main worktree";
+
+/// The bar atop a card at the navigator's foot, the projects' drawer's and the terminal
+/// overview's: while it folds, its chevron, up while it's `open` is false and turning down as
+/// it opens up into the column, then its `title` and `count`. The caller adds its buttons and,
+/// while it folds, what a click on it does. `selected` draws it as a row with the keys on it,
+/// `solid` as one in a list that has them.
+pub(super) fn card_bar(
+    id: &'static str,
+    title: &'static str,
+    count: Option<String>,
+    open: Option<bool>,
+    selected: bool,
+    solid: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let (ink, muted) = match solid {
+        true => (theme.text_inverted, theme.muted_on_solid()),
+        false => (theme.text_3, theme.text_3),
+    };
+    let fold = h_flex()
+        .flex_1()
+        .min_w_0()
+        .h_full()
+        .gap(dp(6.))
+        .children(
+            open.map(|open| fold::turned(format!("{id}-fold"), open, Icon::ChevronUp, PI, muted)),
+        )
+        .child(section_label(title, theme).text_color(ink).truncate())
+        .children(count.map(|count| faint(count, theme).text_size(dp(12.)).text_color(muted)));
+    // In from its card's edges as a row is, its hover rounded as one's, so it stays inside the
+    // card's corners.
+    h_flex()
+        .id(id)
+        .role(Role::ListItem)
+        .aria_label(title)
+        .aria_selected(selected)
+        .flex_none()
+        .h(dp(CARD_BAR_HEIGHT))
+        .m(dp(CARD_BAR_INSET))
+        .rounded(dp(4.))
+        .pl(dp(10.))
+        .pr(dp(6.))
+        .gap(dp(2.))
+        .when(selected, |el| el.bg(theme.selected_unfocused()))
+        .when(solid, |el| el.bg(theme.fill_gray))
+        .child(fold)
+        .when_some(open, |el, open| {
+            el.aria_expanded(open)
+                .cursor_pointer()
+                .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+        })
+}
 
 /// What the projects not watched go by: all of them, `alone`, with none watched.
 pub(super) fn drawer_title(alone: bool) -> &'static str {
@@ -3244,41 +3296,9 @@ impl Navigator {
         let toggles = self.drawer_toggles(cx);
         let selected = self.on_drawer_bar;
         let solid = selected && self.rows_have_keys(window, cx);
-        let (ink, muted) = match solid {
-            true => (theme.text_inverted, theme.muted_on_solid()),
-            false => (theme.text_3, theme.text_3),
-        };
-        // Up while it's folded, turning down as it opens.
-        let open = !self.store.read(cx).prefs.projects_folded;
-        let chevron = fold::turned("drawer-fold", open, Icon::ChevronUp, PI, muted);
-        // Its chevron over the projects' eyes.
-        let fold = h_flex()
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .gap(dp(6.))
-            .when(toggles, |el| el.child(chevron))
-            .child(section_label(title, theme).text_color(ink).truncate())
-            .when(total > 0, |el| {
-                el.child(faint(count, theme).text_size(dp(12.)).text_color(muted))
-            });
-        // In from its card's edges as a row is, its hover rounded as one's, so it stays inside
-        // the card's corners.
-        h_flex()
-            .id("drawer-bar")
-            .role(Role::ListItem)
-            .aria_label(title)
-            .aria_selected(selected)
-            .flex_none()
-            .h(dp(DRAWER_BAR_HEIGHT))
-            .m(dp(DRAWER_INSET))
-            .rounded(dp(4.))
-            .pl(dp(10.))
-            .pr(dp(6.))
-            .gap(dp(2.))
-            .when(selected, |el| el.bg(theme.selected_unfocused()))
-            .when(solid, |el| el.bg(theme.fill_gray))
-            .child(fold)
+        let open = toggles.then(|| !self.store.read(cx).prefs.projects_folded);
+        let count = (total > 0).then_some(count);
+        card_bar("drawer-bar", title, count, open, selected, solid, theme)
             .child(
                 icon_button("add-project", Icon::Plus)
                     .small()
@@ -3298,10 +3318,7 @@ impl Navigator {
                 )
             })
             .when(toggles, |el| {
-                el.aria_expanded(open)
-                    .cursor_pointer()
-                    .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
-                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
+                el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_drawer(cx)))
             })
     }
 

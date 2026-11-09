@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use super::rows::GUIDE_AT;
-use super::{RowStyle, STEP, status_mark};
+use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, STEP, card_bar, status_mark};
 use crate::app::{
     AppHandle, AppView, CloseWindow, Confirm, FocusNavigator, SelectNext, SelectPrevious,
     SplitBelow, SplitRight,
@@ -27,13 +27,10 @@ use crate::theme::Theme;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Icon, ROW_HEIGHT, dp, faint, field, fixed, fold_button, guide, h_flex, icon_button,
-    section_label, small_icon, v_flex,
+    Icon, ROW_HEIGHT, dp, faint, field, fixed, fold_button, guide, icon_button, section_label,
+    small_icon, v_flex,
 };
 
-/// How tall the bar over the rows is, and how far it sits in from the card's edges.
-const BAR_HEIGHT: f32 = 28.;
-const BAR_INSET: f32 = 3.;
 /// The room under the last row.
 const ROWS_PADDING: f32 = 6.;
 /// How far a status's heading sits in, as a section's heading in the navigator does.
@@ -95,6 +92,12 @@ pub struct TerminalOverview {
     /// The pointer is over the rows, which hold their order meanwhile, so what an agent does
     /// moves no row from under it. Each row's mark still follows its terminal.
     hovered: bool,
+    /// The card folded to its bar: as it starts with no terminal open, and as the last one
+    /// closes, till its chevron opens it or one opens.
+    shut: bool,
+    /// Whether no terminal was open when the store last changed, to fold or open the card as
+    /// that changes.
+    was_empty: bool,
     /// The statuses folded to their headings.
     folded: HashSet<StatusGroup>,
     /// The headings opening or closing now.
@@ -126,13 +129,20 @@ impl Focusable for TerminalOverview {
 impl TerminalOverview {
     pub fn new(app: AppHandle, store: Entity<Store>, cx: &mut Context<Self>) -> Self {
         let _store = cx.observe(&store, |this, store, cx| {
-            let shown = store.read(cx).terminal_shown();
+            let store = store.read(cx);
+            let shown = store.terminal_shown();
             if shown != this.shown {
                 this.shown = shown;
                 this.on_heading = None;
             }
+            let empty = store.terminals.count() == 0;
+            if empty != this.was_empty {
+                this.was_empty = empty;
+                this.shut = empty;
+            }
             cx.notify()
         });
+        let empty = store.read(cx).terminals.count() == 0;
         Self {
             app,
             store,
@@ -140,6 +150,8 @@ impl TerminalOverview {
             places: Vec::new(),
             list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             hovered: false,
+            shut: empty,
+            was_empty: empty,
             folded: HashSet::new(),
             folds: Folds::default(),
             on_heading: None,
@@ -165,9 +177,18 @@ impl TerminalOverview {
             .collect()
     }
 
+    /// Whether the card is folded to its bar.
+    pub fn is_shut(&self) -> bool {
+        self.shut
+    }
+
     /// How tall it is with every row showing, as far as a fold moving shows them, in design
-    /// pixels.
+    /// pixels, or folded, its bar's.
     pub fn height(&self, cx: &App) -> f32 {
+        let bar = 2. + CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET;
+        if self.shut {
+            return bar;
+        }
         let rows = match self.folds.any() {
             true => (0..self.items.len())
                 .map(|ix| {
@@ -180,7 +201,7 @@ impl TerminalOverview {
             false => items_of(self.sorted(cx), &self.shut()).len() as f32 * ROW_HEIGHT,
         };
         // Or the line saying there are none.
-        2. + BAR_HEIGHT + 2. * BAR_INSET + rows.max(ROW_HEIGHT) + ROWS_PADDING
+        bar + rows.max(ROW_HEIGHT) + ROWS_PADDING
     }
 
     /// Draw its rows at their heights again, as the interface's scale changed.
@@ -228,6 +249,9 @@ impl TerminalOverview {
     /// do: onto a terminal, showing it, or onto a status's heading, which shows nothing. From
     /// none selected, forward starts at the top and back at the bottom.
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.shut {
+            return;
+        }
         let shown = self.store.read(cx).terminal_shown();
         let at = (self.items.iter()).position(|item| match (item, self.on_heading) {
             (Item::Heading(group, _), Some(on)) => *group == on,
@@ -269,7 +293,12 @@ impl TerminalOverview {
         cx.notify();
     }
 
-    /// Show terminal `id` where it is, and with `enter` give it the keys.
+    /// Fold the card to its bar, or open it.
+    fn toggle_card(&mut self, cx: &mut Context<Self>) {
+        self.shut ^= true;
+        cx.notify();
+    }
+
     /// What a terminal's row offers when it's right-clicked: what the navigator's offers for
     /// a terminal, but Move, as one living in a tile can't, and with a way to its row there.
     /// Each holds the terminal it opened on.
@@ -373,6 +402,7 @@ impl TerminalOverview {
         });
     }
 
+    /// Show terminal `id` where it is, and with `enter` give it the keys.
     fn show(&self, id: TerminalId, enter: bool, window: &mut Window, cx: &mut App) {
         (self.app).update_later(window, cx, move |app, window, cx| {
             app.show_terminal(id, enter, window, cx)
@@ -569,33 +599,33 @@ impl TerminalOverview {
         )
     }
 
+    /// The card's bar, as the projects' drawer's: its chevron, which folds it as a click on it
+    /// does, its name, how many are open, and a way to open another.
     fn render_bar(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let count = self.store.read(cx).terminals.count();
         let app = self.app.clone();
-        h_flex()
-            .flex_none()
-            .h(dp(BAR_HEIGHT))
-            .m(dp(BAR_INSET))
-            .pl(dp(10.))
-            .pr(dp(6.))
-            .gap(dp(6.))
-            .child(section_label("Terminals", theme).text_color(theme.text_3))
-            .child(
-                faint(count.to_string(), theme)
-                    .text_size(dp(12.))
-                    .flex_grow(1.),
-            )
-            .child(
-                icon_button("overview-new-terminal", Icon::Plus)
-                    .small()
-                    .tooltip("New terminal…")
-                    .on_click(move |_, window, cx| {
-                        app.update_later(window, cx, |app, window, cx| {
-                            app.new_terminal_in(window, cx)
-                        })
-                    }),
-            )
+        let open = Some(!self.shut);
+        card_bar(
+            "overview-bar",
+            "Terminals",
+            Some(count.to_string()),
+            open,
+            false,
+            false,
+            theme,
+        )
+        .child(
+            icon_button("overview-new-terminal", Icon::Plus)
+                .small()
+                .tooltip("New terminal…")
+                .on_click(move |_, window, cx| {
+                    app.update_later(window, cx, |app, window, cx| {
+                        app.new_terminal_in(window, cx)
+                    })
+                }),
+        )
+        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
     }
 }
 
@@ -603,31 +633,53 @@ impl Render for TerminalOverview {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // A fold that got where it was going lists what it holds, or stops, at once.
         let landed = self.folds.frame();
+        // With no rows drawn there's nothing under the pointer to hold, and nothing to say it
+        // left, so what opens meanwhile is listed at once.
+        if self.shut || self.items.is_empty() {
+            self.hovered = false;
+        }
         self.sort_out(landed || self.folds.any(), cx);
         if self.folds.any() {
             window.request_animation_frame();
         }
         let theme = Theme::get(cx);
         let focused = has_keys(&self.focus, window, cx);
-        let rows = match self.items.is_empty() {
-            true => div()
-                .h(dp(ROW_HEIGHT))
-                .flex()
-                .items_center()
-                .pl(dp(11.))
-                .child(faint("No terminals open", theme))
+        let rows = (!self.shut).then(|| {
+            let rows = match self.items.is_empty() {
+                true => div()
+                    .h(dp(ROW_HEIGHT))
+                    .flex()
+                    .items_center()
+                    // Under the bar's name, past its chevron and the gap after it.
+                    .pl(dp(CARD_BAR_INSET + 10. + 12. + 6.))
+                    .child(faint("No terminals open", theme))
+                    .into_any_element(),
+                false => list(
+                    self.list.clone(),
+                    cx.processor(|this, ix: usize, window, cx| this.render_item(ix, window, cx)),
+                )
+                .size_full()
                 .into_any_element(),
-            false => list(
-                self.list.clone(),
-                cx.processor(|this, ix: usize, window, cx| this.render_item(ix, window, cx)),
-            )
-            .size_full()
-            .into_any_element(),
-        };
+            };
+            div()
+                .id("terminal-overview-rows")
+                .flex_1()
+                .min_h_0()
+                .pb(dp(ROWS_PADDING))
+                .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                    this.hovered = *hovered;
+                    // Let go, they take the order they'd have taken meanwhile.
+                    if !*hovered {
+                        cx.notify();
+                    }
+                }))
+                .child(rows)
+        });
         v_flex()
             .id("terminal-overview")
             .role(Role::List)
             .aria_label("Terminals")
+            .aria_expanded(!self.shut)
             .key_context("TerminalOverview")
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &SelectNext, window, cx| this.step(1, window, cx)))
@@ -668,21 +720,7 @@ impl Render for TerminalOverview {
             .rounded(dp(6.))
             .overflow_hidden()
             .child(self.render_bar(cx))
-            .child(
-                div()
-                    .id("terminal-overview-rows")
-                    .flex_1()
-                    .min_h_0()
-                    .pb(dp(ROWS_PADDING))
-                    .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
-                        this.hovered = *hovered;
-                        // Let go, they take the order they'd have taken meanwhile.
-                        if !*hovered {
-                            cx.notify();
-                        }
-                    }))
-                    .child(rows),
-            )
+            .children(rows)
     }
 }
 
