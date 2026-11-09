@@ -852,10 +852,7 @@ impl Store {
             Some(Selection::Commit(project, commit)) if project == id => {
                 let followed = follow_by_key(old, &workspace, *commit).or_else(|| {
                     let made = (self.made.as_ref()).filter(|made| made.id == *commit)?;
-                    workspace
-                        .commits()
-                        .find(|c| c.key == made.key)
-                        .map(|c| c.id)
+                    workspace.find_commit_by_key(&made.key).map(|c| c.id)
                 });
                 match followed {
                     Some(new) => ((new != *commit).then_some((*commit, new)), None),
@@ -1117,7 +1114,7 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
         return Some(commit);
     }
     let (_, old) = old?.find_commit(commit)?;
-    (new.commits().find(|c| c.key == old.key))
+    (new.find_commit_by_key(&old.key))
         .or_else(|| new.commits().find(|c| c.authored == old.authored))
         .map(|c| c.id)
 }

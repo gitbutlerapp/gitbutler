@@ -148,7 +148,6 @@ impl Overlay {
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
         let moved_by =
             |commit: Option<&Commit>| commit.map_or_else(HashSet::new, |c| ws.moved_by(c.id));
-        let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
             NewAt::Top(ref_name) => {
                 let Some((lane, at)) = ws.lane_of(Some(ref_name)) else {
@@ -159,13 +158,13 @@ impl Overlay {
                 moved.insert(lane.checkout.clone());
                 moved
             }
-            NewAt::Above(key) | NewAt::Below(key) => moved_by(keyed(key)),
+            NewAt::Above(key) | NewAt::Below(key) => moved_by(ws.find_commit_by_key(key)),
         });
         let changed = (self.commits.iter())
             .chain(self.commit_files.keys())
             .chain(self.commit_hunks.keys())
             .chain(self.reworded.iter().map(|(key, _)| key))
-            .map(|key| moved_by(keyed(key)));
+            .map(|key| moved_by(ws.find_commit_by_key(key)));
         (landing.chain(changed))
             .flatten()
             .chain([self.files_in.clone()])

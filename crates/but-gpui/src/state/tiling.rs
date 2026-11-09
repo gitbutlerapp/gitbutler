@@ -1476,9 +1476,7 @@ impl Store {
             RowKey::Tab(project, _) => Some(Selection::Project(project.clone())),
             RowKey::Commit(project, key) => {
                 let workspace = self.workspace(project)?;
-                let commit = (workspace.all_branches())
-                    .flat_map(|branch| &branch.commits)
-                    .find(|commit| commit.key == *key)?;
+                let commit = workspace.find_commit_by_key(key)?;
                 Some(Selection::Commit(project.clone(), commit.id))
             }
         }

@@ -1164,7 +1164,7 @@ fn commit_choice(
     let choice = Choice::new(commit_title(&commit.title), move |this, window, cx| {
         // By its change ID, so one an agent reworded or rebased since the picker opened opens.
         let now = (this.store.read(cx).workspace(&id))
-            .and_then(|ws| ws.commits().find(|commit| commit.key == key))
+            .and_then(|ws| ws.find_commit_by_key(&key))
             .map(|commit| commit.id);
         match now {
             Some(commit) => this.select(Selection::Commit(id, commit), window, cx),

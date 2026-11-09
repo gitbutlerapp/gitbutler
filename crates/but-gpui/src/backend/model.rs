@@ -253,6 +253,11 @@ impl Workspace {
         })
     }
 
+    /// The commit with change id `key`, which amending or rebasing it keeps.
+    pub fn find_commit_by_key(&self, key: &str) -> Option<&Commit> {
+        self.commits().find(|commit| commit.key == key)
+    }
+
     /// What commit `id` is shown by: see [`Commit::short_reference`]. Its short sha if it's not
     /// in the workspace.
     pub fn short_reference(&self, id: CommitId) -> String {
