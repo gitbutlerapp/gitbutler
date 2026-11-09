@@ -508,3 +508,22 @@
 :root.dark {
   color-scheme: dark;
 }
+
+/* The accent, set with data-but-accent on the root element; teal without it. */
+:root[data-but-accent="blue"] {
+  --but-primary: var(--but-blue-9);
+  --but-primary-hover: var(--but-blue-10);
+  --but-primary-soft: var(--but-blue-3);
+  --but-primary-soft-foreground: var(--but-blue-11);
+  --but-primary-soft-hover: var(--but-blue-4);
+  --but-primary-text: var(--but-blue-11);
+}
+
+:root[data-but-accent="purple"] {
+  --but-primary: var(--but-purple-9);
+  --but-primary-hover: var(--but-purple-10);
+  --but-primary-soft: var(--but-purple-3);
+  --but-primary-soft-foreground: var(--but-purple-11);
+  --but-primary-soft-hover: var(--but-purple-4);
+  --but-primary-text: var(--but-purple-11);
+}

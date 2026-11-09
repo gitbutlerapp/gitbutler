@@ -15,7 +15,17 @@ import {
 	pages,
 	type Page,
 } from "./pages.ts";
-import { currentPage, pageLink, pickTheme, savedTheme, subscribePage, type Theme } from "./site.ts";
+import {
+	currentPage,
+	pageLink,
+	pickAccent,
+	pickTheme,
+	savedAccent,
+	savedTheme,
+	subscribePage,
+	type Accent,
+	type Theme,
+} from "./site.ts";
 import { Suspense, use, useState, useSyncExternalStore, type FC } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 
@@ -156,8 +166,25 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 					})}
 				</nav>
 			</ScrollArea>
+			<AccentSwitch />
 			<ThemeSwitch />
 		</aside>
+	);
+};
+
+const AccentSwitch: FC = () => {
+	const [accent, setAccent] = useState(savedAccent);
+	const pick = (next: Accent) => {
+		setAccent(next);
+		pickAccent(next);
+	};
+
+	return (
+		<SegmentedControl fill value={accent} onValueChange={pick} aria-label="Accent">
+			<Segment value="teal">Teal</Segment>
+			<Segment value="blue">Blue</Segment>
+			<Segment value="purple">Purple</Segment>
+		</SegmentedControl>
 	);
 };
 

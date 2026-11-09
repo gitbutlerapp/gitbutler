@@ -13,11 +13,19 @@ const toRgb = converter("rgb");
 const TEXT = 4.5;
 const MARK = 3;
 
-const declarations = new Map();
-const root = readFileSync("tokens/tokens.css", "utf8").match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
-for (const [, name, value] of root.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm)) {
-	declarations.set(name, value);
-}
+const css = readFileSync("tokens/tokens.css", "utf8");
+const read = (block) =>
+	[...block.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm)].map(([, name, value]) => [name, value]);
+const defaults = read(css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? "");
+// Every accent a person can pick, as the declarations it changes; teal changes none.
+const accents = [
+	["teal", []],
+	...[...css.matchAll(/:root\[data-but-accent="(\w+)"\]\s*\{([\s\S]*?)\n\}/g)].map(
+		([, accent, block]) => [accent, read(block)],
+	),
+];
+// The declarations in force for the accent being checked.
+let declarations = new Map(defaults);
 
 // Splits a function's arguments at its top-level commas.
 function args(inner) {
@@ -126,15 +134,18 @@ const pairs = [
 ];
 
 const failures = [];
-for (const mode of ["light", "dark"]) {
-	const background = resolve("var(--but-background)", mode);
-	for (const [text, ground, floor] of pairs) {
-		const on = over(resolve(`var(--but-${ground})`, mode), background);
-		const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
-		if (ratio < floor)
-			failures.push(
-				`${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
-			);
+for (const [accent, overrides] of accents) {
+	declarations = new Map([...defaults, ...overrides]);
+	for (const mode of ["light", "dark"]) {
+		const background = resolve("var(--but-background)", mode);
+		for (const [text, ground, floor] of pairs) {
+			const on = over(resolve(`var(--but-${ground})`, mode), background);
+			const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
+			if (ratio < floor)
+				failures.push(
+					`${accent.padEnd(6)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
+				);
+		}
 	}
 }
 
@@ -144,4 +155,6 @@ if (failures.length) {
 	);
 	process.exit(1);
 }
-process.stdout.write(`check-contrast: all ${pairs.length} pairs read in light and dark.\n`);
+process.stdout.write(
+	`check-contrast: all ${pairs.length} pairs read in light and dark, with each accent (${accents.map(([a]) => a).join(", ")}).\n`,
+);

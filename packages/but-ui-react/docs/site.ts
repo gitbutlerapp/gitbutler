@@ -69,6 +69,36 @@ export function savedTheme(): Theme {
 	return "system";
 }
 
+export type Accent = "teal" | "blue" | "purple";
+
+/** The accent is the root's `data-but-accent`, which the tokens follow; without it, teal. */
+export const paintAccent = (accent: Accent, root = document.documentElement) => {
+	if (accent === "teal") delete root.dataset["butAccent"];
+	else root.dataset["butAccent"] = accent;
+};
+
+const accentKey = "ui-react-docs-accent";
+
+/** The accent last picked here, else teal. */
+export function savedAccent(): Accent {
+	try {
+		const saved = window.localStorage.getItem(accentKey);
+		if (saved === "blue" || saved === "purple") return saved;
+	} catch {
+		// Storage can be off; teal stands in.
+	}
+	return "teal";
+}
+
+export function pickAccent(accent: Accent) {
+	paintAccent(accent);
+	try {
+		window.localStorage.setItem(accentKey, accent);
+	} catch {
+		// Kept for this visit only.
+	}
+}
+
 export function pickTheme(theme: Theme) {
 	paintTheme(theme);
 	try {
