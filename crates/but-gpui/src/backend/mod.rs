@@ -9,6 +9,7 @@ pub mod branches;
 pub mod briefs;
 pub mod cli;
 pub mod conflicts;
+pub mod control;
 mod diff;
 pub mod edit;
 pub mod edit_lines;

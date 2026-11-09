@@ -191,7 +191,7 @@ pub(crate) fn listen(window: gpui::AnyWindowHandle, cx: &mut App) {
     use std::time::Duration;
 
     let path = socket_path();
-    let listener = match bind(&path) {
+    let listener = match crate::backend::control::bind(&path) {
         Ok(listener) => listener,
         Err(err) => return tracing::warn!("no layout control at {}: {err:#}", path.display()),
     };
@@ -251,22 +251,4 @@ fn socket_path() -> std::path::PathBuf {
     std::env::var_os("GITBUTLER_GPUI_CONTROL")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::env::temp_dir().join("gitbutler-gpui.sock"))
-}
-
-/// A socket at `path` only the user can reach, in the place of one no app listens on anymore.
-#[cfg(unix)]
-fn bind(path: &std::path::Path) -> Result<std::os::unix::net::UnixListener> {
-    use std::os::unix::fs::PermissionsExt as _;
-    use std::os::unix::net::{UnixListener, UnixStream};
-
-    if path.exists() {
-        ensure!(
-            UnixStream::connect(path).is_err(),
-            "another dev build listens there"
-        );
-        std::fs::remove_file(path).context("removing the socket left behind")?;
-    }
-    let listener = UnixListener::bind(path).context("binding")?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-    Ok(listener)
 }

@@ -29,6 +29,7 @@ mod clock;
 mod command_editor;
 mod commands;
 mod commit_blocked;
+mod control;
 mod detail;
 #[cfg(feature = "dev-script")]
 #[expect(
@@ -370,6 +371,9 @@ pub fn run(embedded: Option<Embedded>) {
                     .unwrap_or_else(|_| cx.quit())
             });
             links::follow(links, window, cx);
+            // Where other processes on the machine control the app, in scripted runs too.
+            #[cfg(unix)]
+            control::listen(window.into(), cx);
             #[cfg(feature = "dev-script")]
             dev::run_from_env(window.into(), cx);
             // The window the user looks at, which an agent can lay out as asked.

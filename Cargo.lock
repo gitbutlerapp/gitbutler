@@ -1744,6 +1744,7 @@ dependencies = [
  "but-testsupport",
  "but-transaction",
  "but-tty",
+ "but-ui-control",
  "but-workspace",
  "chrono",
  "deltoids",
@@ -2162,6 +2163,17 @@ dependencies = [
  "tempfile",
  "tracing",
  "windows 0.62.2",
+]
+
+[[package]]
+name = "but-ui-control"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-path",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
