@@ -736,7 +736,7 @@ importers:
         version: link:../but-ui
       '@hono/node-server':
         specifier: 2.0.10
-        version: 2.0.10(hono@4.12.32)
+        version: 2.0.10(hono@4.13.17)
       '@modelcontextprotocol/ext-apps':
         specifier: 1.7.4
         version: 1.7.4(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
@@ -778,13 +778,13 @@ importers:
         version: 3.0.0
       '@terrazzo/cli':
         specifier: 0.10.3
-        version: 0.10.3(hono@4.12.32)
+        version: 0.10.3(hono@4.13.17)
       '@terrazzo/parser':
         specifier: 0.10.4
         version: 0.10.4
       '@terrazzo/plugin-css':
         specifier: 0.10.4
-        version: 0.10.4(@terrazzo/cli@0.10.3(hono@4.12.32))
+        version: 0.10.4(@terrazzo/cli@0.10.3(hono@4.13.17))
       culori:
         specifier: 4.0.2
         version: 4.0.2
@@ -6291,8 +6291,8 @@ packages:
     resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
     engines: {node: '>=12.0.0'}
 
-  hono@4.12.32:
-    resolution: {integrity: sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg==}
+  hono@4.13.17:
+    resolution: {integrity: sha512-vZIcbkvjOR5hHRWERbGkr8fGfF0GGM1ooYkuH448iO3b2AdVEr3AXZSw4Z3Kn+1L5z0CVoVeyV29VGYmFh05kQ==}
     engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
@@ -10343,9 +10343,9 @@ snapshots:
 
   '@gitbutler/design-core@2.2.2': {}
 
-  '@hono/node-server@2.0.10(hono@4.12.32)':
+  '@hono/node-server@2.0.10(hono@4.13.17)':
     dependencies:
-      hono: 4.12.32
+      hono: 4.13.17
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -10790,7 +10790,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.3.6)':
     dependencies:
-      '@hono/node-server': 2.0.10(hono@4.12.32)
+      '@hono/node-server': 2.0.10(hono@4.13.17)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -10800,7 +10800,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1(supports-color@8.1.1)
       express-rate-limit: 8.6.0(express@5.2.1(supports-color@8.1.1))(supports-color@8.1.1)
-      hono: 4.12.32
+      hono: 4.13.17
       jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -12223,10 +12223,10 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.11.0
 
-  '@terrazzo/cli@0.10.3(hono@4.12.32)':
+  '@terrazzo/cli@0.10.3(hono@4.13.17)':
     dependencies:
       '@clack/prompts': 0.9.1
-      '@hono/node-server': 2.0.10(hono@4.12.32)
+      '@hono/node-server': 2.0.10(hono@4.13.17)
       '@humanwhocodes/momoa': 3.3.13
       '@terrazzo/parser': 0.10.4
       '@terrazzo/token-tools': 0.10.5
@@ -12255,9 +12255,9 @@ snapshots:
       scule: 1.3.0
       wildcard-match: 5.1.6
 
-  '@terrazzo/plugin-css@0.10.4(@terrazzo/cli@0.10.3(hono@4.12.32))':
+  '@terrazzo/plugin-css@0.10.4(@terrazzo/cli@0.10.3(hono@4.13.17))':
     dependencies:
-      '@terrazzo/cli': 0.10.3(hono@4.12.32)
+      '@terrazzo/cli': 0.10.3(hono@4.13.17)
       '@terrazzo/token-tools': 0.10.5
       wildcard-match: 5.1.6
 
@@ -12594,7 +12594,7 @@ snapshots:
 
   '@typescript-eslint/utils@8.57.2(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
+      '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
       '@typescript-eslint/scope-manager': 8.57.2
       '@typescript-eslint/types': 8.57.2
       '@typescript-eslint/typescript-estree': 8.57.2(supports-color@8.1.1)(typescript@5.9.3)
@@ -14842,7 +14842,7 @@ snapshots:
 
   highlight.js@11.11.1: {}
 
-  hono@4.12.32: {}
+  hono@4.13.17: {}
 
   hookified@1.15.1: {}
 
@@ -18030,7 +18030,7 @@ snapshots:
       deepmerge-ts: 7.1.5
       https-proxy-agent: 7.0.6(supports-color@8.1.1)
       undici: 6.23.0
-      ws: 8.19.0
+      ws: 8.21.3
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
