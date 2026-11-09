@@ -1573,6 +1573,8 @@ async fn dispatch_subcommand(
                     no_hooks,
                     default,
                     draft,
+                    labels,
+                    assignees,
                 }) => {
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
@@ -1618,6 +1620,7 @@ async fn dispatch_subcommand(
                         default,
                         draft,
                         review_message,
+                        &command::legacy::forge::review::ReviewMetadata { labels, assignees },
                         out,
                     )
                     .await
@@ -1663,6 +1666,7 @@ async fn dispatch_subcommand(
                         false,
                         top_level_draft,
                         None,
+                        &Default::default(),
                         out,
                     )
                     .await
