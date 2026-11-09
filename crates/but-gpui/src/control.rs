@@ -1,3 +1,7 @@
+#![cfg_attr(
+    not(unix),
+    allow(dead_code, reason = "only the unix socket hands requests over")
+)]
 //! The control socket: other processes on the machine, as a coding agent, control the app
 //! through it. It speaks JSON-RPC 2.0 a line at a time, as `but_ui_control` describes, at
 //! `GITBUTLER_GPUI_SOCKET` or `gpui.sock` in the app data dir. Only the user can reach it.
@@ -10,7 +14,7 @@
 use std::path::PathBuf;
 
 use but_ui_control::{Request, Response, RpcError, code};
-use gpui::{AnyWindowHandle, App, AppContext as _, Global, Window};
+use gpui::{App, Global, Window};
 use serde::Serialize;
 
 /// Where the app listens, once it does: what its terminals are told.
@@ -50,8 +54,9 @@ enum Incoming {
 /// Take requests on the control socket for as long as the app runs, for `window`. Where
 /// another app already listens there, this one doesn't.
 #[cfg(unix)]
-pub fn listen(window: AnyWindowHandle, cx: &mut App) {
+pub fn listen(window: gpui::AnyWindowHandle, cx: &mut App) {
     use futures::StreamExt as _;
+    use gpui::AppContext as _;
 
     let path = match but_ui_control::socket_path() {
         Ok(path) => path,
