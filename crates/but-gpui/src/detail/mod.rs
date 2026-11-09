@@ -56,7 +56,9 @@ use gpui::{
     Task, Window, actions, div, prelude::*,
 };
 
-use crate::app::{AddProject, AppHandle, CopyAbsolutePath, CopyRelativePath};
+use crate::app::{
+    AddProject, AppHandle, CopyAbsolutePath, CopyRelativePath, NextProjectPage, PreviousProjectPage,
+};
 use crate::backend::edit::Editing;
 use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
@@ -4386,6 +4388,14 @@ impl Render for Detail {
                 if !this.switch_tab(false, window, cx) {
                     cx.propagate();
                 }
+            }))
+            // A project's page steps through its own tabs, round again past either end. Other
+            // pages have none.
+            .on_action(cx.listener(|this, _: &NextProjectPage, window, cx| {
+                this.show_tab(this.project_tab().round(true), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &PreviousProjectPage, window, cx| {
+                this.show_tab(this.project_tab().round(false), window, cx)
             }))
             .on_action(cx.listener(|this, _: &ShowBrief, window, cx| this.show_brief(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))

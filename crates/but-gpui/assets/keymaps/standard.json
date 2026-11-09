@@ -66,9 +66,11 @@
   },
   // A project's tabs, Overview, Branches, Operations history and Graph, as ⇧⌘] and ⇧⌘[ step
   // through tabs in Safari, Xcode and Zed, and Ctrl+PageDown and Ctrl+PageUp in browsers and VS
-  // Code elsewhere. From anywhere in a project, as its card's rows don't list them.
+  // Code elsewhere. Only on the project's page, in whichever tile it's in: elsewhere, as in the
+  // navigator or a terminal, there are no tabs to step through.
   {
     "os": ["macos"],
+    "context": "Diff",
     "bindings": {
       "cmd-}": "app::NextProjectPage",
       "cmd-{": "app::PreviousProjectPage"
@@ -76,6 +78,7 @@
   },
   {
     "os": ["windows", "linux"],
+    "context": "Diff",
     "bindings": {
       "ctrl-pagedown": "app::NextProjectPage",
       "ctrl-pageup": "app::PreviousProjectPage"
@@ -92,9 +95,9 @@
   },
   // A page's own tabs, as Changes and Pull request, on the same keys, as they're the tabs in
   // front. After the project's, so these come first, and a page with none goes on to those.
-  // The app passes them on from the navigator.
   {
     "os": ["macos"],
+    "context": "Diff",
     "bindings": {
       "cmd-}": "diff::SwitchTab",
       "cmd-{": "diff::PreviousTab"
@@ -102,6 +105,7 @@
   },
   {
     "os": ["windows", "linux"],
+    "context": "Diff",
     "bindings": {
       "ctrl-pagedown": "diff::SwitchTab",
       "ctrl-pageup": "diff::PreviousTab"

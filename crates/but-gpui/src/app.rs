@@ -1813,28 +1813,6 @@ impl AppView {
         }
     }
 
-    /// The selected project's next page, or going back the one before, as its page's tabs list
-    /// them, round again past either end. From off its pages, forward goes to the first and
-    /// back to the last, as a step onto the navigator's rows does.
-    fn step_project_page(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(selection) = self.selection(cx) else {
-            return;
-        };
-        let detail = self.detail.read(cx);
-        let tab = match (&selection, forward) {
-            (Selection::Project(_), _) => detail.project_tab().round(forward),
-            (_, true) => ProjectTab::Overview,
-            (_, false) => ProjectTab::Graph,
-        };
-        let on_tabs = detail.project_tabs_focused(window);
-        (self.store).update(cx, |store, cx| {
-            store.show_tab(selection.project().clone(), tab, cx)
-        });
-        if !on_tabs {
-            self.focus_main(window, cx);
-        }
-    }
-
     /// ⌃Tab or ⌃⇧Tab from anywhere: the next tab across the top or back, as l and h step along
     /// them with the keys there, leaving the keys where they are. On the home tile they go to
     /// the terminal the tab shows there, so coming back to one goes on in it.
@@ -5508,12 +5486,6 @@ impl Render for AppView {
                 this.move_keys(KeyMove::TileBeside(Side::Bottom), window, cx)
             }))
             .on_action(cx.listener(Self::operations_history))
-            .on_action(cx.listener(|this, _: &NextProjectPage, window, cx| {
-                this.step_project_page(true, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &PreviousProjectPage, window, cx| {
-                this.step_project_page(false, window, cx)
-            }))
             .on_action(cx.listener(|this, _: &NextNavigatorTab, window, cx| {
                 this.step_navigator_tab(true, window, cx)
             }))
@@ -5569,24 +5541,6 @@ impl Render for AppView {
                 cx.listener(|this, _: &crate::detail::HalfPageUp, window, cx| {
                     this.detail
                         .update(cx, |detail, cx| detail.page(-0.5, window, cx))
-                }),
-            )
-            .on_action(
-                cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
-                    let switched =
-                        (this.detail).update(cx, |detail, cx| detail.switch_tab(true, window, cx));
-                    if !switched {
-                        cx.propagate();
-                    }
-                }),
-            )
-            .on_action(
-                cx.listener(|this, _: &crate::detail::PreviousTab, window, cx| {
-                    let switched =
-                        (this.detail).update(cx, |detail, cx| detail.switch_tab(false, window, cx));
-                    if !switched {
-                        cx.propagate();
-                    }
                 }),
             )
             .on_action(
