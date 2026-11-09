@@ -18,15 +18,15 @@ use crate::{
     CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
 };
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
 use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
 
-use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+pub(crate) use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
-mod remotes;
+pub(crate) mod remotes;
 
 mod overlay;
 mod post;

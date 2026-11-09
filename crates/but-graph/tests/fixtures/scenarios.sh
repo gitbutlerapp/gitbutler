@@ -68,6 +68,16 @@ cp -R single-branch-empty-feature single-branch-empty-feature-with-upstream
   git branch --set-upstream-to=origin/feature feature
 )
 
+git init history-below-target
+(cd history-below-target
+  commit old-1
+  commit old-2
+  commit M
+  setup_target_to_match_main
+  git checkout -b A
+  commit A
+)
+
 git init ad-hoc-branch-integrated-upstream
 (cd ad-hoc-branch-integrated-upstream
   commit M1

@@ -69,24 +69,48 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         // common base
         let worktree_tips = workspace.graph.worktree_tips.clone();
         let entrypoint = workspace.graph.entrypoint()?;
+        // An unborn entrypoint has no commit, and thus nothing to rewrite.
+        let entrypoint_commit_id = entrypoint
+            .commit()
+            .map(|commit| commit.id)
+            .or_else(|| entrypoint.segment.tip());
 
-        let mut mutable_entrypoints = vec![entrypoint.segment.id];
+        // The segment graph the editor is built from is produced by a
+        // topological walk of all commits reachable from the entrypoint and
+        // the other tips that may be rewritten, rather than reusing the
+        // workspace graph.
+        let mut heads = Vec::from_iter(entrypoint_commit_id);
+        heads.extend(worktree_tips.iter().map(|tip| tip.id));
+        for ref_name in &options.extra_mutable_refs {
+            heads.push(repo.find_reference(ref_name)?.peel_to_commit()?.id);
+        }
+        let segment_graph = workspace.nosegment_graph(repo, &*meta, heads)?;
+
+        let mut mutable_entrypoints = Vec::new();
+        if let Some(entrypoint_commit_id) = entrypoint_commit_id {
+            mutable_entrypoints.push(match entrypoint.segment.ref_name() {
+                Some(ref_name) => segment_graph
+                    .segment_by_ref_name(ref_name)
+                    .map(|segment| segment.id)
+                    .with_context(|| {
+                        format!("Failed to find corresponding segment for {ref_name}")
+                    })?,
+                None => segment_graph.segment_id_by_commit_id(entrypoint_commit_id)?,
+            });
+        }
 
         for ref_name in options
             .extra_mutable_refs
             .iter()
             .chain(worktree_tips.iter().filter_map(|tip| tip.ref_name.as_ref()))
         {
-            let Some((segment, _)) = workspace
-                .graph
-                .segment_and_commit_by_ref_name(ref_name.as_ref())
-            else {
+            let Some(segment) = segment_graph.segment_by_ref_name(ref_name.as_ref()) else {
                 bail!("Failed to find corresponding segment for {ref_name}");
             };
             mutable_entrypoints.push(segment.id);
         }
         for tip in worktree_tips.iter().filter(|tip| tip.ref_name.is_none()) {
-            mutable_entrypoints.push(workspace.graph.segment_id_by_commit_id(tip.id)?);
+            mutable_entrypoints.push(segment_graph.segment_id_by_commit_id(tip.id)?);
         }
 
         // Segments reachable from a mutable entrypoint (following parent edges)
@@ -94,7 +118,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         // editor, but as immutable.
         let mut mutable_segments = HashSet::new();
         for entrypoint in mutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
+            segment_graph.visit_all_segments_including_start_until(
                 entrypoint,
                 Direction::Outgoing,
                 |segment| !mutable_segments.insert(segment.id),
@@ -103,11 +127,11 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
         // The editor contains every commit the graph contains, so we iterate
         // over all segments rather than only those reachable from an entrypoint.
-        let segments_to_add = workspace.graph.segments().collect::<Vec<_>>();
+        let segments_to_add = segment_graph.segments().collect::<Vec<_>>();
         let graph_commits = || {
             segments_to_add
                 .iter()
-                .flat_map(|sid| &workspace.graph[*sid].commits)
+                .flat_map(|sid| &segment_graph[*sid].commits)
         };
 
         let graph_commit_ids = graph_commits().map(|c| c.id).collect::<HashSet<_>>();
@@ -160,7 +184,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         };
 
         for sid in segments_to_add {
-            let segment = &workspace.graph[sid];
+            let segment = &segment_graph[sid];
             let segment_mutable = mutable_segments.contains(&sid);
             let mut nodes = vec![];
 
@@ -272,8 +296,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
 
             let edges = {
-                let mut v = workspace
-                    .graph
+                let mut v = segment_graph
                     .edges_directed(*sidx, Direction::Outgoing)
                     .collect::<Vec<_>>();
                 // TODO: the code below relies on edges being in reversed order,

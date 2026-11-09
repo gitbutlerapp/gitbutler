@@ -143,7 +143,7 @@ impl Graph {
     /// Rebuild outgoing edges so petgraph traversal follows the source commit's
     /// `parent_order`. Petgraph traverses edges in reverse creation order, so
     /// edges are re-added from last parent to first parent.
-    fn rebuild_edges_in_parent_order(&mut self) {
+    pub(crate) fn rebuild_edges_in_parent_order(&mut self) {
         for sidx in self.segments().collect::<Vec<_>>() {
             self.rebuild_outgoing_edges_in_parent_order(sidx);
         }

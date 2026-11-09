@@ -563,10 +563,11 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
         "the stored cutoff was rewritten, not excluded"
     );
     // The boundary reference is on a separate lane, while main reaches the rewritten cutoff.
+    // Being reachable from the workspace, boundary and older may follow the rewrite.
     snapbox::assert_data_eq!(
         rebase.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/boundary (immutable)
+◎  refs/heads/boundary
 │ ◎  refs/heads/gitbutler/workspace
 │ ◎  refs/heads/main
 │ ●  92660d6 just a normal commit
@@ -574,7 +575,7 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
 │ ◎  refs/remotes/origin/main (immutable)
 ├─╯
 ●  e47fc3a rewritten boundary
-◎  refs/heads/older (immutable)
+◎  refs/heads/older
 ●  965998b base
 "#]]
     );
