@@ -31,9 +31,14 @@ const OWN: [&str; 3] = ["path", "t", "new_window"];
 pub enum Changes {
     /// A branch's, by its full ref name, as `refs/heads/feature`.
     Branch(String),
+    /// A stack's, by its bottom branch's full ref name.
+    Stack(String),
     /// A commit's, by its full hash, and by its change ID if it has one, which finds it once it's
     /// amended or rebased.
     Commit { id: String, change: Option<String> },
+    /// A commit only a branch's remote has, by the branch's full ref name and the commit's full
+    /// hash.
+    Upstream { branch: String, commit: String },
     /// A worktree's uncommitted ones: a linked worktree's by its name, the folder name under
     /// `.git/worktrees/`, or else the main worktree's.
     Uncommitted { worktree: Option<String> },
@@ -52,11 +57,17 @@ impl Changes {
     pub fn at(&self, file: Option<&FileAt>) -> Vec<(String, String)> {
         let mut params = match self {
             Changes::Branch(name) => vec![("to", "branch".into()), ("branch", name.clone())],
+            Changes::Stack(name) => vec![("to", "stack".into()), ("branch", name.clone())],
             Changes::Commit { id, change } => {
                 let mut params = vec![("to", "commit".into()), ("commit", id.clone())];
                 params.extend(change.clone().map(|change| ("change", change)));
                 params
             }
+            Changes::Upstream { branch, commit } => vec![
+                ("to", "upstream".into()),
+                ("branch", branch.clone()),
+                ("commit", commit.clone()),
+            ],
             Changes::Uncommitted { worktree } => {
                 let mut params = vec![("to", "uncommitted".into())];
                 params.extend(worktree.clone().map(|name| ("worktree", name)));

@@ -705,6 +705,7 @@ the project's on {project_pages}.
         };
         for changes in [
             Changes::Branch("refs/heads/feature".into()),
+            Changes::Stack("refs/heads/feature".into()),
             Changes::Commit {
                 id: HASH.into(),
                 change: Some(CHANGE.into()),
@@ -713,6 +714,10 @@ the project's on {project_pages}.
                 id: HASH.into(),
                 change: None,
             },
+            Changes::Upstream {
+                branch: "refs/heads/feature".into(),
+                commit: HASH.into(),
+            },
             Changes::Uncommitted { worktree: None },
             Changes::Uncommitted {
                 worktree: Some("feature".into()),
@@ -720,8 +725,12 @@ the project's on {project_pages}.
         ] {
             let (selection, change) = match &changes {
                 Changes::Branch(_) => (Selection::Branch(project(), Some(feature())), None),
+                Changes::Stack(_) => (Selection::Stack(project(), Some(feature())), None),
                 Changes::Commit { change, .. } => {
                     (Selection::Commit(project(), commit_id()), change.clone())
+                }
+                Changes::Upstream { .. } => {
+                    (Selection::Upstream(project(), feature(), commit_id()), None)
                 }
                 Changes::Uncommitted { worktree } => (
                     Selection::Uncommitted(

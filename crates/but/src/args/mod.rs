@@ -714,8 +714,8 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     _Open {
         /// What to open, by CLI ID from `but status` or `but diff`: one or more files or hunks, or
-        /// with `--gui`, one ID, or a link's parameters for a place with no ID. For more details
-        /// about CLI IDs, see `but help cli-ids`.
+        /// with `--gui`, one ID, a link's parameters for a place with no ID, or an ID with more of
+        /// them. For more details about CLI IDs, see `but help cli-ids`.
         #[clap(num_args = 1..)]
         sources: Vec<CliIdArg>,
         /// The program to use for opening.
