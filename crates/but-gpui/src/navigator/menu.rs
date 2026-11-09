@@ -9,7 +9,7 @@ use super::{ClickOpened, Navigator};
 use crate::app::{
     AppView, BuildAndRestartFromHere, Collapse, CopyBranchName, CopyCommitId, CopyErrorMessage,
     CopyPath, CopyPullRequestLink, CopySelection, Expand, Fetch, MarkAllRead, MoveSelection,
-    NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Push, SplitBelow, SplitRight,
+    NewBranch, NewBranchOnTop, NewWorktree, OpenPullRequest, Pull, Push, SplitBelow, SplitRight,
     SquashSelection, StartAmend, StartCommit, ToggleRead, UpdateFromTarget,
 };
 use crate::backend::rebuild::Rebuild;
@@ -338,7 +338,7 @@ impl Navigator {
                         first.separated = true;
                     }
                     items.extend(branch);
-                    items.push(command(&Fetch).separated());
+                    items.extend([command(&Fetch).separated(), command(&Pull)]);
                 }
                 // An unwatched project's too, once its page has read it. With Fetch, else apart
                 // from Watch.
@@ -359,7 +359,6 @@ impl Navigator {
                 let mut items = new_branch_items(cx);
                 items.push(command(&NewTerminal).separated());
                 items.push(open_file_item(project, Checkout::Main, cx));
-                items.extend([command(&Fetch).separated(), command(&UpdateFromTarget)]);
                 items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
             }
@@ -471,14 +470,10 @@ impl Navigator {
                     command(&CopyPath).keys(&CopySelection, cx),
                     command(&NewTerminal).separated(),
                     open_file_item(project, Checkout::Linked(name.clone()), cx),
-                    // Not Update: it rebases the workspace's stacks, not this worktree's.
-                    command(&Fetch),
-                ];
-                items.extend([
                     command(&MoveSelection).separated(),
                     command(&ArchiveWorktree),
                     MenuItem::discard_row(target, cx),
-                ]);
+                ];
                 items.extend(build_item(&worktree.path, cx));
                 items
             }

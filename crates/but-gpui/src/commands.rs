@@ -162,10 +162,7 @@ commands! {
     OpenPullRequest => "Open pull request" { listed: has_pull_request },
     Fetch => "Fetch",
     Pull => "Pull",
-    UpdateFromTarget => "Update workspace and worktrees" {
-        phrase: update_phrase,
-        listed: target_moved,
-    },
+    UpdateFromTarget => "Update workspace and worktrees" { listed: target_moved },
     UpdateWorkspace => "Update workspace",
     UpdateWorktrees => "Update worktrees",
     NewBranch => "New branch",
@@ -487,11 +484,6 @@ fn pull_request_creatable(app: &AppView, cx: &App) -> bool {
     let store = app.store.read(cx);
     (store.selection.as_ref())
         .is_none_or(|s| !matches!(crate::pr::create_offer(store, s), Some(Err(_))))
-}
-
-fn update_phrase(app: &AppView, cx: &App) -> Option<String> {
-    let target = selected_workspace(app, cx)?.target.as_ref()?;
-    Some(format!("Update from {}", target.name))
 }
 
 /// Only when the target has moved on since the workspace last took it in.
