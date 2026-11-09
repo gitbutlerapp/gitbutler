@@ -3,7 +3,8 @@
 //! worktrees. A tab under the pointer drops a card holding the navigator's own rows for what it
 //! names. The tab itself reaches down into the card, and moving to another tab slides both over,
 //! the rows the card held sliding out as the new ones come in. The strip scrolls sideways as one;
-//! nothing in it scrolls on its own.
+//! nothing in it scrolls on its own. A project's tab, or a linked worktree's, drags along it to
+//! another place, as moving it with the keys does.
 //!
 //! Tabs are placed here rather than by layout, from their labels' widths, so a frame knows where
 //! each is, and where each will end up, without waiting for a layout to measure.
@@ -15,13 +16,14 @@ use std::time::{Duration, Instant};
 
 use but_tty::Status;
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DispatchPhase, Div, ElementId, Entity, FocusHandle,
-    MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role, ScrollHandle, SharedString, Task,
-    TextRun, Window, deferred, div, font, linear_color_stop, linear_gradient, point, prelude::*,
-    relative,
+    AnyElement, App, ClickEvent, Context, DispatchPhase, Div, DragMoveEvent, ElementId, Entity,
+    FocusHandle, MouseExitEvent, MouseMoveEvent, Pixels, Point, Render, Role, ScrollHandle,
+    SharedString, Stateful, Task, TextRun, Window, deferred, div, font, linear_color_stop,
+    linear_gradient, point, prelude::*, relative,
 };
 
-use super::rows::{CARD_PADDING, Rows};
+use super::order::moving_worktree;
+use super::rows::{CARD_PADDING, Rows, listed_with};
 use super::{
     MAIN_WORKTREE, Navigator, Row, RowStyle, drawer_title, project_glyph, status_mark,
     worktree_icon, worktrees_listed,
@@ -30,9 +32,9 @@ use crate::app::{AppHandle, Cancel, Collapse, Expand, SelectNext, SelectPrevious
 use crate::backend::Checkout;
 use crate::clock;
 use crate::overlays::OVERLAY;
-use crate::state::{NavigatorPlace, ProjectId, Selection, Store};
+use crate::state::{NavigatorPlace, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
-use crate::transfer::{Moving, Op};
+use crate::transfer::{Dragged, Moving, Op, ProjectDrag, Slot};
 use crate::ui::fold::{FOLD, Glide, Reorder, Slide, inert};
 use crate::ui::{
     HEADER_HEIGHT, Icon, POPOVER_RADIUS, above_drag, dp, fixed, h_flex, icon, popover, v_flex,
@@ -227,6 +229,31 @@ fn lay_out(groups: &[Group], more: f32, share: impl Fn(&ProjectId) -> f32) -> La
 /// is nearly flat. Wrongly taken for that, a sweep only waits a moment.
 fn heading_down(by: Point<Pixels>) -> bool {
     by.y > Pixels::ZERO && by.y * 3. >= by.x.abs()
+}
+
+/// Where a tab `width` wide, dragged along the strip, goes among `others`, each by what it
+/// names and how wide it is, laid out from `start` with `gap` between: the place where its
+/// middle would be nearest `x`. Only the others set the places, as for a card dragged in the
+/// rows, so where it's shown now never changes where it goes.
+fn nearest_slot<T: Clone>(
+    others: &[(T, f32)],
+    start: f32,
+    gap: f32,
+    width: f32,
+    x: f32,
+) -> Slot<T> {
+    let off = |left: f32| (left + width / 2. - x).abs();
+    let (mut left, mut nearest) = (start, (f32::INFINITY, Slot::End));
+    for (key, other) in others {
+        if off(left) < nearest.0 {
+            nearest = (off(left), Slot::Before(key.clone()));
+        }
+        left += other + gap;
+    }
+    match off(left) < nearest.0 {
+        true => Slot::End,
+        false => nearest.1,
+    }
 }
 
 /// The tab after `from` in `order`, or before it. With `projects_only`, the next project's own,
@@ -437,6 +464,9 @@ pub struct NavigatorTabs {
     /// The tab being moved, which goes with no card down from it, and a project's with its
     /// worktrees shut, until it's placed ([`Self::follow_move`]).
     moved_tab: Option<TabKey>,
+    /// The tabs as they'll be once they've stopped, as last drawn, which says where one dragged
+    /// along them goes.
+    rest: Laid,
 }
 
 impl NavigatorTabs {
@@ -488,6 +518,7 @@ impl NavigatorTabs {
             lefts: Vec::new(),
             held_tab: None,
             moved_tab: None,
+            rest: Laid::default(),
         }
     }
 
@@ -688,6 +719,17 @@ impl NavigatorTabs {
             Some(key) => self.held_tab = Some(key),
             None if !self.reorder.any() => self.held_tab = None,
             None => {}
+        }
+    }
+
+    /// Whether the selection's in the tab being moved, as it always is in one moved with the
+    /// keys, so its ground goes with it over the tabs it passes. One dragged by the pointer
+    /// needn't have it.
+    fn held_active(&self) -> bool {
+        match (&self.held_tab, &self.active) {
+            (Some(TabKey::Project(id)), Some(active)) => active.project() == Some(id),
+            (Some(held), Some(active)) => held == active,
+            (Some(_), None) | (None, _) => false,
         }
     }
 
@@ -1606,11 +1648,14 @@ impl NavigatorTabs {
         left: f32,
         label: &SharedString,
         now: Instant,
-        cx: &Context<Self>,
+        cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let key = tab.key.clone();
         let current = self.active.as_ref() == Some(&key);
         let (hovered, clicked) = (key.clone(), key.clone());
+        let tab_drag = |el, navigator: &mut Navigator, cx: &mut Context<Navigator>| {
+            navigator.tab_drag(el, &key, label.clone(), cx)
+        };
         // Off the drag area, as `above_drag` is, but the strip behind still scrolls.
         self.face(tab, left, label, false, now, cx)
             .id(key.element_id("tab"))
@@ -1632,6 +1677,110 @@ impl NavigatorTabs {
                     });
                 }
             }))
+            .map(|el| (self.navigator).update(cx, |navigator, cx| tab_drag(el, navigator, cx)))
+            .map(|el| Self::takes_drops(el, cx))
+    }
+
+    /// Let `el` take a project or a linked worktree dragged along the tabs where it's shown, as
+    /// the strip does: a tab keeps the pointer from the strip under it.
+    fn takes_drops<E: InteractiveElement>(el: E, cx: &mut Context<Self>) -> E {
+        el.on_drop(cx.listener(|this, drag: &ProjectDrag, window, cx| {
+            (this.navigator).update(cx, |navigator, cx| navigator.drop_project(drag, window, cx))
+        }))
+        .on_drop(cx.listener(|this, drag: &Dragged, window, cx| {
+            (this.navigator).update(cx, |navigator, cx| {
+                navigator.drop_worktree(drag, window, cx)
+            })
+        }))
+    }
+
+    /// How far along the tabs the pointer of `event` is, while it's over the strip.
+    fn strip_x<T>(&self, event: &DragMoveEvent<T>, cx: &App) -> Option<f32> {
+        let at = event.event.position;
+        if !event.bounds.contains(&at) {
+            return None;
+        }
+        let scale = Theme::get(cx).scale;
+        let scrolled = -f32::from(self.scroll.offset().x) / scale;
+        Some(f32::from(at.x - event.bounds.left()) / scale + scrolled - OUTLINE)
+    }
+
+    /// Show the project dragged by its tab where letting go puts it, as its card dragged by its
+    /// heading shows ([`Navigator::follow_project_drag`]): in the place along the strip where its
+    /// tab would be nearest the pointer, the others sliding to make room, as moving it with the
+    /// keys does. Off the strip letting go leaves it be, so it shows where it is.
+    fn follow_project_drag(
+        &mut self,
+        event: &DragMoveEvent<ProjectDrag>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let drag = event.drag(cx);
+        if !drag.reorders {
+            return;
+        }
+        let dragged = drag.id.clone();
+        let projects: Vec<(&ProjectId, f32)> = (self.rest.tabs.iter())
+            .filter_map(|tab| match &tab.key {
+                TabKey::Project(id) => Some((id, tab.left)),
+                TabKey::Checkout(..) | TabKey::More => None,
+            })
+            .collect();
+        let more = (self.rest.place(&TabKey::More)).map_or(self.rest.end, |tab| tab.left);
+        // Each with its worktrees, up to the gap before what comes next.
+        let ends = (projects.iter().skip(1).map(|(_, left)| *left)).chain([more]);
+        let groups: Vec<(&ProjectId, f32, f32)> = (projects.iter().zip(ends))
+            .map(|((id, left), end)| (*id, *left, end - left - PROJECT_GAP))
+            .collect();
+        let width = (self.rest.place(&TabKey::Project(dragged.clone()))).map(|tab| tab.width);
+        let slot = (self.strip_x(event, cx).zip(width)).map(|(x, width)| {
+            let start = groups.first().map_or(0., |(_, left, _)| *left);
+            let others: Vec<(ProjectId, f32)> = (groups.iter())
+                .filter(|(id, ..)| **id != dragged)
+                .map(|(id, _, width)| ((*id).clone(), *width))
+                .collect();
+            nearest_slot(&others, start, PROJECT_GAP, width, x)
+        });
+        (self.navigator).update(cx, |navigator, cx| navigator.hold_card(&dragged, slot, cx));
+    }
+
+    /// Show the linked worktree dragged by its tab where letting go puts it, among those listed
+    /// with it, as its heading dragged in the rows shows it ([`Navigator::follow_worktree_drag`]).
+    fn follow_worktree_drag(
+        &mut self,
+        event: &DragMoveEvent<Dragged>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let navigator = self.navigator.read(cx);
+        let Some((project, name)) = navigator.dragged_worktree.clone() else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let order = (moving_worktree(store, &project, name.as_ref()).cloned())
+            .or_else(|| listed_with(store, &project, name.as_ref()));
+        let tabs: Vec<(&bstr::BString, f32, f32)> = (self.rest.tabs.iter())
+            .filter_map(|tab| match &tab.key {
+                TabKey::Checkout(id, Checkout::Linked(n))
+                    if *id == project && order.as_ref()?.contains(n) =>
+                {
+                    Some((n, tab.left, tab.width))
+                }
+                TabKey::Checkout(..) | TabKey::Project(_) | TabKey::More => None,
+            })
+            .collect();
+        let width = (tabs.iter()).find_map(|(n, _, width)| (**n == name).then_some(*width));
+        let slot = (self.strip_x(event, cx).zip(width)).map(|(x, width)| {
+            let start = tabs.first().map_or(0., |(_, left, _)| *left);
+            let others: Vec<(bstr::BString, f32)> = (tabs.iter())
+                .filter(|(n, ..)| **n != name)
+                .map(|(n, _, width)| ((*n).clone(), *width))
+                .collect();
+            nearest_slot(&others, start, WORKTREE_GAP, width, x)
+        });
+        (self.navigator).update(cx, |navigator, cx| {
+            navigator.hold_worktree(&project, name.as_ref(), slot, cx)
+        });
     }
 
     /// The project or the worktree itself selected, rather than a row in its card, shows as a
@@ -1656,7 +1805,8 @@ impl NavigatorTabs {
         // As the tabs are drawn: a worktree's inside what's shown of its project's, but for one
         // being moved, which is drawn over them. What's being moved covers the tabs it passes,
         // so only it shows through.
-        let shows = |key: &TabKey| match &self.held_tab {
+        let held = (self.held_tab.as_ref()).filter(|_| self.held_active());
+        let shows = |key: &TabKey| match held {
             Some(TabKey::Project(id)) => key.project() == Some(id),
             Some(held) => key == held,
             None => true,
@@ -1784,6 +1934,7 @@ impl Render for NavigatorTabs {
                 (left, width)
             });
         let highlight = ground.and_then(|at| self.highlight(at, &laid, &labels, now, &theme, cx));
+        self.rest = rest;
         // A solid one shows the tabs it's over itself, so it goes over them; a faint one goes
         // under them, as it doesn't.
         let (highlight_under, highlight_over) = match highlight {
@@ -1794,8 +1945,8 @@ impl Render for NavigatorTabs {
         let slid = |id: &ProjectId| self.slid(&TabKey::Project(id.clone()));
         // The tab being moved goes over the tabs it passes, a project's with the worktrees that
         // go with it, on the strip's ground so those don't show through, as the side's card does
-        // over the cards it passes, and edged as it is. The selection's in it, so its ground goes
-        // too.
+        // over the cards it passes, and edged as it is. With the selection in it, its ground goes
+        // too ([`Self::held_active`]).
         let held = self.held_tab.as_ref();
         let held_project = match held {
             Some(TabKey::Project(id)) => Some(id),
@@ -1847,7 +1998,7 @@ impl Render for NavigatorTabs {
                 .border_color(theme.border_2)
                 .opacity(card.fade)
         });
-        let (ground, ground_over) = match held.is_some() {
+        let (ground, ground_over) = match self.held_active() {
             true => ((None, None, None), (ground, neck, highlight_under)),
             false => ((ground, neck, highlight_under), (None, None, None)),
         };
@@ -1974,6 +2125,9 @@ impl Render for NavigatorTabs {
                     .on_scroll_wheel(
                         cx.listener(|this, _, window, cx| this.strip_scrolled(window, cx)),
                     )
+                    .on_drag_move(cx.listener(Self::follow_project_drag))
+                    .on_drag_move(cx.listener(Self::follow_worktree_drag))
+                    .map(|el| Self::takes_drops(el, cx))
                     .child(strip),
             )
             .when(more_before, |el| el.child(fade(90.).left_0()))
@@ -2058,6 +2212,31 @@ impl Render for NavigatorTabs {
 }
 
 impl Navigator {
+    /// Let tab `el`, naming `key`, drag what its heading in the rows does: a watched project,
+    /// its card among the others in the manual order, or a linked worktree among those listed
+    /// with it, the tabs sliding to make room ([`NavigatorTabs::follow_project_drag`]).
+    fn tab_drag(
+        &self,
+        el: Stateful<Div>,
+        key: &TabKey,
+        label: SharedString,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        let Some(item) = key.selection() else {
+            return el;
+        };
+        match key {
+            TabKey::Project(_) => {
+                let manual = self.store.read(cx).prefs.watched_order == WatchedOrder::Manual;
+                self.project_drag(el, &item, label, manual, cx)
+            }
+            TabKey::Checkout(_, Checkout::Linked(name)) => {
+                self.worktree_drag(el, &item, name.as_ref(), label, cx)
+            }
+            TabKey::Checkout(_, Checkout::Main) | TabKey::More => el,
+        }
+    }
+
     /// The rows of what `scope` names, as they're built for the cards, whether or not the
     /// navigator has them folded away: only its own folds fold, and a checkout's tab means its
     /// rows.
@@ -2224,7 +2403,8 @@ mod tests {
     use gpui::point;
 
     use super::{
-        Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, heading_down, lay_out, scrolled_to, stepped,
+        Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, heading_down, lay_out, nearest_slot,
+        scrolled_to, stepped,
     };
     use crate::backend::Checkout;
     use crate::state::ProjectId;
@@ -2389,6 +2569,28 @@ mod tests {
             stepped(&strip(), Some(&more), true, false),
             None,
             "the last"
+        );
+    }
+
+    #[test]
+    fn a_dragged_tab_goes_where_its_middle_would_be_nearest_the_pointer() {
+        use crate::transfer::Slot;
+        // A 40 wide tab among two others, 100 and 200 wide, 10 apart: its middle would be at 20
+        // before the first, 130 before the second and 340 after them both.
+        let others = [("a", 100.), ("b", 200.)];
+        let slot = |x| nearest_slot(&others, 0., 10., 40., x);
+        assert_eq!(slot(0.), Slot::Before("a"), "off the start it goes first");
+        assert_eq!(slot(74.), Slot::Before("a"), "nearer 20 than 130");
+        assert_eq!(slot(76.), Slot::Before("b"), "nearer 130 than 20");
+        assert_eq!(slot(234.), Slot::Before("b"), "nearer 130 than 340");
+        assert_eq!(slot(236.), Slot::End, "nearer 340 than 130");
+        assert_eq!(slot(1000.), Slot::End, "past the end it goes last");
+        // Only the others set the places, wherever `start` puts them.
+        let shifted = nearest_slot(&others, 50., 10., 40., 126.);
+        assert_eq!(
+            shifted,
+            Slot::Before("b"),
+            "130 + 50 is nearer than 20 + 50"
         );
     }
 
