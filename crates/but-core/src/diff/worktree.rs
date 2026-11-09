@@ -984,14 +984,12 @@ fn disk_kind_to_entry_kind(
                 unreachable!("BUG: we use 'matching' so there are no directories")
             }
             entry::Kind::Untrackable => return Ok(None),
-            entry::Kind::File => {
-                let md = path.symlink_metadata()?;
-                if gix::fs::is_executable(&md) {
-                    EntryKind::BlobExecutable
-                } else {
-                    EntryKind::Blob
-                }
-            }
+            // Another process can delete it after the walk listed it, which Git doesn't notice
+            // either, as it lists untracked files from the walk alone.
+            entry::Kind::File => match path.symlink_metadata() {
+                Ok(md) if gix::fs::is_executable(&md) => EntryKind::BlobExecutable,
+                _ => EntryKind::Blob,
+            },
             entry::Kind::Symlink => EntryKind::Link,
         },
     ))
@@ -1162,5 +1160,23 @@ impl std::fmt::Debug for WorktreeChanges {
             .field("changes", &self.changes)
             .field("ignored_changes", &self.ignored_changes)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gix::{dir::entry::Kind, object::tree::EntryKind};
+
+    #[test]
+    fn an_untracked_file_gone_before_its_metadata_is_read_is_still_a_file() {
+        // As when another process deletes it between the walk listing it and this reading it.
+        let gone = std::env::temp_dir()
+            .join("but-core-never-created")
+            .join("file");
+        assert_eq!(
+            super::disk_kind_to_entry_kind(Some(Kind::File), None, gone).unwrap(),
+            Some(EntryKind::Blob),
+            "listed from the walk alone, as Git lists untracked files, instead of failing status"
+        );
     }
 }
