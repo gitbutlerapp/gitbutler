@@ -1764,7 +1764,8 @@ impl Navigator {
         // while the copies shown give way to the new commits in their place.
         let leaving = (store.landing()).is_some_and(|landing| landing.op != Op::CherryPick);
         let landing = std::mem::replace(&mut self.shown_landing, leaving) || leaving;
-        // The outline of what a squash goes into slides there from where it was before, first
+        // The outline of what a squash goes into, or of the branch dragged files start a commit
+        // in, slides there from where it was before, first
         // from around what it's of where it started, its edges coming together as it leaves
         // that, and going apart as it grows back around it.
         let home = (store.moving.as_ref()).is_some_and(|moving| {
@@ -2728,8 +2729,9 @@ impl Navigator {
             )
         };
         let taken = taken_by(item);
-        // What a squash goes into is outlined over it, or where it started around the rows
-        // held there, the outline sliding in from where it was before, its edges apart.
+        // What a squash goes into, or the branch dragged files start a commit in, is outlined
+        // over it in the colour of what's done, or where it started around the rows held there,
+        // the outline sliding in from where it was before, its edges apart.
         let slid = (
             self.reorder.offset(&RowKey::SquashTop),
             self.reorder.offset(&RowKey::SquashBottom),
@@ -2814,7 +2816,8 @@ impl Navigator {
         match outlined {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
-                let outline = moving::squash_outline(outline.edges(slid), blink, theme);
+                let colour = moving::mark_of(store, item.project(), theme);
+                let outline = moving::squash_outline(outline.edges(slid), blink, colour);
                 let outline = self.over_rows(outline, 2);
                 div().relative().child(el).child(outline).into_any_element()
             }
@@ -4815,11 +4818,12 @@ impl Focusable for Navigator {
 }
 
 /// Whether `row` shows where what's moving goes: commits being moved show where they'd land, if
-/// that's elsewhere, and what a squash goes into is outlined.
+/// that's elsewhere, and what a squash goes into, or the branch dragged files start a commit
+/// in, is outlined.
 fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
     match row {
         Row::Ghost(..) | Row::GhostBranch(..) | Row::NewCommit(_) => true,
-        Row::Item(item) => moving::squashed_into(store, item),
+        Row::Item(item) => moving::lands_on(store, item),
         _ => false,
     }
 }

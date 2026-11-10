@@ -149,8 +149,12 @@ impl Navigator {
     }
 
     /// Over the rows, the line between them where what's dragged would land. Drawn over them, not
-    /// among them, so no row moves for it.
+    /// among them, so no row moves for it. What lands on a row, as files starting a commit on a
+    /// branch do, has the row outlined instead.
     pub(super) fn drag_divider(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+        if self.squash_outline.is_some() {
+            return None;
+        }
         let store = self.store.read(cx);
         let moving = (store.moving.as_ref())
             .filter(|moving| moving.dragged(store) && moving.lands(store))?;
