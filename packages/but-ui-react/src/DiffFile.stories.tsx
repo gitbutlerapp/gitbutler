@@ -22,8 +22,8 @@ const sampleLines: Array<Line> = [
 
 const lineBackground = {
 	" ": undefined,
-	"+": "var(--but-success-muted)",
-	"-": "var(--but-danger-muted)",
+	"+": "var(--but-diff-added-muted)",
+	"-": "var(--but-diff-removed-muted)",
 };
 
 /**

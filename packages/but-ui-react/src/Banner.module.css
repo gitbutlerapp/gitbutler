@@ -60,23 +60,23 @@
 }
 
 .warn {
-	--banner-bg: var(--but-warning-muted);
-	--banner-fg: var(--but-warning-text);
+	--banner-bg: var(--but-warning-soft);
+	--banner-fg: var(--but-warning-soft-foreground);
 }
 
 .danger {
-	--banner-bg: var(--but-danger-muted);
-	--banner-fg: var(--but-danger-text);
+	--banner-bg: var(--but-danger-soft);
+	--banner-fg: var(--but-danger-soft-foreground);
 }
 
 .pop {
-	--banner-bg: var(--but-primary-muted);
-	--banner-fg: var(--but-primary-text);
+	--banner-bg: var(--but-primary-soft);
+	--banner-fg: var(--but-primary-soft-foreground);
 }
 
 .safe {
-	--banner-bg: var(--but-success-muted);
-	--banner-fg: var(--but-success-text);
+	--banner-bg: var(--but-success-soft);
+	--banner-fg: var(--but-success-soft-foreground);
 }
 
 /* No hue to carry the verdict, so the title keeps the body colour and the rest steps down. */

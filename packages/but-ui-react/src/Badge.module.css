@@ -45,64 +45,45 @@
 	color: var(--but-inverse-foreground);
 }
 
-/* On a light ground the tint is the text's own colour, lighter than the shared
-   opacity: one hue with the label, so the colour sits in the text.
-   On a dark ground the text colours are pastels that tint grey, so the tint
-   comes from the variant's fill instead. Both track the shared opacity, so an
-   inverted ground lifts them. */
-.lightGray,
-.safe,
-.warn,
-.danger,
-.purple,
-.blue,
-.pop {
-	--_light-share: 0.7;
-	--_dark-share: 1;
-	background-color: light-dark(
-		color-mix(
-			in srgb,
-			currentColor calc(var(--badge-bg-opacity) * var(--_light-share)),
-			transparent
-		),
-		color-mix(in srgb, var(--_bg) calc(var(--badge-bg-opacity) * var(--_dark-share)), transparent)
-	);
-}
-
-/* Gray rests lighter than the colours in both schemes. */
+/* Gray tints with the text's own colour, lighter than the shared opacity, so
+   it reads as the quietest. Its share tracks the opacity, so an inverted ground
+   lifts it. */
 .lightGray {
-	--_bg: var(--but-inverse);
-	--_light-share: 0.5;
-	--_dark-share: 0.8;
+	background-color: light-dark(
+		color-mix(in srgb, currentColor calc(var(--badge-bg-opacity) * 0.5), transparent),
+		color-mix(in srgb, var(--but-inverse) calc(var(--badge-bg-opacity) * 0.8), transparent)
+	);
 	color: var(--but-foreground);
 }
 
+/* The colours take their soft fill and the text that reads on it. On an
+   inverted row the flipped colour scheme picks the other mode's soft. */
 .safe {
-	--_bg: var(--but-success);
-	color: var(--but-success-text);
+	background-color: var(--but-success-soft);
+	color: var(--but-success-soft-foreground);
 }
 
 .warn {
-	--_bg: var(--but-warning);
-	color: var(--but-warning-text);
+	background-color: var(--but-warning-soft);
+	color: var(--but-warning-soft-foreground);
 }
 
 .danger {
-	--_bg: var(--but-danger);
-	color: var(--but-danger-text);
+	background-color: var(--but-danger-soft);
+	color: var(--but-danger-soft-foreground);
 }
 
 .purple {
-	--_bg: var(--but-done);
-	color: var(--but-done-text);
+	background-color: var(--but-done-soft);
+	color: var(--but-done-soft-foreground);
 }
 
 .blue {
-	--_bg: var(--but-info);
-	color: var(--but-info-text);
+	background-color: var(--but-info-soft);
+	color: var(--but-info-soft-foreground);
 }
 
 .pop {
-	--_bg: var(--but-primary);
-	color: var(--but-primary-text);
+	background-color: var(--but-primary-soft);
+	color: var(--but-primary-soft-foreground);
 }

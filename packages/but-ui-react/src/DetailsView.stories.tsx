@@ -55,8 +55,8 @@ const lines: Array<Line> = [
 
 const lineBackground = {
 	" ": undefined,
-	"+": "var(--but-success-muted)",
-	"-": "var(--but-danger-muted)",
+	"+": "var(--but-diff-added-muted)",
+	"-": "var(--but-diff-removed-muted)",
 };
 
 /** Stands in for the host's diff renderer (Pierre in but.dev). */
