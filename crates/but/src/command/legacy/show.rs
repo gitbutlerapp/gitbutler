@@ -1,11 +1,13 @@
 use super::FileChange;
-use anyhow::{Result, bail};
+use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
 use but_ctx::access::RepoShared;
 
 use crate::{
-    CLI_DATE, CliId, IdMap,
+    CLI_DATE, CliId, CliResult, IdMap,
+    args::atoms::CliIdArg,
+    bad_input,
     id::CommitId,
     theme::{self, Paint},
     utils::{
@@ -19,7 +21,7 @@ pub(crate) fn show_commit(
     commit_id_str: &str,
     verbose: bool,
     stat: bool,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     // A branch's verbose output already has the line counts.
@@ -58,20 +60,23 @@ pub(crate) fn show_commit(
     let commit_id = if cli_ids.is_empty() {
         // If not found in IdMap, try to parse as a git commit ID directly
         let repo = ctx.repo.get()?;
-        let obj = repo
-            .rev_parse_single(commit_id_str)
-            .map_err(|_| anyhow::anyhow!("Commit '{commit_id_str}' not found"))?;
-        let commit = obj
-            .object()?
-            .try_into_commit()
-            .map_err(|_| anyhow::anyhow!("'{commit_id_str}' is not a commit"))?;
+        let obj = repo.rev_parse_single(commit_id_str).map_err(|_| {
+            bad_input(format!("Commit '{commit_id_str}' not found"))
+                .hint(CliIdArg::TARGET_MISSING_HINT)
+        })?;
+        let commit = obj.object()?.try_into_commit().map_err(|_| {
+            bad_input(format!("'{commit_id_str}' is not a commit"))
+                .hint(CliIdArg::TARGET_MISSING_HINT)
+        })?;
         commit.id
     } else if cli_ids.len() > 1 {
-        bail!(
+        return Err(bad_input(format!(
             "Commit ID '{}' is ambiguous. Found {} matches",
             commit_id_str,
             cli_ids.len()
-        );
+        ))
+        .hint(CliIdArg::AMBIGUOUS_HINT)
+        .into());
     } else {
         match &cli_ids[0] {
             CliId::Commit {
@@ -83,10 +88,12 @@ pub(crate) fn show_commit(
                 return show_branch(ctx, out, &branch.name, verbose, &id_map);
             }
             _ => {
-                bail!(
+                return Err(bad_input(format!(
                     "Target must be a commit ID or branch, not {}",
                     cli_ids[0].kind_for_humans()
-                );
+                ))
+                .hint(CliIdArg::TARGET_MISSING_HINT)
+                .into());
             }
         }
     };
@@ -246,7 +253,7 @@ fn show_branch(
     branch_name: &str,
     verbose: bool,
     id_map: &IdMap,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
 
     // In JSON mode, always include file info (verbose) so agents and tools

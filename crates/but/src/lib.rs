@@ -1314,8 +1314,7 @@ async fn dispatch_subcommand(
             stat,
         } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat)
-                    .map_err(|err| err.into()),
+                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose, stat),
             ));
         }
         #[cfg(feature = "legacy")]

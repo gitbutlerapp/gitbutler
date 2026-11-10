@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{
-    CliId, CliResult, IdMap, bad_input,
+    CliError, CliId, CliResult, IdMap, bad_input,
     id::parser::parse_sources,
     legacy::workspace::{HeadInfoBranch, HeadInfoStack},
     theme::{self, Paint},
@@ -81,7 +81,14 @@ pub async fn enable_auto_merge(
             writeln!(out, "Auto-merge {action} for review {review_id}")?;
         }
 
-        but_api::legacy::forge::set_review_auto_merge(ctx.to_sync(), review_id, !off).await?;
+        but_api::legacy::forge::set_review_auto_merge(ctx.to_sync(), review_id, !off)
+            .await
+            .map_err(|err| match off {
+                true => CliError::from(err),
+                false => CliError::from(err).hint(
+                    "Fix what the forge reported and retry, or merge the review on the forge without auto-merge",
+                ),
+            })?;
     }
 
     if let Some(out) = out.for_human() {

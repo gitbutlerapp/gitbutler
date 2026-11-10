@@ -1,5 +1,6 @@
 //! Utilities for communicating user errors (i.e. the equivalent of 4xx HTTP responses) to the user.
 
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::Display;
 use std::panic::Location;
@@ -21,7 +22,7 @@ pub struct BadInput {
     /// A hint to guide the user to proper usage of the command
     hint: Option<String>,
     /// A stable code that telemetry can filter on
-    code: Option<&'static str>,
+    code: Option<Cow<'static, str>>,
     /// Where the bad input was raised, which tells failures apart in telemetry
     location: &'static Location<'static>,
 }
@@ -59,8 +60,8 @@ impl BadInput {
     }
 
     /// Add a stable code that telemetry can filter on.
-    pub fn code(mut self, code: &'static str) -> Self {
-        self.code = Some(code);
+    pub fn code(mut self, code: impl Into<Cow<'static, str>>) -> Self {
+        self.code = Some(code.into());
         self
     }
 
@@ -68,8 +69,8 @@ impl BadInput {
         self.arg_name.as_deref()
     }
 
-    pub(crate) fn error_code(&self) -> Option<&'static str> {
-        self.code
+    pub(crate) fn error_code(&self) -> Option<&str> {
+        self.code.as_deref()
     }
 
     pub(crate) fn has_hint(&self) -> bool {
@@ -220,6 +221,22 @@ where
             };
             return CliError::BadInput(bad_input(message).hint(hint));
         }
+        // A GitHub organization's policy turned these credentials down. Its message says what to
+        // change on GitHub, and the hint how to connect other credentials here.
+        if let Some(refusal) = error.downcast_ref::<but_error::Context>()
+            && matches!(
+                refusal.code,
+                but_error::Code::GitHubOrgOAuthRestricted
+                    | but_error::Code::GitHubOrgSamlRestricted
+                    | but_error::Code::GitHubTokenLifetimeRestricted
+            )
+        {
+            return CliError::BadInput(
+                bad_input(refusal.to_string())
+                    .code(refusal.code.to_string())
+                    .hint("To connect different GitHub credentials, run `but config forge auth` in a terminal, then retry. It prompts for input, so an agent has to ask the user to run it"),
+            );
+        }
         // A precondition says why the request can't be done right now. The context around it
         // names refs and hashes the user didn't type, so only its own message is shown.
         if let Some(refusal) = error.downcast_ref::<but_error::Context>()
@@ -369,5 +386,43 @@ impl<T> CliResultExt<T> for CliResult<T> {
 
     fn into_internal_error(self) -> anyhow::Result<T> {
         self.map_err(|err| err.into_internal())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CliError;
+
+    #[test]
+    fn github_org_policy_refusals_are_bad_input_with_their_message() {
+        use but_error::Code;
+        for code in [
+            Code::GitHubOrgOAuthRestricted,
+            Code::GitHubOrgSamlRestricted,
+            Code::GitHubTokenLifetimeRestricted,
+        ] {
+            let error = anyhow::anyhow!("403 Forbidden")
+                .context(but_error::Context::new_static(
+                    code,
+                    "Ask an organization owner",
+                ))
+                .context("Failed to list pull requests");
+            let CliError::BadInput(refusal) = CliError::from(error) else {
+                panic!("{code} is the user's to fix, not an internal error");
+            };
+            assert_eq!(
+                (
+                    refusal.message.as_str(),
+                    refusal.error_code(),
+                    refusal.has_hint()
+                ),
+                (
+                    "Ask an organization owner",
+                    Some(code.to_string().as_str()),
+                    true
+                ),
+                "{code} shows GitHub's message, keeps its code and says how to switch credentials"
+            );
+        }
     }
 }
