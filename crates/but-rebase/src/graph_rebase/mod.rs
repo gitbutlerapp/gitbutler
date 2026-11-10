@@ -877,7 +877,7 @@ impl RevisionHistory {
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.
-    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+    pub fn commit_mappings(&self) -> CommitMappings {
         self.commit_mappings
             .iter()
             .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })

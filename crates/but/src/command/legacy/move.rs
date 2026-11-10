@@ -1149,9 +1149,7 @@ fn move_with_transaction(
             let target = op.target.clone();
             let new_branch_name = op.execute(&mut tx, sbm)?;
             let moved_commits = sources.clone().try_map(|source| {
-                let mapped = tx
-                    .get_mapped_commit(source.commit_id)
-                    .unwrap_or(source.commit_id);
+                let mapped = tx.get_mapped_commit(source.commit_id)?;
                 CommitId::try_from_commit_id(mapped, tx.repo())
             })?;
             MoveOutcome::Commits {
@@ -1165,9 +1163,7 @@ fn move_with_transaction(
             let sources = op.sources.clone();
             let new_branch_name = op.execute(&mut tx, sbm)?;
             let moved_commits = sources.clone().try_map(|source| {
-                let mapped = tx
-                    .get_mapped_commit(source.commit_id)
-                    .unwrap_or(source.commit_id);
+                let mapped = tx.get_mapped_commit(source.commit_id)?;
                 CommitId::try_from_commit_id(mapped, tx.repo())
             })?;
             MoveOutcome::Commits {

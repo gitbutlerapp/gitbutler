@@ -316,7 +316,7 @@ pub fn stash_into_branch(
             let commit_mapping: Vec<_> = materialized
                 .history
                 .commit_mappings()
-                .into_iter()
+                .iter()
                 .map(|(old, new)| (None, old, new))
                 .collect();
             (!commit_mapping.is_empty()).then_some(RebaseOutput {

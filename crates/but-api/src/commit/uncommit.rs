@@ -229,7 +229,7 @@ pub fn commit_uncommit_only_with_perm(
 
     let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
-        let replaced_commits = rebase.history.commit_mappings();
+        let replaced_commits = rebase.history.commit_mappings().sole_successors();
         let conflicted_commits = rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = rebase.repo_meta_and_db_mut();
         (
@@ -245,7 +245,7 @@ pub fn commit_uncommit_only_with_perm(
         let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
-            materialized.history.commit_mappings(),
+            materialized.history.commit_mappings().sole_successors(),
             materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
@@ -330,7 +330,7 @@ pub fn commit_uncommit_changes_only_with_perm(
 
     let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
-        let replaced_commits = outcome.rebase.history.commit_mappings();
+        let replaced_commits = outcome.rebase.history.commit_mappings().sole_successors();
         let conflicted_commits = outcome.rebase.history.conflicted_commits.clone();
         let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
         (
@@ -346,7 +346,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         let materialized = outcome.rebase.materialize(Default::default())?;
         (
             materialized.workspace,
-            materialized.history.commit_mappings(),
+            materialized.history.commit_mappings().sole_successors(),
             materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
@@ -505,7 +505,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
             let graph = rebase.overlayed_graph()?;
-            let replaced_commits = rebase.history.commit_mappings();
+            let replaced_commits = rebase.history.commit_mappings().sole_successors();
             let conflicted_commits = rebase.history.conflicted_commits.clone();
             let (repo, meta, db) = rebase.repo_meta_and_db_mut();
             (
@@ -531,7 +531,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         let materialized = rebase.materialize(Default::default())?;
         (
             materialized.workspace,
-            materialized.history.commit_mappings(),
+            materialized.history.commit_mappings().sole_successors(),
             materialized.history.conflicted_commits,
             &*repo,
             materialized.meta,
