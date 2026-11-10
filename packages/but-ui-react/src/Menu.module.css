@@ -5,6 +5,12 @@
 	max-height: var(--available-height);
 }
 
+/* Beside what opened it, a menu shares no edge with it, so it takes its own width: a menu off a
+   settings row would otherwise stretch to the row's. */
+.menu:is([data-side="left"], [data-side="right"]) {
+	min-width: 160px;
+}
+
 /* The popup clips to its rounded edge, so the rows scroll inside it when the window is shorter than
    the list. */
 .list {
