@@ -247,6 +247,12 @@ pub fn refresh_reviews(path: &Path) -> Result<RefreshedReviews> {
     })
 }
 
+/// Whether [`new_review`] failed as the branch isn't in the workspace any more, as when an
+/// agent unapplied it, the only precondition it checks.
+pub fn branch_left(err: &anyhow::Error) -> bool {
+    (err.custom_context()).is_some_and(|said| said.code == but_error::Code::PreconditionFailed)
+}
+
 /// Whether a failure to ask the forge may pass by itself, so that asking again is worth it: the
 /// forge couldn't be reached, or GitHub failed on its side, as with a 502. Others stay until the
 /// user acts, as a missing account or a keychain prompt they turned down, or asking again

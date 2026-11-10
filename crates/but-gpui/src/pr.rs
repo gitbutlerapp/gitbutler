@@ -10,6 +10,7 @@ use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod, MergeStatus};
 use crate::backend::{self, Forge, FullName, Review, ReviewState, short_ref};
+use crate::overlays::branch_went;
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
@@ -76,13 +77,20 @@ impl ReviewView {
             })
             .detach();
         }
-        // What's written stays for the branch under its new name, as an agent renamed it.
-        cx.subscribe(&store, |this, _, event, cx| match event {
+        // What's written stays for the branch under its new name, as an agent renamed it, and
+        // the form closes once the branch leaves the workspace, as an agent unapplied it.
+        cx.subscribe(&store, |this, store, event, cx| match event {
             StoreEvent::Renamed(project, from, to)
                 if *project == this.project && from.as_ref() == Some(&this.branch) =>
             {
                 this.branch = to.clone();
                 cx.notify();
+            }
+            StoreEvent::Loaded(project) if *project == this.project => {
+                if let Some(why) = branch_went(store.read(cx), project, Some(&this.branch)) {
+                    snack(&store, why, cx);
+                    cx.emit(DismissEvent);
+                }
             }
             _ => {}
         })
@@ -119,9 +127,15 @@ impl ReviewView {
                         }
                         cx.notify();
                     }
-                    Err(err) => this.store.update(cx, |store, cx| {
-                        store.failed("Can't open a pull request", &err, cx)
-                    }),
+                    Err(err) => {
+                        this.store.update(cx, |store, cx| {
+                            store.failed("Can't open a pull request", &err, cx)
+                        });
+                        // Gone before the reload that would close the form landed.
+                        if reviews::branch_left(&err) {
+                            cx.emit(DismissEvent);
+                        }
+                    }
                 })
                 .ok();
             })
