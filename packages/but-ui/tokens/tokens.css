@@ -223,6 +223,8 @@
   --but-inverse-foreground: var(--but-gray-1);
   /* inverse under the pointer. */
   --but-inverse-hover: light-dark(hsl(0 0.0% 21.6%), hsl(0 0.0% 87.5%));
+  /* Warning on inverse, for a glyph on a snackbar: a step darker than warning in dark, where inverse is light, so it reads at 3:1. */
+  --but-inverse-warning: light-dark(var(--but-amber-9), var(--but-amber-8));
   --but-muted: var(--but-gray-3);
   /* Secondary text: labels, metadata, supporting copy. Reads at 4.5:1 on background and muted. */
   --but-muted-foreground: var(--but-gray-11);

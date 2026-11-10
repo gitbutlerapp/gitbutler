@@ -55,12 +55,17 @@ pub struct Theme {
     /// `purple` on a solid selection: the other appearance's, as but.dev's is. For glyphs, which
     /// need 3:1.
     pub purple_on_solid: Hsla,
-    /// The dark ground of a snackbar, in both themes.
+    /// A snackbar's ground and text: the inverse of the window's, as but-ui-react's are, so it
+    /// reads as a passing note over the window.
     pub snackbar_bg: Hsla,
     pub snackbar_text: Hsla,
-    /// A warning snackbar's glyph, which says it went but not quite as asked: but-ui's
-    /// fill-warn on the snackbar's ground, as but-ui-react's has it. For a glyph, so 3:1.
+    /// A warning snackbar's glyph, which says it went but not quite as asked. For a glyph, so
+    /// 3:1 on `snackbar_bg`.
     pub snackbar_warn: Hsla,
+    /// The line between a snackbar's sentence and its button, and that button under the
+    /// pointer.
+    pub snackbar_divider: Hsla,
+    pub snackbar_hover: Hsla,
     /// A diff's changed lines as @pierre/diffs colours them in but.dev: the line numbers and
     /// the bar beside them, the ground of the line and its numbers, and behind the words that
     /// changed within it.
@@ -374,9 +379,11 @@ impl Theme {
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
             purple_on_solid: token([done_dark, done_light]),
-            snackbar_bg: pick(0x1e1e1e, 0x434343),
-            snackbar_text: rgb(0xf8f8f8).into(),
-            snackbar_warn: rgb(0xf99406).into(),
+            snackbar_bg: fill_gray,
+            snackbar_text: text_inverted,
+            snackbar_warn: token(tokens::INVERSE_WARNING),
+            snackbar_divider: token(tokens::BORDER_SUBTLE).opacity(0.3),
+            snackbar_hover: token(tokens::INVERSE_GHOST_HOVER),
             diff_added: added,
             diff_removed: removed,
             diff_added_bg: pick(0xeef7ee, 0x2c3f35),
@@ -525,6 +532,8 @@ impl Theme {
             snackbar_warn: color(
                 reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
             ),
+            snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
+            snackbar_hover: color(bg).opacity(0.05),
             diff_added: color(added),
             diff_removed: color(removed),
             diff_added_bg: color(ground(2)),

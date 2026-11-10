@@ -93,6 +93,12 @@ const pairs = [
 		["background", "canvas"].map((ground) => [`change-status-${change}`, ground, MARK]),
 	),
 	...["background", "canvas"].map((ground) => ["ring", ground, MARK]),
+	// A snackbar's glyphs, on its inverse ground.
+	...["inverse-muted-foreground", "inverse-warning", "danger", "success"].map((glyph) => [
+		glyph,
+		"inverse",
+		MARK,
+	]),
 ];
 
 const failures = [];

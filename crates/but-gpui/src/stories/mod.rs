@@ -19,6 +19,7 @@ mod popover;
 mod review;
 mod rows;
 mod segmented;
+mod snackbar;
 mod switch;
 mod toggle_group;
 
@@ -120,6 +121,7 @@ impl Gallery {
             story("Popover and modal", popover::PopoverStory, cx),
             story("Pull request state", review::ReviewStory, cx),
             story("Segmented", segmented::SegmentedStory::default(), cx),
+            story("Snackbar", snackbar::SnackbarStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
             story(
                 "Toggle group",

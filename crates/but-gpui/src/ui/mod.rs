@@ -1046,6 +1046,54 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
 pub const POPOVER_RADIUS: f32 = 8.;
 
 /// The card that menus, dialogs, toasts and tooltips float on.
+/// A snackbar: a sentence on the inverse ground, led by a warning glyph when it went but not
+/// quite as asked, and closed by `action`, as Undo, past a line when it has one.
+pub fn snackbar(
+    id: impl Into<ElementId>,
+    message: SharedString,
+    warning: bool,
+    action: Option<AnyElement>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::Alert)
+        .aria_label(message.clone())
+        .h(dp(32.))
+        .pl(dp(12.))
+        .pr(dp(if action.is_some() { 4. } else { 12. }))
+        .gap(dp(8.))
+        .rounded(dp(8.))
+        .bg(theme.snackbar_bg)
+        .text_color(theme.snackbar_text)
+        .text_size(dp(12.))
+        .shadow_lg()
+        .when(warning, |el| {
+            el.child(small_icon(Icon::Warning).text_color(theme.snackbar_warn))
+        })
+        .child(message)
+        .when_some(action, |el, action| {
+            el.child(div().w(fixed(1.)).h(dp(16.)).bg(theme.snackbar_divider))
+                .child(action)
+        })
+}
+
+/// What closes a snackbar, as Undo.
+pub fn snackbar_action(
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .h(dp(24.))
+        .px(dp(8.))
+        .rounded(dp(5.))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .hover(|el| el.bg(theme.snackbar_hover))
+        .child(label.into())
+}
+
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(POPOVER_RADIUS))

@@ -47,7 +47,7 @@
 }
 
 .warning {
-	--snackbar-icon: var(--but-warning);
+	--snackbar-icon: var(--but-inverse-warning);
 }
 
 .danger {

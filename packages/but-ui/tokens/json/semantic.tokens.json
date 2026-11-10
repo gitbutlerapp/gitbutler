@@ -334,6 +334,17 @@
             "dark": "#dfdfdf"
           }
         }
+      },
+      "warning": {
+        "$type": "color",
+        "$value": "{ramps.amber.9}",
+        "$description": "Warning on inverse, for a glyph on a snackbar: a step darker than warning in dark, where inverse is light, so it reads at 3:1.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.9}",
+            "dark": "{ramps.amber.8}"
+          }
+        }
       }
     },
     "warning": {
@@ -1325,7 +1336,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-10T12:03:33.430Z"
+        "createdAt": "2026-11-10T21:21:49.952Z"
       }
     }
   }
