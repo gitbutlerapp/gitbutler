@@ -119,7 +119,13 @@ impl SettingsView {
                 let title = "Couldn't read the project's settings";
                 let failed =
                     read_failed(Page::Project(project.clone(), page), title, err, retry, cx);
-                return vec![Card::new(None, vec![failed])];
+                // Removing doesn't need the repository, so it's offered even when a deleted or
+                // moved folder makes the read fail.
+                let remove = (page == ProjectPage::Project)
+                    .then(|| Card::new(None, vec![self.remove_row(project, cx)]));
+                return std::iter::once(Card::new(None, vec![failed]))
+                    .chain(remove)
+                    .collect();
             }
         };
         // Settings are only read for a project with a path.
@@ -215,11 +221,6 @@ impl SettingsView {
             this.app.update_later(window, cx, move |app, window, cx| {
                 app.pick_target(project, window, cx)
             });
-        });
-        let remove_id = project.clone();
-        let project_name = self.project_name(cx).unwrap_or_default();
-        let remove = cx.listener(move |this, _: &ClickEvent, window, cx| {
-            this.remove_project(remove_id.clone(), &project_name, window, cx)
         });
         let signing_note = self.signing.as_ref().map(|result| match result {
             Ok(()) => div().text_color(theme.safe).child("Signing works"),
@@ -397,19 +398,10 @@ impl SettingsView {
                  in the main checkout. A linked worktree's commits don't run them.",
             hooks,
         );
-        let remove = Row::new(
-            "Remove project",
-            "Takes it out of GitButler, and its operations history with it. The repository's \
-             files and branches stay on disk.",
-            button("remove-project", "Remove…")
-                .small()
-                .style(ButtonStyle::Danger)
-                .on_click(remove),
-        );
         match page {
             ProjectPage::Project => vec![
                 Card::new(None, vec![name, target, forge]),
-                Card::new(None, vec![remove]),
+                Card::new(None, vec![self.remove_row(project, cx)]),
             ],
             ProjectPage::Git => vec![
                 Card::new(None, push_to.into_iter().chain([force, hooks]).collect()),
@@ -420,6 +412,22 @@ impl SettingsView {
                 ),
             ],
         }
+    }
+
+    fn remove_row(&self, project: &ProjectId, cx: &Context<Self>) -> Row {
+        let (project, name) = (project.clone(), self.project_name(cx).unwrap_or_default());
+        let remove = cx.listener(move |this, _: &ClickEvent, window, cx| {
+            this.remove_project(project.clone(), &name, window, cx)
+        });
+        Row::new(
+            "Remove project",
+            "Takes it out of GitButler, and its operations history with it. The repository's \
+             files and branches stay on disk.",
+            button("remove-project", "Remove…")
+                .small()
+                .style(ButtonStyle::Danger)
+                .on_click(remove),
+        )
     }
 
     fn remove_project(
