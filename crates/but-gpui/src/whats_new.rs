@@ -16,7 +16,7 @@ use crate::help::OpenReleaseNotes;
 use crate::theme::Theme;
 use crate::ui::fold::Folds;
 use crate::ui::markdown::{self, Block, Kind, Style};
-use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
+use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -346,7 +346,7 @@ impl WhatsNew {
         .mx_0()
         .h(dp(28.))
         .gap(dp(8.))
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         .child(marker)
         .child(
             div()
@@ -358,7 +358,7 @@ impl WhatsNew {
             el.child(
                 div()
                     .px(dp(5.))
-                    .rounded(dp(4.))
+                    .rounded(dp(theme.shape.control))
                     // On a solid selection, in its own muted colour, as the row's other text.
                     .bg(match selected {
                         true => theme.text_inverted.opacity(0.15),
@@ -410,7 +410,7 @@ impl WhatsNew {
                 div()
                     .px(dp(12.))
                     .py(dp(8.))
-                    .rounded(dp(6.))
+                    .rounded(dp(theme.shape.card))
                     .bg(theme.pop.opacity(0.1))
                     .text_size(dp(13.))
                     .child("Not in your version yet")
@@ -623,7 +623,7 @@ impl Render for WhatsNew {
             .h_full()
             .bg(theme.bg_2)
             // Its ground fills the modal's left corners, which it rounds as the modal does.
-            .rounded_l(dp(MODAL_RADIUS - 1.))
+            .rounded_l(dp(theme.shape.popup - 1.))
             .child(
                 div()
                     .px(dp(20.))
@@ -699,7 +699,7 @@ impl Render for WhatsNew {
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
-                    .rounded_r(dp(MODAL_RADIUS - 1.))
+                    .rounded_r(dp(theme.shape.popup - 1.))
                     .child(pane),
             )
     }

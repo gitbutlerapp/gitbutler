@@ -1096,7 +1096,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
         .h(dp(20.))
         .px(dp(6.))
         .gap(dp(6.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.control_border())
         .text_size(dp(12.))
@@ -1198,7 +1198,7 @@ fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div 
         .mx(dp(-12.))
         .px(dp(12.))
         .py(dp(10.))
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         // Halfway from the page to the first grey step: a passage, not a panel.
         .bg(theme.bg_1.blend(theme.bg_2.opacity(0.5)))
         .child(markdown::render(
@@ -1229,7 +1229,7 @@ fn scrolling(
 /// A card of the side panel or the conversation.
 pub(super) fn card(theme: &Theme) -> Div {
     v_flex()
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         .border_1()
         .border_color(theme.border_3)
         .bg(theme.bg_1)
@@ -1260,13 +1260,13 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
 
 /// A badge of a word or two on a ground tinted `color`: a pull request's state, a
 /// review's verdict.
-pub(super) fn tag(color: Hsla) -> Div {
+pub(super) fn tag(color: Hsla, shape: crate::theme::Shape) -> Div {
     h_flex()
         .flex_none()
         .h(dp(20.))
         .px(dp(7.))
         .gap(dp(4.))
-        .rounded(dp(4.))
+        .rounded(dp(shape.control))
         .bg(color.opacity(0.14))
         .text_color(color)
         .text_size(dp(12.))
@@ -1276,7 +1276,7 @@ pub(super) fn tag(color: Hsla) -> Div {
 /// Its state as a tinted badge, and its number, which opens it on the forge.
 fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
     let (glyph, color) = ui_review::state_glyph(state, theme);
-    let badge = tag(color)
+    let badge = tag(color, theme.shape)
         .child(small_icon(glyph).size(dp(12.)).text_color(color))
         .child(ui_review::state_label(state));
     let link = review.url.clone().map(|url| {
@@ -1438,7 +1438,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .px(dp(6.))
         .py(dp(3.))
         .gap(dp(8.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .text_size(dp(12.))
         .line_height(dp(18.))
         .child(h_flex().flex_none().w(dp(14.)).justify_center().child(mark))
@@ -1475,7 +1475,7 @@ pub(super) fn tab(
         .mb(dp(10.))
         .gap(dp(6.))
         .px(dp(8.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .text_size(dp(13.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)

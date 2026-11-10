@@ -45,7 +45,7 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reo
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, TILE_MARGIN, Tooltip,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, TILE_MARGIN, Tooltip,
     WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, count_badge, dot, dp,
     faint, field, fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex,
     icon, icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, review,
@@ -86,9 +86,6 @@ const MARK_PAD: f32 = 3.;
 
 /// How far apart the cards are, as the detail's are.
 pub(super) const CARD_GAP: f32 = 8.;
-
-/// How round a card's corners are.
-const CARD_CORNER: f32 = 6.;
 
 /// How wide and tall the map of a row's tiles is, and the gap between them there.
 const TILE_MAP: (f32, f32) = (20., 14.);
@@ -290,7 +287,7 @@ pub(super) fn card_bar(
         .flex_none()
         .h(dp(CARD_BAR_HEIGHT))
         .m(dp(CARD_BAR_INSET))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .pl(dp(10.))
         .pr(dp(6.))
         .gap(dp(2.))
@@ -392,13 +389,13 @@ impl<'a> RowStyle<'a> {
         list_row(ElementId::Name(id.into()), self.selected, theme)
             .group(ROW_GROUP)
             .when_some(self.blink, |el, n| {
-                let shape = div().absolute().inset_0().rounded(dp(4.));
+                let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative()
                     .child(blink_once(("blink", n), shape, self.mark))
             })
             // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
             .when(self.goes_here, |el| {
-                let wash = div().absolute().inset_0().rounded(dp(4.));
+                let wash = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative().child(wash.bg(theme.pop.opacity(0.1)))
             })
             .mx(dp(3.))
@@ -2633,12 +2630,12 @@ impl Navigator {
             .when(edged, |el| el.border_l_1().border_r_1())
             .when(first && edged, |el| {
                 el.border_t_1()
-                    .rounded_t(dp(CARD_CORNER))
+                    .rounded_t(dp(theme.shape.card))
                     .pt(dp(CARD_PADDING))
             })
             .when(last && edged, |el| {
                 el.border_b_1()
-                    .rounded_b(dp(CARD_CORNER))
+                    .rounded_b(dp(theme.shape.card))
                     .pb(dp(CARD_PADDING))
             })
             .map(|card| match folding {
@@ -2652,7 +2649,7 @@ impl Navigator {
                     // sliver of until the rows stop.
                     let corner = match edged {
                         true => 2.,
-                        false => POPOVER_RADIUS - CARD_PADDING,
+                        false => theme.shape.popup - CARD_PADDING,
                     };
                     let over = (div().relative().bg(theme.bg_1).child(el))
                         .when(first, |el| el.rounded_t(dp(corner)))
@@ -2682,9 +2679,9 @@ impl Navigator {
         let below = (below > 0.).then(|| match last {
             // Over the last row's own edge and corners, which are no longer the card's, and tall
             // enough for its own corners to stay as round as it comes to nothing.
-            true => stretched(below + 2. * CARD_CORNER)
+            true => stretched(below + 2. * theme.shape.card)
                 .bottom(dp(-below))
-                .when(edged, |el| el.border_b_1().rounded_b(dp(CARD_CORNER))),
+                .when(edged, |el| el.border_b_1().rounded_b(dp(theme.shape.card))),
             false => stretched(below).top(relative(1.)),
         });
         let above = (above > 0.).then(|| stretched(above).top(dp(-above)));
@@ -2836,7 +2833,8 @@ impl Navigator {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
                 let colour = moving::mark_of(store, item.project(), theme);
-                let outline = moving::squash_outline(outline.edges(slid), blink, colour);
+                let outline =
+                    moving::squash_outline(outline.edges(slid), blink, colour, theme.shape);
                 let outline = self.over_rows(outline, 2);
                 div().relative().child(el).child(outline).into_any_element()
             }
@@ -2895,7 +2893,7 @@ impl Navigator {
             .mr(dp(3.))
             .px(dp(7.))
             .gap(dp(6.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .map(|el| match (selected, solid) {
                 (true, true) => el.bg(theme.fill_gray),
                 (true, false) => el.bg(theme.selected_unfocused()),
@@ -3022,7 +3020,7 @@ impl Navigator {
             .bg(theme.bg_1)
             .border_1()
             .border_color(theme.border_3)
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .child(self.drawer_bar(alone, window, theme, cx))
             .child(
                 div()
@@ -3158,7 +3156,6 @@ impl Navigator {
     /// so it keeps its shape. GPUI cuts what the list draws to a rectangle, so the ground the
     /// cards are on is painted past the corners.
     fn card_caps(&self, theme: &Theme, cx: &App) -> Vec<Div> {
-        const RADIUS: f32 = 6.;
         let scale = Theme::get(cx).scale;
         let height = f32::from(self.list.viewport_bounds().size.height) / scale;
         let top = -f32::from(self.list.scroll_px_offset_for_scrollbar().y) / scale;
@@ -3201,8 +3198,8 @@ impl Navigator {
             };
             // Too little of the card shows for a corner at each of its ends: it's drawn whole,
             // as a rounded box is that's shorter than two corners, over its own corners.
-            let sliver = shows < 2. * RADIUS;
-            let radius = if sliver { shows / 2. } else { RADIUS };
+            let sliver = shows < 2. * theme.shape.card;
+            let radius = if sliver { shows / 2. } else { theme.shape.card };
             let edge = div()
                 .absolute()
                 .left(dp(left))
@@ -3217,15 +3214,21 @@ impl Navigator {
                     (edge.h(dp(shows)).border_t_1().border_b_1()).rounded(dp(radius)),
                     shows,
                 ),
-                (false, true) => (edge.border_t_1().rounded_t(dp(RADIUS)), shows - RADIUS),
-                (false, false) => (edge.border_b_1().rounded_b(dp(RADIUS)), shows - RADIUS),
+                (false, true) => (
+                    edge.border_t_1().rounded_t(dp(theme.shape.card)),
+                    shows - theme.shape.card,
+                ),
+                (false, false) => (
+                    edge.border_b_1().rounded_b(dp(theme.shape.card)),
+                    shows - theme.shape.card,
+                ),
             };
-            let edge = edge.when(!sliver, |el| el.h(dp(2. * RADIUS)));
+            let edge = edge.when(!sliver, |el| el.h(dp(2. * theme.shape.card)));
             let band = div()
                 .absolute()
                 .left_0()
                 .right_0()
-                .h(dp(shown.min(2. * RADIUS)))
+                .h(dp(shown.min(2. * theme.shape.card)))
                 .overflow_hidden();
             let edge = match at_top {
                 true => band.top_0().child(edge.top_0()),
@@ -3253,7 +3256,7 @@ impl Navigator {
                         // than the sliver's.
                         let end = y + toward / r * theme.scaled(shows);
                         let (top, bottom) = (y.min(end), y.max(end));
-                        let wide = theme.scaled(RADIUS);
+                        let wide = theme.scaled(theme.shape.card);
                         for x in [x0, x1 - wide] {
                             let under =
                                 Bounds::from_corners(point(x, top), point(x + wide, bottom));
@@ -3404,7 +3407,7 @@ impl Navigator {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .when(folds || !moving, |el| {
                     el.hover(|el| el.bg(theme.hover()))
                         .map(|el| match folds {
@@ -4022,6 +4025,7 @@ impl Navigator {
                             .aria_label(tip.clone())
                             .tooltip(Tooltip::text(tip));
                         el.child(pressable(
+                            theme.shape,
                             mark,
                             color,
                             moving,
@@ -4052,6 +4056,7 @@ impl Navigator {
                             .aria_label("Read the brief")
                             .tooltip(Tooltip::text("Read the brief"));
                         el.child(pressable(
+                            theme.shape,
                             mark,
                             color,
                             moving,
@@ -4081,7 +4086,7 @@ impl Navigator {
                                     app.resolve_commit(project, commit, window, cx)
                                 })
                             });
-                            pressable(count, warn, moving, resolve)
+                            pressable(theme.shape, count, warn, moving, resolve)
                         }),
                     }
                 })
@@ -4152,7 +4157,7 @@ impl Navigator {
             });
         });
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(count, color, moving, push).into_any_element())
+        Some(pressable(Theme::get(cx).shape, count, color, moving, push).into_any_element())
     }
 
     /// How many of `n` commits only `ref_name`'s remote has, pressed to pull them when it can,
@@ -4185,7 +4190,7 @@ impl Navigator {
             })
         });
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(count, warn, moving, pull))
+        Some(pressable(Theme::get(cx).shape, count, warn, moving, pull))
     }
 
     fn commit_row(
@@ -4828,12 +4833,13 @@ pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Optio
 /// unfolded. While something is `moving` it's only part of its row, which a press puts the move
 /// at, so it does nothing of its own then.
 fn pressable(
+    shape: crate::theme::Shape,
     mark: Stateful<Div>,
     color: Hsla,
     moving: bool,
     press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<Div> {
-    let mark = mark.px(dp(MARK_PAD)).rounded(dp(4.));
+    let mark = mark.px(dp(MARK_PAD)).rounded(dp(shape.control));
     if moving {
         return mark;
     }
@@ -5112,7 +5118,7 @@ impl Render for Navigator {
             // Out over the detail, it's a popover's card. GPUI cuts what's inside to a
             // rectangle, so the drawer along its bottom rounds its own corners.
             .map(|el| match self.floating {
-                true => (el.rounded(dp(POPOVER_RADIUS)).border_1()).border_color(theme.border_2),
+                true => (el.rounded(dp(theme.shape.popup)).border_1()).border_color(theme.border_2),
                 // On the detail's ground, which its cards edge, nothing to edge against, but the
                 // room an edge took stays, so what's against the right doesn't move.
                 false => el.border_r_1().border_color(gpui::transparent_black()),

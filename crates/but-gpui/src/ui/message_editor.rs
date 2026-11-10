@@ -112,13 +112,13 @@ impl Render for MessageEditor {
         let part = |input| {
             field(input, false, theme)
                 .border_0()
-                .rounded(dp(5.))
+                .rounded(dp(theme.shape.card - 1.))
                 .px(dp(10.))
                 .py(dp(8.))
                 .cursor_text()
         };
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(if focused {
                 theme.focus_border()

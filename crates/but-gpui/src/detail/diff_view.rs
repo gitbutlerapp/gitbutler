@@ -2031,7 +2031,7 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .left(dp(12.))
         .right(dp(12.))
         .bg(theme.fill_gray.opacity(0.1))
-        .when(last, |el| el.rounded_b(dp(6.)));
+        .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     solid.then_some(tint).into_iter().chain([tab])
 }
 
@@ -2041,7 +2041,7 @@ fn row_blink(n: usize, last: bool, theme: &Theme) -> impl IntoElement {
     let shape = (div().absolute().top_0().bottom_0())
         .left(dp(12.))
         .right(dp(12.))
-        .when(last, |el| el.rounded_b(dp(6.)));
+        .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     blink_once(("blink", n), shape, diff::copy_wash(theme))
 }
 
@@ -2274,7 +2274,7 @@ pub(super) fn files_toggle(
         .h(dp(28.))
         .px(dp(6.))
         .gap(dp(6.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .hover(|el| el.bg(theme.hover()))
         .child(icon(glyph).text_color(theme.text_2))
         .when_some(counts, |el, (n, added, removed)| {

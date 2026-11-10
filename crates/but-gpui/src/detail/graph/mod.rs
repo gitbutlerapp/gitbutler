@@ -3263,7 +3263,7 @@ fn controls_pill(id: &'static str, theme: &Theme) -> Stateful<Div> {
         .occlude()
         .gap(dp(2.))
         .p(dp(2.))
-        .rounded(dp(8.))
+        .rounded(dp(theme.shape.popup))
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_2)

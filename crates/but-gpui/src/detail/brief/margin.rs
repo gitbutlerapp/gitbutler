@@ -236,7 +236,7 @@ impl Detail {
             let words = pointing
                 .mx(dp(-6.))
                 .px(dp(6.))
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .when(pointed && matches!(spot, Spot::Words(..)), |el| {
                     el.bg(theme.hover())
                 })
@@ -450,7 +450,7 @@ impl Detail {
                         .border_color(theme.border_3),
                     false => el
                         .p(dp(8.))
-                        .rounded(dp(6.))
+                        .rounded(dp(theme.shape.card))
                         .border_1()
                         .border_color(theme.focus_border())
                         .bg(theme.bg_1),
@@ -491,7 +491,7 @@ impl Detail {
         h_flex()
             .flex_wrap()
             .gap(dp(2.))
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .bg(theme.bg_1)
             .children(
                 self.brief_shortcuts(cx)

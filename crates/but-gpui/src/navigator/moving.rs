@@ -1810,7 +1810,12 @@ pub(super) fn new_commit_row(
 /// `colour` of what's done with it, its top and bottom `edges` from the row's, as
 /// [`SquashOutline::edges`] says, over the rows it passes, blinking as copies of what's moving
 /// do.
-pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, colour: Hsla) -> Div {
+pub(super) fn squash_outline(
+    edges: (f32, f32),
+    blink: Option<usize>,
+    colour: Hsla,
+    shape: crate::theme::Shape,
+) -> Div {
     let (top, bottom) = edges;
     div()
         .absolute()
@@ -1818,12 +1823,12 @@ pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, colour: Hs
         .bottom(dp(-bottom))
         .left(dp(3.))
         .right(dp(3.))
-        .rounded(dp(4.))
+        .rounded(dp(shape.control))
         .border_1()
         .border_color(colour)
         .bg(colour.opacity(0.14))
         .when_some(blink, |el, n| {
-            let shape = div().absolute().inset_0().rounded(dp(4.));
+            let shape = div().absolute().inset_0().rounded(dp(shape.control));
             el.child(blink_once(("blink", n), shape, colour))
         })
 }
@@ -1924,13 +1929,13 @@ pub(super) fn ghost_branch_row(
         .pl(dp(8. + inset))
         .pr(dp(12.))
         .gap(dp(8.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_dashed()
         .border_color(mark)
         .text_color(mark)
         .when_some(blink, |el, n| {
-            let shape = div().absolute().inset_0().rounded(dp(4.));
+            let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
             el.relative().child(blink_once(("blink", n), shape, mark))
         })
         .child(small_icon(Icon::Branch).text_color(mark))

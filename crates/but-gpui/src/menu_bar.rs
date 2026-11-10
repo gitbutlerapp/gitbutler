@@ -206,7 +206,7 @@ impl AppView {
                 .items_center()
                 .h(dp(BUTTON))
                 .px(dp(8.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 .text_size(dp(13.))
                 .text_color(theme.text_1)
                 .when(ix == open, |el| el.bg(theme.hover()))

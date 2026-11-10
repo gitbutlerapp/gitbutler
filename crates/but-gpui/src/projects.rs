@@ -421,7 +421,7 @@ impl AppView {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .text_size(dp(18.))
                 .hover(|el| el.bg(theme.hover()))
                 .when(current == stored, |el| el.bg(theme.selected_unfocused()))

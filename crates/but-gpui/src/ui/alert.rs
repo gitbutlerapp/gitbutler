@@ -64,7 +64,7 @@ impl Render for Alert {
             .w(dp(380.))
             .p(dp(16.))
             .gap(dp(12.))
-            .rounded(dp(10.))
+            .rounded(dp(theme.shape.popup))
             .child(
                 div()
                     .text_size(dp(14.))

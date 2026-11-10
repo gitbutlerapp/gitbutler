@@ -227,7 +227,7 @@ impl Detail {
             .chain(self.brief_answered_fact(state, theme))
             .collect();
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_3)
             .overflow_hidden()
@@ -565,7 +565,7 @@ impl Detail {
             let more = files.len().saturating_sub(MOST_UNSHOWN_LISTED);
             v_flex()
                 .mt(dp(2.))
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .border_1()
                 .border_color(theme.border_3)
                 .overflow_hidden()
