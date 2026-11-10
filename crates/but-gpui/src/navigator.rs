@@ -121,10 +121,13 @@ pub(super) const CARD_BAR_INSET: f32 = 3.;
 /// How tall the drawer's card is around its rows: its bar, and its edges.
 const DRAWER_CHROME: f32 = CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET + 2.;
 
-/// How far a worktree's rows sit in from its heading, as but-ui-react's SidebarRow steps them:
-/// their chevrons' middle under the heading's 16-point glyph's, the chevron's step, 14, the
-/// gap, 8, and half the glyph past the chevron's half.
-const STEP: f32 = 14. + 8. + 1.;
+/// How far the rows under a row sit in from it: its 16-point icon and the gap after it, so
+/// their icons line up under its name.
+const STEP: f32 = 16. + 8.;
+
+/// The group every item row is, so a fold's chevron shows in place of its icon while the
+/// pointer is over the row (see [`Navigator::fold`]).
+const ROW_GROUP: &str = "navigator-row";
 
 /// The eye of a project the app watches, or struck through for one it doesn't.
 fn watch_glyph(watched: bool) -> gpui::Svg {
@@ -239,12 +242,12 @@ fn step_to(
 /// the branch's commit glyphs.
 const UPSTREAM_INDENT: f32 = COMMIT_INDENT + STEP;
 
-/// Where the middle of a branch's remote's heading's chevron sits: that of a 12-point glyph
+/// Where the middle of a branch's remote's heading's glyph sits: that of a 12-point glyph
 /// under the branch's commit glyphs, as a commit's is.
-const UPSTREAM_CHEVRON: f32 = ROW_LEFT + COMMIT_INDENT + 6.;
+const UPSTREAM_GUIDE: f32 = ROW_LEFT + COMMIT_INDENT + 6.;
 
-/// Where the middle of a remote merge's chevron sits, a step in from its heading's.
-const MERGE_CHEVRON: f32 = UPSTREAM_CHEVRON + STEP;
+/// Where the middle of a remote merge's glyph sits, a step in from its heading's.
+const MERGE_GUIDE: f32 = UPSTREAM_GUIDE + STEP;
 
 /// What a checkout's row and tab call the main worktree.
 pub(super) const MAIN_WORKTREE: &str = "Main worktree";
@@ -387,6 +390,7 @@ impl<'a> RowStyle<'a> {
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
+            .group(ROW_GROUP)
             .when_some(self.blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(4.));
                 el.relative()
@@ -884,22 +888,40 @@ impl Navigator {
         !self.filter.read(cx).text().trim().is_empty()
     }
 
-    /// A row's fold, as [`fold_button`]. While the filter lists what it finds, which folds
-    /// don't hide, it's drawn open and does nothing.
+    /// A row's `icon`, which turns into its fold's chevron, as [`fold_button`], while the
+    /// pointer is over the row, as Notion's sidebar does, so rows that fold and rows that
+    /// don't line up. With nothing to fold (`None`), or while the filter lists what it finds,
+    /// which folds don't hide, it stays the icon.
     fn fold(
         &self,
         id: impl Into<ElementId>,
+        icon: impl IntoElement,
         open: Option<bool>,
         color: Hsla,
         cx: &Context<Self>,
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
     ) -> AnyElement {
-        match open.is_some() && self.filtering(cx) {
-            true => fold_glyph(id, Some(true), color).into_any_element(),
-            false => {
-                fold_button(id, open, color, self.pressed_keys(), cx, toggle).into_any_element()
-            }
-        }
+        let Some(open) = open.filter(|_| !self.filtering(cx)) else {
+            return icon.into_any_element();
+        };
+        let chevron = fold_button(id, Some(open), color, self.pressed_keys(), cx, toggle)
+            .absolute()
+            .inset_0()
+            .flex()
+            .items_center()
+            .justify_center()
+            .opacity(0.)
+            .group_hover(ROW_GROUP, |el| el.opacity(1.));
+        div()
+            .relative()
+            .flex_none()
+            .child(
+                div()
+                    .group_hover(ROW_GROUP, |el| el.opacity(0.))
+                    .child(icon),
+            )
+            .child(chevron)
+            .into_any_element()
     }
 
     /// Whether `event` is a double-click that acts on its row, as a folder opens: not when
@@ -3406,14 +3428,14 @@ impl Navigator {
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
                 .h(dp(if expanded { HEADING_HEIGHT } else { ROW_HEIGHT }))
-                .pl(dp(11.))
+                .pl(dp(12.))
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
-                // The eye over the chevrons of the rows below and the emoji, 5 points on,
-                // over their icons, so the name sits over theirs.
+                // The emoji, 6 points past the eye, over the worktrees' icons a step in, so the
+                // name sits over theirs.
                 .child(
                     h_flex()
                         .flex_none()
-                        .gap(dp(5.))
+                        .gap(dp(6.))
                         .child(
                             // Whether the app watches the project, as an open one is loaded and
                             // kept current, and under the pointer what a click makes it.
@@ -3652,15 +3674,14 @@ impl Navigator {
                 this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
-        // With nothing under it, a dot where the chevron goes, as for a branch without commits.
-        let step = self.fold(
+        let glyph = self.fold(
             ("worktree-fold", ix),
+            worktree_icon(checkout.is_linked(), !uncommitted.is_empty(), style),
             folds.then_some(open),
             style.quiet(),
             cx,
             toggle.clone(),
         );
-        // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
                 format!("worktree-{id}-{}", checkout.linked().unwrap_or_default()),
@@ -3671,12 +3692,7 @@ impl Navigator {
             .when(!open && unread, |el| {
                 el.relative().child(style.unread_line(false))
             })
-            .child(step)
-            .child(worktree_icon(
-                checkout.is_linked(),
-                !uncommitted.is_empty(),
-                style,
-            ))
+            .child(glyph)
             .child(
                 div()
                     .id(("worktree-name", ix))
@@ -3857,8 +3873,7 @@ impl Navigator {
         let holds_selected =
             (store.selection.as_ref()).is_some_and(|s| s.project() == id && s.under(branch));
         let open = !closed || holds_selected;
-        // As but-ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
-        // branch without any has a dot there, keeping it in line with those that fold.
+        // Its icon turns into the chevron that folds the commits away.
         let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
             this.set_open(ClickOpened::Here(key.clone()), !open, cx);
             // Folding it over its selected commit takes the selection up to it, as ⇧← does.
@@ -3868,8 +3883,13 @@ impl Navigator {
             }
         };
         let folds = !branch.commits.is_empty();
-        let step = self.fold(
+        let glyph = match icon(glyph).text_color(glyph_color) {
+            glyph if publishing => pulsing(glyph).into_any_element(),
+            glyph => glyph.into_any_element(),
+        };
+        let glyph = self.fold(
             ElementId::Name(format!("fold-{id}-{row_id}").into()),
+            glyph,
             folds.then_some(open),
             style.quiet(),
             cx,
@@ -3884,11 +3904,7 @@ impl Navigator {
                 .row(format!("branch-{id}-{row_id}"), 6.)
                 .aria_label(format!("Branch {name}"))
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
-                .child(step)
-                .child(match icon(glyph).text_color(glyph_color) {
-                    glyph if publishing => pulsing(glyph).into_any_element(),
-                    glyph => glyph.into_any_element(),
-                })
+                .child(glyph)
                 .child(match rename {
                     Some(field) => field,
                     None => branch_name(name, review, &style)
@@ -4157,26 +4173,23 @@ impl Navigator {
         let title: SharedString = title.into();
         let unread = listed.is_some_and(|commit| store.is_unread(id, commit));
         let warn = style.meta(style.theme.warn);
-        // A merge folds the commits it brought in on a double-click, or by a chevron in its
-        // ↓'s place, as wide as the ↓ in the row's flow so its title lines up with theirs.
+        // A merge folds the commits it brought in on a double-click, or by the chevron its ↓
+        // turns into.
         let toggle = merge.then(|| {
             let (project, owner, merge_id) = (id.clone(), ref_name.clone(), *commit_id);
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                 this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
             }
         });
+        let arrow = small_icon(Icon::ArrowDown).text_color(warn);
         let glyph = match toggle.clone() {
-            None => small_icon(Icon::ArrowDown)
-                .text_color(warn)
-                .into_any_element(),
+            None => arrow.into_any_element(),
             Some(toggle) => {
                 let open = self.open_merges.contains(commit_id)
                     || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
                         if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
                 let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                fold_button(fold, Some(open), warn, self.pressed_keys(), cx, toggle)
-                    .mx(fixed(-1.))
-                    .into_any_element()
+                self.fold(fold, arrow, Some(open), warn, cx, toggle)
             }
         };
         Some(
@@ -4376,9 +4389,10 @@ impl Navigator {
         Some(row.into_any_element())
     }
 
-    /// The heading over `section` of `project`'s card: its fold, its glyph and `label`,
-    /// quiet, its fold set in as a row's would be (see [`RowStyle::row`]). Selecting it shows
-    /// what it folds on its page; its chevron, a double-click or Enter lists or folds them.
+    /// The heading over `section` of `project`'s card: its glyph, which turns into its fold's
+    /// chevron, and `label`, quiet, the glyph in a 16-point slot as a row's icon is (see
+    /// [`RowStyle::row`]). Selecting it shows what it folds on its page; the chevron, a
+    /// double-click or Enter lists or folds them.
     fn section_heading(
         &self,
         ix: usize,
@@ -4390,10 +4404,10 @@ impl Navigator {
     ) -> Stateful<Div> {
         let label = label.into();
         let (indent, glyph) = match section {
-            // A branch's remote's under its commit glyphs.
-            Section::Upstream(_) => (UPSTREAM_CHEVRON - 7. - ROW_LEFT, None),
-            Section::Inactive => (6., Some(Icon::Clock)),
-            Section::Mesh => (6., Some(Icon::Globe)),
+            // A branch's remote's under its commit glyphs, its label under their titles.
+            Section::Upstream(_) => (UPSTREAM_GUIDE - 8. - ROW_LEFT, Icon::ArrowDoubleDown),
+            Section::Inactive => (6., Icon::Clock),
+            Section::Mesh => (6., Icon::Globe),
         };
         let open = self.heading_open(project, section, cx);
         let item = Selection::Section(project.clone(), section.clone());
@@ -4404,13 +4418,20 @@ impl Navigator {
             }
         };
         let quiet = style.quiet();
+        let glyph =
+            (div().w(dp(16.)).flex().justify_center()).child(small_icon(glyph).text_color(quiet));
         (style.row(format!("section-heading-{ix}"), indent))
-            .gap(dp(6.))
             .pr(dp(12.))
             .aria_label(label.clone())
             .aria_expanded(open)
-            .child(self.fold(("section-fold", ix), Some(open), quiet, cx, toggle.clone()))
-            .children(glyph.map(|glyph| small_icon(glyph).text_color(quiet)))
+            .child(self.fold(
+                ("section-fold", ix),
+                glyph,
+                Some(open),
+                quiet,
+                cx,
+                toggle.clone(),
+            ))
             .child(
                 (section_label(label, style.theme).text_color(quiet))
                     .flex_1()
