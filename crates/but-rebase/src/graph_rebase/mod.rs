@@ -38,6 +38,7 @@ pub mod merge_commit_changes;
 mod merge_tree;
 pub mod mutate;
 pub mod ordering;
+mod rewrites;
 pub(crate) mod util;
 pub mod workspace;
 pub use workspace::{GraphWorkspace, Subgraph};
