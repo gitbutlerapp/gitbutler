@@ -838,6 +838,52 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(self.new_selector(new_idx))
     }
 
+    /// Moves a pick to sit relative to `target`.
+    ///
+    /// The children of the pick, and any checkout of it, are handed to its first parent.
+    /// Its remaining parents travel with it, behind the parents it gains at `target`.
+    /// Selectors of the pick keep selecting it.
+    pub fn move_pick(
+        &mut self,
+        subject: impl ToCommitSelector,
+        target: impl ToSelector,
+        side: InsertSide,
+    ) -> Result<()> {
+        let subject = self
+            .history
+            .normalize_selector(subject.to_commit_selector(self)?)?;
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        if subject.id == target.id {
+            bail!("A commit can't be moved relative to itself");
+        }
+        self.detach(subject)?;
+        self.place(subject.id, target, side)
+    }
+
+    fn detach(&mut self, subject: Selector) -> Result<()> {
+        let first_parent = self
+            .graph
+            .edges_directed(subject.id, Direction::Outgoing)
+            .min_by_key(|e| e.weight().order)
+            .map(|e| (e.id(), e.target()));
+        let children = self
+            .graph
+            .edges_directed(subject.id, Direction::Incoming)
+            .map(|e| (e.id(), e.weight().to_owned(), e.source()))
+            .collect::<Vec<_>>();
+        for (edge_id, edge_weight, child) in children {
+            self.graph.remove_edge(edge_id);
+            if let Some((_, parent)) = first_parent {
+                self.graph.add_edge(child, parent, edge_weight);
+            }
+        }
+        if let Some((edge_id, parent)) = first_parent {
+            self.graph.remove_edge(edge_id);
+            self.move_checkouts(subject, self.new_selector(parent))?;
+        }
+        Ok(())
+    }
+
     fn place(
         &mut self,
         node: petgraph::prelude::NodeIndex,
