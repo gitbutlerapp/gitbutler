@@ -237,3 +237,26 @@ fn resolve_cancel_changes_nothing_if_a_filter_fails() {
     assert_eq!(repo_state(&env), before, "a failed cancel changes nothing");
     assert_eq!(read(&env, "b.secret").as_bstr(), "base\n");
 }
+
+#[test]
+fn resolve_finish_changes_nothing_if_a_filter_fails_and_can_be_retried() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let fail_smudge = env.projects_root().join(".git/fail-smudge");
+    std::fs::write(&fail_smudge, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+
+    std::fs::remove_file(&fail_smudge).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "edited\n",
+        "the retried finish brings the uncommitted change back"
+    );
+    assert_eq!(env.invoke_git("show A:file.txt"), "resolved");
+}
