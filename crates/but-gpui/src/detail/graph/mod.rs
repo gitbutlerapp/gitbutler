@@ -25,8 +25,8 @@ use gpui::{
     DispatchPhase, Div, Entity, Font, FontWeight, Hitbox, HitboxBehavior, Hsla, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, PinchEvent, Pixels, Point,
     ScrollDelta, ScrollWheelEvent, SharedString, Size, Stateful, Subscription, Task, TextAlign,
-    TextRun, Toggled, TransformationMatrix, WeakEntity, Window, canvas, div, fill, font, point,
-    prelude::*, quad, size,
+    TextRun, Toggled, TransformationMatrix, WeakEntity, Window, actions, canvas, div, fill, font,
+    point, prelude::*, quad, size,
 };
 
 use crate::backend::{
@@ -34,7 +34,7 @@ use crate::backend::{
     short_ref,
 };
 use crate::clock;
-use crate::state::{ProjectId, Store, StoreEvent};
+use crate::state::{self, ProjectId, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
@@ -45,6 +45,9 @@ use crate::ui::{
 use layout::{Input, Line, Route, Side, Track, reach};
 #[cfg(feature = "dev-script")]
 pub(crate) use window::GraphWindow;
+
+// The arrows and h, j, k and l, from commit to commit.
+actions!(graph, [StepUp, StepDown, StepLeft, StepRight]);
 
 /// How far apart rows are, in pixels at 100%.
 const ROW: f32 = 72.;
@@ -1102,6 +1105,75 @@ impl GraphView {
             (true, _) | (false, None) => HashSet::new(),
         });
         cx.notify();
+    }
+
+    /// Pin the commit on `side` of the pinned one, and glide to it if it's out of view: down
+    /// to its first parent, up to the child above it nearest across, and left or right to the
+    /// nearest that way. With none pinned, it pins the commit nearest the middle of the view.
+    /// False when there's no commit that way.
+    pub fn step(&mut self, side: state::Side, cx: &mut Context<Self>) -> bool {
+        let Some(scene) = self.scene.clone() else {
+            return false;
+        };
+        let drawn = self.drawn.clone();
+        let at = |ix: usize| drawn.get(ix).copied();
+        let pinned = (self.pinned.as_ref()).and_then(|key| scene.keys.get(key).copied());
+        let next = match pinned.and_then(|ix| Some((ix, at(ix)?))) {
+            None => {
+                let size = self.bounds.get().size;
+                let middle = point(f32::from(size.width) / 2., f32::from(size.height) / 2.);
+                let middle = self.camera.at(middle, self.scale);
+                let away =
+                    |ix| at(ix).map_or(f32::MAX, |to| (to.x - middle.x).hypot(to.y - middle.y));
+                (0..drawn.len()).min_by(|a, b| away(*a).total_cmp(&away(*b)))
+            }
+            Some((from, start)) => {
+                let candidates: Vec<usize> = match side {
+                    state::Side::Bottom => (scene.nodes.get(from).and_then(|n| n.parent))
+                        .into_iter()
+                        .collect(),
+                    state::Side::Top => (0..drawn.len())
+                        .filter(|ix| scene.parents.get(*ix).is_some_and(|p| p.contains(&from)))
+                        .collect(),
+                    state::Side::Left | state::Side::Right => {
+                        (0..drawn.len()).filter(|ix| *ix != from).collect()
+                    }
+                };
+                candidates
+                    .into_iter()
+                    .filter_map(|ix| {
+                        let to = at(ix)?;
+                        let (dx, dy) = (to.x - start.x, to.y - start.y);
+                        let (along, across) = match side {
+                            state::Side::Top => (-dy, dx),
+                            state::Side::Bottom => (dy, dx),
+                            state::Side::Left => (-dx, dy),
+                            state::Side::Right => (dx, dy),
+                        };
+                        (along > 1.).then_some((ix, along + 2. * across.abs()))
+                    })
+                    .min_by(|a, b| a.1.total_cmp(&b.1))
+                    .map(|(ix, _)| ix)
+            }
+        };
+        let Some((ix, to)) = next.and_then(|ix| Some((ix, at(ix)?))) else {
+            return false;
+        };
+        self.pin(Some(ix), cx);
+        let size = self.bounds.get().size;
+        // Where a glide under way ends, so stepping back doesn't leave it carrying this away.
+        let camera = self.glide.map_or(self.camera, |(_, _, to)| to);
+        let (k, offset) = (camera.zoom * self.scale, camera.offset);
+        let on_screen = point(to.x * k + offset.x, to.y * k + offset.y);
+        let margin = 48. * self.scale;
+        let seen = (margin..f32::from(size.width) - margin).contains(&on_screen.x)
+            && (margin..f32::from(size.height) - margin).contains(&on_screen.y);
+        if !seen {
+            self.following = false;
+            let to = self.centred(to, camera.zoom);
+            self.glide_to(to, cx);
+        }
+        true
     }
 
     fn pressed(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {

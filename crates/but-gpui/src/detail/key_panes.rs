@@ -138,6 +138,7 @@ impl Detail {
         let changes = !self.without_changes(cx);
         let review = self.showing_review(cx);
         let brief = self.showing_brief();
+        let graph = self.showing_graph();
         let project_tabs = matches!(self.selection(), Some(Selection::Project(_)));
         let files = match list_page {
             true => self.beside_files_shown(cx),
@@ -150,7 +151,7 @@ impl Detail {
             (KeyPane::Files, changes && !review && !brief && files),
             (
                 KeyPane::Diff,
-                brief || (changes && !review && !self.overview_only()),
+                brief || graph || (changes && !review && !self.overview_only()),
             ),
         ]
         .into_iter()
