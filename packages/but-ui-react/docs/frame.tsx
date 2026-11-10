@@ -2,8 +2,10 @@ import { findPage, loadPage } from "./pages.ts";
 import { play } from "./play.ts";
 import {
 	accentOf,
+	groundOf,
 	densityOf,
 	paintAccent,
+	paintGround,
 	paintDensity,
 	paintRadius,
 	paintTheme,
@@ -17,7 +19,7 @@ import { createRoot } from "react-dom/client";
  * One story alone, `?story=components-modal--confirm`: the frame an overlay's example opens in,
  * and the page to screenshot a story on. Framed on a site page it follows the page's theme,
  * accent, corners and density; opened on its own, `&theme=dark`, `&accent=blue` (or a hex,
- * `&accent=EE5858`), `&radius=round` and `&density=compact` pick them, or `&preset=tight` both at once.
+ * `&accent=EE5858`), `&ground=slate`, `&radius=round` and `&density=compact` pick them, or `&preset=tight` both at once.
  */
 export async function renderFrame(id: string) {
 	const search = new URLSearchParams(window.location.search);
@@ -34,19 +36,28 @@ export async function renderFrame(id: string) {
 		paintAccent(
 			accentOf(accent === "custom" ? site?.style.getPropertyValue("--but-accent-color") : accent),
 		);
+		paintGround(groundOf(site?.dataset["butGround"]));
 		paintRadius(radiusOf(site?.dataset["butRadius"]));
 		paintDensity(densityOf(site?.dataset["butDensity"]));
 	};
 	if (site === undefined) {
 		paintTheme(search.get("theme") === "dark" ? "dark" : "light");
 		paintAccent(accentOf(search.get("accent")));
+		paintGround(groundOf(search.get("ground")));
 		const preset = PRESETS.find(({ id }) => id === search.get("preset"));
 		paintRadius(radiusOf(search.get("radius") ?? preset?.radius));
 		paintDensity(densityOf(search.get("density") ?? preset?.density));
 	} else {
 		followSite();
 		new MutationObserver(followSite).observe(site, {
-			attributeFilter: ["class", "data-but-accent", "data-but-radius", "data-but-density", "style"],
+			attributeFilter: [
+				"class",
+				"data-but-accent",
+				"data-but-ground",
+				"data-but-radius",
+				"data-but-density",
+				"style",
+			],
 		});
 	}
 

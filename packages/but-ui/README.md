@@ -63,6 +63,10 @@ Teal is the accent. A person can pick another by setting `data-but-accent` on th
 
 Any colour works too: `<html data-but-accent="custom" style="--but-accent-color: #ee5858">`. The family takes the colour's hue and chroma at teal's lightness, a little further from the ground and with the chroma capped, so it reads wherever teal does; the build's contrast check runs it with a full-strength colour every 15° around the wheel. So the accent drawn is the tokens' take on the colour, not the colour itself: `#ee5858` comes out a deeper red. It needs relative colour syntax (Chrome 119, Safari 18, Firefox 128).
 
+### Ground
+
+Gray is the ground: the backgrounds, borders, muted text and the inverse surface are all built on its ramp. A person can pick a tinted one with `data-but-ground` on the root element, `<html data-but-ground="slate">` (or `sage`, `sand`): every step of the gray ramp then points at the same step of that ramp. Each ground has gray's luminance at every step and keeps only its tint, so every pair that reads on gray reads on it, and the contrast check runs them all with every accent. Statuses, diffs and the accent keep their own ramps, so a red line means the same on every ground. The tinted ramps are in Figma's `ramps` collection with the rest; which one the gray steps point at is the setting, in code. [How the grounds are made](#how-the-grounds-are-made) says where their tint comes from.
+
 ### Corners
 
 A person can pick sharper or rounder corners with `data-but-radius` on the root element: `<html data-but-radius="sharp">` (or `round`); without it, the corners are soft. The whole radius scale moves 4px, so a control 4px inside a popup keeps its corners concentric; a step no bigger than that, as a checkbox's, moves half its size instead, so sharp never squares it. `--but-radius-full` never changes. The role tokens follow, as they alias the steps, as long as the attribute is on the root. Figma keeps the soft scale; the other two are generated in the build.
@@ -244,7 +248,7 @@ pnpm check
 3. appends box-shadow custom properties generated from `fx.tokens.json` by [`scripts/generate-shadow-vars.mjs`](./scripts/generate-shadow-vars.mjs);
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
 5. works out what a person can pick, as data: each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue or drawn from any colour; each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder; and each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding step;
-6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's;
+6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-ground=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's;
 7. writes `tokens/tokens.json` in [`scripts/tokens-data.mjs`](./scripts/tokens-data.mjs): what each colour token comes to in light and in dark, and each length in px;
 8. writes `tokens/accent-samples.json` in [`scripts/accent-samples.mjs`](./scripts/accent-samples.mjs): the any-colour accent for 25 picks, as a browser draws it.
 
@@ -327,4 +331,24 @@ ranges like `^11.3.0` keep resolving.
 
 ## Colour ramps
 
-Each hue is a ramp of twelve steps, in light and dark, made by [`scripts/generate-ramps.mjs`](./scripts/generate-ramps.mjs) on Radix Colors' curves (through dittoTones) and nudged until text and labels read. It writes `tokens/ramps.json`, which goes into 🍑 But UI's `ramps` collection; Figma stays the source the tokens are exported from. `pnpm check` fails when `ramps.json` is older than the script.
+Each hue is a ramp of twelve steps, in light and dark, made by [`scripts/generate-ramps.mjs`](./scripts/generate-ramps.mjs) on Radix Colors' curves (through dittoTones) and nudged until text and labels read. It writes `tokens/ramps.json`, which goes into 🍑 But UI's `ramps` collection; Figma stays the source the tokens are exported from. `pnpm check` fails when `ramps.json` is older than the script, and [`scripts/check-ramps.mjs`](./scripts/check-ramps.mjs) fails when Figma's exported ramps and `ramps.json` disagree on any step, or one has a ramp the other hasn't, so an edit in Figma can't drift from the generator.
+
+### How the grounds are made
+
+A ground (Slate, Sage, Sand) is a gray with a tint, not a hue, so it's made differently from teal or red:
+
+1. **The tint comes from Radix's own tinted gray, step by step.** Radix publishes slate, sage and sand as twelve-step ramps whose tint is tapered: almost none on the backgrounds (steps 1–3) and on body text (step 12), most around the lines and marks (steps 6–9). The generator takes each step's hue and chroma from there.
+2. **The lightness comes from Gray, step by step.** Each step is moved to the luminance of the same step of Gray, by its OKLCH lightness, keeping the hue and chroma. So every pair the semantic names make reads exactly as well on a ground as on Gray, and switching ground changes the tint and nothing else.
+
+How tinted each comes out, as OKLCH chroma (0 is gray):
+
+| Light mode                     | Step 1, the page | Step 3, the canvas | Step 9, marks | Step 12, text |
+| ------------------------------ | ---------------- | ------------------ | ------------- | ------------- |
+| Slate                          | 0.000            | 0.003              | 0.016         | 0.009         |
+| Sage                           | 0.002            | 0.003              | 0.010         | 0.012         |
+| Sand                           | 0.001            | 0.002              | 0.010         | 0.008         |
+| Tailwind stone, for comparison | 0.001            | 0.003              | 0.012         | 0.006         |
+
+**Don't build a ground from one seed colour**, as the hues are. A ramp grown from a seed carries the seed's tint at about the same strength into every step: right for an accent, which should stay blue from light to dark, but on a ground it puts the marks' tint on the page, which then reads cream rather than gray. The first version did that, and its backgrounds were 3–10 times as tinted as Radix's. Judge a ground by its tint at each step, steps 1–3 and 12 above all, not by its strongest step.
+
+To add one, add Radix's ramp name to `HUES` with `ground`, run the generator, put the new steps into Figma's `ramps` collection, export, and add it to `GROUNDS` in [`scripts/generate-grounds.mjs`](./scripts/generate-grounds.mjs). `check-ramps` fails until Figma has it, and `check-contrast` runs it with every accent.

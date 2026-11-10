@@ -113,6 +113,40 @@ export function pickAccent(accent: Accent) {
 	}
 }
 
+/** The ground: gray, Figma's, or one of the tinted grays, at gray's lightness step for step. */
+export type Ground = "gray" | "slate" | "sage" | "sand";
+
+/** `value` as a ground; else gray. */
+export const groundOf = (value: string | null | undefined): Ground =>
+	value === "slate" || value === "sage" || value === "sand" ? value : "gray";
+
+/** The ground is the root's `data-but-ground`, which the tokens follow; without it, gray. */
+export const paintGround = (ground: Ground, root = document.documentElement) => {
+	if (ground === "gray") delete root.dataset["butGround"];
+	else root.dataset["butGround"] = ground;
+};
+
+const groundKey = "ui-react-docs-ground";
+
+/** The ground last picked here, else gray. */
+export function savedGround(): Ground {
+	try {
+		return groundOf(window.localStorage.getItem(groundKey));
+	} catch {
+		// Storage can be off; gray stands in.
+		return "gray";
+	}
+}
+
+export function pickGround(ground: Ground) {
+	paintGround(ground);
+	try {
+		window.localStorage.setItem(groundKey, ground);
+	} catch {
+		// Kept for this visit only.
+	}
+}
+
 /** The corners: soft, Figma's, or the whole scale 4px sharper or rounder. */
 export type Radius = "sharp" | "soft" | "round";
 
