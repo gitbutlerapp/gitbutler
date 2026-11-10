@@ -2,6 +2,7 @@
 
 use bstr::ByteSlice;
 
+use super::util::{find_branch, status_json};
 use crate::utils::Sandbox;
 
 fn read(env: &Sandbox, path: &str) -> Vec<u8> {
@@ -56,5 +57,37 @@ fn pull_writes_filtered_files_in_worktree_form() {
         env.git_status(),
         "",
         "the smudged files match the updated workspace"
+    );
+}
+
+/// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
+/// `file.txt`, then enter edit mode on it with `but resolve`.
+fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-with-filtered-files",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    let status = status_json(&env);
+    let commit = find_branch(&status, "A")["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|commit| commit["conflicted"].as_bool() == Some(true))
+        .and_then(|commit| commit["cliId"].as_str())
+        .expect("pulling conflicts A's commit")
+        .to_owned();
+    env.but(format!("resolve {commit}")).assert().success();
+    env
+}
+
+#[test]
+fn resolve_writes_filtered_files_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file();
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "changed on A\n",
+        "the commit's change to the filtered file is written smudged"
     );
 }

@@ -94,6 +94,49 @@ pub fn safe_checkout_from_head(
     })
 }
 
+/// Make the worktree and `.git/index` of `repo` match `tree`, discarding uncommitted changes and
+/// untracked files, like `git checkout --force` followed by `git clean`. Ignored files that `tree`
+/// doesn't replace are kept. `HEAD` doesn't change.
+///
+/// `conflicts`, if set, is the merge that produced `tree`. Its unresolved conflicts become index
+/// stages, and the worktree gets what `tree` holds at those paths.
+///
+/// Files are written through the repository's worktree filters. Nothing changes if a filter
+/// fails, if a file changes while this runs, or if `.git/index` is locked.
+#[instrument(skip(repo, conflicts), err(Debug))]
+pub fn overwrite_worktree(
+    repo: &gix::Repository,
+    tree: gix::ObjectId,
+    conflicts: Option<&gix::merge::tree::Outcome<'_>>,
+) -> anyhow::Result<()> {
+    let mut index = write::LockedIndex::acquire(repo)?;
+    #[allow(deprecated)]
+    let baseline = repo.create_wd_tree(u64::MAX)?;
+    index.entries = index_keeping_stat(repo, tree, &index.entries)?;
+    let trees = write::Trees::new(repo, tree, tree, [baseline, tree])?;
+    write::write_to_worktree(repo, trees, conflicts, index)
+}
+
+/// An index of `tree`, with the stat of each entry `previous` has with the same id and mode, so
+/// files that keep their content aren't hashed or filtered again on the next status.
+fn index_keeping_stat(
+    repo: &gix::Repository,
+    tree: gix::ObjectId,
+    previous: &gix::index::File,
+) -> anyhow::Result<gix::index::File> {
+    let mut index = repo.index_from_tree(&tree)?;
+    let (entries, path_backing) = index.entries_mut_and_pathbacking();
+    for entry in entries {
+        if let Some(old) = previous.entry_by_path(entry.path_in(path_backing))
+            && old.id == entry.id
+            && old.mode == entry.mode
+        {
+            entry.stat = old.stat;
+        }
+    }
+    Ok(index)
+}
+
 /// Merge the worktree into the change from `old_tree` to `new_tree`, and write the result to the
 /// worktree and `index`. Return `true` if conflicts were written, which `allow_conflicts` permits.
 fn write_merged_worktree(
