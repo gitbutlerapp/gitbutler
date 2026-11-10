@@ -1,6 +1,6 @@
 .control {
 	--segment-height: var(--but-size-control);
-	--segment-padding-inline: 10px;
+	--segment-padding-inline: calc(10px + var(--but-density-padding));
 	--segment-gap: 6px;
 	--segment-icon-size: 16px;
 
@@ -46,7 +46,7 @@
 	/* 4px over the small control, between it and the regular one (24 at the default density): a
 	   count's badge needs room around it. */
 	--segment-height: calc(var(--but-size-control-sm) + 4px);
-	--segment-padding-inline: 8px;
+	--segment-padding-inline: calc(8px + var(--but-density-padding));
 	--segment-gap: 4px;
 	--segment-icon-size: 14px;
 }

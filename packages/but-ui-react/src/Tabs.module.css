@@ -1,6 +1,6 @@
 .list {
 	/* The tab's inset, which the underline keeps too, so it runs under the tab's content. */
-	--tab-padding-inline: 8px;
+	--tab-padding-inline: calc(8px + var(--but-density-padding));
 
 	display: flex;
 	position: relative;

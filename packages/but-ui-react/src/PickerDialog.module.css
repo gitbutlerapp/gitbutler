@@ -45,7 +45,7 @@
 	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
 	   2px the design gives them. */
 	margin-inline: var(--but-padding-menu);
-	padding-inline: 8px;
+	padding-inline: calc(8px + var(--but-density-padding));
 	gap: 8px;
 	border-radius: var(--but-radius-control);
 	outline: 0;
@@ -93,7 +93,7 @@
 	align-items: center;
 	justify-content: space-between;
 	height: var(--but-size-bar);
-	padding-inline: 12px;
+	padding-inline: calc(12px + var(--but-density-padding));
 	gap: 12px;
 	border-top: 1px solid var(--but-border-subtle);
 	background-color: var(--but-muted);

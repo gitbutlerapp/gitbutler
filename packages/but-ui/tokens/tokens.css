@@ -547,13 +547,18 @@
   --but-radius-xs: 0.1875rem;
 }
 
-/* The density, set with data-but-density on the root element; Figma's without it. */
+/* The density, set with data-but-density on the root element; Figma's without it. density-padding is how far it moves a control's side padding, nothing at Figma's. */
+:root {
+  --but-density-padding: 0rem;
+}
+
 :root[data-but-density="compact"] {
   --but-size-control-sm: 1.125rem;
   --but-size-control: 1.5rem;
   --but-size-bar: 2rem;
   --but-size-row: 2.25rem;
   --but-size-header: 2.5rem;
+  --but-density-padding: -0.125rem;
 }
 
 :root[data-but-density="spacious"] {
@@ -562,4 +567,5 @@
   --but-size-bar: 2.5rem;
   --but-size-row: 2.75rem;
   --but-size-header: 3rem;
+  --but-density-padding: 0.125rem;
 }
