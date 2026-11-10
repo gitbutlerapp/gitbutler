@@ -12,7 +12,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
+use but_oxidize::gix_to_git2_index;
 use but_rebase::graph_rebase::{Editor, Pick};
 use git2::build::CheckoutBuilder;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
@@ -326,23 +326,28 @@ pub(crate) fn abort_and_return_to_workspace(
         );
     }
 
-    #[expect(deprecated, reason = "checkout/materialization boundary")]
-    let repo = &*ctx.git2_repo.get()?;
-
-    repo.set_head(WORKSPACE_BRANCH_REF)
-        .context("Failed to set head reference")?;
-
-    let uncommited_changes = get_uncommitted_changes(&*ctx.repo.get()?)?;
-    let uncommited_changes = repo.find_tree(uncommited_changes.to_git2())?;
-
-    repo.checkout_tree(
-        uncommited_changes.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
-
-    cleanup_edit_mode(ctx, &*ctx.repo.get()?)?;
+    let repo = &*ctx.repo.get()?;
+    let uncommited_changes = get_uncommitted_changes(repo)?;
+    but_core::worktree::overwrite_worktree(repo, uncommited_changes, None)?;
+    return_head_to_workspace(repo, "abort edit mode")?;
+    cleanup_edit_mode(ctx, repo)?;
 
     Ok(())
+}
+
+/// Point `HEAD` at the workspace branch again, and make the index match it, so the worktree's
+/// differences to the workspace show as uncommitted changes.
+fn return_head_to_workspace(repo: &gix::Repository, reason: &str) -> Result<()> {
+    update_head_reference(
+        repo,
+        gix::refs::Target::Symbolic(WORKSPACE_BRANCH_REF.try_into()?),
+        false,
+        reason,
+        WORKSPACE_BRANCH_REF.into(),
+        0,
+    )
+    .context("Failed to set head reference")?;
+    but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())
 }
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {

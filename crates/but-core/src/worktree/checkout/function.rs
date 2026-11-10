@@ -117,6 +117,14 @@ pub fn overwrite_worktree(
     write::write_to_worktree(repo, trees, conflicts, index)
 }
 
+/// Make `.git/index` of `repo` match `tree` without touching the worktree, keeping the stat of
+/// entries whose content doesn't change. Conflict stages and staged changes are dropped.
+pub fn reset_index(repo: &gix::Repository, tree: gix::ObjectId) -> anyhow::Result<()> {
+    let mut index = write::LockedIndex::acquire(repo)?;
+    index.entries = index_keeping_stat(repo, tree, &index.entries)?;
+    index.write()
+}
+
 /// An index of `tree`, with the stat of each entry `previous` has with the same id and mode, so
 /// files that keep their content aren't hashed or filtered again on the next status.
 fn index_keeping_stat(
