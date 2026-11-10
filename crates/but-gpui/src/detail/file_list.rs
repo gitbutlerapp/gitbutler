@@ -1364,7 +1364,7 @@ impl Detail {
             .w_full()
             .max_h_full()
             .min_h_0()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_2)
             .bg(theme.bg_1)
@@ -1703,7 +1703,7 @@ impl Detail {
             .flatten();
         let mut row = file_row(("file", ix), current || picked, solid, theme)
             .when_some(blink, |el, n| {
-                let shape = div().absolute().inset_0().rounded(dp(4.));
+                let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative()
                     .child(blink_once(("blink", n), shape, theme.pop))
             })

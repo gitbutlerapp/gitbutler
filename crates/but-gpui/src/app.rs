@@ -35,9 +35,9 @@ use crate::transfer::{
 };
 use crate::ui::fold::{OnTop, Slide, edge, inert, on_top};
 use crate::ui::{
-    Button, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, TILE_BAR, TILE_MARGIN, commit_title,
-    dp, fixed, gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane,
-    small_icon, tile_card, tile_content, v_flex,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, TILE_BAR, TILE_MARGIN, commit_title, dp, fixed,
+    gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane, small_icon,
+    tile_card, tile_content, v_flex,
 };
 use crate::{clipboard, clock};
 
@@ -2779,7 +2779,7 @@ impl AppView {
                 .items_center()
                 .justify_center()
                 .size(dp(72.))
-                .rounded(dp(8.))
+                .rounded(dp(theme.shape.popup))
                 .bg(theme.pop)
                 .text_size(dp(36.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -2800,10 +2800,10 @@ impl AppView {
     /// keys', in pop, else the tile with the keys'.
     fn tile_edge(&self, tile: &Tile, window: &Window, theme: &Theme, cx: &App) -> Option<Div> {
         match self.arranging.as_ref() {
-            Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop)),
+            Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop, theme.shape)),
             Some(_) => None,
             None => (self.has_keys(tile, window, cx) || self.overview_points_at(tile, window, cx))
-                .then(|| card_edge(theme.focus_edge())),
+                .then(|| card_edge(theme.focus_edge(), theme.shape)),
         }
     }
 
@@ -3025,7 +3025,7 @@ impl AppView {
                 let label = div()
                     .px(dp(6.))
                     .py(dp(2.))
-                    .rounded(dp(4.))
+                    .rounded(dp(theme.shape.control))
                     .bg(theme.bg_1)
                     .border_1()
                     .border_color(color(ix))
@@ -3059,7 +3059,7 @@ impl AppView {
             let label = div()
                 .px(dp(6.))
                 .py(dp(2.))
-                .rounded(dp(4.))
+                .rounded(dp(theme.shape.control))
                 .bg(theme.bg_1)
                 .border_1()
                 .border_color(color)
@@ -4415,7 +4415,7 @@ impl AppView {
     /// a drag let go elsewhere or stopped with Escape.
     fn paste_outline(&self, theme: &Theme) -> Div {
         let (store, color) = (self.store.clone(), theme.pop);
-        card_edge(gpui::transparent_black())
+        card_edge(gpui::transparent_black(), theme.shape)
             .drag_over::<Dragged>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ProjectDrag>(move |style, _, _, _| style.border_1().border_color(color))
             .drag_over::<ExternalPaths>(move |style, _, _, _| style.border_1().border_color(color))
@@ -4608,6 +4608,7 @@ impl AppView {
     /// The navigator out over the detail: a card sliding in from past the window's edge,
     /// shadow and all, keeping its width as it goes.
     fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
+        let theme = Theme::get(cx);
         let width = self.detail.read(cx).navigator_width(now, window, cx);
         let away = PEEK_INSET + width + PEEK_SHADOW;
         let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
@@ -4622,7 +4623,7 @@ impl AppView {
             .bottom(dp(PEEK_INSET))
             .left(dp(left))
             .w(dp(width))
-            .rounded(dp(POPOVER_RADIUS))
+            .rounded(dp(theme.shape.popup))
             .shadow_lg()
             // Over the detail, taking the pointer from it.
             .occlude()
@@ -4640,9 +4641,9 @@ fn terminal_of(tile: &Tile) -> Option<(&ProjectId, TerminalId)> {
 
 /// A line over the edge of a tile's card, in `color`: the tile with the keys', in gray, or one
 /// a drag would paste into or the keys are moving, in pop.
-fn card_edge(color: gpui::Hsla) -> Div {
+fn card_edge(color: gpui::Hsla, shape: crate::theme::Shape) -> Div {
     crate::ui::inset_by(div(), TILE_MARGIN)
-        .rounded(dp(6.))
+        .rounded(dp(shape.card))
         .border_1()
         .border_color(color)
 }

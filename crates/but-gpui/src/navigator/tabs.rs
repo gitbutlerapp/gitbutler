@@ -36,9 +36,7 @@ use crate::state::{NavigatorPlace, ProjectId, Selection, Store, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::{Dragged, Moving, Op, ProjectDrag, Slot};
 use crate::ui::fold::{FOLD, Glide, Reorder, Slide, inert};
-use crate::ui::{
-    HEADER_HEIGHT, Icon, POPOVER_RADIUS, above_drag, dp, fixed, h_flex, icon, popover, v_flex,
-};
+use crate::ui::{HEADER_HEIGHT, Icon, above_drag, dp, fixed, h_flex, icon, popover, v_flex};
 
 /// How tall a tab's ground is, and how far down the strip it starts.
 const TAB_HEIGHT: f32 = 28.;
@@ -1388,7 +1386,7 @@ impl NavigatorTabs {
         let card_left = tab_left
             .min(room - CARD_WIDTH - CARD_MARGIN)
             .max(CARD_MARGIN);
-        let corner = |past: f32| past.abs().min(POPOVER_RADIUS);
+        let corner = |past: f32| past.abs().min(theme.shape.popup);
         let left_corner = corner(tab_left - card_left);
         let right_corner = corner(card_left + CARD_WIDTH - tab_left - width);
         let closing = !card.open;
@@ -1531,7 +1529,7 @@ impl NavigatorTabs {
                     .left(dp(CARD_SHADOW))
                     .w(dp(CARD_WIDTH))
                     .h(dp(drop_height))
-                    .rounded(dp(POPOVER_RADIUS))
+                    .rounded(dp(theme.shape.popup))
                     .shadow_lg(),
             );
         // The card's top edge is open where the tab comes down into it.
@@ -1844,7 +1842,7 @@ impl NavigatorTabs {
             .h(dp(TAB_HEIGHT - 2. * SELECTION_INSET))
             .left(dp(left))
             .w(dp((width - 2. * SELECTION_INSET).max(0.)))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .overflow_hidden()
             .bg(match solid {
                 true => theme.fill_gray,
@@ -1963,7 +1961,7 @@ impl Render for NavigatorTabs {
                 .h(dp(TAB_HEIGHT + 2. * OUTLINE))
                 .left(dp(left))
                 .w(dp(width))
-                .rounded(dp(8.))
+                .rounded(dp(theme.shape.popup))
                 .bg(theme.hover())
                 .opacity(opened.share);
             match is_held(Some(&opened.id)) {
@@ -1978,7 +1976,7 @@ impl Render for NavigatorTabs {
                 .h(dp(TAB_HEIGHT))
                 .left(dp(left))
                 .w(dp(width))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 .bg(theme.bg_1)
                 .border_1()
                 .border_color(theme.border_2)
@@ -1990,7 +1988,7 @@ impl Render for NavigatorTabs {
                 .h(dp(HEADER_HEIGHT - TAB_TOP))
                 .left(dp(card.left))
                 .w(dp(card.width))
-                .rounded_t(dp(6.))
+                .rounded_t(dp(theme.shape.card))
                 .bg(theme.bg_1)
                 .border_t_1()
                 .border_l_1()
@@ -2016,7 +2014,7 @@ impl Render for NavigatorTabs {
                         .h(dp(TAB_HEIGHT + 2. * OUTLINE))
                         .left(dp(tab.left - OUTLINE + self.slid(key)))
                         .w(dp(right - tab.left + 2. * OUTLINE))
-                        .rounded(dp(8.))
+                        .rounded(dp(theme.shape.popup))
                 };
                 (
                     edges().bg(theme.bg_2),

@@ -676,7 +676,7 @@ impl Detail {
                 .id("messages")
                 .gap(dp(16.))
                 .p(dp(16.))
-                .rounded(dp(8.))
+                .rounded(dp(theme.shape.popup))
                 .border_1()
                 .border_color(theme.border_2)
                 .child(top)
@@ -972,7 +972,7 @@ impl Detail {
             .role(Role::Link)
             .mx(dp(-4.))
             .px(dp(4.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .hover(move |el| el.bg(hover))
             .child(label.into())
     }
@@ -1483,7 +1483,7 @@ pub(super) fn editable_title(
         .aria_label(tip)
         .mx(dp(-4.))
         .px(dp(4.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .hover(move |el| el.bg(hover))
         .tooltip(Tooltip::keyed(tip, key))
 }
@@ -1630,7 +1630,7 @@ fn day_strip(days: &[u32], most: u32, today: i64, theme: &Theme) -> Div {
             .left(gpui::relative(ix as f32 / count))
             .right(gpui::relative((count - 1. - ix as f32) / count))
             .mx(dp(1.))
-            .rounded(dp(2.))
+            .rounded(dp(theme.shape.xs))
             .bg(match n {
                 0 => theme.border_3.opacity(0.6),
                 _ => theme.pop.opacity(0.3 + 0.7 * shade),
@@ -2044,7 +2044,7 @@ impl Detail {
             .gap(dp(2.))
             .border_1()
             .border_color(theme.border_3)
-            .rounded(dp(8.))
+            .rounded(dp(theme.shape.popup))
             .track_focus(&self.people_focus)
             .on_action(cx.listener({
                 let step = step.clone();
@@ -2161,7 +2161,7 @@ pub(super) fn overview_split(
                             .h_full()
                             .flex_grow(*n as f32)
                             .flex_basis(Pixels::ZERO)
-                            .rounded(dp(2.))
+                            .rounded(dp(theme.shape.xs))
                             .bg(*fill)
                     })),
             )
@@ -2206,7 +2206,7 @@ pub(super) fn keyed_tiles(
                         .gap(dp(2.))
                         .border_1()
                         .border_color(theme.border_3)
-                        .rounded(dp(8.))
+                        .rounded(dp(theme.shape.popup))
                         .tooltip(Tooltip::text(tip))
                         .child(
                             h_flex()
@@ -2257,10 +2257,10 @@ pub(super) fn share_row(
     side_row(id, picked, solid, theme)
         .child(label)
         .child(
-            bar.h(dp(6.)).rounded(dp(3.)).bg(track).child(
+            bar.h(dp(6.)).rounded(dp(theme.shape.xs)).bg(track).child(
                 div()
                     .h_full()
-                    .rounded(dp(3.))
+                    .rounded(dp(theme.shape.xs))
                     .w(gpui::relative(share))
                     .bg(fill),
             ),
@@ -2420,10 +2420,10 @@ fn person_row(
                         .child(quiet(faint(n.to_string(), theme), on, theme)),
                 )
                 .child(
-                    div().h(dp(4.)).rounded(dp(2.)).bg(track).child(
+                    div().h(dp(4.)).rounded(dp(theme.shape.xs)).bg(track).child(
                         div()
                             .h_full()
-                            .rounded(dp(2.))
+                            .rounded(dp(theme.shape.xs))
                             .w(gpui::relative(n as f32 / most.max(1) as f32))
                             .bg(bar),
                     ),

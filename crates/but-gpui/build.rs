@@ -43,8 +43,9 @@ fn main() {
     windows_exe(Path::new(&out));
 }
 
-/// Write but-ui's colour tokens as constants, from the data its build resolves them to: each
-/// `[light, dark]` as `0xRRGGBBAA`, named as the token is, `primary-text` as `PRIMARY_TEXT`.
+/// Write but-ui's tokens as constants, from the data its build resolves them to: each colour
+/// `[light, dark]` as `0xRRGGBBAA`, named as the token is, `primary-text` as `PRIMARY_TEXT`, and
+/// each length in px.
 /// A token the theme reads that but-ui drops then fails the build.
 fn color_tokens(out: &Path) {
     let path = Path::new("../../packages/but-ui/tokens/tokens.json");
@@ -63,8 +64,24 @@ fn color_tokens(out: &Path) {
             format!("pub const {name}: [u32; 2] = [{light:#010x}, {dark:#010x}];\n")
         })
         .collect::<String>()
+        + &lengths(&data)
         + &accents(&data);
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
+}
+
+/// but-ui's lengths, in px as designed, named as the token is: `radius-card` as `RADIUS_CARD`.
+fn lengths(tokens: &serde_json::Value) -> String {
+    (tokens["lengths"].as_object())
+        .expect("tokens.json has lengths")
+        .iter()
+        .map(|(token, px)| {
+            let name = token.to_uppercase().replace('-', "_");
+            let px = px
+                .as_f64()
+                .unwrap_or_else(|| panic!("{token} is a number of px")) as f32;
+            format!("pub const {name}: f32 = {px:?};\n")
+        })
+        .collect()
 }
 
 /// The accents a person can pick, from but-ui's settings: each named one's primary family as

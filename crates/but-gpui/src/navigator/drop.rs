@@ -246,7 +246,7 @@ impl Navigator {
             .mx(dp(3.))
             .justify_center()
             .gap(dp(6.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .border_1()
             .border_dashed()
             .border_color(theme.border_2)

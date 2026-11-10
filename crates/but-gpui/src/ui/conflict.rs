@@ -267,7 +267,7 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
 fn strip(layout: &Layout, last: bool, theme: &Theme) -> gpui::Div {
     let numbers = digit_width(theme) * (layout.digits.max(3) + 3) as f32;
     card(h_flex(), layout.flat, theme)
-        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
+        .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .pl(dp(numbers.round() + 8.))
         .pr(dp(8.))
         .gap(dp(6.))
@@ -531,7 +531,9 @@ fn plain(text: &str) -> DiffLine {
 fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
     let (done, cancel) = (row.actions.done.clone(), row.actions.cancel.clone());
     card(v_flex(), row.layout.flat, theme)
-        .when(row.last, |el| el.border_b_1().rounded_b(dp(6.)))
+        .when(row.last, |el| {
+            el.border_b_1().rounded_b(dp(theme.shape.card))
+        })
         // Clicks in it stay off the diff, which would take the keys back to its shortcuts.
         .occlude()
         .p(dp(8.))
@@ -539,7 +541,7 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
         .child(
             field(&input, row.focused, theme)
                 .p(dp(6.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 .font_family(theme.diff_font.clone())
                 .font_features(theme.diff_features.clone())
                 .text_size(dp(theme.code_text))

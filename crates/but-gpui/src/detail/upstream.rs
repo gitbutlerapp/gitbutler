@@ -1035,7 +1035,7 @@ impl Detail {
                     v_flex()
                         .w(dp(260.))
                         .py(dp(4.))
-                        .rounded(dp(8.))
+                        .rounded(dp(theme.shape.popup))
                         .border_1()
                         .border_color(theme.border_3)
                         .text_left()
@@ -1646,7 +1646,7 @@ impl Detail {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .hover(|el| el.bg(theme.hover()))
             .text_size(dp(16.))
             .child(mark)
@@ -1841,7 +1841,7 @@ impl Detail {
                 .mt(dp(4.))
                 .gap(dp(8.))
                 .p(dp(8.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 .bg(ground)
         };
         // Where it is and when it fetched head its page; here, what needs doing, if anything.

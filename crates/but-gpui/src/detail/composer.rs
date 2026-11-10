@@ -1744,7 +1744,7 @@ impl Detail {
             .h(dp(22.))
             .px(dp(8.))
             .gap(dp(4.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .bg(theme.fill_gray.opacity(0.08))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)

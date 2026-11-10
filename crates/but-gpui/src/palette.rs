@@ -38,8 +38,8 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Icon, POPOVER_RADIUS, commit_title, dp, h_flex, keycap, list_row, matched, muted, popover,
-    shortcut_here, small_icon, tab_after, tab_stop, v_flex,
+    Icon, commit_title, dp, h_flex, keycap, list_row, matched, muted, popover, shortcut_here,
+    small_icon, tab_after, tab_stop, v_flex,
 };
 
 actions!(
@@ -2109,7 +2109,7 @@ impl AppView {
                     .bg(theme.bg_2)
                     // Its ground fills the card's bottom corners, which it rounds as the card
                     // does, inside its border.
-                    .rounded_b(dp(POPOVER_RADIUS - 1.))
+                    .rounded_b(dp(theme.shape.popup - 1.))
                     .text_size(dp(12.))
                     .text_color(theme.text_2)
                     .children(

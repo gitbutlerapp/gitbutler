@@ -23,7 +23,7 @@ fn chip(words: &str, color: Hsla, theme: &Theme) -> Div {
     div()
         .flex_none()
         .px(dp(5.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(color.opacity(0.5))
         .text_size(dp(11.))
@@ -94,7 +94,7 @@ impl Detail {
                     .then(|| chip("differs from the branch now", theme.warn, theme)),
             );
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(match code.source {
                 CodeSource::Proposal => theme.warn.opacity(0.6),
@@ -171,7 +171,7 @@ impl Detail {
     ) -> AnyElement {
         let theme = Theme::get(cx);
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_3)
             .overflow_hidden()

@@ -653,7 +653,7 @@ impl CommandEditor {
             .w(dp(190.))
             .h(dp(30.))
             .pr(dp(3.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .border_1()
             .border_color(if finding { theme.pop } else { theme.border_2 })
             .bg(theme.bg_1)
@@ -1015,7 +1015,7 @@ impl CommandEditor {
             .h(dp(28.))
             .px(dp(3.))
             .gap(dp(4.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .border_1()
             .border_color(match conflicted {
                 true => theme.warn,
@@ -1249,7 +1249,7 @@ fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use
         .flex_none()
         .h(dp(28.))
         .px(dp(6.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.pop)
         .text_size(dp(SMALL_TEXT))

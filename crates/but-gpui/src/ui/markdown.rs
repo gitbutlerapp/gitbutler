@@ -1192,7 +1192,7 @@ fn element(
         Kind::Code => div()
             .px(dp(10.))
             .py(dp(8.))
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .bg(theme.fill_gray.opacity(0.08))
             .text_size(dp(12.))
             .line_height(dp(18.))

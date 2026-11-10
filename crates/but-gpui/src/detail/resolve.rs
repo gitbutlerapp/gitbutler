@@ -968,7 +968,7 @@ pub(super) fn warn_banner(
         .pl(dp(10.))
         .pr(dp(8.))
         .py(dp(6.))
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         .bg(theme.warn.opacity(0.1))
         .text_color(theme.warn)
         .tooltip(Tooltip::text(detail))

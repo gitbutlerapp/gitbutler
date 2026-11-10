@@ -904,7 +904,7 @@ impl AppView {
             .h_auto()
             .p(dp(16.))
             .gap(dp(12.))
-            .rounded(dp(10.))
+            .rounded(dp(theme.shape.popup))
             .child(
                 v_flex()
                     .gap(dp(2.))
@@ -1129,7 +1129,7 @@ impl AppView {
             .items_center()
             .justify_center()
             .size(dp(32.))
-            .rounded(dp(8.))
+            .rounded(dp(theme.shape.popup))
             .bg(theme.pop.opacity(0.12))
             .child(icon(Icon::ArrowInBox).text_color(theme.pop));
         Some(

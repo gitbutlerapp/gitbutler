@@ -682,7 +682,7 @@ fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
         .gap(dp(6.))
         .px(dp(6.))
         .h(dp(22.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .hover(|el| el.bg(theme.hover()))
 }
 

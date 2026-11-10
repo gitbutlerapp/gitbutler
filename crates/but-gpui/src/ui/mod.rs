@@ -430,14 +430,14 @@ pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Di
     h_flex()
         .flex_none()
         .h(dp(28.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(line)
         .children(toggles.into_iter().enumerate().map(|(ix, toggle)| {
             // Rounded inside the border, so a pressed one's ground keeps to it.
             toggle
-                .when(ix == 0, |el| el.rounded_l(dp(3.)))
-                .when(ix == last, |el| el.rounded_r(dp(3.)))
+                .when(ix == 0, |el| el.rounded_l(dp(theme.shape.xs)))
+                .when(ix == last, |el| el.rounded_r(dp(theme.shape.xs)))
                 .when(ix > 0, |el| el.border_l_1().border_color(line))
         }))
 }
@@ -489,7 +489,7 @@ pub fn segmented(
     h_flex()
         .flex_none()
         .h(dp(if small { 24. } else { 28. }))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .bg(theme.bg_2)
         .text_size(dp(if small { 12. } else { 13. }))
         .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -510,7 +510,7 @@ pub fn segmented(
                     let segment = tab_stop(segment, theme).role(Role::Button);
                     let segment = (segment.h_full().flex().items_center())
                         .px(dp(if small { 7. } else { 9. }))
-                        .rounded(dp(4.))
+                        .rounded(dp(theme.shape.control))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
                         .text_color(text.opacity(if on { 0.9 } else { 0.7 }))
@@ -550,7 +550,7 @@ pub fn tile_card(theme: &Theme) -> Div {
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_3)
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
 }
 
 /// Where a tile's content goes in its area: inside its card, and cut to it, as a header wider
@@ -738,11 +738,12 @@ pub fn fold_button<V: 'static>(
     toggle: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
 ) -> Stateful<Div> {
     let id = id.into();
+    let theme = Theme::get(cx);
     let el = div().id(id.clone()).child(fold_glyph(id, open, color));
     match open {
         None => el,
         Some(_) => el
-            .rounded(dp(3.))
+            .rounded(dp(theme.shape.xs))
             .hover(|el| el.bg(Theme::get(cx).hover()))
             .on_mouse_down(MouseButton::Left, press_in_pane(pane))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -789,7 +790,7 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .mx(dp(6.))
         .px(dp(8.))
         .gap(dp(8.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .when(selected, |el| el.bg(theme.selected_unfocused()))
         .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
 }
@@ -978,7 +979,7 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .aria_toggled(check)
         .flex_none()
         .size(dp(14.))
-        .rounded(dp(3.))
+        .rounded(dp(theme.shape.xs))
         .border_1()
         .border_color(if on { theme.pop_bg } else { theme.border_2 })
         .when(on, |el| el.bg(theme.pop_bg))
@@ -1009,7 +1010,7 @@ pub fn dropdown(
         .pl(dp(10.))
         .pr(dp(6.))
         .gap(dp(6.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.border_2)
         .text_size(dp(13.))
@@ -1030,7 +1031,7 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         })
         .px(dp(8.))
         .py(dp(5.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(if focused {
             theme.focus_border()
@@ -1042,10 +1043,6 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .child(input.clone())
 }
 
-/// How round a popover's corners are.
-pub const POPOVER_RADIUS: f32 = 8.;
-
-/// The card that menus, dialogs, toasts and tooltips float on.
 /// A snackbar: a sentence on the inverse ground, led by a warning glyph when it went but not
 /// quite as asked, with at most one button, `action`, behind a line: Undo, from
 /// [`snackbar_undo`]. Figma's has a close button instead for one that waits to be dismissed, never
@@ -1067,7 +1064,7 @@ pub fn snackbar(
         .pl(dp(if warning { 9. } else { 13. }))
         .pr(dp(if action.is_some() { 5. } else { 13. }))
         .gap(dp(8.))
-        .rounded(dp(8.))
+        .rounded(dp(theme.shape.popup))
         .border_1()
         .border_color(theme.snackbar_border)
         .bg(theme.snackbar_bg)
@@ -1098,7 +1095,7 @@ pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
         .h(dp(20.))
         .px(dp(6.))
         .gap(dp(4.))
-        .rounded(dp(4.))
+        .rounded(dp(theme.shape.control))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .hover(|el| el.bg(theme.snackbar_hover))
         .child(snackbar_icon(Icon::Undo).text_color(theme.snackbar_text))
@@ -1110,9 +1107,10 @@ fn snackbar_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(dp(14.)).flex_none()
 }
 
+/// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
-        .rounded(dp(POPOVER_RADIUS))
+        .rounded(dp(theme.shape.popup))
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_2)
@@ -1375,9 +1373,9 @@ impl RenderOnce for Button {
             // The halves meet square, split by a seam: an outline's border, or a faint rule
             // across a fill.
             .map(|el| match self.half {
-                None => el.rounded(dp(4.)),
-                Some(Half::Action) => el.rounded_l(dp(4.)).border_r_0(),
-                Some(Half::Menu) => (el.rounded_r(dp(4.)).border_l_1())
+                None => el.rounded(dp(theme.shape.control)),
+                Some(Half::Action) => el.rounded_l(dp(theme.shape.control)).border_r_0(),
+                Some(Half::Menu) => (el.rounded_r(dp(theme.shape.control)).border_l_1())
                     .border_color(border.unwrap_or(fg.opacity(0.3))),
             })
             .when(self.disabled.is_none(), |el| {
@@ -1524,7 +1522,7 @@ impl Render for Tooltip {
             .items_center()
             .mt(dp(4.))
             .max_w(dp(240.))
-            .rounded(dp(4.))
+            .rounded(dp(theme.shape.control))
             .px(dp(8.))
             .py(dp(6.))
             .text_size(dp(12.))
@@ -1699,7 +1697,7 @@ fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Di
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(dp(3.))
+                .rounded(dp(theme.shape.xs))
                 .bg(theme.fill_gray.opacity(0.05))
                 .border_1()
                 .border_color(theme.text_1.opacity(0.16))
@@ -1856,11 +1854,15 @@ pub fn spinning(color: Hsla, turning: bool) -> impl IntoElement {
 pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
     use gpui::{Animation, AnimationExt as _};
     let wash = theme.pop;
-    div().absolute().inset_0().rounded(dp(4.)).with_animation(
-        id,
-        Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
-        move |el, delta| el.bg(wash.opacity(0.08 * (1. - delta))),
-    )
+    div()
+        .absolute()
+        .inset_0()
+        .rounded(dp(theme.shape.control))
+        .with_animation(
+            id,
+            Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
+            move |el, delta| el.bg(wash.opacity(0.08 * (1. - delta))),
+        )
 }
 
 /// How long a row blinks once: see [`blink_once`].

@@ -223,7 +223,7 @@ impl Detail {
                             .child(format!("{name}{lines}")),
                     ),
             )
-            .children(state.map(|label| tag(theme.text_2).child(label)))
+            .children(state.map(|label| tag(theme.text_2, theme.shape).child(label)))
             .when(!open, |el| {
                 el.child(
                     div()
@@ -245,7 +245,7 @@ impl Detail {
             }));
         let fold = PageFold::Thread(thread.id.clone());
         v_flex()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_3)
             .bg(theme.bg_2)
@@ -312,8 +312,10 @@ fn header(note: &Note, verdict: Option<Verdict>, compact: bool, theme: &Theme) -
         .min_h(dp(20.))
         .gap(dp(6.))
         .children(author)
-        .when(note.bot, |el| el.child(tag(theme.text_2).child("Agent")))
-        .children(verdict.map(|(label, color)| tag(color).child(label)))
+        .when(note.bot, |el| {
+            el.child(tag(theme.text_2, theme.shape).child("Agent"))
+        })
+        .children(verdict.map(|(label, color)| tag(color, theme.shape).child(label)))
         .child(div().flex_grow(1.))
         .children(note.at.map(|at| opens(note, at, compact, theme)))
 }

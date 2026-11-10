@@ -635,8 +635,8 @@ pub fn file_header(
         .border_b_1()
         .when(titled, |el| el.border_color(theme.border_3))
         .when(!decor.flat, |el| {
-            el.rounded_t(dp(6.))
-                .when(decor.folded, |el| el.rounded_b(dp(6.)))
+            el.rounded_t(dp(theme.shape.card))
+                .when(decor.folded, |el| el.rounded_b(dp(theme.shape.card)))
         })
         // On the card's ground, as the header's own is solid rather than over the card.
         // A title is marked only while the keys act on it.
@@ -647,8 +647,8 @@ pub fn file_header(
             })
         })
         .when_some(decor.blink, |el, n| {
-            let shape = (div().absolute().inset_0().rounded_t(dp(6.)))
-                .when(decor.folded, |el| el.rounded_b(dp(6.)));
+            let shape = (div().absolute().inset_0().rounded_t(dp(theme.shape.card)))
+                .when(decor.folded, |el| el.rounded_b(dp(theme.shape.card)));
             el.relative()
                 .child(blink_once(("blink", n), shape, copy_wash(theme)))
         })
@@ -826,7 +826,7 @@ pub fn hunk_header(
                 .pl(dp(10.))
                 .pr(dp(3.))
                 .gap(dp(8.))
-                .rounded(dp(6.))
+                .rounded(dp(theme.shape.card))
                 // The rest fainter than one under the cursor while the keys are elsewhere.
                 .bg(match (decor.current, decor.solid) {
                     (true, true) => theme.fill_gray,
@@ -838,7 +838,7 @@ pub fn hunk_header(
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .when_some(decor.blink, |el, n| {
-                    let shape = div().absolute().inset_0().rounded(dp(6.));
+                    let shape = div().absolute().inset_0().rounded(dp(theme.shape.card));
                     el.relative()
                         .child(blink_once(("blink", n), shape, copy_wash(theme)))
                 })
@@ -924,7 +924,7 @@ pub fn note(file: &FileDiff, flat: bool, theme: &Theme) -> AnyElement {
         .px(dp(12.))
         .py(dp(9.))
         .gap(dp(6.))
-        .when(!flat, |el| el.border_b_1().rounded_b(dp(6.)))
+        .when(!flat, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .text_size(dp(12.))
         .text_color(theme.text_2)
         .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
@@ -1001,7 +1001,7 @@ pub(super) fn number_cell(
         .items_start()
         .justify_end()
         .text_color(if picked { theme.pop } else { look.number })
-        .when(last, |el| el.rounded_bl(dp(5.)))
+        .when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.)))
         .when(picked, |el| {
             el.bg(theme.pop.opacity(0.16))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -1043,7 +1043,10 @@ pub(super) fn number_cell(
                     .w(dp(4.))
                     .overflow_hidden()
                     .child(match last {
-                        true => shape.w(dp(10.)).rounded_bl(dp(5.)).bg(bar),
+                        true => shape
+                            .w(dp(10.))
+                            .rounded_bl(dp(theme.shape.card - 1.))
+                            .bg(bar),
                         false => shape.right_0().bg(bar),
                     }),
             )
@@ -1156,7 +1159,7 @@ pub(super) fn line_card(
         .font_family(theme.diff_font.clone())
         .font_features(theme.diff_features.clone())
         .text_size(dp(theme.code_text))
-        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
+        .when(last, |el| el.border_b_1().rounded_b(dp(theme.shape.card)))
         .overflow_hidden()
 }
 
@@ -1169,7 +1172,7 @@ pub fn unsaved_dot(color: Hsla) -> gpui::Div {
 /// them: numbered and tinted as the diff draws them, long ones wrapping.
 pub fn excerpt(lines: &[DiffLine], theme: &Theme) -> gpui::Div {
     excerpt_flat(lines, theme)
-        .rounded(dp(6.))
+        .rounded(dp(theme.shape.card))
         .border_1()
         .border_color(theme.border_3)
         .overflow_hidden()
@@ -1425,7 +1428,7 @@ pub fn pair_row(
         side(right, right_half, new_side, "pair-right-text", false),
     );
     line_card(("diff-pair", id).into(), last, layout, theme)
-        .child(left.when(last, |el| el.rounded_bl(dp(5.))))
+        .child(left.when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.))))
         .child(
             div()
                 .flex_none()
@@ -1433,7 +1436,7 @@ pub fn pair_row(
                 .self_stretch()
                 .bg(theme.border_3),
         )
-        .child(right.when(last, |el| el.rounded_br(dp(5.))))
+        .child(right.when(last, |el| el.rounded_br(dp(theme.shape.card - 1.))))
         .into_any_element()
 }
 
@@ -1524,7 +1527,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                             .w_full()
                             .max_w(dp(width + AROUND))
                             .p(dp(6.))
-                            .rounded(dp(4.))
+                            .rounded(dp(theme.shape.control))
                             .border_1()
                             .border_color(tint)
                             .child(
@@ -1550,7 +1553,7 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         .gap(dp(16.))
         .p(dp(12.))
         .border_b_1()
-        .rounded_b(dp(6.))
+        .rounded_b(dp(theme.shape.card))
         .child(side(
             "Before",
             "New file",

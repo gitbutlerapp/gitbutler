@@ -721,7 +721,7 @@ impl Render for TerminalOverview {
                 true => theme.focus_edge(),
                 false => theme.border_3,
             })
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .overflow_hidden()
             .child(self.render_bar(cx))
             .children(rows)

@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
 
-/// but-ui's colour tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`),
-/// which the build script writes as constants: each `[light, dark]` as `0xRRGGBBAA`, named as
-/// the token is.
+/// but-ui's tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`), which the
+/// build script writes as constants: each colour `[light, dark]` as `0xRRGGBBAA`, and each length
+/// in px, named as the token is.
 #[expect(
     dead_code,
     reason = "every token is here, and the theme reads only the ones it draws with"
@@ -110,6 +110,8 @@ pub struct Theme {
     /// terminal's own default.
     pub terminal: Colors,
     syntax: [Hsla; 7],
+    /// How round corners are, by what they're on.
+    pub shape: Shape,
     /// Whether these are GitButler's own colours, and dark ones: an accent applies only to
     /// them, as a colour scheme brings its own.
     own_colours: Option<bool>,
@@ -133,6 +135,30 @@ pub enum Appearance {
     System,
     Light,
     Dark,
+}
+
+/// How round corners are, by role, in px as designed, from but-ui's radius tokens.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shape {
+    /// The smallest marks: a checkbox, a keycap.
+    pub xs: f32,
+    /// A control or a row: a button, a field, a segment, a tag.
+    pub control: f32,
+    /// A card: a tile, a file's or a hunk's header, a menu's rows.
+    pub card: f32,
+    /// What floats over the window: a popover, a modal, a snackbar.
+    pub popup: f32,
+}
+
+impl Default for Shape {
+    fn default() -> Self {
+        Shape {
+            xs: tokens::RADIUS_XS,
+            control: tokens::RADIUS_CONTROL,
+            card: tokens::RADIUS_CARD,
+            popup: tokens::RADIUS_POPUP,
+        }
+    }
 }
 
 /// The colour GitButler's own theme picks things out in: its primary buttons, ticks and the
@@ -492,6 +518,7 @@ impl Theme {
             ],
             terminal: Colors::default(),
             own_colours: Some(dark),
+            shape: Shape::default(),
         }
         .with_own_terminal(dark)
     }

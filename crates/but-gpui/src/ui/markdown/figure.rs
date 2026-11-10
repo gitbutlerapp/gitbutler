@@ -89,7 +89,7 @@ impl RenderOnce for Figure {
             .top_0()
             .left_0()
             .size_full()
-            .rounded(dp(6.))
+            .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(theme.border_3);
         // As GitHub sizes it: by its HTML, else a point a pixel, never wider than there's
@@ -119,7 +119,7 @@ impl RenderOnce for Figure {
                 .child(
                     img(ImageSource::Render(picture.image))
                         .size_full()
-                        .rounded(dp(6.)),
+                        .rounded(dp(theme.shape.card)),
                 )
                 .child(edge)
                 .into_any_element(),

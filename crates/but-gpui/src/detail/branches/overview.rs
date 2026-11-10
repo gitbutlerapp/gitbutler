@@ -330,7 +330,7 @@ fn lane_row(
             .left(relative(day_ix as f32 / days))
             .right(relative((days - 1. - day_ix as f32) / days))
             .mx(dp(1.))
-            .rounded(dp(2.))
+            .rounded(dp(theme.shape.xs))
             .bg(if dim { color.opacity(0.3) } else { color })
             .tooltip(move |window, cx| {
                 let day = crate::ui::local_weekday(noon(day));

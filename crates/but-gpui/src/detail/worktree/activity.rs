@@ -82,7 +82,12 @@ fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
             .px(dp(6.))
             .pt(dp(8.))
             .gap(dp(6.))
-            .child(div().h(dp(6.)).rounded(dp(2.)).bg(theme.border_2))
+            .child(
+                div()
+                    .h(dp(6.))
+                    .rounded(dp(theme.shape.xs))
+                    .bg(theme.border_2),
+            )
             .child(
                 h_flex()
                     .gap(dp(4.))
