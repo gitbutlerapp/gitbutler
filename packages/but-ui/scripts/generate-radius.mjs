@@ -1,4 +1,4 @@
-// The corners a person can pick in place of Figma's. Each setting moves the whole radius
+// The corners a person can pick in place of Figma's, soft. Each setting moves the whole radius
 // scale by the same 4px, so a control 4px inside a popup keeps its corners concentric. A
 // step no bigger than the move, a checkbox's or a kbd's, moves half its size, so sharp never
 // squares it. The role tokens alias the steps, so they follow on their own, as the override
