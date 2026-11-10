@@ -452,7 +452,32 @@ impl std::fmt::Debug for Segment {
     }
 }
 
-use anyhow::{Context as _, bail};
+/// The error [`graph_to_ref_info()`] fails with when commits sit on top of the workspace commit,
+/// most likely because `git commit` added them while `gitbutler/workspace` was checked out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommitsAboveWorkspaceCommit {
+    /// How many commits are on top of the workspace commit.
+    pub count: usize,
+    /// The workspace commit that resetting to keeps their changes uncommitted.
+    pub workspace_commit_id: gix::ObjectId,
+}
+
+impl std::fmt::Display for CommitsAboveWorkspaceCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Found {} commit(s) on top of the workspace commit.\n\n\
+             Run the following command in your working directory to fix this while leaving your worktree unchanged.\n\
+             Worktree changes need to be re-committed manually for now.\n\n    \
+             git reset --soft {}",
+            self.count, self.workspace_commit_id
+        )
+    }
+}
+
+impl std::error::Error for CommitsAboveWorkspaceCommit {}
+
+use anyhow::Context as _;
 use but_graph::{
     Graph,
     petgraph::Direction,
@@ -670,20 +695,14 @@ pub fn graph_to_ref_info(
         .is_some_and(|target| info.has_lanes_behind(graph, target));
 
     if let Some(info) = &info.ancestor_workspace_commit {
-        // This is the MVP version of what should be guided by the UI - just communicate through
-        // an error message, which can only be recovered once the command is executed.
-        let mut msg = format!(
-            "Found {} commit(s) on top of the workspace commit.\n\n",
-            info.commits_outside.len()
-        );
-        let ws_commit_id =
-            graph[info.segment_with_managed_commit].commits[info.commit_index_of_managed_commit].id;
-        msg.push_str(
-                    "Run the following command in your working directory to fix this while leaving your worktree unchanged.\n",
-                );
-        msg.push_str("Worktree changes need to be re-committed manually for now.\n\n");
-        msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
-        bail!("{msg}");
+        // Fail with a typed error, so callers can offer the reset it describes.
+        return Err(CommitsAboveWorkspaceCommit {
+            count: info.commits_outside.len(),
+            workspace_commit_id: graph[info.segment_with_managed_commit].commits
+                [info.commit_index_of_managed_commit]
+                .id,
+        }
+        .into());
     }
     info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
     if let GerritMode::Enabled(metadata) = opts.gerrit_mode {
