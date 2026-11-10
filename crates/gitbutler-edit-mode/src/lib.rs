@@ -179,11 +179,14 @@ fn checkout_edit_commit(
         let commit = Commit::from_id(commit_id.attach(&repo))?;
         match commit.conflicted_tree_ids()? {
             Some((base, ours, theirs)) => {
-                let mut merge =
-                    repo.merge_trees(base, ours, theirs, labels, diff3_options(&repo)?)?;
-                for path in conflicted_submodule_paths(&merge) {
-                    merge.tree.remove(path.as_bstr())?;
-                }
+                let mut merge = repo.merge_trees(
+                    base,
+                    ours,
+                    theirs,
+                    repo.default_merge_labels(),
+                    diff3_options(&repo)?,
+                )?;
+                relabel_content_conflicts(&repo, &mut merge, labels)?;
                 let tree = merge.tree.write()?.detach();
                 but_core::worktree::overwrite_worktree(&repo, tree, Some(&merge))?;
             }
@@ -216,22 +219,60 @@ fn point_head_at_edit_branch(repo: &gix::Repository, base_commit_id: gix::Object
     Ok(())
 }
 
-/// The paths of unresolved conflicts with a submodule on any side. Nothing is checked out there,
-/// so the user puts the side they want in place.
-fn conflicted_submodule_paths(merge: &gix::merge::tree::Outcome<'_>) -> Vec<BString> {
-    merge
+/// Merge the files of `merge` whose content conflicts again, so their markers carry `labels`.
+/// The tree merge uses the default labels instead, as it also names files that it moves aside
+/// after them, and labels with `:` or `/` don't make valid file names everywhere.
+fn relabel_content_conflicts(
+    repo: &gix::Repository,
+    merge: &mut gix::merge::tree::Outcome<'_>,
+    labels: gix::merge::blob::builtin_driver::text::Labels<'_>,
+) -> Result<()> {
+    let options: gix::merge::plumbing::tree::Options = diff3_options(repo)?.into();
+    let mut merged = Vec::new();
+    for conflict in merge
         .conflicts
         .iter()
         .filter(|conflict| conflict.is_unresolved(gix::merge::tree::TreatAsUnresolved::git()))
         .filter(|conflict| {
-            conflict
-                .entries()
-                .into_iter()
-                .flatten()
-                .any(|entry| entry.mode.is_commit())
+            matches!(
+                conflict.resolution,
+                Ok(gix::merge::tree::Resolution::OursModifiedTheirsModifiedThenBlobContentMerge { .. })
+            )
         })
-        .map(|conflict| conflict.ours.location().to_owned())
-        .collect()
+    {
+        let [base, Some(ours), Some(theirs)] = conflict.entries() else {
+            continue;
+        };
+        let read = |id: gix::ObjectId| -> Result<Vec<u8>> { Ok(repo.find_blob(id)?.take_data()) };
+        let base = base.map(|base| read(base.id)).transpose()?.unwrap_or_default();
+        let (ours_data, theirs_data) = (read(ours.id)?, read(theirs.id)?);
+        if [&base, &ours_data, &theirs_data]
+            .iter()
+            .any(|data| data.iter().take(8000).any(|byte| *byte == 0))
+        {
+            continue;
+        }
+        let mut out = Vec::new();
+        let mut input = gix::diff::blob::InternedInput::default();
+        gix::merge::blob::builtin_driver::text(
+            &mut out,
+            &mut input,
+            labels,
+            &ours_data,
+            &base,
+            &theirs_data,
+            options.blob_merge.text,
+        );
+        merged.push((
+            conflict.ours.location().to_owned(),
+            ours.mode,
+            repo.write_blob(out)?.detach(),
+        ));
+    }
+    for (path, mode, id) in merged {
+        merge.tree.upsert(path.as_bstr(), mode.kind(), id)?;
+    }
+    Ok(())
 }
 
 /// Tree merge options that keep content conflicts as markers in diff3 style, which shows the

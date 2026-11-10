@@ -477,6 +477,29 @@ fn resolve_finish_keeps_an_edit_hidden_from_a_racy_stat_after_failing() {
 }
 
 #[test]
+fn resolve_records_a_file_versus_directory_conflict_in_a_valid_index() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-file-vs-directory",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    env.but(format!("resolve {}", env.invoke_git("rev-parse A")))
+        .assert()
+        .success();
+
+    // Like Git, the file's side moves aside, and its stages are recorded there.
+    snapbox::assert_data_eq!(
+        env.invoke_git("ls-files --stage"),
+        snapbox::str![[r#"
+100644 5be24b7e8f4ff445fb089b101bb4f0f4909d84d5 0	d/f
+100644 df967b96a579e45a18b8251732d16804b2e56a55 1	d~ours
+100644 d230ad4832d6185984caaae253362fa0c0167f52 2	d~ours
+"#]]
+    );
+}
+
+#[test]
 fn resolve_cancel_works_in_edit_mode() {
     let env = enter_edit_mode_with_conflicted_commit();
 
