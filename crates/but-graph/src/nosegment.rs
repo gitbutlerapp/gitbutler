@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::Result;
 use but_core::{RefMetadata, is_workspace_ref_name};
@@ -41,52 +41,67 @@ pub fn graph(
     target_upstream_ref: Option<&FullNameRef>,
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<WorkspaceGraph> {
-    let mut workspace_ref_name = None;
-    let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
-    let mut ref_to_oid = HashMap::<FullName, gix::ObjectId>::new();
-    for reference in repo.references()?.local_branches()? {
-        let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-        let Some(id) = reference.try_id() else {
-            continue;
-        };
-        let full_name = reference.name().to_owned();
-        if is_workspace_ref_name(full_name.as_ref()) {
-            workspace_ref_name = Some(full_name.clone());
-        }
-        ref_to_oid.insert(full_name.clone(), id.detach());
-        oid_to_refs.entry(id.detach()).or_default().push(full_name);
-    }
-    let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
-    for reference in repo.references()?.remote_branches()? {
-        let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-        let Some(id) = reference.try_id() else {
-            continue;
-        };
-        let full_name = reference.name().to_owned();
-        if let Some((_remote, short_name)) =
-            but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
-            && let Some(local_id) =
-                ref_to_oid.get(&gix::refs::Category::LocalBranch.to_full_name(&short_name[..])?)
-        {
-            heads_on_reaching
-                .entry(*local_id)
-                .or_default()
-                .push(id.detach());
-        }
-        ref_to_oid.insert(full_name.clone(), id.detach());
-        oid_to_refs.entry(id.detach()).or_default().push(full_name);
-    }
-    if collect_tags {
-        for reference in repo.references()?.tags()? {
-            let mut reference = reference.map_err(|err| anyhow::anyhow!(err))?;
-            let Ok(commit) = reference.peel_to_commit() else {
+    let (workspace_ref_name, workspace_commit, heads_on_reaching, mut oid_to_refs, ref_to_oid) = {
+        let mut workspace_ref_name = None;
+        let mut workspace_commit = None;
+        let mut heads_on_reaching = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
+        let mut oid_to_refs = HashMap::<gix::ObjectId, Vec<FullName>>::new();
+        let mut ref_to_oid = BTreeMap::<FullName, gix::ObjectId>::new();
+        for reference in repo.references()?.local_branches()? {
+            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+            let Some(id) = reference.try_id() else {
                 continue;
             };
             let full_name = reference.name().to_owned();
-            ref_to_oid.insert(full_name.clone(), commit.id);
-            oid_to_refs.entry(commit.id).or_default().push(full_name);
+            if is_workspace_ref_name(full_name.as_ref()) {
+                workspace_ref_name = Some(full_name.clone());
+                let commit = repo.find_commit(id)?;
+                workspace_commit = crate::workspace::commit::is_managed_workspace_by_message(
+                    commit.message_raw()?,
+                )
+                .then_some(commit);
+            }
+            ref_to_oid.insert(full_name.clone(), id.detach());
+            oid_to_refs.entry(id.detach()).or_default().push(full_name);
         }
-    }
+        for reference in repo.references()?.remote_branches()? {
+            let reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+            let Some(id) = reference.try_id() else {
+                continue;
+            };
+            let full_name = reference.name().to_owned();
+            if let Some((_remote, short_name)) =
+                but_core::extract_remote_name_and_short_name(full_name.as_ref(), remote_names)
+                && let Some(local_id) =
+                    ref_to_oid.get(&gix::refs::Category::LocalBranch.to_full_name(&short_name[..])?)
+            {
+                heads_on_reaching
+                    .entry(*local_id)
+                    .or_default()
+                    .push(id.detach());
+            }
+            ref_to_oid.insert(full_name.clone(), id.detach());
+            oid_to_refs.entry(id.detach()).or_default().push(full_name);
+        }
+        if collect_tags {
+            for reference in repo.references()?.tags()? {
+                let mut reference = reference.map_err(|err| anyhow::anyhow!(err))?;
+                let Ok(commit) = reference.peel_to_commit() else {
+                    continue;
+                };
+                let full_name = reference.name().to_owned();
+                ref_to_oid.insert(full_name.clone(), commit.id);
+                oid_to_refs.entry(commit.id).or_default().push(full_name);
+            }
+        }
+        (
+            workspace_ref_name,
+            workspace_commit,
+            heads_on_reaching,
+            oid_to_refs,
+            ref_to_oid,
+        )
+    };
 
     /// The branches of a stack that exist, top first.
     struct Stack {
@@ -94,78 +109,72 @@ pub fn graph(
         /// The commit the top branch points at.
         tip: gix::ObjectId,
         /// Whether the stack is in the workspace, making it a parent of the
-        /// managed workspace commit.
+        /// workspace commit.
         in_workspace: bool,
     }
-    // Workspace metadata may outlive the workspace reference, as in
-    // single-branch mode, where it no longer says anything about the stacks.
-    let segment_metadata = match &workspace_ref_name {
-        Some(workspace_ref_name) => overlay_meta.workspace_opt(workspace_ref_name.as_ref())?,
-        None => None,
-    };
-    // Branches in metadata may no longer exist, and a stack left without any
-    // is no stack at all.
-    let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
-        let branches: Vec<FullName> = branches
-            .into_iter()
-            .filter(|name| ref_to_oid.contains_key(name))
-            .collect();
-        let tip = *ref_to_oid.get(branches.first()?)?;
-        Some(Stack {
-            branches,
-            tip,
-            in_workspace,
-        })
-    };
-    // The stacks of the workspace metadata come first, in metadata order.
-    let mut stacks = Vec::<Stack>::new();
-    if let Some(segment_metadata) = segment_metadata {
-        for stack in segment_metadata.stacks {
-            let in_workspace = stack.is_in_workspace();
-            let branches = stack
-                .branches
+    let stacks: Vec<Stack> = {
+        let live_stack = |branches: Vec<FullName>, in_workspace: bool| {
+            let branches: Vec<FullName> = branches
                 .into_iter()
-                .map(|branch| branch.ref_name)
+                .filter(|name| ref_to_oid.contains_key(name))
                 .collect();
-            stacks.extend(live_stack(branches, in_workspace));
-        }
-    }
-    // A stack whose tip isn't a parent of the managed workspace commit was
-    // stacked onto another one in Git, unless it rests on the target commit as
-    // an empty lane of its own. Its branches then belong to whichever stack
-    // reaches them.
-    let mut managed_workspace_commit_id = None;
-    if let Some(&workspace_commit_id) = workspace_ref_name
-        .as_ref()
-        .and_then(|name| ref_to_oid.get(name))
-    {
-        let workspace_commit = repo.find_commit(workspace_commit_id)?;
-        if crate::workspace::commit::is_managed_workspace_by_message(
-            workspace_commit.message_raw()?,
-        ) {
-            managed_workspace_commit_id = Some(workspace_commit_id);
-            let parent_ids: Vec<gix::ObjectId> =
-                workspace_commit.parent_ids().map(gix::Id::detach).collect();
-            let is_stacked_onto_another = |stack: &Stack| {
-                !parent_ids.contains(&stack.tip) && Some(stack.tip) != target_commit_id
-            };
-            stacks.retain(|stack| !(stack.in_workspace && is_stacked_onto_another(stack)));
-        }
-    }
-    // Branches outside the workspace, like those of a single-branch-mode
-    // checkout, may still be stacked through their persisted branch stack order.
-    for full_name in ref_to_oid.keys() {
-        if full_name.category() != Some(gix::refs::Category::LocalBranch)
-            || stacks
-                .iter()
-                .any(|stack| stack.branches.contains(full_name))
+            let tip = *ref_to_oid.get(branches.first()?)?;
+            Some(Stack {
+                branches,
+                tip,
+                in_workspace,
+            })
+        };
+
+        let mut stacks = Vec::<Stack>::new();
+        if let Some(workspace_ref_name) = &workspace_ref_name
+            && let Some(workspace_metadata) =
+                overlay_meta.workspace_opt(workspace_ref_name.as_ref())?
         {
-            continue;
+            let workspace_commit_parent_ids = workspace_commit
+                .as_ref()
+                .map(|commit| commit.parent_ids().map(gix::Id::detach).collect::<Vec<_>>());
+            for stack in workspace_metadata.stacks {
+                let in_workspace = stack.is_in_workspace();
+                let branches = stack
+                    .branches
+                    .into_iter()
+                    .map(|branch| branch.ref_name)
+                    .collect();
+                let Some(stack) = live_stack(branches, in_workspace) else {
+                    continue;
+                };
+                // A stack whose tip isn't a parent of the managed workspace commit
+                // has had another one stacked onto it in Git, unless it rests on the
+                // target commit as an empty lane of its own. Its branches then belong
+                // to whichever stack reaches them.
+                // LEGACY
+                let is_stack_underneath_another = workspace_commit_parent_ids
+                    .as_ref()
+                    .is_some_and(|parent_ids| !parent_ids.contains(&stack.tip))
+                    && Some(stack.tip) != target_commit_id;
+                if !(stack.in_workspace && is_stack_underneath_another) {
+                    stacks.push(stack);
+                }
+            }
         }
-        if let Some(branches) = overlay_meta.branch_stack_order(full_name.as_ref())? {
-            stacks.extend(live_stack(branches, false));
+        // Branches outside the workspace, like those of a single-branch-mode
+        // checkout, may still be stacked through their persisted branch stack order.
+        for full_name in ref_to_oid.keys() {
+            if full_name.category() != Some(gix::refs::Category::LocalBranch)
+                || stacks
+                    .iter()
+                    .any(|stack| stack.branches.contains(full_name))
+            {
+                continue;
+            }
+            if let Some(branches) = overlay_meta.branch_stack_order(full_name.as_ref())? {
+                stacks.extend(live_stack(branches, false));
+            }
         }
-    }
+        stacks
+    };
+
     /// The branches of the stack containing `branch`, or none if no stack does.
     fn stack_of_branch<'a>(stacks: &'a [Stack], branch: &FullNameRef) -> &'a [FullName] {
         stacks
@@ -174,11 +183,8 @@ pub fn graph(
             .map_or(&[], |stack| stack.branches.as_slice())
     }
 
+    // Sort the values of oid_to_refs for consistency and compatibility with the old implementation.
     for refs in oid_to_refs.values_mut() {
-        // The checked-out branch and the workspace reference sit above the
-        // branches they share a commit with, followed by remote-tracking
-        // branches, branches in stack order, branches of no stack, and the
-        // target branch and then tags below them.
         refs.sort_by_cached_key(|reference| {
             if Some(reference.as_ref()) == head_ref || is_workspace_ref_name(reference.as_ref()) {
                 return 0;
@@ -202,7 +208,7 @@ pub fn graph(
             .flat_map(|stack| &stack.branches)
             .filter_map(|name| ref_to_oid.get(name)),
     );
-    // History below the target commit is walked only while it leads somewhere.
+
     let commit_ids = crate::topowalk::walk(repo, heads, &heads_on_reaching, target_commit_id)?;
 
     /// The children of each commit can be partitioned by stack lineages. The
@@ -224,11 +230,12 @@ pub fn graph(
     #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
     struct StackLineage {
         branches_in_lineage: BTreeSet<gix::refs::FullName>,
-        /// This commit is the parent of the workspace commit through this stack
-        /// lineage, along an edge no stack in the workspace metadata accounts
-        /// for. Such an edge chains through all references on the commit,
-        /// whichever stack they belong to.
-        is_parent_of_workspace_commit: bool,
+        /// This lineage comes directly from the workspace, either along a parent
+        /// edge of the managed workspace commit that no stack covers, or from the
+        /// workspace reference itself when there's no workspace commit. It takes
+        /// in every reference on the commit it reaches, whichever stack the
+        /// reference belongs to.
+        is_unclaimed_workspace_edge: bool,
     }
     /// An element of [Node::parents] that must be updated when an unassigned
     /// OID becomes assigned to a node.
@@ -237,7 +244,7 @@ pub fn graph(
         node_index: NodeIndex,
         parent_index: usize,
     }
-    /// Points each of `to_repoints` at the node at `node_index`.
+    /// Updates some elements of [Node::parents] in `nodes` to `node_index`.
     fn repoint(
         nodes: &mut [Node],
         to_repoints: impl IntoIterator<Item = ToRepoint>,
@@ -258,12 +265,15 @@ pub fn graph(
         let commit = repo.find_commit(commit_id)?;
         // Branches rest on the target commit when the target branch, or its
         // upstream, points there too.
+        // LEGACY why check 3 things? could there be a simpler rule (or no rule)?
         let rests_on_target = target_commit_id == Some(commit_id)
             && std::iter::once(target_ref)
                 .chain(target_upstream_ref)
                 .any(|name| ref_to_oid.get(name) == Some(&commit_id));
 
         for full_name in oid_to_refs.remove(&commit_id).unwrap_or_default() {
+            // 1. Calculate some flags. LEGACY this seems overly complicated
+
             let category = full_name.category();
             let is_checked_out_elsewhere = worktree_by_branch
                 .get(&full_name)
@@ -296,6 +306,11 @@ pub fn graph(
             // it can follow the target there.
             let target_in_other_worktree =
                 full_name.as_ref() == target_ref && is_checked_out_elsewhere;
+
+            // 2. For this ref, process (remove and reinsert) the `unassigned_oid_map` entry for
+            // this commit. Some ToRepoint elements are executed, and others are reinserted into
+            // `unassigned_oid_map`.
+
             let mut new_stack_lineage = StackLineage::default();
             let mut new_map = HashMap::<StackLineage, Vec<ToRepoint>>::new();
             let node_index = nodes.len();
@@ -304,15 +319,15 @@ pub fn graph(
             {
                 let in_lineage = !target_in_other_worktree
                     && (full_name.as_ref() == target_ref
-                        || (stack_lineage.is_parent_of_workspace_commit && !rests_beside)
+                        || (stack_lineage.is_unclaimed_workspace_edge && !rests_beside)
                         || is_stackless_branch
                         || stack_lineage.branches_in_lineage.contains(&full_name));
                 if in_lineage {
                     new_stack_lineage
                         .branches_in_lineage
                         .extend(stack_lineage.branches_in_lineage);
-                    new_stack_lineage.is_parent_of_workspace_commit |=
-                        stack_lineage.is_parent_of_workspace_commit;
+                    new_stack_lineage.is_unclaimed_workspace_edge |=
+                        stack_lineage.is_unclaimed_workspace_edge;
                     repoint(&mut nodes, to_repoints, node_index);
                 } else {
                     new_map.insert(stack_lineage, to_repoints);
@@ -335,7 +350,7 @@ pub fn graph(
             // Without a workspace commit, the workspace reference sits on top
             // of the branches on its commit, whichever stack they belong to.
             if is_workspace_ref_name(full_name.as_ref()) {
-                new_stack_lineage.is_parent_of_workspace_commit = true;
+                new_stack_lineage.is_unclaimed_workspace_edge = true;
             }
             new_map
                 .entry(new_stack_lineage)
@@ -345,6 +360,8 @@ pub fn graph(
                     parent_index: 0,
                 });
             unassigned_oid_map.insert(commit_id, new_map);
+
+            // 3. Push the node for this ref.
 
             nodes.push(Node {
                 weight: NodeWeight::Ref { full_name },
@@ -361,28 +378,26 @@ pub fn graph(
             repoint(&mut nodes, to_repoints, node_index);
         }
 
-        // A managed workspace commit gets one parent edge per stack, in
-        // metadata order, each restricted to the branches of its stack. That
-        // way stacks resting on the same commit stay apart, even if they share
-        // a Git parent. Only tips that are Git parents get an edge, as any
-        // other tip would become a redundant parent once the workspace commit
-        // is rewritten. The exception is an empty lane resting on the target
-        // commit, which the workspace commit is to gain as a parent.
-        //
-        // The stacks take the places of the parents they cover, in metadata
-        // order, while parents no stack covers keep their place. Stacks left
-        // over, like those sharing a parent, follow at the end.
+        // The workspace commit gets one parent edge per stack in the workspace whose tip is one of
+        // its parents or the target commit, plus one per parent that is not a tip of any such
+        // stack. These stacks in metadata order take the place of parents that correspond to
+        // stacks, and any left over are placed at the end. For example, if the commit has parents
+        // [1, 2, 3] and the stacks in metadata order are [3, 4, 1], the parents that correspond to
+        // stacks are 1 and 3. Its edges will therefore be [3, 2, 4, 1] (notice that the 3-4-1 order
+        // is preserved and parent 2 keeps its position).
         let parent_ids: Vec<gix::ObjectId> = commit.parent_ids().map(gix::Id::detach).collect();
-        let mut stack_edges = VecDeque::<(gix::ObjectId, StackLineage)>::new();
-        let is_managed_workspace_commit = managed_workspace_commit_id == Some(commit_id);
+        let is_managed_workspace_commit = workspace_commit
+            .as_ref()
+            .is_some_and(|commit| commit.id == commit_id);
+        let mut stack_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
         if is_managed_workspace_commit {
             for stack in stacks.iter().filter(|stack| stack.in_workspace) {
                 if parent_ids.contains(&stack.tip) || Some(stack.tip) == target_commit_id {
-                    stack_edges.push_back((
+                    stack_edges.push((
                         stack.tip,
                         StackLineage {
                             branches_in_lineage: stack.branches.iter().cloned().collect(),
-                            is_parent_of_workspace_commit: false,
+                            is_unclaimed_workspace_edge: false,
                         },
                     ));
                 }
@@ -390,18 +405,21 @@ pub fn graph(
         }
         let stack_lineage = StackLineage {
             branches_in_lineage,
-            is_parent_of_workspace_commit: is_managed_workspace_commit,
+            is_unclaimed_workspace_edge: is_managed_workspace_commit,
         };
         let covered_parent_ids: Vec<gix::ObjectId> =
             stack_edges.iter().map(|(tip, _)| *tip).collect();
-        let mut parent_edges = Vec::<(gix::ObjectId, StackLineage)>::new();
-        for parent_id in parent_ids {
-            if !covered_parent_ids.contains(&parent_id) {
-                parent_edges.push((parent_id, stack_lineage.clone()));
-            } else if let Some(stack_edge) = stack_edges.pop_front() {
-                parent_edges.push(stack_edge);
-            }
-        }
+        let mut stack_edges = stack_edges.into_iter();
+        let mut parent_edges: Vec<_> = parent_ids
+            .into_iter()
+            .filter_map(|parent_id| {
+                if covered_parent_ids.contains(&parent_id) {
+                    stack_edges.next()
+                } else {
+                    Some((parent_id, stack_lineage.clone()))
+                }
+            })
+            .collect();
         parent_edges.extend(stack_edges);
 
         nodes.push(Node {
