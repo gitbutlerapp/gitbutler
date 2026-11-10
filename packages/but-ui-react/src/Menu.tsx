@@ -198,6 +198,9 @@ export const MenuSection: FC<{ label?: string; children: ReactNode }> = ({ label
 type RowProps = {
 	/** Leads the row: what kind of thing it acts on. */
 	icon?: IconName;
+	/** Leads the row where a glyph from the icon set is not the right mark, such as a colour's
+	 * swatch. Sits after `icon` when both are given. */
+	leading?: ReactNode;
 	/** The shortcut that does the same, at the row's end. */
 	kbd?: string | HotkeySequence;
 	children: ReactNode;
@@ -230,14 +233,14 @@ export const MenuItem: FC<
 		hint?: ReactNode;
 		onClick?: () => void;
 	}
-> = ({ icon, kbd, disabled = false, hint, onClick, children }) => (
+> = ({ icon, leading, kbd, disabled = false, hint, onClick, children }) => (
 	<Held hint={disabled ? hint : undefined}>
 		<BaseMenu.Item
 			disabled={disabled}
 			onClick={onClick}
 			nativeButton
 			render={(props) => (
-				<PopupItem {...props} icon={icon} kbd={kbd}>
+				<PopupItem {...props} icon={icon} leading={leading} kbd={kbd}>
 					{children}
 				</PopupItem>
 			)}
@@ -280,6 +283,7 @@ export const MenuRadioItem: FC<RowProps & { value: string; disabled?: boolean }>
 	value,
 	disabled = false,
 	icon,
+	leading,
 	kbd,
 	children,
 }) => (
@@ -289,7 +293,13 @@ export const MenuRadioItem: FC<RowProps & { value: string; disabled?: boolean }>
 		closeOnClick
 		nativeButton
 		render={(props, state) => (
-			<PopupItem {...props} icon={icon} kbd={kbd} trailing={state.checked ? "tick" : undefined}>
+			<PopupItem
+				{...props}
+				icon={icon}
+				leading={leading}
+				kbd={kbd}
+				trailing={state.checked ? "tick" : undefined}
+			>
 				{children}
 			</PopupItem>
 		)}
