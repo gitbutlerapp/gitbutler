@@ -1,5 +1,5 @@
 import { mergeProps, useRender } from "@base-ui/react";
-import type { ComponentProps, FC, PointerEvent, ReactNode } from "react";
+import type { ComponentProps, FC, PointerEvent, ReactElement, ReactNode } from "react";
 import { Avatar } from "./Avatar.tsx";
 import { Badge, type BadgeVariant } from "./Badge.tsx";
 import { classes } from "./classes.ts";
@@ -648,7 +648,10 @@ export const GroupLabel: FC<
 
 /**
  * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
- * page when there is one (`icon`). It sits one level under its {@link GroupLabel} (`depth={1}`), on
+ * page when there is one (`icon`, an icon's name, or an element of its own such as a colour's
+ * swatch or an {@link Avatar}, drawn at 14px). Its `meta` sits at the row's end, as on every
+ * sidebar row: plain text there reads as the row's current value ("Light", "Teal"), in 13 and
+ * subtle, and a `MetaCount` or a `Badge` keeps its own look. It sits one level under its {@link GroupLabel} (`depth={1}`), on
  * the guide that ties it to the label's chevron, the way a sidebar row sits under the row that folds
  * it. It opens a page rather than folding, so it has no chevron and no menu: render it as the link
  * that opens the page (`render={<a href={…} />}`). `selected` is the page on screen, which the link
@@ -666,13 +669,23 @@ export const GroupLabel: FC<
 export const NavItem: FC<
 	{
 		name: string;
-		icon?: IconName;
+		icon?: IconName | ReactElement;
 		leadingRow?: boolean;
 		/** A leading row's chevron: `true` while its card's groups are hidden. */
 		folded?: boolean;
 		onToggleFolded?: () => void;
-	} & Omit<RowProps, "folded" | "onToggleFolded" | "meta" | "actions" | "menu" | "busy">
-> = ({ name, icon, leadingRow = false, folded, onToggleFolded, tooltip, render, ...props }) => {
+	} & Omit<RowProps, "folded" | "onToggleFolded" | "actions" | "menu" | "busy">
+> = ({
+	name,
+	icon,
+	leadingRow = false,
+	folded,
+	onToggleFolded,
+	meta,
+	tooltip,
+	render,
+	...props
+}) => {
 	const folds = leadingRow && folded !== undefined;
 	const rowFolds = folds && render === undefined;
 	return (
@@ -690,8 +703,9 @@ export const NavItem: FC<
 					render
 				)
 			}
-			rowClassName={rowFolds ? styles.foldButton : undefined}
-			icon={icon === undefined ? undefined : <Icon name={icon} />}
+			rowClassName={styles.nav}
+			icon={typeof icon === "string" ? <Icon name={icon} /> : icon}
+			meta={meta}
 			label={
 				<Name
 					tooltip={tooltip}
