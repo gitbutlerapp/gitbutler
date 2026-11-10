@@ -139,8 +139,6 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    #[expect(deprecated, reason = "checkout/index materialization boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
     let commit = commit_id.attach(repo).object()?.try_into_commit()?;
 
     let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
@@ -161,10 +159,6 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         0,
     )?;
 
-    // Checkout the commit as unstaged changes
-    // TODO this may not be necessary if the commit is unconflicted
-    let mut index = get_commit_index(ctx, commit_id)?;
-
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit);
     let their_label = format!("Current commit: {their_commit_msg}");
 
@@ -176,21 +170,59 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     } else {
         "New base: (no commit)".to_string()
     };
+    let labels = gix::merge::blob::builtin_driver::text::Labels {
+        ancestor: Some("Common ancestor".into()),
+        current: Some(our_label.as_str().into()),
+        other: Some(their_label.as_str().into()),
+    };
 
-    git2_repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true)
-                .ancestor_label("Common ancestor")
-                .our_label(&our_label)
-                .their_label(&their_label),
-        ),
-    )?;
-
+    let repo = repo.clone().for_tree_diffing()?;
+    let commit = Commit::from_id(commit_id.attach(&repo))?;
+    match commit.conflicted_tree_ids()? {
+        Some((base, ours, theirs)) => {
+            let mut merge = repo.merge_trees(base, ours, theirs, labels, diff3_options(&repo)?)?;
+            for path in conflicted_submodule_paths(&merge) {
+                merge.tree.remove(path.as_bstr())?;
+            }
+            let tree = merge.tree.write()?.detach();
+            but_core::worktree::overwrite_worktree(&repo, tree, Some(&merge))?;
+        }
+        None => {
+            let tree = commit.tree_id_or_auto_resolution()?.detach();
+            but_core::worktree::overwrite_worktree(&repo, tree, None)?;
+        }
+    }
     Ok(())
+}
+
+/// The paths of unresolved conflicts with a submodule on any side. Nothing is checked out there,
+/// so the user puts the side they want in place.
+fn conflicted_submodule_paths(merge: &gix::merge::tree::Outcome<'_>) -> Vec<BString> {
+    merge
+        .conflicts
+        .iter()
+        .filter(|conflict| conflict.is_unresolved(gix::merge::tree::TreatAsUnresolved::git()))
+        .filter(|conflict| {
+            conflict
+                .entries()
+                .into_iter()
+                .flatten()
+                .any(|entry| entry.mode.is_commit())
+        })
+        .map(|conflict| conflict.ours.location().to_owned())
+        .collect()
+}
+
+/// Tree merge options that keep content conflicts as markers in diff3 style, which shows the
+/// common ancestor, whatever `merge.conflictStyle` says.
+fn diff3_options(repo: &gix::Repository) -> Result<gix::merge::tree::Options> {
+    let mut options: gix::merge::plumbing::tree::Options = repo.tree_merge_options()?.into();
+    options.blob_merge.text.conflict = gix::merge::blob::builtin_driver::text::Conflict::Keep {
+        style: gix::merge::blob::builtin_driver::text::ConflictStyle::Diff3,
+        marker_size: gix::merge::blob::builtin_driver::text::Conflict::DEFAULT_MARKER_SIZE
+            .try_into()?,
+    };
+    Ok(options.into())
 }
 
 fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {

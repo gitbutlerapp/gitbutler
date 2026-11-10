@@ -594,7 +594,7 @@ Hint: Edit them to the wanted content, then run `but resolve commit.txt second.t
 }
 
 /// Enter edit mode on branch A's commit after integrating the target of `scenario`
-/// conflicted it on submodule `sm`. Entering edit mode removes the `sm` worktree.
+/// conflicted it on submodule `sm`. Like Git, entering edit mode keeps the `sm` worktree.
 fn enter_edit_mode_with_submodule_conflict(scenario: &str) -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(scenario);
     env.setup_metadata_at_target(&["A"], "refs/heads/base");
@@ -746,6 +746,7 @@ fn resolve_finish_refuses_empty_or_missing_submodule_until_removal_is_staged() {
     env.file("README", "resolved\n");
     let tip = env.invoke_git("rev-parse A");
 
+    std::fs::remove_dir_all(env.projects_root().join("sm")).unwrap();
     std::fs::create_dir(env.projects_root().join("sm")).unwrap();
     env.invoke_git_fails(
         "add -- sm",
