@@ -408,7 +408,7 @@ fn restore_edit_worktree(
     tree: gix::ObjectId,
     mut index: gix::index::File,
 ) -> Result<()> {
-    but_core::worktree::overwrite_worktree(repo, tree, None)?;
+    but_core::worktree::revert_worktree(repo, tree)?;
     index.write(Default::default())?;
     Ok(())
 }
