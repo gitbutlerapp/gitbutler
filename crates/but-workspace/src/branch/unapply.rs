@@ -136,10 +136,7 @@ pub(crate) mod function {
 
     use crate::{WorkspaceCommit, branch::try_find_validated_ref};
     use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
-    use but_rebase::graph_rebase::{
-        Editor, LookupStep as _, Step, SuccessfulRebase,
-        mutate::{SegmentDelimiter, SelectorSet},
-    };
+    use but_rebase::graph_rebase::{Editor, LookupStep as _, Step, SuccessfulRebase};
 
     /// Ensure that `branch` is not a parent of the workspace commit.
     ///
@@ -222,12 +219,10 @@ pub(crate) mod function {
             };
             if let Some(checkout) = checkout {
                 editor.set_head_checkout(checkout)?;
-                for step in [workspace_commit, Some(workspace_reference)]
-                    .into_iter()
-                    .flatten()
-                {
-                    editor.replace_with_none(step)?;
+                if let Some(workspace_commit) = workspace_commit {
+                    editor.prune(workspace_commit)?;
                 }
+                editor.replace_with_none(workspace_reference)?;
                 return editor.rebase();
             }
         }
@@ -244,16 +239,7 @@ pub(crate) mod function {
         if let Some(workspace_commit) = workspace_commit
             && !keep_workspace_commit
         {
-            editor.disconnect_segment_from(
-                SegmentDelimiter {
-                    child: workspace_commit,
-                    parent: workspace_commit,
-                },
-                SelectorSet::All,
-                SelectorSet::All,
-                false,
-            )?;
-            editor.replace_with_none(workspace_commit)?;
+            editor.prune(workspace_commit)?;
         }
         editor.rebase()
     }

@@ -133,7 +133,7 @@ pub fn leave_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
     }
 
     if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
-        editor.replace_with_none(workspace_commit)?;
+        editor.prune(workspace_commit)?;
     }
     editor.replace_with_none(workspace_reference)?;
     editor.set_head_checkout(checkout)?;
