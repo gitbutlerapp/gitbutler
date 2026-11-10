@@ -447,6 +447,10 @@ pub(super) struct SavedActivity {
 pub struct Prefs {
     pub appearance: Appearance,
     pub color_scheme: crate::theme::ColorScheme,
+    /// The colour GitButler's own colours pick things out in.
+    pub accent: crate::theme::Accent,
+    /// A custom accent, as typed, kept while another one is picked.
+    pub accent_color: String,
     /// The editor files open in, by program id. Asked for the first time it's needed.
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.

@@ -95,6 +95,6 @@ user so they know.
 
 ## 5. Commit
 
-`tokens/json`, `tokens/tokens.css`, `tokens/tokens.json` and `tokens/settings.json` go in one commit, with the GitButler skill, and the
+`tokens/json`, `tokens/tokens.css`, `tokens/tokens.json`, `tokens/settings.json` and `tokens/accent-samples.json` go in one commit, with the GitButler skill, and the
 message says what changed in the tokens. There is no version bump or release: the package
 is not published.

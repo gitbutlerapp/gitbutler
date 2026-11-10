@@ -17,7 +17,7 @@
 	},
 	"scripts": {
 		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs && node scripts/check-presets.mjs",
-		"check": "node scripts/generate-ramps.mjs --check && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css tokens/settings.json tokens/tokens.json",
+		"check": "node scripts/generate-ramps.mjs --check && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css tokens/settings.json tokens/tokens.json tokens/accent-samples.json",
 		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
 	},
 	"devDependencies": {

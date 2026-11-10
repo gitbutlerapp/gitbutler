@@ -62,8 +62,77 @@ fn color_tokens(out: &Path) {
             });
             format!("pub const {name}: [u32; 2] = [{light:#010x}, {dark:#010x}];\n")
         })
-        .collect();
+        .collect::<String>()
+        + &accents(&data);
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
+}
+
+/// The accents a person can pick, from but-ui's settings: each named one's primary family as
+/// `[light, dark]`, resolved through `tokens`, and the numbers the any-colour one is drawn by.
+fn accents(tokens: &serde_json::Value) -> String {
+    let path = Path::new("../../packages/but-ui/tokens/settings.json");
+    println!("cargo:rerun-if-changed={}", path.display());
+    let settings = fs::read_to_string(path).expect("but-ui's settings are in packages/but-ui");
+    let settings: serde_json::Value =
+        serde_json::from_str(&settings).expect("settings.json is JSON");
+    let accent = &settings["accent"];
+    let color = |token: &str| -> String {
+        let modes = &tokens["colors"][token];
+        let [light, dark] = ["light", "dark"].map(|mode| {
+            (modes[mode].as_str().and_then(rgba))
+                .unwrap_or_else(|| panic!("{token} has a {mode} colour in tokens.json"))
+        });
+        format!("[{light:#010x}, {dark:#010x}]")
+    };
+    let named: String = (accent["values"].as_object())
+        .expect("the accent setting has values")
+        .iter()
+        .map(|(name, family)| {
+            let family: String = (family.as_object())
+                .expect("an accent names a step for each token")
+                .iter()
+                .map(|(token, step)| {
+                    let step = step.as_str().expect("an accent's token names a ramp step");
+                    format!("(\"{token}\", {}), ", color(step))
+                })
+                .collect();
+            format!("    (\"{name}\", &[{family}]),\n")
+        })
+        .collect();
+    let custom = &accent["custom"];
+    let drawn: String = (custom["tokens"].as_object())
+        .expect("the custom accent has tokens")
+        .iter()
+        .map(|(token, modes)| {
+            let [light, dark] = ["light", "dark"].map(|mode| {
+                let number = |key: &str| {
+                    (modes[mode][key].as_f64())
+                        .unwrap_or_else(|| panic!("{token} has a {mode} {key}"))
+                };
+                format!(
+                    "({:?}, {:?})",
+                    number("lightness") as f32,
+                    number("chroma") as f32
+                )
+            });
+            format!("(\"{token}\", [{light}, {dark}]), ")
+        })
+        .collect();
+    let fallback = custom["fallback"]
+        .as_str()
+        .expect("the custom accent has a fallback");
+    let cap = custom["chromaCap"]
+        .as_f64()
+        .expect("the custom accent has a chroma cap") as f32;
+    format!(
+        "/// An accent's primary family: each token as `[light, dark]`.\n\
+         pub type Family = &'static [(&'static str, [u32; 2])];\n\
+         pub const ACCENTS: &[(&str, Family)] = &[\n{named}];\n\
+         pub const CUSTOM_ACCENT: &[(&str, [(f32, f32); 2])] = &[{drawn}];\n\
+         pub const CUSTOM_ACCENT_FALLBACK: [u32; 2] = {};\n\
+         pub const CUSTOM_ACCENT_CHROMA_CAP: f32 = {cap:?};\n",
+        color(fallback)
+    )
 }
 
 /// `#rrggbb` or `#rrggbbaa` as `0xRRGGBBAA`, opaque when it has no alpha.

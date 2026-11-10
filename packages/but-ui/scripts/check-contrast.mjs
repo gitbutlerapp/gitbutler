@@ -5,8 +5,8 @@
 //
 //   node scripts/check-contrast.mjs
 
+import { SAMPLES } from "./accent-samples.mjs";
 import { declarationsIn, resolveColor, rootDeclarations } from "./resolve-color.mjs";
-import { formatHex } from "culori";
 import { readFileSync } from "node:fs";
 
 const TEXT = 4.5;
@@ -14,12 +14,6 @@ const MARK = 3;
 
 const css = readFileSync("tokens/tokens.css", "utf8");
 const defaults = rootDeclarations(css);
-// Any colour stands in as the full-strength hue every 15°, the purest a person can type, and
-// a gray.
-const SAMPLES = [
-	...Array.from({ length: 24 }, (_, i) => formatHex({ mode: "hsl", h: i * 15, s: 1, l: 0.5 })),
-	"#808080",
-];
 // Every accent a person can pick, as the declarations it changes; teal changes none.
 const accents = [
 	["teal", []],
