@@ -25,9 +25,9 @@ use crate::overlays::MenuItem;
 use crate::state::{
     NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
 };
-use crate::theme::{Accent, Appearance, CodeSize, ColorScheme, Theme, UiScale};
+use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
 use crate::ui::fold::{self, Folds};
-use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
+use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -266,8 +266,6 @@ pub struct SettingsView {
     terminals: Vec<Program>,
     /// The command terminals opened here run, as typed until saved.
     terminal_command: Entity<TextInput>,
-    /// A custom accent, as typed.
-    accent_color: Entity<TextInput>,
     /// The commands "New terminal with command" offers, one a line, as typed until saved.
     terminal_launchers: Entity<TextInput>,
     fetch_interval: Option<u64>,
@@ -328,12 +326,6 @@ impl SettingsView {
             input.load(command, cx);
             input
         });
-        let accent = store.read(cx).prefs.accent_color.clone();
-        let accent_color = cx.new(|cx| {
-            let mut input = TextInput::new("A colour, as #3b82f6", false, cx);
-            input.load(accent, cx);
-            input
-        });
         let launchers = store.read(cx).prefs.terminal_launchers().join("\n");
         let terminal_launchers = cx.new(|cx| {
             let mut input = TextInput::new("One command a line", true, cx);
@@ -379,19 +371,6 @@ impl SettingsView {
                     }
                 },
             ),
-            // The app takes on a custom accent as soon as the field holds a colour.
-            cx.subscribe_in(
-                &accent_color,
-                window,
-                |this, _, event, window, cx| match event {
-                    InputEvent::Changed => this.save_accent_color(window, cx),
-                    InputEvent::Submit => this.back_to_search(window, cx),
-                    InputEvent::Cancel => {
-                        this.reset_accent_color(cx);
-                        this.back_to_search(window, cx);
-                    }
-                },
-            ),
             // The command saves as the field's left, and as Settings closes with it focused.
             cx.on_blur(&terminal_command.focus_handle(cx), window, |this, _, cx| {
                 this.save_terminal_command(cx)
@@ -425,7 +404,6 @@ impl SettingsView {
             editors: Vec::new(),
             terminals: Vec::new(),
             terminal_command,
-            accent_color,
             terminal_launchers,
             fetch_interval: None,
             open_at_start: None,
@@ -674,70 +652,6 @@ impl SettingsView {
         .with_keywords("accessibility a11y voiceover")
     }
 
-    /// The accent GitButler's colours pick things out in, and a custom one's colour below.
-    fn accent_row(&self, window: &Window, cx: &Context<Self>) -> Row {
-        let theme = Theme::get(cx);
-        let prefs = &self.store.read(cx).prefs;
-        let (store, app) = (self.store.clone(), self.app.clone());
-        let picker = segmented(
-            "accent",
-            [
-                (Accent::Teal, "Teal"),
-                (Accent::Blue, "Blue"),
-                (Accent::Purple, "Purple"),
-                (Accent::Custom, "Custom"),
-            ],
-            prefs.accent,
-            move |accent, window, cx| {
-                store.update(cx, |store, cx| store.set_prefs(|p| p.accent = accent, cx));
-                app.update_later(window, cx, |app, window, cx| {
-                    app.apply_appearance(window, cx)
-                });
-            },
-            theme,
-        );
-        let row = Row::new(
-            "Accent",
-            match prefs.color_scheme {
-                ColorScheme::GitButler => {
-                    "The colour of primary buttons, ticks and what's picked out. Custom takes any \
-                     colour, set so text on it still reads."
-                }
-                ColorScheme::Ghostty | ColorScheme::Named(_) => {
-                    "Only in GitButler's colours: a colour scheme brings its own."
-                }
-            },
-            picker,
-        )
-        .with_keywords("color colour theme primary");
-        if prefs.accent != Accent::Custom {
-            return row;
-        }
-        let focused = self.accent_color.focus_handle(cx).is_focused(window);
-        row.with_below(field(&self.accent_color, focused, theme))
-    }
-
-    /// Keep the custom accent as typed once it's a colour, and draw the app in it.
-    fn save_accent_color(&self, window: &mut Window, cx: &mut Context<Self>) {
-        let color = self.accent_color.read(cx).text().trim().to_owned();
-        if crate::theme::parse_hex(&color).is_none()
-            || color == self.store.read(cx).prefs.accent_color
-        {
-            return;
-        }
-        (self.store).update(cx, |store, cx| {
-            store.set_prefs(|p| p.accent_color = color, cx)
-        });
-        (self.app).update_later(window, cx, |app, window, cx| {
-            app.apply_appearance(window, cx)
-        });
-    }
-
-    fn reset_accent_color(&mut self, cx: &mut Context<Self>) {
-        let color = self.store.read(cx).prefs.accent_color.clone();
-        (self.accent_color).update(cx, |input, cx| input.set_text(color, cx));
-    }
-
     /// Save the command as typed, unless it's what's saved already.
     fn save_terminal_command(&self, cx: &mut App) {
         let command = self.terminal_command.read(cx).text().trim().to_owned();
@@ -775,7 +689,7 @@ impl SettingsView {
     }
 
     /// The theme, then how diffs show.
-    fn appearance_cards(&self, window: &Window, cx: &Context<Self>) -> Vec<Card> {
+    fn appearance_cards(&self, cx: &Context<Self>) -> Vec<Card> {
         let theme = Theme::get(cx);
         let prefs = &self.store.read(cx).prefs;
         let (store, app) = (self.store.clone(), self.app.clone());
@@ -834,7 +748,6 @@ impl SettingsView {
             scheme,
         )
         .with_keywords("color theme ghostty");
-        let accent = self.accent_row(window, cx);
         let percent = |scale: UiScale| format!("{}%", scale.percent());
         let size = self.choice(
             "ui-scale",
@@ -1053,7 +966,6 @@ impl SettingsView {
                 vec![
                     scheme,
                     appearance,
-                    accent,
                     size,
                     navigator_place,
                     status_bar,
@@ -1543,7 +1455,7 @@ impl SettingsView {
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
-            Page::App(AppPage::Appearance) => self.appearance_cards(window, cx),
+            Page::App(AppPage::Appearance) => self.appearance_cards(cx),
             Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
             Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
             Page::App(AppPage::Git) => vec![
@@ -1688,7 +1600,7 @@ impl SettingsView {
             }))
             .child(
                 v_flex()
-                    .rounded(dp(8.))
+                    .rounded(dp(theme.shape.popup))
                     .border_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
@@ -2025,7 +1937,7 @@ impl Render for SettingsView {
                     .h_full()
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
-                    .rounded_l(dp(MODAL_RADIUS - 1.))
+                    .rounded_l(dp(theme.shape.popup - 1.))
                     .key_context("SettingsPages")
                     .on_action(
                         cx.listener(|this, _: &SelectNext, window, cx| {
@@ -2050,7 +1962,7 @@ impl Render for SettingsView {
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
-                    .rounded_r(dp(MODAL_RADIUS - 1.))
+                    .rounded_r(dp(theme.shape.popup - 1.))
                     .child(scrolled(
                         content,
                         "settings-cards-scrollbar",
