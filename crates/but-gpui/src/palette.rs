@@ -2056,8 +2056,8 @@ impl AppView {
             .child(
                 div()
                     .flex_none()
-                    .h(dp(36.))
-                    .px(dp(12.))
+                    .h(dp(theme.sizes.bar))
+                    .px(dp(12. + theme.sizes.padding))
                     .flex()
                     .items_center()
                     .gap(dp(12.))
@@ -2101,8 +2101,8 @@ impl AppView {
             .child(
                 h_flex()
                     .flex_none()
-                    .h(dp(36.))
-                    .px(dp(12.))
+                    .h(dp(theme.sizes.bar))
+                    .px(dp(12. + theme.sizes.padding))
                     .gap(dp(12.))
                     .border_t_1()
                     .border_color(theme.border_3)

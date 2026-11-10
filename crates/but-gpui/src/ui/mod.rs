@@ -429,7 +429,7 @@ pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Di
     let last = toggles.len().saturating_sub(1);
     h_flex()
         .flex_none()
-        .h(dp(28.))
+        .h(dp(theme.sizes.control))
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(line)
@@ -488,7 +488,10 @@ pub fn segmented(
     let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
     h_flex()
         .flex_none()
-        .h(dp(if small { 24. } else { 28. }))
+        .h(dp(match small {
+            true => theme.sizes.control_sm + 4.,
+            false => theme.sizes.control,
+        }))
         .rounded(dp(theme.shape.control))
         .bg(theme.bg_2)
         .text_size(dp(if small { 12. } else { 13. }))
@@ -509,7 +512,7 @@ pub fn segmented(
                     });
                     let segment = tab_stop(segment, theme).role(Role::Button);
                     let segment = (segment.h_full().flex().items_center())
-                        .px(dp(if small { 7. } else { 9. }))
+                        .px(dp(if small { 7. } else { 9. } + theme.sizes.padding))
                         .rounded(dp(theme.shape.control))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
@@ -1006,9 +1009,9 @@ pub fn dropdown(
     tab_stop(h_flex().id(id), theme)
         .role(Role::ComboBox)
         .flex_none()
-        .h(dp(28.))
-        .pl(dp(10.))
-        .pr(dp(6.))
+        .h(dp(theme.sizes.control))
+        .pl(dp(10. + theme.sizes.padding))
+        .pr(dp(6. + theme.sizes.padding))
         .gap(dp(6.))
         .rounded(dp(theme.shape.control))
         .border_1()
@@ -1341,10 +1344,12 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        // As but-ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
+        // As but-ui-react's: small is control-sm tall with a 14 icon, an icon alone 2px wider;
+        // regular is control, square alone. Density moves both, and the padding beside a label.
+        let sizes = theme.sizes;
         let (height, width, icon_size) = match self.small {
-            true => (dp(20.), dp(22.), dp(14.)),
-            false => (dp(28.), dp(28.), dp(16.)),
+            true => (dp(sizes.control_sm), dp(sizes.control_sm + 2.), dp(14.)),
+            false => (dp(sizes.control), dp(sizes.control), dp(16.)),
         };
         let has_label = self.label.is_some();
         let pictured = self.picture.is_some();
@@ -1361,7 +1366,9 @@ impl RenderOnce for Button {
             })
             .h(height)
             .gap(dp(if self.small { 4. } else { 6. }))
-            .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
+            .when(has_label, |el| {
+                el.px(dp(if self.small { 6. } else { 10. } + sizes.padding))
+            })
             .when(!has_label, |el| el.w(width).justify_center())
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
