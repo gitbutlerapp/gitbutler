@@ -41,8 +41,15 @@ const Example: FC<{ entry: StoryEntry; framed: boolean }> = ({ entry, framed }) 
 	// A card is the story's size plus its border, centred on the column: a narrower one in it, a
 	// wider one reaching past both its edges. A ground keeps to the prose line and only grows, past
 	// both its edges, for a story wider than it.
+	// A bar with no width of its own keeps to the prose line, as a ground does, so it shares the
+	// words' edge.
 	const card = width === undefined ? undefined : width + 2;
-	const sized = card === undefined ? undefined : { width: card, alignSelf: "center" };
+	const sized =
+		card !== undefined
+			? { width: card, alignSelf: "center" }
+			: framed
+				? undefined
+				: { width: "100%", maxWidth: "var(--but-size-prose)", alignSelf: "center" };
 	const ground =
 		width === undefined
 			? undefined
