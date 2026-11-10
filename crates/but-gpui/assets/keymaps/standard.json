@@ -391,10 +391,9 @@
     "context": "Diff && Amending && !TextInput",
     "bindings": { "enter": "app::StartAmend" }
   },
-  // c commits the uncommitted changes, as the TUI's c does: the keys above step through where
-  // the commit goes, and Return writes its message, or commits once it's written. ⌘↩ does too,
-  // from the file filter and a terminal as well. After Return's,
-  // above, so c is the key shown.
+  // c commits the uncommitted changes, as the TUI's c does: the keys go to its message, and
+  // Escape there steps through where the commit goes with the keys above. ⌘↩ does too, from
+  // the file filter and a terminal as well. After Return's, above, so c is the key shown.
   {
     "context": "(Workspace && !TextInput) || (Files && !Composer > TextInput) || Terminal",
     "bindings": {

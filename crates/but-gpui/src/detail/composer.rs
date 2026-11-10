@@ -541,7 +541,7 @@ impl Detail {
         self.compose(true, true, window, cx)
     }
 
-    /// Open the composer, leaving the keys where they are, as the navigator places the commit,
+    /// Open the composer, leaving the keys where they are, as the navigator places an amend,
     /// saying whether it opened: not while a commit is being edited, say.
     pub fn open_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         self.compose(true, false, window, cx);
@@ -725,10 +725,10 @@ impl Detail {
     }
 
     /// Back to placing the commit, the composer left open, as Escape in its message does while
-    /// the navigator places one.
+    /// the navigator places one: the keys go to the navigator, brought out as ⌘1 does if it's
+    /// out of sight.
     pub(super) fn back_to_placing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let back = (self.composer_back.clone()).unwrap_or_else(|| self.focus.clone());
-        window.focus(&back, cx);
+        window.dispatch_action(Box::new(crate::app::FocusNavigator), cx);
     }
 
     /// Place the commit the navigator's placing in a new branch of its own, after the other
