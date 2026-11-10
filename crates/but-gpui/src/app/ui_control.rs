@@ -8,7 +8,7 @@ use but_ui_control::ui::{
     TypeParams,
 };
 use but_ui_control::{Request, RpcError, code};
-use gpui::{App, Context, Keystroke, Window};
+use gpui::{App, AppContext as _, Context, Keystroke, Window};
 use serde::de::DeserializeOwned;
 
 use super::{AppView, KeyPlace, tile_label};
@@ -51,11 +51,37 @@ pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &m
             app.update(cx, |app, cx| app.ui_focus(&params, window, cx))
                 .map(|()| serde_json::to_value(()))
         }),
-        // Outside the app's update, because a key's handler updates the app itself.
-        ui::TYPE => params::<TypeParams>(&request).and_then(|params| {
-            let text_field = app.read(cx).ui_keys(window, cx).text_field;
-            type_text(&params.text, text_field, window, cx).map(|()| serde_json::to_value(()))
-        }),
+        // Outside the app's update, because a key's handler updates the app itself. A line per
+        // update, so what an Enter submits is handled before the next line types.
+        ui::TYPE => {
+            let text = match params::<TypeParams>(&request) {
+                Ok(params) => params.text,
+                Err(err) => return reply.err(err),
+            };
+            let handle = window.window_handle();
+            cx.spawn(async move |cx| {
+                for line in text.split_inclusive('\n') {
+                    let typed = cx.update_window(handle, |_, window, cx| {
+                        // Where the keys are is read from the last frame, which a key may have
+                        // changed since.
+                        window.draw(cx).clear(cx);
+                        let text_field = app.read(cx).ui_keys(window, cx).text_field;
+                        type_text(line, text_field, window, cx)
+                    });
+                    match typed {
+                        Ok(Ok(())) => {}
+                        Ok(Err(err)) => return reply.err(err),
+                        Err(_) => {
+                            return reply
+                                .err(RpcError::new(code::INTERNAL_ERROR, "The window closed"));
+                        }
+                    }
+                }
+                reply.ok(());
+            })
+            .detach();
+            return;
+        }
         method => Err(RpcError::new(
             code::METHOD_NOT_FOUND,
             format!("The app has no method {method}"),
@@ -114,8 +140,7 @@ impl AppView {
                 text_field: false,
             };
         }
-        let text_field =
-            (window.context_stack().iter()).any(|context| context.contains("TextInput"));
+        let text_field = types_text(&window.context_stack());
         let (tile, pane) = match self.place_with_keys(window, cx) {
             KeyPlace::Navigator => (NAVIGATOR.to_owned(), None),
             KeyPlace::Terminals => (TERMINALS.to_owned(), None),
@@ -425,6 +450,14 @@ fn kind_of(selection: &Selection) -> &'static str {
     }
 }
 
+/// Arranging tiles claims `TextInput` only to keep shortcuts out: its letters move tiles.
+fn types_text(contexts: &[gpui::KeyContext]) -> bool {
+    let arranging = |context: &gpui::KeyContext| {
+        context.contains("ArrangingTiles") || context.contains("SwappingTiles")
+    };
+    contexts.iter().any(|context| context.contains("TextInput")) && !contexts.iter().any(arranging)
+}
+
 fn detail_hidden() -> RpcError {
     RpcError::new(
         code::NOT_AVAILABLE,
@@ -455,7 +488,28 @@ fn unique_ids<'a>(labels: impl IntoIterator<Item = &'a str>, taken: &[&str]) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::unique_ids;
+    use super::{types_text, unique_ids};
+
+    #[test]
+    fn keys_type_text_only_in_a_field() {
+        let contexts = |stack: &[&str]| -> Vec<gpui::KeyContext> {
+            stack
+                .iter()
+                .map(|context| gpui::KeyContext::parse(context).unwrap())
+                .collect()
+        };
+        assert!(types_text(&contexts(&["Workspace", "Editor TextInput"])));
+        assert!(types_text(&contexts(&["Workspace", "Terminal TextInput"])));
+        assert!(
+            !types_text(&contexts(&["Workspace", "ArrangingTiles TextInput"])),
+            "arranging tiles holds the keys from shortcuts, but its letters move tiles"
+        );
+        assert!(!types_text(&contexts(&[
+            "Workspace",
+            "SwappingTiles TextInput"
+        ])));
+        assert!(!types_text(&contexts(&["Workspace", "Diff"])));
+    }
 
     #[test]
     fn tiles_that_show_the_same_get_ids_of_their_own() {
