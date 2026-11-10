@@ -7,6 +7,7 @@ import {
 	paintDensity,
 	paintRadius,
 	paintTheme,
+	PRESETS,
 	radiusOf,
 } from "./site.ts";
 import { flushSync } from "react-dom";
@@ -16,7 +17,7 @@ import { createRoot } from "react-dom/client";
  * One story alone, `?story=components-modal--confirm`: the frame an overlay's example opens in,
  * and the page to screenshot a story on. Framed on a site page it follows the page's theme,
  * accent, corners and density; opened on its own, `&theme=dark`, `&accent=blue` (or a hex,
- * `&accent=EE5858`), `&radius=round` and `&density=compact` pick them.
+ * `&accent=EE5858`), `&radius=round` and `&density=compact` pick them, or `&preset=tight` both at once.
  */
 export async function renderFrame(id: string) {
 	const search = new URLSearchParams(window.location.search);
@@ -39,8 +40,9 @@ export async function renderFrame(id: string) {
 	if (site === undefined) {
 		paintTheme(search.get("theme") === "dark" ? "dark" : "light");
 		paintAccent(accentOf(search.get("accent")));
-		paintRadius(radiusOf(search.get("radius")));
-		paintDensity(densityOf(search.get("density")));
+		const preset = PRESETS.find(({ id }) => id === search.get("preset"));
+		paintRadius(radiusOf(search.get("radius") ?? preset?.radius));
+		paintDensity(densityOf(search.get("density") ?? preset?.density));
 	} else {
 		followSite();
 		new MutationObserver(followSite).observe(site, {

@@ -18,8 +18,11 @@ import {
 import {
 	currentPage,
 	pageLink,
+	PRESETS,
+	presetOf,
 	pickAccent,
 	pickDensity,
+	pickPreset,
 	pickRadius,
 	pickTheme,
 	savedAccent,
@@ -221,6 +224,8 @@ const Appearance: FC = () => {
 	const [density, setDensity] = useState(savedDensity);
 	const [theme, setTheme] = useState(savedTheme);
 	const [accent, setAccent] = useState(savedAccent);
+	// Not kept on its own: the corners and density make it, or make it Custom.
+	const preset = presetOf(radius, density);
 
 	return (
 		<section
@@ -239,6 +244,24 @@ const Appearance: FC = () => {
 			</div>
 			{!folded && (
 				<div className="docs-site-appearance-rows">
+					<Setting name="Preset" icon="mixer" value={preset?.name ?? "Custom"}>
+						<MenuRadioGroup
+							value={preset?.id ?? ""}
+							onValueChange={(next) => {
+								const picked = PRESETS.find(({ id }) => id === next);
+								if (picked === undefined) return;
+								setRadius(picked.radius);
+								setDensity(picked.density);
+								pickPreset(picked);
+							}}
+						>
+							{PRESETS.map(({ id, name }) => (
+								<MenuRadioItem key={id} value={id}>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
 					<Setting name="Radius" icon={RADII[radius].icon} value={RADII[radius].name}>
 						<MenuRadioGroup
 							value={radius}

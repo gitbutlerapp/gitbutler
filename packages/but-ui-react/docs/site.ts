@@ -1,4 +1,5 @@
 import { findPage, loadPage, pages, type Page } from "./pages.ts";
+import presets from "@gitbutler/but-ui/presets";
 import type { MouseEvent } from "react";
 
 /** The page the address names, or the design overview. */
@@ -112,8 +113,7 @@ export function pickAccent(accent: Accent) {
 	}
 }
 
-/** The corners: Figma's, or the whole scale 4px sharper or rounder. */
-/** Soft is Figma's. */
+/** The corners: soft, Figma's, or the whole scale 4px sharper or rounder. */
 export type Radius = "sharp" | "soft" | "round";
 
 /** `value` as a corner setting; else Figma's. */
@@ -147,7 +147,7 @@ export function pickRadius(radius: Radius) {
 	}
 }
 
-/** Balanced is Figma's. */
+/** The heights: balanced, Figma's, or a step shorter or taller. */
 export type Density = "compact" | "balanced" | "spacious";
 
 /** `value` as a density; else Figma's. */
@@ -179,6 +179,25 @@ export function pickDensity(density: Density) {
 	} catch {
 		// Kept for this visit only.
 	}
+}
+
+/** A named pair of corners and density, from but-ui; colour and theme stay as picked. */
+export type Preset = { id: string; name: string; radius: Radius; density: Density };
+
+export const PRESETS: Array<Preset> = presets.map((preset) => ({
+	...preset,
+	radius: radiusOf(preset.radius),
+	density: densityOf(preset.density),
+}));
+
+/** The preset these settings make, if any. */
+export const presetOf = (radius: Radius, density: Density): Preset | undefined =>
+	PRESETS.find((preset) => preset.radius === radius && preset.density === density);
+
+/** Picks both of a preset's settings, as picking them one at a time would. */
+export function pickPreset(preset: Preset) {
+	pickRadius(preset.radius);
+	pickDensity(preset.density);
 }
 
 export function pickTheme(theme: Theme) {
