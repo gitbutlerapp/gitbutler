@@ -6,9 +6,9 @@
 	gap: 7px;
 	transform-origin: var(--transform-origin);
 	border-radius: var(--but-radius-control);
-	background-color: var(--but-background);
+	background-color: var(--but-popover);
 	box-shadow: var(--but-shadow-tooltip);
-	color: var(--but-foreground);
+	color: var(--but-popover-foreground);
 	transition:
 		transform var(--but-transition-popup) var(--but-easing-popup),
 		opacity var(--but-transition-popup) var(--but-easing-popup);
