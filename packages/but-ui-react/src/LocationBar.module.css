@@ -1,12 +1,12 @@
 /* On the window's ground, with its own bottom edge: the header under it starts on the background.
-   40px tall, its edge included, with everything centred in what is left. */
+   size/row tall, its edge included, with everything centred in what is left. */
 .bar {
 	box-sizing: border-box;
 	display: flex;
 	column-gap: var(--but-space-2xl);
 	align-items: center;
 	min-width: 0;
-	height: 40px;
+	height: var(--but-size-row);
 	padding: 0 var(--but-padding-panel);
 	border-bottom: 1px solid var(--but-border-subtle);
 	background-color: var(--but-canvas);

@@ -2,12 +2,13 @@
 	margin: 0;
 }
 
-/* A one-line row is the minimum height; the block padding is for a name that wraps. */
+/* A one-line row is the minimum height, size/row; the block padding, what is left of it around
+   the 20px line, is for a name that wraps. */
 .item {
 	display: flex;
 	align-items: center;
-	min-height: 40px;
-	padding: 10px var(--but-padding-row);
+	min-height: var(--but-size-row);
+	padding: calc((var(--but-size-row) - 20px) / 2) var(--but-padding-row);
 	gap: var(--but-space-2xl);
 }
 
@@ -49,14 +50,14 @@
 	overflow-wrap: anywhere;
 }
 
-/* A size up from the small button, at 24 with a 16 icon, reaching 2px into the row's padding at
-   each end so a copy row is as tall as any other, and its own 4px inset into the right padding so
-   the icon sits as far from the edge as the text does. */
+/* 4px over the small button, 24 at the default density, with a 16 icon, reaching past the 20px
+   line into the row's padding at each end so a copy row is as tall as any other, and its own 4px
+   inset into the right padding so the icon sits as far from the edge as the text does. */
 .copy {
-	--button-height: 24px;
-	--button-width: 24px;
+	--button-height: calc(var(--but-size-control-sm) + 4px);
+	--button-width: var(--button-height);
 	--button-padding-inline: 4px;
 	--icon-size: 16px;
 	margin-inline-end: -4px;
-	margin-block: -2px;
+	margin-block: calc((20px - var(--button-height)) / 2);
 }

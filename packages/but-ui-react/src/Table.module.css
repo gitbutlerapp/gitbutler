@@ -8,11 +8,12 @@
 	border-collapse: collapse;
 }
 
-/* Every row at least 40 tall, as a DescriptionList row is. The columns sit 24 apart and the end
-   ones padding/row in from the card, from the same inset on both sides of every cell. */
+/* Every row at least size/row tall, as a DescriptionList row is, its 20px line centred in it. The
+   columns sit 24 apart and the end ones padding/row in from the card, from the same inset on both
+   sides of every cell. */
 .cell {
-	height: 40px;
-	padding: 10px var(--but-padding-row);
+	height: var(--but-size-row);
+	padding: calc((var(--but-size-row) - 20px) / 2) var(--but-padding-row);
 	color: var(--but-foreground);
 	font-weight: inherit;
 	text-align: start;
