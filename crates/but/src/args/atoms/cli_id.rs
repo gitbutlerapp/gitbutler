@@ -41,7 +41,7 @@ impl CliIdArg {
         "Run `but diff` for the current change IDs; a hunk ID is `<file>:<hunk>`.";
 
     /// Hint for an argument that resolved to several things.
-    const AMBIGUOUS_HINT: &str = "Use a longer ID to disambiguate. A path starting with `./` or `../` is read only from the current directory.";
+    pub(crate) const AMBIGUOUS_HINT: &str = "Use a longer ID to disambiguate. A path starting with `./` or `../` is read only from the current directory.";
 
     /// The hint for an argument that resolved to nothing: `fallback`, unless it names a file with
     /// unresolved conflicts, which has no ID. `repo` is the main worktree's, which is also where

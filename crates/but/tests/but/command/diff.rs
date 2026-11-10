@@ -1018,3 +1018,21 @@ Files changed:
 
 "#]]);
 }
+
+#[test]
+fn show_refuses_a_missing_commit_as_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    // An agent needs a next step, which only bad input gives with its hint.
+    env.but("show deadbeef")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Commit 'deadbeef' not found
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+}

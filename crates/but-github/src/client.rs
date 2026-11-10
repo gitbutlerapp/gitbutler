@@ -29,12 +29,15 @@ struct GraphQlErrors {
 }
 
 /// `err` marked as GitHub turning a change down, when its GraphQL reply said so, so callers
-/// don't count it as a fault of their own.
+/// don't count it as a fault of their own, and show GitHub's reason rather than the operation.
 fn refused_change(err: anyhow::Error) -> anyhow::Error {
-    match (err.downcast_ref::<GraphQlErrors>()).is_some_and(|errors| errors.refused) {
-        true => err.context(but_error::Code::PreconditionFailed),
-        false => err,
-    }
+    let refusal = match err.downcast_ref::<GraphQlErrors>() {
+        Some(errors) if errors.refused => {
+            format!("GitHub refused the change: {}", errors.messages)
+        }
+        _ => return err,
+    };
+    err.context(but_error::Context::new(refusal).with_code(but_error::Code::PreconditionFailed))
 }
 
 /// Pass successful responses through; failures carry the downcastable
@@ -2505,10 +2508,15 @@ mod tests {
         use but_error::AnyhowContextExt as _;
         assert_eq!(
             super::refused_change(err)
-                .custom_context()
-                .map(|said| said.code),
-            Some(but_error::Code::PreconditionFailed),
-            "the repository's settings turned it down, which the user is the one to change"
+                .downcast_ref::<but_error::Context>()
+                .map(|said| (said.code, said.to_string())),
+            Some((
+                but_error::Code::PreconditionFailed,
+                "GitHub refused the change: Pull request Auto merge is not allowed for this repository"
+                    .into()
+            )),
+            "the repository's settings turned it down, which the user is the one to change, \
+             and the refusal itself carries GitHub's reason for callers that show only it"
         );
         let invalid = br#"{"errors":[{"message":"Field 'enablePullRequestAutoMerge' doesn't exist on type 'Mutation'","extensions":{"code":"undefinedField"}}]}"#;
         let err = decode_graphql_response::<AutoMergePayload>(invalid)
