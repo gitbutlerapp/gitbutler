@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use but_evo::Rewrite;
 
@@ -48,46 +48,53 @@ fn swap(ids: &mut [gix::ObjectId], from: gix::ObjectId, to: gix::ObjectId) {
 
 /// The rewrites of `log`, in order, with every one-to-one replacement folded into the
 /// rewrite that made the commit it replaces or the rewrite that consumes its result.
-// ponytail: finds a commit's maker by scanning back, quadratic in the log; index makers
-// by successor if a log ever grows past a few thousand rewrites.
 pub(crate) fn reduce(log: &[Rewrite]) -> Vec<Rewrite> {
-    let mut reduced = Vec::<Rewrite>::new();
+    let mut reduced = Vec::<Option<Rewrite>>::new();
+    let mut maker_of = HashMap::<gix::ObjectId, usize>::new();
     for rewrite in log {
         match rewrite {
             Rewrite::Replace { prec, succ } if prec == succ => {}
             Rewrite::Replace { prec, succ } => {
-                let Some(maker) = reduced
-                    .iter_mut()
-                    .rev()
-                    .find(|maker| succs(maker).contains(prec))
-                else {
-                    reduced.push(rewrite.clone());
-                    continue;
-                };
-                swap(succs_mut(maker), *prec, *succ);
-                reduced.retain(
-                    |made| !matches!(made, Rewrite::Replace { prec, succ } if prec == succ),
-                );
+                let made = maker_of
+                    .remove(prec)
+                    .and_then(|at| Some((at, reduced.get_mut(at)?)));
+                match made {
+                    Some((at, slot @ Some(_))) => {
+                        if let Some(maker) = slot {
+                            swap(succs_mut(maker), *prec, *succ);
+                        }
+                        if matches!(slot, Some(Rewrite::Replace { prec, succ }) if prec == succ) {
+                            *slot = None;
+                        } else {
+                            maker_of.insert(*succ, at);
+                        }
+                    }
+                    Some((_, None)) | None => {
+                        maker_of.insert(*succ, reduced.len());
+                        reduced.push(Some(rewrite.clone()));
+                    }
+                }
             }
             Rewrite::Split { .. } | Rewrite::Fold { .. } | Rewrite::Prune { .. } => {
                 let mut rewrite = rewrite.clone();
                 for prec in precs(&rewrite) {
-                    let Some(at) = reduced
-                        .iter()
-                        .rposition(|maker| succs(maker).contains(&prec))
-                    else {
+                    let Some(slot) = maker_of.get(&prec).and_then(|at| reduced.get_mut(*at)) else {
                         continue;
                     };
-                    if let Some(Rewrite::Replace { prec: original, .. }) = reduced.get(at) {
+                    if let Some(Rewrite::Replace { prec: original, .. }) = slot {
                         swap(precs_mut(&mut rewrite), prec, *original);
-                        reduced.remove(at);
+                        *slot = None;
+                        maker_of.remove(&prec);
                     }
                 }
-                reduced.push(rewrite);
+                for succ in succs(&rewrite) {
+                    maker_of.insert(succ, reduced.len());
+                }
+                reduced.push(Some(rewrite));
             }
         }
     }
-    reduced
+    reduced.into_iter().flatten().collect()
 }
 
 /// Each commit `log` first rewrote, paired with every commit that stands for it once the
