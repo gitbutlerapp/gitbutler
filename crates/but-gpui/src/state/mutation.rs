@@ -2233,10 +2233,6 @@ fn update_conflicts_detail(
     workspace: Option<&Workspace>,
     scope: UpdateScope,
 ) -> String {
-    let linked = |ref_name: Option<&FullName>| {
-        (workspace.and_then(|ws| ws.lane_of(ref_name)))
-            .is_some_and(|(lane, _)| lane.checkout.is_linked())
-    };
     let mut detail = Vec::new();
     if !found.branches.is_empty() {
         detail.push(format!(
@@ -2251,15 +2247,6 @@ fn update_conflicts_detail(
             found.files.join(", ")
         ));
     }
-    let resolve = if found
-        .branches
-        .iter()
-        .any(|(branch, _)| linked(branch.as_ref()))
-    {
-        "You can resolve them afterwards, a linked worktree's in that worktree"
-    } else {
-        "You can resolve them afterwards"
-    };
     // A linked worktree resting on a stack moves with it, and one on the target's history
     // onto its new commits.
     let moves_worktrees = workspace.is_some_and(|ws| {
@@ -2269,11 +2256,13 @@ fn update_conflicts_detail(
             (scope.worktrees() && on_target) || (scope.workspace() && on_stack())
         })
     });
-    detail.push(if moves_worktrees {
-        format!("{resolve}. The update moves linked worktrees too, so it can't be undone.")
+    let resolve = if moves_worktrees {
+        "You can resolve them afterwards. The update moves linked worktrees too, so it can't be \
+         undone."
     } else {
-        format!("{resolve}, or undo the update.")
-    });
+        "You can resolve them afterwards, or undo the update."
+    };
+    detail.push(resolve.to_owned());
     detail.join(" ")
 }
 
@@ -2589,9 +2578,9 @@ mod tests {
                 UpdateScope::All
             ),
             "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
-             You can resolve them afterwards, a linked worktree's in that worktree. The update \
-             moves linked worktrees too, so it can't be undone.",
-            "wt moves with middle, and its conflicts resolve in it"
+             You can resolve them afterwards. The update moves linked worktrees too, so it \
+             can't be undone.",
+            "wt moves with middle, so the update can't be undone"
         );
         let on_a_worktree = workspace(
             vec![vec![branch("middle", &[2])]],

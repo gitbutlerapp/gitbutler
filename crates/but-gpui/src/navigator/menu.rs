@@ -466,6 +466,7 @@ impl Navigator {
                     return Vec::new();
                 };
                 let mut items = vec![
+                    command(&crate::open_in::OpenInEditor),
                     command(&Reveal),
                     command(&CopyPath).keys(&CopySelection, cx),
                     command(&NewTerminal).separated(),
