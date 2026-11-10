@@ -1204,7 +1204,8 @@ impl AppView {
                         )
                         .child(
                             if manual_install {
-                                button("update-app", "Download")
+                                button("update-app", "Downloads page")
+                                    .icon(Icon::ArrowUpRight)
                                     .on_click(|_, _, cx| cx.open_url(DOWNLOADS))
                             } else {
                                 button("update-app", "Update")

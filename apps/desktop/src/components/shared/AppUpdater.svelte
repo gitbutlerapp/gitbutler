@@ -132,10 +132,11 @@
 							<Button
 								wide
 								style="pop"
+								icon="open-in-browser"
 								testId="download-package"
 								onclick={async () => await updaterService.openDownloads()}
 							>
-								Download {version}
+								Downloads page
 							</Button>
 						{:else if !status}
 							<Button
