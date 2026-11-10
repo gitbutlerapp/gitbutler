@@ -8,7 +8,9 @@ use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
+    ToSelector,
+    util::{OrderedParentKind, collect_ordered_parents},
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -300,6 +302,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .edges_directed(target.id, Direction::Outgoing)
             .map(|edge| (self.new_selector(edge.target()), edge.weight().order))
             .collect())
+    }
+
+    /// Returns the commits `target` is picked onto, in parent order, looking through
+    /// references and removed steps.
+    pub fn commit_parents(&self, target: impl ToSelector) -> Result<Vec<Selector>> {
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        Ok(
+            collect_ordered_parents(&self.graph, target.id, OrderedParentKind::CommitOnly)
+                .into_iter()
+                .map(|parent| self.new_selector(parent))
+                .collect(),
+        )
     }
 
     /// For a given step, find all the references that point to it.
