@@ -153,13 +153,12 @@ impl CliOutputHuman for UiOutcome {
             }
             UiOutcome::Dispatched(action) => writeln!(out, "Ran {action}.")?,
             UiOutcome::Selected(row) => writeln!(out, "Selected {}.", row_display(&row))?,
-            UiOutcome::Focused(FocusParams { tile, pane }) => {
-                let tile = tile.unwrap_or_else(|| "the tile with the keys".to_owned());
-                match pane {
-                    Some(pane) => writeln!(out, "Gave the keys to {tile} › {pane}.")?,
-                    None => writeln!(out, "Gave the keys to {tile}.")?,
-                }
-            }
+            UiOutcome::Focused(FocusParams { tile, pane }) => match (tile, pane) {
+                (Some(tile), Some(pane)) => writeln!(out, "Gave the keys to {tile} › {pane}.")?,
+                (Some(tile), None) => writeln!(out, "Gave the keys to {tile}.")?,
+                (None, Some(pane)) => writeln!(out, "Gave the keys to the {pane} pane.")?,
+                (None, None) => writeln!(out, "The keys stay where they are.")?,
+            },
             UiOutcome::Typed(count) => writeln!(out, "Typed {count} characters.")?,
         }
         Ok(())
