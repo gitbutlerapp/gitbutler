@@ -113,15 +113,16 @@ export function pickAccent(accent: Accent) {
 }
 
 /** The corners: Figma's, or the whole scale 4px sharper or rounder. */
-export type Radius = "default" | "sharp" | "round";
+/** Soft is Figma's. */
+export type Radius = "sharp" | "soft" | "round";
 
 /** `value` as a corner setting; else Figma's. */
 export const radiusOf = (value: string | null | undefined): Radius =>
-	value === "sharp" || value === "round" ? value : "default";
+	value === "sharp" || value === "round" ? value : "soft";
 
 /** The corners are the root's `data-but-radius`, which the tokens follow; without it, Figma's. */
 export const paintRadius = (radius: Radius, root = document.documentElement) => {
-	if (radius === "default") delete root.dataset["butRadius"];
+	if (radius === "soft") delete root.dataset["butRadius"];
 	else root.dataset["butRadius"] = radius;
 };
 
@@ -133,7 +134,7 @@ export function savedRadius(): Radius {
 		return radiusOf(window.localStorage.getItem(radiusKey));
 	} catch {
 		// Storage can be off; Figma's stand in.
-		return "default";
+		return "soft";
 	}
 }
 
@@ -141,6 +142,40 @@ export function pickRadius(radius: Radius) {
 	paintRadius(radius);
 	try {
 		window.localStorage.setItem(radiusKey, radius);
+	} catch {
+		// Kept for this visit only.
+	}
+}
+
+/** Balanced is Figma's. */
+export type Density = "compact" | "balanced" | "spacious";
+
+/** `value` as a density; else Figma's. */
+export const densityOf = (value: string | null | undefined): Density =>
+	value === "compact" || value === "spacious" ? value : "balanced";
+
+/** The density is the root's `data-but-density`, which the tokens follow; without it, Figma's. */
+export const paintDensity = (density: Density, root = document.documentElement) => {
+	if (density === "balanced") delete root.dataset["butDensity"];
+	else root.dataset["butDensity"] = density;
+};
+
+const densityKey = "ui-react-docs-density";
+
+/** The density last picked here, else Figma's. */
+export function savedDensity(): Density {
+	try {
+		return densityOf(window.localStorage.getItem(densityKey));
+	} catch {
+		// Storage can be off; Figma's stands in.
+		return "balanced";
+	}
+}
+
+export function pickDensity(density: Density) {
+	paintDensity(density);
+	try {
+		window.localStorage.setItem(densityKey, density);
 	} catch {
 		// Kept for this visit only.
 	}
