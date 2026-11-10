@@ -1,13 +1,9 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, bail};
 use but_api::json;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
-use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
 
@@ -68,11 +64,8 @@ pub fn set_project_active(
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;
-    for err in [&db_error, &filter_error] {
-        if let Some(err) = &err {
-            tracing::error!("{err}");
-        }
+    if let Some(err) = &db_error {
+        tracing::error!("{err}");
     }
     let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
     let is_exclusive = match mode {
@@ -82,7 +75,7 @@ pub fn set_project_active(
     Ok(Some(ProjectInfo {
         is_exclusive,
         db_error,
-        headsup: filter_error,
+        headsup: None,
     }))
 }
 
@@ -159,62 +152,4 @@ fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
         );
     }
     Ok(None)
-}
-
-/// Return a heads-up listing the files worktree filters convert, as editing or resolving a commit
-/// still writes them without the filters, or `None` if no file uses a filter.
-fn warn_about_filters_and_git_lfs(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
-    let index = repo.index_or_empty()?;
-    let mut cache = repo.attributes_only(
-        &index,
-        gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
-    )?;
-    let mut attrs = cache.selected_attribute_matches(Some("filter"));
-    let mut all_filters = BTreeSet::<String>::new();
-    let mut files_with_filter = Vec::new();
-    for entry in index.entries() {
-        let cache_entry = cache.at_entry(entry.path(&index), None)?;
-        if cache_entry.matching_attributes(&mut attrs) {
-            let mut added = false;
-            all_filters.extend(attrs.iter().filter_map(|attr| {
-                attr.assignment.state.as_bstr().map(|s| {
-                    if !added {
-                        files_with_filter.push(entry.path(&index).to_str_lossy());
-                        added = true;
-                    }
-                    s.to_string()
-                })
-            }));
-        }
-    }
-
-    if all_filters.is_empty() {
-        return Ok(None);
-    }
-
-    let has_lfs = all_filters.contains("lfs");
-    let mut msg = format!(
-        "Worktree filter(s) detected: {comma_separated}\n\
-GitButler applies them when it checks out files, except while editing or resolving a commit, \
-which writes the files listed below without them.\n\
-Avoid editing or resolving commits with GitButler in this repository.",
-        comma_separated = Vec::from_iter(all_filters).join(", ")
-    );
-    if has_lfs {
-        msg.push_str(
-            r#"
-
-`git lfs pull --include="*"` can be used to restore git-lfs files after editing or resolving a commit."#,
-        );
-    }
-    let max_files = 10;
-    msg.push_str("\n\n");
-    msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
-    if files_with_filter.len() > max_files {
-        msg.push_str(&format!(
-            "\n[and {} more]",
-            files_with_filter.len() - max_files
-        ));
-    }
-    Ok(Some(msg))
 }
