@@ -10,7 +10,7 @@
 
 .fieldControl {
 	height: var(--but-size-control);
-	padding-inline: 8px;
+	padding-inline: calc(8px + var(--but-density-padding));
 	border-radius: var(--but-radius-control);
 	outline: 1px solid var(--but-border);
 	outline-offset: -1px;

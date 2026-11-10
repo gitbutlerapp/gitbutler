@@ -58,7 +58,7 @@
 :where(.small) {
 	--button-gap: 4px;
 	--button-height: var(--but-size-control-sm);
-	--button-padding-inline: 6px;
+	--button-padding-inline: calc(6px + var(--but-density-padding));
 	--icon-size: 14px;
 
 	/* 2px wider than tall, at any density. */
@@ -71,7 +71,7 @@
 :where(.regular) {
 	--button-gap: 6px;
 	--button-height: var(--but-size-control);
-	--button-padding-inline: 10px;
+	--button-padding-inline: calc(10px + var(--but-density-padding));
 	--icon-size: 16px;
 
 	&:where(.iconOnly) {
