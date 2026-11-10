@@ -112,6 +112,40 @@ export function pickAccent(accent: Accent) {
 	}
 }
 
+/** The corners: Figma's, or the whole scale 4px sharper or rounder. */
+export type Radius = "default" | "sharp" | "round";
+
+/** `value` as a corner setting; else Figma's. */
+export const radiusOf = (value: string | null | undefined): Radius =>
+	value === "sharp" || value === "round" ? value : "default";
+
+/** The corners are the root's `data-but-radius`, which the tokens follow; without it, Figma's. */
+export const paintRadius = (radius: Radius, root = document.documentElement) => {
+	if (radius === "default") delete root.dataset["butRadius"];
+	else root.dataset["butRadius"] = radius;
+};
+
+const radiusKey = "ui-react-docs-radius";
+
+/** The corners last picked here, else Figma's. */
+export function savedRadius(): Radius {
+	try {
+		return radiusOf(window.localStorage.getItem(radiusKey));
+	} catch {
+		// Storage can be off; Figma's stand in.
+		return "default";
+	}
+}
+
+export function pickRadius(radius: Radius) {
+	paintRadius(radius);
+	try {
+		window.localStorage.setItem(radiusKey, radius);
+	} catch {
+		// Kept for this visit only.
+	}
+}
+
 export function pickTheme(theme: Theme) {
 	paintTheme(theme);
 	try {

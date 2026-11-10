@@ -537,3 +537,22 @@
   --but-primary-soft-hover: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.928 calc(min(c, 0.15) * 0.52) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.317 calc(min(c, 0.15) * 0.551) h));
   --but-primary-text: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.46 calc(min(c, 0.15) * 0.903) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.827 calc(min(c, 0.15) * 1.31) h));
 }
+
+/* The corners, set with data-but-radius on the root element; Figma's without it. */
+:root[data-but-radius="sharp"] {
+  --but-radius-2xl: 0.625rem;
+  --but-radius-lg: 0.25rem;
+  --but-radius-md: 0.125rem;
+  --but-radius-sm: 0.125rem;
+  --but-radius-xl: 0.375rem;
+  --but-radius-xs: 0.0625rem;
+}
+
+:root[data-but-radius="round"] {
+  --but-radius-2xl: 1.125rem;
+  --but-radius-lg: 0.75rem;
+  --but-radius-md: 0.625rem;
+  --but-radius-sm: 0.375rem;
+  --but-radius-xl: 0.875rem;
+  --but-radius-xs: 0.1875rem;
+}

@@ -21,11 +21,14 @@ import {
 	currentPage,
 	pageLink,
 	pickAccent,
+	pickRadius,
 	pickTheme,
 	savedAccent,
+	savedRadius,
 	savedTheme,
 	subscribePage,
 	type Accent,
+	type Radius,
 	type Theme,
 } from "./site.ts";
 import { Suspense, use, useState, useSyncExternalStore, type FC } from "react";
@@ -170,6 +173,7 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 			</ScrollArea>
 			<div className="docs-site-appearance">
 				<ThemeSwitch />
+				<RadiusSwitch />
 				<AccentPicker />
 			</div>
 		</aside>
@@ -231,6 +235,22 @@ const AccentPicker: FC = () => {
 				onBlur={() => setDraft(hexOf(accent))}
 			/>
 		</div>
+	);
+};
+
+const RadiusSwitch: FC = () => {
+	const [radius, setRadius] = useState(savedRadius);
+	const pick = (next: Radius) => {
+		setRadius(next);
+		pickRadius(next);
+	};
+
+	return (
+		<SegmentedControl fill value={radius} onValueChange={pick} aria-label="Corners">
+			<Segment value="sharp">Sharp</Segment>
+			<Segment value="default">Default</Segment>
+			<Segment value="round">Round</Segment>
+		</SegmentedControl>
 	);
 };
 
