@@ -3,12 +3,13 @@
 // wherever teal does. The family's tints that mix --but-primary follow on their own, as the
 // override sits on the root element they're declared on.
 
+import { settingBlocks } from "./setting-blocks.mjs";
 import { converter, parse } from "culori";
 
-/** The ramps a person can pick as the accent, besides teal. */
-export const ACCENTS = ["blue", "purple"];
+/** The ramps a person can pick as the accent; teal is Figma's. */
+const ACCENTS = ["teal", "blue", "purple"];
 
-const DEFAULT = "teal";
+const FIGMA = "teal";
 
 // Any colour, as --but-accent-color: its hue and chroma at teal's lightness, so it reads
 // wherever teal does. The chroma is capped and the steps text sits on or is drawn in are a
@@ -23,40 +24,70 @@ function round(n) {
 	return Number(n.toFixed(3));
 }
 
-/** `css` with an `:root[data-but-accent=…]` block for each accent after its token blocks. */
-export function appendAccents(css) {
-	const family = [...css.matchAll(/^\s*(--but-primary[\w-]*):\s*(.+?);\s*$/gm)]
-		.map(([, name, value]) => ({ name, value }))
-		.filter(({ value }) => value.includes(`--but-${DEFAULT}-`));
-	const blocks = ACCENTS.map((accent) => {
-		const lines = family.map(
-			({ name, value }) =>
-				`  ${name}: ${value.replaceAll(`--but-${DEFAULT}-`, `--but-${accent}-`)};`,
-		);
-		return `:root[data-but-accent="${accent}"] {\n${lines.join("\n")}\n}\n`;
-	});
-	return `${css}\n/* The accent, set with data-but-accent on the root element; teal without it. */\n${blocks.join("\n")}\n${customBlock(css, family)}`;
-}
-
-function customBlock(css, family) {
+/**
+ * The accent as data. `values` has, for each named accent, the ramp step every token of the
+ * primary family points at. `custom` is any colour: each token is that colour's hue, with its
+ * chroma capped at `chromaCap` and taken at the `chroma` share, at the `lightness` given, in
+ * OKLCH, for light and for dark.
+ */
+export function accentSetting(css) {
+	// The family as Figma points it: each token at a step of teal.
+	const family = [...css.matchAll(/^\s*--but-(primary[\w-]*):\s*(.+?);\s*$/gm)]
+		.filter(([, , value]) => value.includes(`--but-${FIGMA}-`))
+		.map(([, token, value]) => {
+			const step = value.match(new RegExp(`^var\\(--but-${FIGMA}-(\\d+)\\)$`))?.[1];
+			if (step === undefined) throw new Error(`--but-${token} isn't one step of ${FIGMA}.`);
+			return [token, step];
+		});
 	function ramp(step) {
-		const value = css.match(new RegExp(`^\\s*--but-${DEFAULT}-${step}:\\s*(.+?);\\s*$`, "m"))?.[1];
-		if (!value) throw new Error(`--but-${DEFAULT}-${step} isn't declared`);
+		const value = css.match(new RegExp(`^\\s*--but-${FIGMA}-${step}:\\s*(.+?);\\s*$`, "m"))?.[1];
+		if (!value) throw new Error(`--but-${FIGMA}-${step} isn't declared`);
 		const lightDark = value.match(/^light-dark\((hsl\([^)]*\)),\s*(hsl\([^)]*\))\)$/);
 		return (lightDark ? [lightDark[1], lightDark[2]] : [value, value]).map((v) => oklch(parse(v)));
 	}
 	const [primary] = ramp("9");
-	const lines = family.map(({ name, value }) => {
-		const step = value.match(new RegExp(`--but-${DEFAULT}-(\\d+)`))[1];
-		const [light, dark] = ramp(step).map((colour, mode) => {
-			// Further from the ground: darker in light, and for text on dark, lighter.
-			const away = MARGIN_STEPS.has(step) ? (mode === 1 && step === "11" ? 1 : -1) : 0;
-			const l = round(colour.l + away * LIGHTNESS_MARGIN);
-			const share = round(colour.c / primary.c);
-			const c = share === 1 ? `min(c, ${CHROMA_CAP})` : `calc(min(c, ${CHROMA_CAP}) * ${share})`;
-			return `oklch(from var(--but-accent-color, var(--but-${DEFAULT}-9)) ${l} ${c} h)`;
-		});
-		return `  ${name}: ${light === dark ? light : `light-dark(${light}, ${dark})`};`;
+	return {
+		attribute: "data-but-accent",
+		default: FIGMA,
+		values: Object.fromEntries(
+			ACCENTS.map((accent) => [
+				accent,
+				Object.fromEntries(family.map(([token, step]) => [token, `${accent}-${step}`])),
+			]),
+		),
+		custom: {
+			color: "accent-color",
+			fallback: `${FIGMA}-9`,
+			chromaCap: CHROMA_CAP,
+			tokens: Object.fromEntries(
+				family.map(([token, step]) => {
+					const [light, dark] = ramp(step).map((colour, mode) => {
+						// Further from the ground: darker in light, and for text on dark, lighter.
+						const away = MARGIN_STEPS.has(step) ? (mode === 1 && step === "11" ? 1 : -1) : 0;
+						return {
+							lightness: round(colour.l + away * LIGHTNESS_MARGIN),
+							chroma: round(colour.c / primary.c),
+						};
+					});
+					return [token, { light, dark }];
+				}),
+			),
+		},
+	};
+}
+
+/** The accent as tokens.css carries it: a block for each named accent after the token blocks,
+ * then the one that draws the family from any colour. */
+export function accentCss(setting) {
+	const { color, fallback, chromaCap, tokens } = setting.custom;
+	function drawn({ lightness, chroma }) {
+		const c = chroma === 1 ? `min(c, ${chromaCap})` : `calc(min(c, ${chromaCap}) * ${chroma})`;
+		return `oklch(from var(--but-${color}, var(--but-${fallback})) ${lightness} ${c} h)`;
+	}
+	const lines = Object.entries(tokens).map(([token, modes]) => {
+		const [light, dark] = [drawn(modes.light), drawn(modes.dark)];
+		return `  --but-${token}: ${light === dark ? light : `light-dark(${light}, ${dark})`};`;
 	});
-	return `/* Any colour: data-but-accent="custom" and --but-accent-color on the root element. */\n:root[data-but-accent="custom"] {\n${lines.join("\n")}\n}\n`;
+	const named = settingBlocks(setting, (step) => `var(--but-${step})`);
+	return `/* The accent, set with ${setting.attribute} on the root element; teal without it. */\n${named}\n/* Any colour: ${setting.attribute}="custom" and --but-${color} on the root element. */\n:root[${setting.attribute}="custom"] {\n${lines.join("\n")}\n}\n`;
 }

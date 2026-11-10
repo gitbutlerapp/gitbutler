@@ -6,8 +6,10 @@
 // moves 2px, so a small button keeps room for its line. size/tag aliases size/control-sm, so it
 // follows on its own, as the override sits on the root element the tokens are declared on.
 
-/** The density settings a person can pick, besides Figma's, and which way each moves. */
-export const DENSITIES = { compact: -1, spacious: 1 };
+import { px, rem, settingBlocks } from "./setting-blocks.mjs";
+
+/** The density settings a person can pick and which way each moves; balanced is Figma's. */
+const DENSITIES = { compact: -1, balanced: 0, spacious: 1 };
 
 /** The heights a density moves. */
 const HEIGHTS = ["control-sm", "control", "bar", "row", "header"];
@@ -17,25 +19,40 @@ const HEIGHTS = ["control-sm", "control", "bar", "row", "header"];
  * aligned. */
 const PADDING = 2;
 
-const REM = 16;
-
-/** `px`, one of the heights, for a setting that moves it the way `direction` says. */
-function moved(px, direction) {
-	return px + direction * (px >= 28 ? 4 : 2);
+/** `height`, one of the heights in px, for a setting that moves it the way `direction` says. */
+function moved(height, direction) {
+	return height + direction * (height >= 28 ? 4 : 2);
 }
 
-/** `css` with an `:root[data-but-density=…]` block for each setting after its token blocks. */
-export function appendDensities(css) {
+/** The density as data: the heights `css` declares and the padding step, in px, for every
+ * setting. */
+export function densitySetting(css) {
 	const heights = HEIGHTS.map((step) => {
-		const name = `--but-size-${step}`;
-		const rem = css.match(new RegExp(`^\\s*${name}:\\s*([\\d.]+)rem;\\s*$`, "m"))?.[1];
-		if (rem === undefined) throw new Error(`${name} isn't declared in tokens.css.`);
-		return { name, px: Number(rem) * REM };
+		const token = `size-${step}`;
+		const length = css.match(new RegExp(`^\\s*--but-${token}:\\s*([\\d.]+)rem;\\s*$`, "m"))?.[1];
+		if (length === undefined) throw new Error(`--but-${token} isn't declared in tokens.css.`);
+		return [token, px(length)];
 	});
-	const blocks = Object.entries(DENSITIES).map(([setting, direction]) => {
-		const lines = heights.map(({ name, px }) => `  ${name}: ${moved(px, direction) / REM}rem;`);
-		lines.push(`  --but-density-padding: ${(direction * PADDING) / REM}rem;`);
-		return `:root[data-but-density="${setting}"] {\n${lines.join("\n")}\n}\n`;
-	});
-	return `${css}\n/* The density, set with data-but-density on the root element; Figma's without it. density-padding is how far it moves a control's side padding, nothing at Figma's. */\n:root {\n  --but-density-padding: 0rem;\n}\n\n${blocks.join("\n")}`;
+	return {
+		attribute: "data-but-density",
+		default: "balanced",
+		values: Object.fromEntries(
+			Object.entries(DENSITIES).map(([setting, direction]) => [
+				setting,
+				{
+					...Object.fromEntries(
+						heights.map(([token, height]) => [token, moved(height, direction)]),
+					),
+					"density-padding": direction * PADDING,
+				},
+			]),
+		),
+	};
+}
+
+/** The density as tokens.css carries it: the padding step Figma's has, nothing, and a block for
+ * each setting after the token blocks. */
+export function densityCss(setting) {
+	const figma = setting.values[setting.default];
+	return `/* The density, set with data-but-density on the root element; Figma's without it. density-padding is how far it moves a control's side padding, nothing at Figma's. */\n:root {\n  --but-density-padding: ${rem(figma["density-padding"])};\n}\n\n${settingBlocks(setting, rem)}`;
 }

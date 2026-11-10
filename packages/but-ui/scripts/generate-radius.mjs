@@ -4,25 +4,35 @@
 // squares it. The role tokens alias the steps, so they follow on their own, as the override
 // sits on the root element they're declared on. radius/full, the pills, never changes.
 
-/** The corner settings a person can pick, besides Figma's, and how far each moves the scale. */
-export const RADII = { sharp: -4, round: 4 };
+import { px, rem, settingBlocks } from "./setting-blocks.mjs";
 
-const REM = 16;
+/** The corner settings a person can pick and how far each moves the scale; soft is Figma's. */
+const RADII = { sharp: -4, soft: 0, round: 4 };
 
-/** How far `px`, a step of the scale, moves for a setting that moves the scale by `shift`. */
-function moved(px, shift) {
-	return px + Math.sign(shift) * (px > Math.abs(shift) ? Math.abs(shift) : px / 2);
+/** `step`, a step of the scale in px, for a setting that moves the scale by `shift`. */
+function moved(step, shift) {
+	return step + Math.sign(shift) * (step > Math.abs(shift) ? Math.abs(shift) : step / 2);
 }
 
-/** `css` with an `:root[data-but-radius=…]` block for each setting after its token blocks. */
-export function appendRadii(css) {
+/** The corners as data: each step of the radius scale `css` declares, in px, for every setting. */
+export function radiusSetting(css) {
 	const steps = [
-		...css.matchAll(/^\s*(--but-radius-(?:xs|sm|md|lg|\d*xl)):\s*([\d.]+)rem;\s*$/gm),
-	].map(([, name, rem]) => ({ name, px: Number(rem) * REM }));
+		...css.matchAll(/^\s*--but-(radius-(?:xs|sm|md|lg|\d*xl)):\s*([\d.]+)rem;\s*$/gm),
+	].map(([, token, length]) => [token, px(length)]);
 	if (steps.length === 0) throw new Error("No radius steps declared in tokens.css.");
-	const blocks = Object.entries(RADII).map(([setting, shift]) => {
-		const lines = steps.map(({ name, px }) => `  ${name}: ${moved(px, shift) / REM}rem;`);
-		return `:root[data-but-radius="${setting}"] {\n${lines.join("\n")}\n}\n`;
-	});
-	return `${css}\n/* The corners, set with data-but-radius on the root element; Figma's without it. */\n${blocks.join("\n")}`;
+	return {
+		attribute: "data-but-radius",
+		default: "soft",
+		values: Object.fromEntries(
+			Object.entries(RADII).map(([setting, shift]) => [
+				setting,
+				Object.fromEntries(steps.map(([token, step]) => [token, moved(step, shift)])),
+			]),
+		),
+	};
+}
+
+/** The corners as tokens.css carries them: a block for each setting after the token blocks. */
+export function radiusCss(setting) {
+	return `/* The corners, set with data-but-radius on the root element; Figma's without it. */\n${settingBlocks(setting, rem)}`;
 }

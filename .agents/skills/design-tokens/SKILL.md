@@ -6,7 +6,8 @@ description: "Use when pulling design tokens from Figma into `packages/but-ui`, 
 # Design tokens
 
 Figma variables are the source. `packages/but-ui/tokens/json/*.tokens.json` is
-their export and `tokens/tokens.css` is built from it; neither is edited by hand. The
+their export and `tokens/tokens.css` is built from it, with `tokens/settings.json`, the
+settings a person can pick as data; none is edited by hand. The
 package README has the pipeline in full. Run everything below from `packages/but-ui`.
 
 ## 1. Export from Figma
@@ -93,6 +94,6 @@ user so they know.
 
 ## 5. Commit
 
-`tokens/json` and `tokens/tokens.css` go in one commit, with the GitButler skill, and the
+`tokens/json`, `tokens/tokens.css` and `tokens/settings.json` go in one commit, with the GitButler skill, and the
 message says what changed in the tokens. There is no version bump or release: the package
 is not published.

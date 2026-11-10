@@ -95,7 +95,13 @@ A preset is a named pair of the two settings above, so a person can pick a look 
 | Tight     | sharp   | compact  |
 | Bubble    | round   | spacious |
 
-A preset sets shape only: colour and theme stay as the person picked them. It has no attribute or CSS of its own; an app applies one by setting `data-but-radius` and `data-but-density` to its values. `soft` and `balanced` are Figma's, which no block overrides, so setting them works as well as leaving the attribute off. When a person changes either setting by hand, the look is no longer a preset. `scripts/check-presets.mjs`, run by the build, fails when a preset names a setting `tokens.css` doesn't define.
+A preset sets shape only: colour and theme stay as the person picked them. It has no attribute or CSS of its own; an app applies one by setting `data-but-radius` and `data-but-density` to its values. `soft` and `balanced` are Figma's, which no block overrides, so setting them works as well as leaving the attribute off. When a person changes either setting by hand, the look is no longer a preset. `scripts/check-presets.mjs`, run by the build, fails when a preset names a setting the build doesn't define.
+
+### Settings as data
+
+Everything a person can pick is also in [`tokens/settings.json`](./tokens/settings.json), exported as `@gitbutler/but-ui/settings`, for whatever can't read CSS: a native client, a settings panel listing the choices. Each of `accent`, `radius` and `density` has its `attribute`, its `default` (Figma's) and `values`: every choice, the default included, as the tokens it sets. Token names are `tokens.css`'s without `--but-`, lengths are px, and an accent's values name the ramp step each token points at. `accent.custom` is any colour: each token is that colour's hue, its chroma capped at `chromaCap` and taken at the `chroma` share, at the `lightness` given, in OKLCH, for light and for dark.
+
+The build works the settings out once, writes this file, and writes the `:root[data-but-…]` blocks of `tokens.css` from the same objects, so the two can't differ. `pnpm check` fails when either is stale.
 
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
@@ -188,6 +194,8 @@ Example usage:
 - `@gitbutler/but-ui/fonts/*` - Individual font files
 - `@gitbutler/but-ui/styles/reset` - CSS reset
 - `@gitbutler/but-ui/styles/text` - Text utility classes
+- `@gitbutler/but-ui/presets` - The style presets, as JSON
+- `@gitbutler/but-ui/settings` - Every accent, corner and density setting, as JSON
 
 ## Included Fonts
 
@@ -229,20 +237,20 @@ pnpm check
 2. merges the `:root` and `:root.dark` blocks into single `light-dark(…)` declarations, so light and dark mode need no class switching, and adds the lifted colors;
 3. appends box-shadow custom properties generated from `fx.tokens.json` by [`scripts/generate-shadow-vars.mjs`](./scripts/generate-shadow-vars.mjs);
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
-5. appends an `:root[data-but-accent=…]` block for each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue, and the `custom` block that draws it from any colour;
-6. appends an `:root[data-but-radius=…]` block for each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder;
-7. appends an `:root[data-but-density=…]` block for each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding shift.
+5. works out what a person can pick, as data: each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue or drawn from any colour; each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder; and each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding step;
+6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's.
 
 Aliases stay aliases: a variable that points at another in Figma comes out as `var(--target)`, for sizes as well as colors.
 
 ### Token files
 
-| File                               | Source                                                                         | Consumed by                |
-| ---------------------------------- | ------------------------------------------------------------------------------ | -------------------------- |
-| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                   |
-| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                   |
-| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                   |
-| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs` |
+| File                               | Source                                                                         | Consumed by                 |
+| ---------------------------------- | ------------------------------------------------------------------------------ | --------------------------- |
+| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                    |
+| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                    |
+| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                    |
+| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs`  |
+| `tokens/settings.json`             | The build — every accent, corner and density setting, as data                  | Clients that can't read CSS |
 
 ### Pulling tokens from Figma
 
