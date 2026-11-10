@@ -33,6 +33,14 @@ pub(super) const CARD_PADDING: f32 = 3.;
 /// 1px border.
 pub(super) const CARD_EDGE: f32 = CARD_PADDING + 1.;
 
+/// Whether row `ix` of `rows` is its card's first, and whether it's its last, which hold the
+/// card's edge.
+pub(super) fn card_ends(rows: &[Row], ix: usize) -> (bool, bool) {
+    let edge = |row: Option<&Row>| row.is_none_or(|row| matches!(row, Row::Gap));
+    let above = ix.checked_sub(1).and_then(|ix| rows.get(ix));
+    (edge(above), edge(rows.get(ix + 1)))
+}
+
 /// How far below the top of its card the middle of a project's heading is.
 pub(super) const HEADING_MIDDLE: f32 = CARD_EDGE + HEADING_HEIGHT / 2.;
 

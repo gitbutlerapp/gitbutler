@@ -146,7 +146,8 @@ pub(super) fn left_behind(store: &Store, item: &Selection) -> bool {
 }
 
 /// Where the outline of the squash shown is: around what it goes into, or back where it
-/// started, around the rows held there, drawn with the row it started from.
+/// started, around the rows held there, drawn with the row it started from. Files dragged onto
+/// a branch outline it the same way, as they start a commit in it.
 #[derive(Clone)]
 pub(super) struct SquashOutline {
     /// The row it's drawn with.
@@ -166,7 +167,7 @@ impl SquashOutline {
     pub(super) fn of(rows: &[Row], store: &Store, home: bool) -> Option<SquashOutline> {
         let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Taken(_))));
         let (ix, first, last) = (rows.iter().enumerate()).find_map(|(ix, row)| match row {
-            Row::Item(item) if squashed_into(store, item) => Some((ix, ix, ix)),
+            Row::Item(item) if lands_on(store, item) => Some((ix, ix, ix)),
             Row::Item(item) if home && store.selection.as_ref() == Some(item) => {
                 let first = (0..ix).rev().take_while(squashed).last().unwrap_or(ix);
                 let last = (ix + 1..rows.len())
@@ -205,13 +206,28 @@ impl SquashOutline {
     }
 }
 
-/// Whether `item`'s row is what a squash goes into, elsewhere than where it started, which
-/// [`squash_outline`] outlines.
-pub(super) fn squashed_into(store: &Store, item: &Selection) -> bool {
+/// Whether what's moving lands on `item`'s row, which [`squash_outline`] outlines: what a squash
+/// goes into, elsewhere than where it started, or the branch dragged files start a commit in.
+pub(super) fn lands_on(store: &Store, item: &Selection) -> bool {
     shown(store, item.project()).is_some_and(|moving| {
-        (moving.squashes_into(item) || heading_takes(moving, store, item))
+        (moving.squashes_into(item)
+            || heading_takes(moving, store, item)
+            || starts_commit_in(moving, store, item))
             && moving.shows_landing(store)
     })
+}
+
+/// Whether `item` is the branch that files dragged onto it start a commit in. Its row is
+/// outlined, as a line where the commit goes would read as between the branches while it's
+/// folded.
+fn starts_commit_in(moving: &Move, store: &Store, item: &Selection) -> bool {
+    let Selection::Branch(project, Some(name)) = item else {
+        return false;
+    };
+    moving.op == Op::Commit
+        && moving.dragged(store)
+        && *project == moving.project
+        && matches!(&moving.at, Stop::In(Destination::Branch(at)) if at == name)
 }
 
 /// Whether `item` is the heading of the checkout a squash uncommits into, with no changes listed
@@ -1789,10 +1805,11 @@ pub(super) fn new_commit_row(
         .into_any_element()
 }
 
-/// What a squash goes into outlined over its row, as dropping on it outlines it but in a
-/// squash's colour, its top and bottom `edges` from the row's, as [`SquashOutline::edges`]
-/// says, over the rows it passes, blinking as copies of what's moving do.
-pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Theme) -> Div {
+/// Where what's moving lands outlined over its row, as dropping on it outlines it but in the
+/// `colour` of what's done with it, its top and bottom `edges` from the row's, as
+/// [`SquashOutline::edges`] says, over the rows it passes, blinking as copies of what's moving
+/// do.
+pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, colour: Hsla) -> Div {
     let (top, bottom) = edges;
     div()
         .absolute()
@@ -1802,11 +1819,11 @@ pub(super) fn squash_outline(edges: (f32, f32), blink: Option<usize>, theme: &Th
         .right(dp(3.))
         .rounded(dp(4.))
         .border_1()
-        .border_color(theme.blue)
-        .bg(theme.blue.opacity(0.14))
+        .border_color(colour)
+        .bg(colour.opacity(0.14))
         .when_some(blink, |el, n| {
             let shape = div().absolute().inset_0().rounded(dp(4.));
-            el.child(blink_once(("blink", n), shape, theme.blue))
+            el.child(blink_once(("blink", n), shape, colour))
         })
 }
 

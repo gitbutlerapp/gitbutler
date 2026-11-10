@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use super::Navigator;
-use super::rows::{Row, span_height};
+use super::rows::{CARD_EDGE, Row, card_ends, span_height};
 use crate::backend::{CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
@@ -149,8 +149,12 @@ impl Navigator {
     }
 
     /// Over the rows, the line between them where what's dragged would land. Drawn over them, not
-    /// among them, so no row moves for it.
+    /// among them, so no row moves for it. What lands on a row, as files starting a commit on a
+    /// branch do, has the row outlined instead.
     pub(super) fn drag_divider(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+        if self.squash_outline.is_some() {
+            return None;
+        }
         let store = self.store.read(cx);
         let moving = (store.moving.as_ref())
             .filter(|moving| moving.dragged(store) && moving.lands(store))?;
@@ -165,7 +169,14 @@ impl Navigator {
             }
             None => {
                 let row = self.list.bounds_for_item(ix)?;
-                let edge = if above { row.top() } else { row.bottom() };
+                // A card's first and last rows hold its edge, which the line stays inside.
+                let (first, last) = card_ends(&self.rows, ix);
+                let edge = match above {
+                    true if first => row.top() + theme.scaled(CARD_EDGE),
+                    true => row.top(),
+                    false if last => row.bottom() - theme.scaled(CARD_EDGE),
+                    false => row.bottom(),
+                };
                 (
                     edge - self.list.viewport_bounds().top(),
                     self.card_margins(),
