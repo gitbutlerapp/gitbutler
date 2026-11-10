@@ -135,6 +135,8 @@ pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;
 pub use move_changes::{MoveChangesOutcome, move_changes_between_commits};
+pub mod split_commit;
+pub use split_commit::split_commit;
 pub mod uncommit_changes;
 pub use uncommit_changes::{
     UncommitChangesFailure, UncommitChangesFromCommitsOutcome, UncommitChangesOutcome,

@@ -828,6 +828,43 @@ where
         })
     }
 
+    /// Split `changes` off `source` into a new commit placed on `side` of `relative_to`,
+    /// returning the new commit.
+    pub fn split_commit(
+        &mut self,
+        source: ObjectId,
+        relative_to: RelativeTo,
+        side: InsertSide,
+        changes: Vec<but_core::DiffSpec>,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings| {
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let MoveChangesOutcome {
+                rebase,
+                destination_selector,
+                ..
+            } = but_workspace::commit::split_commit(
+                editor,
+                commit_mappings.map(source),
+                relative_to,
+                side,
+                changes,
+                context_lines,
+            )?;
+
+            let new_commit = rebase
+                .lookup_commit(destination_selector)
+                .context("failed to find the split off commit")?;
+
+            Ok((new_commit, rebase))
+        })
+    }
+
     pub fn move_committed_changes_between(
         &mut self,
         source: ObjectId,

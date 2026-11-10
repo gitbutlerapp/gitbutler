@@ -8,7 +8,9 @@ use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Checkout, Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
+    ToSelector,
+    util::{OrderedParentKind, collect_ordered_parents},
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -302,6 +304,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .collect())
     }
 
+    /// Returns the commits `target` is picked onto, in parent order, looking through
+    /// references and removed steps.
+    pub fn commit_parents(&self, target: impl ToSelector) -> Result<Vec<Selector>> {
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        Ok(
+            collect_ordered_parents(&self.graph, target.id, OrderedParentKind::CommitOnly)
+                .into_iter()
+                .map(|parent| self.new_selector(parent))
+                .collect(),
+        )
+    }
+
     /// For a given step, find all the references that point to it.
     ///
     /// The reference selectors are provided in no particular order.
@@ -352,6 +366,37 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let mut step = Step::None;
         std::mem::swap(&mut self.graph[target.id], &mut step);
         Ok(step)
+    }
+
+    /// Removes a pick from history, leaving a placeholder its children look through.
+    pub fn prune(&mut self, target: impl ToCommitSelector) -> Result<()> {
+        let target = self
+            .history
+            .normalize_selector(target.to_commit_selector(self)?)?;
+        self.graph[target.id] = Step::None;
+        Ok(())
+    }
+
+    /// Removes `subjects` from history because `into` absorbed them, leaving placeholders
+    /// their children look through.
+    pub fn fold<S: ToCommitSelector>(
+        &mut self,
+        subjects: impl IntoIterator<Item = S>,
+        into: impl ToCommitSelector,
+    ) -> Result<()> {
+        let into = self
+            .history
+            .normalize_selector(into.to_commit_selector(self)?)?;
+        for subject in subjects {
+            let subject = self
+                .history
+                .normalize_selector(subject.to_commit_selector(self)?)?;
+            if subject.id == into.id {
+                bail!("A commit can't be folded into itself");
+            }
+            self.graph[subject.id] = Step::None;
+        }
+        Ok(())
     }
 
     /// Updates the pick to another pick and records a commit mapping.
@@ -833,42 +878,102 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         side: InsertSide,
     ) -> Result<Selector> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        let new_idx = self.graph.add_node(step);
+        self.place(new_idx, target, side)?;
+        Ok(self.new_selector(new_idx))
+    }
+
+    /// Inserts `pick` relative to `target` as a commit split off from `source`.
+    pub fn split_off(
+        &mut self,
+        source: impl ToCommitSelector,
+        pick: Pick,
+        target: impl ToSelector,
+        side: InsertSide,
+    ) -> Result<Selector> {
+        source.to_commit_selector(self)?;
+        self.insert(target, Step::Pick(pick), side)
+    }
+
+    /// Moves a pick to sit relative to `target`.
+    ///
+    /// The children of the pick, and any checkout of it, are handed to its first parent.
+    /// Its remaining parents travel with it, behind the parents it gains at `target`.
+    /// Selectors of the pick keep selecting it.
+    pub fn move_pick(
+        &mut self,
+        subject: impl ToCommitSelector,
+        target: impl ToSelector,
+        side: InsertSide,
+    ) -> Result<()> {
+        let subject = self
+            .history
+            .normalize_selector(subject.to_commit_selector(self)?)?;
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        if subject.id == target.id {
+            bail!("A commit can't be moved relative to itself");
+        }
+        self.detach(subject)?;
+        self.place(subject.id, target, side)
+    }
+
+    fn detach(&mut self, subject: Selector) -> Result<()> {
+        let first_parent = self
+            .graph
+            .edges_directed(subject.id, Direction::Outgoing)
+            .min_by_key(|e| e.weight().order)
+            .map(|e| (e.id(), e.target()));
+        let children = self
+            .graph
+            .edges_directed(subject.id, Direction::Incoming)
+            .map(|e| (e.id(), e.weight().to_owned(), e.source()))
+            .collect::<Vec<_>>();
+        for (edge_id, edge_weight, child) in children {
+            self.graph.remove_edge(edge_id);
+            if let Some((_, parent)) = first_parent {
+                self.graph.add_edge(child, parent, edge_weight);
+            }
+        }
+        if let Some((edge_id, parent)) = first_parent {
+            self.graph.remove_edge(edge_id);
+            self.move_checkouts(subject, self.new_selector(parent))?;
+        }
+        Ok(())
+    }
+
+    fn place(
+        &mut self,
+        node: petgraph::prelude::NodeIndex,
+        target: Selector,
+        side: InsertSide,
+    ) -> Result<()> {
         match side {
             InsertSide::Above => {
-                let edges = self
+                let children = self
                     .graph
                     .edges_directed(target.id, Direction::Incoming)
                     .map(|e| (e.id(), e.weight().to_owned(), e.source()))
                     .collect::<Vec<_>>();
-
-                let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(new_idx, target.id, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_source) in edges {
+                self.insert_parents(node, [target.id], Some(0));
+                for (edge_id, edge_weight, child) in children {
                     self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(edge_source, new_idx, edge_weight);
+                    self.graph.add_edge(child, node, edge_weight);
                 }
-
-                let inserted = self.new_selector(new_idx);
-                self.move_checkouts(target, inserted)?;
-                Ok(inserted)
+                self.move_checkouts(target, self.new_selector(node))
             }
             InsertSide::Below => {
-                let edges = self
+                let mut parents = self
                     .graph
                     .edges_directed(target.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                    .map(|e| (e.id(), e.weight().order, e.target()))
                     .collect::<Vec<_>>();
-
-                let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(target.id, new_idx, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_target) in edges {
-                    self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(new_idx, edge_target, edge_weight);
+                parents.sort_by_key(|(_, order, _)| *order);
+                for (edge_id, _, _) in &parents {
+                    self.graph.remove_edge(*edge_id);
                 }
-
-                Ok(self.new_selector(new_idx))
+                self.insert_parents(node, parents.into_iter().map(|(_, _, p)| p), Some(0));
+                self.graph.add_edge(target.id, node, Edge { order: 0 });
+                Ok(())
             }
         }
     }
