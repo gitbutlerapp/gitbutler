@@ -109,7 +109,7 @@ impl Navigator {
         }
     }
 
-    /// Over `id`'s checkouts elsewhere, lined up with its worktrees' chevrons: folded, it
+    /// Over `id`'s checkouts elsewhere, lined up with its worktrees' icons: folded, it
     /// says how many there are.
     pub(super) fn mesh_heading(
         &self,
@@ -183,12 +183,12 @@ impl Navigator {
                     .aria_label(format!("Branch {name}"))
                     .child(self.fold(
                         ("mesh-branch-fold", ix),
+                        icon(glyph).text_color(color),
                         (n > 0).then_some(open),
                         quiet,
                         cx,
                         toggle.clone(),
                     ))
-                    .child(icon(glyph).text_color(color))
                     .child(
                         div()
                             .flex_1()
@@ -227,12 +227,12 @@ impl Navigator {
                     .aria_expanded(open)
                     .child(self.fold(
                         ("mesh-fold", ix),
+                        icon(Icon::Computer).text_color(style.muted()),
                         folds.then_some(open),
                         quiet,
                         cx,
                         toggle.clone(),
                     ))
-                    .child(icon(Icon::Computer).text_color(style.muted()))
                     .child(
                         div()
                             .id(("mesh-name", ix))

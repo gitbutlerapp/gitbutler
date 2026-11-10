@@ -9,7 +9,7 @@ use std::time::Duration;
 use gpui::{App, SharedString};
 
 use super::moving::{landing_at, left_behind};
-use super::{BranchKey, ClickOpened, MERGE_CHEVRON, Navigator, STEP, UPSTREAM_CHEVRON};
+use super::{BranchKey, ClickOpened, MERGE_GUIDE, Navigator, STEP, UPSTREAM_GUIDE};
 use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
@@ -217,7 +217,7 @@ pub(super) struct Moving {
 
 /// The rows as they're built, each with how far in it sits: a worktree's section steps in
 /// from what holds it. Each also has the guides it draws, as but.dev's sidebar does: a line
-/// down from under the chevron of each row it's under, and while a fold holding it moves, its
+/// down from under the icon of each row it's under, and while a fold holding it moves, its
 /// place in that.
 #[derive(Default)]
 pub(super) struct Rows {
@@ -253,13 +253,14 @@ pub(super) struct Drawer {
 /// set them.
 pub(super) const ROW_LEFT: f32 = 3. + 8.;
 
-/// How far in from [`ROW_LEFT`] a commit sits: under its branch's glyph, its title under the
-/// branch's name.
-pub(super) const COMMIT_INDENT: f32 = 30.;
+/// How far in from [`ROW_LEFT`] a commit sits: a step in from its branch, its 12-point glyph
+/// in the middle of where a 16-point icon would be, under the branch's name, and its title
+/// past it as the branch's name is past its icon.
+pub(super) const COMMIT_INDENT: f32 = 6. + STEP + 2.;
 
-/// Where a chevron's middle sits in a row set in by nothing: the row's left edge, the indent
-/// of a row with a chevron, and half the chevron's step.
-pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 7.;
+/// Where the middle of a row's icon sits in a row set in by nothing: the row's left edge, its
+/// indent and half the 16-point icon.
+pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 8.;
 
 impl Rows {
     pub(super) fn push(&mut self, row: Row) {
@@ -307,12 +308,12 @@ impl Rows {
     }
 
     /// Set the rows pushed until [`Self::close`] under the row just pushed, a guide running
-    /// down beside them from under its chevron.
+    /// down beside them from under its icon.
     pub(super) fn open(&mut self) {
         self.open_at(GUIDE_AT);
     }
 
-    /// As [`Self::open`], for a row whose chevron's middle is `at` instead.
+    /// As [`Self::open`], for a row whose icon's middle is `at` instead.
     fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
         self.open.push(at + under);
@@ -380,8 +381,12 @@ impl Navigator {
             let item = Selection::Project(entry.id.clone());
             rows.push(Row::Item(item.clone()));
             let open = !store.project_folded(&entry.id);
+            // Its rows under the header's icon, past its eye, so a worktree's name is under the
+            // project's.
             rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                self.card_rows(store, entry, rows)
+                rows.inset += STEP;
+                self.card_rows(store, entry, rows);
+                rows.inset -= STEP;
             });
         }
         let listing = self.drawer_listing(store);
@@ -561,6 +566,8 @@ impl Navigator {
             let own = found(terms, &[&entry.project.name]);
             rows.push_found(Selection::Project(id.clone()), hit(0, own));
             let project_end = rows.rows.len();
+            // Under the header's icon, as its card's rows are.
+            rows.inset += STEP;
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
                 // The main worktree's branches under its heading.
@@ -600,6 +607,7 @@ impl Navigator {
                 }
             }
             self.filtered_mesh_rows(store, id, terms, own, &mut rows);
+            rows.inset -= STEP;
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
             }
@@ -866,8 +874,8 @@ impl Navigator {
         rows.push(Row::Item(section.clone()));
         let open = self.upstream_open(store, id, ref_name);
         rows.fold(Fold::Under(section), open, &self.folds, |rows| {
-            // Guides from the heading's chevron and an open merge's, as from a branch's.
-            rows.open_at(UPSTREAM_CHEVRON);
+            // Guides from the heading's glyph and an open merge's, as from a branch's.
+            rows.open_at(UPSTREAM_GUIDE);
             let selected = match &store.selection {
                 Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
                 _ => None,
@@ -887,7 +895,7 @@ impl Navigator {
                 let open = merged.is_some() && (self.open_merges.contains(&commit.id) || holds);
                 rows.fold(Fold::Under(item), open, &self.folds, |rows| {
                     if let Some(merged) = merged {
-                        rows.open_at(MERGE_CHEVRON);
+                        rows.open_at(MERGE_GUIDE);
                         rows.extend(merged.iter().map(|merged| {
                             Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
                         }));

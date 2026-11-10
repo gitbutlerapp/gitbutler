@@ -11,7 +11,7 @@ use gpui::{
     MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*,
 };
 
-use super::rows::GUIDE_AT;
+use super::rows::ROW_LEFT;
 use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, STEP, card_bar, status_mark};
 use crate::app::{
     AppHandle, AppView, CloseWindow, Confirm, FocusNavigator, SelectNext, SelectPrevious,
@@ -35,6 +35,10 @@ use crate::ui::{
 const ROWS_PADDING: f32 = 6.;
 /// How far a status's heading sits in, as a section's heading in the navigator does.
 const HEADING_INDENT: f32 = 6.;
+
+/// Where the guide down beside a status's terminals runs: under the middle of its heading's
+/// 14-point chevron.
+const GUIDE_AT: f32 = ROW_LEFT + HEADING_INDENT + 7.;
 
 /// The statuses in the order they're listed: what wants the user first, and what's under way
 /// last, as it needs nothing until it's done.
