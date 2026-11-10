@@ -2869,6 +2869,39 @@ fn status_does_not_clean_filtered_files_written_by_checkout() -> anyhow::Result<
     Ok(())
 }
 
+#[test]
+#[cfg(unix)]
+fn reset_index_keeps_an_edit_hidden_from_the_stat_of_a_racy_entry_visible() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    commit_in_worktree(&repo, &[("a", "one\n")])?;
+    git(&repo)
+        .args(["config", "core.trustctime", "false"])
+        .run();
+    // An entry modified no earlier than the index was written is racy: its stat can't prove
+    // the content, as on filesystems with coarse timestamps.
+    let racy_mtime = std::time::SystemTime::now() - std::time::Duration::from_secs(10);
+    record_index_stat_with_mtime(&repo, "a", racy_mtime)?;
+    std::fs::File::options()
+        .write(true)
+        .open(repo.index_path())?
+        .set_modified(racy_mtime)?;
+    // A same-size edit within that tick keeps every stat field the comparison uses.
+    std::fs::write(workdir.join("a"), "uno\n")?;
+    std::fs::File::options()
+        .write(true)
+        .open(workdir.join("a"))?
+        .set_modified(racy_mtime)?;
+
+    but_core::worktree::reset_index(&repo, repo.head_tree_id()?.detach())?;
+
+    assert!(
+        git_status(&repo)?.contains(" M a\n"),
+        "the new index doesn't vouch for the racy stat, which would hide the edit"
+    );
+    Ok(())
+}
+
 /// Write `files` as `(path, content)` into the worktree of `repo` and commit them with Git.
 fn commit_in_worktree(repo: &gix::Repository, files: &[(&str, &str)]) -> anyhow::Result<()> {
     let workdir = repo.workdir().expect("non-bare");

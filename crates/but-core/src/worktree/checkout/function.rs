@@ -126,18 +126,21 @@ pub fn reset_index(repo: &gix::Repository, tree: gix::ObjectId) -> anyhow::Resul
 }
 
 /// An index of `tree`, with the stat of each entry `previous` has with the same id and mode, so
-/// files that keep their content aren't hashed or filtered again on the next status.
+/// files that keep their content aren't hashed or filtered again on the next status. A stat that
+/// is racy against `previous` isn't kept, as the new index would vouch for it.
 fn index_keeping_stat(
     repo: &gix::Repository,
     tree: gix::ObjectId,
     previous: &gix::index::File,
 ) -> anyhow::Result<gix::index::File> {
+    let (timestamp, options) = (previous.timestamp(), repo.stat_options()?);
     let mut index = repo.index_from_tree(&tree)?;
     let (entries, path_backing) = index.entries_mut_and_pathbacking();
     for entry in entries {
         if let Some(old) = previous.entry_by_path(entry.path_in(path_backing))
             && old.id == entry.id
             && old.mode == entry.mode
+            && !old.stat.is_racy(timestamp, options)
         {
             entry.stat = old.stat;
         }
