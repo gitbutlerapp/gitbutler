@@ -1901,12 +1901,12 @@ impl AppView {
         self.navigator_open || self.peek.open
     }
 
-    /// Place a commit of the uncommitted changes of the selection's checkout with the keys,
-    /// from the selection: the navigator steps through where it can go, and the composer shows
-    /// what goes in and the message. While one's being placed, as Return does there. With the
-    /// navigator out of sight, only the status bar says where it goes, the composer stays
-    /// closed and what's shown stays as it is: Return, or this again, commits it all there
-    /// without a message.
+    /// Place a commit of the uncommitted changes of the selection's checkout, from the
+    /// selection: the keys go to the composer's message, and Escape there gives them to the
+    /// navigator to step through where it can go. From the navigator while one's being
+    /// placed, as Return does there. With the navigator out of sight, only the status bar says
+    /// where it goes, the composer stays closed and what's shown stays as it is: Return, or
+    /// this again, commits it all there without a message.
     fn start_commit(&mut self, _: &StartCommit, window: &mut Window, cx: &mut Context<Self>) {
         // What's typed in the diff goes in too, not only what's saved of it yet.
         (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
@@ -2025,6 +2025,12 @@ impl AppView {
         if amend && !placing && opens {
             self.detail
                 .update(cx, |detail, cx| detail.leave_composer(window, cx));
+        }
+        // A commit's message is written first, the navigator still showing where it goes. Not
+        // under the navigator out over the detail, where the keys stay to place it.
+        if !amend && !self.peek.open {
+            self.detail
+                .update(cx, |detail, cx| detail.focus_message(window, cx));
         }
     }
 

@@ -186,8 +186,9 @@ impl AppView {
                 (_, true, true) => "edit the message",
                 (_, _, _) => moving.verb(store),
             };
-            // In the message of what's amended the keys write it, and those that confirm amend.
-            let writing = moving.amending() && detail.message_focused(window, cx);
+            // In the message the keys write it, and those that confirm commit or amend.
+            let writing = (moving.op == Op::Commit || moving.amending())
+                && detail.message_focused(window, cx);
             // What a drag holds goes by the pointer, which only Escape stops.
             let dragged = moving.dragged(store);
             let keys = (!unseen && !writing && !dragged)
@@ -425,8 +426,10 @@ impl AppView {
             .children(hints.into_iter().filter_map(|(action, label)| {
                 // The keys that run it where the keys go now, so one a keymap binds only
                 // elsewhere, as the TUI's next file in the file list, isn't offered in the diff.
-                // While committing, ⌘↩ commits from the message box too, through its own key.
-                let keys = match (composing, window.focused(cx)) {
+                // While committing, ⌘↩ commits from the file list too, through its own key, but
+                // in the message only what runs there shows, as c would type.
+                let message = composing && detail.message_focused(window, cx);
+                let keys = match (composing && !message, window.focused(cx)) {
                     (false, Some(_)) => shortcut_here(action, window, cx),
                     _ => shortcut(action, cx),
                 }?;
