@@ -106,8 +106,11 @@ impl Run {
         let index_lock = self.ctx.repo.get()?.git_dir().join("index.lock");
         anyhow::ensure!(
             !index_lock.exists(),
-            "Another Git process is using the repository, or one that stopped left \
-             .git/index.lock behind. Delete it if no Git command is running."
+            but_error::Context::new_static(
+                but_error::Code::PreconditionFailed,
+                "Another Git process is using the repository, or one that stopped left \
+                 .git/index.lock behind. Delete it if no Git command is running."
+            )
         );
         Ok(())
     }

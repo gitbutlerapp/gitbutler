@@ -246,6 +246,7 @@ pub fn clone(url: &str, into: &Path) -> Result<()> {
             url.to_owned(),
             into.to_owned(),
         ))
+        .map_err(upstream::remote_failure)
 }
 
 /// Get a project ready to show: the first time, GitButler sets up its workspace
