@@ -1,8 +1,7 @@
-import { FieldControlWithIcon } from "../src/Field.tsx";
+import { Menu, MenuRadioGroup, MenuRadioItem } from "../src/Menu.tsx";
 import { PopupSearch } from "../src/Popup.tsx";
 import { ResizeHandle } from "../src/ResizeHandle.tsx";
 import { ScrollArea } from "../src/ScrollArea.tsx";
-import { Segment, SegmentedControl } from "../src/SegmentedControl.tsx";
 import { GroupLabel, NavItem } from "../src/SidebarRow.tsx";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
@@ -17,7 +16,6 @@ import {
 	type Page,
 } from "./pages.ts";
 import {
-	accentOf,
 	currentPage,
 	pageLink,
 	pickAccent,
@@ -31,7 +29,15 @@ import {
 	type Radius,
 	type Theme,
 } from "./site.ts";
-import { Suspense, use, useState, useSyncExternalStore, type FC } from "react";
+import {
+	Suspense,
+	use,
+	useState,
+	useSyncExternalStore,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 
 /**
@@ -171,11 +177,7 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 					})}
 				</nav>
 			</ScrollArea>
-			<div className="docs-site-appearance">
-				<ThemeSwitch />
-				<RadiusSwitch />
-				<AccentPicker />
-			</div>
+			<Appearance />
 		</aside>
 	);
 };
@@ -190,82 +192,124 @@ const ACCENTS: Array<{ name: string; accent: Accent; hex: string }> = [
 	{ name: "Red", accent: "#D5412A", hex: "#D5412A" },
 ];
 
-const hexOf = (accent: Accent) => ACCENTS.find((a) => a.accent === accent)?.hex ?? accent;
-
-const AccentPicker: FC = () => {
-	const [accent, setAccent] = useState(savedAccent);
-	const [draft, setDraft] = useState(() => hexOf(accent));
-	const pick = (next: Accent) => {
-		setAccent(next);
-		setDraft(hexOf(next));
-		pickAccent(next);
-	};
-	const type = (text: string) => {
-		setDraft(text);
-		const typed = accentOf(text.trim());
-		if (typed === "teal") return;
-		const next = ACCENTS.find((a) => a.hex === typed)?.accent ?? typed;
-		setAccent(next);
-		pickAccent(next);
-	};
-
-	return (
-		<div className="docs-site-accent">
-			<div role="radiogroup" aria-label="Accent" className="docs-site-swatches">
-				{ACCENTS.map(({ name, accent: value, hex }) => (
-					<input
-						key={name}
-						type="radio"
-						name="docs-accent"
-						checked={value === accent}
-						aria-label={name}
-						title={name}
-						className="docs-site-swatch"
-						style={{ color: hex }}
-						onChange={() => pick(value)}
-					/>
-				))}
-			</div>
-			<FieldControlWithIcon
-				icon={<span className="docs-site-swatch-dot" />}
-				aria-label="Accent colour"
-				spellCheck={false}
-				value={draft}
-				onChange={(event) => type(event.target.value)}
-				onBlur={() => setDraft(hexOf(accent))}
-			/>
-		</div>
-	);
+const RADII: Record<Radius, { name: string; icon: IconName }> = {
+	sharp: { name: "Sharp", icon: "corner-none" },
+	default: { name: "Default", icon: "corner-small" },
+	round: { name: "Round", icon: "corner-large" },
 };
 
-const RadiusSwitch: FC = () => {
+const THEMES: Record<Theme, { name: string; icon: IconName }> = {
+	system: { name: "System", icon: "theme-system" },
+	light: { name: "Light", icon: "theme-light" },
+	dark: { name: "Dark", icon: "theme-dark" },
+};
+
+/** The site's look, in a card of its own under the pages, as but.dev's settings are: a row for
+ * each setting with its current value at the end, opening a menu of the choices beside it. */
+const Appearance: FC = () => {
+	const [folded, setFolded] = useState(false);
 	const [radius, setRadius] = useState(savedRadius);
-	const pick = (next: Radius) => {
-		setRadius(next);
-		pickRadius(next);
-	};
-
-	return (
-		<SegmentedControl fill value={radius} onValueChange={pick} aria-label="Corners">
-			<Segment value="sharp">Sharp</Segment>
-			<Segment value="default">Default</Segment>
-			<Segment value="round">Round</Segment>
-		</SegmentedControl>
-	);
-};
-
-const ThemeSwitch: FC = () => {
 	const [theme, setTheme] = useState(savedTheme);
-	const pick = (next: Theme) => {
-		setTheme(next);
-		pickTheme(next);
-	};
+	const [accent, setAccent] = useState(savedAccent);
 
 	return (
-		<SegmentedControl fill value={theme} onValueChange={pick} aria-label="Theme">
-			<Segment value="system">System</Segment>
-			<Segment value="light">Light</Segment>
-			<Segment value="dark">Dark</Segment>
-		</SegmentedControl>
+		<section
+			aria-label="Appearance"
+			className="docs-site-card"
+			data-folded={folded ? "" : undefined}
+		>
+			<div className="docs-site-appearance-head">
+				<NavItem
+					leadingRow
+					name="Appearance"
+					icon="contrast"
+					folded={folded}
+					onToggleFolded={() => setFolded(!folded)}
+				/>
+			</div>
+			{!folded && (
+				<div className="docs-site-appearance-rows">
+					<Setting name="Radius" icon={RADII[radius].icon} value={RADII[radius].name}>
+						<MenuRadioGroup
+							value={radius}
+							onValueChange={(next) => {
+								setRadius(next as Radius);
+								pickRadius(next as Radius);
+							}}
+						>
+							{Object.entries(RADII).map(([value, { name, icon }]) => (
+								<MenuRadioItem key={value} value={value} icon={icon}>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
+					<Setting name="Theme" icon={THEMES[theme].icon} value={THEMES[theme].name}>
+						<MenuRadioGroup
+							value={theme}
+							onValueChange={(next) => {
+								setTheme(next as Theme);
+								pickTheme(next as Theme);
+							}}
+						>
+							{Object.entries(THEMES).map(([value, { name, icon }]) => (
+								<MenuRadioItem key={value} value={value} icon={icon}>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
+					<Setting
+						name="Color"
+						icon={<span className="docs-site-swatch" />}
+						value={ACCENTS.find((a) => a.accent === accent)?.name ?? accent}
+					>
+						<MenuRadioGroup
+							value={accent}
+							onValueChange={(next) => {
+								setAccent(next as Accent);
+								pickAccent(next as Accent);
+							}}
+						>
+							{ACCENTS.map(({ name, accent: value, hex }) => (
+								<MenuRadioItem
+									key={name}
+									value={value}
+									leading={<span className="docs-site-swatch" style={{ color: hex }} />}
+								>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
+				</div>
+			)}
+		</section>
 	);
 };
+
+/** One setting: its name, its glyph and its current value, and the menu of choices it opens. */
+const Setting: FC<{
+	name: string;
+	icon: IconName | ReactElement;
+	value: string;
+	children: ReactNode;
+}> = ({ name, icon, value, children }) => (
+	<Menu
+		side="right"
+		align="start"
+		trigger={
+			<NavItem
+				name={name}
+				icon={icon}
+				meta={value}
+				render={
+					// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- The row renders as this button, and NavItem fills it with the name.
+					<button type="button" />
+				}
+			/>
+		}
+	>
+		{children}
+	</Menu>
+);
