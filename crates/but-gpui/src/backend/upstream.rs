@@ -766,7 +766,7 @@ pub(super) fn push(
     // the commit rewritten here, or has commits that weren't shown.
     if let Some(shown) = drops.filter(|_| needs_force(&info, branch)) {
         let tips = remote_tips(&ctx, &info, branch)?;
-        fetch(path).map_err(remote_failure)?;
+        fetch(path)?;
         // Opened again after the fetch, so the remote's tips are read as it left them.
         ctx = open(path)?;
         info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -932,7 +932,7 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 /// `err` marked as not a fault here when Git couldn't reach the remote or the remote turned it
 /// down, as when the network is out, the repository moved or a server's hook refused. One that
 /// already says what it is keeps that.
-fn remote_failure(err: anyhow::Error) -> anyhow::Error {
+pub(super) fn remote_failure(err: anyhow::Error) -> anyhow::Error {
     use but_error::AnyhowContextExt as _;
     if (err.custom_context()).is_some_and(|said| said.code != but_error::Code::Unknown) {
         return err;
@@ -1267,7 +1267,8 @@ pub fn fetch(path: &Path) -> Result<bool> {
     if ctx.repo.get()?.remote_names().is_empty() {
         return Ok(false);
     }
-    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))?;
+    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
+        .map_err(remote_failure)?;
     Ok(true)
 }
 

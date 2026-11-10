@@ -83,9 +83,12 @@ fn resolve_commit(
             .find(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
         {
             anyhow::bail!(
-                "Resolve the conflicts in {} first: applying checks the workspace out again, \
-                 which Git can't do over a conflicted file",
-                entry.path(&index)
+                but_error::Context::new(format!(
+                    "Resolve the conflicts in {} first: applying checks the workspace out again, \
+                     which Git can't do over a conflicted file",
+                    entry.path(&index)
+                ))
+                .with_code(but_error::Code::PreconditionFailed)
             );
         }
     }

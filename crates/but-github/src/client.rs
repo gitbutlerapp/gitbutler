@@ -19,6 +19,24 @@ pub struct HttpStatusError {
     pub status: reqwest::StatusCode,
 }
 
+/// The `errors` of a GraphQL reply, and whether every one of them is GitHub turning the request
+/// down, as it does a change the repository doesn't allow, rather than failing to run it.
+#[derive(Debug, thiserror::Error)]
+#[error("GitHub GraphQL returned errors: {messages}")]
+struct GraphQlErrors {
+    messages: String,
+    refused: bool,
+}
+
+/// `err` marked as GitHub turning a change down, when its GraphQL reply said so, so callers
+/// don't count it as a fault of their own.
+fn refused_change(err: anyhow::Error) -> anyhow::Error {
+    match (err.downcast_ref::<GraphQlErrors>()).is_some_and(|errors| errors.refused) {
+        true => err.context(but_error::Code::PreconditionFailed),
+        false => err,
+    }
+}
+
 /// Pass successful responses through; failures carry the downcastable
 /// `HttpStatusError` (so callers can classify 401/403) with what the forge
 /// said in the body as context, so users see the reason and not just the
@@ -851,7 +869,22 @@ impl GitHubClient {
         {
             return self.merge_pull_request_async(&url, &body).await;
         }
-        bail!("GitHub refused the merge ({status}): {reason}");
+        let refused = format!("GitHub refused the merge ({status}): {reason}");
+        // What GitHub answers when the pull request or repository doesn't allow it, rather
+        // than a request of ours it couldn't read, as a 400 or 404 would say.
+        use reqwest::StatusCode;
+        match matches!(
+            status,
+            StatusCode::FORBIDDEN
+                | StatusCode::METHOD_NOT_ALLOWED
+                | StatusCode::CONFLICT
+                | StatusCode::UNPROCESSABLE_ENTITY
+        ) {
+            true => bail!(
+                but_error::Context::new(refused).with_code(but_error::Code::PreconditionFailed)
+            ),
+            false => bail!(refused),
+        }
     }
 
     /// Merge a PR through GitHub's asynchronous merge at `{merge_url}-async`, and wait until
@@ -937,6 +970,7 @@ impl GitHubClient {
             self.set_pull_request_to_ready_for_review(&pull_request_id)
                 .await
         }
+        .map_err(refused_change)
     }
 
     async fn set_pull_request_to_ready_for_review(
@@ -1039,6 +1073,7 @@ impl GitHubClient {
                     .await
             }
         }
+        .map_err(refused_change)
     }
 
     async fn enable_auto_merge_pull_request(
@@ -1256,6 +1291,9 @@ where
     #[derive(Deserialize)]
     struct GraphQlError {
         message: String,
+        /// Set on what GitHub ran and turned down; a query it couldn't validate has none.
+        #[serde(rename = "type")]
+        kind: Option<String>,
     }
 
     #[derive(Deserialize)]
@@ -1267,12 +1305,14 @@ where
     let payload: GraphQlResponse = serde_json::from_slice(body)?;
 
     if let Some(errors) = payload.errors {
+        let refused = (errors.iter())
+            .all(|error| matches!(error.kind.as_deref(), Some("UNPROCESSABLE" | "FORBIDDEN")));
         let messages = errors
             .into_iter()
             .map(|error| error.message)
             .collect::<Vec<_>>()
             .join("; ");
-        bail!("GitHub GraphQL returned errors: {messages}");
+        return Err(GraphQlErrors { messages, refused }.into());
     }
 
     let Some(data) = payload.data else {
@@ -2452,7 +2492,7 @@ mod tests {
     fn graphql_refusal_reports_githubs_message_not_a_decoding_failure() {
         // How GitHub refuses a mutation: the field it would have returned is
         // null, and the reason is in `errors`.
-        let body = br#"{"data":{"enablePullRequestAutoMerge":null},"errors":[{"message":"Pull request Auto merge is not allowed for this repository"}]}"#;
+        let body = br#"{"data":{"enablePullRequestAutoMerge":null},"errors":[{"type":"UNPROCESSABLE","message":"Pull request Auto merge is not allowed for this repository"}]}"#;
 
         let err = decode_graphql_response::<AutoMergePayload>(body)
             .expect_err("a refused mutation is an error");
@@ -2461,6 +2501,24 @@ mod tests {
             err.to_string(),
             "GitHub GraphQL returned errors: Pull request Auto merge is not allowed for this repository",
             "the reason reaches the caller instead of `invalid type: null, expected struct`"
+        );
+        use but_error::AnyhowContextExt as _;
+        assert_eq!(
+            super::refused_change(err)
+                .custom_context()
+                .map(|said| said.code),
+            Some(but_error::Code::PreconditionFailed),
+            "the repository's settings turned it down, which the user is the one to change"
+        );
+        let invalid = br#"{"errors":[{"message":"Field 'enablePullRequestAutoMerge' doesn't exist on type 'Mutation'","extensions":{"code":"undefinedField"}}]}"#;
+        let err = decode_graphql_response::<AutoMergePayload>(invalid)
+            .expect_err("a query GitHub can't validate is an error");
+        assert_eq!(
+            super::refused_change(err)
+                .custom_context()
+                .map(|said| said.code),
+            None,
+            "a query of ours GitHub couldn't run is ours to fix"
         );
     }
 

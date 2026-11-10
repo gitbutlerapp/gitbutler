@@ -311,6 +311,19 @@ impl Intent for DeleteWorktree {
                 !lost.is_empty(),
                 perm,
             )
+            .map_err(|err| {
+                // Changes or a submodule Git won't delete are the user's to look at.
+                use gix::worktree::remove::Error;
+                let refused = (err.downcast_ref::<gix::Error>())
+                    .and_then(|err| err.downcast_any_ref::<Error>())
+                    .is_some_and(|err| {
+                        matches!(err, Error::Dirty { .. } | Error::ContainsSubmodule { .. })
+                    });
+                match refused {
+                    true => err.context(but_error::Code::PreconditionFailed),
+                    false => err,
+                }
+            })
         })
     }
 
