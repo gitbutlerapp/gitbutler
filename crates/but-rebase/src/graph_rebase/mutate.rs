@@ -833,42 +833,44 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         side: InsertSide,
     ) -> Result<Selector> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        let new_idx = self.graph.add_node(step);
+        self.place(new_idx, target, side)?;
+        Ok(self.new_selector(new_idx))
+    }
+
+    fn place(
+        &mut self,
+        node: petgraph::prelude::NodeIndex,
+        target: Selector,
+        side: InsertSide,
+    ) -> Result<()> {
         match side {
             InsertSide::Above => {
-                let edges = self
+                let children = self
                     .graph
                     .edges_directed(target.id, Direction::Incoming)
                     .map(|e| (e.id(), e.weight().to_owned(), e.source()))
                     .collect::<Vec<_>>();
-
-                let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(new_idx, target.id, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_source) in edges {
+                self.insert_parents(node, [target.id], Some(0));
+                for (edge_id, edge_weight, child) in children {
                     self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(edge_source, new_idx, edge_weight);
+                    self.graph.add_edge(child, node, edge_weight);
                 }
-
-                let inserted = self.new_selector(new_idx);
-                self.move_checkouts(target, inserted)?;
-                Ok(inserted)
+                self.move_checkouts(target, self.new_selector(node))
             }
             InsertSide::Below => {
-                let edges = self
+                let mut parents = self
                     .graph
                     .edges_directed(target.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                    .map(|e| (e.id(), e.weight().order, e.target()))
                     .collect::<Vec<_>>();
-
-                let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(target.id, new_idx, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_target) in edges {
-                    self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(new_idx, edge_target, edge_weight);
+                parents.sort_by_key(|(_, order, _)| *order);
+                for (edge_id, _, _) in &parents {
+                    self.graph.remove_edge(*edge_id);
                 }
-
-                Ok(self.new_selector(new_idx))
+                self.insert_parents(node, parents.into_iter().map(|(_, _, p)| p), Some(0));
+                self.graph.add_edge(target.id, node, Edge { order: 0 });
+                Ok(())
             }
         }
     }
