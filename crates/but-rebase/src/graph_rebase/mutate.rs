@@ -883,6 +883,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(self.new_selector(new_idx))
     }
 
+    /// Inserts `pick` relative to `target` as a commit split off from `source`.
+    pub fn split_off(
+        &mut self,
+        source: impl ToCommitSelector,
+        pick: Pick,
+        target: impl ToSelector,
+        side: InsertSide,
+    ) -> Result<Selector> {
+        source.to_commit_selector(self)?;
+        self.insert(target, Step::Pick(pick), side)
+    }
+
     /// Moves a pick to sit relative to `target`.
     ///
     /// The children of the pick, and any checkout of it, are handed to its first parent.
