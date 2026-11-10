@@ -1,5 +1,5 @@
 //! The navigator's tree of rows as it's built, before any is drawn: every card's
-//! projects, worktrees, branches and commits, and under the filter, what it finds.
+//! projects, worktrees, stacks, branches and commits, and under the filter, what it finds.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -72,9 +72,9 @@ pub(super) enum Row {
     GhostBranch(ProjectId, Stop),
     /// The commit uncommitted changes being committed would make where the commit's at.
     NewCommit(ProjectId),
-    /// Where one stack ends and the next starts, or a new one that commits being moved would
-    /// land in. It draws nothing, but a branch dropped under one stack's last branch joins that
-    /// stack rather than the next.
+    /// Where one stack ends and the next starts. It draws nothing, but a branch dropped low on
+    /// one stack's last branch joins that stack rather than the next, which as a branch alone
+    /// has no caption to tell it apart.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -216,10 +216,10 @@ pub(super) struct Moving {
     pub(super) above: Option<usize>,
 }
 
-/// The rows as they're built, each with how far in it sits: a worktree's section steps in
-/// from what holds it. Each also has the guides it draws, as but.dev's sidebar does: a line
-/// down from under the icon of each row it's under, and while a fold holding it moves, its
-/// place in that.
+/// The rows as they're built, each with how far in it sits: a worktree's section and a
+/// stack's branches step in from what holds them. Each also has the guides it draws, as
+/// but.dev's sidebar does: a line down from under the icon of each row it's under, and while
+/// a fold holding it moves, its place in that.
 #[derive(Default)]
 pub(super) struct Rows {
     pub(super) rows: Vec<Row>,
@@ -262,6 +262,14 @@ pub(super) const COMMIT_INDENT: f32 = 6. + STEP + 2.;
 /// Where the middle of a row's icon sits in a row set in by nothing: the row's left edge, its
 /// indent and half the 16-point icon.
 pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 8.;
+
+/// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
+pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
+    let [_, .., bottom] = branches else {
+        return None;
+    };
+    Some(Selection::Stack(project.clone(), bottom.ref_name.clone()))
+}
 
 impl Rows {
     pub(super) fn push(&mut self, row: Row) {
@@ -466,8 +474,8 @@ impl Navigator {
         let selection = store.selection.as_ref().filter(|s| s.project() == id);
         let main_selected =
             selection.is_some_and(|s| in_checkout(store, s, workspace, &Checkout::Main));
-        let main_open = self.worktree_open(id, Checkout::Main, main_selected);
         let heading = Selection::Checkout(id.clone(), Checkout::Main);
+        let main_open = self.shows_under(&heading, main_selected);
         rows.push(Row::Item(heading.clone()));
         rows.open_in(STEP);
         rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
@@ -630,7 +638,8 @@ impl Navigator {
     }
 
     /// [`Self::lane_rows`] under the filter, with `held` the words found in what holds the
-    /// lane: the branches that match or have commits that do, with those commits.
+    /// lane: the branches that match or have commits that do, with those commits, under
+    /// their stack's caption when there are two or more.
     fn filtered_lane(
         &self,
         store: &Store,
@@ -647,6 +656,13 @@ impl Navigator {
             return;
         }
         let branches = &*store.after_deletes(id, branches);
+        let start = rows.rows.len();
+        let caption = caption(id, branches);
+        if let Some(caption) = &caption {
+            rows.push(Row::Item(caption.clone()));
+            rows.open_in(STEP);
+        }
+        let caption_end = rows.rows.len();
         for branch in branches {
             let own = found(
                 terms,
@@ -672,13 +688,37 @@ impl Navigator {
             }
             rows.close();
         }
+        if caption.is_some() {
+            rows.close();
+        }
+        // A caption with nothing found under it goes too.
+        if rows.rows.len() == caption_end {
+            rows.truncate(start);
+        }
     }
 
-    /// A stack's or a linked worktree's branches, each with its commits, up to the fold,
-    /// unless it's closed, and copies of commits being moved where they'd land in a new branch
-    /// above one of them, or below the last.
+    /// A stack's or a linked worktree's branches: over two or more a caption, which folds
+    /// them away unless the selection's in them, and they step in under it, as ui-react's
+    /// StackCaption does; then each branch with its commits, up to the fold, unless it's closed.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
+        let Some(caption) = caption(id, branches) else {
+            return self.stacked_rows(store, id, branches, rows);
+        };
+        let selected = (store.selection.as_ref())
+            .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
+        let open = self.shows_under(&caption, selected);
+        rows.push(Row::Item(caption.clone()));
+        rows.fold(Fold::Under(caption), open, &self.folds, |rows| {
+            rows.open_in(STEP);
+            self.stacked_rows(store, id, branches, rows);
+            rows.close();
+        });
+    }
+
+    /// The rows of a lane's `branches`, and copies of commits being moved where they'd land
+    /// in a new branch above one of them, or below the last.
+    fn stacked_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let new_branch = |branch: &Branch, side: bool| {
             landing_at(store, id, |at| {
                 matches!(at, Stop::NewBranch { beside, below }
@@ -812,7 +852,7 @@ impl Navigator {
         let name = worktree.name.clone();
         let heading = Selection::Checkout(id.clone(), Checkout::Linked(name.clone()));
         rows.push(Row::Item(heading.clone()));
-        let open = self.worktree_open(id, Checkout::Linked(name.clone()), selected);
+        let open = self.shows_under(&heading, selected);
         rows.fold(Fold::Under(heading), open, &self.folds, |rows| {
             rows.open_in(STEP);
             self.linked_checkout_rows(store, id, &name, rows);

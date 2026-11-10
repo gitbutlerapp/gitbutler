@@ -388,7 +388,9 @@ pub(super) fn stops<'a>(
     // the first of them, until that's listed.
     let (mut in_main, mut before_first) = (false, false);
     for row in rows {
-        if before_first && matches!(row, Row::Item(Selection::Branch(p, _)) if p == project) {
+        if before_first
+            && matches!(row, Row::Item(Selection::Branch(p, _) | Selection::Stack(p, _)) if p == project)
+        {
             before_first = false;
             stops.push(Stop::NewStack { first: true });
         }
@@ -417,7 +419,8 @@ pub(super) fn stops<'a>(
                 stops.push(Stop::In(Destination::Branch(name.clone())));
                 in_branch = true;
             }
-            Row::Item(Selection::Branch(p, _)) if p == project => {
+            // An unnamed or the default branch, or a stack's caption: what's above it ends.
+            Row::Item(Selection::Branch(p, _) | Selection::Stack(p, _)) if p == project => {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
             }
@@ -2018,9 +2021,9 @@ mod tests {
             .collect()
     }
 
-    /// Two stacks, `ui` on `api` and `typo` alone, on target `main`, and a linked worktree `wt`
-    /// on `agent`, and the rows the navigator lists for them, with a terminal open and `typo`
-    /// folded.
+    /// Two stacks, `ui` on `api` under their caption and `typo` alone, on target `main`, and a
+    /// linked worktree `wt` on `agent`, and the rows the navigator lists for them, with a
+    /// terminal open and `typo` folded.
     fn listed(project: &ProjectId) -> (Workspace, Vec<Row>) {
         let ws = Workspace {
             managed: true,
@@ -2041,6 +2044,8 @@ mod tests {
             Row::Item(Selection::Uncommitted(p(), Checkout::Main)),
             // Listed above the stacks, which it doesn't part from the heading either.
             Row::Item(Selection::Terminal(p(), TerminalId(1))),
+            // The caption over ui and api, which a new stack goes above.
+            Row::Item(Selection::Stack(p(), named("api"))),
             Row::Item(Selection::Branch(p(), named("ui"))),
             Row::Item(Selection::Commit(p(), id(3))),
             Row::Item(Selection::Branch(p(), named("api"))),

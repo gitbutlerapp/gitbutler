@@ -1,5 +1,5 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
-//! branches and commits as one tree of rows.
+//! stacks, branches and commits as one tree of rows.
 
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -46,9 +46,9 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, POPOVER_RADIUS, ROW_HEIGHT, TILE_MARGIN, Tooltip,
-    WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, dot, dp, faint, field,
-    fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex, icon,
-    icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, review,
+    WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, count_badge, dot, dp,
+    faint, field, fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex,
+    icon, icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, review,
     section_label, small_icon, spinning, unread_line, v_flex,
 };
 
@@ -76,8 +76,8 @@ pub(crate) use terminals::TerminalOverview;
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
-    RowKey, Rows, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, row_keys,
-    span_height,
+    RowKey, Rows, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open,
+    row_keys, span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -606,8 +606,8 @@ pub struct Navigator {
     /// Whether branches start open, as the flips were made against. When Settings change
     /// it, the flips go and every branch starts over.
     branches_start_open: bool,
-    /// Checkouts showing only their heading.
-    folded_worktrees: HashSet<(ProjectId, Checkout)>,
+    /// Worktree headings and stack captions showing only themselves, by their row.
+    folded: HashSet<Selection>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
     /// The commits only a branch's remote has listed under their heading, by the branch's
@@ -774,6 +774,9 @@ impl Navigator {
                     if this.flipped_folds.remove(&(project.clone(), from.clone())) {
                         this.flipped_folds.insert((project.clone(), to.clone()));
                     }
+                    if (this.folded).remove(&Selection::Stack(project.clone(), from.clone())) {
+                        (this.folded).insert(Selection::Stack(project.clone(), to.clone()));
+                    }
                     let here = |ref_name: &Option<FullName>| {
                         ClickOpened::Here((project.clone(), ref_name.clone()))
                     };
@@ -835,7 +838,7 @@ impl Navigator {
             open_upstream: HashSet::new(),
             folded_checkouts: HashSet::new(),
             branches_start_open,
-            folded_worktrees: HashSet::new(),
+            folded: HashSet::new(),
             filter,
             first_hit: None,
             pointer_over: false,
@@ -869,10 +872,10 @@ impl Navigator {
         }
     }
 
-    /// Whether `checkout` of `project` shows what's in it: it isn't folded, or `selected` is
-    /// in it.
-    fn worktree_open(&self, project: &ProjectId, checkout: Checkout, selected: bool) -> bool {
-        selected || !self.folded_worktrees.contains(&(project.clone(), checkout))
+    /// Whether `heading`, a worktree's or a stack's, shows the rows under it: it isn't folded,
+    /// or the selection is in them (`selected`).
+    fn shows_under(&self, heading: &Selection, selected: bool) -> bool {
+        selected || !self.folded.contains(heading)
     }
 
     /// The words the filter looks for, up to as many as [`found`] can tell apart.
@@ -1424,8 +1427,8 @@ impl Navigator {
             Some(Selection::Branch(project, ref_name)) => {
                 self.set_open(ClickOpened::Here((project, ref_name)), true, cx)
             }
-            Some(Selection::Checkout(project, checkout)) => {
-                self.folded_worktrees.remove(&(project, checkout));
+            Some(heading @ (Selection::Checkout(..) | Selection::Stack(..))) => {
+                self.folded.remove(&heading);
                 cx.notify();
             }
             Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
@@ -1447,8 +1450,8 @@ impl Navigator {
         }
     }
 
-    /// Step out the way a tree does: a commit to its branch, an open branch or worktree
-    /// closed, a branch up to its worktree, and anything else up to its project.
+    /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
+    /// closed, a branch up to its stack or worktree, and anything else up to its project.
     /// While the filter lists what it finds, nothing folds, so ⇧← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         if self.on_drawer_bar {
@@ -1504,6 +1507,9 @@ impl Navigator {
             }
             Some(Selection::Checkout(project, checkout)) if folds => {
                 self.toggle_section(&project, checkout, true, window, cx)
+            }
+            Some(caption @ Selection::Stack(..)) if folds => {
+                self.toggle_stack(caption, true, window, cx)
             }
             Some(Selection::Checkout(project, Checkout::Linked(name)))
                 if (store.workspace(&project))
@@ -1596,16 +1602,14 @@ impl Navigator {
             Selection::Checkout(project, checkout) => {
                 self.toggle_section(&project, checkout, open, window, cx)
             }
+            caption @ Selection::Stack(..) => self.toggle_stack(caption, open, window, cx),
             Selection::Mesh(project, id, pick) => {
                 self.toggle_mesh(project, id, pick, open, window, cx)
             }
             Selection::Upstream(project, ref_name, id) => {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
-            Selection::Commit(..)
-            | Selection::Uncommitted(..)
-            | Selection::Stack(..)
-            | Selection::Terminal(..) => {}
+            Selection::Commit(..) | Selection::Uncommitted(..) | Selection::Terminal(..) => {}
         }
     }
 
@@ -2808,8 +2812,9 @@ impl Navigator {
             }
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
-            // The rows list a stack's branches, not the stack.
-            Selection::Stack(..) => None,
+            Selection::Stack(id, bottom) => {
+                self.stack_row(ix, item, id, bottom.as_ref(), style, cx)
+            }
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
             Selection::Upstream(id, ref_name, commit) => {
                 self.upstream_row(item, id, ref_name, commit, style, cx)
@@ -3766,8 +3771,7 @@ impl Navigator {
         Some(row.into_any_element())
     }
 
-    /// Fold `checkout`'s branches, or unfold them. Folding them over the selection takes it
-    /// up to the worktree's heading, as a tree does.
+    /// Fold `checkout`'s branches, or unfold them, as [`Self::fold_heading`] does.
     fn toggle_section(
         &mut self,
         project: &ProjectId,
@@ -3776,22 +3780,32 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let key = (project.clone(), checkout);
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project);
+        if open && !workspace.is_some_and(|ws| checkout_holds(store, ws, project, &checkout)) {
+            return;
+        }
+        let inside = (store.selection.as_ref().zip(workspace))
+            .is_some_and(|(s, ws)| s.project() == project && in_checkout(store, s, ws, &checkout));
+        let heading = Selection::Checkout(project.clone(), checkout);
+        self.fold_heading(heading, open, inside, window, cx)
+    }
+
+    /// Fold the rows under `heading` away, `open` as they are, or unfold them. Folding them
+    /// over the selection, `inside` them, takes it up to the heading, as a tree does.
+    fn fold_heading(
+        &mut self,
+        heading: Selection,
+        open: bool,
+        inside: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !open {
-            self.folded_worktrees.remove(&key);
+            self.folded.remove(&heading);
             return cx.notify();
         }
-        let store = self.store.read(cx);
-        let Some(workspace) = store.workspace(project) else {
-            return;
-        };
-        if !checkout_holds(store, workspace, project, &key.1) {
-            return;
-        }
-        let inside = (store.selection.as_ref())
-            .is_some_and(|s| s.project() == project && in_checkout(store, s, workspace, &key.1));
-        let heading = Selection::Checkout(project.clone(), key.1.clone());
-        self.folded_worktrees.insert(key);
+        self.folded.insert(heading.clone());
         match inside {
             true => self.select(heading, window, cx),
             false => cx.notify(),
@@ -3802,6 +3816,97 @@ impl Navigator {
     fn section_open(&self, ix: usize) -> bool {
         let next = self.insets.get(ix + 1);
         (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this)
+    }
+
+    /// Over a stack of two or more branches, as ui-react's StackCaption: its glyph, which folds
+    /// them away as a worktree's heading does, how many, and "Stack". Selecting it shows what
+    /// its branches change together. Folded, it names its top branch, the one that gets pushed,
+    /// and says how many commits they have to push and whether any is unread.
+    fn stack_row(
+        &self,
+        ix: usize,
+        item: &Selection,
+        id: &ProjectId,
+        bottom: Option<&FullName>,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let theme = style.theme;
+        let branches = store.after_deletes(id, &store.lane_for(item)?.0.branches);
+        // Open even when folded while the selection's in it.
+        let open = self.section_open(ix);
+        let names: Vec<&str> = (branches.iter())
+            .map(|branch| store.label_of(id, branch))
+            .collect();
+        let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
+        let toggle = {
+            let caption = item.clone();
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_stack(caption.clone(), open, window, cx)
+            }
+        };
+        // Quiet, so it doesn't read as one more branch, with "Stack" a step above the rest.
+        let (word, quiet) = match style.solid {
+            true => (theme.text_inverted, style.muted()),
+            false => (theme.text_2, theme.text_3),
+        };
+        let glyph = self.fold(
+            ("stack-fold", ix),
+            icon(Icon::Stack).text_color(quiet),
+            Some(open),
+            style.quiet(),
+            cx,
+            toggle.clone(),
+        );
+        let label = h_flex()
+            .id(("stack-name", ix))
+            .flex_grow(1.)
+            .min_w_0()
+            .gap(dp(6.))
+            .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
+            .child(count_badge(branches.len(), theme).when(style.solid, |el| {
+                el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
+            }))
+            .child(div().flex_none().text_color(word).child("Stack"))
+            .children(branches.first().filter(|_| !open).map(|top| {
+                (div().min_w_0().truncate())
+                    .text_color(quiet)
+                    .child(store.label_of(id, top).to_owned())
+            }));
+        let bottom_name = bottom.map(ToString::to_string).unwrap_or_default();
+        let row = style
+            .row(format!("stack-{id}-{bottom_name}"), 6.)
+            .aria_label(format!("Stack of {}", branches.len()))
+            .aria_expanded(open)
+            .when(!open && unread, |el| {
+                el.relative().child(style.unread_line(false))
+            })
+            .child(glyph)
+            .child(label)
+            .when(!open, |el| {
+                el.children(style.unpushed(unpushed(branches.iter())))
+            })
+            .map(|el| self.selectable(el, item, cx))
+            .on_click(double_click(toggle, cx));
+        Some(row.into_any_element())
+    }
+
+    /// Fold the stack under `caption` away, or unfold it, as [`Self::fold_heading`] does.
+    fn toggle_stack(
+        &mut self,
+        caption: Selection,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let inside = (store.selection.as_ref().zip(store.lane_for(&caption))).is_some_and(
+            |(s, (lane, _))| {
+                s.project() == caption.project() && lane.branches.iter().any(|b| s.on(b))
+            },
+        );
+        self.fold_heading(caption, open, inside, window, cx)
     }
 
     fn branch_row(
@@ -4604,17 +4709,29 @@ fn same_place(old: &Row, new: &Row) -> bool {
     }
 }
 
-/// What ⇧← goes up to from `selection`, a branch, a terminal or uncommitted changes: its
-/// worktree's heading. Not while a commit is edited, which lists its files without one.
+/// What ⇧← goes up to from `selection`: a branch in a stack its stack's caption, and a stack,
+/// a branch alone, a terminal or uncommitted changes its worktree's heading. Not while a commit
+/// is edited, which lists its files without one.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project();
-    if store.workspace(project)?.editing.is_some() {
+    let workspace = store.workspace(project)?;
+    if workspace.editing.is_some() {
         return None;
     }
+    if let Selection::Branch(_, ref_name) = selection
+        && let Some((lane, _)) = workspace.lane_of(ref_name.as_ref())
+        && let Some(caption) = caption(project, &store.after_deletes(project, &lane.branches))
+    {
+        return Some(caption);
+    }
     match selection {
-        Selection::Branch(..) | Selection::Terminal(..) | Selection::Uncommitted(..) => Some(
-            Selection::Checkout(project.clone(), store.checkout_of(selection)?),
-        ),
+        Selection::Branch(..)
+        | Selection::Stack(..)
+        | Selection::Terminal(..)
+        | Selection::Uncommitted(..) => Some(Selection::Checkout(
+            project.clone(),
+            store.checkout_of(selection)?,
+        )),
         _ => None,
     }
 }
