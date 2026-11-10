@@ -63,6 +63,12 @@ fn pull_writes_filtered_files_in_worktree_form() {
 /// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
 /// `file.txt`, then enter edit mode on it with `but resolve`.
 fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
+    resolve_conflicted_commit_with_filtered_file_after(|_| {})
+}
+
+/// Like [`resolve_conflicted_commit_with_filtered_file()`], but call `prepare` on the
+/// workspace before entering edit mode.
+fn resolve_conflicted_commit_with_filtered_file_after(prepare: impl FnOnce(&Sandbox)) -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-conflicted-with-filtered-files",
     );
@@ -78,6 +84,7 @@ fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
         .and_then(|commit| commit["cliId"].as_str())
         .expect("pulling conflicts A's commit")
         .to_owned();
+    prepare(&env);
     env.but(format!("resolve {commit}")).assert().success();
     env
 }
@@ -89,5 +96,25 @@ fn resolve_writes_filtered_files_in_worktree_form() {
         read(&env, "a.secret").as_bstr(),
         "changed on A\n",
         "the commit's change to the filtered file is written smudged"
+    );
+}
+
+#[test]
+fn resolve_cancel_restores_uncommitted_filtered_files_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("a.secret", "edited before resolving\n");
+        env.file("untracked.txt", "untracked\n");
+    });
+
+    env.but("resolve cancel --force").assert().success();
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "edited before resolving\n",
+        "the uncommitted edit comes back smudged"
+    );
+    assert_eq!(
+        env.git_status(),
+        " M a.secret\n?? untracked.txt\n",
+        "the worktree and index are as before resolving"
     );
 }
