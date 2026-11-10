@@ -147,7 +147,7 @@ impl CliOutputHuman for UiOutcome {
                         .keys
                         .map(|keys| format!(" [{keys}]"))
                         .unwrap_or_default();
-                    let risky = if action.risky { " (asks first)" } else { "" };
+                    let risky = if action.risky { " (risky)" } else { "" };
                     writeln!(out, "{}  {}{keys}{risky}", action.name, action.title)?;
                 }
             }

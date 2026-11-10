@@ -1,7 +1,7 @@
 /// Drive the running GitButler GPUI app as the keyboard does.
 ///
 /// `dispatch` runs any of the app's actions by name, as `tiling::SplitRight`, where the keys
-/// are. An action that throws work away asks first in the app, as it does from a key.
+/// are. `actions` marks the ones that throw work away as risky.
 ///
 /// The app listens at $GITBUTLER_GPUI_SOCKET when set, as in its own terminals.
 #[derive(Debug, clap::Parser)]

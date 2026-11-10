@@ -61,7 +61,7 @@ pub struct ActionInfo {
     pub name: String,
     pub title: String,
     pub keys: Option<String>,
-    /// It throws work away, so the app asks first.
+    /// It throws work away.
     pub risky: bool,
 }
 
