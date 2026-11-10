@@ -5,8 +5,8 @@
 //
 //   node scripts/check-contrast.mjs
 
-import { readFileSync } from "node:fs";
 import { converter, parse } from "culori";
+import { readFileSync } from "node:fs";
 
 const toRgb = converter("rgb");
 
@@ -20,7 +20,7 @@ for (const [, name, value] of root.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm
 }
 
 // Splits a function's arguments at its top-level commas.
-const args = (inner) => {
+function args(inner) {
 	const out = [];
 	let depth = 0;
 	let start = 0;
@@ -33,12 +33,15 @@ const args = (inner) => {
 		}
 	}
 	return [...out, inner.slice(start).trim()];
-};
-const call = (value, fn) =>
-	value.startsWith(`${fn}(`) && value.endsWith(")") ? args(value.slice(fn.length + 1, -1)) : null;
+}
+function call(value, fn) {
+	return value.startsWith(`${fn}(`) && value.endsWith(")")
+		? args(value.slice(fn.length + 1, -1))
+		: null;
+}
 
 // A token's colour in `mode`, as { r, g, b, alpha } with channels 0–1.
-const resolve = (value, mode) => {
+function resolve(value, mode) {
 	value = value.trim();
 	const ref = value.match(/^var\(--but-([\w-]+)\)$/);
 	if (ref) {
@@ -64,22 +67,26 @@ const resolve = (value, mode) => {
 	if (!colour) throw new Error(`can't read ${value}`);
 	const { r, g, b } = toRgb(colour);
 	return { r, g, b, alpha: colour.alpha ?? 1 };
-};
+}
 
-const over = (top, under) => ({
-	r: top.r * top.alpha + under.r * (1 - top.alpha),
-	g: top.g * top.alpha + under.g * (1 - top.alpha),
-	b: top.b * top.alpha + under.b * (1 - top.alpha),
-	alpha: 1,
-});
-const luminance = ({ r, g, b }) => {
-	const lin = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+function over(top, under) {
+	return {
+		r: top.r * top.alpha + under.r * (1 - top.alpha),
+		g: top.g * top.alpha + under.g * (1 - top.alpha),
+		b: top.b * top.alpha + under.b * (1 - top.alpha),
+		alpha: 1,
+	};
+}
+function luminance({ r, g, b }) {
+	function lin(v) {
+		return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+	}
 	return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-};
-const contrast = (a, b) => {
+}
+function contrast(a, b) {
 	const [x, y] = [luminance(a), luminance(b)];
 	return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-};
+}
 
 // The pairs, as [what's read, what it's read on, floor]. A translucent ground sits on
 // background, as a tint or a hover does in a card; translucent text sits on its ground.
