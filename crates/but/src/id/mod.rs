@@ -1666,12 +1666,16 @@ impl IdMap {
         self.parse_uncommitted_using_repo(entity, repo)
     }
 
-    /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
-    pub fn resolve_stack(&self, stack_id: StackId) -> Option<CliId> {
+    /// Returns the lane of the stack with `stack_id`, if it exists.
+    pub fn stack(&self, stack_id: StackId) -> Option<&LaneWithId> {
         self.stacks()
             .iter()
-            .find(|lane| lane.lane.stack_id() == Some(stack_id))?
-            .stack_cli_id()
+            .find(|lane| lane.lane.stack_id() == Some(stack_id))
+    }
+
+    /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
+    pub fn resolve_stack(&self, stack_id: StackId) -> Option<CliId> {
+        self.stack(stack_id)?.stack_cli_id()
     }
 
     /// Every uncommitted file of `source`, as whole-file IDs.

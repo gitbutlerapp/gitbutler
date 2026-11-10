@@ -1084,6 +1084,30 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn open_in_the_gui_names_a_remote_only_commit_by_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+    env.file("file", "some content");
+    env.but("commit -m first").assert().success();
+    env.file("file", "some other content");
+    env.but("commit -m second").assert().success();
+    env.invoke_git("update-ref refs/remotes/origin/a-branch-1 refs/heads/a-branch-1");
+    env.invoke_git("config branch.a-branch-1.remote origin");
+    env.invoke_git("config branch.a-branch-1.merge refs/heads/a-branch-1");
+    // The second commit stays on the remote only.
+    env.but("undo").assert().success();
+    env.but("discard @").assert().success();
+
+    let remote_only = env.invoke_git("rev-parse --short=7 refs/remotes/origin/a-branch-1");
+    env.but(format!("_open {remote_only} --gui --dry-run"))
+        .assert()
+        .success()
+        .stdout_eq(format!(
+            "[..]://open?path=[..]&t=[..]&new_window=0&to=upstream&branch=refs%2Fheads%2Fa-branch-1&commit={remote_only}[..]\n"
+        ));
+}
+
+#[test]
 fn open_in_the_gui_takes_a_links_own_parameters() {
     let env = setup_multi_hunk_uncommitted_changes("file.txt");
     // A place with no CLI ID, as a project's graph, is named as its link names it.
@@ -1117,13 +1141,6 @@ fn open_in_the_gui_takes_a_links_own_parameters() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: `path` is the link's own parameter, not a place's
-
-"#]]);
-    env.but("_open br to=project --gui --dry-run")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Give the GUI one CLI ID or a link's parameters, not both
 
 "#]]);
     // The help ends with every place a link opens, from the app's `LINKS.md`, whose wording is
@@ -1166,6 +1183,87 @@ Examples:
 }
 
 #[test]
+fn open_in_the_gui_names_a_linked_worktrees_remote_only_commit_by_its_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    // With no commit of its own, a branch's remote commits aren't listed.
+    let wt = add_dirty_worktree(&env, "wt-feature", "A");
+    env.invoke_git(&format!(
+        "-C {} commit --allow-empty -m local-one",
+        wt.display()
+    ));
+    let remote_only =
+        env.invoke_git("commit-tree wt-feature^{tree} -p wt-feature -m only-on-the-remote");
+    env.invoke_git(&format!(
+        "update-ref refs/remotes/origin/wt-feature {remote_only}"
+    ));
+    env.invoke_git("config branch.wt-feature.remote origin");
+    env.invoke_git("config branch.wt-feature.merge refs/heads/wt-feature");
+
+    env.but(format!("_open {} --gui --dry-run", &remote_only[..7]))
+        .assert()
+        .success()
+        .stdout_eq(format!(
+            "[..]://open?path=[..]&t=[..]&new_window=0&to=upstream&branch=refs%2Fheads%2Fwt-feature&commit={remote_only}\n"
+        ));
+}
+
+#[test]
+fn open_in_the_gui_names_a_stack_by_its_bottom_branch() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    // Alone in its stack, a branch has no stack page, so it opens as that branch.
+    env.but("_open g0 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1
+
+"#]]);
+    env.but("branch new top-seg --above a-branch-1")
+        .assert()
+        .success();
+    env.file("top.txt", "top");
+    env.but("commit -b top-seg -m 'top commit' top.txt")
+        .assert()
+        .success();
+    env.but("_open g0 --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=stack&branch=refs%2Fheads%2Fa-branch-1
+
+"#]]);
+}
+
+#[test]
+fn open_in_the_gui_takes_a_links_own_parameters_with_an_id() {
+    let env = setup_multi_hunk_uncommitted_changes("file.txt");
+    env.but("_open br tab=review --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1&tab=review
+
+"#]]);
+    // They come after what the ID names, wherever they're written.
+    env.but("_open tab=review br --gui --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+[..]://open?path=[..]&t=[..]&new_window=0&to=branch&branch=refs%2Fheads%2Fa-branch-1&tab=review
+
+"#]]);
+    env.but("_open br to=project --gui --dry-run")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: The ID already says `to=`
+
+"#]]);
+}
+
+#[test]
 fn open_in_the_gui_takes_one_place() {
     let env = setup_multi_hunk_uncommitted_changes("file.txt");
     env.file("src/a.txt", "a");
@@ -1181,7 +1279,7 @@ Error: The GUI opens one place at a time
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Expected a branch, commit, file or hunk, got a path prefix
+Error: Expected a branch, stack, commit, file or hunk, got a path prefix
 
 "#]]);
     env.but("_open uv --dry-run")
