@@ -25,6 +25,7 @@ use super::{Detail, PageFold};
 use crate::app::{CopyCommitId, OpenPullRequest};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, PathQuery, Person, TargetCommit};
 use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
+use crate::clipboard;
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Pane, Part, ProjectId, ProjectTab, Selection};
@@ -1419,7 +1420,7 @@ impl Detail {
         };
         let incoming = id == commit.id && commit.incoming && !commit.merge;
         let title: SharedString = commit.title.clone().into();
-        let el = Self::copy_on::<CopyCommitId>(el, id.0.to_string(), cx);
+        let el = clipboard::copy_on::<CopyCommitId>(el, &self.store, id.0.to_string());
         el.when(incoming, |el| {
             el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
                 let (project, copies) = (project.clone(), [(id, title.clone())].into());

@@ -17,6 +17,7 @@ use crate::app::CopySnapshotId;
 actions!(history, [RestoreOperation]);
 use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
+use crate::clipboard;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Overlay, ProjectId, ProjectTab, Selection};
 use crate::theme::Theme;
@@ -614,7 +615,7 @@ impl Detail {
             let el = el.on_action(cx.listener(|this, _: &RestoreOperation, window, cx| {
                 this.restore_selected_operation(window, cx)
             }));
-            Self::copy_on::<CopySnapshotId>(el, id.0.to_string(), cx)
+            clipboard::copy_on::<CopySnapshotId>(el, &self.store, id.0.to_string())
         })
     }
 

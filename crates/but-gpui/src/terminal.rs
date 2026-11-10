@@ -15,13 +15,14 @@ use but_tty::{
 };
 use futures::StreamExt;
 use gpui::{
-    App, AvailableSpace, Bounds, ClipboardItem, Context, CursorStyle, DispatchPhase, Entity,
-    EventEmitter, ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla,
-    KeyDownEvent, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
-    MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task,
-    TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    App, AvailableSpace, Bounds, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
+    ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent,
+    Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
+    Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign,
+    TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
+use crate::clipboard;
 use crate::state::Store;
 use crate::theme::Theme;
 use crate::transfer::Dragged;
@@ -218,8 +219,9 @@ impl Terminal {
             cx.emit(TerminalEvent::Retitled(shown_title(&title)));
         }
         self.restatused(cx);
+        // What a program in it copies, as `OSC 52` asks.
         if let Some(text) = self.tty.copied() {
-            cx.write_to_clipboard(ClipboardItem::new_string(text));
+            clipboard::copy_silently(text, cx);
         }
         // A moment past it, as a redraw before it changes nothing and so draws nothing to wake
         // this again.
@@ -291,12 +293,12 @@ impl Terminal {
             match keystroke.key.as_str() {
                 "c" if alone => {
                     if let Some(text) = self.tty.selected() {
-                        cx.write_to_clipboard(ClipboardItem::new_string(text));
+                        clipboard::copy_silently(text, cx);
                     }
                 }
                 "a" if alone => self.tty.select_all(),
                 "v" => {
-                    if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+                    if let Some(text) = clipboard::text(cx) {
                         self.tty.paste(&text);
                     }
                 }

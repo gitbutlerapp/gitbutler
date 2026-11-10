@@ -8,8 +8,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, ClipboardItem, Context, Div, Hsla, MouseButton, Role,
-    ScrollHandle, SharedString, Stateful, Toggled, Window, div, list, prelude::*, relative,
+    AnyElement, App, ClickEvent, Context, Div, Hsla, MouseButton, Role, ScrollHandle, SharedString,
+    Stateful, Toggled, Window, div, list, prelude::*, relative,
 };
 
 use super::diff_view::pressed;
@@ -19,9 +19,10 @@ use super::{Detail, PageFold};
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, CheckState, Forge, FullName, Remark, Review, ReviewState};
+use crate::clipboard;
 use crate::overlays::{MenuItem, has_keys};
 use crate::pr::{MarkReadyForReview, Mergeability, Offer};
-use crate::state::{ProjectId, ProjectTab, Selection, Side, snack};
+use crate::state::{ProjectId, ProjectTab, Selection, Side};
 use crate::theme::Theme;
 use crate::ui::fold;
 use crate::ui::markdown;
@@ -1006,10 +1007,7 @@ impl Detail {
                 .hover(|el| el.text_color(theme.text_2))
                 .tooltip(Tooltip::text("Copy branch name"))
                 .child(name.clone())
-                .on_click(move |_, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(name.clone()));
-                    snack(&store, format!("Copied {name}"), cx)
-                })
+                .on_click(move |_, _, cx| clipboard::copy(&store, name.clone(), cx))
         });
         let target = h_flex()
             .min_w_0()

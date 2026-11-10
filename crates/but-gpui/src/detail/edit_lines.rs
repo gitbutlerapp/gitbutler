@@ -19,13 +19,14 @@ use std::time::Instant;
 
 use bstr::BString;
 use gpui::{
-    AnyElement, App, ClickEvent, ClipboardItem, Context, Entity, Focusable, ListOffset, Pixels,
-    SharedString, Subscription, WeakEntity, Window, div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Entity, Focusable, ListOffset, Pixels, SharedString,
+    Subscription, WeakEntity, Window, div, prelude::*,
 };
 
 use super::{Detail, DiffKey, TextPoint};
 use crate::backend::edit_lines::{self, Sides, WriteFile};
 use crate::backend::{self, ChangeKind, Checkout, DiffBody, DiffLine, FileDiff, LineKind};
+use crate::clipboard;
 use crate::state::{ProjectId, snack};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
@@ -1039,8 +1040,8 @@ impl Detail {
         if !text.is_empty() {
             // Said as the diff's own copy says it.
             let verb = if cut { "Cut" } else { "Copied" };
-            snack(&self.store, crate::app::took(verb, &text), cx);
-            cx.write_to_clipboard(ClipboardItem::new_string(text));
+            let message = clipboard::took(verb, &text);
+            clipboard::copy_saying(&self.store, text, message, cx);
             // As the diff's copied text blinks, so a copy says it took.
             edit.copied = Some(lines);
             self.blink_copied(super::Copied::Text, cx);

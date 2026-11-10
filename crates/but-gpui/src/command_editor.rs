@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Bounds, ClipboardItem, Context, CursorStyle, Decorations, Entity, FocusHandle,
+    AnyElement, App, Bounds, Context, CursorStyle, Decorations, Entity, FocusHandle,
     Focusable as _, FontWeight, HighlightStyle, KeyDownEvent, ListAlignment, ListState,
     MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Role, SharedString, StyledText,
     Subscription, Task, TextLayout, TitlebarOptions, Toggled, Window, WindowBounds, WindowHandle,
@@ -21,6 +21,7 @@ use gpui::{
 };
 
 use crate::app::CloseWindow;
+use crate::clipboard;
 use crate::commands::{COMMANDS, title_of};
 use crate::keymap::edit::{self, Bound};
 use crate::keymap::{self, Binding, Keymap, KeymapFile, Loaded};
@@ -763,8 +764,9 @@ impl CommandEditor {
                 .filter(|text| !text.is_empty())
         });
         if let Some(selected) = selected {
-            cx.write_to_clipboard(ClipboardItem::new_string(selected.to_owned()));
-            self.notice = Some(Notice::Done(format!("Copied {selected}")));
+            // Said in this window, which has no snackbar.
+            clipboard::copy_silently(selected.to_owned(), cx);
+            self.notice = Some(Notice::Done(clipboard::copied(selected)));
             cx.stop_propagation();
             cx.notify();
         }

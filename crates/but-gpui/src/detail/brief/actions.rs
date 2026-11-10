@@ -9,6 +9,7 @@ use super::notes::target_words;
 use super::state::BriefState;
 use super::{NextBrief, briefs};
 use crate::backend::briefs::{Ask, BriefPage, CommentTo};
+use crate::clipboard;
 use crate::detail::Detail;
 use crate::state::{Axis, RowKey, Selection, Tile};
 use crate::terminal::{Terminal, TerminalId};
@@ -125,11 +126,11 @@ impl Detail {
                 .style(ButtonStyle::Ghost)
                 .disabled_because(busy)
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(words.clone()));
                     if let Some(brief) = this.page.brief_mut() {
                         brief.unheard = false;
                     }
-                    (this.store).update(cx, |store, cx| store.snack("Copied", cx));
+                    let words = words.clone();
+                    clipboard::copy_saying(&this.store, words, "Copied what to tell it", cx);
                 }))
                 .into_any_element(),
         }

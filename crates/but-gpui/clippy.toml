@@ -5,8 +5,19 @@
 # network mount freezes the window. They go in `src/backend`, whose work `backend::run` runs off
 # the UI thread. Anywhere else, `#[expect]` says why the call can't block the UI. Tests, which
 # don't run on it, may call them anywhere (`lib.rs`).
+#
+# The clipboard is read and written in `src/clipboard.rs` alone, so each copy says what it took
+# the same way. Linux's primary selection and macOS's find pasteboard exist on one platform
+# each, so their paths are allowed not to resolve on the others.
 disallowed-methods = [
     { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
+    { path = "gpui::App::write_to_clipboard", reason = "copy through crate::clipboard, which says what it copied" },
+    { path = "gpui::App::read_from_clipboard", reason = "paste through crate::clipboard" },
+    { path = "gpui::App::read_from_clipboard_async", reason = "paste through crate::clipboard" },
+    { path = "gpui::App::write_to_primary", reason = "copy through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::read_from_primary", reason = "paste through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::write_to_find_pasteboard", reason = "copy through crate::clipboard", allow-invalid = true },
+    { path = "gpui::App::read_from_find_pasteboard", reason = "paste through crate::clipboard", allow-invalid = true },
     { path = "std::fs::read", reason = "blocks: do it in src/backend" },
     { path = "std::fs::read_to_string", reason = "blocks: do it in src/backend" },
     { path = "std::fs::write", reason = "blocks: do it in src/backend" },

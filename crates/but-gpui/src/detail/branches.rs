@@ -36,6 +36,7 @@ use crate::app::{CopyBranchName, CopyCommitId, OpenPullRequest};
 use crate::backend::branches::{self, ApplyOutcome, DescribeBranch, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, FullName, ReviewState};
+use crate::clipboard;
 use crate::edits::{BRANCH_ALIASES, CherryPick, Discard};
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{BranchStatus, Label, Overlay, Picks, ProjectId, ProjectTab, Selection, Store};
@@ -1669,10 +1670,10 @@ impl Detail {
             .is_some_and(|ids| !ids.is_empty());
         let el = el
             .when_some(name, |el, name| {
-                Self::copy_on::<CopyBranchName>(el, name, cx)
+                clipboard::copy_on::<CopyBranchName>(el, &self.store, name)
             })
             .when_some(commit, |el, id| {
-                Self::copy_on::<CopyCommitId>(el, id.0.to_string(), cx)
+                clipboard::copy_on::<CopyCommitId>(el, &self.store, id.0.to_string())
             });
         el.when_some(opened, |el, ref_name| {
             let (described, deleted, worktree) =

@@ -6,14 +6,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, ClickEvent, ClipboardItem, Context, Div, Entity, Focusable as _, Image,
-    SharedString, Window, div, prelude::*,
+    AnyElement, ClickEvent, Context, Div, Entity, Focusable as _, Image, SharedString, Window, div,
+    prelude::*,
 };
 
 use super::{Card, Row, SettingsView};
 use crate::backend::Forge;
 use crate::backend::accounts::{self, Account, GitButlerUser};
 use crate::backend::run;
+use crate::clipboard;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::person::account_avatar;
@@ -204,7 +205,8 @@ impl SettingsView {
             };
             let code = SharedString::from(code);
             this.update(cx, |this, cx| {
-                cx.write_to_clipboard(ClipboardItem::new_string(code.to_string()));
+                // The row that shows the code says it's on the clipboard.
+                clipboard::copy_silently(code.to_string(), cx);
                 cx.open_url(GITHUB_DEVICE_PAGE);
                 this.accounts.github_code = Some(code.clone());
                 cx.notify();
@@ -372,9 +374,9 @@ impl SettingsView {
                         button("copy-code", "Copy code")
                             .small()
                             .style(ButtonStyle::Ghost)
-                            .on_click(move |_, _, cx| {
-                                cx.write_to_clipboard(ClipboardItem::new_string(copied.to_string()))
-                            }),
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                clipboard::copy(&this.store, copied.to_string(), cx)
+                            })),
                     )
                     .child(
                         button("cancel-sign-in", "Cancel")

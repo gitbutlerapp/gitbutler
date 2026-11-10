@@ -19,6 +19,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{
     self, Branch, Checkout, CommitId, CommitState, FullName, PushState, short_ref,
 };
+use crate::clipboard;
 use crate::clock;
 use crate::edits::{NameBranch, RenameBranch, Reword};
 use crate::navigator::{SelectFirst, SelectLast, upstream_label};
@@ -1108,11 +1109,8 @@ impl Detail {
             .child(short)
             .tooltip(Tooltip::text(tooltip))
             .on_click({
-                let app = self.app.clone();
-                move |_, window, cx| {
-                    let whole = whole.clone();
-                    app.update_later(window, cx, move |app, _, cx| app.copy_text(whole, cx));
-                }
+                let store = self.store.clone();
+                move |_, _, cx| clipboard::copy(&store, whole.clone(), cx)
             })
     }
 

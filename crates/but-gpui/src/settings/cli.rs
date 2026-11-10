@@ -1,10 +1,11 @@
 //! The `but` CLI's row on General and its card on the welcome: install it with a click, then
 //! copy the command that gives coding agents GitButler's skill.
 
-use gpui::{App, ClipboardItem, Context, Div, Entity, FontWeight, div, prelude::*};
+use gpui::{App, Context, Div, Entity, FontWeight, div, prelude::*};
 
 use super::{Row, SettingsView};
-use crate::state::{Store, snack};
+use crate::clipboard;
+use crate::state::Store;
 use crate::theme::Theme;
 use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button, v_flex};
@@ -49,10 +50,7 @@ fn agent_setup(id: &'static str, store: &Entity<Store>, theme: &Theme) -> Div {
             icon_button(id, Icon::Copy)
                 .small()
                 .tooltip("Copy")
-                .on_click(move |_, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(AGENT_SETUP.to_owned()));
-                    snack(&store, "Copied but agent setup", cx);
-                }),
+                .on_click(move |_, _, cx| clipboard::copy(&store, AGENT_SETUP.to_owned(), cx)),
         )
 }
 

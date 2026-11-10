@@ -64,6 +64,7 @@ use crate::backend::{
     self, Checkout, CommitId, DiffLine, DiffSource, FileChange, FileDiff, FullName, HunkKey,
     LineKind, Selected,
 };
+use crate::clipboard;
 use crate::clock;
 use crate::edits::Discard;
 use crate::overlays::MenuItem;
@@ -1530,19 +1531,6 @@ impl Detail {
 
     fn selected_project(&self) -> Option<ProjectId> {
         self.selection().map(|s| s.project().clone())
-    }
-
-    /// Register `A` on `el` as copying `text`, as the app copies it.
-    fn copy_on<A: gpui::Action>(
-        el: gpui::Stateful<gpui::Div>,
-        text: String,
-        cx: &Context<Self>,
-    ) -> gpui::Stateful<gpui::Div> {
-        el.on_action(cx.listener(move |this, _: &A, window, cx| {
-            let text = text.clone();
-            this.app
-                .update_later(window, cx, move |app, _, cx| app.copy_text(text, cx))
-        }))
     }
 
     /// The pull request of what a page has picked: the branch opened on the Branches page, or
@@ -4330,10 +4318,12 @@ impl Render for Detail {
                 self.focused_file_paths(window, cx),
                 |el, (relative, absolute)| {
                     let revealed = std::path::PathBuf::from(&absolute);
-                    let el = Self::copy_on::<CopyRelativePath>(el, relative, cx);
-                    Self::copy_on::<CopyAbsolutePath>(el, absolute, cx).on_action(cx.listener(
-                        move |_, _: &crate::navigator::Reveal, _, cx| cx.reveal_path(&revealed),
-                    ))
+                    let el = clipboard::copy_on::<CopyRelativePath>(el, &self.store, relative);
+                    clipboard::copy_on::<CopyAbsolutePath>(el, &self.store, absolute).on_action(
+                        cx.listener(move |_, _: &crate::navigator::Reveal, _, cx| {
+                            cx.reveal_path(&revealed)
+                        }),
+                    )
                 },
             )
             .when(self.shows_conflicts(), |el| resolve::conflict_keys(el, cx))
