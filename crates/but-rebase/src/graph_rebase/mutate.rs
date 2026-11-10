@@ -363,6 +363,28 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
+    /// Removes `subjects` from history because `into` absorbed them, handing their children
+    /// to their parents.
+    pub fn fold<S: ToCommitSelector>(
+        &mut self,
+        subjects: impl IntoIterator<Item = S>,
+        into: impl ToCommitSelector,
+    ) -> Result<()> {
+        let into = self
+            .history
+            .normalize_selector(into.to_commit_selector(self)?)?;
+        for subject in subjects {
+            let subject = self
+                .history
+                .normalize_selector(subject.to_commit_selector(self)?)?;
+            if subject.id == into.id {
+                bail!("A commit can't be folded into itself");
+            }
+            self.splice_out(subject.id);
+        }
+        Ok(())
+    }
+
     fn splice_out(&mut self, node: petgraph::prelude::NodeIndex) {
         let mut parents = self
             .graph
