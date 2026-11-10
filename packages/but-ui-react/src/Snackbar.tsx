@@ -28,8 +28,10 @@ const defaultIcon = (variant: SnackbarVariant): IconName =>
 	);
 
 /**
- * One line of consequence, floated over the surface that caused it: a glyph, a sentence, and — when
- * it needs dismissing by hand — a way out fenced off behind a divider. A whole {@link Toasts} card
+ * One line of consequence, floated over the surface that caused it: a glyph, a sentence, and at most
+ * one button, fenced off behind a divider: Undo when what just happened can be taken back, or a close
+ * button when the snackbar waits to be dismissed by hand. Never both: an undoable snackbar leaves on
+ * its own, so it has nothing to close. A whole {@link Toasts} card
  * would state a title and a description; a snackbar has only the sentence, so it can sit close to
  * the thing it is about rather than in the corner of the window.
  *
@@ -44,11 +46,31 @@ export const Snackbar: FC<
 		variant?: SnackbarVariant;
 		/** Overrides the variant's own glyph. */
 		icon?: IconName;
-		/** Given, the snackbar carries a close button; otherwise it says its piece and nothing more. */
-		onDismiss?: () => void;
 		dismissLabel?: string;
-	} & ComponentProps<"div">
-> = ({ variant = "info", icon, onDismiss, dismissLabel = "Dismiss", children, ...props }) => (
+		undoLabel?: string;
+	} & (
+		| {
+				/** Given, the snackbar carries a close button; otherwise it says its piece and nothing more. */
+				onDismiss?: () => void;
+				onUndo?: never;
+		  }
+		| {
+				/** Given, the snackbar carries Undo, which takes back what it says happened. */
+				onUndo: () => void;
+				onDismiss?: never;
+		  }
+	) &
+		ComponentProps<"div">
+> = ({
+	variant = "info",
+	icon,
+	onDismiss,
+	dismissLabel = "Dismiss",
+	onUndo,
+	undoLabel = "Undo",
+	children,
+	...props
+}) => (
 	<div
 		// A failure interrupts; the rest are there to be read whenever the reader gets to them.
 		role={variant === "danger" ? "alert" : "status"}
@@ -68,20 +90,27 @@ export const Snackbar: FC<
 	>
 		<Icon name={icon ?? defaultIcon(variant)} size={14} className={styles.icon} />
 		<span className={styles.message}>{children}</span>
-		{onDismiss !== undefined && (
-			<>
-				<div aria-hidden className={styles.divider} />
+		{(onUndo !== undefined || onDismiss !== undefined) && (
+			<div aria-hidden className={styles.divider} />
+		)}
+		{onUndo !== undefined ? (
+			<Button variant="ghost-inverted" size="small" className={styles.action} onClick={onUndo}>
+				<Icon name="undo" />
+				{undoLabel}
+			</Button>
+		) : (
+			onDismiss !== undefined && (
 				<Button
 					aria-label={dismissLabel}
 					variant="ghost-inverted"
 					size="small"
 					iconOnly
-					className={styles.dismiss}
+					className={styles.action}
 					onClick={onDismiss}
 				>
 					<Icon name="cross" />
 				</Button>
-			</>
+			)
 		)}
 	</div>
 );

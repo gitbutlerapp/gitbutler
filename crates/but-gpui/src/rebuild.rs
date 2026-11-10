@@ -348,7 +348,7 @@ impl BuildOutput {
                     let (terminals, tilings) = store.update(cx, |store, cx| {
                         (store.hand_off_terminals(cx), store.hand_off_tilings())
                     });
-                    built.restart(terminals, &tilings)
+                    built.restart(terminals, &tilings, &[])
                 };
                 #[cfg(not(unix))]
                 let err = built.restart();

@@ -5,11 +5,22 @@
 use but_tty::{Colors, Ghostty, RgbColor};
 use gpui::{
     App, Font, FontFeatures, FontWeight, Global, Hsla, Pixels, Rgba, SharedString,
-    WindowAppearance, rgb,
+    WindowAppearance, rgb, rgba,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
+
+/// but-ui's colour tokens as its build resolves them (`packages/but-ui/tokens/tokens.json`),
+/// which the build script writes as constants: each `[light, dark]` as `0xRRGGBBAA`, named as
+/// the token is.
+#[expect(
+    dead_code,
+    reason = "every token is here, and the theme reads only the ones it draws with"
+)]
+mod tokens {
+    include!(concat!(env!("OUT_DIR"), "/color_tokens.rs"));
+}
 
 #[derive(Clone)]
 pub struct Theme {
@@ -44,12 +55,19 @@ pub struct Theme {
     /// `purple` on a solid selection: the other appearance's, as but.dev's is. For glyphs, which
     /// need 3:1.
     pub purple_on_solid: Hsla,
-    /// The dark ground of a snackbar, in both themes.
+    /// A snackbar's ground, edge and text, as but-ui's snackbar tokens have them: inverted in
+    /// light, so it reads as a passing note over the window, and in dark a step above a popover's
+    /// ground, with a popover's edge.
     pub snackbar_bg: Hsla,
+    pub snackbar_border: Hsla,
     pub snackbar_text: Hsla,
-    /// A warning snackbar's glyph, which says it went but not quite as asked: but-ui's
-    /// fill-warn on the snackbar's ground, as but-ui-react's has it. For a glyph, so 3:1.
+    /// A warning snackbar's glyph, which says it went but not quite as asked. For a glyph, so
+    /// 3:1 on `snackbar_bg`.
     pub snackbar_warn: Hsla,
+    /// The line between a snackbar's sentence and its button, and that button under the
+    /// pointer.
+    pub snackbar_divider: Hsla,
+    pub snackbar_hover: Hsla,
     /// A diff's changed lines as @pierre/diffs colours them in but.dev: the line numbers and
     /// the bar beside them, the ground of the line and its numbers, and behind the words that
     /// changed within it.
@@ -313,16 +331,18 @@ impl Theme {
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };
+        // A but-ui token in this appearance.
+        let token = |[light, dark_value]: [u32; 2]| -> Hsla {
+            rgba(if dark { dark_value } else { light }).into()
+        };
         let (code_text, code_line) = code.metrics();
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
-        // but-ui's tokens, as `packages/but-ui/tokens/tokens.css` resolves them: each a step
-        // of the generated ramps (`tokens/ramps.json`), light then dark. Coloured text is a
-        // hue's step 11, which reads at 4.5:1 on the gray grounds.
-        let [safe, danger] = [pick(0x007645, 0x43d997), pick(0xc1270d, 0xf6907d)];
-        // --but-inverse and --but-inverse-foreground.
-        let [fill_gray, text_inverted] = [pick(0x1f1f1f, 0xf0f0f0), pick(0xfcfcfc, 0x141414)];
+        // Coloured text is a hue's step 11, which reads at 4.5:1 on the gray grounds.
+        let [safe, danger] = [tokens::SUCCESS_TEXT, tokens::DANGER_TEXT].map(token);
+        let [fill_gray, text_inverted] = [tokens::INVERSE, tokens::INVERSE_FOREGROUND].map(token);
+        let [done_light, done_dark] = tokens::DONE_TEXT;
         let on_solid = |accent| {
             color(readable_on(
                 rgb_hex(accent),
@@ -334,40 +354,39 @@ impl Theme {
             code_text,
             code_line,
             scale: 1.,
-            // --but-background, the cards and panes, and --but-canvas, the window's ground.
-            bg_1: pick(0xfcfcfc, 0x141414),
-            bg_2: pick(0xefefef, 0x1d1d1d),
-            // --but-foreground, --but-muted-foreground and --but-subtle-foreground. Secondary
-            // text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised details, on both
-            // grounds.
-            text_1: pick(0x1f1f1f, 0xf0f0f0),
-            text_2: pick(0x606060, 0xbcbcbc),
-            text_3: pick(0x888888, 0x7a7a7a),
-            // --but-border-hover, --but-border and --but-border-subtle.
-            border_1: pick(0xb8b8b8, 0x6a6a6a),
-            border_2: pick(0xcccccc, 0x505050),
-            border_3: pick(0xd7d7d7, 0x414141),
+            // The cards and panes, and the window's ground.
+            bg_1: token(tokens::BACKGROUND),
+            bg_2: token(tokens::CANVAS),
+            // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
+            // details, on both grounds.
+            text_1: token(tokens::FOREGROUND),
+            text_2: token(tokens::MUTED_FOREGROUND),
+            text_3: token(tokens::SUBTLE_FOREGROUND),
+            border_1: token(tokens::BORDER_HOVER),
+            border_2: token(tokens::BORDER),
+            border_3: token(tokens::BORDER_SUBTLE),
             fill_gray,
             text_inverted,
-            // --but-primary-text, and --but-primary, which a white label and tick read on at
-            // 4.5:1, in both themes.
-            pop: pick(0x007374, 0x36d2d2),
-            pop_bg: rgb(0x008383).into(),
-            pop_button: rgb(0x008383).into(),
-            on_pop: gpui::white(),
-            // --but-info-text, --but-success-text, --but-warning-text, --but-danger-text and
-            // --but-done-text.
-            blue: pick(0x2764c7, 0x88b6ff),
+            // The accent as text, and as the ground its label and tick read on at 4.5:1, in
+            // both themes.
+            pop: token(tokens::PRIMARY_TEXT),
+            pop_bg: token(tokens::PRIMARY),
+            pop_button: token(tokens::PRIMARY),
+            on_pop: token(tokens::PRIMARY_FOREGROUND),
+            blue: token(tokens::INFO_TEXT),
             safe,
-            warn: pick(0x9a5100, 0xffb05f),
+            warn: token(tokens::WARNING_TEXT),
             danger,
-            purple: pick(0x7d3dbd, 0xcb9bff),
+            purple: token([done_light, done_dark]),
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
-            purple_on_solid: pick(0xcb9bff, 0x7d3dbd),
-            snackbar_bg: pick(0x1e1e1e, 0x434343),
-            snackbar_text: rgb(0xf8f8f8).into(),
-            snackbar_warn: rgb(0xf99406).into(),
+            purple_on_solid: token([done_dark, done_light]),
+            snackbar_bg: token(tokens::SNACKBAR),
+            snackbar_border: token(tokens::SNACKBAR_BORDER),
+            snackbar_text: token(tokens::SNACKBAR_FOREGROUND),
+            snackbar_warn: token(tokens::WARNING),
+            snackbar_divider: token(tokens::SNACKBAR_DIVIDER),
+            snackbar_hover: token(tokens::SNACKBAR_HOVER),
             diff_added: added,
             diff_removed: removed,
             diff_added_bg: pick(0xeef7ee, 0x2c3f35),
@@ -375,22 +394,23 @@ impl Theme {
             diff_added_emph: added.opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: removed.opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: pick(0x696c70, 0x999da1),
-            // --but-change-status-addition, -modification, -deletion and -rename: step 9.
+            // Each hue's step 9.
             change_status: [
-                pick(0x008651, 0x008758),
-                pick(0x2570e3, 0x2a70e3),
-                pick(0xd5402a, 0xd43e27),
-                rgb(0x8a43d0).into(),
-            ],
-            // --but-category-1 to -5: teal, purple, green, amber and red at step 7.
-            person: [
-                (0x6cc8c7, 0x1d6868),
-                (0xccaef6, 0x613e8a),
-                (0x79cda2, 0x2b6b4d),
-                (0xffae55, 0x7e4f1d),
-                (0xf1a697, 0x7f3124),
+                tokens::CHANGE_STATUS_ADDITION,
+                tokens::CHANGE_STATUS_MODIFICATION,
+                tokens::CHANGE_STATUS_DELETION,
+                tokens::CHANGE_STATUS_RENAME,
             ]
-            .map(|(light, dark_value)| pick(light, dark_value)),
+            .map(token),
+            // Teal, purple, green, amber and red at step 7.
+            person: [
+                tokens::CATEGORY_1,
+                tokens::CATEGORY_2,
+                tokens::CATEGORY_3,
+                tokens::CATEGORY_4,
+                tokens::CATEGORY_5,
+            ]
+            .map(token),
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
             mono_font: "Geist Mono".into(),
@@ -511,10 +531,13 @@ impl Theme {
             danger_on_solid: color(readable_on(danger, bg, fg)),
             purple_on_solid: color(readable_on(purple, bg, fg)),
             snackbar_bg: color(fg),
+            snackbar_border: gpui::transparent_black(),
             snackbar_text: color(bg),
             snackbar_warn: color(
                 reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),
             ),
+            snackbar_divider: color(mix(bg, fg, 0.18)).opacity(0.3),
+            snackbar_hover: color(bg).opacity(0.05),
             diff_added: color(added),
             diff_removed: color(removed),
             diff_added_bg: color(ground(2)),

@@ -1046,6 +1046,70 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
 pub const POPOVER_RADIUS: f32 = 8.;
 
 /// The card that menus, dialogs, toasts and tooltips float on.
+/// A snackbar: a sentence on the inverse ground, led by a warning glyph when it went but not
+/// quite as asked, with at most one button, `action`, behind a line: Undo, from
+/// [`snackbar_undo`]. Figma's has a close button instead for one that waits to be dismissed, never
+/// both, but this app's all leave on their own.
+pub fn snackbar(
+    id: impl Into<ElementId>,
+    message: SharedString,
+    warning: bool,
+    action: Option<AnyElement>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .role(Role::Alert)
+        .aria_label(message.clone())
+        // As Figma's: 10px before a glyph and 14px before bare words; 14px after the words, or
+        // after a button 6px, as above and below it. Each a pixel less here, for the border.
+        .h(dp(32.))
+        .pl(dp(if warning { 9. } else { 13. }))
+        .pr(dp(if action.is_some() { 5. } else { 13. }))
+        .gap(dp(8.))
+        .rounded(dp(8.))
+        .border_1()
+        .border_color(theme.snackbar_border)
+        .bg(theme.snackbar_bg)
+        .text_color(theme.snackbar_text)
+        .text_size(dp(12.))
+        .shadow_lg()
+        .when(warning, |el| {
+            el.child(snackbar_icon(Icon::Warning).text_color(theme.snackbar_warn))
+        })
+        .child(message)
+        .when_some(action, |el, action| {
+            // The line sits 12px after the words and 8px before the button, whose own padding
+            // puts its glyph 14px past the line.
+            el.child(
+                div()
+                    .flex_none()
+                    .pl(dp(4.))
+                    .child(div().w(fixed(1.)).h(dp(20.)).bg(theme.snackbar_divider)),
+            )
+            .child(action)
+        })
+}
+
+/// A snackbar's Undo, which takes back what it says happened.
+pub fn snackbar_undo(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .h(dp(20.))
+        .px(dp(6.))
+        .gap(dp(4.))
+        .rounded(dp(4.))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .hover(|el| el.bg(theme.snackbar_hover))
+        .child(snackbar_icon(Icon::Undo).text_color(theme.snackbar_text))
+        .child("Undo")
+}
+
+/// A glyph in a snackbar, 14px as Figma's.
+fn snackbar_icon(icon: Icon) -> Svg {
+    svg().path(icon.path()).size(dp(14.)).flex_none()
+}
+
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
         .rounded(dp(POPOVER_RADIUS))

@@ -103,6 +103,12 @@ Everything a person can pick is also in [`tokens/settings.json`](./tokens/settin
 
 The build works the settings out once, writes this file, and writes the `:root[data-but-…]` blocks of `tokens.css` from the same objects, so the two can't differ. `pnpm check` fails when either is stale.
 
+### Tokens as data
+
+The tokens themselves are in [`tokens/tokens.json`](./tokens/tokens.json), for the same readers. `colors` has what each colour token comes to in light and in dark, as sRGB hex with its alpha last when it has one, and `lengths` has each length in px, both named as in `tokens.css` without `--but-`. These are Figma's values, so a client applies what a setting changes, from `settings.json`, on top. Fonts, shadows, easings and opacities stay in `tokens.css` alone, as they're written for CSS.
+
+The GPUI client compiles the colours in as constants (`crates/but-gpui/build.rs`), so its theme draws in the colours the web does, and a token it reads that goes fails its build.
+
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
 ```bash
@@ -238,19 +244,21 @@ pnpm check
 3. appends box-shadow custom properties generated from `fx.tokens.json` by [`scripts/generate-shadow-vars.mjs`](./scripts/generate-shadow-vars.mjs);
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
 5. works out what a person can pick, as data: each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue or drawn from any colour; each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder; and each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding step;
-6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's.
+6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's;
+7. writes `tokens/tokens.json` in [`scripts/tokens-data.mjs`](./scripts/tokens-data.mjs): what each colour token comes to in light and in dark, and each length in px.
 
 Aliases stay aliases: a variable that points at another in Figma comes out as `var(--target)`, for sizes as well as colors.
 
 ### Token files
 
-| File                               | Source                                                                         | Consumed by                 |
-| ---------------------------------- | ------------------------------------------------------------------------------ | --------------------------- |
-| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                    |
-| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                    |
-| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                    |
-| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs`  |
-| `tokens/settings.json`             | The build — every accent, corner and density setting, as data                  | Clients that can't read CSS |
+| File                               | Source                                                                         | Consumed by                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                                         |
+| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                                         |
+| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                                         |
+| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs`                       |
+| `tokens/settings.json`             | The build — every accent, corner and density setting, as data                  | Clients that can't read CSS                      |
+| `tokens/tokens.json`               | The build — each colour for light and dark, each length in px                  | The GPUI client, and clients that can't read CSS |
 
 ### Pulling tokens from Figma
 

@@ -24,7 +24,7 @@ use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, FocusedAt, Icon, ShowFocused, button, dp, error_summary, field, fixed, h_flex,
-    icon, keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
+    icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_undo, v_flex,
 };
 
 /// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
@@ -974,52 +974,26 @@ impl AppView {
                     undo,
                     warning,
                 } => {
+                    let undo = undo.clone().map(|(project, snapshot)| {
+                        snackbar_undo(("undo", id), theme)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.store.update(cx, |store, cx| {
+                                    store.undo_snapshot(&project, snapshot, None, None, cx)
+                                })
+                            }))
+                            .into_any_element()
+                    });
                     snackbar = Some(
-                        h_flex()
-                            .id(("snackbar", id))
-                            .role(Role::Alert)
-                            .aria_label(message.clone())
-                            .h(dp(32.))
-                            .pl(dp(12.))
-                            .pr(dp(if undo.is_some() { 4. } else { 12. }))
-                            .gap(dp(8.))
-                            .rounded(dp(8.))
-                            .bg(theme.snackbar_bg)
-                            .text_color(theme.snackbar_text)
-                            .text_size(dp(12.))
-                            .shadow_lg()
-                            // Over a modal's backdrop, which a click would reach and close it.
-                            .occlude()
-                            .when(*warning, |el| {
-                                el.child(small_icon(Icon::Warning).text_color(theme.snackbar_warn))
-                            })
-                            .child(message.clone())
-                            .when_some(undo.clone(), |el, (project, snapshot)| {
-                                el.child(
-                                    div()
-                                        .w(fixed(1.))
-                                        .h(dp(16.))
-                                        .bg(theme.snackbar_text.opacity(0.2)),
-                                )
-                                .child(
-                                    h_flex()
-                                        .id(("undo", id))
-                                        .h(dp(24.))
-                                        .px(dp(8.))
-                                        .rounded(dp(5.))
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                                        .hover(|el| el.bg(theme.snackbar_text.opacity(0.12)))
-                                        .child("Undo")
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            this.store.update(cx, |store, cx| {
-                                                store.undo_snapshot(
-                                                    &project, snapshot, None, None, cx,
-                                                )
-                                            })
-                                        })),
-                                )
-                            })
-                            .on_click(dismiss),
+                        crate::ui::snackbar(
+                            ("snackbar", id),
+                            message.clone(),
+                            *warning,
+                            undo,
+                            theme,
+                        )
+                        // Over a modal's backdrop, which a click would reach and close it.
+                        .occlude()
+                        .on_click(dismiss),
                     );
                 }
                 Notice::Error {
