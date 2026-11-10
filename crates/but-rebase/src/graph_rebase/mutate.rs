@@ -368,17 +368,17 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(step)
     }
 
-    /// Removes a pick from history, handing its children to its parents.
+    /// Removes a pick from history, leaving a placeholder its children look through.
     pub fn prune(&mut self, target: impl ToCommitSelector) -> Result<()> {
         let target = self
             .history
             .normalize_selector(target.to_commit_selector(self)?)?;
-        self.splice_out(target.id);
+        self.graph[target.id] = Step::None;
         Ok(())
     }
 
-    /// Removes `subjects` from history because `into` absorbed them, handing their children
-    /// to their parents.
+    /// Removes `subjects` from history because `into` absorbed them, leaving placeholders
+    /// their children look through.
     pub fn fold<S: ToCommitSelector>(
         &mut self,
         subjects: impl IntoIterator<Item = S>,
@@ -394,35 +394,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             if subject.id == into.id {
                 bail!("A commit can't be folded into itself");
             }
-            self.splice_out(subject.id);
+            self.graph[subject.id] = Step::None;
         }
         Ok(())
-    }
-
-    fn splice_out(&mut self, node: petgraph::prelude::NodeIndex) {
-        let mut parents = self
-            .graph
-            .edges_directed(node, Direction::Outgoing)
-            .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-            .collect::<Vec<_>>();
-        parents.sort_by_key(|(_, weight, _)| weight.order);
-        let children = self
-            .graph
-            .edges_directed(node, Direction::Incoming)
-            .map(|e| (e.id(), e.weight().order, e.source()))
-            .collect::<Vec<_>>();
-        let parents = parents
-            .into_iter()
-            .map(|(edge_id, weight, parent)| {
-                self.graph.remove_edge(edge_id);
-                (weight, parent)
-            })
-            .collect::<Vec<_>>();
-        for (edge_id, order, child) in children {
-            self.graph.remove_edge(edge_id);
-            self.reconnect_edges_to_parents(&parents, child, order);
-        }
-        self.graph[node] = Step::None;
     }
 
     /// Updates the pick to another pick and records a commit mapping.
