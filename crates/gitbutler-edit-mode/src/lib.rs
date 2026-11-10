@@ -19,10 +19,8 @@ use gitbutler_operating_modes::{
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
-use workspace_tree::WorkspaceTrees;
 
 pub mod commands;
-mod workspace_tree;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 
@@ -396,9 +394,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclus
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let repo = &*ctx.repo.get()?;
 
-    #[allow(deprecated)]
-    let old_workspace = WorkspaceTrees::from_workspace(repo, &workspace_from_workspace_ref(ctx)?)?;
-
     let head_commit = repo.head_commit()?;
     let decoded_head_commit = head_commit.decode()?;
     // Write out all the changes, including unstaged changes to a tree for re-committing
@@ -457,7 +452,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclus
         let worktree = uncommitted_changes_on_workspace(
             outcome.repo(),
             get_uncommitted_changes(repo)?,
-            old_workspace.merge(repo)?,
+            workspace_commit.tree_id()?.detach(),
             new_workspace_tree,
         )?;
         but_core::worktree::overwrite_worktree(outcome.repo(), worktree, None)?;
