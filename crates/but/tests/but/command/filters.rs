@@ -118,3 +118,36 @@ fn resolve_cancel_restores_uncommitted_filtered_files_in_worktree_form() {
         "the worktree and index are as before resolving"
     );
 }
+
+#[test]
+fn resolve_finish_stores_filtered_files_once_and_writes_them_in_worktree_form() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("c.secret", "untracked before resolving\n");
+    });
+    env.file("file.txt", "resolved\n");
+    env.file("a.secret", "resolved secret\n");
+
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("cat-file -p A:a.secret")
+            .as_bytes()
+            .as_bstr(),
+        "SECRET\0erfbyirq frperg",
+        "the commit stores the resolved file cleaned once"
+    );
+    assert_eq!(
+        read(&env, "a.secret").as_bstr(),
+        "resolved secret\n",
+        "the committed file is written smudged"
+    );
+    assert_eq!(
+        read(&env, "c.secret").as_bstr(),
+        "untracked before resolving\n",
+        "the uncommitted file comes back smudged"
+    );
+    assert_eq!(
+        env.git_status(),
+        "?? c.secret\n",
+        "the worktree matches the workspace and its uncommitted file"
+    );
+}

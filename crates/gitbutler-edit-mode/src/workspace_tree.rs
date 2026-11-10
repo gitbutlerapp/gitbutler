@@ -1,8 +1,5 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt as _;
-use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::ObjectIdExt as _;
-use git2::build::CheckoutBuilder;
 
 #[derive(Debug)]
 pub(crate) struct WorkspaceTrees {
@@ -49,7 +46,7 @@ impl WorkspaceTrees {
         })
     }
 
-    fn merge(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
+    pub(crate) fn merge(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
         match self.head_trees.as_slice() {
             [] => return Ok(self.base_tree),
             [head] => return Ok(*head),
@@ -73,37 +70,6 @@ impl WorkspaceTrees {
         }
         Ok(output)
     }
-}
-
-pub(crate) fn checkout_uncommitted_changes(
-    ctx: &Context,
-    old: &WorkspaceTrees,
-    new: &WorkspaceTrees,
-    uncommitted: gix::ObjectId,
-    _perm: &mut RepoExclusive,
-) -> Result<()> {
-    let gix_repo = ctx.clone_repo_for_merging()?;
-    #[expect(
-        deprecated,
-        reason = "git2 builds the conflicted index that it then checks out"
-    )]
-    let repo = &*ctx.git2_repo.get()?;
-    let mut index = repo.merge_trees(
-        &repo.find_tree(old.merge(&gix_repo)?.to_git2())?,
-        &repo.find_tree(uncommitted.to_git2())?,
-        &repo.find_tree(new.merge(&gix_repo)?.to_git2())?,
-        None,
-    )?;
-    repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true),
-        ),
-    )?;
-    Ok(())
 }
 
 #[cfg(test)]

@@ -14,14 +14,13 @@ use but_ctx::{
 };
 use but_oxidize::gix_to_git2_index;
 use but_rebase::graph_rebase::{Editor, Pick};
-use git2::build::CheckoutBuilder;
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
-use workspace_tree::{WorkspaceTrees, checkout_uncommitted_changes};
+use workspace_tree::WorkspaceTrees;
 
 pub mod commands;
 mod workspace_tree;
@@ -329,15 +328,40 @@ pub(crate) fn abort_and_return_to_workspace(
     let repo = &*ctx.repo.get()?;
     let uncommited_changes = get_uncommitted_changes(repo)?;
     but_core::worktree::overwrite_worktree(repo, uncommited_changes, None)?;
-    return_head_to_workspace(repo, "abort edit mode")?;
+    point_head_at_workspace(repo, "abort edit mode")?;
+    but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())?;
     cleanup_edit_mode(ctx, repo)?;
 
     Ok(())
 }
 
-/// Point `HEAD` at the workspace branch again, and make the index match it, so the worktree's
-/// differences to the workspace show as uncommitted changes.
-fn return_head_to_workspace(repo: &gix::Repository, reason: &str) -> Result<()> {
+/// Merge `uncommitted_changes`, the worktree on top of the `old` workspace when edit mode was
+/// entered, onto the `new` workspace, and return the resulting tree. Conflicts stay in it as
+/// markers.
+fn uncommitted_changes_on_workspace(
+    repo: &gix::Repository,
+    uncommitted_changes: gix::ObjectId,
+    old: &WorkspaceTrees,
+    new: &WorkspaceTrees,
+) -> Result<gix::ObjectId> {
+    let repo = repo.clone().for_tree_diffing()?;
+    let labels = gix::merge::blob::builtin_driver::text::Labels {
+        ancestor: None,
+        current: Some("ours".into()),
+        other: Some("theirs".into()),
+    };
+    let mut merge = repo.merge_trees(
+        old.merge(&repo)?,
+        uncommitted_changes,
+        new.merge(&repo)?,
+        labels,
+        diff3_options(&repo)?,
+    )?;
+    Ok(merge.tree.write()?.detach())
+}
+
+/// Point `HEAD` at the workspace branch again.
+fn point_head_at_workspace(repo: &gix::Repository, reason: &str) -> Result<()> {
     update_head_reference(
         repo,
         gix::refs::Target::Symbolic(WORKSPACE_BRANCH_REF.try_into()?),
@@ -347,13 +371,11 @@ fn return_head_to_workspace(repo: &gix::Repository, reason: &str) -> Result<()> 
         0,
     )
     .context("Failed to set head reference")?;
-    but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())
+    Ok(())
 }
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    #[expect(deprecated, reason = "checkout/index materialization boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 
     #[allow(deprecated)]
@@ -416,29 +438,20 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     }
     ctx.invalidate_workspace_cache()?;
 
-    git2_repo
-        .set_head(WORKSPACE_BRANCH_REF)
-        .context("Failed to set head reference")?;
-    git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
-
+    point_head_at_workspace(repo, "save edit mode")?;
     let new_workspace = {
         let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         WorkspaceTrees::from_workspace(repo, &ws)?
     };
     let uncommitted_changes = get_uncommitted_changes(repo)?;
-    checkout_uncommitted_changes(
-        ctx,
+    let worktree = uncommitted_changes_on_workspace(
+        repo,
+        uncommitted_changes,
         &old_workspace,
         &new_workspace,
-        uncommitted_changes,
-        perm,
     )?;
-
-    // Currently if the index goes wonky then files don't appear quite right.
-    // This just makes sure the index is all good.
-    let mut index = git2_repo.index()?;
-    index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
-    index.write()?;
+    but_core::worktree::overwrite_worktree(repo, worktree, None)?;
+    but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())?;
 
     let session = git_meta_lib::Session::open(repo.path())?;
     session
