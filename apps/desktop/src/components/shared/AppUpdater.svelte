@@ -19,6 +19,7 @@
 	let version = $state<string | undefined>();
 	let releaseNotes = $state<string | undefined>();
 	let status = $state<InstallStatus | undefined>();
+	let manualInstall = $state<boolean | undefined>();
 
 	let releaseNotesModal = $state<Modal>();
 	let releases = $state<Release[]>([]);
@@ -26,7 +27,7 @@
 	let loadingReleases = $state(false);
 
 	$effect(() => {
-		({ version, releaseNotes, status } = $update);
+		({ version, releaseNotes, status, manualInstall } = $update);
 	});
 
 	async function fetchReleases() {
@@ -127,7 +128,16 @@
 						<div class="sliding-gradient"></div>
 					{/if}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
-						{#if !status}
+						{#if !status && manualInstall}
+							<Button
+								wide
+								style="pop"
+								testId="download-package"
+								onclick={async () => await updaterService.openDownloads()}
+							>
+								Download {version}
+							</Button>
+						{:else if !status}
 							<Button
 								wide
 								style="pop"

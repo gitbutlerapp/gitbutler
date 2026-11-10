@@ -17,7 +17,7 @@ use crate::app::{
 use crate::backend::{self, FullName, short_ref};
 use crate::commands::Command;
 use crate::edits::Discard;
-use crate::help::OpenReleaseNotes;
+use crate::help::{DOWNLOADS, OpenReleaseNotes};
 use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -1138,9 +1138,16 @@ impl AppView {
         if store.update_put_off.is_some() || self.modal.is_some() {
             return None;
         }
+        let manual_install = (cx.try_global::<crate::Embedded>()).is_some_and(|e| e.manual_install);
         let progress = store.update_progress();
         let installing = progress.is_some().then(|| format!("Installing {version}"));
-        let status = progress.unwrap_or_else(|| "The app restarts once it's installed.".into());
+        let status = progress.unwrap_or_else(|| {
+            if manual_install {
+                "Update it with your package manager, or download it.".into()
+            } else {
+                "The app restarts once it's installed.".into()
+            }
+        });
         let title = format!("GitButler {version} is here");
         // The update icon on a tile of the accent, the card's one touch of colour beside its
         // Update button.
@@ -1196,11 +1203,16 @@ impl AppView {
                                 })),
                         )
                         .child(
-                            button("update-app", "Update")
-                                .small()
-                                .style(ButtonStyle::Pop)
-                                .disabled_because(installing)
-                                .on_click(cx.listener(|this, _, _, cx| this.install_update(cx))),
+                            if manual_install {
+                                button("update-app", "Download")
+                                    .on_click(|_, _, cx| cx.open_url(DOWNLOADS))
+                            } else {
+                                button("update-app", "Update")
+                                    .disabled_because(installing)
+                                    .on_click(cx.listener(|this, _, _, cx| this.install_update(cx)))
+                            }
+                            .small()
+                            .style(ButtonStyle::Pop),
                         ),
                 )
                 .into_any_element(),

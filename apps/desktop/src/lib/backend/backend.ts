@@ -27,6 +27,11 @@ export interface IBackend {
 	 */
 	checkUpdate: () => Promise<Update | null>;
 	/**
+	 * Whether updates are installed by hand: true for `.deb` and `.rpm` installs, whose files
+	 * belong to the system's package manager, so the updater can't replace them.
+	 */
+	manualInstall: () => Promise<boolean>;
+	/**
 	 * Returns the current version of the application.
 	 */
 	currentVersion: () => Promise<string>;

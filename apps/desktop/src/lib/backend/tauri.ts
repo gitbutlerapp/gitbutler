@@ -1,5 +1,11 @@
 import { IpcError, isNormalizedError } from "$lib/error/normalizedError";
-import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
+import {
+	BundleType,
+	getBundleType,
+	getName,
+	getVersion,
+	getVersion as tauriGetVersion,
+} from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
 import { join as joinPathTauri } from "@tauri-apps/api/path";
@@ -55,6 +61,7 @@ export default class Tauri implements IBackend {
 	invoke = tauriInvoke;
 	listen = tauriListen;
 	checkUpdate = tauriCheck;
+	manualInstall = tauriManualInstall;
 	currentVersion = tauriGetVersion;
 	readFile = tauriReadFile;
 	openExternalUrl = tauriOpenExternalUrl;
@@ -199,6 +206,11 @@ export async function tauriLogErrorToFile(error: string) {
 export function tauriPathSeparator(): string {
 	const platformName = platform();
 	return platformName === "windows" ? "\\" : "/";
+}
+
+async function tauriManualInstall(): Promise<boolean> {
+	const bundleType = await getBundleType();
+	return bundleType === BundleType.Deb || bundleType === BundleType.Rpm;
 }
 
 async function tauriGetAppInfo(): Promise<AppInfo> {

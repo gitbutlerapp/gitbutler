@@ -20,6 +20,7 @@ actions!(
 
 const DISCORD: &str = "https://discord.gg/MmFkmaJ42D";
 const DOCS: &str = "https://docs.gitbutler.com";
+pub(crate) const DOWNLOADS: &str = "https://app.gitbutler.com/downloads";
 /// Where a new user's first project sends them.
 pub(crate) const GETTING_STARTED: &str = "https://docs.gitbutler.com/getting-started";
 const ISSUES: &str = "https://github.com/gitbutlerapp/gitbutler/issues/new/choose";
