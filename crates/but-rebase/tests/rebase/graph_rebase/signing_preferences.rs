@@ -306,7 +306,10 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = materialize_outcome
+        .history
+        .commit_mappings()
+        .sole_successors();
     assert_eq!(
         commit_mappings.len(),
         1,
@@ -394,7 +397,10 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = materialize_outcome
+        .history
+        .commit_mappings()
+        .sole_successors();
     assert_eq!(
         commit_mappings.len(),
         2,
@@ -498,7 +504,10 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = materialize_outcome
+        .history
+        .commit_mappings()
+        .sole_successors();
     assert_eq!(
         commit_mappings.len(),
         2,
@@ -594,7 +603,10 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 "#]]
     );
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = materialize_outcome
+        .history
+        .commit_mappings()
+        .sole_successors();
     assert_eq!(
         commit_mappings.len(),
         1,
@@ -669,7 +681,10 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     let outcome = editor.rebase()?;
     let materialize_outcome = outcome.materialize(Default::default())?;
 
-    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let commit_mappings = materialize_outcome
+        .history
+        .commit_mappings()
+        .sole_successors();
     let new_base_commit_id = commit_mappings
         .get(&base_commit_id)
         .expect("the base commit should be in the commit mappings");

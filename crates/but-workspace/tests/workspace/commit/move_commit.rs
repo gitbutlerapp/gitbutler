@@ -77,7 +77,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -186,7 +186,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -297,7 +297,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -406,7 +406,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -516,7 +516,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -619,7 +619,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let commit_mapping = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 
@@ -1054,7 +1054,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
     // Materialize the operation
     let materialization = rebase.materialize(Default::default())?;
-    let commit_mappings = materialization.history.commit_mappings();
+    let commit_mappings = materialization.history.commit_mappings().sole_successors();
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta, &mut db)?;
 

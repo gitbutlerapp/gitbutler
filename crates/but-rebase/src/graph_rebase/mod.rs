@@ -7,7 +7,7 @@
 mod creation;
 pub mod rebase;
 pub mod traverse;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::{Context, Result, bail};
 use but_core::ChangeId;
@@ -767,6 +767,70 @@ fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector)
     Ok(graph[normalized.id].clone())
 }
 
+/// How commits were rewritten, as pairs of an original commit and a commit that succeeds it.
+///
+/// An original can have several successors, and several originals can share one. A pair is
+/// held once however often it is given.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct CommitMappings(BTreeSet<(gix::ObjectId, gix::ObjectId)>);
+
+impl FromIterator<(gix::ObjectId, gix::ObjectId)> for CommitMappings {
+    fn from_iter<T: IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>>(pairs: T) -> Self {
+        Self(pairs.into_iter().collect())
+    }
+}
+
+impl std::fmt::Debug for CommitMappings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl CommitMappings {
+    /// Every pair of an original and one of its successors, ordered by original.
+    pub fn iter(&self) -> impl Iterator<Item = (gix::ObjectId, gix::ObjectId)> + '_ {
+        self.0.iter().copied()
+    }
+
+    /// Whether no commit was rewritten.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// The commits that succeed `original`, none if it wasn't rewritten.
+    pub fn successors(&self, original: gix::ObjectId) -> impl Iterator<Item = gix::ObjectId> + '_ {
+        self.0
+            .range((original, gix::ObjectId::null(original.kind()))..)
+            .take_while(move |(from, _)| *from == original)
+            .map(|(_, successor)| *successor)
+    }
+
+    /// The commit `original` is now: itself if it wasn't rewritten, else its successor.
+    ///
+    /// Fails if it has several successors, as none of them is `original` more than another.
+    pub fn current(&self, original: gix::ObjectId) -> Result<gix::ObjectId> {
+        let mut successors = self.successors(original);
+        let current = successors.next().unwrap_or(original);
+        if successors.next().is_some() {
+            bail!("Commit {original} was rewritten into several commits");
+        }
+        Ok(current)
+    }
+
+    /// Each original that has exactly one successor, with that successor.
+    pub fn sole_successors(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+        let mut sole = BTreeMap::new();
+        let mut shared = BTreeSet::new();
+        for (original, successor) in self.iter() {
+            if sole.insert(original, successor).is_some() {
+                shared.insert(original);
+            }
+        }
+        sole.retain(|original, _| !shared.contains(original));
+        sole
+    }
+}
+
 /// Provides data about how the editor instance was transformed.
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
@@ -813,7 +877,7 @@ impl RevisionHistory {
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.
-    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+    pub fn commit_mappings(&self) -> CommitMappings {
         self.commit_mappings
             .iter()
             .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
@@ -836,6 +900,53 @@ impl RevisionHistory {
 }
 
 /// I wanted to assert _somewhere_ the defaults for non-workspace & workspace commits. It doesn't feel like the right place to do it in integration tests because we should assert behaviour rather than details there.
+#[cfg(test)]
+mod commit_mappings {
+    use super::CommitMappings;
+
+    fn id(hex: char) -> gix::ObjectId {
+        gix::ObjectId::from_hex(hex.to_string().repeat(40).as_bytes()).expect("valid hex")
+    }
+
+    #[test]
+    fn many_to_many() -> anyhow::Result<()> {
+        let (a, b, c, d) = (id('a'), id('b'), id('c'), id('d'));
+        let mappings: CommitMappings = [(a, c), (a, c), (b, c), (b, d)].into_iter().collect();
+
+        // The repeated `a -> c` is held once, and `c` is shared by both originals.
+        snapbox::assert_data_eq!(
+            format!("{mappings:#?}"),
+            snapbox::str![[r#"
+{
+    Sha1(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): Sha1(cccccccccccccccccccccccccccccccccccccccc),
+    Sha1(bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb): Sha1(cccccccccccccccccccccccccccccccccccccccc),
+    Sha1(bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb): Sha1(dddddddddddddddddddddddddddddddddddddddd),
+}
+"#]]
+        );
+        assert_eq!(
+            mappings.current(a)?,
+            c,
+            "a single successor is what `a` is now"
+        );
+        assert_eq!(
+            mappings.current(d)?,
+            d,
+            "a commit that wasn't rewritten is itself"
+        );
+        assert!(
+            mappings.current(b).is_err(),
+            "neither of two successors is `b` more than the other"
+        );
+        assert_eq!(
+            mappings.sole_successors(),
+            [(a, c)].into_iter().collect(),
+            "only `a` has exactly one successor"
+        );
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::str::FromStr;

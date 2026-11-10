@@ -141,8 +141,7 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
         let project_meta = &self.workspace.graph.project_meta;
         let base = match project_meta.target_commit_id {
             Some(id) => {
-                let mappings = self.history.commit_mappings();
-                let rewritten = mappings.get(&id).copied().unwrap_or(id);
+                let rewritten = self.history.commit_mappings().current(id)?;
                 // An excluded boundary has no step. Do not replace it with another cutoff.
                 find_pick(graph, rewritten)
             }
@@ -163,11 +162,9 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
                             .try_find_reference(name.as_ref())?
                             .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
                             .transpose()?
-                            .and_then(|id| {
-                                let mappings = self.history.commit_mappings();
-                                let rewritten = mappings.get(&id).copied().unwrap_or(id);
-                                find_pick(graph, rewritten)
-                            }),
+                            .map(|id| self.history.commit_mappings().current(id))
+                            .transpose()?
+                            .and_then(|rewritten| find_pick(graph, rewritten)),
                     },
                     None => None,
                 }
