@@ -1,5 +1,12 @@
 import { renderFrame } from "./frame.tsx";
-import { paintAccent, paintTheme, savedAccent, savedTheme } from "./site.ts";
+import {
+	paintAccent,
+	paintRadius,
+	paintTheme,
+	savedAccent,
+	savedRadius,
+	savedTheme,
+} from "./site.ts";
 import { Site } from "./Site.tsx";
 import { createRoot } from "react-dom/client";
 import "./site.css";
@@ -12,5 +19,6 @@ if (story !== null) {
 } else if (root !== null) {
 	paintTheme(savedTheme());
 	paintAccent(savedAccent());
+	paintRadius(savedRadius());
 	createRoot(root).render(<Site />);
 }
