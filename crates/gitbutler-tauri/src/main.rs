@@ -104,6 +104,7 @@ fn main() -> anyhow::Result<()> {
         inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
         // It asks the web app's update feed, as often as the web app would, and installs what
         // it offers with a run of this binary, `install_update_for_gpui`.
+        use tauri::utils::{config::BundleType, platform::bundle_type};
         #[allow(deprecated)]
         let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
         but_gpui::run(Some(but_gpui::Embedded {
@@ -112,6 +113,7 @@ fn main() -> anyhow::Result<()> {
                 .then(|| update_feed(&tauri_context))
                 .flatten(),
             check_every: std::time::Duration::from_secs(interval),
+            manual_install: matches!(bundle_type(), Some(BundleType::Deb | BundleType::Rpm)),
         }));
         return Ok(());
     }

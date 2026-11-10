@@ -6,7 +6,7 @@ import { PostHogWrapper } from "$lib/telemetry/posthog";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { getSettingsdServiceMock } from "$lib/testing/mockSettingsdService";
 import { UPDATER_SERVICE, UpdaterService } from "$lib/updater/updater";
-import { render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen } from "@testing-library/svelte";
 import { expect, test, describe, vi, beforeEach, afterEach } from "vitest";
 
 describe("AppUpdater", () => {
@@ -61,6 +61,25 @@ describe("AppUpdater", () => {
 
 		const button = screen.getByTestId("download-update");
 		expect(button).toBeVisible();
+	});
+
+	test("should link to the downloads page for .deb installs", async () => {
+		vi.spyOn(backend, "checkUpdate").mockReturnValue(
+			mockUpdate({
+				version: "1",
+				body: "release notes",
+			}),
+		);
+		vi.spyOn(backend, "manualInstall").mockResolvedValue(true);
+		const openExternalUrl = vi.spyOn(backend, "openExternalUrl");
+
+		render(AppUpdater, { context });
+		await vi.advanceTimersToNextTimerAsync();
+
+		// The updater can't replace a .deb install, so there's nothing to install in place.
+		expect(screen.queryByTestId("download-update")).toBe(null);
+		await fireEvent.click(screen.getByTestId("download-package"));
+		expect(openExternalUrl).toHaveBeenCalledWith("https://app.gitbutler.com/downloads");
 	});
 
 	test("should display download button again on manual check after dismiss", async () => {

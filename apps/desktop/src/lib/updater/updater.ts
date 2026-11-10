@@ -19,7 +19,13 @@ type UpdateStatus = {
 	version?: string;
 	releaseNotes?: string;
 	status?: InstallStatus | undefined;
+	/**
+	 * Installed from a `.deb` or `.rpm`, so the new version is downloaded and installed by hand.
+	 */
+	manualInstall?: boolean;
 };
+
+const DOWNLOADS_URL = "https://app.gitbutler.com/downloads";
 
 export type InstallStatus =
 	| "Checking"
@@ -102,7 +108,8 @@ export class UpdaterService {
 
 		this.loading.set(true);
 		try {
-			this.handleUpdate(await this.backend.checkUpdate()); // In DEV mode this never returns.
+			const update = await this.backend.checkUpdate(); // In DEV mode this never returns.
+			this.handleUpdate(update, await this.backend.manualInstall());
 		} catch (err: unknown) {
 			handleError(err, manual);
 		} finally {
@@ -111,7 +118,7 @@ export class UpdaterService {
 		}
 	}
 
-	private handleUpdate(update: Update | null) {
+	private handleUpdate(update: Update | null, manualInstall: boolean) {
 		if (update === null) {
 			if (this.manualCheck) {
 				this.setStatus("Up-to-date");
@@ -135,6 +142,7 @@ export class UpdaterService {
 				version: update.version,
 				releaseNotes: update.body,
 				status: undefined,
+				manualInstall,
 			});
 		}
 	}
@@ -179,6 +187,10 @@ export class UpdaterService {
 		this.update.update((update) => {
 			return { ...update, status };
 		});
+	}
+
+	async openDownloads() {
+		await this.backend.openExternalUrl(DOWNLOADS_URL);
 	}
 
 	async relaunchApp() {

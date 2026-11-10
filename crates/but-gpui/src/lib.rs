@@ -70,6 +70,9 @@ pub struct Embedded {
     pub update_feed: Option<String>,
     /// How often to ask the feed.
     pub check_every: std::time::Duration,
+    /// Installed from a `.deb` or `.rpm`, which the system's package manager owns and the
+    /// updater can't replace, so a new version is downloaded and installed by hand.
+    pub manual_install: bool,
 }
 
 impl gpui::Global for Embedded {}
