@@ -284,9 +284,10 @@ and tests it.
 - In a prompt or a modal Tab goes round that dialog's tab stops, and `open_modal` gives a new
   modal this. Tab scrolls the control it reaches into view only inside
   `ui::scrollbar::scrolled`, so a dialog's scrolling list goes in one.
-- A colour comes from `Theme`, and a new one is a step on but-ui's scales
-  (`packages/but-ui/tokens/tokens.css`). Text needs 4.5:1 and a control's marks 3:1,
-  on `bg_1` and `bg_2` in both themes.
+- A colour comes from `Theme`, and a new one is a but-ui token, read by name from `theme`'s
+  `tokens`, which the build script fills from `packages/but-ui/tokens/tokens.json`: a
+  semantic token where one fits, else a step on its scales. Text needs 4.5:1 and a control's
+  marks 3:1, on `bg_1` and `bg_2` in both themes.
 
 ## Conventions
 

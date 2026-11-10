@@ -135,6 +135,8 @@ shell-words.workspace = true
 [build-dependencies]
 # The Windows executable's icon; it adds nothing to builds for elsewhere.
 embed-resource = "3.0.9"
+# Reads but-ui's tokens, which the build script writes as constants.
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -5,23 +5,15 @@
 //
 //   node scripts/check-contrast.mjs
 
-import { converter, formatHex, parse } from "culori";
+import { declarationsIn, resolveColor, rootDeclarations } from "./resolve-color.mjs";
+import { formatHex } from "culori";
 import { readFileSync } from "node:fs";
-
-const toRgb = converter("rgb");
-const toOklch = converter("oklch");
 
 const TEXT = 4.5;
 const MARK = 3;
 
 const css = readFileSync("tokens/tokens.css", "utf8");
-function read(block) {
-	return [...block.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm)].map(([, name, value]) => [
-		name,
-		value,
-	]);
-}
-const defaults = read(css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? "");
+const defaults = rootDeclarations(css);
 // Any colour stands in as the full-strength hue every 15°, the purest a person can type, and
 // a gray.
 const SAMPLES = [
@@ -34,76 +26,16 @@ const accents = [
 	...[...css.matchAll(/:root\[data-but-accent="(\w+)"\]\s*\{([\s\S]*?)\n\}/g)].flatMap(
 		([, accent, block]) =>
 			accent === "custom"
-				? SAMPLES.map((sample) => [sample, [...read(block), ["accent-color", sample]]])
-				: [[accent, read(block)]],
+				? SAMPLES.map((sample) => [sample, [...declarationsIn(block), ["accent-color", sample]]])
+				: [[accent, declarationsIn(block)]],
 	),
 ];
 // The declarations in force for the accent being checked.
-let declarations = new Map(defaults);
-
-// Splits a function's arguments at its top-level commas.
-function args(inner) {
-	const out = [];
-	let depth = 0;
-	let start = 0;
-	for (let i = 0; i < inner.length; i++) {
-		if (inner[i] === "(") depth++;
-		else if (inner[i] === ")") depth--;
-		else if (inner[i] === "," && depth === 0) {
-			out.push(inner.slice(start, i).trim());
-			start = i + 1;
-		}
-	}
-	return [...out, inner.slice(start).trim()];
-}
-function call(value, fn) {
-	return value.startsWith(`${fn}(`) && value.endsWith(")")
-		? args(value.slice(fn.length + 1, -1))
-		: null;
-}
+let declarations = defaults;
 
 // A token's colour in `mode`, as { r, g, b, alpha } with channels 0–1.
 function resolve(value, mode) {
-	value = value.trim();
-	const ref = value.match(/^var\(--but-([\w-]+)\)$/);
-	if (ref) {
-		const next = declarations.get(ref[1]);
-		if (!next) throw new Error(`--but-${ref[1]} isn't declared`);
-		return resolve(next, mode);
-	}
-	const lightDark = call(value, "light-dark");
-	if (lightDark) return resolve(lightDark[mode === "light" ? 0 : 1], mode);
-	// What generate-accents.mjs writes for any colour: its hue and capped chroma at a lightness.
-	const relative = value.match(
-		/^oklch\(from var\(--but-([\w-]+)(?:, [^)]*\))?\) ([\d.]+) (?:calc\()?min\(c, ([\d.]+)\)(?: \* ([\d.]+)\))? h\)$/,
-	);
-	if (relative) {
-		const [, ref, l, cap, share = "1"] = relative;
-		const from = toOklch(parse(declarations.get(ref)));
-		const c = Math.min(from.c, parseFloat(cap)) * parseFloat(share);
-		// Out of sRGB the browser clips each channel.
-		const { r, g, b } = toRgb({ mode: "oklch", l: parseFloat(l), c, h: from.h ?? 0 });
-		function clip(v) {
-			return Math.min(1, Math.max(0, v));
-		}
-		return { r: clip(r), g: clip(g), b: clip(b), alpha: 1 };
-	}
-	const mix = call(value, "color-mix");
-	if (mix) {
-		// Only what the export writes: a colour at a share, over transparent.
-		const [, colour, rest] = mix;
-		const at = colour.match(/^(.*\S)\s+(\S+)$/);
-		if (rest !== "transparent" || !at) throw new Error(`can't read ${value}`);
-		const share = at[2].startsWith("var(")
-			? declarations.get(at[2].match(/--but-([\w-]+)/)[1])
-			: at[2];
-		const base = resolve(at[1], mode);
-		return { ...base, alpha: base.alpha * (parseFloat(share) / 100) };
-	}
-	const colour = parse(value);
-	if (!colour) throw new Error(`can't read ${value}`);
-	const { r, g, b } = toRgb(colour);
-	return { r, g, b, alpha: colour.alpha ?? 1 };
+	return resolveColor(value, mode, declarations);
 }
 
 function over(top, under) {
