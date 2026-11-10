@@ -16,6 +16,7 @@ use but_core::{
     RefMetadata,
     commit::{SignCommit, padding},
 };
+use but_evo::Rewrite;
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::{
@@ -836,12 +837,8 @@ impl CommitMappings {
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
-    /// A mapping from any commits that were in the original mapping to a
-    /// rewritten version.
-    ///
-    /// Unintuatively, the values are the original values, and the keys are the
-    /// _new_ values that they have been mapped to.
-    commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
+    rewrites: Vec<Rewrite>,
+    successors: BTreeSet<gix::ObjectId>,
     /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
@@ -864,25 +861,32 @@ impl RevisionHistory {
         self.mappings.len()
     }
 
-    /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
-    /// If there is no entry whose old `to` that cooresponds with the new
-    /// `from`, then we just add a `to <- from` entry.
-    /// If there is an entry whose old `to` that cooresponds with the new
-    /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
-    pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
-        if let Some(value) = self.commit_mappings.remove(&from) {
-            self.commit_mappings.insert(to, value);
-        } else {
-            self.commit_mappings.insert(to, from);
-        };
+    /// Whether rewrites of `pick` are recorded: it isn't excluded from tracking, or a
+    /// recorded rewrite made it a successor.
+    pub(crate) fn follows(&self, pick: &Pick) -> bool {
+        !pick.exclude_from_tracking || self.successors.contains(&pick.id)
+    }
+
+    pub(crate) fn record(&mut self, rewrite: Rewrite) {
+        match &rewrite {
+            Rewrite::Replace { succ, .. } | Rewrite::Fold { succ, .. } => {
+                self.successors.insert(*succ);
+            }
+            Rewrite::Split { succs, .. } => self.successors.extend(succs),
+            Rewrite::Prune { .. } => {}
+        }
+        self.rewrites.push(rewrite);
+    }
+
+    /// What the transformation did to commits, with one-to-one replacements folded into
+    /// the splits, folds and prunes around them.
+    pub fn rewrites(&self) -> Vec<Rewrite> {
+        rewrites::reduce(&self.rewrites)
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.
     pub fn commit_mappings(&self) -> CommitMappings {
-        self.commit_mappings
-            .iter()
-            .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
-            .collect()
+        rewrites::mappings(&self.rewrites)
     }
 
     pub(crate) fn normalize_selector(&self, mut selector: Selector) -> Result<Selector> {

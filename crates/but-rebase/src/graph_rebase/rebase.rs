@@ -4,6 +4,7 @@ use std::{collections::HashMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
+use but_evo::Rewrite;
 use gix::refs::transaction::{PreviousValue, RefEdit};
 use petgraph::{algo::toposort, visit::EdgeRef};
 
@@ -92,8 +93,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             new_pick.id = new_id;
                             let new_idx = output_graph.add_node(Step::Pick(new_pick));
                             graph_mapping.insert(step_idx, new_idx);
-                            if !pick.exclude_from_tracking {
-                                history.update_mapping(pick.id, new_id);
+                            if new_id != pick.id && history.follows(&pick) {
+                                history.record(Rewrite::Replace {
+                                    prec: pick.id,
+                                    succ: new_id,
+                                });
                             }
                             if conflicted {
                                 history.conflicted_commits.push((new_id, change_id));

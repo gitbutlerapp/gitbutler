@@ -1,4 +1,8 @@
+use std::collections::BTreeSet;
+
 use but_evo::Rewrite;
+
+use crate::graph_rebase::CommitMappings;
 
 fn precs(rewrite: &Rewrite) -> Vec<gix::ObjectId> {
     match rewrite {
@@ -86,11 +90,44 @@ pub(crate) fn reduce(log: &[Rewrite]) -> Vec<Rewrite> {
     reduced
 }
 
+/// Each commit `log` first rewrote, paired with every commit that stands for it once the
+/// whole log has run.
+pub(crate) fn mappings(log: &[Rewrite]) -> CommitMappings {
+    let mut current_and_original = BTreeSet::<(gix::ObjectId, gix::ObjectId)>::new();
+    for rewrite in log {
+        let mut originals = BTreeSet::new();
+        for prec in precs(rewrite) {
+            let known = current_and_original
+                .range((prec, gix::ObjectId::null(prec.kind()))..)
+                .take_while(|(current, _)| *current == prec)
+                .copied()
+                .collect::<Vec<_>>();
+            if known.is_empty() {
+                originals.insert(prec);
+            }
+            for pair in known {
+                current_and_original.remove(&pair);
+                originals.insert(pair.1);
+            }
+        }
+        for succ in succs(rewrite) {
+            for original in &originals {
+                current_and_original.insert((succ, *original));
+            }
+        }
+    }
+    current_and_original
+        .into_iter()
+        .filter(|(current, original)| current != original)
+        .map(|(current, original)| (original, current))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use but_evo::Rewrite;
 
-    use super::reduce;
+    use super::{mappings, reduce};
 
     fn id(hex: u8) -> gix::ObjectId {
         gix::ObjectId::from_hex(format!("{hex:040x}").as_bytes()).expect("valid hex")
@@ -157,6 +194,27 @@ mod tests {
             reduce(&[fold([subject, target], target), replace(target, squashed)]),
             [fold([subject, target], squashed)],
             "the target that absorbed the subject is itself replaced by the squashed commit"
+        );
+    }
+
+    #[test]
+    fn mappings_pair_originals_with_what_stands_for_them() {
+        let (a, a1, b, b2, c) = (0xa0, 0xa1, 0xb0, 0xb2, 0xc0);
+        let log = [
+            split(a, [a1, 0xa2]),
+            split(b, [0xb1, b2]),
+            fold([0xa2, 0xb1], 0xc9),
+            replace(0xc9, c),
+            replace(1, 2),
+            replace(2, 1),
+        ];
+        assert_eq!(
+            mappings(&log),
+            [(a, a1), (a, c), (b, b2), (b, c)]
+                .map(|(original, current)| (id(original), id(current)))
+                .into_iter()
+                .collect(),
+            "intermediate commits drop out, and a commit rewritten back to itself has no pair"
         );
     }
 }
