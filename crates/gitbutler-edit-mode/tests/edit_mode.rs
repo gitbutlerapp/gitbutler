@@ -194,19 +194,6 @@ fn assert_locked_index_rejects_enter_edit_mode(symlink_index: bool) -> Result<()
     } else {
         index_path.clone()
     };
-    #[expect(deprecated)]
-    let git2_index_path = ctx
-        .git2_repo
-        .get()?
-        .index()?
-        .path()
-        .map(std::fs::canonicalize)
-        .transpose()?;
-    assert_eq!(
-        git2_index_path,
-        Some(index_path.canonicalize()?),
-        "the probe must lock the index that checkout writes"
-    );
     let index_before = std::fs::read(&index_path)?;
     let head_name_before = repo.head_name()?.context("symbolic HEAD")?;
     let head_id_before = repo.head_id()?.detach();

@@ -12,7 +12,6 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::gix_to_git2_index;
 use but_rebase::graph_rebase::{Editor, Pick};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
@@ -40,40 +39,53 @@ fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
     .collect()
 }
 
-/// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
-/// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
-/// during the merge.
-fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Index> {
-    let repo = &*ctx.repo.get()?;
-    let commit = Commit::from_id(commit_id.attach(repo))?;
-
-    if let Some((base, ours, theirs)) = commit.conflicted_tree_ids()? {
-        let repo = repo.clone().for_tree_diffing()?;
-        // Merge without favoring a side this time to get a tree containing the actual conflicts.
-        let mut merge_result = repo.merge_trees(
-            base,
-            ours,
-            theirs,
-            repo.default_merge_labels(),
-            repo.tree_merge_options()?,
-        )?;
-        let merged_tree_id = merge_result.tree.write()?;
-        let mut index = repo.index_from_tree(&merged_tree_id)?;
-        if !merge_result.index_changed_after_applying_conflicts(
-            &mut index,
-            gix::merge::tree::TreatAsUnresolved::git(),
-            gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-        ) {
-            tracing::warn!(
-                "There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index."
-            );
+/// Which sides of each conflicted path the merge of a conflicted `commit_id` records as index
+/// stages, by path. An unconflicted commit has none.
+fn conflict_presence(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> Result<HashMap<BString, ConflictEntryPresence>> {
+    let Some((base, ours, theirs)) =
+        Commit::from_id(commit_id.attach(repo))?.conflicted_tree_ids()?
+    else {
+        return Ok(HashMap::new());
+    };
+    let repo = repo.clone().for_tree_diffing()?;
+    let mut merge = repo.merge_trees(
+        base,
+        ours,
+        theirs,
+        repo.default_merge_labels(),
+        repo.tree_merge_options()?,
+    )?;
+    let mut index = repo.index_from_tree(&merge.tree.write()?)?;
+    merge.index_changed_after_applying_conflicts(
+        &mut index,
+        gix::merge::tree::TreatAsUnresolved::git(),
+        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
+    );
+    let mut presence = HashMap::<BString, ConflictEntryPresence>::new();
+    for entry in index.entries() {
+        let stage = entry.stage();
+        if stage == gix::index::entry::Stage::Unconflicted {
+            continue;
         }
-        gix_to_git2_index(&index)
-    } else {
-        let commit_tree_id = commit.tree_id_or_auto_resolution()?;
-        let index = repo.index_from_tree(&commit_tree_id)?;
-        gix_to_git2_index(&index)
+        let sides =
+            presence
+                .entry(entry.path(&index).to_owned())
+                .or_insert(ConflictEntryPresence {
+                    ours: false,
+                    theirs: false,
+                    ancestor: false,
+                });
+        match stage {
+            gix::index::entry::Stage::Base => sides.ancestor = true,
+            gix::index::entry::Stage::Ours => sides.ours = true,
+            gix::index::entry::Stage::Theirs => sides.theirs = true,
+            gix::index::entry::Stage::Unconflicted => {}
+        }
     }
+    Ok(presence)
 }
 
 /// Returns a commit to be the HEAD of `gitbutler/edit`.
@@ -517,32 +529,7 @@ pub(crate) fn starting_index_state(
             .detach()
     };
 
-    let index = get_commit_index(ctx, metadata.commit_oid)?;
-
-    let conflicts = index
-        .conflicts()?
-        .filter_map(|conflict| {
-            let Ok(conflict) = conflict else {
-                return None;
-            };
-
-            let path = conflict
-                .ancestor
-                .as_ref()
-                .or(conflict.our.as_ref())
-                .or(conflict.their.as_ref())
-                .map(|entry| BString::new(entry.path.clone()))?;
-
-            Some((
-                path,
-                ConflictEntryPresence {
-                    ours: conflict.our.is_some(),
-                    theirs: conflict.their.is_some(),
-                    ancestor: conflict.ancestor.is_some(),
-                },
-            ))
-        })
-        .collect::<HashMap<BString, ConflictEntryPresence>>();
+    let conflicts = conflict_presence(repo, metadata.commit_oid)?;
 
     let repo = ctx.repo.get()?;
 
