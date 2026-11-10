@@ -390,12 +390,9 @@ impl Navigator {
             let item = Selection::Project(entry.id.clone());
             rows.push(Row::Item(item.clone()));
             let open = !store.project_folded(&entry.id);
-            // Its rows under the header's icon, past its eye, so a worktree's name is under the
-            // project's.
+            // Its rows' icons under the header's, so a worktree's name is under the project's.
             rows.fold(Fold::Under(item), open, &self.folds, |rows| {
-                rows.inset += STEP;
-                self.card_rows(store, entry, rows);
-                rows.inset -= STEP;
+                self.card_rows(store, entry, rows)
             });
         }
         let listing = self.drawer_listing(store);
@@ -573,8 +570,6 @@ impl Navigator {
             let own = found(terms, &[&entry.project.name]);
             rows.push_found(Selection::Project(id.clone()), hit(0, own));
             let project_end = rows.rows.len();
-            // Under the header's icon, as its card's rows are.
-            rows.inset += STEP;
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
                 // The main worktree's branches under its heading, or alone, right under the
@@ -620,7 +615,6 @@ impl Navigator {
                 }
             }
             self.filtered_mesh_rows(store, id, terms, own, &mut rows);
-            rows.inset -= STEP;
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
             }
