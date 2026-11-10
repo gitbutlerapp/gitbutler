@@ -1108,6 +1108,9 @@ pub async fn folder_gone(path: std::path::PathBuf) -> bool {
 pub struct LoadFailure {
     /// Its folder is gone, which is said instead of the error.
     pub folder_gone: bool,
+    /// Its folder is there but holds no repository any more, as while it's being deleted, which
+    /// is said instead too.
+    pub repo_gone: bool,
     /// Its index is sparse, which the engine can't read yet, and which is said instead.
     pub sparse_index: bool,
     /// What to pick a target from, when the one an older GitButler stored names no single branch.
@@ -1122,9 +1125,12 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
     };
     let unresolved = unresolved_target(err).cloned();
     run(move || {
+        let folder_gone = !path.exists();
+        let repo = gix::open(&path);
         Ok(LoadFailure {
-            folder_gone: !path.exists(),
-            sparse_index: (gix::open(&path).ok())
+            folder_gone,
+            repo_gone: !folder_gone && repo.as_ref().is_err_and(|err| err.is_not_found()),
+            sparse_index: (repo.ok())
                 .and_then(|repo| repo.index_or_empty().ok())
                 .is_some_and(|index| index.is_sparse()),
             target_choice: unresolved.and_then(|target| target_choice(&path, &target)),
