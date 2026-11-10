@@ -4775,12 +4775,10 @@ dependencies = [
  "but-ctx",
  "but-graph",
  "but-meta",
- "but-oxidize",
  "but-rebase",
  "but-schemars",
  "but-testsupport",
  "git-meta-lib",
- "git2",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gix",
@@ -4788,7 +4786,6 @@ dependencies = [
  "serde",
  "snapbox",
  "tempfile",
- "tracing",
 ]
 
 [[package]]
