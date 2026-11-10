@@ -3938,13 +3938,13 @@ impl Detail {
     /// Whether the keys are on the diff while it has nothing for them, as they are on a
     /// checkout with no changes once the navigator has gone.
     pub(crate) fn keys_stranded(&self, window: &Window, cx: &App) -> bool {
-        self.focus.is_focused(window) && self.without_changes(cx)
+        self.focus.is_focused(window) && self.without_changes(cx) && !self.showing_graph()
     }
 
     /// Whether the page is an overview with no column beside it: a worktree's, Inactive and
     /// Network worktrees', as the navigator lists what they sum up, and the Graph's.
     pub fn overview_only(&self) -> bool {
-        self.on_tab(ProjectTab::Graph).is_some()
+        self.showing_graph()
             || matches!(
                 self.selection(),
                 Some(
@@ -4063,6 +4063,20 @@ impl Detail {
                     )
                     .into_any_element(),
             ),
+        }
+    }
+
+    /// Whether the page shows the project's Graph.
+    fn showing_graph(&self) -> bool {
+        self.on_tab(ProjectTab::Graph).is_some()
+    }
+
+    /// Step the graph's pinned commit to `side`, or the keys past the graph with none there or
+    /// while they're on the project's tabs, inside the graph's key context.
+    fn step_graph(&mut self, side: Side, window: &mut Window, cx: &mut Context<Self>) {
+        let on_graph = self.focus.is_focused(window);
+        if !(on_graph && self.graph.update(cx, |graph, cx| graph.step(side, cx))) {
+            self.leave(side, window, cx);
         }
     }
 
@@ -4292,6 +4306,22 @@ impl Render for Detail {
             .map(|el| self.upstream_page_actions(el, cx))
             .map(|el| self.change_actions(el, cx))
             .map(|el| self.brief_actions(el, cx))
+            .when(self.showing_graph(), |el| {
+                el.on_action(cx.listener(|this, _: &graph::StepUp, window, cx| {
+                    this.step_graph(Side::Top, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &graph::StepDown, window, cx| {
+                    this.step_graph(Side::Bottom, window, cx)
+                }))
+                .on_action(cx.listener(|this, _: &graph::StepLeft, window, cx| {
+                    this.step_graph(Side::Left, window, cx)
+                }))
+                .on_action(cx.listener(
+                    |this, _: &graph::StepRight, window, cx| {
+                        this.step_graph(Side::Right, window, cx)
+                    },
+                ))
+            })
             // Always: what it takes is asked as it runs, as the cursor can come into sight with
             // no draw of this view, and where there's nothing it mustn't go on to the row.
             .on_action(cx.listener(|this, _: &Discard, window, cx| this.discard_here(window, cx)))

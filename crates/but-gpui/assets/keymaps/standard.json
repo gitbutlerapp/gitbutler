@@ -234,6 +234,21 @@
       "enter": "diff::ToggleFileFold"
     }
   },
+  // On the Graph, the arrows, or h, j, k and l, go from commit to commit: down to its parent, up
+  // to its child and across to the nearest on that side, and past the last on to the pane there.
+  {
+    "context": "Graph && !TextInput",
+    "bindings": {
+      "up": "graph::StepUp",
+      "k": "graph::StepUp",
+      "down": "graph::StepDown",
+      "j": "graph::StepDown",
+      "left": "graph::StepLeft",
+      "h": "graph::StepLeft",
+      "right": "graph::StepRight",
+      "l": "graph::StepRight"
+    }
+  },
   // Discarding, one command for whatever has the keys, says what it takes as a menu offers it.
   {
     "context": "(Navigator || Diff || TerminalOverview) && !TextInput",

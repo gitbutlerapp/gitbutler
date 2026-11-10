@@ -139,6 +139,7 @@ fn place(context: &str) -> Option<&'static str> {
         "Moving" => "While moving",
         "Squashing" => "While squashing",
         "Diff" => "Diff",
+        "Graph" => "Graph",
         "Files" => "File list",
         "List" => "Branches and Operations history",
         "Composer" | "Committing" | "Amending" => "While committing",
