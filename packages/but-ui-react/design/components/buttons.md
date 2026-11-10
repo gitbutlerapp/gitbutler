@@ -24,11 +24,11 @@ is said in the words around the button, and an act that lands the work is
 pop. Danger takes pop's place rather than standing beside it, so a surface
 still has one coloured button.
 
-**Three weights of a colour.** Every colour has the same three: muted (the
-colour at 14%, with its `-text`) for badges, banners and tiles; soft (step 5,
-with its `soft-foreground`) for a tinted control; and solid (step 9, with its
-`foreground`) for checked controls, pop and `danger-solid`. `-text` is for a
-neutral or muted ground, never a soft one.
+**Two weights of a colour.** Every colour has the same two: soft (step 5, with
+its `soft-foreground`) for badges, banners, tiles and the soft `danger`
+button; and solid (step 9, with its `foreground`) for checked controls, pop
+and `danger-solid`. `-text` is coloured text on a neutral ground, never on a
+soft one.
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In

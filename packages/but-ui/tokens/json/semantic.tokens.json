@@ -80,26 +80,6 @@
       }
     },
     "primary": {
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.primary.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of primary for a larger area: a banner, a highlighted row. Text on it: primary/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.primary.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.primary.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
       "foreground": {
         "$type": "color",
         "$value": "#ffffff",
@@ -125,7 +105,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.teal.11}",
-        "$description": "The accent text: reads at 4.5:1 on background, muted and primary/muted.",
+        "$description": "The accent text: reads at 4.5:1 on background and muted. On primary/soft, text is primary/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.teal.11}",
@@ -148,7 +128,7 @@
         "$root": {
           "$type": "color",
           "$value": "{ramps.teal.5}",
-          "$description": "A lighter accent fill for a quieter control. Text on it: primary/soft/foreground.",
+          "$description": "The accent colour's tinted fill: badges, banners, tiles and soft controls. Text on it: primary/soft/foreground.",
           "$extensions": {
             "mode": {
               "light": "{ramps.teal.5}",
@@ -181,26 +161,6 @@
       }
     },
     "danger": {
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.danger.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of danger for a larger area: a banner, a highlighted row. Text on it: danger/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.danger.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.danger.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
       "foreground": {
         "$type": "color",
         "$value": "#ffffff",
@@ -226,7 +186,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.red.11}",
-        "$description": "Danger text: reads at 4.5:1 on background, muted and danger/muted.",
+        "$description": "Danger text: reads at 4.5:1 on background and muted. On danger/soft, text is danger/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.red.11}",
@@ -249,7 +209,7 @@
         "$root": {
           "$type": "color",
           "$value": "{ramps.red.5}",
-          "$description": "A lighter danger fill for a quieter control. Text on it: danger/soft/foreground.",
+          "$description": "The danger colour's tinted fill: badges, banners, tiles and soft controls. Text on it: danger/soft/foreground.",
           "$extensions": {
             "mode": {
               "light": "{ramps.red.5}",
@@ -276,309 +236,6 @@
             "mode": {
               "light": "{ramps.red.6}",
               "dark": "{ramps.red.6}"
-            }
-          }
-        }
-      }
-    },
-    "warning": {
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.warning.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of warning for a larger area: a banner, a highlighted row. Text on it: warning/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.warning.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.warning.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
-      "foreground": {
-        "$type": "color",
-        "$value": "{ramps.amber.12}",
-        "$description": "Text and icons on warning.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.amber.12}",
-            "dark": "#100500"
-          }
-        }
-      },
-      "$root": {
-        "$type": "color",
-        "$value": "{ramps.amber.9}",
-        "$description": "Warning as a solid fill, for caution: something waits or is at risk. For small controls such as buttons and badges, not large surfaces. Text on it: warning/foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.amber.9}",
-            "dark": "{ramps.amber.9}"
-          }
-        }
-      },
-      "text": {
-        "$type": "color",
-        "$value": "{ramps.amber.11}",
-        "$description": "Warning text: reads at 4.5:1 on background, muted and warning/muted.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.amber.11}",
-            "dark": "{ramps.amber.11}"
-          }
-        }
-      },
-      "hover": {
-        "$type": "color",
-        "$value": "{ramps.amber.10}",
-        "$description": "warning under the pointer: the fill 14% toward foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.amber.10}",
-            "dark": "{ramps.amber.10}"
-          }
-        }
-      },
-      "soft": {
-        "$root": {
-          "$type": "color",
-          "$value": "{ramps.amber.5}",
-          "$description": "A lighter warning fill for a quieter control. Text on it: warning/soft/foreground.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.amber.5}",
-              "dark": "{ramps.amber.5}"
-            }
-          }
-        },
-        "foreground": {
-          "$type": "color",
-          "$value": "{ramps.amber.12}",
-          "$description": "Text and icons on warning/soft.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.amber.12}",
-              "dark": "{ramps.amber.12}"
-            }
-          }
-        },
-        "hover": {
-          "$type": "color",
-          "$value": "{ramps.amber.6}",
-          "$description": "warning/soft under the pointer.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.amber.6}",
-              "dark": "{ramps.amber.6}"
-            }
-          }
-        }
-      }
-    },
-    "success": {
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.success.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of success for a larger area: a banner, a highlighted row. Text on it: success/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.success.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.success.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
-      "foreground": {
-        "$type": "color",
-        "$value": "#ffffff",
-        "$description": "Text and icons on success.",
-        "$extensions": {
-          "mode": {
-            "light": "#ffffff",
-            "dark": "#ffffff"
-          }
-        }
-      },
-      "$root": {
-        "$type": "color",
-        "$value": "{ramps.green.9}",
-        "$description": "Success as a solid fill, for a good outcome: ready, passed. For small controls such as buttons and badges, not large surfaces. Text on it: success/foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.green.9}",
-            "dark": "{ramps.green.9}"
-          }
-        }
-      },
-      "text": {
-        "$type": "color",
-        "$value": "{ramps.green.11}",
-        "$description": "Success text: reads at 4.5:1 on background, muted and success/muted.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.green.11}",
-            "dark": "{ramps.green.11}"
-          }
-        }
-      },
-      "hover": {
-        "$type": "color",
-        "$value": "{ramps.green.10}",
-        "$description": "success under the pointer: the fill 14% toward foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.green.10}",
-            "dark": "{ramps.green.10}"
-          }
-        }
-      },
-      "soft": {
-        "$root": {
-          "$type": "color",
-          "$value": "{ramps.green.5}",
-          "$description": "A lighter success fill for a quieter control. Text on it: success/soft/foreground.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.green.5}",
-              "dark": "{ramps.green.5}"
-            }
-          }
-        },
-        "foreground": {
-          "$type": "color",
-          "$value": "{ramps.green.12}",
-          "$description": "Text and icons on success/soft.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.green.12}",
-              "dark": "{ramps.green.12}"
-            }
-          }
-        },
-        "hover": {
-          "$type": "color",
-          "$value": "{ramps.green.6}",
-          "$description": "success/soft under the pointer.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.green.6}",
-              "dark": "{ramps.green.6}"
-            }
-          }
-        }
-      }
-    },
-    "done": {
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.done.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of done for a larger area: a banner, a highlighted row. Text on it: done/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.done.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.done.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
-      "foreground": {
-        "$type": "color",
-        "$value": "#ffffff",
-        "$description": "Text and icons on done.",
-        "$extensions": {
-          "mode": {
-            "light": "#ffffff",
-            "dark": "#ffffff"
-          }
-        }
-      },
-      "$root": {
-        "$type": "color",
-        "$value": "{ramps.purple.9}",
-        "$description": "Done as a solid fill, for finished work: merged branches, integrated commits. For small controls such as buttons and badges, not large surfaces. Text on it: done/foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.purple.9}",
-            "dark": "{ramps.purple.9}"
-          }
-        }
-      },
-      "text": {
-        "$type": "color",
-        "$value": "{ramps.purple.11}",
-        "$description": "Done text: reads at 4.5:1 on background, muted and done/muted.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.purple.11}",
-            "dark": "{ramps.purple.11}"
-          }
-        }
-      },
-      "hover": {
-        "$type": "color",
-        "$value": "{ramps.purple.10}",
-        "$description": "done under the pointer: the fill 14% toward foreground.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.purple.10}",
-            "dark": "{ramps.purple.10}"
-          }
-        }
-      },
-      "soft": {
-        "$root": {
-          "$type": "color",
-          "$value": "{ramps.purple.5}",
-          "$description": "A lighter done fill for a quieter control. Text on it: done/soft/foreground.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.purple.5}",
-              "dark": "{ramps.purple.5}"
-            }
-          }
-        },
-        "foreground": {
-          "$type": "color",
-          "$value": "{ramps.purple.12}",
-          "$description": "Text and icons on done/soft.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.purple.12}",
-              "dark": "{ramps.purple.12}"
-            }
-          }
-        },
-        "hover": {
-          "$type": "color",
-          "$value": "{ramps.purple.6}",
-          "$description": "done/soft under the pointer.",
-          "$extensions": {
-            "mode": {
-              "light": "{ramps.purple.6}",
-              "dark": "{ramps.purple.6}"
             }
           }
         }
@@ -679,6 +336,249 @@
         }
       }
     },
+    "warning": {
+      "foreground": {
+        "$type": "color",
+        "$value": "{ramps.amber.12}",
+        "$description": "Text and icons on warning.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.12}",
+            "dark": "#100500"
+          }
+        }
+      },
+      "$root": {
+        "$type": "color",
+        "$value": "{ramps.amber.9}",
+        "$description": "Warning as a solid fill, for caution: something waits or is at risk. For small controls such as buttons and badges, not large surfaces. Text on it: warning/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.9}",
+            "dark": "{ramps.amber.9}"
+          }
+        }
+      },
+      "text": {
+        "$type": "color",
+        "$value": "{ramps.amber.11}",
+        "$description": "Warning text: reads at 4.5:1 on background and muted. On warning/soft, text is warning/soft/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.11}",
+            "dark": "{ramps.amber.11}"
+          }
+        }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "{ramps.amber.10}",
+        "$description": "warning under the pointer: the fill 14% toward foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.amber.10}",
+            "dark": "{ramps.amber.10}"
+          }
+        }
+      },
+      "soft": {
+        "$root": {
+          "$type": "color",
+          "$value": "{ramps.amber.5}",
+          "$description": "The warning colour's tinted fill: badges, banners, tiles and soft controls. Text on it: warning/soft/foreground.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.amber.5}",
+              "dark": "{ramps.amber.5}"
+            }
+          }
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{ramps.amber.12}",
+          "$description": "Text and icons on warning/soft.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.amber.12}",
+              "dark": "{ramps.amber.12}"
+            }
+          }
+        },
+        "hover": {
+          "$type": "color",
+          "$value": "{ramps.amber.6}",
+          "$description": "warning/soft under the pointer.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.amber.6}",
+              "dark": "{ramps.amber.6}"
+            }
+          }
+        }
+      }
+    },
+    "success": {
+      "foreground": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "$description": "Text and icons on success.",
+        "$extensions": {
+          "mode": {
+            "light": "#ffffff",
+            "dark": "#ffffff"
+          }
+        }
+      },
+      "$root": {
+        "$type": "color",
+        "$value": "{ramps.green.9}",
+        "$description": "Success as a solid fill, for a good outcome: ready, passed. For small controls such as buttons and badges, not large surfaces. Text on it: success/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.green.9}",
+            "dark": "{ramps.green.9}"
+          }
+        }
+      },
+      "text": {
+        "$type": "color",
+        "$value": "{ramps.green.11}",
+        "$description": "Success text: reads at 4.5:1 on background and muted. On success/soft, text is success/soft/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.green.11}",
+            "dark": "{ramps.green.11}"
+          }
+        }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "{ramps.green.10}",
+        "$description": "success under the pointer: the fill 14% toward foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.green.10}",
+            "dark": "{ramps.green.10}"
+          }
+        }
+      },
+      "soft": {
+        "$root": {
+          "$type": "color",
+          "$value": "{ramps.green.5}",
+          "$description": "The success colour's tinted fill: badges, banners, tiles and soft controls. Text on it: success/soft/foreground.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.green.5}",
+              "dark": "{ramps.green.5}"
+            }
+          }
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{ramps.green.12}",
+          "$description": "Text and icons on success/soft.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.green.12}",
+              "dark": "{ramps.green.12}"
+            }
+          }
+        },
+        "hover": {
+          "$type": "color",
+          "$value": "{ramps.green.6}",
+          "$description": "success/soft under the pointer.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.green.6}",
+              "dark": "{ramps.green.6}"
+            }
+          }
+        }
+      }
+    },
+    "done": {
+      "foreground": {
+        "$type": "color",
+        "$value": "#ffffff",
+        "$description": "Text and icons on done.",
+        "$extensions": {
+          "mode": {
+            "light": "#ffffff",
+            "dark": "#ffffff"
+          }
+        }
+      },
+      "$root": {
+        "$type": "color",
+        "$value": "{ramps.purple.9}",
+        "$description": "Done as a solid fill, for finished work: merged branches, integrated commits. For small controls such as buttons and badges, not large surfaces. Text on it: done/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.purple.9}",
+            "dark": "{ramps.purple.9}"
+          }
+        }
+      },
+      "text": {
+        "$type": "color",
+        "$value": "{ramps.purple.11}",
+        "$description": "Done text: reads at 4.5:1 on background and muted. On done/soft, text is done/soft/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.purple.11}",
+            "dark": "{ramps.purple.11}"
+          }
+        }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "{ramps.purple.10}",
+        "$description": "done under the pointer: the fill 14% toward foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{ramps.purple.10}",
+            "dark": "{ramps.purple.10}"
+          }
+        }
+      },
+      "soft": {
+        "$root": {
+          "$type": "color",
+          "$value": "{ramps.purple.5}",
+          "$description": "The done colour's tinted fill: badges, banners, tiles and soft controls. Text on it: done/soft/foreground.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.purple.5}",
+              "dark": "{ramps.purple.5}"
+            }
+          }
+        },
+        "foreground": {
+          "$type": "color",
+          "$value": "{ramps.purple.12}",
+          "$description": "Text and icons on done/soft.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.purple.12}",
+              "dark": "{ramps.purple.12}"
+            }
+          }
+        },
+        "hover": {
+          "$type": "color",
+          "$value": "{ramps.purple.6}",
+          "$description": "done/soft under the pointer.",
+          "$extensions": {
+            "mode": {
+              "light": "{ramps.purple.6}",
+              "dark": "{ramps.purple.6}"
+            }
+          }
+        }
+      }
+    },
     "foreground": {
       "$type": "color",
       "$value": "{ramps.gray.12}",
@@ -705,7 +605,7 @@
       "text": {
         "$type": "color",
         "$value": "{ramps.blue.11}",
-        "$description": "Info text: reads at 4.5:1 on background, muted and info/muted.",
+        "$description": "Info text: reads at 4.5:1 on background and muted. On info/soft, text is info/soft/foreground.",
         "$extensions": {
           "mode": {
             "light": "{ramps.blue.11}",
@@ -746,31 +646,11 @@
           }
         }
       },
-      "muted": {
-        "$type": "color",
-        "$value": {
-          "components": "{semantic.info.$root}",
-          "alpha": "14%"
-        },
-        "$description": "A 14% tint of info for a larger area: a banner, a highlighted row. Text on it: info/text.",
-        "$extensions": {
-          "mode": {
-            "light": {
-              "components": "{semantic.info.$root}",
-              "alpha": "14%"
-            },
-            "dark": {
-              "components": "{semantic.info.$root}",
-              "alpha": "14%"
-            }
-          }
-        }
-      },
       "soft": {
         "$root": {
           "$type": "color",
           "$value": "{ramps.blue.5}",
-          "$description": "A lighter info fill for a quieter control. Text on it: info/soft/foreground.",
+          "$description": "The info colour's tinted fill: badges, banners, tiles and soft controls. Text on it: info/soft/foreground.",
           "$extensions": {
             "mode": {
               "light": "{ramps.blue.5}",
@@ -1445,7 +1325,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-10T10:46:35.775Z"
+        "createdAt": "2026-11-10T11:46:38.902Z"
       }
     }
   }
