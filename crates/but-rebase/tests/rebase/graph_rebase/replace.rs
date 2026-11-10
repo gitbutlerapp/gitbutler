@@ -109,6 +109,79 @@ fn reword_a_commit() -> Result<()> {
 "#]]
     );
 
+    let mut markers = Vec::new();
+    for (original, _) in outcome.history.commit_mappings().iter() {
+        markers.extend(but_evo::MarkerStore::find_by_prec(&*outcome.db, original)?);
+    }
+    // Materializing wrote one marker per rewritten commit: the reworded one changed its
+    // description (1), and the two above it their parents and headers (4 + 2).
+    snapbox::assert_data_eq!(
+        markers.to_debug(),
+        snapbox::str![[r#"
+[
+    Marker {
+        prec: Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
+        succs: [
+            Sha1(53af95adeaf78258ee71c74fe4daa6628d750ff1),
+        ],
+        meta: {
+            "ef1": "6",
+            "user": "Committer (Memory Override) <committer@example.com>",
+        },
+        date: Time {
+            seconds: 946771200,
+            offset: 0,
+        },
+        parents: Some(
+            [
+                Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
+                Sha1(984fd1c6d3975901147b1f02aae6ef0a16e5904e),
+            ],
+        ),
+    },
+    Marker {
+        prec: Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
+        succs: [
+            Sha1(6de6b92e431243cc4676179bd5ef17d95642d250),
+        ],
+        meta: {
+            "ef1": "1",
+            "user": "Committer (Memory Override) <committer@example.com>",
+        },
+        date: Time {
+            seconds: 946771200,
+            offset: 0,
+        },
+        parents: Some(
+            [
+                Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
+            ],
+        ),
+    },
+    Marker {
+        prec: Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7),
+        succs: [
+            Sha1(78aaae2b4d822ed0cc7e0e83767b5dec2c88791b),
+        ],
+        meta: {
+            "ef1": "6",
+            "user": "Committer (Memory Override) <committer@example.com>",
+        },
+        date: Time {
+            seconds: 946771200,
+            offset: 0,
+        },
+        parents: Some(
+            [
+                Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
+            ],
+        ),
+    },
+]
+
+"#]]
+    );
+
     Ok(())
 }
 
