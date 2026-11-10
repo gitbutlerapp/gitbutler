@@ -271,7 +271,7 @@ fn record_rewrites(
         date: committer.time()?,
         operation: None,
     };
-    but_evo::record(db, repo, &rewrites, &provenance).context("Failed to record rewritten commits")
+    but_evo::record(db, repo, &rewrites, &provenance)
 }
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
@@ -372,7 +372,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
-        record_rewrites(&repo, self.db, &self.history)?;
+        if let Err(err) = record_rewrites(&repo, self.db, &self.history) {
+            tracing::warn!(?err, "Failed to record rewritten commits");
+        }
         branch_stacks.persist(self.meta)?;
         self.refresh_workspace(&repo)?;
 
