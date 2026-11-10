@@ -9,13 +9,13 @@
 // The ramps go into Figma's primitives from tokens/ramps.json; Figma stays the source the
 // tokens are exported from.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import * as radix from "@radix-ui/colors";
 import { clampChroma, formatHex, oklch, parse } from "culori";
 import { DittoTones } from "dittotones";
 import { radixRamps } from "dittotones/ramps/radix";
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const out = join(dirname(fileURLToPath(import.meta.url)), "../tokens/ramps.json");
 
@@ -35,37 +35,43 @@ const HUES = {
 const TEXT = 4.5 + 0.05;
 const LABEL_LC = 60 + 1;
 
-const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-const luminance = (hex) => {
+function rgb(hex) {
+	return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+}
+function luminance(hex) {
 	const [r, g, b] = rgb(hex).map((v) => {
 		v /= 255;
 		return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
 	});
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const wcag = (a, b) => {
+}
+function wcag(a, b) {
 	const [x, y] = [luminance(a), luminance(b)];
 	return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-};
+}
 // APCA 0.0.98G: how readable text of one colour is on another, |Lc| 0–106.
-const apca = (text, ground) => {
-	const y = (hex) => {
+function apca(text, ground) {
+	function y(hex) {
 		const [r, g, b] = rgb(hex).map((v) => (v / 255) ** 2.4);
 		const l = 0.2126729 * r + 0.7151522 * g + 0.072175 * b;
 		return l < 0.022 ? l + (0.022 - l) ** 1.414 : l;
-	};
+	}
 	const [t, g] = [y(text), y(ground)];
 	const s = g > t ? (g ** 0.56 - t ** 0.57) * 1.14 : (g ** 0.65 - t ** 0.62) * 1.14;
 	return Math.abs(s) < 0.1 ? 0 : Math.abs(s > 0 ? s - 0.027 : s + 0.027) * 100;
-};
+}
+// Whether a label of colour `on` reads on `fill`.
+function reads(on, fill) {
+	return wcag(on, fill) >= TEXT && apca(on, fill) >= LABEL_LC;
+}
 
 // Moves a colour's OKLCH lightness by `dl`, keeping its hue, and back into sRGB.
-const shift = (hex, dl) => {
+function shift(hex, dl) {
 	const c = oklch(parse(hex));
 	return formatHex(clampChroma({ ...c, l: Math.min(1, Math.max(0, c.l + dl)) }, "oklch"));
-};
+}
 // `hex` at `share` opacity over `ground`, as color-mix(in srgb, … share, transparent) paints it.
-const tint = (hex, ground, share) => {
+function tint(hex, ground, share) {
 	const [a, b] = [rgb(hex), rgb(ground)];
 	return `#${a
 		.map((v, i) =>
@@ -74,15 +80,15 @@ const tint = (hex, ground, share) => {
 				.padStart(2, "0"),
 		)
 		.join("")}`;
-};
+}
 // The first colour from `hex`, stepping its lightness by `dl`, for which `ok` holds.
-const until = (hex, dl, ok) => {
+function until(hex, dl, ok) {
 	for (let i = 0; i <= 100; i++) {
 		const c = shift(hex, dl * i);
 		if (ok(c)) return c;
 	}
 	throw new Error(`no step from ${hex} reaches its floor`);
-};
+}
 
 const darkRadix = new Map(
 	[...radixRamps.keys()].map((name) => {
@@ -123,7 +129,6 @@ for (const [hue, { seed, label }] of Object.entries(HUES)) {
 		];
 		const before = { 9: s[8], 11: s[10] };
 		if (label) {
-			const reads = (on, fill) => wcag(on, fill) >= TEXT && apca(on, fill) >= LABEL_LC;
 			if (label === "white") {
 				// Under white the fill darkens until the label reads, and its hover sits a step darker.
 				s[8] = until(s[8], -0.005, (c) => reads("#ffffff", c));
