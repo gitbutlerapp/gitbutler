@@ -3836,9 +3836,6 @@ impl Navigator {
         let branches = store.after_deletes(id, &store.lane_for(item)?.0.branches);
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
-        let names: Vec<&str> = (branches.iter())
-            .map(|branch| store.label_of(id, branch))
-            .collect();
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         let toggle = {
             let caption = item.clone();
@@ -3864,7 +3861,7 @@ impl Navigator {
             .flex_grow(1.)
             .min_w_0()
             .gap(dp(6.))
-            .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
+            .tooltip(stack_tooltip(self.store.clone(), item.clone()))
             .child(count_badge(branches.len(), theme).when(style.solid, |el| {
                 el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
             }))
@@ -4706,6 +4703,26 @@ fn same_place(old: &Row, new: &Row) -> bool {
     match (old, new) {
         (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
         _ => old == new,
+    }
+}
+
+/// A stack caption's tooltip, its branches top to bottom, worded only when it shows.
+fn stack_tooltip(
+    store: Entity<Store>,
+    caption: Selection,
+) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+    move |window, cx| {
+        let store = store.read(cx);
+        let id = caption.project();
+        let names = (store.lane_for(&caption))
+            .map(|(lane, _)| {
+                (store.after_deletes(id, &lane.branches).iter())
+                    .map(|branch| store.label_of(id, branch))
+                    .collect::<Vec<_>>()
+                    .join(" ← ")
+            })
+            .unwrap_or_default();
+        Tooltip::text(format!("Stack: {names}"))(window, cx)
     }
 }
 
