@@ -333,6 +333,11 @@ commands! {
     },
     crate::open_in::OpenInTerminal => "Open in terminal",
     crate::terminal::NewTerminal => "New terminal",
+    crate::terminal::NewTerminalWith => "New terminal with command" {
+        aliases: &["Open terminal with", "Run in new terminal", "New agent terminal"],
+        // Short in a menu, beside "Open a file…".
+        phrase: |_, _| Some("New terminal with…".to_owned()),
+    },
     crate::app::SplitRight => "Split right" { aliases: &["Split vertically", "Pin to the right"] },
     crate::app::SplitBelow => "Split below" {
         aliases: &["Split down", "Split horizontally", "Pin below"],

@@ -235,22 +235,34 @@ impl Store {
         checkout: Checkout,
         cx: &mut Context<Self>,
     ) {
-        self.open_terminal_then(project, checkout, None, cx);
+        let run = self.prefs.terminal_run().map(str::to_owned);
+        self.open_terminal_then(project, checkout, run, None, cx);
     }
 
-    /// Open a terminal on `project`'s `checkout`. Once its shell has started, select it, or pin
-    /// it as `pin` says.
+    /// Open a terminal on `project`'s `checkout` that runs `command` through the login shell.
+    pub fn open_terminal_running(
+        &mut self,
+        project: ProjectId,
+        checkout: Checkout,
+        command: String,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_terminal_then(project, checkout, Some(command), None, cx);
+    }
+
+    /// Open a terminal on `project`'s `checkout`, running `run` in place of the shell's prompt.
+    /// Once its shell has started, select it, or pin it as `pin` says.
     pub(super) fn open_terminal_then(
         &mut self,
         project: ProjectId,
         checkout: Checkout,
+        run: Option<String>,
         pin: Option<(RowKey, Tile, Axis)>,
         cx: &mut Context<Self>,
     ) {
         let Some(cwd) = self.checkout_path(&project, &checkout) else {
             return;
         };
-        let run = self.prefs.terminal_run().map(str::to_owned);
         let asked = Instant::now();
         let via = backend::metrics::via();
         cx.spawn(async move |this, cx| {
