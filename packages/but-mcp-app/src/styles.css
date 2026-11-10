@@ -581,12 +581,12 @@ code {
 
 .detail-button.primary {
 	border-color: transparent;
-	background: var(--but-primary-soft);
-	color: var(--but-primary-soft-foreground);
+	background: var(--but-primary);
+	color: var(--but-primary-foreground);
 }
 
 .detail-button.primary:hover:not(:disabled) {
-	background: var(--but-primary-soft-hover);
+	background: var(--but-primary-hover);
 }
 
 .detail-button:disabled {

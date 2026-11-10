@@ -8,11 +8,13 @@ import type { FC, Ref } from "react";
  * Ghost and outline are the two quiet buttons and rank equally; gray and pop are the two ways to
  * raise one above the rest. Reach for a quiet one unless there is a reason not to. Gray is how you
  * highlight, pop is how you point — see `packages/but-ui-react/design/foundations/emphasis.md`.
+ * Danger says what pressing does and takes pop's place rather than a step on the ladder: one
+ * coloured button per surface, soft unless it answers a confirmation, then `danger-solid`.
  *
  * @public
  */
 export type ButtonVariant =
-	/** The primary action of the whole surface. At most one per surface: if two things pop, neither does. */
+	/** The accent, solid, as a checked checkbox or switch is: the primary action of the whole surface. At most one per surface: if two things pop, neither does. */
 	| "pop"
 	/** Solid gray ground. Lifts a button above the ones around it without spending color — a highlight, not a primary action. */
 	| "gray"
@@ -26,6 +28,8 @@ export type ButtonVariant =
 	| "outline-inverted"
 	/** For an act the user cannot take back: deleting, discarding, hard-resetting. Chosen by consequence, so it sits outside the ladder. */
 	| "danger"
+	/** `danger` at full strength, for the answer to a confirmation that destroys something. */
+	| "danger-solid"
 	/** No ground, no border. For actions inside something already a container: a row, a toolbar, a popup. */
 	| "ghost"
 	/** `ghost` for a button on an inverted ground — a selected row, not dark mode. */

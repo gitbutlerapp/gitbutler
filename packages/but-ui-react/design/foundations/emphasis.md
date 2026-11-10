@@ -10,7 +10,8 @@ first to gray before adding a second.
 
 **Semantic color is chosen by meaning, not by weight.** Danger, warn and safe
 say what a thing _is_ and sit outside the gray-to-pop ladder: a danger button
-can be the only button on screen.
+can be the only button on screen. On a button, danger takes pop's place rather
+than standing beside it, so a surface still has one coloured button.
 
 How the ladder maps onto `Button`'s variants is in
 [Buttons](../components/buttons.md).

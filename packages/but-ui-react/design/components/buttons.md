@@ -10,10 +10,25 @@ to a quiet one.
   toolbar, a card header, a popup.
 - **`gray`** — solid gray ground. Lifts one button above its neighbours
   without spending color. It highlights; it is not a primary action.
-- **`pop`** — the accent ground. The primary action of the whole surface, at
-  most one.
-- **`danger`** — for an act the user cannot take back: deleting, discarding,
-  hard-resetting. Chosen by consequence, outside the ladder.
+- **`pop`** — the accent, solid, as a checked checkbox or switch is. The
+  primary action of the whole surface, at most one.
+- **`danger`** — the soft red ground, for an act the user cannot take back:
+  deleting, discarding, hard-resetting. Chosen by consequence, outside the
+  ladder.
+- **`danger-solid`** — danger at full strength, for the answer to a
+  confirmation that destroys something (see [Modals](../patterns/modals.md)).
+
+**Danger is the only status a button takes.** Warning, success, info and done
+colour badges, banners and labels, never a button: going ahead despite a risk
+is said in the words around the button, and an act that lands the work is
+pop. Danger takes pop's place rather than standing beside it, so a surface
+still has one coloured button.
+
+**Three weights of a colour.** Every colour has the same three: muted (the
+colour at 14%, with its `-text`) for badges, banners and tiles; soft (step 5,
+with its `soft-foreground`) for a tinted control; and solid (step 9, with its
+`foreground`) for checked controls, pop and `danger-solid`. `-text` is for a
+neutral or muted ground, never a soft one.
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In

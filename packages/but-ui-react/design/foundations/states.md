@@ -23,8 +23,8 @@ the pointer, so it never fades and never jumps to another colour. A control
 drawn in a colour of its own, without a fill, as a pressable `MetaCount` is,
 takes that colour at 14% as its hover ground: a tint its `-text` colour still
 reads on, as Radix's and shadcn's soft buttons do. The soft fills
-(`--but-warning-soft`) are too strong for that: amber text on its soft ground is
-2.4 : 1.
+(`--but-warning-soft`) are too strong for that: a colour's `-text` on its soft
+ground falls under 4.5 : 1, which is why soft takes `soft-foreground`.
 
 **Focus is the one ring.** `--but-focus-ring` (1.5px of `--but-ring`) is the
 only focus outline. The host's global stylesheet puts it on every `button` and `a`

@@ -21,7 +21,7 @@ export const Default = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=292-232&t=Sw2wSDYXtPlZ9Cao-1",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=217-317",
 		},
 	},
 	args: {
@@ -66,6 +66,19 @@ export const Variants = meta.story({
 				<Button variant="ghost-inverted">Button</Button>
 			</div>
 			<Button variant="danger">Button</Button>
+		</div>
+	),
+});
+
+/**
+ * Danger at both strengths: soft for a destructive act in a row or a toolbar, and `danger-solid`
+ * for the answer to a confirmation that destroys something.
+ */
+export const Danger = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 12 }}>
+			<Button variant="danger">Discard</Button>
+			<Button variant="danger-solid">Discard</Button>
 		</div>
 	),
 });

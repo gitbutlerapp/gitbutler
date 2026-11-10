@@ -211,7 +211,7 @@ export const Destructive = meta.story({
 					<Button variant="ghost" onClick={() => setOpen(false)}>
 						Cancel
 					</Button>
-					<Button variant="danger" onClick={() => setOpen(false)}>
+					<Button variant="danger-solid" onClick={() => setOpen(false)}>
 						Discard
 					</Button>
 				</ModalFooter>

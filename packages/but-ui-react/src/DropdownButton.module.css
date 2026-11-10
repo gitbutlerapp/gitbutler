@@ -75,8 +75,8 @@
 .pop {
 	--dropdown-button-separator: color-mix(
 		in srgb,
-		var(--but-primary-soft-foreground) 20%,
-		var(--but-primary-soft)
+		var(--but-primary-foreground) 20%,
+		var(--but-primary)
 	);
 }
 

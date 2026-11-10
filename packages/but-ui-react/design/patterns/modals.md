@@ -44,6 +44,7 @@ answer button repeats the verb — Discard, Upload, Continue — never "OK" or
 [Voice](../content/voice.md).
 
 **Cancel, then the answer.** Cancel is `ghost`; the answer is `gray`, or
-`danger` when it destroys something, and sits last. Never `pop`: two buttons
-are not the busy surface pop is kept for. See [Buttons](../components/buttons.md)
+`danger-solid` when it destroys something, and sits last. A confirmation exists
+for that one act, so its answer takes the solid ground. Never `pop`: two
+buttons are not the busy surface pop is kept for. See [Buttons](../components/buttons.md)
 and [Emphasis](../foundations/emphasis.md).
