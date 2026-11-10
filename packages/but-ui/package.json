@@ -12,11 +12,12 @@
 		"./core": "./core.css",
 		"./styles/reset": "./styles/reset.css",
 		"./styles/text": "./styles/text.css",
-		"./presets": "./presets.json"
+		"./presets": "./presets.json",
+		"./settings": "./tokens/settings.json"
 	},
 	"scripts": {
 		"build": "node scripts/postprocess-light-dark.mjs && node scripts/check-style-vars.mjs && node scripts/check-presets.mjs",
-		"check": "node scripts/generate-ramps.mjs --check && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css",
+		"check": "node scripts/generate-ramps.mjs --check && pnpm build && node scripts/check-contrast.mjs && git diff --exit-code -- tokens/tokens.css tokens/settings.json",
 		"dev:tokens": "node scripts/postprocess-light-dark.mjs --watch"
 	},
 	"devDependencies": {
