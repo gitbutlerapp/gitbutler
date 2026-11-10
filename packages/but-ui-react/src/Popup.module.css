@@ -12,8 +12,9 @@
 	/* A popup takes focus as it opens, and the browser would paint its own accent-coloured ring on
 	   a container no app rule covers. What is inside shows the focus instead. */
 	outline: none;
-	background-color: var(--but-background);
+	background-color: var(--but-popover);
 	box-shadow: var(--but-shadow-lg);
+	color: var(--but-popover-foreground);
 }
 
 /* Recessed, so what sits on it reads as cards rather than sections — the arrangement a pane uses
