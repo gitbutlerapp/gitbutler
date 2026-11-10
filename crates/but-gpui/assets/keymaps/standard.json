@@ -174,10 +174,12 @@
   // selected commit, as the TUI's m does, and ⇧S squashes the uncommitted changes into it, as
   // the TUI's ⇧R does. Return folds or unfolds what the selected row heads: a card, a section,
   // a worktree, a stack, a branch or a merge. z does too, as vim's za does, before Return so
-  // Return is the key shown.
+  // Return is the key shown. o opens the selected project or linked worktree in the editor, as
+  // it opens the file under the cursor in the diff.
   {
     "context": "Navigator && !TextInput",
     "bindings": {
+      "o": "open_in::OpenInEditor",
       "shift-k": "navigator::PreviousSection",
       "shift-j": "navigator::NextSection",
       "n": "edits::AddEmptyCommitAbove",
