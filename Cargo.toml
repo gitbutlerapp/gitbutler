@@ -279,6 +279,8 @@ posthog-rs = { version = "0.27.1", default-features = false, features = ["async-
 base64 = "0.22"
 bitflags = "2.11.1"
 notify = "8.2.0"
+# TODO: use a release containing the no-follow APIs needed on Windows (notify-rs/notify#716).
+file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
 snapbox = { version = "0.6.23", features = ["json"] }
 url = "2.5.7"
 petgraph = { version = "0.8.3", default-features = false, features = [
