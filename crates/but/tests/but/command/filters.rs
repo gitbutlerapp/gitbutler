@@ -61,14 +61,8 @@ fn pull_writes_filtered_files_in_worktree_form() {
 }
 
 /// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
-/// `file.txt`, then enter edit mode on it with `but resolve`.
-fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
-    resolve_conflicted_commit_with_filtered_file_after(|_| {})
-}
-
-/// Like [`resolve_conflicted_commit_with_filtered_file()`], but call `prepare` on the
-/// workspace before entering edit mode.
-fn resolve_conflicted_commit_with_filtered_file_after(prepare: impl FnOnce(&Sandbox)) -> Sandbox {
+/// `file.txt`, and return its CLI ID.
+fn pull_conflicting_commit_with_filtered_file() -> (Sandbox, String) {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-conflicted-with-filtered-files",
     );
@@ -84,6 +78,19 @@ fn resolve_conflicted_commit_with_filtered_file_after(prepare: impl FnOnce(&Sand
         .and_then(|commit| commit["cliId"].as_str())
         .expect("pulling conflicts A's commit")
         .to_owned();
+    (env, commit)
+}
+
+/// Pull so that stack A's commit, which changes the filtered `a.secret`, conflicts on
+/// `file.txt`, then enter edit mode on it with `but resolve`.
+fn resolve_conflicted_commit_with_filtered_file() -> Sandbox {
+    resolve_conflicted_commit_with_filtered_file_after(|_| {})
+}
+
+/// Like [`resolve_conflicted_commit_with_filtered_file()`], but call `prepare` on the
+/// workspace before entering edit mode.
+fn resolve_conflicted_commit_with_filtered_file_after(prepare: impl FnOnce(&Sandbox)) -> Sandbox {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
     prepare(&env);
     env.but(format!("resolve {commit}")).assert().success();
     env
@@ -184,4 +191,49 @@ fn resolve_finish_keeps_the_stat_of_filtered_files_it_leaves_alone() {
             .contains("b.secret"),
         "the index keeps the stat of the untouched filtered file, so status doesn't clean it"
     );
+}
+
+/// What a failed edit-mode transition must leave as it was: refs, `HEAD`, index, worktree
+/// status and edit-mode metadata.
+fn repo_state(env: &Sandbox) -> String {
+    let mut state = [
+        "symbolic-ref HEAD",
+        "for-each-ref",
+        "ls-files --stage",
+        "status --porcelain",
+    ]
+    .map(|args| env.invoke_git(args))
+    .join("\n");
+    state += &format!(
+        "\nedit mode metadata: {}",
+        env.projects_root()
+            .join(".git/gitbutler/edit_mode_metadata.toml")
+            .exists()
+    );
+    state
+}
+
+#[test]
+fn resolve_changes_nothing_if_a_filter_fails() {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
+    env.file("b.secret", "edited\n");
+    std::fs::write(env.projects_root().join(".git/fail-smudge"), "").unwrap();
+    let before = repo_state(&env);
+
+    env.but(format!("resolve {commit}")).assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed enter changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_cancel_changes_nothing_if_a_filter_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    std::fs::write(env.projects_root().join(".git/fail-smudge"), "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve cancel --force").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed cancel changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "base\n");
 }

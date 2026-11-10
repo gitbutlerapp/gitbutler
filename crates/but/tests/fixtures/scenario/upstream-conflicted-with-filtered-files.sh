@@ -7,7 +7,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 # Like an unlocked git-crypt repository: `*.secret` files go through a required filter whose
 # Git form is binary, and each clean call appends the path to .git/clean-calls. Stack A's commit
 # changes a.secret and file.txt, and upstream changed file.txt too, so pulling makes A's commit
-# conflicted. Nothing changes b.secret.
+# conflicted. Nothing changes b.secret. Smudging fails while .git/fail-smudge exists.
 
 git-init-frozen
 
@@ -21,6 +21,7 @@ case "$1" in
     tr 'A-Za-z' 'N-ZA-Mn-za-m'
     ;;
   smudge)
+    if [ -e "${GIT_DIR:-.git}/fail-smudge" ]; then exit 1; fi
     tail -c +8 | tr 'A-Za-z' 'N-ZA-Mn-za-m'
     ;;
 esac
