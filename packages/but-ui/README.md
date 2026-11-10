@@ -75,7 +75,7 @@ A person can pick sharper or rounder corners with `data-but-radius` on the root 
 
 ### Density
 
-A person can pick a denser or roomier screen with `data-but-density` on the root element: `<html data-but-density="compact">` (or `spacious`); without it, the screen is balanced. Only heights move, so type, icons, corners and the padding beside text stay put and a denser screen holds more lines rather than smaller ones. A height of 28px or more moves 4px and a smaller one 2px, so a small button keeps room for its line. `--but-size-tag` follows `--but-size-control-sm`. Figma keeps the balanced heights; the other two are generated in the build.
+A person can pick a denser or roomier screen with `data-but-density` on the root element: `<html data-but-density="compact">` (or `spacious`); without it, the screen is balanced. Heights move most, with the padding beside a control's text following by a smaller step, so a compact control is a little narrower as well as shorter and a spacious one doesn't read as tall and thin; type, icons and corners stay put, so a denser screen holds more lines rather than smaller ones. A height of 28px or more moves 4px and a smaller one 2px, so a small button keeps room for its line. Side padding moves 2px through `--but-density-padding` (0 by default, −2px compact, +2px spacious), which buttons, segments, fields, tabs and popup rows add to their own padding, so a row and the heading over it stay aligned. `--but-size-tag` follows `--but-size-control-sm`. Figma keeps the balanced heights; the other two are generated in the build.
 
 | Setting  | control-sm | control | bar | row | header |
 | -------- | ---------- | ------- | --- | --- | ------ |
@@ -83,7 +83,7 @@ A person can pick a denser or roomier screen with `data-but-density` on the root
 | balanced | 20         | 28      | 36  | 40  | 44     |
 | spacious | 22         | 32      | 40  | 44  | 48     |
 
-A component follows only if it takes its height from these tokens, so a height that sizes a control, a row or a bar is one of them, never a number.
+A component follows only if it takes its height from these tokens and adds `--but-density-padding` to the padding beside its text, so a height that sizes a control, a row or a bar is one of them, never a number.
 
 ### Presets
 
@@ -231,7 +231,7 @@ pnpm check
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
 5. appends an `:root[data-but-accent=…]` block for each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue, and the `custom` block that draws it from any colour;
 6. appends an `:root[data-but-radius=…]` block for each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder;
-7. appends an `:root[data-but-density=…]` block for each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller.
+7. appends an `:root[data-but-density=…]` block for each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding shift.
 
 Aliases stay aliases: a variable that points at another in Figma comes out as `var(--target)`, for sizes as well as colors.
 
