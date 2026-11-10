@@ -5312,7 +5312,7 @@ managed true, below true: agent [one], <new> [two], agent checked out
             };
             let (applied, _) = crate::backend::apply(path, agent).unwrap();
             assert!(
-                matches!(applied, ApplyOutcome::Conflicts(_)),
+                matches!(applied, ApplyOutcome::Conflicts),
                 "both change the same line"
             );
             assert_eq!(

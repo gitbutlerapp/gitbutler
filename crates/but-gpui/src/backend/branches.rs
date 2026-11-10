@@ -254,8 +254,8 @@ pub fn branch_commits(path: &Path, ref_name: &super::FullName) -> Result<Vec<Tar
 pub enum ApplyOutcome {
     Applied(super::FullName),
     AlreadyApplied(super::FullName),
-    /// It conflicts with these applied stacks, so nothing changed.
-    Conflicts(Vec<String>),
+    /// It conflicts with an applied stack, so nothing changed.
+    Conflicts,
 }
 
 /// Apply `branch` to the workspace, once the archived worktree `freeing`, if any, let go of
@@ -314,13 +314,7 @@ impl Intent for ApplyBranch {
         Ok(match outcome.status {
             OutcomeStatus::Applied => ApplyOutcome::Applied(local),
             OutcomeStatus::AlreadyApplied => ApplyOutcome::AlreadyApplied(local),
-            OutcomeStatus::ConflictAborted => ApplyOutcome::Conflicts(
-                outcome
-                    .conflicting_stacks
-                    .iter()
-                    .map(|stack| stack.ref_name.shorten().to_string())
-                    .collect(),
-            ),
+            OutcomeStatus::ConflictAborted => ApplyOutcome::Conflicts,
         })
     }
 }

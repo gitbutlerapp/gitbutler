@@ -4,41 +4,11 @@ import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { ApplyOutcome, PushStatus, Segment, Stack as RefInfoStack } from "@gitbutler/but-sdk";
 
-function stackCount(numStacks: number): string {
-	if (numStacks === 1) {
-		return "one stack";
-	} else {
-		return "some stacks";
-	}
-}
-
-function prettyNamedListIfPossible(expectedNames: number, names: string[]): string {
-	// It could happen that not all stacks had names, for now we don't deal with that.
-	// Also, the old codepath doesn't produce names.
-	if (expectedNames !== names.length) {
-		return stackCount(expectedNames);
-	}
-	if (names.length === 0) {
-		return "";
-	} else if (names.length === 1) {
-		return `stack ${names[0]}`;
-	} else if (names.length === 2) {
-		return `stack ${names[0]} and stack ${names[1]}`;
-	}
-
-	const allButLast = names.slice(0, -1);
-	const last = names[names.length - 1];
-
-	return `${allButLast.map((n) => `stack ${n}`).join(", ")}, and stack ${last}`;
-}
-
 export function handleApplyOutcome(outcome: ApplyOutcome) {
 	if (outcome.status !== "conflictAborted") return;
-	const names = outcome.conflictingStacks.map((stack) => stack.shortName);
-	const single = names.length === 1;
 	showWarning(
 		"Couldn't apply branch due to conflicts",
-		`It conflicts with ${prettyNamedListIfPossible(names.length, names) || "another applied stack"}. Unapply ${single ? "it" : "them"} first, then try applying again.`,
+		"It conflicts with another applied stack. Unapply the conflicting stack first, then try applying again.",
 		undefined,
 		TestId.BranchApplyConflictToast,
 	);

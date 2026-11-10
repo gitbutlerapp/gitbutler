@@ -1159,9 +1159,9 @@ impl Detail {
                         }
                         store.snack_undoable(format!("Applied {name}"), cx)
                     }
-                    ApplyOutcome::Conflicts(stacks) => store.error(
+                    ApplyOutcome::Conflicts => store.error(
                         format!("{name} wasn't applied"),
-                        format!("It conflicts with {}", stacks.join(", ")),
+                        "It conflicts with another applied stack",
                         cx,
                     ),
                 },
