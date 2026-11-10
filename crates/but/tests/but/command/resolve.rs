@@ -440,6 +440,43 @@ fn resolve_finish_keeps_ignored_files_if_saving_the_rebase_fails() {
 }
 
 #[test]
+fn resolve_finish_keeps_an_edit_hidden_from_a_racy_stat_after_failing() {
+    let env = enter_edit_mode_with_conflicted_commit();
+    env.invoke_git("config core.trustctime false");
+    env.file("file.txt", "aaa\n");
+    env.invoke_git("add file.txt");
+    // An entry modified no earlier than the index was written is racy: its stat can't prove
+    // the content, so a same-size edit in that tick stays visible only by content.
+    let root = env.projects_root();
+    let mtime = std::fs::metadata(root.join("file.txt"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    let set_mtime = |path: &std::path::Path| {
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(mtime)
+            .unwrap();
+    };
+    set_mtime(&root.join(".git/index"));
+    env.file("file.txt", "bbb\n");
+    set_mtime(&root.join("file.txt"));
+    let lock = root.join(".git/refs/heads/A.lock");
+    std::fs::write(&lock, "").unwrap();
+
+    env.but("resolve finish").assert().failure();
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("show A:file.txt"),
+        "bbb",
+        "the restored index doesn't vouch for the racy stat, which would hide the edit"
+    );
+}
+
+#[test]
 fn resolve_cancel_works_in_edit_mode() {
     let env = enter_edit_mode_with_conflicted_commit();
 

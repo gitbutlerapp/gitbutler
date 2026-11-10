@@ -402,13 +402,20 @@ fn uncommitted_changes_on_workspace(
 }
 
 /// Put the edit-mode worktree `tree` and `index` back after finishing wrote the workspace's files,
-/// so edit mode holds what the user left in it.
+/// so edit mode holds what the user left in it. Stats racy against `index` are cleared, as the
+/// rewritten index would vouch for them.
 fn restore_edit_worktree(
     repo: &gix::Repository,
     tree: gix::ObjectId,
     mut index: gix::index::File,
 ) -> Result<()> {
     but_core::worktree::revert_worktree(repo, tree)?;
+    let (timestamp, options) = (index.timestamp(), repo.stat_options()?);
+    for entry in index.entries_mut() {
+        if entry.stat.is_racy(timestamp, options) {
+            entry.stat = Default::default();
+        }
+    }
     index.write(Default::default())?;
     Ok(())
 }
