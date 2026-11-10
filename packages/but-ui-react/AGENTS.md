@@ -82,7 +82,10 @@ holds the system and everything drawn with it, as a monorepo holds packages:
   the source of truth for tokens; for components, code is, and the drawing
   follows it. The components are on pages by what they are for: Actions,
   Inputs, Overlays, Content & status, Files & diffs, Illustrations, Preview
-  (a details view's header and the bars around it), and Sidebar. A new
+  (a details view's header and the bars around it), and Sidebar: NavItem
+  and its GroupLabel for any list of pages or settings, and the Workspace
+  tree, the rows of the `but panel` tree (machines, repositories, worktrees,
+  branches and commits), each in a frame of its own. A new
   component's section goes at the end of its group's page, with its examples
   section under it. Only these pages define the library's components; the
   showcases and drafts use instances of them. The docs site shelves the

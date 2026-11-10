@@ -42,6 +42,10 @@
 		color: var(--but-inverse-muted-foreground);
 	}
 
+	&.nav .meta {
+		color: var(--but-inverse-subtle-foreground);
+	}
+
 	/* A pull request's state colours its glyph and a merged title. The opposite scheme makes those
 	   light-dark() colours resolve to their inverted values, as Badge and MetaCount do. */
 	.branchGlyph,
@@ -388,6 +392,17 @@
 	color: var(--but-muted-foreground);
 }
 
+/* A page's value at its end ("Light", "Teal") reads two steps under its name. A NavItem has no menu
+   to set itself in from the edge, so the end keeps the start's inset. */
+.nav:has(.meta) {
+	padding-inline-end: var(--but-space-lg);
+}
+
+.nav .meta {
+	color: var(--but-subtle-foreground);
+	font-size: 13px;
+}
+
 .more {
 	width: 100%;
 	border: none;
@@ -475,9 +490,9 @@
 	}
 }
 
-/* A leading NavItem with no page of its own is the button that folds its card, reset as a
-   GroupLabel's is, keeping the row's tint. */
-.foldButton {
+/* A NavItem that is a button, reset as a GroupLabel's is, keeping the row's tint: a leading row with
+   no page of its own, which folds its card, or a row that opens a picker. */
+button.nav {
 	width: 100%;
 	border: none;
 	background: none;

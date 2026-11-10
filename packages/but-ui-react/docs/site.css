@@ -60,61 +60,29 @@ body[data-layout="centered"] {
 	border-bottom: none;
 }
 
-/* The theme, then the accent under it: a swatch for each the site offers and the colour as a hex,
-   which takes any. */
-.docs-site-appearance {
+/* The site's look, in a card as the pages' are: its leading row as the header, past a hairline the
+   settings. Folded, the header is the whole card. */
+.docs-site-appearance-head {
+	padding: var(--but-padding-list);
+}
+
+.docs-site-appearance-rows {
 	display: flex;
 	flex-direction: column;
-	gap: var(--but-space-md);
+	padding: var(--but-padding-list);
+	gap: 1px;
+	border-top: 1px solid var(--but-border-subtle);
 }
 
-.docs-site-accent {
-	display: flex;
-	align-items: center;
-	gap: var(--but-space-lg);
-
-	& > :last-child {
-		flex: 1;
-		min-width: 0;
-
-		& input {
-			width: 100%;
-			min-width: 0;
-			font-variant-numeric: tabular-nums;
-		}
-	}
-}
-
-.docs-site-swatches {
-	display: flex;
-	gap: var(--but-space-sm);
-}
-
-/* The swatch's colour is its `color`; the picked one is ringed in it. */
+/* A colour's swatch, in a glyph's place. Its colour is its `color`; the row's own is the accent as
+   drawn, which for a colour typed in is the tokens' take on it. */
 .docs-site-swatch {
-	appearance: none;
-	width: 24px;
-	height: 24px;
-	margin: 0;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
 	border-radius: var(--but-radius-full);
-	background: radial-gradient(currentColor 8px, transparent 8.5px);
-	cursor: pointer;
-
-	&:checked {
-		box-shadow: inset 0 0 0 1.5px currentColor;
-	}
-
-	&:focus-visible {
-		outline: var(--but-focus-ring);
-	}
-}
-
-/* The accent as drawn, which for a colour typed in is the tokens' take on it. */
-.docs-site-swatch-dot {
-	width: 16px;
-	height: 16px;
-	border-radius: var(--but-radius-full);
-	background-color: var(--but-primary);
+	background-color: currentColor;
+	color: var(--but-primary);
 }
 
 /* The cards scroll between the search and the theme, which stay put. */
