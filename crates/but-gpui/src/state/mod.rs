@@ -331,8 +331,9 @@ pub struct ProjectEntry {
     pub expanded: bool,
     pub workspace: Option<Workspace>,
     pub error: Option<SharedString>,
-    /// Its folder was gone when it last failed to read, which is what `error` says then.
-    pub folder_gone: bool,
+    /// Its folder, or the repository in it, was gone when it last failed to read, which is
+    /// what `error` says then.
+    pub gone: bool,
     /// Which local branch is the target, when the failure to read it is that several track
     /// it: the project's page asks.
     pub target_choice: Option<crate::backend::TargetChoice>,
@@ -354,14 +355,18 @@ impl ProjectEntry {
         if self.error.is_none() {
             crate::backend::metrics::load_failed(&failure, err, self.workspace.as_ref());
         }
-        self.folder_gone = failure.folder_gone;
+        self.gone = failure.folder_gone || failure.repo_gone;
+        // What was read of it would only mislead, as files deleted on the way out.
+        if self.gone {
+            self.workspace = None;
+        }
         self.error = Some(load::load_error(&failure, err));
         self.target_choice = failure.target_choice;
     }
 
     /// It read, so there's nothing wrong to say.
     fn read(&mut self) {
-        self.folder_gone = false;
+        self.gone = false;
         self.error = None;
         self.target_choice = None;
     }
@@ -935,6 +940,12 @@ impl Store {
             return;
         };
         let Some(workspace) = self.workspace(selection.project()) else {
+            // Of a project that's gone only its page is left, which offers to remove it.
+            if (self.project(id)).is_some_and(|entry| entry.gone)
+                && !matches!(selection, Selection::Project(_))
+            {
+                self.select(Some(Selection::Project(id.clone())), cx);
+            }
             return;
         };
         if !self.still_there(&selection) {

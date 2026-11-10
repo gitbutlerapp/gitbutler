@@ -394,6 +394,7 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     let mut props = Props::new();
     props.insert("occurrenceCount".into(), occurrences.into());
     props.insert("folderGone".into(), failure.folder_gone.into());
+    props.insert("repoGone".into(), failure.repo_gone.into());
     props.insert("sparseIndex".into(), failure.sparse_index.into());
     props.insert(
         "targetChoice".into(),
@@ -405,7 +406,10 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     props.insert("targetUntracked".into(), untracked.into());
     error_props(err, &names, &mut props);
     queue(Kind::Usage, "repo:load_failed", props);
-    let known = failure.folder_gone || failure.sparse_index || failure.target_choice.is_some();
+    let known = failure.folder_gone
+        || failure.repo_gone
+        || failure.sparse_index
+        || failure.target_choice.is_some();
     if !known && unexpected(err) {
         report_error("Couldn't read the project".into(), err, "load", &names);
     }
