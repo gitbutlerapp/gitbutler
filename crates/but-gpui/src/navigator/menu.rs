@@ -478,9 +478,15 @@ impl Navigator {
                 items.extend(build_item(&worktree.path, cx));
                 items
             }
+            // Through its top branch, which takes the ones below it along.
+            Selection::Stack(..) => vec![
+                command(&Push),
+                command(&NewBranchOnTop).separated(),
+                command(&crate::edits::MergeBranch),
+                command(&UnapplyStack),
+            ],
             Selection::Mesh(..) => self.mesh_menu(target, cx),
-            // The rows list a stack's branches, not the stack.
-            Selection::Stack(..) | Selection::Section(..) => Vec::new(),
+            Selection::Section(..) => Vec::new(),
         }
     }
 }

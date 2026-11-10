@@ -351,11 +351,11 @@ fn drag_zone(
 /// and bottom quarter of a commit, into it between, and to the top of a branch from its heading.
 /// They make no new branch but the zone's, whose stops would share a gap with others. A branch
 /// goes where the pointer is, above another from the top half of it and its commits and below it
-/// from the bottom half, either side of the line between stacks too. Files go into a commit or a
-/// worktree's changes, whichever row they're over, and a worktree's changes onto a branch start a
-/// commit there; they make no new branch.
+/// from the bottom half. Files go into a commit or a worktree's changes, whichever row they're
+/// over, and a worktree's changes onto a branch start a commit there; they make no new branch.
+/// An open stack's caption is aimed at as the top of the branch listed right under it.
 fn stop_at(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32) -> Option<Stop> {
-    let (ix, y) = row_at(rows, depth)?;
+    let (ix, y) = aimed_at(rows, depth)?;
     match what {
         Moving::Commits(_) => commit_stop(rows, ix, y, project),
         Moving::Branch(_) => branch_stop(rows, ix, y, project),
@@ -407,9 +407,22 @@ fn row_at(rows: &[Row], depth: f32) -> Option<(usize, f32)> {
     None
 }
 
+/// The row the pointer `depth` down `rows` aims at, and how far down it, as [`row_at`] says,
+/// but an open stack's caption stands for the top of the branch listed right under it: its top
+/// one, or under the filter the first that matches, where the divider then shows it lands.
+fn aimed_at(rows: &[Row], depth: f32) -> Option<(usize, f32)> {
+    let (ix, y) = row_at(rows, depth)?;
+    match (rows.get(ix), rows.get(ix + 1)) {
+        (Some(Row::Item(Selection::Stack(..))), Some(Row::Item(Selection::Branch(..)))) => {
+            Some((ix + 1, 0.))
+        }
+        _ => Some((ix, y)),
+    }
+}
+
 /// Whether `depth` down `rows` is over what's moving, where it started.
 fn over_own_row(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32) -> bool {
-    let row = row_at(rows, depth).and_then(|(ix, _)| rows.get(ix));
+    let row = aimed_at(rows, depth).and_then(|(ix, _)| rows.get(ix));
     matches!(row, Some(Row::Item(item)) if what.holds(project, item))
 }
 
@@ -456,14 +469,6 @@ fn branch_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId) -> Option<S
     let row = rows.get(ix)?;
     match row {
         Row::NewBranch(p) if p == project => return Some(Stop::NewStack { first: false }),
-        Row::Between(p) if p == project && y >= 0.5 => {
-            let (_, next) = next_branch(rows, ix + 1, project)?;
-            return Some(new_branch(next, false));
-        }
-        Row::Between(p) if p == project => {
-            let (_, above) = branch_above(rows, ix, project)?;
-            return Some(new_branch(above, true));
-        }
         Row::Item(Selection::Branch(p, Some(_)) | Selection::Commit(p, _)) if p == project => {}
         _ => return None,
     }
@@ -494,24 +499,12 @@ fn branch_above<'a>(
     })
 }
 
-/// The first named branch of `project` listed from row `start`, by its row.
-fn next_branch<'a>(
-    rows: &'a [Row],
-    start: usize,
-    project: &ProjectId,
-) -> Option<(usize, &'a FullName)> {
-    (rows.iter().enumerate().skip(start)).find_map(|(at, row)| match row {
-        Row::Item(Selection::Branch(p, Some(name))) if p == project => Some((at, name)),
-        _ => None,
-    })
-}
-
 /// Whether `row` comes after a branch's commits rather than among them.
 fn ends_branch(row: Option<&Row>) -> bool {
     matches!(
         row,
         Some(
-            Row::Item(Selection::Branch(..))
+            Row::Item(Selection::Branch(..) | Selection::Stack(..))
                 | Row::Between(_)
                 | Row::Gap
                 | Row::WorktreeDivider
@@ -651,29 +644,8 @@ mod tests {
     }
 
     #[test]
-    fn the_line_between_stacks_is_no_stop_for_a_commit() {
-        let rows = Vec::from([
-            branch("ui"),
-            commit(3),
-            Row::Between(project()),
-            branch("api"),
-        ]);
-        let line = 2. * ROW_HEIGHT + 6.;
-        assert_eq!(
-            stop_at(&rows, &project(), &commits(&[id(9)]), line),
-            None,
-            "what's dragged goes back where it is there"
-        );
-    }
-
-    #[test]
     fn the_pointer_over_no_stop_sends_what_is_dragged_back() {
-        let rows = Vec::from([
-            branch("ui"),
-            commit(3),
-            Row::Between(project()),
-            branch("api"),
-        ]);
+        let rows = Vec::from([branch("ui"), commit(3), Row::WorktreeDivider, branch("api")]);
         let line = 2. * ROW_HEIGHT + 6.;
         assert_eq!(
             drag_zone(&rows, &project(), &commits(&[id(9)]), line, |_, _| { true }),
@@ -1009,25 +981,24 @@ mod tests {
     }
 
     #[test]
-    fn the_line_between_stacks_splits_a_branch_either_side_of_it() {
+    fn the_end_of_a_stack_splits_a_branch_either_side_of_it() {
         let dragged = Moving::Branch(full("refs/heads/x"));
         let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
-        let line = 12.;
         assert_eq!(
-            stop_at(&rows, &project(), &dragged, ROW_HEIGHT + 0.25 * line),
+            stop_at(&rows, &project(), &dragged, depth(0., 0.75)),
             Some(Stop::NewBranch {
                 beside: full("refs/heads/ui"),
                 below: true
             }),
-            "above the line it joins the stack that ends there"
+            "low on the last branch it joins the stack that ends there"
         );
         assert_eq!(
-            stop_at(&rows, &project(), &dragged, ROW_HEIGHT + 0.75 * line),
+            stop_at(&rows, &project(), &dragged, depth(1., 0.25)),
             Some(Stop::NewBranch {
                 beside: full("refs/heads/api"),
                 below: false
             }),
-            "below it, the stack that starts there"
+            "high on the next one, the stack that starts there"
         );
     }
 
@@ -1046,6 +1017,37 @@ mod tests {
     }
 
     #[test]
+    fn a_stacks_caption_aims_at_the_top_of_its_top_branch() {
+        let caption = Row::Item(Selection::Stack(project(), Some(full("refs/heads/api"))));
+        let rows = Vec::from([caption, branch("ui"), commit(3), branch("api"), commit(1)]);
+        let on_caption = depth(0., 0.5);
+        assert_eq!(
+            stop_at(&rows, &project(), &commits(&[id(9)]), on_caption),
+            Some(top_of("ui")),
+            "commits dropped on it go to the top of the stack"
+        );
+        assert_eq!(
+            stop_at(
+                &rows,
+                &project(),
+                &Moving::Branch(full("refs/heads/x")),
+                on_caption
+            ),
+            Some(Stop::NewBranch {
+                beside: full("refs/heads/ui"),
+                below: false
+            }),
+            "a branch dropped on it goes on top of the stack"
+        );
+        let top = Moving::Branch(full("refs/heads/ui"));
+        assert_eq!(
+            drag_zone(&rows, &project(), &top, on_caption, |_, _| true),
+            None,
+            "the top branch itself, dragged over its caption, goes back where it is"
+        );
+    }
+
+    #[test]
     fn a_branch_goes_below_the_last_one_of_its_stack() {
         let dragged = Moving::Branch(full("refs/heads/x"));
         let rows = Vec::from([
@@ -1060,7 +1062,7 @@ mod tests {
                 beside: full("refs/heads/ui"),
                 below: true
             }),
-            "the line says the stack ends there"
+            "the mark says the stack ends there"
         );
     }
 }
