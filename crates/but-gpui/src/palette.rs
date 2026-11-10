@@ -20,6 +20,7 @@ use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, FullName, RemoteCommit, Workspace, Worktree,
     short_ref,
 };
+use crate::clipboard;
 use crate::commands::{COMMANDS, Command};
 use crate::detail::Detail;
 use crate::edits::Discard;
@@ -1722,7 +1723,11 @@ impl AppView {
             return;
         }
         let choices = (copies.into_iter())
-            .map(|(label, text)| Choice::new(label, move |this, _, cx| this.copy_text(text, cx)))
+            .map(|(label, text)| {
+                Choice::new(label, move |this, _, cx| {
+                    clipboard::copy(&this.store, text, cx)
+                })
+            })
             .collect();
         let place = store.place(&selection);
         self.open_picker(Some(place), "Copy", "Copy", choices, window, cx);

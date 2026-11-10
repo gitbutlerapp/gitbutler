@@ -57,6 +57,7 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
     }
 }
 use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::clipboard;
 use crate::detail::Stop;
 use crate::navigator::upstream_label;
 use crate::overlays::{MenuItem, has_keys};
@@ -2178,7 +2179,7 @@ impl Detail {
             items.push(MenuItem::keyed(label, copy, cx, move |this, _, cx| {
                 let patch = (this.detail).update(cx, |detail, cx| detail.copy_patch(in_list, cx));
                 if let Some(patch) = patch {
-                    this.copy_text(patch, cx)
+                    clipboard::copy(&this.store, patch, cx)
                 }
             }));
         }
@@ -2196,10 +2197,10 @@ impl Detail {
             // The commands copy the file under the cursor, which is never on a folder.
             true => [
                 MenuItem::new("Copy relative path", move |this, _, cx| {
-                    this.copy_text(relative.clone(), cx)
+                    clipboard::copy(&this.store, relative.clone(), cx)
                 }),
                 MenuItem::new("Copy absolute path", move |this, _, cx| {
-                    this.copy_text(full.clone(), cx)
+                    clipboard::copy(&this.store, full.clone(), cx)
                 }),
             ],
         });

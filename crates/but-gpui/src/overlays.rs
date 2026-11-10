@@ -15,6 +15,7 @@ use crate::app::{
     ShowContextMenu,
 };
 use crate::backend::{self, FullName, short_ref};
+use crate::clipboard;
 use crate::commands::Command;
 use crate::edits::Discard;
 use crate::help::OpenReleaseNotes;
@@ -1028,6 +1029,9 @@ impl AppView {
                     ..
                 } => {
                     let copied = detail.to_string();
+                    let copy_error = cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        clipboard::copy_error(&this.store, copied.clone(), cx)
+                    });
                     let retry = retry.clone().map(|(label, run)| {
                         button(("retry", id), label).small().on_click(cx.listener(
                             move |this, _: &ClickEvent, _, cx| {
@@ -1080,13 +1084,7 @@ impl AppView {
                                             button(("copy-error", id), "Copy error message")
                                                 .small()
                                                 .style(ButtonStyle::Ghost)
-                                                .on_click(move |_, _, cx| {
-                                                    cx.write_to_clipboard(
-                                                        gpui::ClipboardItem::new_string(
-                                                            copied.clone(),
-                                                        ),
-                                                    )
-                                                }),
+                                                .on_click(copy_error),
                                         )
                                     })
                                     .child(

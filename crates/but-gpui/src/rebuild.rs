@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use futures::StreamExt as _;
 use gpui::{
-    App, ClipboardItem, Context, DismissEvent, EventEmitter, FocusHandle, Focusable, FollowMode,
-    FontWeight, HighlightStyle, Hsla, ListAlignment, ListState, SharedString, StyledText, Task,
-    Window, div, list, prelude::*,
+    App, Context, DismissEvent, EventEmitter, FocusHandle, Focusable, FollowMode, FontWeight,
+    HighlightStyle, Hsla, ListAlignment, ListState, SharedString, StyledText, Task, Window, div,
+    list, prelude::*,
 };
 
 use crate::app::{AppView, BuildAndRestart, BuildAndRestartFromHere};
@@ -19,6 +19,7 @@ use crate::backend::{
     self,
     rebuild::{Build, Printed, Rebuild},
 };
+use crate::clipboard;
 use crate::palette::Choice;
 use crate::state::Store;
 use crate::theme::Theme;
@@ -425,7 +426,7 @@ impl BuildOutput {
     fn copy(&self, cx: &mut Context<Self>) {
         let lines: Vec<&str> = self.lines.iter().map(|line| line.text.as_ref()).collect();
         let text = lines.join("\n");
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        clipboard::copy_saying(&self.store, text, "Copied the build output", cx);
     }
 }
 

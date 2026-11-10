@@ -8,8 +8,8 @@ use std::ops::Range;
 use std::time::Duration;
 
 use gpui::{
-    App, Bounds, ClipboardItem, ContentMask, Context, CursorStyle, ElementId, ElementInputHandler,
-    Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
+    App, Bounds, ContentMask, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
+    EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     Role, ScrollHandle, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window,
     WrappedLine, actions, div, fill, point, prelude::*, relative, size,
@@ -17,6 +17,7 @@ use gpui::{
 use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::fixed;
+use crate::clipboard;
 use crate::theme::Theme;
 
 actions!(
@@ -864,7 +865,7 @@ impl TextInput {
     }
 
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+        if let Some(text) = clipboard::text(cx) {
             if self.line_editor && text.contains(['\n', '\r']) {
                 return cx.emit(LineEvent::Paste(text));
             }
@@ -884,7 +885,7 @@ impl TextInput {
             && !self.masked
             && let Some(text) = self.content.get(self.selected_range.clone())
         {
-            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
+            clipboard::copy_silently(text.to_string(), cx);
         }
     }
 

@@ -14,6 +14,7 @@ use crate::backend::{
     self, Branch, Checkout, Commit, CommitId, Destination, FullName, Selected, Undiscarded,
     Workspace, short_ref,
 };
+use crate::clipboard;
 use crate::overlays::run_named;
 use crate::state::{Label, Overlay, ProjectId, Rereads, Selection, Store, snack};
 use crate::terminal::TerminalId;
@@ -1494,10 +1495,9 @@ impl AppView {
             commit.message.clone()
         };
         if text.trim().is_empty() {
-            cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
-            return snack(&self.store, "Copied an empty message", cx);
+            return clipboard::copy_saying(&self.store, text, "Copied an empty message", cx);
         }
-        self.copy_text(text, cx);
+        clipboard::copy(&self.store, text, cx);
     }
 
     /// Move `files` out of `commit` into a new commit right above it, and select that one.

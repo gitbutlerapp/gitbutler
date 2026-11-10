@@ -7,16 +7,15 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyView, App, Bounds, ClipboardItem, Context, DispatchPhase, Div, DragMoveEvent, Entity,
-    ExternalPaths, FocusHandle, Focusable, FontFeatures, KeyDownEvent, ModifiersChangedEvent,
-    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
-    PromptLevel, Role, SharedString, StyleRefinement, Subscription, Task, WeakEntity, Window,
-    actions, div, prelude::*, relative,
+    AnyView, App, Bounds, Context, DispatchPhase, Div, DragMoveEvent, Entity, ExternalPaths,
+    FocusHandle, Focusable, FontFeatures, KeyDownEvent, ModifiersChangedEvent, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point, PromptLevel, Role,
+    SharedString, StyleRefinement, Subscription, Task, WeakEntity, Window, actions, div,
+    prelude::*, relative,
 };
 
 use crate::backend::upstream::UpdateScope;
 use crate::backend::{self, Checkout, short_ref};
-use crate::clock;
 use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
 use crate::navigator::{Navigator, NavigatorTabs, TerminalOverview};
@@ -40,6 +39,7 @@ use crate::ui::{
     dp, fixed, gap_divider, gap_junction, h_flex, icon_button, mark_dragged, placed, resize_pane,
     small_icon, tile_card, tile_content, v_flex,
 };
+use crate::{clipboard, clock};
 
 // Named in the keymap as area::Action, by where they act.
 actions!(
@@ -161,15 +161,6 @@ actions!(
         CopyErrorMessage,
     ]
 );
-
-/// Register `A` on `el` as copying `text`.
-fn copy_on<A: gpui::Action>(
-    el: gpui::Stateful<gpui::Div>,
-    text: String,
-    cx: &Context<AppView>,
-) -> gpui::Stateful<gpui::Div> {
-    el.on_action(cx.listener(move |this, _: &A, _, cx| this.copy_text(text.clone(), cx)))
-}
 
 pub struct AppView {
     pub store: Entity<Store>,
@@ -2050,37 +2041,42 @@ impl AppView {
     ) -> gpui::Stateful<gpui::Div> {
         let store = self.store.read(cx);
         let el = el.when_some(self.pull_request_url(cx), |el, url| {
-            copy_on::<CopyPullRequestLink>(el, url, cx)
+            clipboard::copy_on::<CopyPullRequestLink>(el, &self.store, url)
         });
         let path = |path: &std::path::Path| path.display().to_string();
         match store.selection.as_ref() {
             Some(Selection::Commit(_, id) | Selection::Upstream(_, _, id)) => {
-                copy_on::<CopyCommitId>(el, id.0.to_string(), cx)
+                clipboard::copy_on::<CopyCommitId>(el, &self.store, id.0.to_string())
             }
             Some(Selection::Branch(_, Some(ref_name))) => {
-                copy_on::<CopyBranchName>(el, short_ref(ref_name).into_owned(), cx)
+                let name = short_ref(ref_name).into_owned();
+                clipboard::copy_on::<CopyBranchName>(el, &self.store, name)
             }
             Some(Selection::Project(project)) => {
                 let error =
                     (store.project(project)).and_then(|p| Some(p.error.clone()?.to_string()));
                 el.when_some(store.path(project), |el, dir| {
-                    copy_on::<CopyPath>(el, path(&dir), cx)
+                    clipboard::copy_on::<CopyPath>(el, &self.store, path(&dir))
                 })
                 .when_some(error, |el, error| {
-                    copy_on::<CopyErrorMessage>(el, error, cx)
+                    let store = self.store.clone();
+                    el.on_action(move |_: &CopyErrorMessage, _, cx| {
+                        clipboard::copy_error(&store, error.clone(), cx)
+                    })
                 })
             }
             Some(Selection::Checkout(project, Checkout::Linked(name))) => {
                 let worktree =
                     (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()));
                 el.when_some(worktree, |el, worktree| {
-                    copy_on::<CopyPath>(el, path(&worktree.path), cx)
+                    clipboard::copy_on::<CopyPath>(el, &self.store, path(&worktree.path))
                 })
             }
-            Some(Selection::Mesh(project, id, MeshPick::Checkout)) => el
-                .when_some(store.mesh_checkout(project, id), |el, checkout| {
-                    copy_on::<CopyPath>(el, checkout.path.clone(), cx)
-                }),
+            Some(Selection::Mesh(project, id, MeshPick::Checkout)) => {
+                el.when_some(store.mesh_checkout(project, id), |el, checkout| {
+                    clipboard::copy_on::<CopyPath>(el, &self.store, checkout.path.clone())
+                })
+            }
             _ => el,
         }
     }
@@ -2147,7 +2143,7 @@ impl AppView {
             if selected {
                 (self.navigator).update(cx, |navigator, cx| navigator.blink_selection(cx));
             }
-            self.copy_text(text, cx);
+            clipboard::copy(&self.store, text, cx);
         }
     }
 
@@ -2176,13 +2172,6 @@ impl AppView {
             || self.palette.is_some()
             || self.modal.is_some()
             || self.icon_picker.is_some()
-    }
-
-    /// Put `text` on the clipboard and say so.
-    pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
-        let message = copied(&text);
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
-        snack(&self.store, message, cx);
     }
 
     fn update_selected_project(&mut self, scope: UpdateScope, cx: &mut Context<Self>) {
@@ -3236,7 +3225,7 @@ impl AppView {
     /// Copy how the selected row's tiles are laid out, drawn in text, each by its name.
     fn copy_tile_diagram(&mut self, cx: &mut Context<Self>) {
         if let Some(diagram) = self.tile_diagram(cx) {
-            self.copy_text(diagram, cx);
+            clipboard::copy(&self.store, diagram, cx);
         }
     }
 
@@ -4309,16 +4298,18 @@ impl AppView {
         let store = self.store.clone();
         cx.spawn(async move |_, cx| {
             let saved = backend::run(move || backend::screenshot::window(number)).await;
-            store.update(cx, |store, cx| match saved {
+            cx.update(|cx| match saved {
                 Ok((path, png)) => {
                     let image = gpui::Image::from_bytes(gpui::ImageFormat::Png, png);
-                    cx.write_to_clipboard(ClipboardItem::new_image(&image));
                     let name = path
                         .file_name()
                         .map(|name| name.to_string_lossy().into_owned());
-                    store.snack(format!("Saved and copied {}", name.unwrap_or_default()), cx);
+                    let message = format!("Saved and copied {}", name.unwrap_or_default());
+                    clipboard::copy_image(&store, &image, message, cx);
                 }
-                Err(err) => store.failed("Couldn't take a screenshot", &err, cx),
+                Err(err) => store.update(cx, |store, cx| {
+                    store.failed("Couldn't take a screenshot", &err, cx)
+                }),
             })
         })
         .detach();
@@ -5787,21 +5778,6 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
         .with_diff_font(prefs.diff_font.as_deref(), digit)
         .with_ligatures(prefs.ligatures)
         .with_terminal_font(prefs.terminal_font.as_deref(), &ghostty, installed)
-}
-
-/// What the snackbar says after copying `text`: the text itself when it's short.
-pub(crate) fn copied(text: &str) -> String {
-    took("Copied", text)
-}
-
-/// What the snackbar says after `verb`, as "Copied" or "Cut", took `text`: the text itself
-/// when it's short, else how much of it.
-pub(crate) fn took(verb: &str, text: &str) -> String {
-    match text.lines().count() {
-        0 | 1 if text.chars().count() <= 64 => format!("{verb} {text}"),
-        0 | 1 => format!("{verb} the selection"),
-        lines => format!("{verb} {lines} lines"),
-    }
 }
 
 /// Have AppKit show the window's cursor again. GPUI tells it only when the cursor it wants
