@@ -24,6 +24,13 @@ const accents = [
 				: [[accent, declarationsIn(block)]],
 	),
 ];
+// Every ground a person can pick, as the declarations it changes; gray changes none.
+const grounds = [
+	["gray", []],
+	...[...css.matchAll(/:root\[data-but-ground="(\w+)"\]\s*\{([\s\S]*?)\n\}/g)].map(
+		([, ground, block]) => [ground, declarationsIn(block)],
+	),
+];
 // The declarations in force for the accent being checked.
 let declarations = defaults;
 
@@ -95,20 +102,21 @@ const pairs = [
 ];
 
 const failures = [];
-for (const [accent, overrides] of accents) {
-	declarations = new Map([...defaults, ...overrides]);
-	for (const mode of ["light", "dark"]) {
-		const background = resolve("var(--but-background)", mode);
-		for (const [text, ground, floor] of pairs) {
-			const on = over(resolve(`var(--but-${ground})`, mode), background);
-			const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
-			if (ratio < floor)
-				failures.push(
-					`${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
-				);
+for (const [groundName, groundOverrides] of grounds)
+	for (const [accent, overrides] of accents) {
+		declarations = new Map([...defaults, ...groundOverrides, ...overrides]);
+		for (const mode of ["light", "dark"]) {
+			const background = resolve("var(--but-background)", mode);
+			for (const [text, ground, floor] of pairs) {
+				const on = over(resolve(`var(--but-${ground})`, mode), background);
+				const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
+				if (ratio < floor)
+					failures.push(
+						`${groundName.padEnd(5)} ${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
+					);
+			}
 		}
 	}
-}
 
 if (failures.length) {
 	process.stderr.write(
@@ -117,5 +125,5 @@ if (failures.length) {
 	process.exit(1);
 }
 process.stdout.write(
-	`check-contrast: all ${pairs.length} pairs read in light and dark, with each accent (${accents.length - SAMPLES.length} named and ${SAMPLES.length} custom).\n`,
+	`check-contrast: all ${pairs.length} pairs read in light and dark, with each accent (${accents.length - SAMPLES.length} named and ${SAMPLES.length} custom) on each ground (${grounds.map(([name]) => name).join(", ")}).\n`,
 );

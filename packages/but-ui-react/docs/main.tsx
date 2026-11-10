@@ -1,10 +1,12 @@
 import { renderFrame } from "./frame.tsx";
 import {
 	paintAccent,
+	paintGround,
 	paintDensity,
 	paintRadius,
 	paintTheme,
 	savedAccent,
+	savedGround,
 	savedDensity,
 	savedRadius,
 	savedTheme,
@@ -21,6 +23,7 @@ if (story !== null) {
 } else if (root !== null) {
 	paintTheme(savedTheme());
 	paintAccent(savedAccent());
+	paintGround(savedGround());
 	paintRadius(savedRadius());
 	paintDensity(savedDensity());
 	createRoot(root).render(<Site />);

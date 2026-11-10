@@ -97,6 +97,68 @@
 			}
 		}
 	},
+	"ground": {
+		"attribute": "data-but-ground",
+		"default": "gray",
+		"values": {
+			"gray": {
+				"gray-1": "gray-1",
+				"gray-2": "gray-2",
+				"gray-3": "gray-3",
+				"gray-4": "gray-4",
+				"gray-5": "gray-5",
+				"gray-6": "gray-6",
+				"gray-7": "gray-7",
+				"gray-8": "gray-8",
+				"gray-9": "gray-9",
+				"gray-10": "gray-10",
+				"gray-11": "gray-11",
+				"gray-12": "gray-12"
+			},
+			"slate": {
+				"gray-1": "slate-1",
+				"gray-2": "slate-2",
+				"gray-3": "slate-3",
+				"gray-4": "slate-4",
+				"gray-5": "slate-5",
+				"gray-6": "slate-6",
+				"gray-7": "slate-7",
+				"gray-8": "slate-8",
+				"gray-9": "slate-9",
+				"gray-10": "slate-10",
+				"gray-11": "slate-11",
+				"gray-12": "slate-12"
+			},
+			"sage": {
+				"gray-1": "sage-1",
+				"gray-2": "sage-2",
+				"gray-3": "sage-3",
+				"gray-4": "sage-4",
+				"gray-5": "sage-5",
+				"gray-6": "sage-6",
+				"gray-7": "sage-7",
+				"gray-8": "sage-8",
+				"gray-9": "sage-9",
+				"gray-10": "sage-10",
+				"gray-11": "sage-11",
+				"gray-12": "sage-12"
+			},
+			"sand": {
+				"gray-1": "sand-1",
+				"gray-2": "sand-2",
+				"gray-3": "sand-3",
+				"gray-4": "sand-4",
+				"gray-5": "sand-5",
+				"gray-6": "sand-6",
+				"gray-7": "sand-7",
+				"gray-8": "sand-8",
+				"gray-9": "sand-9",
+				"gray-10": "sand-10",
+				"gray-11": "sand-11",
+				"gray-12": "sand-12"
+			}
+		}
+	},
 	"radius": {
 		"attribute": "data-but-radius",
 		"default": "soft",

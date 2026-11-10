@@ -2,6 +2,7 @@ import { liftComposedColors } from "./composed-colors.mjs";
 import { accentSamples } from "./accent-samples.mjs";
 import { accentCss, accentSetting } from "./generate-accents.mjs";
 import { densityCss, densitySetting } from "./generate-density.mjs";
+import { groundCss, groundSetting } from "./generate-grounds.mjs";
 import { radiusCss, radiusSetting } from "./generate-radius.mjs";
 import { generateShadowVars } from "./generate-shadow-vars.mjs";
 import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
@@ -150,13 +151,16 @@ function postprocessTokens() {
 	const accent = accentSetting(tokensCss);
 	const radius = radiusSetting(tokensCss);
 	const density = densitySetting(tokensCss);
+	const ground = groundSetting(tokensCss);
 	write(
 		TOKENS_CSS_PATH,
-		[tokensCss, accentCss(accent), radiusCss(radius), densityCss(density)].join("\n"),
+		[tokensCss, accentCss(accent), groundCss(ground), radiusCss(radius), densityCss(density)].join(
+			"\n",
+		),
 	);
 	write(
 		SETTINGS_PATH,
-		`${JSON.stringify({ $description: SETTINGS_DESCRIPTION, accent, radius, density }, null, "\t")}\n`,
+		`${JSON.stringify({ $description: SETTINGS_DESCRIPTION, accent, ground, radius, density }, null, "\t")}\n`,
 	);
 	// A colour to a line, so a changed token reads as one line in a diff.
 	const data = JSON.stringify(

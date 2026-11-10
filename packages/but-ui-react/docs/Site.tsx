@@ -21,16 +21,19 @@ import {
 	PRESETS,
 	presetOf,
 	pickAccent,
+	pickGround,
 	pickDensity,
 	pickPreset,
 	pickRadius,
 	pickTheme,
 	savedAccent,
+	savedGround,
 	savedDensity,
 	savedRadius,
 	savedTheme,
 	subscribePage,
 	type Accent,
+	type Ground,
 	type Density,
 	type Radius,
 	type Theme,
@@ -198,6 +201,14 @@ const ACCENTS: Array<{ name: string; accent: Accent; hex: string }> = [
 	{ name: "Red", accent: "#D5412A", hex: "#D5412A" },
 ];
 
+/** Gray, Figma's, and the tinted grays, each drawn by its own step 9. */
+const GROUNDS: Record<Ground, { name: string }> = {
+	gray: { name: "Gray" },
+	slate: { name: "Slate" },
+	sage: { name: "Sage" },
+	sand: { name: "Sand" },
+};
+
 const RADII: Record<Radius, { name: string; icon: IconName }> = {
 	sharp: { name: "Sharp", icon: "corner-none" },
 	soft: { name: "Soft", icon: "corner-small" },
@@ -224,6 +235,7 @@ const Appearance: FC = () => {
 	const [density, setDensity] = useState(savedDensity);
 	const [theme, setTheme] = useState(savedTheme);
 	const [accent, setAccent] = useState(savedAccent);
+	const [ground, setGround] = useState(savedGround);
 	// Not kept on its own: the corners and density make it, or make it Custom.
 	const preset = presetOf(radius, density);
 
@@ -308,7 +320,7 @@ const Appearance: FC = () => {
 						</MenuRadioGroup>
 					</Setting>
 					<Setting
-						name="Color"
+						name="Accent"
 						icon={<span className="docs-site-swatch" />}
 						value={ACCENTS.find((a) => a.accent === accent)?.name ?? accent}
 					>
@@ -324,6 +336,31 @@ const Appearance: FC = () => {
 									key={name}
 									value={value}
 									leading={<span className="docs-site-swatch" style={{ color: hex }} />}
+								>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
+					<Setting
+						name="Ground"
+						icon={<span className="docs-site-swatch" style={{ color: `var(--but-${ground}-9)` }} />}
+						value={GROUNDS[ground].name}
+					>
+						<MenuRadioGroup
+							value={ground}
+							onValueChange={(next) => {
+								setGround(next as Ground);
+								pickGround(next as Ground);
+							}}
+						>
+							{Object.entries(GROUNDS).map(([value, { name }]) => (
+								<MenuRadioItem
+									key={value}
+									value={value}
+									leading={
+										<span className="docs-site-swatch" style={{ color: `var(--but-${value}-9)` }} />
+									}
 								>
 									{name}
 								</MenuRadioItem>

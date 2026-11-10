@@ -23,6 +23,11 @@ const out = join(dirname(fileURLToPath(import.meta.url)), "../tokens/ramps.json"
 // except amber, whose fill stays bright under dark text, as Radix draws its bright hues.
 const HUES = {
 	gray: { seed: "#888888" },
+	// The grounds a person can pick in place of gray: Radix's tinted grays, cool, green and warm,
+	// whose tint is a whisper on the grounds and text and fullest around the lines and marks.
+	slate: { ground: "slate" },
+	sage: { ground: "sage" },
+	sand: { ground: "sand" },
 	teal: { seed: "#25b1b1", label: "white" },
 	green: { seed: "#2eb87e", label: "white" },
 	amber: { seed: "#f99406", label: "dark" },
@@ -63,6 +68,21 @@ function apca(text, ground) {
 // Whether a label of colour `on` reads on `fill`.
 function reads(on, fill) {
 	return wcag(on, fill) >= TEXT && apca(on, fill) >= LABEL_LC;
+}
+
+// `hex`'s tint at the luminance of `like`: its OKLCH lightness found by halving, its hue and
+// chroma kept. A ground's steps take gray's, so every pair that reads on gray reads on it.
+function asLight(hex, like) {
+	const c = oklch(parse(hex));
+	const want = luminance(like);
+	let [lo, hi] = [0, 1];
+	for (let i = 0; i < 40; i++) {
+		const mid = (lo + hi) / 2;
+		const at = formatHex(clampChroma({ ...c, l: mid }, "oklch"));
+		if (luminance(at) < want) lo = mid;
+		else hi = mid;
+	}
+	return formatHex(clampChroma({ ...c, l: (lo + hi) / 2 }, "oklch"));
 }
 
 // Moves a colour's OKLCH lightness by `dl`, keeping its hue, and back into sRGB.
@@ -111,9 +131,21 @@ const generators = {
 
 const ramps = {};
 const report = [];
-for (const [hue, { seed, label }] of Object.entries(HUES)) {
+for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 	ramps[hue] = {};
 	for (const mode of ["light", "dark"]) {
+		if (ground) {
+			// A ground is gray with a tint: Radix's tint at each step, at the luminance of gray's,
+			// so every pair that reads on gray reads on it.
+			const radixScale = radix[mode === "light" ? ground : `${ground}Dark`];
+			const s = Array.from({ length: 12 }, (_, i) => radixScale[`${ground}${i + 1}`]);
+			const gray = ramps.gray[mode];
+			ramps[hue][mode] = Object.fromEntries(
+				s.map((c, i) => [String(i + 1), asLight(c, gray[String(i + 1)])]),
+			);
+			report.push({ hue, mode, moved9: false, moved11: false, s: Object.values(ramps[hue][mode]) });
+			continue;
+		}
 		const scale = generators[mode].generate(seed).scale;
 		const s = Array.from({ length: 12 }, (_, i) => formatHex(scale[String(i + 1)]));
 		// Text darkens in light and lightens in dark: away from the grounds it sits on.
