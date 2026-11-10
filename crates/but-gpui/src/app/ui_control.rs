@@ -28,77 +28,113 @@ pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &m
     let Some(app) = window.root::<AppView>().flatten() else {
         return reply.err(RpcError::new(code::INTERNAL_ERROR, "The window has no app"));
     };
-    fn params<P: DeserializeOwned>(request: &Request) -> Result<P, RpcError> {
-        serde_json::from_value(request.params.clone()).map_err(|err| {
-            RpcError::new(
-                code::INVALID_PARAMS,
-                format!("The params don't fit {}: {err}", request.method),
-            )
-        })
-    }
-    let answer = match request.method.as_str() {
-        ui::STATE => Ok(serde_json::to_value(app.read(cx).ui_state(window, cx))),
-        ui::ACTIONS => Ok(serde_json::to_value(app.read(cx).ui_actions(window, cx))),
-        ui::DISPATCH => params::<DispatchParams>(&request).and_then(|params| {
-            app.update(cx, |app, cx| app.ui_dispatch(params, window, cx))
-                .map(|()| serde_json::to_value(()))
-        }),
-        ui::SELECT => params::<SelectParams>(&request).and_then(|params| {
-            (app.update(cx, |app, cx| app.ui_select(&params.query, window, cx)))
-                .map(serde_json::to_value)
-        }),
-        ui::FOCUS => params::<FocusParams>(&request).and_then(|params| {
-            app.update(cx, |app, cx| app.ui_focus(&params, window, cx))
-                .map(|()| serde_json::to_value(()))
-        }),
-        // Outside the app's update, because a key's handler updates the app itself. A line per
-        // update, so what an Enter submits is handled before the next line types.
-        ui::TYPE => {
-            let text = match params::<TypeParams>(&request) {
-                Ok(params) => params.text,
-                Err(err) => return reply.err(err),
-            };
-            let handle = window.window_handle();
-            cx.spawn(async move |cx| {
-                for line in text.split_inclusive('\n') {
-                    let typed = cx.update_window(handle, |_, window, cx| {
-                        // Where the keys are is read from the last frame, which a key may have
-                        // changed since.
-                        window.draw(cx).clear(cx);
-                        let text_field = app.read(cx).ui_keys(window, cx).text_field;
-                        type_text(line, text_field, window, cx)
-                    });
-                    match typed {
-                        Ok(Ok(())) => {}
-                        Ok(Err(err)) => return reply.err(err),
-                        Err(_) => {
-                            return reply
-                                .err(RpcError::new(code::INTERNAL_ERROR, "The window closed"));
-                        }
-                    }
-                }
-                reply.ok(());
-            })
-            .detach();
-            return;
+    // Where the keys are and what can act there are read from the last frame, which may be
+    // older than what the last request moved.
+    window.draw(cx).clear(cx);
+    match request.method.as_str() {
+        ui::STATE => reply.ok(app.read(cx).ui_state(window, cx)),
+        ui::ACTIONS => reply.ok(app.read(cx).ui_actions(window, cx)),
+        ui::DISPATCH => reply.answer(
+            params::<DispatchParams>(&request)
+                .and_then(|params| dispatch(&app, params, window, cx)),
+        ),
+        ui::SELECT => {
+            reply.answer(params::<SelectParams>(&request).and_then(|params| {
+                app.update(cx, |app, cx| app.ui_select(&params.query, window, cx))
+            }))
         }
-        method => Err(RpcError::new(
+        ui::FOCUS => reply.answer(
+            params::<FocusParams>(&request)
+                .and_then(|params| app.update(cx, |app, cx| app.ui_focus(&params, window, cx))),
+        ),
+        ui::TYPE => match params::<TypeParams>(&request) {
+            Ok(params) => type_lines(app, params.text, reply, window, cx),
+            Err(err) => reply.err(err),
+        },
+        method => reply.err(RpcError::new(
             code::METHOD_NOT_FOUND,
             format!("The app has no method {method}"),
         )),
-    };
-    match answer {
-        Ok(Ok(value)) => reply.ok(value),
-        Ok(Err(err)) => reply.err(RpcError::new(code::INTERNAL_ERROR, err.to_string())),
-        Err(err) => reply.err(err),
     }
+}
+
+fn params<P: DeserializeOwned>(request: &Request) -> Result<P, RpcError> {
+    serde_json::from_value(request.params.clone()).map_err(|err| {
+        RpcError::new(
+            code::INVALID_PARAMS,
+            format!("The params don't fit {}: {err}", request.method),
+        )
+    })
+}
+
+/// Give the tile and pane `params` names the keys, then run its action there.
+fn dispatch(
+    app: &gpui::Entity<AppView>,
+    params: DispatchParams,
+    window: &mut Window,
+    cx: &mut App,
+) -> Result<(), RpcError> {
+    if params.tile.is_some() || params.pane.is_some() {
+        let focus = FocusParams {
+            tile: params.tile.clone(),
+            pane: params.pane.clone(),
+        };
+        app.update(cx, |app, cx| app.ui_focus(&focus, window, cx))?;
+        // A view registers its actions' handlers as it draws.
+        window.draw(cx).clear(cx);
+    }
+    app.update(cx, |app, cx| {
+        app.ui_dispatch(&params.action, params.args, window, cx)
+    })
+}
+
+/// Type `text` where the keys are, outside the app's update, because a key's handler updates
+/// the app itself. A piece per update, ending at each Enter or Tab, so where they send the keys
+/// is settled and checked before the next piece goes in.
+fn type_lines(
+    app: gpui::Entity<AppView>,
+    text: String,
+    reply: Reply,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let handle = window.window_handle();
+    cx.spawn(async move |cx| {
+        for (typed, piece) in text.split_inclusive(['\n', '\t']).enumerate() {
+            let result = cx.update_window(handle, |_, window, cx| {
+                window.draw(cx).clear(cx);
+                let text_field = app.read(cx).ui_keys(window, cx).text_field;
+                type_text(piece, text_field, window, cx)
+            });
+            let err = match result {
+                Ok(Ok(())) => continue,
+                Ok(Err(err)) => err,
+                Err(_) => RpcError::new(code::INTERNAL_ERROR, "The window closed"),
+            };
+            return reply.err(match typed {
+                0 => err,
+                typed => RpcError::new(
+                    err.code,
+                    format!(
+                        "After typing {typed} pieces, up to an Enter or Tab: {}",
+                        err.message
+                    ),
+                ),
+            });
+        }
+        reply.ok(());
+    })
+    .detach();
 }
 
 impl AppView {
     fn ui_state(&self, window: &Window, cx: &App) -> State {
         let store = self.store.read(cx);
-        let tiles = (self.tile_ids(cx).into_iter())
-            .filter(|_| self.detail_open)
+        let shown = match self.detail_open {
+            true => self.tile_ids(cx),
+            false => Vec::new(),
+        };
+        let tiles = (shown.into_iter())
             .map(|(tile, area, id)| ui::Tile {
                 id,
                 shows: self.tile_shows(&tile, cx),
@@ -189,26 +225,18 @@ impl AppView {
 
     fn ui_dispatch(
         &mut self,
-        params: DispatchParams,
+        name: &str,
+        args: Option<serde_json::Value>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<(), RpcError> {
-        if params.tile.is_some() || params.pane.is_some() {
-            let focus = FocusParams {
-                tile: params.tile.clone(),
-                pane: params.pane.clone(),
+        let action = cx.build_action(name, args).map_err(|err| {
+            let code = match cx.all_action_names().contains(&name) {
+                true => code::INVALID_PARAMS,
+                false => code::NOT_FOUND,
             };
-            self.ui_focus(&focus, window, cx)?;
-        }
-        let action = cx
-            .build_action(&params.action, params.args)
-            .map_err(|err| {
-                let code = match cx.all_action_names().contains(&params.action.as_str()) {
-                    true => code::INVALID_PARAMS,
-                    false => code::NOT_FOUND,
-                };
-                RpcError::new(code, format!("Can't run {}: {err}", params.action))
-            })?;
+            RpcError::new(code, format!("Can't run {name}: {err}"))
+        })?;
         let wanted = action.as_any().type_id();
         let available = (window.available_actions(cx).iter())
             .any(|available| available.as_any().type_id() == wanted);
@@ -222,8 +250,7 @@ impl AppView {
             return Err(RpcError::new(
                 code::NOT_AVAILABLE,
                 format!(
-                    "{} can't act where the keys are ({place}). ui.actions lists what can, and ui.focus moves the keys.",
-                    params.action
+                    "{name} can't act where the keys are ({place}). ui.actions lists what can, and ui.focus moves the keys."
                 ),
             ));
         }
@@ -302,7 +329,7 @@ impl AppView {
                 }
                 tile
             }
-            None => self.focused_tile(window, cx),
+            None => (self.zoomed().cloned()).unwrap_or_else(|| self.focused_tile(window, cx)),
         };
         let Some(pane) = params.pane.as_deref() else {
             return Ok(());
@@ -409,21 +436,24 @@ fn type_text(
         ));
     }
     for ch in text.chars() {
-        let key = match ch {
-            '\n' => "enter".to_owned(),
-            '\t' => "tab".to_owned(),
-            ' ' => "space".to_owned(),
-            ch => ch.to_string(),
-        };
-        let mut keystroke = Keystroke::parse(&key).map_err(|err| {
-            RpcError::new(code::INVALID_PARAMS, format!("Can't type {ch:?}: {err}"))
-        })?;
-        if !ch.is_control() {
-            keystroke.key_char = Some(ch.to_string());
-        }
-        window.dispatch_keystroke(keystroke, cx);
+        window.dispatch_keystroke(keystroke_for(ch)?, cx);
     }
     Ok(())
+}
+
+fn keystroke_for(ch: char) -> Result<Keystroke, RpcError> {
+    let key = match ch {
+        '\n' => "enter".to_owned(),
+        '\t' => "tab".to_owned(),
+        ' ' => "space".to_owned(),
+        ch => ch.to_string(),
+    };
+    let mut keystroke = Keystroke::parse(&key)
+        .map_err(|err| RpcError::new(code::INVALID_PARAMS, format!("Can't type {ch:?}: {err}")))?;
+    if !ch.is_control() {
+        keystroke.key_char = Some(ch.to_string());
+    }
+    Ok(keystroke)
 }
 
 fn row_of(store: &Store, selection: &Selection) -> Row {
@@ -488,7 +518,25 @@ fn unique_ids<'a>(labels: impl IntoIterator<Item = &'a str>, taken: &[&str]) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::{types_text, unique_ids};
+    use super::{keystroke_for, types_text, unique_ids};
+
+    #[test]
+    fn every_printable_character_types_as_itself() {
+        for ch in (' '..='~').chain(['é', 'ß']) {
+            let keystroke = keystroke_for(ch).unwrap_or_else(|err| panic!("{ch:?}: {err}"));
+            assert_eq!(
+                keystroke.key_char.as_deref(),
+                Some(ch.to_string().as_str()),
+                "{ch:?}"
+            );
+            let held = keystroke.modifiers;
+            assert!(
+                !(held.control || held.alt || held.platform || held.function),
+                "{ch:?} types with at most shift held, as on a keyboard, so it runs no shortcut"
+            );
+        }
+        assert_eq!(keystroke_for('\n').unwrap().key, "enter");
+    }
 
     #[test]
     fn keys_type_text_only_in_a_field() {

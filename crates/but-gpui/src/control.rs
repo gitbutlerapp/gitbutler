@@ -32,6 +32,13 @@ impl Reply {
     pub fn err(self, error: RpcError) {
         self.answer.send(Response::err(self.id, error)).ok();
     }
+
+    pub fn answer(self, result: Result<impl Serialize, RpcError>) {
+        match result {
+            Ok(result) => self.ok(result),
+            Err(error) => self.err(error),
+        }
+    }
 }
 
 enum Incoming {
