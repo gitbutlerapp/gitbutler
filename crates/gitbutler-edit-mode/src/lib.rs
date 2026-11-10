@@ -18,7 +18,6 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_workspace::branch_trees::{WorkspaceState, merge_workspace};
 use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
 
@@ -396,21 +395,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclus
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let repo = &*ctx.repo.get()?;
 
-    #[allow(deprecated)]
-    let old_workspace_projection = workspace_from_workspace_ref(ctx)?;
-    let old_target_base_oid = old_workspace_projection
-        .target_commit
-        .as_ref()
-        .map(|target| target.commit_id)
-        .context("failed to get target base oid")?;
-    let old_head_oids = old_workspace_projection
-        .stacks
-        .iter()
-        .map(|stack| stack.tip_skip_empty().unwrap_or(old_target_base_oid))
-        .collect::<Vec<_>>();
-    let old_workspace =
-        WorkspaceState::create_from_heads_and_target(repo, &old_head_oids, old_target_base_oid)?;
-
     let head_commit = repo.head_commit()?;
     let decoded_head_commit = head_commit.decode()?;
     // Write out all the changes, including unstaged changes to a tree for re-committing
@@ -468,12 +452,11 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclus
     let worktree = uncommitted_changes_on_workspace(
         outcome.repo(),
         get_uncommitted_changes(repo)?,
-        merge_workspace(repo, &old_workspace)?,
+        workspace_commit.tree_id()?.detach(),
         new_workspace_tree,
     )?;
     but_core::worktree::overwrite_worktree(outcome.repo(), worktree, None)?;
     outcome.materialize_without_checkout()?;
-    drop(db);
     ctx.invalidate_workspace_cache()?;
     point_head_at_workspace(repo, "save edit mode")?;
     but_core::worktree::reset_index(repo, repo.head_tree_id()?.detach())?;
