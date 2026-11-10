@@ -47,9 +47,9 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     BLINK, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, TILE_MARGIN, Tooltip,
     WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, count_badge, dot, dp,
-    faint, field, fixed, fold_button, fold_glyph, fold_row, gap_divider, glow_once, guide, h_flex,
-    icon, icon_button, list_row, mark_dragged, meta_count, plural, press_in_pane, pulsing, review,
-    section_label, small_icon, spinning, unread_line, v_flex,
+    faint, field, fixed, fold_button, fold_row, gap_divider, glow_once, guide, h_flex, icon,
+    icon_button, list_row, mark_dragged, meta_count, plural, pulsing, review, section_label,
+    small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -3392,99 +3392,83 @@ impl Navigator {
                     .any(|commit| store.is_unread(id, commit))
         });
         let needs_update = target.is_some_and(|t| t.needs_update());
-        // The eye and the card's chevron, whose clicks don't select the row. While something is
-        // being moved, the eye is only part of the row, which a press puts the move at; the
-        // chevron folds the card still.
-        let moving = self.store.read(cx).moving.is_some();
-        let button = |name: &str,
-                      folds: bool,
-                      click: fn(&mut Self, &ProjectId, &mut Context<Self>)| {
-            let id = id.clone();
-            div()
-                .id(ElementId::Name(format!("{name}-{id}").into()))
-                .flex_none()
-                .size(dp(20.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(dp(theme.shape.control))
-                .when(folds || !moving, |el| {
-                    el.hover(|el| el.bg(theme.hover()))
-                        .map(|el| match folds {
-                            true => el.on_mouse_down(MouseButton::Left, press_in_pane(&self.focus)),
-                            // A button, which leaves the keys where they were.
-                            false => el
-                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()),
-                        })
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            click(this, &id, cx)
-                        }))
-                })
-        };
+        // Every project wears one, the glyph's outline until one's picked, so their names line
+        // up, over the icons of the rows under it. In an icon's 16 points, an emoji a little
+        // smaller than the text. A watched project's card folds from it, still watched.
+        let glyph = div()
+            .flex_none()
+            .w(dp(16.))
+            .flex()
+            .justify_center()
+            .text_size(dp(13.))
+            .child(project_glyph(store, id, style.muted(), theme));
+        let glyph = self.fold(
+            ElementId::Name(format!("fold-project-{id}").into()),
+            glyph,
+            expanded.then_some(!card_folded),
+            style.quiet(),
+            cx,
+            {
+                let id = id.clone();
+                move |this, _, cx| this.toggle_project(&id, cx)
+            },
+        );
+        // Whether the app watches the project, as a watched one is loaded and kept current,
+        // and under the pointer what a click makes it. Named by what it does, so its tooltip
+        // goes with the click. Its click doesn't select the row, and while something is being
+        // moved it's only part of the row, which a press puts the move at.
+        let moving = store.moving.is_some();
+        let eye = div()
+            .id(ElementId::Name(
+                format!("{}-{id}", if expanded { "unwatch" } else { "watch" }).into(),
+            ))
+            .flex_none()
+            .size(dp(20.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(dp(theme.shape.control))
+            .child(
+                watch_glyph(expanded != hovered).text_color(match (hovered, style.solid) {
+                    (false, _) => style.muted(),
+                    (true, true) => theme.text_inverted,
+                    (true, false) => theme.text_1,
+                }),
+            )
+            .when(!moving, |el| {
+                let id = id.clone();
+                el.hover(|el| el.bg(theme.hover()))
+                    // A button, which leaves the keys where they were.
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        cx.stop_propagation();
+                        // The row moves to the other card, from under the pointer.
+                        this.watch_hovered = None;
+                        this.store.update(cx, |store, cx| {
+                            let expanded = store.project(&id).is_some_and(|p| p.expanded);
+                            store.set_expanded(&id, !expanded, cx)
+                        });
+                    }))
+            })
+            .on_hover(cx.listener({
+                let id = id.clone();
+                move |this, on: &bool, _, cx| {
+                    this.watch_hovered = on.then(|| id.clone());
+                    cx.notify()
+                }
+            }))
+            .tooltip(Tooltip::text(match expanded {
+                true => "Stop watching",
+                false => "Watch this project",
+            }));
         Some(
             style
-                .row(format!("project-{id}"), 0.)
+                .row(format!("project-{id}"), 6.)
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
                 .h(dp(if expanded { HEADING_HEIGHT } else { ROW_HEIGHT }))
-                .pl(dp(12.))
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
-                // The emoji, 6 points past the eye, over the worktrees' icons a step in, so the
-                // name sits over theirs.
-                .child(
-                    h_flex()
-                        .flex_none()
-                        .gap(dp(6.))
-                        .child(
-                            // Whether the app watches the project, as an open one is loaded and
-                            // kept current, and under the pointer what a click makes it.
-                            // Named by what it does, so its tooltip goes with the click.
-                            button(
-                                if expanded { "unwatch" } else { "watch" },
-                                false,
-                                |this, id, cx| {
-                                    // The row moves to the other card, from under the pointer.
-                                    this.watch_hovered = None;
-                                    this.store.update(cx, |store, cx| {
-                                        let expanded =
-                                            store.project(id).is_some_and(|p| p.expanded);
-                                        store.set_expanded(id, !expanded, cx)
-                                    });
-                                },
-                            )
-                            .child(watch_glyph(expanded != hovered).text_color(
-                                match (hovered, style.solid) {
-                                    (false, _) => style.muted(),
-                                    (true, true) => theme.text_inverted,
-                                    (true, false) => theme.text_1,
-                                },
-                            ))
-                            .on_hover(cx.listener({
-                                let id = id.clone();
-                                move |this, on: &bool, _, cx| {
-                                    this.watch_hovered = on.then(|| id.clone());
-                                    cx.notify()
-                                }
-                            }))
-                            .tooltip(Tooltip::text(match expanded {
-                                true => "Stop watching",
-                                false => "Watch this project",
-                            })),
-                        )
-                        // Every project wears one, the glyph's outline until one's picked, so
-                        // their names line up. In an icon's 16 points, an emoji a little smaller
-                        // than the text.
-                        .child(
-                            div()
-                                .flex_none()
-                                .w(dp(16.))
-                                .flex()
-                                .justify_center()
-                                .text_size(dp(13.))
-                                .child(project_glyph(store, id, style.muted(), theme)),
-                        ),
-                )
+                .child(glyph)
                 // However narrow the navigator, the name stays: what the row sums up gives way
                 // first, a whole item at a time from its end. Each item that doesn't fit wraps to
                 // a second line, which is cut off.
@@ -3521,22 +3505,7 @@ impl Navigator {
                 .when(expanded && needs_update, |el| {
                     el.child(self.target_update_button(id, style.solid, cx))
                 })
-                // A watched project's card folds to this row, still watched.
-                .when(expanded, |el| {
-                    el.child(
-                        button("fold-project", true, |this, id, cx| {
-                            this.toggle_project(id, cx)
-                        })
-                        .child(fold_glyph("fold", Some(!card_folded), style.quiet()))
-                        .tooltip(Tooltip::text(
-                            match (filtering, card_folded) {
-                                (true, _) => "Clear the filter to fold the project",
-                                (false, true) => "Show the project",
-                                (false, false) => "Fold the project, still watching it",
-                            },
-                        )),
-                    )
-                })
+                .child(eye)
                 .map(|el| self.selectable(el, item, cx))
                 // Under the filter too, where `toggle_project` leaves a card open but still
                 // watches a project the filter found.
@@ -4732,8 +4701,8 @@ fn stack_tooltip(
 }
 
 /// What ⇧← goes up to from `selection`: a branch in a stack its stack's caption, and a stack,
-/// a branch alone, a terminal or uncommitted changes its worktree's heading. Not while a commit
-/// is edited, which lists its files without one.
+/// a branch alone, a terminal or uncommitted changes its worktree's heading, else the project's
+/// row standing in for it. Not while a commit is edited, which lists its files without one.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project();
     let workspace = store.workspace(project)?;
@@ -4750,10 +4719,13 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
         Selection::Branch(..)
         | Selection::Stack(..)
         | Selection::Terminal(..)
-        | Selection::Uncommitted(..) => Some(Selection::Checkout(
-            project.clone(),
-            store.checkout_of(selection)?,
-        )),
+        | Selection::Uncommitted(..) => {
+            let checkout = store.checkout_of(selection)?;
+            Some(match checkout.is_linked() || store.main_headed(project) {
+                true => Selection::Checkout(project.clone(), checkout),
+                false => Selection::Project(project.clone()),
+            })
+        }
         _ => None,
     }
 }

@@ -12,8 +12,8 @@ use gpui::{
 };
 
 use super::Navigator;
-use super::rows::{CARD_EDGE, Row, card_ends, span_height};
-use crate::backend::{CommitId, Destination, FullName, Messages};
+use super::rows::{CARD_EDGE, Row, card_ends, heads, span_height};
+use crate::backend::{Checkout, CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
@@ -377,15 +377,24 @@ fn op_at(what: &Moving, at: &Stop) -> Op {
     }
 }
 
+/// The checkout whose uncommitted changes row `ix` of `rows` takes for `project`: its changes',
+/// or as the heading it is or stands in for, as [`heads`] says.
+fn changes_at(rows: &[Row], ix: usize, project: &ProjectId) -> Option<Checkout> {
+    let row = rows.get(ix)?;
+    match row {
+        Row::Item(Selection::Uncommitted(p, checkout)) if p == project => Some(checkout.clone()),
+        Row::Item(item) if item.project() == project => heads(row, rows.get(ix + 1)),
+        _ => None,
+    }
+}
+
 fn file_stop(rows: &[Row], ix: usize, project: &ProjectId, from: Option<CommitId>) -> Option<Stop> {
+    if let Some(checkout) = changes_at(rows, ix, project) {
+        return Some(Stop::Into(Target::Uncommitted(checkout)));
+    }
     match rows.get(ix)? {
         Row::Item(Selection::Commit(p, id)) if p == project => {
             Some(Stop::Into(Target::Commit(*id)))
-        }
-        Row::Item(Selection::Uncommitted(p, checkout) | Selection::Checkout(p, checkout))
-            if p == project =>
-        {
-            Some(Stop::Into(Target::Uncommitted(checkout.clone())))
         }
         Row::Item(Selection::Branch(p, Some(name))) if p == project && from.is_none() => {
             Some(Stop::In(Destination::Branch(name.clone())))
@@ -427,13 +436,11 @@ fn over_own_row(rows: &[Row], project: &ProjectId, what: &Moving, depth: f32) ->
 }
 
 fn commit_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId) -> Option<Stop> {
+    if let Some(checkout) = changes_at(rows, ix, project) {
+        return Some(Stop::Into(Target::Uncommitted(checkout)));
+    }
     match rows.get(ix)? {
         Row::NewBranch(p) if p == project => Some(Stop::NewStack { first: false }),
-        Row::Item(Selection::Uncommitted(p, checkout) | Selection::Checkout(p, checkout))
-            if p == project =>
-        {
-            Some(Stop::Into(Target::Uncommitted(checkout.clone())))
-        }
         Row::Item(Selection::Branch(p, Some(name))) if p == project => {
             Some(Stop::In(Destination::Branch(name.clone())))
         }
@@ -768,6 +775,24 @@ mod tests {
             stop_at(&rows, &project(), &commits(&[id(9)]), depth(0., 0.5)),
             Some(Stop::Into(Target::Uncommitted(Checkout::Main))),
             "it uncommits there, with changes listed under it or not"
+        );
+    }
+
+    #[test]
+    fn a_project_row_takes_a_commit_into_its_changes_only_without_a_main_heading() {
+        let project_row = || Row::Item(Selection::Project(project()));
+        let alone = Vec::from([project_row(), branch("ui")]);
+        assert_eq!(
+            stop_at(&alone, &project(), &commits(&[id(9)]), depth(0., 0.2)),
+            Some(Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "it stands in for the main checkout's heading, which its card leaves out"
+        );
+        let main = Row::Item(Selection::Checkout(project(), Checkout::Main));
+        let headed = Vec::from([project_row(), main]);
+        assert_eq!(
+            stop_at(&headed, &project(), &commits(&[id(9)]), depth(0., 0.2)),
+            None,
+            "beside other checkouts the main one's own heading takes it"
         );
     }
 

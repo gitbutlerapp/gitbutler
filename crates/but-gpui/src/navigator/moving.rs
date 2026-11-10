@@ -10,7 +10,7 @@ use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelu
 
 use super::order::moving_terminal;
 use super::rows::{
-    COMMIT_INDENT, Fold, Row, RowKey, Rows, listed_with, lists_changes, span_height,
+    COMMIT_INDENT, Fold, Row, RowKey, Rows, heads, listed_with, lists_changes, span_height,
 };
 use super::{Navigator, RowStyle};
 use crate::app::{
@@ -228,11 +228,13 @@ fn starts_commit_in(moving: &Move, store: &Store, item: &Selection) -> bool {
         && matches!(&moving.at, Stop::In(Destination::Branch(at)) if at == name)
 }
 
-/// Whether `item` is the heading of the checkout a squash uncommits into, with no changes listed
-/// under it to take the outline.
+/// Whether `item` is the heading of the checkout a squash uncommits into, or the project's row
+/// standing in for it, with no changes listed under it to take the outline.
 fn heading_takes(moving: &Move, store: &Store, item: &Selection) -> bool {
-    let Selection::Checkout(project, checkout) = item else {
-        return false;
+    let (project, checkout) = match item {
+        Selection::Checkout(project, checkout) => (project, checkout),
+        Selection::Project(project) if !store.main_headed(project) => (project, &Checkout::Main),
+        _ => return false,
     };
     matches!(&moving.at, Stop::Into(Target::Uncommitted(at)) if at == checkout)
         && *project == moving.project
@@ -387,7 +389,8 @@ pub(super) fn stops<'a>(
     // The main checkout's stacks are listed now, which a new stack goes after, and before
     // the first of them, until that's listed.
     let (mut in_main, mut before_first) = (false, false);
-    for row in rows {
+    let mut rows = rows.into_iter().peekable();
+    while let Some(row) = rows.next() {
         if before_first
             && matches!(row, Row::Item(Selection::Branch(p, _) | Selection::Stack(p, _)) if p == project)
         {
@@ -395,7 +398,11 @@ pub(super) fn stops<'a>(
             stops.push(Stop::NewStack { first: true });
         }
         match row {
-            Row::Item(heading @ Selection::Checkout(p, Checkout::Main)) if p == project => {
+            // The main checkout's heading, or the project's row standing in for it.
+            Row::Item(heading)
+                if heading.project() == project
+                    && heads(row, rows.peek().copied()) == Some(Checkout::Main) =>
+            {
                 end_stack(&mut stops, &mut bottom);
                 in_branch = false;
                 in_main = open(heading);
@@ -511,10 +518,15 @@ pub(super) fn squash_stops<'a>(
                 in_branch = false;
                 Some(Target::Uncommitted(checkout.clone()))
             }
-            Row::Item(heading @ Selection::Checkout(p, checkout)) if p == project => {
+            // A worktree's heading, or the project's row standing in for the main one's.
+            Row::Item(heading @ (Selection::Checkout(p, _) | Selection::Project(p)))
+                if p == project =>
+            {
                 in_branch = false;
-                let changes = matches!(rows.peek(), Some(Row::Item(Selection::Uncommitted(..))));
-                (open(heading) && !changes).then(|| Target::Uncommitted(checkout.clone()))
+                let next = rows.peek().copied();
+                let changes = matches!(next, Some(Row::Item(Selection::Uncommitted(..))));
+                let target = heads(row, next).map(Target::Uncommitted);
+                target.filter(|_| open(heading) && !changes)
             }
             Row::Item(item @ Selection::Branch(p, Some(name)))
                 if p == project && workspace.target_branch.as_ref() != Some(name) =>
@@ -1384,6 +1396,13 @@ impl Navigator {
         };
         let clicked = self.move_stops(cx).and_then(|(stops, at, start)| {
             let own = matches!(mark(store, item), Some(Mark::Taken(_) | Mark::Copied(_)));
+            // The project's row lands as the main checkout's heading it stands in for.
+            let item = match item {
+                Selection::Project(p) if !store.main_headed(p) => {
+                    &Selection::Checkout(p.clone(), Checkout::Main)
+                }
+                _ => item,
+            };
             let checkout = store.checkout_of(item);
             let ix = clicked_stop(&stops, (at, start), moving, item, own, checkout)?;
             Some((stops, ix))
@@ -1570,9 +1589,10 @@ fn commits_selected(store: &Store) -> Option<(ProjectId, Moving)> {
     }
 }
 
-/// The terminals `rows` list under each worktree's heading, the main one's and the linked
-/// ones', of every project, in the order they're listed: those whose heading `open` says shows
-/// what it holds, as a terminal landing under a folded one would be out of sight.
+/// The terminals `rows` list under each worktree's heading, the main one's, or the project's
+/// row standing in for it, and the linked ones', of every project, in the order they're listed:
+/// those whose heading `open` says shows what it holds, as a terminal landing under a folded one
+/// would be out of sight.
 fn terminal_lists<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     open: impl Fn(&Selection) -> bool,
@@ -1580,7 +1600,8 @@ fn terminal_lists<'a>(
     let mut lists: Vec<(ProjectCheckout, Vec<TerminalId>)> = Vec::new();
     // Under a heading that's open now.
     let mut under = false;
-    for row in rows {
+    let mut rows = rows.into_iter().peekable();
+    while let Some(row) = rows.next() {
         let Row::Item(item) = row else {
             continue;
         };
@@ -1591,10 +1612,10 @@ fn terminal_lists<'a>(
             {
                 list.push(*id);
             }
-        } else if let Selection::Checkout(project, checkout) = item {
+        } else if let Some(checkout) = heads(row, rows.peek().copied()) {
             under = open(item);
             if under {
-                let (project, checkout) = (project.clone(), checkout.clone());
+                let project = item.project().clone();
                 lists.push((ProjectCheckout { project, checkout }, Vec::new()));
             }
         }
@@ -1684,14 +1705,6 @@ fn clicked_stop(
                 (Op::Move | Op::CherryPick | Op::Commit, _) => None,
             }
         }
-    }
-}
-
-/// The worktree of `project`'s that `heading` heads: the main one or a linked one.
-pub(super) fn worktree_headed(heading: &Selection, project: &ProjectId) -> Option<Checkout> {
-    match heading {
-        Selection::Checkout(p, checkout) if p == project => Some(checkout.clone()),
-        _ => None,
     }
 }
 
@@ -2293,6 +2306,55 @@ into uncommitted on wt
     }
 
     #[test]
+    fn a_project_row_stands_in_for_a_main_checkout_without_a_heading() {
+        let project = ProjectId::from("p");
+        let (ws, mut rows) = listed(&project);
+        let divider = rows
+            .iter()
+            .position(|row| matches!(row, Row::WorktreeDivider));
+        rows.truncate(divider.unwrap());
+        rows.retain(|row| {
+            !matches!(
+                row,
+                Row::Item(Selection::Checkout(..) | Selection::Uncommitted(..))
+            )
+        });
+        let (stops, _) = stops(&rows, &project, &[id(2)], &ws, open);
+        assert_eq!(
+            (stops.first(), stops.last()),
+            (
+                Some(&Stop::NewStack { first: true }),
+                Some(&Stop::NewStack { first: false })
+            ),
+            "the main checkout's stacks are listed under it, so new ones go around them"
+        );
+        let home = Target::Commit(id(2));
+        let (stops, _) = squash_stops(&rows, &project, &ws, &home, open, |_| true).unwrap();
+        assert!(
+            stops.contains(&Stop::Into(Target::Uncommitted(Checkout::Main))),
+            "with no changes row, what a squash uncommits goes there"
+        );
+        let filtered = [
+            Row::Item(Selection::Project(project.clone())),
+            Row::Item(Selection::Checkout(
+                project.clone(),
+                Checkout::Linked("wt".into()),
+            )),
+            Row::Item(Selection::Branch(
+                project.clone(),
+                Some(full("refs/heads/agent")),
+            )),
+        ];
+        let (stops, _) = super::stops(&filtered, &project, &[id(5)], &ws, open);
+        assert!(
+            !stops
+                .iter()
+                .any(|stop| matches!(stop, Stop::NewStack { .. })),
+            "the filter left the main checkout's heading out with all its stacks, not alone"
+        );
+    }
+
+    #[test]
     fn a_folded_heading_takes_nothing_a_squash_uncommits() {
         let project = ProjectId::from("p");
         let (ws, mut rows) = listed(&project);
@@ -2489,6 +2551,17 @@ last on p/empty
                 vec![TerminalId(1), TerminalId(2)]
             )),
             "the main worktree's terminals, as listed"
+        );
+        let headless: Vec<Row> = (rows.into_iter())
+            .filter(|row| !matches!(row, Row::Item(Selection::Checkout(_, Checkout::Main))))
+            .collect();
+        assert_eq!(
+            terminal_lists(&headless, open).first(),
+            Some(&(
+                on(&project, Checkout::Main),
+                vec![TerminalId(1), TerminalId(2)]
+            )),
+            "the project's row stands in for a main worktree without a heading"
         );
     }
 

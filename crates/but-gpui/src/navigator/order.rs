@@ -16,8 +16,7 @@ use gpui::{
 use bstr::{BStr, BString};
 
 use super::Navigator;
-use super::moving::worktree_headed;
-use super::rows::{HEADING_MIDDLE, Row, last_active, listed_with, span_height};
+use super::rows::{HEADING_MIDDLE, Row, heads, last_active, listed_with, span_height};
 use crate::app::{AppView, MoveHere};
 use crate::backend::Checkout;
 use crate::overlays::MenuItem;
@@ -745,7 +744,8 @@ fn terminal_slot(
     let own = |row: &&Row| matches!(row, Row::Item(Selection::Terminal(_, other)) if *other == id);
     let above = rows.get(..card.start).unwrap_or_default().iter();
     let mut at = top - above.filter(own).map(Row::height).sum::<f32>();
-    for row in rows.get(card)? {
+    let mut card_rows = rows.get(card)?.iter().peekable();
+    while let Some(row) = card_rows.next() {
         match row {
             Row::Item(Selection::Terminal(p, terminal)) if p == project => {
                 if *terminal == id {
@@ -762,7 +762,9 @@ fn terminal_slot(
                     places.push((at, (on.clone(), Slot::End)));
                 }
                 under = match row {
-                    Row::Item(heading) => worktree_headed(heading, project).and_then(listed),
+                    Row::Item(heading) if heading.project() == project => {
+                        heads(row, card_rows.peek().copied()).and_then(listed)
+                    }
                     _ => None,
                 };
             }

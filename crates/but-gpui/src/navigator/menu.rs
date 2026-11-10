@@ -338,6 +338,13 @@ impl Navigator {
                         first.separated = true;
                     }
                     items.extend(branch);
+                    // Standing in for the main checkout's heading, it offers what that does.
+                    if !store.main_headed(project) {
+                        items
+                            .extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
+                        items.push(open_file_item(project, Checkout::Main, cx));
+                        items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
+                    }
                     items.extend([command(&Fetch).separated(), command(&Pull)]);
                 }
                 // An unwatched project's too, once its page has read it. With Fetch, else apart
