@@ -151,3 +151,37 @@ fn resolve_finish_stores_filtered_files_once_and_writes_them_in_worktree_form() 
         "the worktree matches the workspace and its uncommitted file"
     );
 }
+
+#[test]
+fn resolve_finish_keeps_the_stat_of_filtered_files_it_leaves_alone() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        // The fixture's files were copied, so let status record their stat first, as it had.
+        // A stat no older than the index is racy and never kept, so date the file back.
+        std::fs::File::options()
+            .write(true)
+            .open(env.projects_root().join("b.secret"))
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(10))
+            .unwrap();
+        env.git_status();
+    });
+    env.file("file.txt", "resolved\n");
+    env.but("resolve finish").assert().success();
+
+    let git_dir = env.projects_root().join(".git");
+    // Age the index so status relies on the recorded stat, as it does a moment later.
+    std::fs::File::options()
+        .write(true)
+        .open(git_dir.join("index"))
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(2))
+        .unwrap();
+    std::fs::write(git_dir.join("clean-calls"), "").unwrap();
+    assert_eq!(env.git_status(), "", "the worktree matches the workspace");
+    assert!(
+        !std::fs::read_to_string(git_dir.join("clean-calls"))
+            .unwrap()
+            .contains("b.secret"),
+        "the index keeps the stat of the untouched filtered file, so status doesn't clean it"
+    );
+}
