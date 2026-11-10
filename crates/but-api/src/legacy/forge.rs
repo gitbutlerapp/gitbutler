@@ -2236,8 +2236,11 @@ fn lane_chain_for_branch<'a>(
     let chain = info.lane_chain(branch);
     if chain.is_empty() {
         anyhow::bail!(
-            "Branch `{}` is not part of the current workspace",
-            branch.shorten()
+            but_error::Context::new(format!(
+                "Branch `{}` is not part of the current workspace",
+                branch.shorten()
+            ))
+            .with_code(but_error::Code::PreconditionFailed)
         );
     }
     Ok(chain)
