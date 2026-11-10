@@ -25,12 +25,18 @@ mod toggle_group;
 
 use gpui::{
     AnyElement, AnyView, App, Bounds, Context, Div, KeyBinding, Menu, MenuItem, QuitMode,
-    SharedString, TitlebarOptions, Window, WindowAppearance, WindowBounds, WindowOptions, actions,
-    div, point, prelude::*, size,
+    SharedString, Task, TitlebarOptions, Window, WindowAppearance, WindowBounds, WindowOptions,
+    actions, div, point, prelude::*, size,
 };
 
+use crate::backend::{
+    self,
+    rebuild::{Printed, Rebuild},
+};
 use crate::theme::{CodeSize, Theme, UiScale};
-use crate::ui::{self, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex};
+use crate::ui::{
+    self, ButtonStyle, button, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex,
+};
 
 actions!(stories, [Quit]);
 
@@ -46,6 +52,10 @@ pub fn run() {
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
             cx.set_menus([Menu::new("Stories").items([MenuItem::action("Quit", Quit)])]);
+            // Started by `cargo run`, the toolbar offers to build the stories again.
+            if let Some(rebuild) = Rebuild::detect() {
+                cx.set_global(rebuild);
+            }
             // As the app's: a script's run stays out of the Dock and off the screen.
             let scripted = crate::app::scripted();
             if scripted {
@@ -97,6 +107,23 @@ struct Gallery {
     shown: usize,
     dark: bool,
     scale: UiScale,
+    build: Build,
+}
+
+/// Where the toolbar's Rebuild stands.
+#[derive(Default)]
+enum Build {
+    #[default]
+    Idle,
+    /// Cargo runs, its output going to the terminal that started the stories.
+    Running(
+        #[expect(
+            dead_code,
+            reason = "held so the build runs: dropping it would stop it"
+        )]
+        Task<()>,
+    ),
+    Failed,
 }
 
 /// The interface scales the toolbar offers.
@@ -147,6 +174,7 @@ impl Gallery {
             ),
         };
         let gallery = Self {
+            build: Build::default(),
             stories,
             shown,
             dark,
@@ -154,6 +182,77 @@ impl Gallery {
         };
         gallery.set_theme(cx);
         gallery
+    }
+
+    /// Build the stories again from the checkout that built these, and reopen on the new build at
+    /// the same story and appearance. Cargo's output goes to the terminal, as `cargo run`'s did; a
+    /// failed build leaves this window as it was.
+    fn rebuild(&mut self, cx: &mut Context<Self>) {
+        let Some(rebuild) = cx.try_global::<Rebuild>().cloned() else {
+            return;
+        };
+        if matches!(self.build, Build::Running(_)) {
+            return;
+        }
+        let story = (self.stories.get(self.shown)).map_or("", |story| story.name);
+        let appearance = if self.dark { "dark" } else { "light" };
+        self.build = Build::Running(cx.spawn(async move |this, cx| {
+            let built = backend::run(move || {
+                let build = rebuild.start(rebuild.checkout())?;
+                build.finish(|printed| {
+                    if let Printed::Line(line) = printed {
+                        eprintln!("{line}");
+                    }
+                })
+            })
+            .await;
+            match built {
+                #[cfg(unix)]
+                Ok(built) => cx.update(|cx| {
+                    let env = [
+                        ("GITBUTLER_GPUI_STORY", story),
+                        ("GITBUTLER_GPUI_APPEARANCE", appearance),
+                    ];
+                    let err = built.restart::<(), ()>(Vec::new(), &(), &env);
+                    tracing::error!("couldn't restart on the new build: {err:#}");
+                    cx.quit();
+                }),
+                #[cfg(not(unix))]
+                Ok(_) => {}
+                Err(err) => {
+                    tracing::error!("couldn't build the stories: {err:#}");
+                    this.update(cx, |this, cx| {
+                        this.build = Build::Failed;
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            }
+        }));
+        cx.notify();
+    }
+
+    /// Rebuild, when `cargo run` started the stories.
+    fn rebuild_button(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
+        cx.try_global::<Rebuild>()?;
+        let (label, tooltip) = match self.build {
+            Build::Idle => (
+                "Rebuild",
+                "Build the stories with cargo, and reopen on them",
+            ),
+            Build::Running(_) => ("Building…", "Cargo's output is in the terminal"),
+            Build::Failed => (
+                "Build failed",
+                "Cargo's output is in the terminal; click to try again",
+            ),
+        };
+        Some(
+            button("rebuild", label)
+                .small()
+                .style(ButtonStyle::Gray)
+                .tooltip(tooltip)
+                .on_click(cx.listener(|this, _, _, cx| this.rebuild(cx))),
+        )
     }
 
     fn set_theme(&self, cx: &mut App) {
@@ -187,6 +286,7 @@ impl Gallery {
     }
 
     fn toolbar(&self, name: &'static str, theme: &Theme, cx: &mut Context<Self>) -> Div {
+        let rebuild = self.rebuild_button(cx);
         let appearance = [("Light", false), ("Dark", true)].map(|(label, dark)| {
             let segment =
                 div()
@@ -227,6 +327,7 @@ impl Gallery {
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .child(name),
             )
+            .children(rebuild)
             .child(segmented(true, theme, scales))
             .child(segmented(true, theme, appearance))
     }
