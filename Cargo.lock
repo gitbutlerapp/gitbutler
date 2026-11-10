@@ -1935,6 +1935,7 @@ dependencies = [
  "but-core",
  "but-db",
  "but-error",
+ "but-evo",
  "but-gerrit",
  "but-graph",
  "but-meta",
