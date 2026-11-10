@@ -43,6 +43,7 @@
         "title": "Clone Repository…"
       },
       "terminal::NewTerminal",
+      "terminal::NewTerminalWith",
       "-",
       "app::CloseWindow"
     ]

@@ -1591,7 +1591,8 @@ impl Store {
         .unwrap_or(selection);
         let checkout = self.checkout_of(&shown).unwrap_or(Checkout::Main);
         let project = shown.project().clone();
-        self.open_terminal_then(project, checkout, Some((row, at, axis)), cx);
+        let run = self.prefs.terminal_run().map(str::to_owned);
+        self.open_terminal_then(project, checkout, run, Some((row, at, axis)), cx);
     }
 
     /// Pin `pinned` beside `at` in the selected row's tiling, along `axis`, unless it's

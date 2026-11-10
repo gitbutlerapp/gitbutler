@@ -467,6 +467,8 @@ pub struct Prefs {
     /// The command they run with [`TerminalRuns::Command`], kept while the login shell is
     /// picked.
     pub terminal_command: String,
+    /// The commands "New terminal with command" offers, the stock ones if never changed.
+    pub terminal_launchers: Option<Vec<String>>,
     /// Closing a terminal by hand asks first, as what runs in it ends with it. Off unless
     /// picked. Quitting asks either way.
     pub confirm_terminal_close: bool,
@@ -604,6 +606,12 @@ impl Prefs {
             TerminalRuns::LoginShell => None,
             TerminalRuns::Command => Some(self.terminal_command.trim()).filter(|c| !c.is_empty()),
         }
+    }
+
+    /// The commands "New terminal with command" offers.
+    pub fn terminal_launchers(&self) -> Vec<String> {
+        (self.terminal_launchers.clone())
+            .unwrap_or_else(|| vec!["claude".to_owned(), "codex".to_owned()])
     }
 
     /// The most unchanged lines a hunk's scope adds around it, `None` with semantic context

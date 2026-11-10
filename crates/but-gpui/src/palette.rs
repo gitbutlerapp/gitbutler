@@ -31,7 +31,7 @@ use crate::state::{
     Axis, Notice, ProjectEntry, ProjectId, ProjectTab, RowKey, Section, SectionKind, Selection,
     SelectionKind, Store, Tile, snack,
 };
-use crate::terminal::TerminalId;
+use crate::terminal::{NewTerminalWith, TerminalId};
 use crate::theme::{ColorScheme, Theme};
 use crate::ui::file_icons::file_icon;
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -1621,6 +1621,38 @@ impl AppView {
             }
         }
         self.outline_choice(window, cx);
+    }
+
+    /// Pick a command, as Settings lists them, for a new terminal to run on the checkout the
+    /// selection is in, the main one when it's in none. Last, the way to change them.
+    pub fn new_terminal_with(
+        &mut self,
+        _: &NewTerminalWith,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let Some(selection) = store.selection.as_ref() else {
+            return;
+        };
+        let project = selection.project().clone();
+        let checkout = store.checkout_of(selection).unwrap_or(Checkout::Main);
+        let commands = store.prefs.terminal_launchers().into_iter().map(|command| {
+            let (project, checkout) = (project.clone(), checkout.clone());
+            Choice::new(command.clone(), move |this, _, cx| {
+                (this.store).update(cx, |store, cx| {
+                    store.open_terminal_running(project, checkout, command, cx)
+                })
+            })
+            .icon(Icon::TextCode)
+        });
+        let edit = Choice::new("Edit commands…", |this, window, cx| {
+            let general = crate::settings::Page::App(crate::settings::AppPage::General);
+            this.open_settings_at(general, window, cx);
+        })
+        .icon(Icon::Settings);
+        let choices = commands.chain(std::iter::once(edit)).collect();
+        self.open_picker(None, "Open a terminal running", "Open", choices, window, cx);
     }
 
     /// Go to anything's terminals alone.

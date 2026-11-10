@@ -131,6 +131,14 @@
       "cmd-alt-m": "tiling::SwapTiles"
     }
   },
+  // ⌘I picks a command, as an agent, for a new terminal to run, as VS Code's and Cursor's start
+  // theirs. On macOS only: elsewhere Ctrl+I is a terminal's Tab.
+  {
+    "os": ["macos"],
+    "bindings": {
+      "cmd-i": "terminal::NewTerminalWith"
+    }
+  },
   // ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L go straight to the tile on that side, past the panes and rows of the
   // one with the keys, with the navigator a tile left of the rest, and in it ⇧⌘J and ⇧⌘K go to the
   // project on that side. From a terminal or a text field too, which take the letters. Ctrl+Shift

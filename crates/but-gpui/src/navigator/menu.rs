@@ -23,7 +23,7 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Seeable, Selection, Store};
-use crate::terminal::NewTerminal;
+use crate::terminal::{NewTerminal, NewTerminalWith};
 use crate::ui::plural;
 
 actions!(
@@ -357,7 +357,7 @@ impl Navigator {
             }
             Selection::Checkout(project, Checkout::Main) => {
                 let mut items = new_branch_items(cx);
-                items.push(command(&NewTerminal).separated());
+                items.extend([command(&NewTerminal).separated(), command(&NewTerminalWith)]);
                 items.push(open_file_item(project, Checkout::Main, cx));
                 items.extend(store.path(project).and_then(|path| build_item(&path, cx)));
                 items
@@ -469,6 +469,7 @@ impl Navigator {
                     command(&Reveal),
                     command(&CopyPath).keys(&CopySelection, cx),
                     command(&NewTerminal).separated(),
+                    command(&NewTerminalWith),
                     open_file_item(project, Checkout::Linked(name.clone()), cx),
                     command(&MoveSelection).separated(),
                     command(&ArchiveWorktree),

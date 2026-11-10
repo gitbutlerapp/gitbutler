@@ -28,7 +28,7 @@ use crate::transfer::Dragged;
 use crate::transfer::ProjectDrag;
 use crate::ui::{dp, fixed};
 
-actions!(terminal, [NewTerminal]);
+actions!(terminal, [NewTerminal, NewTerminalWith]);
 
 /// A terminal, numbered in the order the session opened them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

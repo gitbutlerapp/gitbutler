@@ -5396,6 +5396,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::copy_more))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(Self::new_terminal))
+            .on_action(cx.listener(Self::new_terminal_with))
             .on_action(
                 cx.listener(|this, _: &SplitRight, window, cx| {
                     this.split(Axis::Across, window, cx)
