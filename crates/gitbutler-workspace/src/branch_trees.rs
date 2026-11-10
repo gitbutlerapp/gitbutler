@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt as _;
-use but_ctx::{Context, access::RepoShared};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -11,21 +10,6 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-        let target_base_oid = ws
-            .target_commit
-            .as_ref()
-            .map(|target| target.commit_id)
-            .context("failed to get target base oid")?;
-        let head_oids = ws
-            .stacks
-            .iter()
-            .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
-            .collect::<Vec<_>>();
-        Self::create_from_heads_and_target(&repo, &head_oids, target_base_oid)
-    }
-
     pub fn create_from_heads_and_target(
         repo: &gix::Repository,
         head_oids: &[gix::ObjectId],
