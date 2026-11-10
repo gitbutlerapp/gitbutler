@@ -1,13 +1,12 @@
 //! An action to squash multiple commits into a target commit.
 
-use anyhow::{Result, bail};
-use but_core::{RefMetadata, RepositoryExt};
+use anyhow::{Context as _, Result, bail};
+use but_core::RefMetadata;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
         Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
-        merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
+        mutate::InsertSide,
     },
 };
 
@@ -43,33 +42,6 @@ fn push_message_with_spacing(combined: &mut Vec<u8>, message: &[u8]) {
     }
 
     combined.extend_from_slice(message);
-}
-
-/// Build the squashed commit and replace the target selector with the newly
-/// created commit.
-///
-/// Returns the updated editor and the selector that now points to the squashed
-/// commit.
-fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
-    squashed_tree: MergeCommitChangesOutcome,
-    target_commit_id: Selector,
-    combined_message: Vec<u8>,
-) -> Result<(Editor<'ws, 'meta, M>, Selector)> {
-    let (target_selector, target_commit) = editor.find_selectable_commit(target_commit_id)?;
-    let target_parent_ids = parent_commit_ids(&editor, target_selector)?;
-
-    let new_commit = {
-        let mut squashed_commit = target_commit;
-        squashed_commit.inner.parents = target_parent_ids.into();
-        squashed_commit.tree = squashed_tree.tree_id;
-        squashed_commit.message = combined_message.into();
-        editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?
-    };
-
-    editor.amend_pick(target_selector, new_commit)?;
-
-    Ok((editor, target_selector))
 }
 
 fn parent_commit_ids<M: RefMetadata>(
@@ -161,22 +133,6 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         subject_selectors.push(subject_commit_selector);
     }
 
-    let subject_commit_ids = subject_selectors
-        .iter()
-        .map(|commit_selector| {
-            let (_, commit) = editor.find_selectable_commit(*commit_selector)?;
-            Ok(commit.id)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let squashed_tree = editor.merge_commit_changes_to_tree(
-        target_commit_obj.id,
-        subject_commit_ids,
-        editor.repo().merge_options_force_ours()?,
-    )?;
-    if squashed_tree.conflict.is_some() {
-        bail!("Cannot squash commits that would result in merge conflicts");
-    }
-
     let mut combined_message = Vec::new();
     match how_to_combine_messages {
         MessageCombinationStrategy::KeepSubject => {
@@ -197,33 +153,48 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         }
     }
 
-    let mut editor = editor;
-    for commit_selector in subject_selectors {
-        let delimiter = SegmentDelimiter {
-            child: commit_selector,
-            parent: commit_selector,
-        };
-        editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        let (selector, _) = editor.find_selectable_commit(commit_selector)?;
-        editor.replace_with_none(selector)?;
-    }
-
-    // Removing a subject that sits below the target rewrites every commit above it, including
-    // the target. Rebase before building the squashed commit so it is created on top of the
-    // rebased parents. Otherwise the squashed commit would be replayed as a diff against its
-    // old parent, and the subject's changes would disappear along with the subject commit.
-    let editor = editor.rebase()?.into_editor();
-
-    let (editor, new_target_selector) = construct_new_squashed_commit(
-        editor,
-        squashed_tree,
-        target_commit_selector,
-        combined_message,
+    let lineage = editor.order_commit_selectors_by_parentage(
+        subject_selectors
+            .iter()
+            .copied()
+            .chain([target_commit_selector]),
     )?;
+    let mut sides = lineage.split(|selector| *selector == target_commit_selector);
+    let below = sides.next().unwrap_or_default();
+    let above = sides.next().unwrap_or_default();
+
+    let mut editor = editor;
+    for subject in below {
+        editor.move_pick(*subject, target_commit_selector, InsertSide::Below)?;
+    }
+    for subject in above.iter().rev() {
+        editor.move_pick(*subject, target_commit_selector, InsertSide::Above)?;
+    }
+    let mut editor = editor.rebase()?.into_editor();
+
+    for subject in &subject_selectors {
+        let (_, commit) = editor.find_selectable_commit(*subject)?;
+        if commit.attach(editor.repo()).is_conflicted() {
+            bail!("Cannot squash commits that would result in merge conflicts");
+        }
+    }
+    let child_most = *lineage
+        .last()
+        .context("BUG: the lineage holds the target")?;
+    let squashed_tree = editor.find_selectable_commit(child_most)?.1.tree;
+
+    editor.fold(subject_selectors, target_commit_selector)?;
+
+    let (_, mut squashed_commit) = editor.find_selectable_commit(target_commit_selector)?;
+    squashed_commit.inner.parents = parent_commit_ids(&editor, target_commit_selector)?.into();
+    squashed_commit.tree = squashed_tree;
+    squashed_commit.message = combined_message.into();
+    let new_commit = editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?;
+    editor.amend_pick(target_commit_selector, new_commit)?;
 
     Ok(SquashCommitsOutcome {
         rebase: editor.rebase()?,
-        commit_selector: new_target_selector,
+        commit_selector: target_commit_selector,
     })
 }
 
