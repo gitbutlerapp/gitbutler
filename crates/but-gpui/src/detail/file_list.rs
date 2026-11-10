@@ -119,7 +119,10 @@ struct FileRow {
 
 /// The room a row keeps for its file's change letter, which a folder's keeps empty, so their
 /// counts end in one place.
-const MARK_WIDTH: f32 = 22.;
+const MARK_WIDTH: f32 = 16.;
+
+/// The space between the parts of a row.
+const GAP: f32 = 6.;
 
 /// How far each level of a file tree steps in.
 const STEP: f32 = 12.;
@@ -131,10 +134,27 @@ const ROW_GROUP: &str = "file-row";
 /// selection `solid` while the list holds the focus.
 fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme) -> Stateful<Div> {
     side_row(id, selected, solid, theme)
-        .mx(dp(12.))
+        .mx(dp(8.))
         .pl(dp(8.))
         .pr(dp(4.))
+        .gap(dp(GAP))
         .text_size(dp(13.))
+}
+
+/// Where a row's name goes, then its marks and line counts. What follows the name and would cut
+/// it short wraps, whole and from the end, onto a second line the row is too short to show, so
+/// a narrow list keeps the names. A part with a zero basis, as a file's folder, only takes the
+/// room left.
+fn name_and_counts() -> Div {
+    h_flex()
+        .flex_1()
+        .min_w_0()
+        .h_full()
+        .flex_wrap()
+        .overflow_hidden()
+        .gap(dp(GAP))
+        // Each line as tall as the row, so the second starts below it.
+        .line_height(dp(ROW_HEIGHT))
 }
 
 /// A tree row's indent, as but-ui-react's FileListItem draws it: a step per level, each with a
@@ -294,7 +314,6 @@ impl Detail {
         let row = file_row("find-in-all-files", false, false, theme)
             .flex_none()
             .mb(dp(2.))
-            .gap(dp(8.))
             .text_color(theme.text_2)
             .aria_label(label.clone())
             .child(small_icon(Icon::Search).text_color(theme.text_3))
@@ -401,7 +420,6 @@ impl Detail {
         };
         let row = file_row("message-entry", current, solid, theme)
             .flex_none()
-            .gap(dp(8.))
             .aria_label(label)
             .child(small_icon(glyph).text_color(muted))
             .child(div().flex_1().min_w_0().truncate().child(title))
@@ -1298,27 +1316,32 @@ impl Detail {
                     .mx(dp(4.))
                     .pl(dp(8.))
                     .pr(dp(4.))
-                    .gap(dp(8.))
+                    .gap(dp(GAP))
                     .text_size(dp(13.))
                     .aria_label(path.clone())
                     .child(file_icon(path, cx))
                     .child(
-                        h_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap(dp(8.))
-                            .child(div().flex_none().child(name.to_owned()))
+                        name_and_counts()
                             .child(
                                 (div().min_w_0().overflow_hidden().whitespace_nowrap())
                                     .text_ellipsis_middle()
-                                    .text_color(match solid {
-                                        true => theme.muted_on_solid(),
-                                        false => theme.text_3,
-                                    })
-                                    .child(sub.to_owned()),
-                            ),
+                                    .child(name.to_owned()),
+                            )
+                            .child(
+                                (div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .overflow_hidden()
+                                    .whitespace_nowrap())
+                                .text_ellipsis_middle()
+                                .text_color(match solid {
+                                    true => theme.muted_on_solid(),
+                                    false => theme.text_3,
+                                })
+                                .child(sub.to_owned()),
+                            )
+                            .child(diff::column_stats(added, removed, columns, solid, theme)),
                     )
-                    .child(diff::column_stats(added, removed, columns, solid, theme))
                     .child(
                         div()
                             .w(dp(MARK_WIDTH))
@@ -1408,10 +1431,7 @@ impl Detail {
         // that tells it from its siblings. Folded, how many files it holds follows the name, so
         // its end lines up with the files'.
         .child(
-            h_flex()
-                .flex_1()
-                .min_w_0()
-                .gap(dp(8.))
+            name_and_counts()
                 .child(
                     (div().min_w_0().overflow_hidden().whitespace_nowrap())
                         .text_ellipsis_middle()
@@ -1419,17 +1439,19 @@ impl Detail {
                 )
                 .when(!open, |el| {
                     el.child(faint(files.to_string(), theme).flex_none())
+                })
+                // Only under the pointer unless picked in Settings: always there, they crowd
+                // the names.
+                .when(added + removed > 0, |el| {
+                    el.child(
+                        diff::column_stats(added, removed, columns, false, theme)
+                            .ml_auto()
+                            .when(!always_counts, |el| {
+                                el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
+                            }),
+                    )
                 }),
         )
-        // Only under the pointer unless picked in Settings: always there, they crowd the names.
-        .when(added + removed > 0, |el| {
-            el.child(
-                diff::column_stats(added, removed, columns, false, theme)
-                    .when(!always_counts, |el| {
-                        el.opacity(0.).group_hover(ROW_GROUP, |s| s.opacity(1.))
-                    }),
-            )
-        })
         .child(div().flex_none().w(dp(MARK_WIDTH)))
         .when_some(self.changes_from(source, Vec::new(), cx), |el, nothing| {
             let nothing = Dragged::from(nothing);
@@ -1697,16 +1719,9 @@ impl Detail {
             // The name whole where it fits, then its folder dimmed and cut in the middle, as the
             // folder's end tells two files of one name apart.
             .child(
-                h_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(dp(8.))
+                name_and_counts()
                     .child(
-                        div()
-                            .flex_shrink_0()
-                            .max_w_full()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
+                        (div().min_w_0().overflow_hidden().whitespace_nowrap())
                             .text_ellipsis_middle()
                             .child(matched(name.to_owned(), name_found)),
                     )
@@ -1723,37 +1738,40 @@ impl Detail {
                                 )),
                         )
                     })
-                    .when(!dir.is_empty(), |el| {
+                    // A zero basis (`flex_1`, not `flex_grow`), so the folder's length never
+                    // wraps the counts away. Empty in a tree, it still keeps them at the end.
+                    .child(
+                        (div()
+                            .flex_1()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .whitespace_nowrap())
+                        .text_ellipsis_middle()
+                        .text_color(muted)
+                        .when(!dir.is_empty(), |el| {
+                            el.child(matched(dir.to_owned(), dir_found))
+                        }),
+                    )
+                    // Being edited in the diff: a quiet pencil.
+                    .when(editing && !opened, |el| {
                         el.child(
                             div()
-                                .min_w_0()
-                                .overflow_hidden()
-                                .whitespace_nowrap()
-                                .text_ellipsis_middle()
-                                .text_color(muted)
-                                .child(matched(dir.to_owned(), dir_found)),
+                                .id(("editing", ix))
+                                .flex_none()
+                                .child(small_icon(Icon::Edit).text_color(muted))
+                                .tooltip(Tooltip::text("Being edited")),
                         )
+                    })
+                    .when_some(stats, |el, (added, removed)| {
+                        el.child(diff::column_stats(
+                            added,
+                            removed,
+                            extras.columns,
+                            solid,
+                            theme,
+                        ))
                     }),
             )
-            // Being edited in the diff: a quiet pencil.
-            .when(editing && !opened, |el| {
-                el.child(
-                    div()
-                        .id(("editing", ix))
-                        .flex_none()
-                        .child(small_icon(Icon::Edit).text_color(muted))
-                        .tooltip(Tooltip::text("Being edited")),
-                )
-            })
-            .when_some(stats, |el, (added, removed)| {
-                el.child(diff::column_stats(
-                    added,
-                    removed,
-                    extras.columns,
-                    solid,
-                    theme,
-                ))
-            })
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {
                 // ⌘ (ctrl off macOS) or ⇧ picks files. A plain press on a picked file keeps
