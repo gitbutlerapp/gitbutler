@@ -239,6 +239,54 @@ fn resolve_cancel_changes_nothing_if_a_filter_fails() {
 }
 
 #[test]
+fn resolve_keeps_uncommitted_changes_if_moving_refs_fails() {
+    let (env, commit) = pull_conflicting_commit_with_filtered_file();
+    env.file("b.secret", "edited\n");
+    let lock = env
+        .projects_root()
+        .join(".git/refs/heads/gitbutler/edit.lock");
+    std::fs::create_dir_all(lock.parent().unwrap()).unwrap();
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but(format!("resolve {commit}")).assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed enter changes nothing");
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "edited\n",
+        "the uncommitted change is still in the worktree"
+    );
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_saving_the_rebase_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let lock = env.projects_root().join(".git/refs/heads/A.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+    assert_eq!(
+        read(&env, "b.secret").as_bstr(),
+        "base\n",
+        "the worktree still shows the edited commit"
+    );
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse A:b.secret"),
+        env.invoke_git("rev-parse base:b.secret"),
+        "the retried finish doesn't commit the uncommitted change"
+    );
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
 fn resolve_finish_changes_nothing_if_a_filter_fails_and_can_be_retried() {
     let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
         env.file("b.secret", "edited\n");
