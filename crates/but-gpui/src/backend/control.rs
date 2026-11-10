@@ -1,10 +1,8 @@
-//! Binding the control socket.
-
 use std::path::Path;
 
 use anyhow::{Context as _, Result, ensure};
 
-/// A socket at `path` only the user can reach, in the place of one no app listens on anymore.
+/// Only the user can reach the socket. A stale one no app listens on is replaced.
 pub fn bind(path: &Path) -> Result<std::os::unix::net::UnixListener> {
     use std::os::unix::fs::PermissionsExt as _;
     use std::os::unix::net::{UnixListener, UnixStream};

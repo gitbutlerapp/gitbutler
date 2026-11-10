@@ -1,7 +1,3 @@
-//! The control socket's `ui.*` methods: the window as a person at the keyboard drives it. An
-//! action runs by its name where the keys are, as a key bound to it does, so whatever the app
-//! can do from the keyboard an agent can do, and a new action is driven as soon as it exists.
-//! Moving the keys is a click's doing, and typing goes to the field that has them.
 #![cfg_attr(
     not(unix),
     allow(dead_code, reason = "only the unix socket hands requests over")
@@ -24,7 +20,6 @@ use crate::state::{RowKey, Selection, Store, Tile};
 /// The actions a person never runs by name, as a field's own editing keys.
 const UNLISTED: [&str; 2] = ["zed::", "stories::"];
 
-/// Answer the `ui.*` request `request` with `reply`, on the window's app.
 pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &mut App) {
     let Some(app) = window.root::<AppView>().flatten() else {
         return reply.err(RpcError::new(code::INTERNAL_ERROR, "The window has no app"));
@@ -52,7 +47,7 @@ pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &m
             app.update(cx, |app, cx| app.ui_focus(&params, window, cx))
                 .map(|()| serde_json::to_value(()))
         }),
-        // Not inside the app's update: a key's handler updates the app itself.
+        // Outside the app's update, because a key's handler updates the app itself.
         ui::TYPE => params::<TypeParams>(&request).and_then(|params| {
             let text_field = app.read(cx).ui_keys(window, cx).text_field;
             type_text(&params.text, text_field, window, cx).map(|()| serde_json::to_value(()))
@@ -105,7 +100,6 @@ impl AppView {
         }
     }
 
-    /// Where the keys are, as the control socket names places.
     fn ui_keys(&self, window: &Window, cx: &App) -> Keys {
         if window.focused(cx).is_none() {
             return Keys {
@@ -236,7 +230,6 @@ impl AppView {
                         "The navigator has no panes",
                     ));
                 }
-                // Keys given to what isn't drawn reach nothing.
                 if !self.navigator_open {
                     return Err(RpcError::new(
                         code::NOT_AVAILABLE,
@@ -306,7 +299,6 @@ impl AppView {
         Ok(())
     }
 
-    /// What the control socket names `tile` by: home, or what it shows.
     fn tile_id(&self, tile: &Tile, cx: &App) -> String {
         match tile {
             Tile::Home => ui::HOME.to_owned(),
@@ -314,7 +306,6 @@ impl AppView {
         }
     }
 
-    /// What `tile` shows, as a row.
     fn tile_shows(&self, tile: &Tile, cx: &App) -> Row {
         let store = self.store.read(cx);
         match tile {
@@ -346,8 +337,6 @@ impl AppView {
     }
 }
 
-/// Type `text` into the field that has the keys, `text_field` saying whether one does, key by
-/// key as a person would.
 fn type_text(
     text: &str,
     text_field: bool,
@@ -378,7 +367,6 @@ fn type_text(
     Ok(())
 }
 
-/// `selection` as the control socket says rows.
 fn row_of(store: &Store, selection: &Selection) -> Row {
     let (_, label) = tile_label(store, &store.row_key(selection));
     Row {

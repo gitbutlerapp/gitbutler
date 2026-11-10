@@ -6,9 +6,6 @@
 #   control.sh [COMMAND]...
 #       Run each COMMAND in order, one argument each, then print how the window is laid out,
 #       after any command's error. With none, only print it.
-#
-# A build with `--features dev-script` takes them as `dev.layout` on its control socket: at
-# $GITBUTLER_GPUI_SOCKET, else gpui.sock in the dev channel's app data folder.
 set -euo pipefail
 
 if [[ -n ${GITBUTLER_GPUI_SOCKET:-} ]]; then

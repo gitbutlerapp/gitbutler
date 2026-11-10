@@ -1,5 +1,3 @@
-//! `but _ui` against a stand-in for the GPUI app's control socket.
-
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::os::unix::net::UnixListener;
 use std::path::Path;
@@ -9,8 +7,6 @@ use but_ui_control::{Request, Response, RpcError, SOCKET_ENV, code};
 
 use crate::utils::Sandbox;
 
-/// Stand in for the app at `path`: answer each connection's requests with `answer`, for
-/// `connections` connections, one per command.
 fn fake_app(path: &Path, connections: usize, answer: fn(&Request) -> Response) {
     let listener = UnixListener::bind(path).expect("the sandbox has room for a socket");
     std::thread::spawn(move || {
@@ -129,7 +125,6 @@ fn dispatch_runs_an_action_or_says_why_it_cant() {
 Ran tiling::SplitRight.
 
 "#]]);
-    // An action that can't act where the keys are is refused, saying where they are.
     env.but("_ui dispatch changes::MarkResolved")
         .env(SOCKET_ENV, &socket)
         .assert()

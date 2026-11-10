@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use but_ui_control::{Client, Request, Response, RpcError, code};
 use serde_json::json;
 
-/// Answer each request on one connection with what `answer` makes of it, until the client
-/// hangs up, and return what was asked.
 fn serve_once(
     path: &Path,
     answer: impl Fn(&Request) -> Response + Send + 'static,

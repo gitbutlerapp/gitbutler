@@ -179,8 +179,6 @@ fn on_off(command: &str, rest: &str) -> Result<bool> {
     }
 }
 
-/// Answer `dev.layout`: run the lines in its `commands`, each given a moment to show before the
-/// next, and answer with each command's error, then how the window is laid out.
 pub(crate) fn layout(
     request: but_ui_control::Request,
     reply: crate::control::Reply,

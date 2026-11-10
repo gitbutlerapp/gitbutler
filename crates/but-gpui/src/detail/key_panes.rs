@@ -26,7 +26,6 @@ pub(crate) enum KeyPane {
 }
 
 impl KeyPane {
-    /// Every pane, in reading order.
     const ALL: [KeyPane; 5] = [
         KeyPane::ProjectTabs,
         KeyPane::List,
@@ -35,7 +34,6 @@ impl KeyPane {
         KeyPane::Diff,
     ];
 
-    /// What the control socket calls it, as `files`.
     pub(crate) fn name(self) -> &'static str {
         match self {
             KeyPane::ProjectTabs => "project-tabs",
@@ -46,7 +44,6 @@ impl KeyPane {
         }
     }
 
-    /// The pane the control socket calls `name`.
     pub(crate) fn named(name: &str) -> Option<KeyPane> {
         KeyPane::ALL.into_iter().find(|pane| pane.name() == name)
     }

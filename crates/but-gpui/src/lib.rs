@@ -371,7 +371,6 @@ pub fn run(embedded: Option<Embedded>) {
                     .unwrap_or_else(|_| cx.quit())
             });
             links::follow(links, window, cx);
-            // Where other processes on the machine control the app, in scripted runs too.
             #[cfg(unix)]
             control::listen(window.into(), cx);
             #[cfg(feature = "dev-script")]

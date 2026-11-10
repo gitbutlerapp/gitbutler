@@ -1,13 +1,9 @@
-/// Drive the GitButler GPUI app's window as a person at the keyboard does.
+/// Drive the running GitButler GPUI app as the keyboard does.
 ///
-/// Everything the app can do is an action with a name, as `tiling::SplitRight` or
-/// `remote::Push`, which acts where the keys are, as a key bound to it would. `actions` lists
-/// what would act there now; `dispatch` runs one. `select` and `focus` move the keys, as a
-/// click does, and `type` types into the field that has them. `state` says what shows and
-/// where the keys are.
+/// `dispatch` runs any of the app's actions by name, as `tiling::SplitRight`, where the keys
+/// are. An action that throws work away asks first in the app, as it does from a key.
 ///
-/// An action that would throw work away asks first in the app, as it does from a key. The app
-/// must be running: it listens at $GITBUTLER_GPUI_SOCKET when set, as in its own terminals.
+/// The app listens at $GITBUTLER_GPUI_SOCKET when set, as in its own terminals.
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 #[deny(missing_docs)]

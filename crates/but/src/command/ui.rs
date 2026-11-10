@@ -1,4 +1,4 @@
-//! Implementation of the `but _ui` command, a client of the GPUI app's control socket.
+//! Implementation of the `but _ui` command.
 
 use but_ui_control::Client;
 use but_ui_control::ui::{
