@@ -287,6 +287,48 @@ fn resolve_finish_changes_nothing_if_saving_the_rebase_fails() {
 }
 
 #[test]
+fn resolve_cancel_changes_nothing_if_moving_head_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    let lock = env.projects_root().join(".git/HEAD.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve cancel --force").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed cancel changes nothing");
+    assert_eq!(read(&env, "b.secret").as_bstr(), "base\n");
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve cancel --force").assert().success();
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
+fn resolve_finish_changes_nothing_if_moving_head_fails() {
+    let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
+        env.file("b.secret", "edited\n");
+    });
+    env.file("file.txt", "resolved\n");
+    let lock = env.projects_root().join(".git/HEAD.lock");
+    std::fs::write(&lock, "").unwrap();
+    let before = repo_state(&env);
+
+    env.but("resolve finish").assert().failure();
+    assert_eq!(repo_state(&env), before, "a failed finish changes nothing");
+
+    std::fs::remove_file(&lock).unwrap();
+    env.but("resolve finish").assert().success();
+    assert_eq!(env.invoke_git("show A:file.txt"), "resolved");
+    assert_eq!(
+        env.invoke_git("rev-parse A:b.secret"),
+        env.invoke_git("rev-parse base:b.secret"),
+        "the retried finish doesn't commit the uncommitted change"
+    );
+    assert_eq!(read(&env, "b.secret").as_bstr(), "edited\n");
+}
+
+#[test]
 fn resolve_finish_changes_nothing_if_a_filter_fails_and_can_be_retried() {
     let env = resolve_conflicted_commit_with_filtered_file_after(|env| {
         env.file("b.secret", "edited\n");
