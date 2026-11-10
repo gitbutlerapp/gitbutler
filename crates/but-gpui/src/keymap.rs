@@ -662,8 +662,8 @@ mod tests {
 
     #[test]
     fn the_shown_key_is_the_last_bound() {
-        // Menus, tooltips and the status bar show an action's last binding, so a key added
-        // after the one meant to show takes its place everywhere.
+        // Right-click menus, tooltips and the status bar show an action's last binding, so a key
+        // added after the one meant to show takes its place there.
         for keymap in Keymap::ALL {
             // The letters, which come after the arrows.
             let shown: &[(&str, &str)] = &[
