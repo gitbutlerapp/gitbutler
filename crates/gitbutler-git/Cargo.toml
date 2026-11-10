@@ -59,8 +59,7 @@ windows = { version = "0.62.0", features = [
     "Win32_System_Threading",
 ] }
 tokio = { workspace = true, optional = true, features = ["sync", "rt"] }
-# TODO: use released version once published.
-file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
+file-id.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

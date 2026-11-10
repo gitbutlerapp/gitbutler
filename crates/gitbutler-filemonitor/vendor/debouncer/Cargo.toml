@@ -16,7 +16,7 @@ tracing.workspace = true
 
 notify.workspace = true
 parking_lot.workspace = true
-file-id = "0.2.2"
+file-id.workspace = true
 walkdir = "2.2.2"
 
 mock_instant = { version = "0.6.0", optional = true }

@@ -4149,15 +4149,6 @@ dependencies = [
 [[package]]
 name = "file-id"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1fc6a637b6dc58414714eddd9170ff187ecb0933d4c7024d1abbd23a3cc26e9"
-dependencies = [
- "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "file-id"
-version = "0.2.3"
 source = "git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6#978fe719b066a8ce76b9a9d346546b1569eecfb6"
 dependencies = [
  "windows-sys 0.60.2",
@@ -4889,7 +4880,7 @@ dependencies = [
  "but-ctx",
  "but-error",
  "but-testsupport",
- "file-id 0.2.3 (git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6)",
+ "file-id",
  "futures",
  "gix",
  "nix 0.30.1",
@@ -4908,7 +4899,7 @@ name = "gitbutler-notify-debouncer"
 version = "0.0.0"
 dependencies = [
  "deser-hjson",
- "file-id 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "file-id",
  "gitbutler-notify-debouncer",
  "mock_instant",
  "notify",
