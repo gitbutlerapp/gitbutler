@@ -12,7 +12,7 @@ use gpui::{
 };
 
 use super::Navigator;
-use super::rows::{Row, span_height};
+use super::rows::{CARD_EDGE, Row, card_ends, span_height};
 use crate::backend::{CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
@@ -165,7 +165,14 @@ impl Navigator {
             }
             None => {
                 let row = self.list.bounds_for_item(ix)?;
-                let edge = if above { row.top() } else { row.bottom() };
+                // A card's first and last rows hold its edge, which the line stays inside.
+                let (first, last) = card_ends(&self.rows, ix);
+                let edge = match above {
+                    true if first => row.top() + theme.scaled(CARD_EDGE),
+                    true => row.top(),
+                    false if last => row.bottom() - theme.scaled(CARD_EDGE),
+                    false => row.bottom(),
+                };
                 (
                     edge - self.list.viewport_bounds().top(),
                     self.card_margins(),

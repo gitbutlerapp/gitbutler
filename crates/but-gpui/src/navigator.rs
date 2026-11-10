@@ -76,7 +76,8 @@ pub(crate) use terminals::TerminalOverview;
 use moving::Mark;
 use rows::{
     CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
-    RowKey, Rows, checkout_holds, in_checkout, in_inactive, inactive_open, row_keys, span_height,
+    RowKey, Rows, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open, row_keys,
+    span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -2366,7 +2367,7 @@ impl Navigator {
             // A dashed line, as but-ui-react's WorktreeDivider. Last in its card, the card's edge
             // rules it off, so it keeps only its room, which a worktree dragged counts.
             Some(Row::WorktreeDivider) => {
-                let last = matches!(self.rows.get(ix + 1), None | Some(Row::Gap));
+                let (_, last) = card_ends(&self.rows, ix);
                 h_flex()
                     .h(dp(12.))
                     .px(dp(12.))
@@ -2475,12 +2476,7 @@ impl Navigator {
             true => div().pl(dp(inset)).child(el).into_any_element(),
             false => el,
         };
-        let first = (ix.checked_sub(1).and_then(|ix| self.rows.get(ix)))
-            .is_none_or(|prev| matches!(prev, Row::Gap));
-        let last = self
-            .rows
-            .get(ix + 1)
-            .is_none_or(|next| matches!(next, Row::Gap));
+        let (first, last) = card_ends(&self.rows, ix);
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
         let guides = || (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
