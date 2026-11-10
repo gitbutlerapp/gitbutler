@@ -17,7 +17,7 @@ use super::review_edit::EditLeft;
 use super::slots::SlotPick;
 use super::upstream::Upstream;
 use super::{Cursor, KeyPane, LoadedDiff, Stop, follow_hunk, hunk_keys};
-use crate::backend::{FileDiff, FullName, HunkKey};
+use crate::backend::{CommitId, FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
 
@@ -375,9 +375,7 @@ pub(super) struct CheckoutState {
 pub(super) enum PageState {
     /// A worktree's uncommitted changes. The commit being written on them is the home tile's
     /// detail's, the one that composes, by checkout.
-    Changes {
-        files: FilesState,
-    },
+    Changes { files: FilesState },
     /// A commit, a branch, a stack, or what a pull would bring in, by its diff. A branch and a
     /// commit only a remote has can show a pull request, and a branch a brief.
     Diff {
@@ -406,7 +404,12 @@ pub(super) enum PageState {
         side: SideState,
         list: Option<Upstream>,
     },
-    Graph(GraphState),
+    /// The project's graph, and the diff of the commit pinned on it, which `commit` is.
+    Graph {
+        files: FilesState,
+        graph: GraphState,
+        commit: Option<CommitId>,
+    },
     /// A page that sums up a checkout or a section, with no column beside it.
     Overview(CheckoutState),
     /// Nothing selected, or a terminal, which is drawn over the detail and keeps its own state.
@@ -468,7 +471,11 @@ impl PageState {
                     hidden: HashSet::new(),
                     list: None,
                 },
-                ProjectTab::Graph => PageState::Graph(GraphState::default()),
+                ProjectTab::Graph => PageState::Graph {
+                    files: FilesState::default(),
+                    graph: GraphState::default(),
+                    commit: None,
+                },
             },
             Selection::Checkout(..) | Selection::Section(_, Section::Inactive | Section::Mesh) => {
                 PageState::Overview(CheckoutState::default())
@@ -483,7 +490,7 @@ impl PageState {
             PageState::Project { .. } => Some(ProjectTab::Overview),
             PageState::Branches { .. } => Some(ProjectTab::Branches),
             PageState::History { .. } => Some(ProjectTab::History),
-            PageState::Graph(_) => Some(ProjectTab::Graph),
+            PageState::Graph { .. } => Some(ProjectTab::Graph),
             PageState::Changes { .. }
             | PageState::Diff { .. }
             | PageState::Overview(_)
@@ -498,8 +505,9 @@ impl PageState {
             | PageState::Diff { files, .. }
             | PageState::Branches { files, .. }
             | PageState::History { files, .. }
-            | PageState::Project { files, .. } => Some(files),
-            PageState::Graph(_) | PageState::Overview(_) | PageState::Blank => None,
+            | PageState::Project { files, .. }
+            | PageState::Graph { files, .. } => Some(files),
+            PageState::Overview(_) | PageState::Blank => None,
         }
     }
 
@@ -510,7 +518,7 @@ impl PageState {
             PageState::Branches { review, .. } | PageState::Project { review, .. } => Some(review),
             PageState::Changes { .. }
             | PageState::History { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Overview(_)
             | PageState::Blank => None,
         }
@@ -523,7 +531,7 @@ impl PageState {
             PageState::Branches { review, .. } | PageState::Project { review, .. } => Some(review),
             PageState::Changes { .. }
             | PageState::History { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Overview(_)
             | PageState::Blank => None,
         }
@@ -547,7 +555,7 @@ impl PageState {
             | PageState::Project { side, .. } => Some(side),
             PageState::Changes { .. }
             | PageState::Diff { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Overview(_)
             | PageState::Blank => None,
         }
@@ -561,7 +569,7 @@ impl PageState {
             | PageState::Project { side, .. } => Some(side),
             PageState::Changes { .. }
             | PageState::Diff { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Overview(_)
             | PageState::Blank => None,
         }
@@ -576,7 +584,7 @@ impl PageState {
             | PageState::Branches { .. }
             | PageState::History { .. }
             | PageState::Project { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Blank => None,
         }
     }
@@ -590,7 +598,7 @@ impl PageState {
             | PageState::Branches { .. }
             | PageState::History { .. }
             | PageState::Project { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Blank => None,
         }
     }
@@ -608,7 +616,7 @@ impl PageState {
             | PageState::Diff { .. }
             | PageState::Branches { .. }
             | PageState::Project { .. }
-            | PageState::Graph(_)
+            | PageState::Graph { .. }
             | PageState::Overview(_)
             | PageState::Blank => 0,
         }
@@ -659,8 +667,9 @@ impl PageState {
             | PageState::Diff { files, .. }
             | PageState::Branches { files, .. }
             | PageState::History { files, .. }
-            | PageState::Project { files, .. } => Some(files),
-            PageState::Graph(_) | PageState::Overview(_) | PageState::Blank => None,
+            | PageState::Project { files, .. }
+            | PageState::Graph { files, .. } => Some(files),
+            PageState::Overview(_) | PageState::Blank => None,
         }
     }
 }
@@ -1185,13 +1194,16 @@ mod tests {
     }
 
     #[test]
-    fn the_graph_has_no_files() {
+    fn the_graph_has_files_for_the_pinned_commit() {
         let page = PageState::of(
             Some(&Selection::Project("project".into())),
             ProjectTab::Graph,
         );
-        assert!(matches!(page, PageState::Graph(_)), "its own kind");
-        assert!(page.files().is_none(), "it has no diff");
+        assert!(matches!(page, PageState::Graph { .. }), "its own kind");
+        assert!(
+            page.files().is_some(),
+            "a pinned commit's diff shows beside it"
+        );
     }
 
     #[test]

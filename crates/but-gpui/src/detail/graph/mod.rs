@@ -9,6 +9,7 @@
 //! now, while the new ones grow out of their parents.
 
 mod layout;
+mod page;
 mod window;
 
 use std::cell::{Cell, RefCell};
@@ -22,11 +23,11 @@ use std::time::{Duration, Instant};
 use bstr::BStr;
 use gpui::{
     AnyElement, App, Bounds, BoxShadow, ClickEvent, ContentMask, Context, Corners, CursorStyle,
-    DispatchPhase, Div, Entity, Font, FontWeight, Hitbox, HitboxBehavior, Hsla, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, PinchEvent, Pixels, Point,
-    ScrollDelta, ScrollWheelEvent, SharedString, Size, Stateful, Subscription, Task, TextAlign,
-    TextRun, Toggled, TransformationMatrix, WeakEntity, Window, actions, canvas, div, fill, font,
-    point, prelude::*, quad, size,
+    DispatchPhase, Div, Entity, EventEmitter, Font, FontWeight, Hitbox, HitboxBehavior, Hsla,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, PinchEvent, Pixels,
+    Point, ScrollDelta, ScrollWheelEvent, SharedString, Size, Stateful, Subscription, Task,
+    TextAlign, TextRun, Toggled, TransformationMatrix, WeakEntity, Window, actions, canvas, div,
+    fill, font, point, prelude::*, quad, size,
 };
 
 use crate::backend::{
@@ -519,6 +520,23 @@ pub struct GraphView {
     _subscriptions: Vec<Subscription>,
 }
 
+/// What the page around the graph hears from it.
+pub(super) enum GraphEvent {
+    /// The commit pinned now, whose changes show beside the graph, or none, and whether it was
+    /// pinned by hand rather than rewritten by a reload.
+    Pinned { id: Option<CommitId>, by_hand: bool },
+    /// A commit was right-clicked, at `at` in the window.
+    Menu {
+        at: Point<Pixels>,
+        id: CommitId,
+        title: SharedString,
+        /// Only a branch's remote or the target has it, so it can be copied into the workspace.
+        outside: bool,
+    },
+}
+
+impl EventEmitter<GraphEvent> for GraphView {}
+
 /// How a Graph page was left: where the camera was, the commit whose lineage it had pinned, and
 /// whether it was following the workspace.
 #[derive(Default, Clone)]
@@ -538,9 +556,11 @@ impl GraphView {
         }
     }
 
-    /// Go back to how the page was left the next time the camera's placed.
-    pub(super) fn restore(&mut self, left: GraphState) {
+    /// Go back to how the page was left the next time the camera's placed, and tell the page
+    /// what's pinned until then, as the page may have been left with another commit pinned.
+    pub(super) fn restore(&mut self, left: GraphState, cx: &mut Context<Self>) {
         self.left = left;
+        self.tell_pinned(false, cx);
     }
 
     /// The graph of the project selected, or with `pinned`, of that one, for a pinned tile.
@@ -733,6 +753,8 @@ impl GraphView {
                         }
                     }
                 }
+                // A reload can rewrite the pinned commit, or take it away.
+                this.tell_pinned(false, cx);
                 if std::mem::take(&mut this.queued) {
                     this.load(cx);
                 }
@@ -889,10 +911,21 @@ impl GraphView {
     }
 
     /// The canvas grew by `grown` pixels: what was in its middle stays there, or following the
-    /// workspace, it's framed anew from there.
+    /// workspace, it's framed anew from there. The pinned commit stays in view if it was, as
+    /// when the canvas narrows beside its changes, but not after a pan away from it.
     fn resized(&mut self, grown: Point<f32>, cx: &mut Context<Self>) {
+        let pinned = (self.scene.as_ref()).and_then(|scene| scene.keys.get(self.pinned.as_ref()?));
+        let now = self.bounds.get().size;
+        let was = size(now.width - fixed(grown.x), now.height - fixed(grown.y));
+        let kept = (pinned.and_then(|ix| self.drawn.get(*ix).copied()))
+            .filter(|at| self.in_view(*at, was) == (true, true));
         self.pan(point(grown.x / 2., grown.y / 2.));
         self.keep_following(cx);
+        if let Some(at) = kept
+            && !self.following
+        {
+            self.reveal(at, cx);
+        }
     }
 
     /// Move what's shown `by` pixels, and where a glide or a pan is taking it.
@@ -1098,13 +1131,66 @@ impl GraphView {
             return;
         };
         let key = (node.and_then(|ix| scene.nodes.get(ix))).map(|node| node.key.clone());
-        let unpin = key.is_none() || key == self.pinned;
+        let unpin = key.is_none();
         self.pinned = if unpin { None } else { key };
         self.lineage = Rc::new(match (unpin, node) {
             (false, Some(ix)) => lineage(&scene, ix),
             (true, _) | (false, None) => HashSet::new(),
         });
+        self.tell_pinned(true, cx);
         cx.notify();
+    }
+
+    /// How wide the canvas was last drawn, in pixels as designed.
+    pub(super) fn width(&self) -> f32 {
+        f32::from(self.bounds.get().size.width) / self.scale
+    }
+
+    /// Whether the graph read last has commit `id`.
+    fn has(&self, id: CommitId) -> bool {
+        (self.scene.as_ref()).is_some_and(|scene| scene.nodes.iter().any(|node| node.id == id))
+    }
+
+    /// The pinned commit, but for a branch with no commits, which has no changes of its own.
+    fn pinned_commit(&self) -> Option<CommitId> {
+        let scene = self.scene.as_ref()?;
+        let node = scene.nodes.get(*scene.keys.get(self.pinned.as_ref()?)?)?;
+        (node.shape != Shape::Empty).then_some(node.id)
+    }
+
+    /// Tell the page which commit is pinned, for it to show that one's changes, and whether
+    /// it was pinned `by_hand` rather than rewritten by a reload: only once the camera's placed,
+    /// as until then the pin the page was left with isn't known again.
+    fn tell_pinned(&mut self, by_hand: bool, cx: &mut Context<Self>) {
+        if self.placed {
+            let id = self.pinned_commit();
+            cx.emit(GraphEvent::Pinned { id, by_hand });
+        }
+    }
+
+    /// Pin the commit right-clicked, so its changes show what its menu acts on, and ask for the
+    /// menu.
+    fn right_pressed(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
+        // A window of its own has no page around it to offer a menu.
+        let Some(scene) = self.scene.clone().filter(|_| !self.own_window) else {
+            return;
+        };
+        let on = self.hit(self.local(event.position));
+        let Some((ix, node)) = on
+            .and_then(|ix| Some((ix, scene.nodes.get(ix)?)))
+            .filter(|(_, node)| node.shape != Shape::Empty)
+        else {
+            return;
+        };
+        if self.pinned.as_ref() != Some(&node.key) {
+            self.pin(Some(ix), cx);
+        }
+        cx.emit(GraphEvent::Menu {
+            at: event.position,
+            id: node.id,
+            title: node.title.clone(),
+            outside: matches!(node.kind, Kind::Remote(_) | Kind::Incoming),
+        });
     }
 
     /// Pin the commit on `side` of the pinned one, and glide to it if it's out of view: down
@@ -1160,20 +1246,41 @@ impl GraphView {
             return false;
         };
         self.pin(Some(ix), cx);
-        let size = self.bounds.get().size;
-        // Where a glide under way ends, so stepping back doesn't leave it carrying this away.
+        self.reveal(to, cx);
+        true
+    }
+
+    /// Glide to `to`, a commit's centre, if it's out of view: to the middle, across or down.
+    fn reveal(&mut self, to: Point<f32>, cx: &mut Context<Self>) {
+        let (across, down) = self.in_view(to, self.bounds.get().size);
         let camera = self.glide.map_or(self.camera, |(_, _, to)| to);
-        let (k, offset) = (camera.zoom * self.scale, camera.offset);
-        let on_screen = point(to.x * k + offset.x, to.y * k + offset.y);
-        let margin = 48. * self.scale;
-        let seen = (margin..f32::from(size.width) - margin).contains(&on_screen.x)
-            && (margin..f32::from(size.height) - margin).contains(&on_screen.y);
-        if !seen {
+        let offset = camera.offset;
+        if !(across && down) {
             self.following = false;
-            let to = self.centred(to, camera.zoom);
+            // Only the way it's out of view, so the rest stays where it was.
+            let centred = self.centred(to, camera.zoom).offset;
+            let to = Camera {
+                offset: point(
+                    if across { offset.x } else { centred.x },
+                    if down { offset.y } else { centred.y },
+                ),
+                zoom: camera.zoom,
+            };
             self.glide_to(to, cx);
         }
-        true
+    }
+
+    /// Whether `at`, a commit's centre, is in a canvas `size` big, across and down, where a
+    /// glide under way ends, so stepping back doesn't leave it carrying this away.
+    fn in_view(&self, at: Point<f32>, size: Size<Pixels>) -> (bool, bool) {
+        let camera = self.glide.map_or(self.camera, |(_, _, to)| to);
+        let (k, offset) = (camera.zoom * self.scale, camera.offset);
+        let on_screen = point(at.x * k + offset.x, at.y * k + offset.y);
+        let margin = 48. * self.scale;
+        (
+            (margin..f32::from(size.width) - margin).contains(&on_screen.x),
+            (margin..f32::from(size.height) - margin).contains(&on_screen.y),
+        )
     }
 
     fn pressed(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
@@ -2090,7 +2197,9 @@ impl Paint {
                 continue;
             }
             let centre = self.screen(bounds.origin, at);
-            let lift = match lifted.contains(&Some(ix)) {
+            // The pinned one stands out a little bigger. Hovered, a commit only lights up, so
+            // pointing across them moves nothing.
+            let lift = match self.pinned == Some(ix) {
                 true => 1.06,
                 false => 1.,
             };
@@ -2913,6 +3022,7 @@ impl Render for GraphView {
             };
             self.pinned = left.pinned;
             self.light_lineage(&scene);
+            cx.defer_in(window, |this, _, cx| this.tell_pinned(false, cx));
             self.following = left.following;
             self.placed = true;
             self.seen = true;
@@ -3004,28 +3114,25 @@ impl Render for GraphView {
         .size_full();
         let k = self.k();
         let offset = self.camera.offset;
-        // The pinned commit's card, and the hovered one's while it's another.
-        let cards = [pinned, self.hovered.filter(|ix| Some(*ix) != pinned)]
-            .into_iter()
-            .flatten()
-            .filter(|_| placed)
-            .filter_map(|ix| {
-                let (at, node) = (self.drawn.get(ix)?, scene.nodes.get(ix)?);
-                let (centre, node_box) = match self.tags.borrow().get(&ix) {
-                    Some(row) => (middle(row), row.size),
-                    None => (
-                        point(at.x * k + offset.x, at.y * k + offset.y),
-                        Sizes::at(k).of(node),
-                    ),
-                };
-                let fade = match Some(ix) == pinned {
-                    true => 1.,
-                    false => hover_fade,
-                };
-                let pinned = Some(ix) == pinned;
-                let view = self.bounds.get().size;
-                Some(card(node, centre, node_box, view, fade, pinned, &theme))
-            });
+        // One card: the pinned commit's, else the hovered one's, so pointing past others while
+        // one is pinned only lights them.
+        let card = (pinned.or(self.hovered)).filter(|_| placed).and_then(|ix| {
+            let (at, node) = (self.drawn.get(ix)?, scene.nodes.get(ix)?);
+            let (centre, node_box) = match self.tags.borrow().get(&ix) {
+                Some(row) => (middle(row), row.size),
+                None => (
+                    point(at.x * k + offset.x, at.y * k + offset.y),
+                    Sizes::at(k).of(node),
+                ),
+            };
+            let fade = match Some(ix) == pinned {
+                true => 1.,
+                false => hover_fade,
+            };
+            let pinned = Some(ix) == pinned;
+            let view = self.bounds.get().size;
+            Some(card(node, centre, node_box, view, fade, pinned, &theme))
+        });
         let zoom = self.camera.zoom;
         let following = match self.following {
             true => Toggled::True,
@@ -3035,10 +3142,14 @@ impl Render for GraphView {
             .flat_map(|node| &node.labels)
             .find(|label| label.look == Look::Target)
             .map(|label| label.text.clone());
+        // In a narrow column beside a commit's changes, they wrap onto two rows.
         let controls = h_flex()
             .absolute()
+            .left(dp(12.))
             .right(dp(12.))
             .bottom(dp(12.))
+            .flex_wrap()
+            .justify_end()
             .items_stretch()
             .gap(dp(6.))
             .child(
@@ -3139,7 +3250,7 @@ impl Render for GraphView {
             .overflow_hidden()
             .bg(theme.bg_2)
             .child(graph)
-            .children(cards)
+            .children(card)
             .child(controls)
             .into_any_element()
     }
@@ -3169,12 +3280,16 @@ fn listen(view: &WeakEntity<GraphView>, hitbox: &Hitbox, window: &mut Window) {
     window.on_mouse_event({
         let (view, hitbox) = (view.clone(), hitbox.clone());
         move |event: &MouseDownEvent, phase, window, cx| {
-            if phase == DispatchPhase::Bubble
-                && event.button == MouseButton::Left
-                && hitbox.is_hovered(window)
-            {
-                view.update(cx, |this, cx| this.pressed(event, cx)).ok();
+            if phase != DispatchPhase::Bubble || !hitbox.is_hovered(window) {
+                return;
             }
+            match event.button {
+                MouseButton::Left => view.update(cx, |this, cx| this.pressed(event, cx)).ok(),
+                MouseButton::Right => view
+                    .update(cx, |this, cx| this.right_pressed(event, cx))
+                    .ok(),
+                _ => None,
+            };
         }
     });
     window.on_mouse_event({
@@ -3229,12 +3344,13 @@ fn card(
     const WIDTH: f32 = 340.;
     let scale = theme.scale;
     let (view_width, view_height) = (f32::from(view.width), f32::from(view.height));
-    let width = WIDTH * scale;
-    let right_of = centre.x + node_box.width / 2. + 14. * scale;
-    let left = match right_of + width > view_width - 12. {
-        true => centre.x - node_box.width / 2. - 14. * scale - width,
-        false => right_of,
-    };
+    // No wider than the view, as a narrow column beside a commit's changes is.
+    let (width, gap) = ((WIDTH * scale).min(view_width - 24. * scale), 14. * scale);
+    let right_of = centre.x + node_box.width / 2. + gap;
+    let left_of = centre.x - node_box.width / 2. - gap - width;
+    let beside = (right_of + width <= view_width - 12.)
+        .then_some(right_of)
+        .or((left_of >= 12.).then_some(left_of));
     let top = (centre.y - node_box.height / 2.).clamp(12., (view_height - 180. * scale).max(12.));
     let end = node.body.floor_char_boundary(1200);
     let body = reflowed(node.body.get(..end).unwrap_or_default());
@@ -3314,11 +3430,26 @@ fn card(
                         .child(format!("{by} · {}", ago(node.time))),
                 ),
         );
-    popover(theme)
-        .absolute()
-        .left(fixed(left.max(12.)))
-        .top(fixed(top))
-        .when(commit, |el| el.w(dp(WIDTH)))
+    let card = popover(theme).absolute();
+    let card = match beside {
+        Some(left) => card.left(fixed(left)).top(fixed(top)),
+        // With no room beside it, as beside a commit's changes, under it, or over it in the
+        // lower half, so it never hides the commit.
+        None => {
+            let card = card.left(fixed(
+                (centre.x - width / 2.).clamp(12., (view_width - width - 12.).max(12.)),
+            ));
+            let (above, below) = (
+                centre.y - node_box.height / 2. - gap / 2.,
+                centre.y + node_box.height / 2. + gap / 2.,
+            );
+            match centre.y < view_height / 2. {
+                true => card.top(fixed(below)),
+                false => card.bottom(fixed(view_height - above)),
+            }
+        }
+    };
+    card.when(commit, |el| el.w(dp(width / scale)))
         .p(dp(12.))
         .gap(dp(8.))
         .opacity(fade)

@@ -363,11 +363,20 @@ impl AppHandle {
 }
 
 impl AppView {
-    /// Where the diff starts beside `detail`'s file list at `now`, when its page has a diff.
-    fn diff_left(detail: &Entity<Detail>, now: Instant, window: &Window, cx: &App) -> Option<f32> {
+    /// Where the diff starts beside `detail`'s file list at `now`, when its page has a diff,
+    /// and how far past the right edge it reaches, as it slides in beside the graph.
+    fn diff_left(
+        detail: &Entity<Detail>,
+        now: Instant,
+        window: &Window,
+        cx: &App,
+    ) -> Option<(f32, f32)> {
         let detail = detail.read(cx);
         let has_diff = detail.shows_page() && !detail.diff_hidden(cx);
-        has_diff.then(|| detail.diff_left(now, window, cx))
+        has_diff.then(|| {
+            let past = detail.graph_sliding_by(now, window, cx);
+            (detail.diff_left(now, window, cx), past)
+        })
     }
 
     /// Make the details of the pages pinned to the selected row, and drop those of pages no
@@ -1259,7 +1268,8 @@ impl AppView {
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
-            // Then the branch opened on the Branches page, for its table.
+            // Then the branch opened on the Branches page, for its table, and the commit
+            // pinned on the Graph, for the whole graph.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
                     || detail.clear_line_picks(cx)
@@ -1267,6 +1277,7 @@ impl AppView {
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
                     || detail.close_opened_target(cx)
+                    || detail.unpin_graph(cx)
             });
             if handled {
                 return cx.notify();
@@ -2600,13 +2611,13 @@ impl AppView {
             .right_0()
             .when_some(
                 Self::diff_left(&self.detail, now, window, cx),
-                |el, left| {
+                |el, (left, past)| {
                     el.child(
                         div()
                             .absolute()
                             .top(dp(self.detail.read(cx).view_header_height(cx)))
                             .bottom_0()
-                            .right_0()
+                            .right(dp(-past))
                             .left(dp(left))
                             // Over the files as they slide, edged as they are.
                             .when(files_sliding, |el| {
@@ -2831,12 +2842,12 @@ impl AppView {
             ),
             row => {
                 let page = (self.pages.get(row)).or_else(|| self.going(row)?.page.as_ref())?;
-                let diff = Self::diff_left(&page.detail, now, window, cx).map(|left| {
+                let diff = Self::diff_left(&page.detail, now, window, cx).map(|(left, past)| {
                     div()
                         .absolute()
                         .top(dp(page.detail.read(cx).view_header_height(cx)))
                         .bottom_0()
-                        .right_0()
+                        .right(dp(-past))
                         .left(dp(left))
                         .child((page.diff.clone()).cached(StyleRefinement::default().size_full()))
                 });

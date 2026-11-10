@@ -174,22 +174,29 @@ impl Store {
         self.save_soon(cx);
     }
 
-    /// `pane`'s width in a window `window` wide, beside the navigator and the file list as
-    /// much as each shows, from 0 hidden to 1, as they slide: as set, unless that leaves the
-    /// diff too narrow to read. Then the file list gives way first, down to its limit, then the
-    /// navigator, down to what its header needs.
-    pub fn fitted_width(&self, pane: Pane, window: f32, navigator: f32, files: f32) -> f32 {
+    /// `pane`'s width in a window `window` wide, beside the navigator and the page's column,
+    /// `list` (the file list, or the graph), as much as each shows, from 0 hidden to 1, as they
+    /// slide: as set, unless that leaves the diff too narrow to read. Then the column gives way
+    /// first, down to its limit, then the navigator, down to what its header needs.
+    pub fn fitted_width(
+        &self,
+        pane: Pane,
+        list: Pane,
+        window: f32,
+        navigator: f32,
+        files: f32,
+    ) -> f32 {
         const MIN_DIFF: f32 = 400.;
         const MIN_NAVIGATOR: f32 = 300.;
         let shown = |pane: Pane, share: f32| self.width(pane) * share;
-        let (nav, list) = (shown(Pane::Navigator, navigator), shown(Pane::Files, files));
-        let over = (nav + list + MIN_DIFF - window).max(0.);
-        let list_fit = (list - over).max(Pane::Files.limits().0.min(list));
+        let (nav, list_width) = (shown(Pane::Navigator, navigator), shown(list, files));
+        let over = (nav + list_width + MIN_DIFF - window).max(0.);
+        let list_fit = (list_width - over).max(list.limits().0.min(list_width));
         match pane {
-            Pane::Files => list_fit,
-            Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
+            Pane::Navigator => (nav - (over - (list_width - list_fit))).max(MIN_NAVIGATOR.min(nav)),
+            pane if pane == list => list_fit,
             // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
-            Pane::BesideFiles | Pane::Terminals => self.width(pane),
+            Pane::Files | Pane::BesideFiles | Pane::Graph | Pane::Terminals => self.width(pane),
         }
     }
 
@@ -275,6 +282,8 @@ pub enum Pane {
     Files,
     /// The files between a list page's list and the diff.
     BesideFiles,
+    /// The graph beside the diff of the commit pinned on it.
+    Graph,
     /// The terminal overview under the navigator, by its height.
     Terminals,
 }
@@ -285,6 +294,7 @@ impl Pane {
             Pane::Navigator => 340.,
             Pane::Files => 300.,
             Pane::BesideFiles => 260.,
+            Pane::Graph => 560.,
             // Unless dragged, it fits its rows: see `dragged_width`.
             Pane::Terminals => 240.,
         }
@@ -296,6 +306,8 @@ impl Pane {
             // Wide enough for the composer's Cancel and Commit.
             Pane::Files => (240., 560.),
             Pane::BesideFiles => (200., 560.),
+            // A lane's commits, at 100%.
+            Pane::Graph => (320., 2000.),
             // Its bar and a row. The column's height limits it too.
             Pane::Terminals => (72., 2000.),
         }
