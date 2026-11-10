@@ -435,7 +435,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let from_id = from.id;
         let followed = self.history.follows(&from);
         let to = f(self, from)?;
-        if followed && to.id != from_id && self.history.follows(&to) {
+        if followed && to.id != from_id {
             self.history.record(Rewrite::Replace {
                 prec: from_id,
                 succ: to.id,

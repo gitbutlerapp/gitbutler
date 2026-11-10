@@ -1,7 +1,7 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::Editor;
+use but_rebase::graph_rebase::{Editor, Pick, mutate::InsertSide};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
 use snapbox::prelude::*;
 
@@ -330,4 +330,51 @@ f766d1f
 #[ignore]
 fn replaces_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
     panic!("Branch protection hasn't been implemented yet");
+}
+
+#[test]
+fn amending_a_split_off_commit_keeps_it_tracked() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("merge-in-the-middle")?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    let a = repo.rev_parse_single("A")?.detach();
+    let mut commit = but_core::Commit::from_id(repo.rev_parse_single("A")?)?;
+    commit.message = "split off".into();
+    let split = repo.write_object(commit.inner.clone())?.detach();
+    commit.message = "split off, amended".into();
+    let amended = repo.write_object(commit.inner)?.detach();
+
+    let a_selector = editor.select_commit(a)?;
+    let split_selector = editor.split_off(
+        a_selector,
+        Pick::new_untracked_pick(split),
+        a_selector,
+        InsertSide::Above,
+    )?;
+    editor.amend_pick(split_selector, amended)?;
+
+    let outcome = editor.rebase()?.materialize(Default::default())?;
+    let title = |id| -> Result<String> { Ok(repo.find_commit(id)?.message()?.title.to_string()) };
+    let mut splits = Vec::new();
+    for rewrite in outcome.history.rewrites() {
+        if let but_evo::Rewrite::Split { prec, succs } = rewrite {
+            let succs = succs.into_iter().map(title).collect::<Result<Vec<_>>>()?;
+            splits.push(format!("{} -> {}", title(prec)?, succs.join(", ")));
+        }
+    }
+    // The split names the amended split-off commit, not the one it started as.
+    snapbox::assert_data_eq!(
+        splits.join("\n"),
+        snapbox::str!["A: 10 lines on top -> A: 10 lines on top, split off, amended"]
+    );
+    Ok(())
 }
