@@ -468,25 +468,30 @@ impl Navigator {
             )));
             return;
         }
-        // The main worktree's heading folds its branches away, which step in under it; with
-        // linked worktrees each is a section too, ruled off from the next.
-        let headed = !workspace.worktrees.is_empty();
+        // Alone, the main worktree's rows go right under the project's, which stands in for
+        // its heading. Beside other checkouts its heading folds its branches away, which step
+        // in under it, and each linked worktree is a section too, ruled off from the next.
         let selection = store.selection.as_ref().filter(|s| s.project() == id);
-        let main_selected =
-            selection.is_some_and(|s| in_checkout(store, s, workspace, &Checkout::Main));
-        let heading = Selection::Checkout(id.clone(), Checkout::Main);
-        let main_open = self.shows_under(&heading, main_selected);
-        rows.push(Row::Item(heading.clone()));
-        rows.open_in(STEP);
-        rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
-            self.main_checkout_rows(store, id, workspace, rows)
-        });
-        rows.close();
+        if !store.main_headed(id) {
+            self.main_checkout_rows(store, id, workspace, rows);
+        } else {
+            let main_selected =
+                selection.is_some_and(|s| in_checkout(store, s, workspace, &Checkout::Main));
+            let heading = Selection::Checkout(id.clone(), Checkout::Main);
+            let main_open = self.shows_under(&heading, main_selected);
+            rows.push(Row::Item(heading.clone()));
+            rows.open_in(STEP);
+            rows.fold(Fold::Under(heading), main_open, &self.folds, |rows| {
+                self.main_checkout_rows(store, id, workspace, rows)
+            });
+            rows.close();
+        }
         // Under the workspace it adds to, not past the worktrees.
         if lands_apart(store.dragging.as_ref(), id, workspace) {
             rows.push(Row::NewBranch(id.clone()));
         }
-        if headed {
+        let worktrees = worktrees_listed(store, id, workspace);
+        if !worktrees.is_empty() {
             rows.push(Row::WorktreeDivider);
             let on_branches = |wt: &Worktree| {
                 let checkout = Checkout::Linked(wt.name.clone());
@@ -494,9 +499,8 @@ impl Navigator {
             };
             // The inactive ones wait under a heading of their own, folded unless opened or
             // the selection's in one.
-            let (inactive, active): (Vec<_>, Vec<_>) = (worktrees_listed(store, id, workspace))
-                .into_iter()
-                .partition(|wt| wt.is_inactive(store.prefs.inactive_after));
+            let (inactive, active): (Vec<_>, Vec<_>) =
+                (worktrees.into_iter()).partition(|wt| wt.is_inactive(store.prefs.inactive_after));
             for wt in active {
                 self.worktree_rows(store, id, wt, on_branches(wt), rows);
             }
@@ -573,10 +577,14 @@ impl Navigator {
             rows.inset += STEP;
             let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
             if let Some(workspace) = workspace {
-                // The main worktree's branches under its heading.
+                // The main worktree's branches under its heading, or alone, right under the
+                // project's.
+                let alone = !store.main_headed(id);
                 let main = rows.rows.len();
-                rows.push(Row::Item(Selection::Checkout(id.clone(), Checkout::Main)));
-                rows.open_in(STEP);
+                if !alone {
+                    rows.push(Row::Item(Selection::Checkout(id.clone(), Checkout::Main)));
+                    rows.open_in(STEP);
+                }
                 let heading_end = rows.rows.len();
                 for stack in workspace.lanes_in(&Checkout::Main) {
                     // A mark between two stacks, taken back when nothing in the next matches.
@@ -590,7 +598,9 @@ impl Navigator {
                         rows.truncate(start);
                     }
                 }
-                rows.close();
+                if !alone {
+                    rows.close();
+                }
                 if rows.rows.len() == heading_end {
                     rows.truncate(main);
                 }
@@ -1049,6 +1059,21 @@ pub(super) fn listed_with(
         .filter(|wt| wt.is_inactive(after) == inactive)
         .map(|wt| wt.name.clone());
     Some(listed.collect())
+}
+
+/// The checkout `row` heads, `next` being the row after it: a worktree's heading's, or the main
+/// one's for a project's row while it stands in for that heading, its card's rows following
+/// without one.
+pub(super) fn heads(row: &Row, next: Option<&Row>) -> Option<Checkout> {
+    match (row, next) {
+        (Row::Item(Selection::Checkout(_, checkout)), _) => Some(checkout.clone()),
+        (Row::Item(Selection::Project(p)), Some(Row::Item(next)))
+            if next.project() == p && !matches!(next, Selection::Checkout(..)) =>
+        {
+            Some(Checkout::Main)
+        }
+        _ => None,
+    }
 }
 
 /// Whether `selection` is in `checkout`, which folding its heading hides: its uncommitted

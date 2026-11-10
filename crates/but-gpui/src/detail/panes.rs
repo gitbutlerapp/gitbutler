@@ -87,21 +87,21 @@ impl Detail {
             ));
             let workspace = entry.workspace.as_ref();
             // The worktree a branch, stack, commit or the changes are in, named as its navigator
-            // heading is.
-            let heading = |item: &Selection| -> Crumb {
+            // heading is. The main one has none while it's alone.
+            let heading = |item: &Selection| -> Option<Crumb> {
                 let project = item.project().clone();
                 match store.worktree_for(item) {
-                    Some(worktree) => (
+                    Some(worktree) => Some((
                         worktree.name.to_string().into(),
                         Some(
                             Selection::Checkout(project, Checkout::Linked(worktree.name.clone()))
                                 .into(),
                         ),
-                    ),
-                    None => (
-                        "Main worktree".into(),
-                        Some(Selection::Checkout(project, Checkout::Main).into()),
-                    ),
+                    )),
+                    None => store.main_headed(&project).then(|| {
+                        let main = Selection::Checkout(project, Checkout::Main);
+                        ("Main worktree".into(), Some(main.into()))
+                    }),
                 }
             };
             match selection {
@@ -123,7 +123,9 @@ impl Detail {
                     }
                 },
                 Selection::Terminal(project, id) => {
-                    if let Some(checkout) = store.terminals.checkout_of(selection) {
+                    let checkout = (store.terminals.checkout_of(selection))
+                        .filter(|checkout| checkout.is_linked() || store.main_headed(project));
+                    if let Some(checkout) = checkout {
                         let name = checkout
                             .linked()
                             .map_or("Main worktree".into(), |name| name.to_string().into());
@@ -140,7 +142,7 @@ impl Detail {
                         crumbs.push((format!("Editing {title}").into(), None));
                     }
                     None => {
-                        crumbs.push(heading(selection));
+                        crumbs.extend(heading(selection));
                         crumbs.push(("Uncommitted changes".into(), None));
                     }
                 },
@@ -157,7 +159,7 @@ impl Detail {
                         (None, None) => "Unnamed branch".into(),
                         (None, Some(ref_name)) => short_ref(ref_name),
                     };
-                    crumbs.push(heading(selection));
+                    crumbs.extend(heading(selection));
                     crumbs.push((name.into_owned().into(), None));
                 }
                 Selection::Mesh(project, id, pick) => {
@@ -167,7 +169,7 @@ impl Detail {
                     let n = workspace
                         .and_then(|ws| ws.lane(bottom.as_ref()))
                         .map_or(0, |lane| lane.branches.len());
-                    crumbs.push(heading(selection));
+                    crumbs.extend(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
                 Selection::Section(project, section) => {
@@ -180,7 +182,7 @@ impl Detail {
                             if let Some(branch) = branch {
                                 let branch_selection =
                                     Selection::Branch(project.clone(), Some(ref_name.clone()));
-                                crumbs.push(heading(&branch_selection));
+                                crumbs.extend(heading(&branch_selection));
                                 let name = store.name_of(project, branch).to_owned();
                                 crumbs.push((name.into(), Some(branch_selection.into())));
                             }
@@ -195,7 +197,7 @@ impl Detail {
                     if let Some(branch) = workspace.and_then(|ws| ws.find_branch(Some(ref_name))) {
                         let branch_selection =
                             Selection::Branch(project.clone(), Some(ref_name.clone()));
-                        crumbs.push(heading(&branch_selection));
+                        crumbs.extend(heading(&branch_selection));
                         let name = store.name_of(project, branch).to_owned();
                         crumbs.push((name.into(), Some(branch_selection.into())));
                     }
@@ -211,7 +213,7 @@ impl Detail {
                         let branch_selection = (branch.ref_name.clone()).map(|ref_name| {
                             Selection::Branch(project.clone(), Some(ref_name)).into()
                         });
-                        crumbs.push(heading(selection));
+                        crumbs.extend(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
                         crumbs.push((name.into(), branch_selection));
                         // By its change ID, as y copies it, or its sha for one without.

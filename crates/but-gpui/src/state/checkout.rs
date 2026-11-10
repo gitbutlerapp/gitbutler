@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use gpui::SharedString;
 
-use super::{ProjectId, Section, Selection, Store};
+use super::{NavigatorPlace, ProjectId, Section, Selection, Store};
 use crate::backend::{Checkout, CommitId, Lane, Worktree};
 
 impl Store {
@@ -45,6 +45,27 @@ impl Store {
     /// Whether `selection` is in a linked worktree's lane.
     pub fn in_linked(&self, selection: &Selection) -> bool {
         (self.checkout_of(selection).as_ref()).is_some_and(Checkout::is_linked)
+    }
+
+    /// Whether `project`'s main checkout has a heading of its own in the navigator: beside a
+    /// linked worktree or one on another machine, to tell them apart, along the top, where a
+    /// card has no project row, and until its project's first read says otherwise. Alone at
+    /// the side, the project's row stands in for it.
+    pub fn main_headed(&self, project: &ProjectId) -> bool {
+        self.prefs.navigator_place == NavigatorPlace::Top
+            || !self.mesh_checkouts(project).is_empty()
+            || (self.workspace(project)).is_none_or(|ws| {
+                (ws.worktrees.iter()).any(|wt| !self.hides_worktree(project, wt.name.as_ref()))
+            })
+    }
+
+    /// What's selected once what was goes: its main checkout's heading, or the project's row
+    /// standing in for it.
+    pub fn home(&self, project: &ProjectId) -> Selection {
+        match self.main_headed(project) {
+            true => Selection::Checkout(project.clone(), Checkout::Main),
+            false => Selection::Project(project.clone()),
+        }
     }
 
     /// The checkouts rewriting commits `ids` of `project` moves.

@@ -967,15 +967,15 @@ impl Store {
                     Selection::Branch(project, Some(ref_name))
                 }
                 Selection::Upstream(..) | Selection::Section(..) => Selection::Project(project),
-                // Changes all committed or discarded go up to their worktree's heading, if it's
-                // still there.
-                Selection::Uncommitted(_, checkout)
+                // Changes all committed or discarded go up to their linked worktree's heading,
+                // if it's still there.
+                Selection::Uncommitted(_, checkout @ Checkout::Linked(_))
                     if self
                         .still_there(&Selection::Checkout(project.clone(), checkout.clone())) =>
                 {
                     Selection::Checkout(project, checkout)
                 }
-                _ => Selection::Checkout(project, Checkout::Main),
+                _ => self.home(&project),
             };
             self.select(Some(home), cx);
         }

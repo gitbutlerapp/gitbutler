@@ -1515,14 +1515,14 @@ impl Store {
         };
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it: to the branch taking its place, as the TUI goes
-        // on after a delete, or with none, to the main checkout.
+        // on after a delete, or with none, to the project's home.
         let selection = self.selection.as_ref();
         let moved = selection
             .filter(|s| s.project() == project && overlay.takes_away(s, self))
             .map(|s| {
                 let instead = match overlay.in_place_of(s, self) {
                     Some(branch) => Selection::Branch(project.clone(), branch.ref_name.clone()),
-                    None => Selection::Checkout(project.clone(), Checkout::Main),
+                    None => self.home(project),
                 };
                 (s.clone(), instead)
             });

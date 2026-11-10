@@ -4732,8 +4732,8 @@ fn stack_tooltip(
 }
 
 /// What ⇧← goes up to from `selection`: a branch in a stack its stack's caption, and a stack,
-/// a branch alone, a terminal or uncommitted changes its worktree's heading. Not while a commit
-/// is edited, which lists its files without one.
+/// a branch alone, a terminal or uncommitted changes its worktree's heading, else the project's
+/// row standing in for it. Not while a commit is edited, which lists its files without one.
 fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let project = selection.project();
     let workspace = store.workspace(project)?;
@@ -4750,10 +4750,13 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
         Selection::Branch(..)
         | Selection::Stack(..)
         | Selection::Terminal(..)
-        | Selection::Uncommitted(..) => Some(Selection::Checkout(
-            project.clone(),
-            store.checkout_of(selection)?,
-        )),
+        | Selection::Uncommitted(..) => {
+            let checkout = store.checkout_of(selection)?;
+            Some(match checkout.is_linked() || store.main_headed(project) {
+                true => Selection::Checkout(project.clone(), checkout),
+                false => Selection::Project(project.clone()),
+            })
+        }
         _ => None,
     }
 }

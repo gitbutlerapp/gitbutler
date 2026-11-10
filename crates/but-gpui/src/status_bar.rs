@@ -505,7 +505,12 @@ impl AppView {
                     Checkout::Linked(name) => name.to_string(),
                 })
                 .collect();
-            if let (Some(text), Some(first)) = (written_in(&names), writing.first()) {
+            // Alone, the main checkout is the only one there is to name.
+            let text = match store.main_headed(&project) {
+                true => written_in(&names),
+                false => (!names.is_empty()).then(|| "Being written now".to_owned()),
+            };
+            if let (Some(text), Some(first)) = (text, writing.first()) {
                 notes.push(Note {
                     id: "writing",
                     mark: dot(theme.pop).into_any_element(),
