@@ -147,34 +147,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.teal.3}",
+          "$value": "{ramps.teal.5}",
           "$description": "A lighter accent fill for a quieter control. Text on it: primary/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.teal.3}",
-              "dark": "{ramps.teal.3}"
+              "light": "{ramps.teal.5}",
+              "dark": "{ramps.teal.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.teal.11}",
+          "$value": "{ramps.teal.12}",
           "$description": "Text and icons on primary/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.teal.11}",
-              "dark": "{ramps.teal.11}"
+              "light": "{ramps.teal.12}",
+              "dark": "{ramps.teal.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.teal.4}",
+          "$value": "{ramps.teal.6}",
           "$description": "primary/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.teal.4}",
-              "dark": "{ramps.teal.4}"
+              "light": "{ramps.teal.6}",
+              "dark": "{ramps.teal.6}"
             }
           }
         }
@@ -248,34 +248,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.red.3}",
+          "$value": "{ramps.red.5}",
           "$description": "A lighter danger fill for a quieter control. Text on it: danger/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.red.3}",
-              "dark": "{ramps.red.3}"
+              "light": "{ramps.red.5}",
+              "dark": "{ramps.red.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.red.11}",
+          "$value": "{ramps.red.12}",
           "$description": "Text and icons on danger/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.red.11}",
-              "dark": "{ramps.red.11}"
+              "light": "{ramps.red.12}",
+              "dark": "{ramps.red.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.red.4}",
+          "$value": "{ramps.red.6}",
           "$description": "danger/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.red.4}",
-              "dark": "{ramps.red.4}"
+              "light": "{ramps.red.6}",
+              "dark": "{ramps.red.6}"
             }
           }
         }
@@ -349,34 +349,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.amber.3}",
+          "$value": "{ramps.amber.5}",
           "$description": "A lighter warning fill for a quieter control. Text on it: warning/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.amber.3}",
-              "dark": "{ramps.amber.3}"
+              "light": "{ramps.amber.5}",
+              "dark": "{ramps.amber.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.amber.11}",
+          "$value": "{ramps.amber.12}",
           "$description": "Text and icons on warning/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.amber.11}",
-              "dark": "{ramps.amber.11}"
+              "light": "{ramps.amber.12}",
+              "dark": "{ramps.amber.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.amber.4}",
+          "$value": "{ramps.amber.6}",
           "$description": "warning/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.amber.4}",
-              "dark": "{ramps.amber.4}"
+              "light": "{ramps.amber.6}",
+              "dark": "{ramps.amber.6}"
             }
           }
         }
@@ -450,34 +450,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.green.3}",
+          "$value": "{ramps.green.5}",
           "$description": "A lighter success fill for a quieter control. Text on it: success/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.green.3}",
-              "dark": "{ramps.green.3}"
+              "light": "{ramps.green.5}",
+              "dark": "{ramps.green.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.green.11}",
+          "$value": "{ramps.green.12}",
           "$description": "Text and icons on success/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.green.11}",
-              "dark": "{ramps.green.11}"
+              "light": "{ramps.green.12}",
+              "dark": "{ramps.green.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.green.4}",
+          "$value": "{ramps.green.6}",
           "$description": "success/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.green.4}",
-              "dark": "{ramps.green.4}"
+              "light": "{ramps.green.6}",
+              "dark": "{ramps.green.6}"
             }
           }
         }
@@ -551,34 +551,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.purple.3}",
+          "$value": "{ramps.purple.5}",
           "$description": "A lighter done fill for a quieter control. Text on it: done/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.purple.3}",
-              "dark": "{ramps.purple.3}"
+              "light": "{ramps.purple.5}",
+              "dark": "{ramps.purple.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.purple.11}",
+          "$value": "{ramps.purple.12}",
           "$description": "Text and icons on done/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.purple.11}",
-              "dark": "{ramps.purple.11}"
+              "light": "{ramps.purple.12}",
+              "dark": "{ramps.purple.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.purple.4}",
+          "$value": "{ramps.purple.6}",
           "$description": "done/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.purple.4}",
-              "dark": "{ramps.purple.4}"
+              "light": "{ramps.purple.6}",
+              "dark": "{ramps.purple.6}"
             }
           }
         }
@@ -769,34 +769,34 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.blue.3}",
+          "$value": "{ramps.blue.5}",
           "$description": "A lighter info fill for a quieter control. Text on it: info/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.blue.3}",
-              "dark": "{ramps.blue.3}"
+              "light": "{ramps.blue.5}",
+              "dark": "{ramps.blue.5}"
             }
           }
         },
         "foreground": {
           "$type": "color",
-          "$value": "{ramps.blue.11}",
+          "$value": "{ramps.blue.12}",
           "$description": "Text and icons on info/soft.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.blue.11}",
-              "dark": "{ramps.blue.11}"
+              "light": "{ramps.blue.12}",
+              "dark": "{ramps.blue.12}"
             }
           }
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.blue.4}",
+          "$value": "{ramps.blue.6}",
           "$description": "info/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.blue.4}",
-              "dark": "{ramps.blue.4}"
+              "light": "{ramps.blue.6}",
+              "dark": "{ramps.blue.6}"
             }
           }
         }
@@ -1445,7 +1445,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-09T22:47:20.799Z"
+        "createdAt": "2026-11-10T10:46:35.775Z"
       }
     }
   }

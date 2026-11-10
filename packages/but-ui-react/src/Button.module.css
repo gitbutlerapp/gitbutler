@@ -81,10 +81,9 @@
 
 :where(.pop) {
 	--button-border: none;
-	--button-bg: var(--but-primary-soft);
-	--button-fg: var(--but-primary-soft-foreground);
-	--button-icon-opacity: 0.7;
-	--button-hover-bg: var(--but-primary-soft-hover);
+	--button-bg: var(--but-primary);
+	--button-fg: var(--but-primary-foreground);
+	--button-hover-bg: var(--but-primary-hover);
 }
 
 :where(.gray) {
@@ -123,6 +122,15 @@
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
 	--button-hover-bg: var(--but-danger-soft-hover);
+}
+
+:where(.danger-solid) {
+	--button-border: none;
+	--button-bg: var(--but-danger);
+	--button-fg: var(--but-danger-foreground);
+	--button-icon-opacity: 0.8;
+	--button-hover-icon-opacity: 0.9;
+	--button-hover-bg: var(--but-danger-hover);
 }
 
 :where(.ghost) {

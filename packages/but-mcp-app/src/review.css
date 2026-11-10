@@ -274,13 +274,13 @@
 
 .review-button.primary {
 	border: 0;
-	background: var(--but-primary-soft);
-	color: var(--but-primary-soft-foreground);
+	background: var(--but-primary);
+	color: var(--but-primary-foreground);
 }
 
 .review-button.primary:hover:not(:disabled) {
-	background: var(--but-primary-soft-hover);
-	color: var(--but-primary-soft-foreground);
+	background: var(--but-primary-hover);
+	color: var(--but-primary-foreground);
 }
 
 .review-button:disabled {
