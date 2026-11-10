@@ -1,16 +1,14 @@
 import { findPage, loadPage } from "./pages.ts";
 import { play } from "./play.ts";
-import { paintAccent, paintTheme, type Accent } from "./site.ts";
+import { accentOf, paintAccent, paintTheme } from "./site.ts";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-
-const accentOf = (value: string | null | undefined): Accent =>
-	value === "blue" || value === "purple" ? value : "teal";
 
 /**
  * One story alone, `?story=components-modal--confirm`: the frame an overlay's example opens in,
  * and the page to screenshot a story on. Framed on a site page it follows the page's theme and
- * accent; opened on its own, `&theme=dark` and `&accent=blue` pick them.
+ * accent; opened on its own, `&theme=dark` and `&accent=blue` (or a hex, `&accent=EE5858`) pick
+ * them.
  */
 export async function renderFrame(id: string) {
 	const search = new URLSearchParams(window.location.search);
@@ -23,7 +21,10 @@ export async function renderFrame(id: string) {
 					? "light"
 					: "system",
 		);
-		paintAccent(accentOf(site?.dataset["butAccent"]));
+		const accent = site?.dataset["butAccent"];
+		paintAccent(
+			accentOf(accent === "custom" ? site?.style.getPropertyValue("--but-accent-color") : accent),
+		);
 	};
 	if (site === undefined) {
 		paintTheme(search.get("theme") === "dark" ? "dark" : "light");
@@ -31,7 +32,7 @@ export async function renderFrame(id: string) {
 	} else {
 		followSite();
 		new MutationObserver(followSite).observe(site, {
-			attributeFilter: ["class", "data-but-accent"],
+			attributeFilter: ["class", "data-but-accent", "style"],
 		});
 	}
 

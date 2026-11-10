@@ -5,23 +5,37 @@
 //
 //   node scripts/check-contrast.mjs
 
-import { converter, parse } from "culori";
+import { converter, formatHex, parse } from "culori";
 import { readFileSync } from "node:fs";
 
 const toRgb = converter("rgb");
+const toOklch = converter("oklch");
 
 const TEXT = 4.5;
 const MARK = 3;
 
 const css = readFileSync("tokens/tokens.css", "utf8");
-const read = (block) =>
-	[...block.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm)].map(([, name, value]) => [name, value]);
+function read(block) {
+	return [...block.matchAll(/^\s*--but-([\w-]+):\s*(.+?);\s*$/gm)].map(([, name, value]) => [
+		name,
+		value,
+	]);
+}
 const defaults = read(css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? "");
+// Any colour stands in as the full-strength hue every 15°, the purest a person can type, and
+// a gray.
+const SAMPLES = [
+	...Array.from({ length: 24 }, (_, i) => formatHex({ mode: "hsl", h: i * 15, s: 1, l: 0.5 })),
+	"#808080",
+];
 // Every accent a person can pick, as the declarations it changes; teal changes none.
 const accents = [
 	["teal", []],
-	...[...css.matchAll(/:root\[data-but-accent="(\w+)"\]\s*\{([\s\S]*?)\n\}/g)].map(
-		([, accent, block]) => [accent, read(block)],
+	...[...css.matchAll(/:root\[data-but-accent="(\w+)"\]\s*\{([\s\S]*?)\n\}/g)].flatMap(
+		([, accent, block]) =>
+			accent === "custom"
+				? SAMPLES.map((sample) => [sample, [...read(block), ["accent-color", sample]]])
+				: [[accent, read(block)]],
 	),
 ];
 // The declarations in force for the accent being checked.
@@ -59,6 +73,21 @@ function resolve(value, mode) {
 	}
 	const lightDark = call(value, "light-dark");
 	if (lightDark) return resolve(lightDark[mode === "light" ? 0 : 1], mode);
+	// What generate-accents.mjs writes for any colour: its hue and capped chroma at a lightness.
+	const relative = value.match(
+		/^oklch\(from var\(--but-([\w-]+)(?:, [^)]*\))?\) ([\d.]+) (?:calc\()?min\(c, ([\d.]+)\)(?: \* ([\d.]+)\))? h\)$/,
+	);
+	if (relative) {
+		const [, ref, l, cap, share = "1"] = relative;
+		const from = toOklch(parse(declarations.get(ref)));
+		const c = Math.min(from.c, parseFloat(cap)) * parseFloat(share);
+		// Out of sRGB the browser clips each channel.
+		const { r, g, b } = toRgb({ mode: "oklch", l: parseFloat(l), c, h: from.h ?? 0 });
+		function clip(v) {
+			return Math.min(1, Math.max(0, v));
+		}
+		return { r: clip(r), g: clip(g), b: clip(b), alpha: 1 };
+	}
 	const mix = call(value, "color-mix");
 	if (mix) {
 		// Only what the export writes: a colour at a share, over transparent.
@@ -143,7 +172,7 @@ for (const [accent, overrides] of accents) {
 			const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
 			if (ratio < floor)
 				failures.push(
-					`${accent.padEnd(6)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
+					`${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
 				);
 		}
 	}
@@ -156,5 +185,5 @@ if (failures.length) {
 	process.exit(1);
 }
 process.stdout.write(
-	`check-contrast: all ${pairs.length} pairs read in light and dark, with each accent (${accents.map(([a]) => a).join(", ")}).\n`,
+	`check-contrast: all ${pairs.length} pairs read in light and dark, with each accent (${accents.length - SAMPLES.length} named and ${SAMPLES.length} custom).\n`,
 );

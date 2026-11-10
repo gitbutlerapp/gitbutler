@@ -527,3 +527,13 @@
   --but-primary-soft-hover: var(--but-purple-4);
   --but-primary-text: var(--but-purple-11);
 }
+
+/* Any colour: data-but-accent="custom" and --but-accent-color on the root element. */
+:root[data-but-accent="custom"] {
+  --but-primary: oklch(from var(--but-accent-color, var(--but-teal-9)) 0.512 min(c, 0.15) h);
+  --but-primary-hover: oklch(from var(--but-accent-color, var(--but-teal-9)) 0.481 calc(min(c, 0.15) * 0.943) h);
+  --but-primary-soft: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.955 calc(min(c, 0.15) * 0.319) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.274 calc(min(c, 0.15) * 0.394) h));
+  --but-primary-soft-foreground: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.46 calc(min(c, 0.15) * 0.903) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.827 calc(min(c, 0.15) * 1.31) h));
+  --but-primary-soft-hover: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.928 calc(min(c, 0.15) * 0.52) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.317 calc(min(c, 0.15) * 0.551) h));
+  --but-primary-text: light-dark(oklch(from var(--but-accent-color, var(--but-teal-9)) 0.46 calc(min(c, 0.15) * 0.903) h), oklch(from var(--but-accent-color, var(--but-teal-9)) 0.827 calc(min(c, 0.15) * 1.31) h));
+}

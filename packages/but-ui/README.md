@@ -61,6 +61,8 @@ Every token is `--but-*`: roles for colour (`--but-background`, `--but-primary`,
 
 Teal is the accent. A person can pick another by setting `data-but-accent` on the root element, `<html data-but-accent="blue">` (or `purple`): the `--but-primary` family then points at that hue's steps, and every component follows. It has to be the root, where the tokens are declared, or the tints made from `--but-primary` stay teal. Figma keeps teal; the other accents are generated in the build and held to the same contrast as teal.
 
+Any colour works too: `<html data-but-accent="custom" style="--but-accent-color: #ee5858">`. The family takes the colour's hue and chroma at teal's lightness, a little further from the ground and with the chroma capped, so it reads wherever teal does; the build's contrast check runs it with a full-strength colour every 15° around the wheel. So the accent drawn is the tokens' take on the colour, not the colour itself: `#ee5858` comes out a deeper red. It needs relative colour syntax (Chrome 119, Safari 18, Firefox 128).
+
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
 ```bash
@@ -193,7 +195,7 @@ pnpm check
 2. merges the `:root` and `:root.dark` blocks into single `light-dark(…)` declarations, so light and dark mode need no class switching, and adds the lifted colors;
 3. appends box-shadow custom properties generated from `fx.tokens.json` by [`scripts/generate-shadow-vars.mjs`](./scripts/generate-shadow-vars.mjs);
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
-5. appends an `:root[data-but-accent=…]` block for each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue.
+5. appends an `:root[data-but-accent=…]` block for each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue, and the `custom` block that draws it from any colour.
 
 Aliases stay aliases: a variable that points at another in Figma comes out as `var(--target)`, for sizes as well as colors.
 
