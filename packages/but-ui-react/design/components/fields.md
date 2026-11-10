@@ -46,3 +46,12 @@ field, since the next keystroke is meant for it. A clear by pointer would
 otherwise leave focus on a button that disappears with the query, and so
 nowhere. `PopupSearch` and `PopupEmpty` do this themselves; a field built any
 other way does it by hand.
+
+**An icon in a field is the placeholder's colour.** `--but-subtle-foreground`,
+whether the field is empty or holds a value: the icon says what the field is
+for, and the value is what the eye reads. `FieldControlWithIcon` colours it, so
+pass a bare `Icon`. Something in the slot that is a colour, not an icon — the
+colour a field holds, as the accent picker's dot — keeps its own. The slot only
+shows: clicks go through to the input. In Figma the icon goes into the field's
+`Icon start content` or `Icon end content` slot, which starts empty in an
+instance; bind its fill to `subtle-foreground` there.

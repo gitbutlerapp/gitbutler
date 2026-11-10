@@ -69,6 +69,49 @@ export function savedTheme(): Theme {
 	return "system";
 }
 
+/** A named accent, the ramps the tokens point the primary family at, or any colour as a hex. */
+export type Accent = "teal" | "blue" | "purple" | `#${string}`;
+
+/** `value` as an accent: a named one, or a six-digit hex with or without its `#`; else teal. */
+export const accentOf = (value: string | null | undefined): Accent => {
+	if (value === "blue" || value === "purple") return value;
+	const hex = value?.match(/^#?([0-9a-f]{6})$/i)?.[1];
+	return hex === undefined ? "teal" : `#${hex.toUpperCase()}`;
+};
+
+/**
+ * The accent is the root's `data-but-accent`, which the tokens follow; without it, teal. Any
+ * colour is `custom`, with the colour as `--but-accent-color` beside it.
+ */
+export const paintAccent = (accent: Accent, root = document.documentElement) => {
+	const custom = accent.startsWith("#");
+	if (accent === "teal") delete root.dataset["butAccent"];
+	else root.dataset["butAccent"] = custom ? "custom" : accent;
+	if (custom) root.style.setProperty("--but-accent-color", accent);
+	else root.style.removeProperty("--but-accent-color");
+};
+
+const accentKey = "ui-react-docs-accent";
+
+/** The accent last picked here, else teal. */
+export function savedAccent(): Accent {
+	try {
+		return accentOf(window.localStorage.getItem(accentKey));
+	} catch {
+		// Storage can be off; teal stands in.
+		return "teal";
+	}
+}
+
+export function pickAccent(accent: Accent) {
+	paintAccent(accent);
+	try {
+		window.localStorage.setItem(accentKey, accent);
+	} catch {
+		// Kept for this visit only.
+	}
+}
+
 export function pickTheme(theme: Theme) {
 	paintTheme(theme);
 	try {

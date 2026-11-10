@@ -1,3 +1,4 @@
+import { FieldControlWithIcon } from "../src/Field.tsx";
 import { PopupSearch } from "../src/Popup.tsx";
 import { ResizeHandle } from "../src/ResizeHandle.tsx";
 import { ScrollArea } from "../src/ScrollArea.tsx";
@@ -15,7 +16,18 @@ import {
 	pages,
 	type Page,
 } from "./pages.ts";
-import { currentPage, pageLink, pickTheme, savedTheme, subscribePage, type Theme } from "./site.ts";
+import {
+	accentOf,
+	currentPage,
+	pageLink,
+	pickAccent,
+	pickTheme,
+	savedAccent,
+	savedTheme,
+	subscribePage,
+	type Accent,
+	type Theme,
+} from "./site.ts";
 import { Suspense, use, useState, useSyncExternalStore, type FC } from "react";
 import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 
@@ -156,8 +168,69 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 					})}
 				</nav>
 			</ScrollArea>
-			<ThemeSwitch />
+			<div className="docs-site-appearance">
+				<ThemeSwitch />
+				<AccentPicker />
+			</div>
 		</aside>
+	);
+};
+
+/** Teal, blue and purple are the ramps the tokens name; amber and red, like anything typed, are
+ * a colour the tokens draw at teal's lightness. */
+const ACCENTS: Array<{ name: string; accent: Accent; hex: string }> = [
+	{ name: "Teal", accent: "teal", hex: "#008383" },
+	{ name: "Blue", accent: "blue", hex: "#2571E3" },
+	{ name: "Purple", accent: "purple", hex: "#8943D0" },
+	{ name: "Amber", accent: "#FF9500", hex: "#FF9500" },
+	{ name: "Red", accent: "#D5412A", hex: "#D5412A" },
+];
+
+const hexOf = (accent: Accent) => ACCENTS.find((a) => a.accent === accent)?.hex ?? accent;
+
+const AccentPicker: FC = () => {
+	const [accent, setAccent] = useState(savedAccent);
+	const [draft, setDraft] = useState(() => hexOf(accent));
+	const pick = (next: Accent) => {
+		setAccent(next);
+		setDraft(hexOf(next));
+		pickAccent(next);
+	};
+	const type = (text: string) => {
+		setDraft(text);
+		const typed = accentOf(text.trim());
+		if (typed === "teal") return;
+		const next = ACCENTS.find((a) => a.hex === typed)?.accent ?? typed;
+		setAccent(next);
+		pickAccent(next);
+	};
+
+	return (
+		<div className="docs-site-accent">
+			<div role="radiogroup" aria-label="Accent" className="docs-site-swatches">
+				{ACCENTS.map(({ name, accent: value, hex }) => (
+					<input
+						key={name}
+						type="radio"
+						name="docs-accent"
+						checked={value === accent}
+						aria-label={name}
+						title={name}
+						className="docs-site-swatch"
+						style={{ color: hex }}
+						onChange={() => pick(value)}
+					/>
+				))}
+			</div>
+			<FieldControlWithIcon
+				icon={<span className="docs-site-swatch-dot" />}
+				aria-label="Accent colour"
+				spellCheck={false}
+				value={draft}
+				onChange={(event) => type(event.target.value)}
+				onBlur={() => setDraft(hexOf(accent))}
+			/>
+		</div>
 	);
 };
 

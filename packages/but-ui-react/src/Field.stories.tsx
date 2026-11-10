@@ -8,6 +8,7 @@ import {
 } from "./Field.tsx";
 import { Icon } from "./Icon.tsx";
 import { Field } from "@base-ui/react";
+import { useState } from "react";
 
 const meta = stories({
 	title: "Inputs/Field",
@@ -119,6 +120,47 @@ export const WithTrailingIcon = meta.story({
 			/>
 		</Field.Root>
 	),
+});
+
+/**
+ * The icon slot takes anything 16px, not only an icon: here the colour typed so far. It only
+ * shows; clicks go through to the input, so a picker it opens needs its own control.
+ */
+export const WithColour = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=4992-17345",
+		},
+	},
+	render: function Render() {
+		const [hex, setHex] = useState("#D5412A");
+		const [colour, setColour] = useState(hex);
+		return (
+			<Field.Root render={<FieldRootStyles />} style={{ width: 320 }}>
+				<Field.Label render={<FieldLabelStyles />}>Accent colour</Field.Label>
+				<FieldControlWithIcon
+					icon={
+						<span
+							style={{
+								width: 16,
+								height: 16,
+								borderRadius: "var(--but-radius-full)",
+								backgroundColor: colour,
+							}}
+						/>
+					}
+					className="text-13"
+					spellCheck={false}
+					value={hex}
+					onChange={(event) => {
+						setHex(event.target.value);
+						if (/^#[0-9a-f]{6}$/i.test(event.target.value)) setColour(event.target.value);
+					}}
+				/>
+			</Field.Root>
+		);
+	},
 });
 
 export const AllVariants = meta.story({
