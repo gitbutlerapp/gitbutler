@@ -1,10 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt as _;
-use but_ctx::{
-    Context,
-    access::{RepoExclusive, RepoShared},
-};
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_ctx::{Context, access::RepoShared};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -71,90 +67,14 @@ impl WorkspaceState {
     }
 }
 
-/// Pass `None` for `old_uncommitted_changes` to transition the worktree via safe checkout;
-/// pass `Some(tree_id)` to move that materialized worktree tree between workspaces instead.
-pub fn update_uncommitted_changes_with_tree(
-    ctx: &Context,
-    old: WorkspaceState,
-    new: WorkspaceState,
-    old_uncommitted_changes: Option<gix::ObjectId>,
-    always_checkout: Option<bool>,
-    _perm: &mut RepoExclusive,
-) -> Result<()> {
-    if let Some(worktree_id) = old_uncommitted_changes {
-        let gix_repo = ctx.clone_repo_for_merging()?;
-        #[expect(deprecated, reason = "checkout/index materialization boundary")]
-        let repo = &*ctx.git2_repo.get()?;
-        let mut new_uncommitted_changes =
-            move_tree_between_workspaces(repo, &gix_repo, worktree_id, &old, &new)?;
-
-        // If the new tree and old tree are the same, then we don't need to do anything
-        if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
-            let tree = new_uncommitted_changes.write_tree_to(repo)?.to_gix();
-            if tree == worktree_id {
-                return Ok(());
-            }
-        }
-
-        repo.checkout_index(
-            Some(&mut new_uncommitted_changes),
-            Some(
-                git2::build::CheckoutBuilder::new()
-                    .force()
-                    .remove_untracked(true)
-                    .conflict_style_diff3(true),
-            ),
-        )?;
-    } else {
-        let gix_repo = ctx.clone_repo_for_merging()?;
-        let new_tree_id = merge_workspace(&gix_repo, &new)?;
-        but_core::worktree::safe_checkout_from_head(
-            new_tree_id,
-            &gix_repo,
-            but_core::worktree::checkout::Options::default(),
-        )?;
-    }
-    Ok(())
-}
-
-/// Take the changes on top of one workspace and return what they would look
-/// like if they were on top of the new workspace.
-fn move_tree_between_workspaces(
-    repo: &git2::Repository,
-    gix_repo: &gix::Repository,
-    tree: gix::ObjectId,
-    old: &WorkspaceState,
-    new: &WorkspaceState,
-) -> Result<git2::Index> {
-    let old_workspace = merge_workspace(gix_repo, old)?;
-    let new_workspace = merge_workspace(gix_repo, new)?;
-    move_tree(repo, tree, old_workspace, new_workspace)
-}
-
-/// Cherry pick a tree from one base tree on to another, favoring the contents of the tree when conflicts occur
-fn move_tree(
-    repo: &git2::Repository,
-    tree: gix::ObjectId,
-    old_workspace: gix::ObjectId,
-    new_workspace: gix::ObjectId,
-) -> Result<git2::Index> {
-    // Read: Take the diff between old_workspace and tree, and apply it on top
-    //   of new_workspace
-    let merge = repo.merge_trees(
-        &repo.find_tree(old_workspace.to_git2())?,
-        &repo.find_tree(tree.to_git2())?,
-        &repo.find_tree(new_workspace.to_git2())?,
-        None,
-    )?;
-
-    Ok(merge)
-}
-
 /// Octopus merge using gix, which correctly resolves adjacent-hunk changes that git2 treats as conflicts.
 /// Takes N trees and a base tree and merges all the heads together with respect to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-fn merge_workspace(repo: &gix::Repository, workspace: &WorkspaceState) -> Result<gix::ObjectId> {
+pub fn merge_workspace(
+    repo: &gix::Repository,
+    workspace: &WorkspaceState,
+) -> Result<gix::ObjectId> {
     if workspace.heads.is_empty() {
         return Ok(workspace.base);
     } else if workspace.heads.len() == 1 {
