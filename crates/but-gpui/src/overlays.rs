@@ -24,7 +24,7 @@ use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, FocusedAt, Icon, ShowFocused, button, dp, error_summary, field, fixed, h_flex,
-    icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_action, v_flex,
+    icon, keycap, list_row, muted, popover, shortcut, small_icon, snackbar_undo, v_flex,
 };
 
 /// A right-click menu. It takes the keys while it's open, as ⌘K does, so ↑ and ↓ go through
@@ -975,7 +975,7 @@ impl AppView {
                     warning,
                 } => {
                     let undo = undo.clone().map(|(project, snapshot)| {
-                        snackbar_action(("undo", id), "Undo", theme)
+                        snackbar_undo(("undo", id), theme)
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.store.update(cx, |store, cx| {
                                     store.undo_snapshot(&project, snapshot, None, None, cx)

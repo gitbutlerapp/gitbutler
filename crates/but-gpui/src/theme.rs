@@ -55,9 +55,11 @@ pub struct Theme {
     /// `purple` on a solid selection: the other appearance's, as but.dev's is. For glyphs, which
     /// need 3:1.
     pub purple_on_solid: Hsla,
-    /// A snackbar's ground and text: the inverse of the window's, as but-ui-react's are, so it
-    /// reads as a passing note over the window.
+    /// A snackbar's ground, edge and text, as but-ui's snackbar tokens have them: inverted in
+    /// light, so it reads as a passing note over the window, and in dark a step above a popover's
+    /// ground, with a popover's edge.
     pub snackbar_bg: Hsla,
+    pub snackbar_border: Hsla,
     pub snackbar_text: Hsla,
     /// A warning snackbar's glyph, which says it went but not quite as asked. For a glyph, so
     /// 3:1 on `snackbar_bg`.
@@ -379,11 +381,12 @@ impl Theme {
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
             purple_on_solid: token([done_dark, done_light]),
-            snackbar_bg: fill_gray,
-            snackbar_text: text_inverted,
-            snackbar_warn: token(tokens::INVERSE_WARNING),
-            snackbar_divider: token(tokens::BORDER_SUBTLE).opacity(0.3),
-            snackbar_hover: token(tokens::INVERSE_GHOST_HOVER),
+            snackbar_bg: token(tokens::SNACKBAR),
+            snackbar_border: token(tokens::SNACKBAR_BORDER),
+            snackbar_text: token(tokens::SNACKBAR_FOREGROUND),
+            snackbar_warn: token(tokens::WARNING),
+            snackbar_divider: token(tokens::SNACKBAR_DIVIDER),
+            snackbar_hover: token(tokens::SNACKBAR_HOVER),
             diff_added: added,
             diff_removed: removed,
             diff_added_bg: pick(0xeef7ee, 0x2c3f35),
@@ -528,6 +531,7 @@ impl Theme {
             danger_on_solid: color(readable_on(danger, bg, fg)),
             purple_on_solid: color(readable_on(purple, bg, fg)),
             snackbar_bg: color(fg),
+            snackbar_border: gpui::transparent_black(),
             snackbar_text: color(bg),
             snackbar_warn: color(
                 reaching(ansi(3), snackbar_ink, &[fg], 3.).unwrap_or(snackbar_ink),

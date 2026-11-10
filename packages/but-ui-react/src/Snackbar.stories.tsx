@@ -63,6 +63,39 @@ export const WithDismiss = meta.story({
 	),
 });
 
+/** With `onUndo` the snackbar carries Undo behind the divider instead. It never has a close button
+ * too: an undoable snackbar leaves on its own. */
+export const WithUndo = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=4663-66377",
+		},
+	},
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", alignItems: "start", gap: 12 }}>
+			<Snackbar onUndo={() => {}}>Info. Snackbar message</Snackbar>
+			<Snackbar variant="warning" onUndo={() => {}}>
+				Warning. Snackbar message
+			</Snackbar>
+			<Snackbar variant="danger" onUndo={() => {}}>
+				Danger. Snackbar message
+			</Snackbar>
+			<Snackbar variant="safe" onUndo={() => {}}>
+				Success. Snackbar message
+			</Snackbar>
+			<Snackbar variant="safe" onUndo={() => {}}>
+				Committed to main
+			</Snackbar>
+			<Snackbar variant="safe" onUndo={() => {}}>
+				Squashed into one commit
+			</Snackbar>
+			<Snackbar onUndo={() => {}}>Moved to a new branch</Snackbar>
+			<Snackbar onUndo={() => {}}>Unapplied feature/login</Snackbar>
+		</div>
+	),
+});
+
 /** `icon` overrides the variant's own glyph without changing what the snackbar means. */
 export const CustomIcon = meta.story({
 	parameters: {

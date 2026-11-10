@@ -223,8 +223,6 @@
   --but-inverse-foreground: var(--but-gray-1);
   /* inverse under the pointer. */
   --but-inverse-hover: light-dark(hsl(0 0.0% 21.6%), hsl(0 0.0% 87.5%));
-  /* Warning on inverse, for a glyph on a snackbar: a step darker than warning in dark, where inverse is light, so it reads at 3:1. */
-  --but-inverse-warning: light-dark(var(--but-amber-9), var(--but-amber-8));
   --but-muted: var(--but-gray-3);
   /* Secondary text: labels, metadata, supporting copy. Reads at 4.5:1 on background and muted. */
   --but-muted-foreground: var(--but-gray-11);
@@ -370,6 +368,17 @@
   --but-size-row: 2.5rem;
   /* Height of a tag or badge. Points at size/control-sm, so a tag lines up with a small button in the same row. Tags and badges are not controls; an interactive element takes size/control-sm. */
   --but-size-tag: var(--but-size-control-sm);
+  --but-snackbar: light-dark(var(--but-inverse), var(--but-gray-4));
+  /* A snackbar's edge: none in light, the popover's in dark, which lifts it off the page. */
+  --but-snackbar-border: light-dark(hsl(0 0.0% 0.0% / 0), var(--but-popover-border));
+  /* A danger snackbar's glyph: danger, or its text step in dark, where the solid falls under 3:1. */
+  --but-snackbar-danger: light-dark(var(--but-danger), var(--but-danger-text));
+  /* The line between a snackbar's sentence and its button. */
+  --but-snackbar-divider: light-dark(hsl(0 0.0% 84.3% / 0.3), var(--but-popover-border));
+  /* A snackbar's sentence, its Undo and its close button. */
+  --but-snackbar-foreground: light-dark(var(--but-inverse-foreground), var(--but-foreground));
+  /* A success snackbar's glyph: success, or its text step in dark, where the solid falls under 3:1. */
+  --but-snackbar-success: light-dark(var(--but-success), var(--but-success-text));
   /* Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job. */
   --but-space-2xl: 0.75rem;
   /* Step of the spacing scale. Prefer a gap/* or padding/* token when one names the job. */
@@ -486,6 +495,10 @@
   --but-diff-removed-muted: color-mix(in srgb, var(--but-danger) 12%, transparent);
   /* The changed words inside a removed line. */
   --but-diff-removed-emphasis: color-mix(in srgb, var(--but-danger) 28%, transparent);
+  /* An info snackbar's glyph. */
+  --but-snackbar-muted-foreground: light-dark(var(--but-inverse-muted-foreground), var(--but-muted-foreground));
+  /* A snackbar's Undo or close button under the pointer. */
+  --but-snackbar-hover: light-dark(var(--but-inverse-ghost-hover), var(--but-hover));
   /* shadow vars */
   --but-shadow-sm: 0 4px 14px 0 var(--but-shadow);
   --but-shadow-md: 0 6px 30px 0 var(--but-shadow);

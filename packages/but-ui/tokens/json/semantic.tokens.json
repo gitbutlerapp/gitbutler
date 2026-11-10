@@ -334,17 +334,6 @@
             "dark": "#dfdfdf"
           }
         }
-      },
-      "warning": {
-        "$type": "color",
-        "$value": "{ramps.amber.9}",
-        "$description": "Warning on inverse, for a glyph on a snackbar: a step darker than warning in dark, where inverse is light, so it reads at 3:1.",
-        "$extensions": {
-          "mode": {
-            "light": "{ramps.amber.9}",
-            "dark": "{ramps.amber.8}"
-          }
-        }
       }
     },
     "warning": {
@@ -1326,6 +1315,96 @@
         }
       }
     },
+    "snackbar": {
+      "$root": {
+        "$type": "color",
+        "$value": "{semantic.inverse.$root}",
+        "$description": "A snackbar's ground: inverse in light, so it reads as a passing note over the page; in dark a step above the popover's, as an inverted one would be a light slab on a dark page. Text on it: snackbar/foreground.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.inverse.$root}",
+            "dark": "{ramps.gray.4}"
+          }
+        }
+      },
+      "foreground": {
+        "$type": "color",
+        "$value": "{semantic.inverse.foreground}",
+        "$description": "A snackbar's sentence, its Undo and its close button.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.inverse.foreground}",
+            "dark": "{semantic.foreground}"
+          }
+        }
+      },
+      "muted-foreground": {
+        "$type": "color",
+        "$value": "{semantic.inverse.muted-foreground}",
+        "$description": "An info snackbar's glyph.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.inverse.muted-foreground}",
+            "dark": "{semantic.muted.foreground}"
+          }
+        }
+      },
+      "border": {
+        "$type": "color",
+        "$value": "#00000000",
+        "$description": "A snackbar's edge: none in light, the popover's in dark, which lifts it off the page.",
+        "$extensions": {
+          "mode": {
+            "light": "#00000000",
+            "dark": "{semantic.popover.border}"
+          }
+        }
+      },
+      "divider": {
+        "$type": "color",
+        "$value": "#d7d7d74d",
+        "$description": "The line between a snackbar's sentence and its button.",
+        "$extensions": {
+          "mode": {
+            "light": "#d7d7d74d",
+            "dark": "{semantic.popover.border}"
+          }
+        }
+      },
+      "hover": {
+        "$type": "color",
+        "$value": "{semantic.inverse.ghost-hover}",
+        "$description": "A snackbar's Undo or close button under the pointer.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.inverse.ghost-hover}",
+            "dark": "{semantic.hover}"
+          }
+        }
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "{semantic.danger.$root}",
+        "$description": "A danger snackbar's glyph: danger, or its text step in dark, where the solid falls under 3:1.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.danger.$root}",
+            "dark": "{semantic.danger.text}"
+          }
+        }
+      },
+      "success": {
+        "$type": "color",
+        "$value": "{semantic.success.$root}",
+        "$description": "A success snackbar's glyph: success, or its text step in dark, where the solid falls under 3:1.",
+        "$extensions": {
+          "mode": {
+            "light": "{semantic.success.$root}",
+            "dark": "{semantic.success.text}"
+          }
+        }
+      }
+    },
     "$extensions": {
       "tokens-bruecke-meta": {
         "useDTCG": true,
@@ -1336,7 +1415,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-10T21:21:49.952Z"
+        "createdAt": "2026-11-10T22:27:01.455Z"
       }
     }
   }
