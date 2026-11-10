@@ -112,6 +112,8 @@ pub struct Theme {
     syntax: [Hsla; 7],
     /// How round corners are, by what they're on.
     pub shape: Shape,
+    /// How tall controls and bars are, and how far their side padding moves, by density.
+    pub sizes: Sizes,
     /// Whether these are GitButler's own colours, and dark ones: an accent applies only to
     /// them, as a colour scheme brings its own.
     own_colours: Option<bool>,
@@ -157,6 +159,31 @@ impl Default for Shape {
             control: tokens::RADIUS_CONTROL,
             card: tokens::RADIUS_CARD,
             popup: tokens::RADIUS_POPUP,
+        }
+    }
+}
+
+/// How tall controls and bars are, in px as designed, from but-ui's size tokens, and how far a
+/// density moves their side padding: nothing at Balanced, Figma's.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Sizes {
+    /// A button, a dropdown, a segmented control or a toggle group.
+    pub control: f32,
+    /// A small one; a small button or segment is 4px taller than this, for its line.
+    pub control_sm: f32,
+    /// A bar inside a popup: its search row or its footer.
+    pub bar: f32,
+    /// Added to a control's side padding.
+    pub padding: f32,
+}
+
+impl Default for Sizes {
+    fn default() -> Self {
+        Sizes {
+            control: tokens::SIZE_CONTROL,
+            control_sm: tokens::SIZE_CONTROL_SM,
+            bar: tokens::SIZE_BAR,
+            padding: 0.,
         }
     }
 }
@@ -519,6 +546,7 @@ impl Theme {
             terminal: Colors::default(),
             own_colours: Some(dark),
             shape: Shape::default(),
+            sizes: Sizes::default(),
         }
         .with_own_terminal(dark)
     }
