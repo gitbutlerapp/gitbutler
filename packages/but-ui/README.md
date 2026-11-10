@@ -85,6 +85,18 @@ A person can pick a denser or roomier screen with `data-but-density` on the root
 
 A component follows only if it takes its height from these tokens, so a height that sizes a control, a row or a bar is one of them, never a number.
 
+### Presets
+
+A preset is a named pair of the two settings above, so a person can pick a look in one step. [`presets.json`](./presets.json), exported as `@gitbutler/but-ui/presets`, lists them:
+
+| Preset    | Corners | Density  |
+| --------- | ------- | -------- |
+| GitButler | soft    | balanced |
+| Tight     | sharp   | compact  |
+| Bubble    | round   | spacious |
+
+A preset sets shape only: colour and theme stay as the person picked them. It has no attribute or CSS of its own; an app applies one by setting `data-but-radius` and `data-but-density` to its values. `soft` and `balanced` are Figma's, which no block overrides, so setting them works as well as leaving the attribute off. When a person changes either setting by hand, the look is no longer a preset. `scripts/check-presets.mjs`, run by the build, fails when a preset names a setting `tokens.css` doesn't define.
+
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
 ```bash
