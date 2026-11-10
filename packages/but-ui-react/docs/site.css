@@ -315,7 +315,8 @@ body[data-layout="centered"] {
 }
 
 /* The title, a story's name and the text are set as the design notes' Markdown sets them, on its
-   prose line; the stories' cards take the column's full width, as its media does. */
+   prose line, as are a bar's card and a ground; a wide story and a window take the column's full
+   width, as its media does. */
 .docs-page-title,
 .docs-page-prose {
 	margin: 0;

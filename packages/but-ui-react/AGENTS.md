@@ -241,10 +241,11 @@ The docs site gives each story a place under its words. Pick it with the
   the app (`Table`, `DiffFile`, `Markdown`) and a grid that fills its row
   (`Icon`'s gallery).
 - **`bar`:** a bar that runs the width of a window or a pane (`StatusBar`,
-  `LocationBar`, `ViewHeader`): edge to edge in a bordered card, with no
-  padding and no scrolling. The card's border is the bar's edge, the bar's
-  own top and bottom lines are dropped so they don't double it, and the card
-  is the size container the bar's container queries ask.
+  `LocationBar`, `ViewHeader`): edge to edge in a bordered card as wide as
+  the text above it, with no padding and no scrolling. The card's border is
+  the bar's edge, the bar's own top and bottom lines are dropped so they
+  don't double it, and the card is the size container the bar's container
+  queries ask.
 - **`fullscreen`:** a whole window or view (`Details view`), and every
   overlay: its own frame, so it opens inside its card rather than over the
   page.
