@@ -7,7 +7,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_api::legacy::oplog::{self, RestoreKind};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gix::bstr::ByteSlice as _;
@@ -546,7 +546,7 @@ impl Intent for Restore {
                 super::is_ancestor(&repo, snapshot.0, later.0).unwrap_or(false)
             };
             if kept.iter().any(since) {
-                bail!(UNRECORDED);
+                but_error::bail_precondition!("{UNRECORDED}");
             }
             drop(repo);
             let kind = RestoreKind::ExplicitRestoreFromSnapshot;
@@ -648,7 +648,7 @@ impl Intent for Redo {
                 return Ok(None);
             };
             if self.kept.contains(&SnapshotId(target.commit_id)) {
-                bail!(UNRECORDED);
+                but_error::bail_precondition!("{UNRECORDED}");
             }
             let since = (target.created_at.seconds * 1000).max(self.accepted.unwrap_or_default());
             // As for undo, what a terminal did since would be taken back too.
@@ -812,7 +812,7 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
         let Some(lines) = log.rev()? else {
             // HEAD always has a log while Git keeps them: without, nothing here can tell.
             if name == head {
-                anyhow::bail!(
+                but_error::bail_precondition!(
                     "Git keeps no log of what moved HEAD here, as with core.logAllRefUpdates \
                      off, so undo can't tell what happened since. Operations history can still \
                      restore to before it."

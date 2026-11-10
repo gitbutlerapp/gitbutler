@@ -300,7 +300,7 @@ impl Intent for DeleteWorktree {
             let asked =
                 |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
             if let Some(file) = files.iter().find(|file| !asked(file)) {
-                anyhow::bail!(
+                but_error::bail_precondition!(
                     "{name} has a change you weren't asked about, {}. Look at it before deleting.",
                     file.path
                 );

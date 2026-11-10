@@ -784,7 +784,7 @@ pub(super) fn push(
                     .find(|(_, (before, after))| before != after)
                     .map(|(segment, _)| segment),
             );
-            anyhow::bail!(
+            but_error::bail_precondition!(
                 "Someone pushed to {moved} since the last fetch, and forcing would replace \
                  it. Check what's there before pushing again."
             );
@@ -792,7 +792,7 @@ pub(super) fn push(
         if let Some(unseen) = pushed_with(&info, branch).find(|segment| {
             (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
         }) {
-            anyhow::bail!(
+            but_error::bail_precondition!(
                 "The remote has commits on {} that weren't shown, and forcing would drop \
                  them. Push again to see them.",
                 name(Some(unseen))
@@ -801,7 +801,9 @@ pub(super) fn push(
     }
     // As in the desktop app, a conflicted commit stays here until it's resolved.
     if pushed_with(&info, branch).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
-        anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
+        but_error::bail_precondition!(
+            "Resolve the conflicted commits first, so they aren't pushed"
+        );
     }
     let force = needs_force(&info, branch);
     let outcome = runtime()
@@ -1172,6 +1174,14 @@ impl Update {
             };
             if !behind {
                 return Ok(UpdateOutcome::UpToDate);
+            }
+            // The engine updates nothing while the main checkout is on no branch, and the
+            // workspace's rebase would go on past what Git is partway through there.
+            {
+                let repo = ctx.repo.get()?;
+                if self.scope.workspace() || repo.head()?.is_detached() {
+                    super::ops::refuse_unfinished(&repo, true)?;
+                }
             }
             // What the update measures merged branches from: the target's own commits since
             // where the workspace stood, and that one; and where each worktree was.
@@ -1599,6 +1609,32 @@ pub(super) mod tests {
             assert!(
                 ran.recorded.is_none(),
                 "no undo step for an update that did nothing"
+            );
+        })
+    }
+
+    #[test]
+    fn an_update_on_a_detached_head_is_refused() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = crate::backend::ops::tests::repo_with("one\n");
+            let path = dir.path();
+            crate::backend::ops::tests::target_origin_main(path);
+            new_on_target(path, "new on target");
+            git(path, &["checkout", "-q", "--detach"]);
+
+            let update = Update {
+                scope: UpdateScope::All,
+                accepted: None,
+            };
+            let refused = crate::backend::apply(path, update).unwrap_err();
+            assert!(
+                format!("{refused:#}").contains("No branch is checked out"),
+                "says what to check out, not the engine's own words: {refused:#}"
+            );
+            assert_eq!(
+                (refused.downcast_ref::<but_error::Context>()).map(|said| said.code),
+                Some(but_error::Code::PreconditionFailed),
+                "the user is the one to check out a branch, so it isn't reported as a bug"
             );
         })
     }
