@@ -2436,15 +2436,7 @@ impl Navigator {
                 let blink = self.blinking(Blink::Move);
                 moving::ghost_row(item, inset, with, blink, self.store.read(cx), theme)
             }
-            // A line from under the branches' glyphs, clear of their commits' guides, drawn as
-            // the guides are where a worktree's is dashed, so it reads as part of the worktree
-            // rather than the end of it.
-            Some(Row::Between(_)) => h_flex()
-                .h(dp(12.))
-                .pl(dp(ROW_LEFT + inset))
-                .pr(dp(12.))
-                .child(div().flex_1().h(fixed(1.)).bg(theme.text_2.opacity(0.2)))
-                .into_any_element(),
+            Some(Row::Between(_)) => div().into_any_element(),
             Some(Row::GhostBranch(project, at)) => {
                 let mark = moving::mark_of(self.store.read(cx), project, theme);
                 moving::ghost_branch_row(at, inset, mark, self.blinking(Blink::Move), theme)

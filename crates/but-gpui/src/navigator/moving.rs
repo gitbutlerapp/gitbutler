@@ -2046,7 +2046,7 @@ mod tests {
             Row::Item(Selection::Branch(p(), named("api"))),
             Row::Item(Selection::Commit(p(), id(2))),
             Row::Item(Selection::Commit(p(), id(1))),
-            // The line between stacks, which parts nothing it walks.
+            // The mark between stacks, which parts nothing it walks.
             Row::Between(p()),
             Row::Item(Selection::Branch(p(), named("typo"))),
             Row::WorktreeDivider,

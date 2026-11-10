@@ -72,9 +72,9 @@ pub(super) enum Row {
     GhostBranch(ProjectId, Stop),
     /// The commit uncommitted changes being committed would make where the commit's at.
     NewCommit(ProjectId),
-    /// The line between two stacks, which tells where one ends and the next starts, and between
-    /// a new one commits being moved would land in and the stack beside it: so a new branch
-    /// landing under one stack's last branch or on the next's first shows which it joins.
+    /// Where one stack ends and the next starts, or a new one that commits being moved would
+    /// land in. It draws nothing, but a branch dropped under one stack's last branch joins that
+    /// stack rather than the next.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -180,7 +180,8 @@ impl Row {
     pub(super) fn height(&self) -> f32 {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
-            Row::WorktreeDivider | Row::Between(_) => 12.,
+            Row::Between(_) => 0.,
+            Row::WorktreeDivider => 12.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::More(..) | Row::Fewer(..) | Row::RestsOn(..) => 24.,
             Row::Item(_)
@@ -525,25 +526,19 @@ impl Navigator {
                 && !store.after_deletes(id, &stack.branches).is_empty()
         });
         // Whether a branch is checked out on its own or several share the workspace,
-        // they're listed alike, a line between each stack and the next; with none, as on
+        // they're listed alike, a mark between each stack and the next; with none, as on
         // the default branch, there's nothing to list, and the next commit starts one.
         // Commits being moved to a new stack show where it goes, first or last.
-        let mut listed = false;
         if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true }) {
             rows.push_ghosts(moving, true);
-            listed = true;
         }
-        for stack in stacks {
-            if listed {
+        for (ix, stack) in stacks.enumerate() {
+            if ix > 0 {
                 rows.push(Row::Between(id.clone()));
             }
             self.lane_rows(store, id, &stack.branches, rows);
-            listed = true;
         }
         if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false }) {
-            if listed {
-                rows.push(Row::Between(id.clone()));
-            }
             rows.push_ghosts(moving, true);
         }
     }
@@ -576,7 +571,7 @@ impl Navigator {
                 rows.open_in(STEP);
                 let heading_end = rows.rows.len();
                 for stack in workspace.lanes_in(&Checkout::Main) {
-                    // A line between two stacks, taken back when nothing in the next matches.
+                    // A mark between two stacks, taken back when nothing in the next matches.
                     let start = rows.rows.len();
                     if start > heading_end {
                         rows.push(Row::Between(id.clone()));

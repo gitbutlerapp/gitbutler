@@ -456,14 +456,6 @@ fn branch_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId) -> Option<S
     let row = rows.get(ix)?;
     match row {
         Row::NewBranch(p) if p == project => return Some(Stop::NewStack { first: false }),
-        Row::Between(p) if p == project && y >= 0.5 => {
-            let (_, next) = next_branch(rows, ix + 1, project)?;
-            return Some(new_branch(next, false));
-        }
-        Row::Between(p) if p == project => {
-            let (_, above) = branch_above(rows, ix, project)?;
-            return Some(new_branch(above, true));
-        }
         Row::Item(Selection::Branch(p, Some(_)) | Selection::Commit(p, _)) if p == project => {}
         _ => return None,
     }
@@ -489,18 +481,6 @@ fn branch_above<'a>(
     project: &ProjectId,
 ) -> Option<(usize, &'a FullName)> {
     (rows.get(..end)?.iter().enumerate().rev()).find_map(|(at, row)| match row {
-        Row::Item(Selection::Branch(p, Some(name))) if p == project => Some((at, name)),
-        _ => None,
-    })
-}
-
-/// The first named branch of `project` listed from row `start`, by its row.
-fn next_branch<'a>(
-    rows: &'a [Row],
-    start: usize,
-    project: &ProjectId,
-) -> Option<(usize, &'a FullName)> {
-    (rows.iter().enumerate().skip(start)).find_map(|(at, row)| match row {
         Row::Item(Selection::Branch(p, Some(name))) if p == project => Some((at, name)),
         _ => None,
     })
@@ -651,29 +631,8 @@ mod tests {
     }
 
     #[test]
-    fn the_line_between_stacks_is_no_stop_for_a_commit() {
-        let rows = Vec::from([
-            branch("ui"),
-            commit(3),
-            Row::Between(project()),
-            branch("api"),
-        ]);
-        let line = 2. * ROW_HEIGHT + 6.;
-        assert_eq!(
-            stop_at(&rows, &project(), &commits(&[id(9)]), line),
-            None,
-            "what's dragged goes back where it is there"
-        );
-    }
-
-    #[test]
     fn the_pointer_over_no_stop_sends_what_is_dragged_back() {
-        let rows = Vec::from([
-            branch("ui"),
-            commit(3),
-            Row::Between(project()),
-            branch("api"),
-        ]);
+        let rows = Vec::from([branch("ui"), commit(3), Row::WorktreeDivider, branch("api")]);
         let line = 2. * ROW_HEIGHT + 6.;
         assert_eq!(
             drag_zone(&rows, &project(), &commits(&[id(9)]), line, |_, _| { true }),
@@ -1009,25 +968,24 @@ mod tests {
     }
 
     #[test]
-    fn the_line_between_stacks_splits_a_branch_either_side_of_it() {
+    fn the_end_of_a_stack_splits_a_branch_either_side_of_it() {
         let dragged = Moving::Branch(full("refs/heads/x"));
         let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
-        let line = 12.;
         assert_eq!(
-            stop_at(&rows, &project(), &dragged, ROW_HEIGHT + 0.25 * line),
+            stop_at(&rows, &project(), &dragged, depth(0., 0.75)),
             Some(Stop::NewBranch {
                 beside: full("refs/heads/ui"),
                 below: true
             }),
-            "above the line it joins the stack that ends there"
+            "low on the last branch it joins the stack that ends there"
         );
         assert_eq!(
-            stop_at(&rows, &project(), &dragged, ROW_HEIGHT + 0.75 * line),
+            stop_at(&rows, &project(), &dragged, depth(1., 0.25)),
             Some(Stop::NewBranch {
                 beside: full("refs/heads/api"),
                 below: false
             }),
-            "below it, the stack that starts there"
+            "high on the next one, the stack that starts there"
         );
     }
 
@@ -1060,7 +1018,7 @@ mod tests {
                 beside: full("refs/heads/ui"),
                 below: true
             }),
-            "the line says the stack ends there"
+            "the mark says the stack ends there"
         );
     }
 }
