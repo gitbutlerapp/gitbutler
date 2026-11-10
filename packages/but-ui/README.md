@@ -107,7 +107,7 @@ The build works the settings out once, writes this file, and writes the `:root[d
 
 The tokens themselves are in [`tokens/tokens.json`](./tokens/tokens.json), for the same readers. `colors` has what each colour token comes to in light and in dark, as sRGB hex with its alpha last when it has one, and `lengths` has each length in px, both named as in `tokens.css` without `--but-`. These are Figma's values, so a client applies what a setting changes, from `settings.json`, on top. Fonts, shadows, easings and opacities stay in `tokens.css` alone, as they're written for CSS.
 
-The GPUI client compiles the colours in as constants (`crates/but-gpui/build.rs`), so its theme draws in the colours the web does, and a token it reads that goes fails its build.
+The GPUI client compiles the colours in as constants (`crates/but-gpui/build.rs`), so its theme draws in the colours the web does, and a token it reads that goes fails its build. It compiles the accents in from `settings.json` too, and draws the any-colour one with the same formula; [`tokens/accent-samples.json`](./tokens/accent-samples.json) holds what 25 picks come to in a browser, which its test checks it against.
 
 `token-map.json` says where each name before but-ui went, and `scripts/rename-tokens.mjs` moves a folder onto the new names:
 
@@ -245,7 +245,8 @@ pnpm check
 4. writes each token's Figma description as a comment above its declaration, so `tokens.css` says when to use a token;
 5. works out what a person can pick, as data: each accent in [`scripts/generate-accents.mjs`](./scripts/generate-accents.mjs), the `--but-primary` family pointed at that hue or drawn from any colour; each corner setting in [`scripts/generate-radius.mjs`](./scripts/generate-radius.mjs), the radius scale moved sharper or rounder; and each density in [`scripts/generate-density.mjs`](./scripts/generate-density.mjs), the control, row and bar heights moved shorter or taller, and the density padding step;
 6. writes that data to `tokens/settings.json`, and appends it to `tokens.css` as an `:root[data-but-accent=…]`, `[data-but-radius=…]` or `[data-but-density=…]` block for each choice but Figma's;
-7. writes `tokens/tokens.json` in [`scripts/tokens-data.mjs`](./scripts/tokens-data.mjs): what each colour token comes to in light and in dark, and each length in px.
+7. writes `tokens/tokens.json` in [`scripts/tokens-data.mjs`](./scripts/tokens-data.mjs): what each colour token comes to in light and in dark, and each length in px;
+8. writes `tokens/accent-samples.json` in [`scripts/accent-samples.mjs`](./scripts/accent-samples.mjs): the any-colour accent for 25 picks, as a browser draws it.
 
 Aliases stay aliases: a variable that points at another in Figma comes out as `var(--target)`, for sizes as well as colors.
 
@@ -259,6 +260,7 @@ Aliases stay aliases: a variable that points at another in Figma comes out as `v
 | `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs`                       |
 | `tokens/settings.json`             | The build — every accent, corner and density setting, as data                  | Clients that can't read CSS                      |
 | `tokens/tokens.json`               | The build — each colour for light and dark, each length in px                  | The GPUI client, and clients that can't read CSS |
+| `tokens/accent-samples.json`       | The build — the any-colour accent for 25 picks, as a browser draws it          | GPUI's accent test                               |
 
 ### Pulling tokens from Figma
 

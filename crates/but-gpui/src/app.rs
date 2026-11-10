@@ -5791,6 +5791,7 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
+        .with_accent(prefs.accent, &prefs.accent_color)
         .with_scale(prefs.ui_scale)
         .with_diff_font(prefs.diff_font.as_deref(), digit)
         .with_ligatures(prefs.ligatures)

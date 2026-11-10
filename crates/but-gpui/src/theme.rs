@@ -110,6 +110,9 @@ pub struct Theme {
     /// terminal's own default.
     pub terminal: Colors,
     syntax: [Hsla; 7],
+    /// Whether these are GitButler's own colours, and dark ones: an accent applies only to
+    /// them, as a colour scheme brings its own.
+    own_colours: Option<bool>,
 }
 
 impl Global for Theme {}
@@ -130,6 +133,30 @@ pub enum Appearance {
     System,
     Light,
     Dark,
+}
+
+/// The colour GitButler's own theme picks things out in: its primary buttons, ticks and the
+/// accent's text. One of but-ui's accents, or any colour, drawn so it still reads.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Accent {
+    #[default]
+    Teal,
+    Blue,
+    Purple,
+    /// The colour in `Prefs::accent_color`.
+    Custom,
+}
+
+impl Accent {
+    /// Its name in but-ui's settings.
+    fn name(self) -> &'static str {
+        match self {
+            Accent::Teal => "teal",
+            Accent::Blue => "blue",
+            Accent::Purple => "purple",
+            Accent::Custom => "custom",
+        }
+    }
 }
 
 /// Which colours the app draws in.
@@ -262,6 +289,39 @@ impl Theme {
             if ghostty.bold_disabled {
                 self.terminal_bold = self.terminal_font.weight;
             }
+        }
+        self
+    }
+
+    /// This theme picking things out in `accent`, `custom` (`#rrggbb` or `#rgb`) for a custom
+    /// one, when it's in GitButler's own colours; a colour scheme keeps its own.
+    pub fn with_accent(mut self, accent: Accent, custom: &str) -> Self {
+        let Some(dark) = self.own_colours else {
+            return self;
+        };
+        let pick = |[light, dark_value]: [u32; 2]| if dark { dark_value } else { light };
+        let family: Vec<(&str, u32)> = match accent {
+            Accent::Custom => custom_accent(custom, dark),
+            named => (tokens::ACCENTS.iter())
+                .find(|(name, _)| *name == named.name())
+                .map(|(_, family)| {
+                    (family.iter()).map(|(token, modes)| (*token, pick(*modes) >> 8))
+                })
+                .into_iter()
+                .flatten()
+                .collect(),
+        };
+        let token = |name: &str| {
+            family
+                .iter()
+                .find(|(token, _)| *token == name)
+                .map(|&(_, c)| color(c))
+        };
+        if let Some(primary) = token("primary") {
+            (self.pop_bg, self.pop_button) = (primary, primary);
+        }
+        if let Some(text) = token("primary-text") {
+            self.pop = text;
         }
         self
     }
@@ -431,6 +491,7 @@ impl Theme {
                 pick(0x22863a, 0x85e89d),
             ],
             terminal: Colors::default(),
+            own_colours: Some(dark),
         }
         .with_own_terminal(dark)
     }
@@ -558,6 +619,7 @@ impl Theme {
             ]
             .map(color),
             terminal: palette,
+            own_colours: None,
             ..self
         }
     }
@@ -612,6 +674,89 @@ const GHOSTTY_ANSI: [u32; 16] = [
     0x1d1f21, 0xcc6666, 0xb5bd68, 0xf0c674, 0x81a2be, 0xb294bb, 0x8abeb7, 0xc5c8c6, 0x666666,
     0xd54e53, 0xb9ca4a, 0xe7c547, 0x7aa6da, 0xc397d8, 0x70c0b1, 0xeaeaea,
 ];
+
+/// The custom accent's family drawn from `pick`, `#rrggbb` or `#rgb`, as but-ui's tokens.css draws
+/// it: each token is the pick's hue, its chroma capped and taken at a share, at a lightness, in
+/// OKLCH, then clipped into sRGB as a browser does. A pick that isn't a colour draws as teal.
+fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
+    let [light, dark_value] = tokens::CUSTOM_ACCENT_FALLBACK;
+    let fallback = if dark { dark_value } else { light } >> 8;
+    let (_, chroma, hue) = oklch(parse_hex(pick).unwrap_or(fallback));
+    let chroma = chroma.min(tokens::CUSTOM_ACCENT_CHROMA_CAP);
+    (tokens::CUSTOM_ACCENT.iter())
+        .map(|&(token, [light, dark_modes])| {
+            let (lightness, share) = if dark { dark_modes } else { light };
+            (token, from_oklch(lightness, chroma * share, hue))
+        })
+        .collect()
+}
+
+/// `#rrggbb` or `#rgb` as `0xRRGGBB`, the `#` left out or not, as a colour pasted from
+/// elsewhere may come without it.
+pub(crate) fn parse_hex(text: &str) -> Option<u32> {
+    let text = text.trim();
+    let digits = text.strip_prefix('#').unwrap_or(text);
+    let value = u32::from_str_radix(digits, 16).ok()?;
+    match digits.len() {
+        6 => Some(value),
+        3 => {
+            let [r, g, b] = [value >> 8, value >> 4 & 0xf, value & 0xf].map(|c| c * 0x11);
+            Some(r << 16 | g << 8 | b)
+        }
+        _ => None,
+    }
+}
+
+/// `hex` in OKLCH: its lightness, chroma and hue in degrees.
+fn oklch(hex: u32) -> (f32, f32, f32) {
+    let [r, g, b] = channels(hex).map(|c| {
+        let c = c / 255.;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    });
+    let l = (0.412_221_46 * r + 0.536_332_55 * g + 0.051_445_995 * b).cbrt();
+    let m = (0.211_903_5 * r + 0.680_699_5 * g + 0.107_396_96 * b).cbrt();
+    let s = (0.088_302_46 * r + 0.281_718_85 * g + 0.629_978_7 * b).cbrt();
+    let lightness = 0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s;
+    let a = 1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s;
+    let b = 0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s;
+    (lightness, a.hypot(b), b.atan2(a).to_degrees())
+}
+
+/// The colour at `lightness`, `chroma` and `hue` (degrees) in OKLCH, each channel clipped into
+/// sRGB, as `0xRRGGBB`.
+fn from_oklch(lightness: f32, chroma: f32, hue: f32) -> u32 {
+    let (a, b) = (
+        chroma * hue.to_radians().cos(),
+        chroma * hue.to_radians().sin(),
+    );
+    let l = (lightness + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m = (lightness - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s = (lightness - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    let linear = [
+        4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s,
+        -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s,
+        -0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s,
+    ];
+    let [r, g, b] = linear.map(|c| {
+        let c = if c <= 0.003_130_8 {
+            12.92 * c
+        } else {
+            1.055 * c.powf(1. / 2.4) - 0.055
+        };
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "clamped to 0–255 first"
+        )]
+        let byte = (c.clamp(0., 1.) * 255.).round() as u32;
+        byte
+    });
+    r << 16 | g << 8 | b
+}
 
 fn hex(color: RgbColor) -> u32 {
     u32::from(color.r) << 16 | u32::from(color.g) << 8 | u32::from(color.b)
@@ -687,7 +832,10 @@ mod tests {
     use but_tty::{Colors, Ghostty, RgbColor};
     use gpui::{FontWeight, WindowAppearance};
 
-    use super::{Appearance, CodeSize, ColorScheme, Theme, contrast, rgb_hex};
+    use super::{
+        Appearance, CodeSize, ColorScheme, Theme, channels, contrast, custom_accent, parse_hex,
+        rgb_hex,
+    };
 
     fn rgb(hex: u32) -> RgbColor {
         let [_, r, g, b] = hex.to_be_bytes();
@@ -775,6 +923,35 @@ mod tests {
                 "{name}: a warning snackbar's glyph reads at {glyph}"
             );
         }
+    }
+
+    #[test]
+    fn a_custom_accent_draws_as_the_web_draws_it() {
+        // What but-ui's build resolves the custom accent to, for 25 picks, as a browser would.
+        let samples: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../packages/but-ui/tokens/accent-samples.json"
+        ))
+        .unwrap();
+        let mut off = Vec::new();
+        for sample in samples["samples"].as_array().unwrap() {
+            let pick = sample["color"].as_str().unwrap();
+            for (mode, dark) in [("light", false), ("dark", true)] {
+                for (token, drawn) in custom_accent(pick, dark) {
+                    let web = parse_hex(sample["tokens"][token][mode].as_str().unwrap()).unwrap();
+                    let apart = (channels(drawn).into_iter().zip(channels(web)))
+                        .map(|(a, b)| (a - b).abs())
+                        .fold(0., f32::max);
+                    if apart > 1. {
+                        off.push(format!("{pick} {mode} {token}: {drawn:06x}, web {web:06x}"));
+                    }
+                }
+            }
+        }
+        assert!(
+            off.is_empty(),
+            "each channel within 1 of the web's:\n{}",
+            off.join("\n")
+        );
     }
 
     #[test]
