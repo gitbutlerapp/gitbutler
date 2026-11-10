@@ -5,8 +5,7 @@ use but_core::RefMetadata;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
-        Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
-        mutate::InsertSide,
+        Editor, LookupStep as _, Selector, SuccessfulRebase, ToCommitSelector, mutate::InsertSide,
     },
 };
 
@@ -42,31 +41,6 @@ fn push_message_with_spacing(combined: &mut Vec<u8>, message: &[u8]) {
     }
 
     combined.extend_from_slice(message);
-}
-
-fn parent_commit_ids<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<Vec<gix::ObjectId>> {
-    let mut parents = editor.direct_parents(selector)?;
-    parents.sort_by_key(|(_, order)| *order);
-
-    parents
-        .into_iter()
-        .map(|(parent_selector, _)| match editor.lookup_step(parent_selector)? {
-            Step::Pick(_) => {
-                let (_, commit) = editor.find_selectable_commit(parent_selector)?;
-                Ok(commit.id)
-            }
-            Step::Reference { .. } => {
-                let (_, commit) = editor.find_reference_target(parent_selector)?;
-                Ok(commit.id)
-            }
-            Step::None => bail!(
-                "BUG: expected parent selector {parent_selector:?} to point to a pick or reference"
-            ),
-        })
-        .collect()
 }
 
 /// How to combine messages of commits being squashed.
@@ -186,7 +160,12 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     editor.fold(subject_selectors, target_commit_selector)?;
 
     let (_, mut squashed_commit) = editor.find_selectable_commit(target_commit_selector)?;
-    squashed_commit.inner.parents = parent_commit_ids(&editor, target_commit_selector)?.into();
+    squashed_commit.inner.parents = editor
+        .commit_parents(target_commit_selector)?
+        .into_iter()
+        .map(|parent| editor.lookup_pick(parent))
+        .collect::<Result<Vec<_>>>()?
+        .into();
     squashed_commit.tree = squashed_tree;
     squashed_commit.message = combined_message.into();
     let new_commit = editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?;
