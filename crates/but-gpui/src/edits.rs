@@ -1280,13 +1280,22 @@ impl AppView {
         self.new_branch_at(project, false, None, checkout, window, cx, create);
     }
 
-    /// Split the selected commit's branch: a new branch ending at it takes it and the
-    /// commits below it.
+    /// Split the selected commit's branch at it.
     fn new_branch_here(&mut self, _: &NewBranchHere, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((project, commit)) = self.selected_commit(cx) else {
-            return;
-        };
-        let id = commit.id;
+        if let Some((project, commit)) = self.selected_commit(cx) {
+            let id = commit.id;
+            self.new_branch_ending_at(project, id, window, cx)
+        }
+    }
+
+    /// Split commit `id`'s branch: a new branch ending at it takes it and the commits below it.
+    pub(crate) fn new_branch_ending_at(
+        &mut self,
+        project: ProjectId,
+        id: CommitId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let checkout = (self.store.read(cx)).checkout_of(&Selection::Commit(project.clone(), id));
         let create = backend::CreateBranchAtCommit {
             commit: id,

@@ -557,7 +557,8 @@ impl Detail {
         let shows = (project_on(ProjectTab::Overview))
             .is_some_and(|project| self.showing_target_commit(&project, cx))
             || (project_on(ProjectTab::Branches))
-                .is_some_and(|project| self.selected_other_branch(&project).is_some());
+                .is_some_and(|project| self.selected_other_branch(&project).is_some())
+            || self.graph_beside();
         shows && !self.over_changes(cx)
     }
 

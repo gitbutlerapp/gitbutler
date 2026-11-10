@@ -88,7 +88,7 @@ impl GraphWindow {
             let mut graph = GraphView::new(store.clone(), cx);
             graph.own_window = true;
             graph.show_project(Some(project.clone()), cx);
-            graph.restore(left);
+            graph.restore(left, cx);
             graph
         });
         let id = window.window_handle().window_id();

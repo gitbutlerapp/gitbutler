@@ -620,6 +620,10 @@ pub struct Detail {
     /// How the file list beside the diff slides, and the files beside a list page's list.
     files_slide: Slide,
     beside_slide: Slide,
+    /// How a commit's changes slide in beside the graph, and the page's width, which the graph's
+    /// column narrows from and widens back to as they do.
+    graph_slide: Slide,
+    graph_page: f32,
     /// Draws the files once they've slid where they're going, as the diff slides over them
     /// without drawing the detail again.
     _slid: Task<()>,
@@ -681,6 +685,9 @@ impl Detail {
         let page = page::open_page(&kept, page_key.as_ref(), shows.as_ref(), cx);
         let graph = cx.new(|cx| graph::GraphView::new(store.clone(), cx));
         let subscriptions = vec![
+            cx.subscribe_in(&graph, window, |this, _, event, window, cx| {
+                this.graph_event(event, window, cx)
+            }),
             cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 // A pinned page shows what it was pinned to, whatever's selected.
                 StoreEvent::SelectionChanged
@@ -982,6 +989,8 @@ impl Detail {
             page_key,
             kept,
             files_slide: Slide::default(),
+            graph_slide: Slide::default(),
+            graph_page: 0.,
             beside_slide: Slide::default(),
             _slid: Task::ready(()),
             files_hover: (None, false),
@@ -1367,7 +1376,7 @@ impl Detail {
                 }
                 page::PageState::Changes { .. }
                 | page::PageState::Diff { .. }
-                | page::PageState::Graph(_)
+                | page::PageState::Graph { .. }
                 | page::PageState::Overview(_)
                 | page::PageState::Blank => {}
             }
@@ -1396,9 +1405,9 @@ impl Detail {
         let graph_of = self.on_tab(ProjectTab::Graph);
         self.graph
             .update(cx, |graph, cx| graph.show_project(graph_of, cx));
-        if let page::PageState::Graph(left) = &self.page {
+        if let page::PageState::Graph { graph: left, .. } = &self.page {
             let left = left.clone();
-            self.graph.update(cx, |graph, _| graph.restore(left));
+            self.graph.update(cx, |graph, cx| graph.restore(left, cx));
         }
     }
 
@@ -1410,7 +1419,7 @@ impl Detail {
             page::PageState::Project { .. } => Some((&self.target_filter, &self.upstream_scroll)),
             page::PageState::Changes { .. }
             | page::PageState::Diff { .. }
-            | page::PageState::Graph(_)
+            | page::PageState::Graph { .. }
             | page::PageState::Overview(_)
             | page::PageState::Blank => None,
         }
@@ -1504,7 +1513,7 @@ impl Detail {
         if let Some(review) = page.review_mut() {
             review.edit = edit;
         }
-        if let page::PageState::Graph(left) = &mut page {
+        if let page::PageState::Graph { graph: left, .. } = &mut page {
             *left = self.graph.read(cx).state();
         }
         if self.pinned.is_some() {
@@ -1574,7 +1583,7 @@ impl Detail {
                 ProjectTab::Overview => self.upstream_source(project, cx)?,
                 ProjectTab::History => self.history_source(project)?,
                 ProjectTab::Branches => self.branches_source(project)?,
-                ProjectTab::Graph => return None,
+                ProjectTab::Graph => DiffSource::Commit(self.graph_commit()?),
             },
             Selection::Checkout(..) => return None,
             Selection::Uncommitted(_, Checkout::Main) => DiffSource::Worktree,
@@ -3340,6 +3349,20 @@ impl Detail {
     /// How wide the file list is drawn while it's shown, beside the navigator as much as that
     /// shows.
     pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
+        self.column_at_rest(window, cx) + self.graph_sliding_by(clock::now(), window, cx)
+    }
+
+    /// How much wider than at rest the graph's column is at `now`, as a commit's changes slide
+    /// in beside it or away: the diff slides that far past its place, at its own width.
+    pub fn graph_sliding_by(&self, now: Instant, window: &Window, cx: &App) -> f32 {
+        let open = (self.graph_slide.openness(now)).filter(|_| self.showing_graph());
+        open.map_or(0., |open| {
+            (self.graph_page - self.column_at_rest(window, cx)) * (1. - open)
+        })
+    }
+
+    /// The column's width while nothing slides.
+    fn column_at_rest(&self, window: &Window, cx: &App) -> f32 {
         let window = self.laid_out_width(window, cx);
         let navigator = self.navigator_shown.get();
         // Fitted beside the diff in the home tile, as if the tiles pinned beside it narrowed
@@ -3347,7 +3370,16 @@ impl Detail {
         let store = self.store.read(cx);
         let navigator_width = store.width(Pane::Navigator) * navigator;
         let pinned = (window - navigator_width) * (1. - self.tile_area(cx).width);
-        store.fitted_width(Pane::Files, window - pinned, navigator, 1.)
+        let list = self.column_pane();
+        store.fitted_width(list, list, window - pinned, navigator, 1.)
+    }
+
+    /// The pane the page's column is: the graph's, or the file list's.
+    fn column_pane(&self) -> Pane {
+        match self.showing_graph() {
+            true => Pane::Graph,
+            false => Pane::Files,
+        }
     }
 
     /// How far down its tile the home tile's page starts: under the tile's bar, while its row
@@ -3396,7 +3428,8 @@ impl Detail {
     pub(crate) fn navigator_width(&self, now: Instant, window: &Window, cx: &App) -> f32 {
         let window = self.laid_out_width(window, cx);
         let files = self.files_share(now, cx);
-        let width = (self.store.read(cx)).fitted_width(Pane::Navigator, window, 1., files);
+        let list = self.column_pane();
+        let width = (self.store.read(cx)).fitted_width(Pane::Navigator, list, window, 1., files);
         let scale = Theme::get(cx).scale;
         (width * scale).round() / scale
     }
@@ -3908,7 +3941,9 @@ impl Detail {
 
     /// Whether the file list, or the files beside a list page's list, slide at `now`.
     pub fn sliding(&self, now: Instant) -> bool {
-        self.files_slide.openness(now).is_some() || self.beside_slide.openness(now).is_some()
+        self.files_slide.openness(now).is_some()
+            || self.beside_slide.openness(now).is_some()
+            || self.graph_slide.openness(now).is_some()
     }
 
     /// Whether what's selected has no changes to list or diff, as a branch with no commits, a
@@ -3930,9 +3965,10 @@ impl Detail {
     }
 
     /// Whether the page is an overview with no column beside it: a worktree's, Inactive and
-    /// Network worktrees', as the navigator lists what they sum up, and the Graph's.
+    /// Network worktrees', as the navigator lists what they sum up, and the Graph's with no
+    /// commit's changes beside it.
     pub fn overview_only(&self) -> bool {
-        self.showing_graph()
+        (self.showing_graph() && !self.graph_beside())
             || matches!(
                 self.selection(),
                 Some(
@@ -3992,6 +4028,12 @@ impl Detail {
         }
         *flag = hidden;
         slide.start(!hidden, cx);
+        self.draw_through_slide(cx);
+    }
+
+    /// Draw the slide just started, and once more after it's over, as its last frame may be
+    /// drawn while it's still moving.
+    fn draw_through_slide(&mut self, cx: &mut Context<Self>) {
         self._slid = cx.spawn(async move |this, cx| {
             cx.background_executor().timer(FOLD).await;
             this.update(cx, |_, cx| cx.notify()).ok();
@@ -4041,17 +4083,25 @@ impl Detail {
             }
             // What the selected operation did, over the files it changed.
             ProjectTab::History => self.render_operation_header(project, theme, cx),
+            ProjectTab::Graph if self.graph_beside() => {
+                Some(self.list_beside(project, None, theme, window, cx))
+            }
             ProjectTab::Graph => Some(
                 div()
                     .flex_1()
                     .min_w_0()
                     .h_full()
-                    .child(
-                        (self.graph.clone()).cached(gpui::StyleRefinement::default().size_full()),
-                    )
+                    .child(self.graph_view())
                     .into_any_element(),
             ),
         }
+    }
+
+    /// The graph, drawn only when it notifies.
+    fn graph_view(&self) -> AnyElement {
+        (self.graph.clone())
+            .cached(gpui::StyleRefinement::default().size_full())
+            .into_any_element()
     }
 
     /// Whether the page shows the project's Graph.
@@ -4062,15 +4112,17 @@ impl Detail {
     /// Step the graph's pinned commit to `side`, or the keys past the graph with none there or
     /// while they're on the project's tabs, inside the graph's key context.
     fn step_graph(&mut self, side: Side, window: &mut Window, cx: &mut Context<Self>) {
-        let on_graph = self.focus.is_focused(window);
+        let on_graph = self.focus.is_focused(window) || self.side_focus.is_focused(window);
         if !(on_graph && self.graph.update(cx, |graph, cx| graph.step(side, cx))) {
             self.leave(side, window, cx);
         }
     }
 
+    /// Whether the page is a list beside a diff: a project's tab, the Graph's while a commit's
+    /// changes are beside it, with the graph as its list.
     pub(crate) fn list_page(&self) -> bool {
         matches!(self.selection(), Some(Selection::Project(_)))
-            && self.project_tab() != ProjectTab::Graph
+            && (self.project_tab() != ProjectTab::Graph || self.graph_beside())
     }
 }
 
@@ -4128,7 +4180,14 @@ impl Render for Detail {
                         ProjectTab::History => {
                             self.render_history_side(project, &theme, window, cx)
                         }
-                        // No column: the overview takes the page.
+                        // With a commit pinned, the graph is the list, and the keys step it.
+                        ProjectTab::Graph if self.graph_beside() => v_flex()
+                            .size_full()
+                            .track_focus(&self.side_focus)
+                            .key_context("Graph")
+                            .child(self.graph_view())
+                            .into_any_element(),
+                        // No column: the graph takes the page.
                         ProjectTab::Graph => div().into_any_element(),
                         ProjectTab::Overview => match self.editing(project, cx) {
                             Some(editing) => empty_state(
@@ -4210,11 +4269,15 @@ impl Render for Detail {
                     _ => None,
                 };
                 let (files_shown, list_page) = (self.files_shown(cx), self.list_page());
+                let column_pane = self.column_pane();
                 // A list that went while it had the keys hands them to the diff, as `f` does.
                 let gone = (!self.filtering
                     && self.file_filter.focus_handle(cx).is_focused(window))
                     || (self.find.is_none() && self.find_input.focus_handle(cx).is_focused(window));
-                if gone || (!files_shown && self.files_focus.is_focused(window)) {
+                if gone
+                    || (!files_shown && self.files_focus.is_focused(window))
+                    || (!list_page && self.side_focus.is_focused(window))
+                {
                     let focus = self.focus.clone();
                     window.defer(cx, move |window, cx| window.focus(&focus, cx));
                 }
@@ -4223,7 +4286,7 @@ impl Render for Detail {
                 let now = clock::now();
                 let cut =
                     (self.files_slide.openness(now)).filter(|_| !list_page && self.diff_hidden(cx));
-                if cut.is_some() {
+                if cut.is_some() || self.graph_slide.openness(now).is_some() {
                     window.request_animation_frame();
                 }
                 let panes = match selection {
@@ -4240,7 +4303,7 @@ impl Render for Detail {
                         .flex_1()
                         .min_h_0()
                         .items_start()
-                        .on_drag_move(resize_pane(Pane::Files, 0., self.store.clone()))
+                        .on_drag_move(resize_pane(column_pane, 0., self.store.clone()))
                         .when(self.files_drawn(now, cx), |el| {
                             let column = v_flex()
                                 .w(dp(width))
@@ -4260,7 +4323,7 @@ impl Render for Detail {
                                     )
                                 })
                                 .child(side)
-                                .child(resize_handle(Pane::Files, self.store.clone(), &theme));
+                                .child(resize_handle(column_pane, self.store.clone(), &theme));
                             let column = inert(column, !files_shown);
                             el.child(match cut {
                                 Some(open) => div()

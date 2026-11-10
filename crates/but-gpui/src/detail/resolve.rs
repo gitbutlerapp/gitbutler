@@ -131,7 +131,8 @@ impl Detail {
             (None, _) if amending => "Diff Amending",
             (None, _) if self.showing_brief() => "Diff Brief",
             (None, _) if self.back_to_brief() => "Diff BriefBack",
-            (None, _) if self.showing_graph() => "Diff Graph",
+            // Beside a commit's changes, the graph's column takes its keys, and the diff its own.
+            (None, _) if self.showing_graph() && !self.graph_beside() => "Diff Graph",
             (None, _) => "Diff",
             (Some(_), true) => "Diff Conflicts",
             (Some(_), false) => "Diff Conflicts Picked",
