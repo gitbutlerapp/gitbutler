@@ -13,11 +13,6 @@ pub const FOCUS: &str = "ui.focus";
 /// Params: [`TypeParams`].
 pub const TYPE: &str = "ui.type";
 
-pub const NAVIGATOR: &str = "navigator";
-pub const TERMINALS: &str = "terminals";
-/// The tile that follows the navigator's selection.
-pub const HOME: &str = "home";
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct State {
     pub navigator: bool,
@@ -25,7 +20,8 @@ pub struct State {
     pub selection: Option<Row>,
     pub tiles: Vec<Tile>,
     pub keys: Keys,
-    pub overlay: Option<Overlay>,
+    /// What's open over the window and takes the keys, as `palette`.
+    pub overlay: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,7 +33,6 @@ pub struct Row {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tile {
-    /// [`HOME`], or the label of the row it shows.
     pub id: String,
     pub shows: Row,
     pub area: Area,
@@ -59,15 +54,6 @@ pub struct Keys {
     pub pane: Option<String>,
     /// Keys there type text, as in a text field or a terminal, instead of running actions.
     pub text_field: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Overlay {
-    Palette,
-    Menu,
-    Modal,
-    Prompt,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

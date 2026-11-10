@@ -138,7 +138,7 @@ impl CliOutputHuman for UiOutcome {
                 };
                 writeln!(out, "Keys: {keys}{field}")?;
                 if let Some(overlay) = state.overlay {
-                    writeln!(out, "Open over the window: {overlay:?}")?;
+                    writeln!(out, "Open over the window: {overlay}")?;
                 }
             }
             UiOutcome::Actions(actions) => {

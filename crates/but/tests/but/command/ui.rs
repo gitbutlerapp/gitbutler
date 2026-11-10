@@ -2,7 +2,7 @@ use std::io::{BufRead as _, BufReader, Write as _};
 use std::os::unix::net::UnixListener;
 use std::path::Path;
 
-use but_ui_control::ui::{self, Area, DispatchParams, Keys, Overlay, Row, State, Tile};
+use but_ui_control::ui::{self, Area, DispatchParams, Keys, Row, State, Tile};
 use but_ui_control::{Request, Response, RpcError, SOCKET_ENV, code};
 
 use crate::utils::Sandbox;
@@ -41,7 +41,7 @@ fn answer(request: &Request) -> Response {
                 selection: Some(row("branch", "feature")),
                 tiles: vec![
                     Tile {
-                        id: ui::HOME.into(),
+                        id: "home".into(),
                         shows: row("branch", "feature"),
                         area: Area {
                             left: 0.,
@@ -64,11 +64,11 @@ fn answer(request: &Request) -> Response {
                     },
                 ],
                 keys: Keys {
-                    tile: Some(ui::HOME.into()),
+                    tile: Some("home".into()),
                     pane: Some("diff".into()),
                     text_field: false,
                 },
-                overlay: Some(Overlay::Palette),
+                overlay: Some("palette".into()),
             },
         ),
         ui::DISPATCH => {
@@ -107,7 +107,7 @@ Tiles:
   home: branch feature in repo (panes: files, diff)
   Terminal: terminal Terminal in repo
 Keys: home › diff
-Open over the window: Palette
+Open over the window: palette
 
 "#]]);
 }

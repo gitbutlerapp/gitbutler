@@ -4,8 +4,8 @@
 )]
 
 use but_ui_control::ui::{
-    self, ActionInfo, Area as UiArea, DispatchParams, FocusParams, Keys, Overlay, Row,
-    SelectParams, State, TypeParams,
+    self, ActionInfo, Area as UiArea, DispatchParams, FocusParams, Keys, Row, SelectParams, State,
+    TypeParams,
 };
 use but_ui_control::{Request, RpcError, code};
 use gpui::{App, Context, Keystroke, Window};
@@ -19,6 +19,10 @@ use crate::state::{RowKey, Selection, Store, Tile};
 
 /// The actions a person never runs by name, as a field's own editing keys.
 const UNLISTED: [&str; 2] = ["zed::", "stories::"];
+
+const NAVIGATOR: &str = "navigator";
+const TERMINALS: &str = "terminals";
+const HOME: &str = "home";
 
 pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &mut App) {
     let Some(app) = window.root::<AppView>().flatten() else {
@@ -84,12 +88,13 @@ impl AppView {
             })
             .collect();
         let overlay = match () {
-            _ if self.prompt.is_some() => Some(Overlay::Prompt),
-            _ if self.modal.is_some() || self.icon_picker.is_some() => Some(Overlay::Modal),
-            _ if self.palette.is_some() => Some(Overlay::Palette),
-            _ if self.menu.is_some() => Some(Overlay::Menu),
+            _ if self.prompt.is_some() => Some("prompt"),
+            _ if self.modal.is_some() || self.icon_picker.is_some() => Some("modal"),
+            _ if self.palette.is_some() => Some("palette"),
+            _ if self.menu.is_some() => Some("menu"),
             _ => None,
-        };
+        }
+        .map(str::to_owned);
         State {
             navigator: self.navigator_open,
             detail: self.detail_open,
@@ -111,8 +116,8 @@ impl AppView {
         let text_field =
             (window.context_stack().iter()).any(|context| context.contains("TextInput"));
         let (tile, pane) = match self.place_with_keys(window, cx) {
-            KeyPlace::Navigator => (ui::NAVIGATOR.to_owned(), None),
-            KeyPlace::Terminals => (ui::TERMINALS.to_owned(), None),
+            KeyPlace::Navigator => (NAVIGATOR.to_owned(), None),
+            KeyPlace::Terminals => (TERMINALS.to_owned(), None),
             KeyPlace::Tile(tile, pane) => (
                 self.tile_id(&tile, cx),
                 pane.map(|pane| pane.name().to_owned()),
@@ -223,7 +228,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) -> Result<(), RpcError> {
         let tile = match params.tile.as_deref() {
-            Some(ui::NAVIGATOR) => {
+            Some(NAVIGATOR) => {
                 if params.pane.is_some() {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
@@ -240,7 +245,7 @@ impl AppView {
                 window.focus(&focus, cx);
                 return Ok(());
             }
-            Some(ui::TERMINALS) => {
+            Some(TERMINALS) => {
                 if params.pane.is_some() {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
@@ -301,7 +306,7 @@ impl AppView {
 
     fn tile_id(&self, tile: &Tile, cx: &App) -> String {
         match tile {
-            Tile::Home => ui::HOME.to_owned(),
+            Tile::Home => HOME.to_owned(),
             Tile::Pinned(row) => tile_label(self.store.read(cx), row).1.to_string(),
         }
     }
