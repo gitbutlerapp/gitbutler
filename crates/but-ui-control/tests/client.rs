@@ -4,7 +4,7 @@ use std::io::{BufRead as _, BufReader, Write as _};
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 
-use but_ui_control::{Client, Request, Response, RpcError, code};
+use but_ui_control::{Client, Id, Request, Response, RpcError, code};
 use serde_json::json;
 
 fn serve_once(
@@ -36,8 +36,11 @@ fn calls_carry_params_and_results_on_one_connection() {
     let dir = tempfile::tempdir().unwrap();
     let path = socket(&dir);
     let server = serve_once(&path, |request| match request.method.as_str() {
-        "test.echo" => Response::ok(request.id, request.params.clone()),
-        _ => Response::err(request.id, RpcError::new(code::METHOD_NOT_FOUND, "no")),
+        "test.echo" => Response::ok(request.id.clone(), request.params.clone()),
+        _ => Response::err(
+            request.id.clone(),
+            RpcError::new(code::METHOD_NOT_FOUND, "no"),
+        ),
     });
 
     let mut client = Client::connect_to(&path).unwrap();
@@ -53,8 +56,16 @@ fn calls_carry_params_and_results_on_one_connection() {
 
     let asked = server.join().unwrap();
     assert_eq!(asked.len(), 2, "both calls went over the one connection");
-    assert_eq!(asked[0].id, Some(1), "ids count up from 1");
-    assert_eq!(asked[1].id, Some(2), "each call gets its own id");
+    assert_eq!(
+        asked[0].id,
+        Some(Id::Number(1.into())),
+        "ids count up from 1"
+    );
+    assert_eq!(
+        asked[1].id,
+        Some(Id::Number(2.into())),
+        "each call gets its own id"
+    );
     assert_eq!(asked[0].jsonrpc, "2.0", "every request says its version");
 }
 
@@ -64,7 +75,7 @@ fn an_error_response_keeps_its_code_and_message() {
     let path = socket(&dir);
     let server = serve_once(&path, |request| {
         Response::err(
-            request.id,
+            request.id.clone(),
             RpcError::new(code::NOT_FOUND, "No project open in the app has /repo"),
         )
     });

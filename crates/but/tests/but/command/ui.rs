@@ -34,7 +34,7 @@ fn row(kind: &str, label: &str) -> Row {
 fn answer(request: &Request) -> Response {
     match request.method.as_str() {
         ui::STATE => Response::ok(
-            request.id,
+            request.id.clone(),
             State {
                 navigator: true,
                 detail: true,
@@ -74,9 +74,9 @@ fn answer(request: &Request) -> Response {
         ui::DISPATCH => {
             let params: DispatchParams = serde_json::from_value(request.params.clone()).unwrap();
             match params.action.as_str() {
-                "tiling::SplitRight" => Response::ok(request.id, ()),
+                "tiling::SplitRight" => Response::ok(request.id.clone(), ()),
                 action => Response::err(
-                    request.id,
+                    request.id.clone(),
                     RpcError::new(
                         code::NOT_AVAILABLE,
                         format!("{action} can't act where the keys are (home › diff)."),
@@ -85,7 +85,7 @@ fn answer(request: &Request) -> Response {
             }
         }
         _ => Response::err(
-            request.id,
+            request.id.clone(),
             RpcError::new(code::METHOD_NOT_FOUND, "no such method"),
         ),
     }

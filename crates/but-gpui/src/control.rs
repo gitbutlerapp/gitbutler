@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use but_ui_control::{Request, Response, RpcError, code};
+use but_ui_control::{Id, Request, Response, RpcError, code};
 use gpui::{App, Global, Window};
 use serde::Serialize;
 
@@ -15,12 +15,12 @@ pub struct ControlSocket(pub PathBuf);
 impl Global for ControlSocket {}
 
 pub struct Reply {
-    id: Option<u64>,
+    id: Option<Id>,
     answer: futures::channel::oneshot::Sender<Response>,
 }
 
 impl Reply {
-    pub fn new(id: Option<u64>) -> (Reply, futures::channel::oneshot::Receiver<Response>) {
+    pub fn new(id: Option<Id>) -> (Reply, futures::channel::oneshot::Receiver<Response>) {
         let (answer, answered) = futures::channel::oneshot::channel();
         (Reply { id, answer }, answered)
     }
@@ -108,7 +108,7 @@ fn serve(
                 continue;
             }
         };
-        let (reply, answered) = Reply::new(request.id);
+        let (reply, answered) = Reply::new(request.id.clone());
         if send
             .unbounded_send(Incoming::Request(request.clone(), reply))
             .is_err()
@@ -117,7 +117,7 @@ fn serve(
         }
         let response = futures::executor::block_on(answered).unwrap_or_else(|_| {
             Response::err(
-                request.id,
+                request.id.clone(),
                 RpcError::new(code::INVALID_REQUEST, "The app stopped before answering"),
             )
         });
@@ -137,8 +137,9 @@ fn parse(line: &str) -> Result<Request, Response> {
             RpcError::new(code::PARSE_ERROR, format!("Not JSON: {err}")),
         )
     })?;
-    let id = value.get("id").and_then(serde_json::Value::as_u64);
-    let invalid = |why: String| Response::err(id, RpcError::new(code::INVALID_REQUEST, why));
+    let id = (value.get("id")).and_then(|id| serde_json::from_value::<Id>(id.clone()).ok());
+    let invalid =
+        |why: String| Response::err(id.clone(), RpcError::new(code::INVALID_REQUEST, why));
     let request: Request =
         serde_json::from_value(value).map_err(|err| invalid(format!("Not a request: {err}")))?;
     if request.jsonrpc != but_ui_control::VERSION {
@@ -174,6 +175,28 @@ mod tests {
     use super::parse;
 
     #[test]
+    fn a_request_is_answered_with_its_own_id() {
+        let named = parse(r#"{"jsonrpc":"2.0","id":"a1","method":"ui.state"}"#).unwrap();
+        assert_eq!(
+            serde_json::to_value(&named.id).unwrap(),
+            serde_json::json!("a1"),
+            "JSON-RPC allows a string"
+        );
+        let negative = parse(r#"{"jsonrpc":"2.0","id":-4,"method":"ui.state"}"#).unwrap();
+        assert_eq!(
+            serde_json::to_value(&negative.id).unwrap(),
+            serde_json::json!(-4),
+            "and any number"
+        );
+        let broken = parse(r#"{"jsonrpc":"2.0","id":"a2"}"#).unwrap_err();
+        assert_eq!(
+            serde_json::to_value(&broken.id).unwrap(),
+            serde_json::json!("a2"),
+            "an error answers the id it could read"
+        );
+    }
+
+    #[test]
     fn a_line_that_isnt_a_request_gets_an_error_with_its_id() {
         let not_json = parse("{oops").unwrap_err();
         assert_eq!(
@@ -191,7 +214,7 @@ mod tests {
         );
         assert_eq!(
             no_method.id,
-            Some(7),
+            Some(but_ui_control::Id::Number(7.into())),
             "the answer carries the id it could read"
         );
 

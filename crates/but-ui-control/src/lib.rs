@@ -11,19 +11,31 @@ pub mod ui;
 pub const SOCKET_ENV: &str = "GITBUTLER_GPUI_SOCKET";
 
 pub fn socket_path() -> anyhow::Result<PathBuf> {
-    if let Some(path) = std::env::var_os(SOCKET_ENV).filter(|path| !path.is_empty()) {
-        return Ok(PathBuf::from(path));
+    socket_path_from(std::env::var_os(SOCKET_ENV))
+}
+
+fn socket_path_from(env: Option<std::ffi::OsString>) -> anyhow::Result<PathBuf> {
+    if let Some(path) = env.filter(|path| !path.is_empty()) {
+        return Ok(std::path::absolute(path)?);
     }
     Ok(but_path::app_data_dir()?.join("gpui.sock"))
 }
 
 pub const VERSION: &str = "2.0";
 
+/// JSON-RPC lets a request's id be a string or a number.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Id {
+    Number(serde_json::Number),
+    String(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Request {
     pub jsonrpc: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<u64>,
+    pub id: Option<Id>,
     pub method: String,
     #[serde(default)]
     pub params: serde_json::Value,
@@ -32,7 +44,7 @@ pub struct Request {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Response {
     pub jsonrpc: String,
-    pub id: Option<u64>,
+    pub id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,7 +52,7 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn ok(id: Option<u64>, result: impl Serialize) -> Response {
+    pub fn ok(id: Option<Id>, result: impl Serialize) -> Response {
         Response {
             jsonrpc: VERSION.into(),
             id,
@@ -49,7 +61,7 @@ impl Response {
         }
     }
 
-    pub fn err(id: Option<u64>, error: RpcError) -> Response {
+    pub fn err(id: Option<Id>, error: RpcError) -> Response {
         Response {
             jsonrpc: VERSION.into(),
             id,
@@ -147,7 +159,7 @@ impl Client {
         self.next_id += 1;
         let request = Request {
             jsonrpc: VERSION.into(),
-            id: Some(id),
+            id: Some(Id::Number(id.into())),
             method: method.into(),
             params: serde_json::to_value(params)?,
         };
@@ -166,7 +178,7 @@ impl Client {
         }
         let response: Response = serde_json::from_str(&answer)
             .context("The GitButler GPUI app answered with something that isn't JSON-RPC")?;
-        if response.id != Some(id) {
+        if response.id != Some(Id::Number(id.into())) {
             bail!("The GitButler GPUI app answered another request");
         }
         if let Some(error) = response.error {
@@ -175,5 +187,20 @@ impl Client {
         Ok(serde_json::from_value(
             response.result.unwrap_or(serde_json::Value::Null),
         )?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::socket_path_from;
+
+    #[test]
+    fn a_relative_socket_path_is_made_absolute() {
+        let path = socket_path_from(Some("gpui.sock".into())).unwrap();
+        assert!(
+            path.is_absolute(),
+            "terminals start elsewhere, so they need the whole path: {path:?}"
+        );
+        assert!(path.ends_with("gpui.sock"));
     }
 }
