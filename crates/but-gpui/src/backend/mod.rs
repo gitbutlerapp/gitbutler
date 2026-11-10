@@ -213,7 +213,7 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
     };
     // The folder just picked, by name: a card has room for a few lines.
     let name = path.file_name().map_or(path.as_os_str(), |name| name);
-    anyhow::bail!("{} can't be added: {why}.", name.display())
+    but_error::bail_precondition!("{} can't be added: {why}.", name.display())
 }
 
 /// The names of the folders right inside `path` that are Git repositories, sorted.

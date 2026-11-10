@@ -185,7 +185,7 @@ impl Intent for DescribeBranch {
             // written, where a branch made later by that name would take it up. Copying the
             // error keeps it.
             if repo.try_find_reference(branch.as_ref())?.is_none() {
-                anyhow::bail!(
+                but_error::bail_precondition!(
                     "{} was renamed or deleted meanwhile, so this wasn't saved:\n\n{}",
                     branch.shorten(),
                     description

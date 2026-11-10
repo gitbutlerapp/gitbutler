@@ -83,7 +83,7 @@ fn refuse_conflicted(
 ) -> Result<()> {
     let repo = checkout(ctx, worktree)?;
     if let Some(path) = unmerged(&repo, selected)?.first() {
-        bail!("Mark {path} resolved first: it still has conflicts");
+        but_error::bail_precondition!("Mark {path} resolved first: it still has conflicts");
     }
     refuse_changed(&repo, selected, false)
 }
@@ -113,13 +113,20 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) ->
                 != (part.file.modified, part.file.size)
                 || (picked && base_now(part) != part.file.base()))
     });
-    if let Some(part) = changed {
-        bail!(
-            "{} changed since the diff was shown; try again",
-            part.file.path
-        );
+    match changed {
+        Some(part) => Err(changed_since_shown(&part.file.path)),
+        None => Ok(()),
     }
-    Ok(())
+}
+
+/// The refusal for a file whose diff, as shown, no longer says what's at `path`.
+fn changed_since_shown(path: impl std::fmt::Display) -> anyhow::Error {
+    anyhow::anyhow!(
+        but_error::Context::new(format!(
+            "{path} changed since the diff was shown; try again"
+        ))
+        .with_code(but_error::Code::PreconditionFailed)
+    )
 }
 
 /// Where changes are read from: the main checkout, or the linked `worktree`.
@@ -141,7 +148,7 @@ fn taken_specs(selected: &[Selected]) -> Result<Vec<DiffSpec>> {
             ChangeKind::Deleted => "it's deleted here",
             _ => "it's not a plain file on one side",
         };
-        bail!("Only all of {} can be taken out, as {why}", part.file.path);
+        but_error::bail_precondition!("Only all of {} can be taken out, as {why}", part.file.path);
     }
     Ok(selected_specs(selected))
 }
@@ -151,7 +158,7 @@ fn taken_specs(selected: &[Selected]) -> Result<Vec<DiffSpec>> {
 /// into the file.
 fn refuse_converted(selected: &[Selected]) -> Result<()> {
     match (selected.iter()).find(|part| part.file.converted && part.hunks.is_some()) {
-        Some(part) => bail!(
+        Some(part) => but_error::bail_precondition!(
             "Only all of {} can be taken, as its diff is a copy a textconv filter made for \
              reading, not its own lines",
             part.file.path
@@ -251,16 +258,18 @@ pub(super) fn hook_output(output: &str) -> String {
 /// `on_branch`, as the main checkout must be, also while no branch is checked out at all.
 pub(super) fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Result<()> {
     if let Some(op) = super::git_operation(repo) {
-        bail!(
+        but_error::bail_precondition!(
             "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
              `{op} --abort`, first."
         );
     }
     if matches!(repo.state(), Some(gix::state::InProgress::Bisect)) {
-        bail!("git bisect isn't finished. End it with `git bisect reset` first.");
+        but_error::bail_precondition!(
+            "git bisect isn't finished. End it with `git bisect reset` first."
+        );
     }
     if on_branch && repo.head()?.is_detached() {
-        bail!(
+        but_error::bail_precondition!(
             "No branch is checked out (HEAD is detached). Check one out, or make one with \
              `git switch -c <name>`, first."
         );
@@ -272,7 +281,7 @@ pub(super) fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Resu
 fn pre_commit(ctx: &but_ctx::Context, changes: &[DiffSpec]) -> Result<()> {
     let result = but_api::legacy::repo::pre_commit_hook_diffspecs(ctx, changes.to_vec())?;
     if let HookResult::Failure(ErrorData { error }) = result {
-        bail!(
+        but_error::bail_precondition!(
             "The pre-commit hook refused the commit:\n{}",
             hook_output(&error)
         );
@@ -293,7 +302,9 @@ fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
 /// names its internals.
 fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
     if ctx.repo.get()?.head()?.is_unborn() {
-        bail!("The repository has no commits yet. Make the first one, then try again.");
+        but_error::bail_precondition!(
+            "The repository has no commits yet. Make the first one, then try again."
+        );
     }
     Ok(())
 }
@@ -777,7 +788,7 @@ impl Intent for CommitChanges {
                 && !stacks_cleanly(ctx, perm, stacking, specs.clone())?
             {
                 let moved: Vec<_> = stacking.branches.iter().map(short_ref).collect();
-                bail!(
+                but_error::bail_precondition!(
                     "Stacking {} on {} wouldn't take these changes cleanly any more, so nothing \
                      was changed",
                     moved.join(", "),
@@ -983,12 +994,10 @@ fn hooks_before_commit(
     // Ending in a line break, as Git hands it over, so what a hook appends starts a line of
     // its own rather than running on from the title.
     match but_api::legacy::repo::message_hook(ctx, format!("{message}\n"))? {
-        MessageHookResult::Failure(ErrorData { error }) => {
-            bail!(
-                "The commit-msg hook refused the commit:\n{}",
-                hook_output(&error)
-            )
-        }
+        MessageHookResult::Failure(ErrorData { error }) => but_error::bail_precondition!(
+            "The commit-msg hook refused the commit:\n{}",
+            hook_output(&error)
+        ),
         MessageHookResult::Message(rewritten) => Ok(rewritten.message.trim_end().to_owned()),
         MessageHookResult::Success | MessageHookResult::NotConfigured => Ok(message),
     }
@@ -1373,7 +1382,7 @@ impl Intent for DeleteBranchAndCommits {
             // The target is what a checkout on a deleted branch falls back to.
             let target = ctx.project_meta()?.target_ref;
             if target.is_some_and(|target| target.as_local_full_name_ref() == branch.as_ref()) {
-                bail!("{} is the target branch", short_ref(&branch));
+                but_error::bail_precondition!("{} is the target branch", short_ref(&branch));
             }
             let commits: Option<Vec<gix::ObjectId>> = {
                 let (_, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
@@ -1384,8 +1393,11 @@ impl Intent for DeleteBranchAndCommits {
                 // Removing a ref that's gone does nothing, so say so rather than that it went, as
                 // after an agent renamed the branch while the confirmation was up.
                 match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
-                    None => bail!("{} was renamed or deleted meanwhile", short_ref(&branch)),
-                    Some(at) if tip.is_none_or(|tip| tip.0 != at) => bail!(
+                    None => but_error::bail_precondition!(
+                        "{} was renamed or deleted meanwhile",
+                        short_ref(&branch)
+                    ),
+                    Some(at) if tip.is_none_or(|tip| tip.0 != at) => but_error::bail_precondition!(
                         "{} changed since you asked, so it wasn't deleted",
                         short_ref(&branch)
                     ),
@@ -1395,7 +1407,7 @@ impl Intent for DeleteBranchAndCommits {
                 return Ok(());
             };
             if commits.first().copied() != tip.map(|tip| tip.0) {
-                bail!(
+                but_error::bail_precondition!(
                     "{} changed since you asked, so it wasn't deleted",
                     short_ref(&branch)
                 );
@@ -1703,7 +1715,7 @@ fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<
             .filter(|tip| super::is_ancestor(repo, merge.0, **tip).unwrap_or(false))
             .any(|tip| stays_above(*tip, merge.0).unwrap_or(true));
         if buried {
-            bail!(
+            but_error::bail_precondition!(
                 "{} is a merge with commits above it, which would merge the same changes \
                  instead, so nothing would come back. Take out the commits above it first.",
                 super::short_reference(repo, *merge)
@@ -2019,7 +2031,7 @@ fn discard(
     if let Some(part) = (selected.iter())
         .find(|part| part.hunks.is_some() && conflicted.contains(&part.file.change.path.as_bstr()))
     {
-        bail!(
+        but_error::bail_precondition!(
             "{} has conflicts: discard all of it, or mark it resolved first",
             part.file.path
         );
@@ -2105,8 +2117,7 @@ fn current_hunks(
     let mut current = Vec::new();
     for (part, mut spec) in selected.iter().zip(specs) {
         if !spec.hunk_headers.is_empty() {
-            let stale =
-                || anyhow::anyhow!("{} changed since the diff was shown; try again", spec.path);
+            let stale = || changed_since_shown(&spec.path);
             let change = (changes.iter())
                 .find(|change| change.path == spec.path)
                 .filter(|change| {
@@ -3183,6 +3194,11 @@ pub(super) mod tests {
                 assert!(
                     format!("{refused:#}").contains(&format!("{says} isn't finished")),
                     "finishing it would go on past the commit: {refused:#}"
+                );
+                assert_eq!(
+                    (refused.downcast_ref::<but_error::Context>()).map(|said| said.code),
+                    Some(but_error::Code::PreconditionFailed),
+                    "the user is the one to finish it, so it isn't reported as a bug"
                 );
                 std::fs::remove_file(path.join(".git").join(state)).unwrap();
             }

@@ -492,6 +492,12 @@ fn open_in_path_executable(
     cli_arg_supplier: &CliArgumentSupplier,
     open_spec: OpenSpec,
 ) -> anyhow::Result<()> {
+    if which::which(&path_executable.name_or_path).is_err() {
+        but_error::bail_precondition!(
+            "{} isn't installed, or isn't on PATH",
+            path_executable.name_or_path
+        );
+    }
     let mut cmd = Command::new(&path_executable.name_or_path);
 
     match open_spec {
@@ -598,13 +604,20 @@ fn open_macos_application_via_open(
         cmd.arg(path);
     }
 
-    let status = cmd.stdout(Stdio::null()).stderr(Stdio::null()).status()?;
-
-    if !status.success() {
-        anyhow::bail!(
-            "failed to open {paths:?} with app bundle identifier '{}'",
-            app.bundle_identifier
-        );
+    let output = cmd.stdin(Stdio::null()).output()?;
+    if !output.status.success() {
+        let said = String::from_utf8_lossy(&output.stderr);
+        // What `open` says when no app has the identifier.
+        if said.contains("LSCopyApplicationURLsForBundleIdentifier") {
+            but_error::bail_precondition!(
+                "No app with the bundle identifier '{}' is installed",
+                app.bundle_identifier
+            );
+        }
+        match said.trim() {
+            "" => anyhow::bail!("Couldn't open it with {}", app.bundle_identifier),
+            said => anyhow::bail!("{said}"),
+        }
     }
 
     Ok(())
