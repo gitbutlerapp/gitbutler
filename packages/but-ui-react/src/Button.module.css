@@ -61,8 +61,9 @@
 	--button-padding-inline: 6px;
 	--icon-size: 14px;
 
+	/* 2px wider than tall, at any density. */
 	&:where(.iconOnly) {
-		--button-width: 22px;
+		--button-width: calc(var(--but-size-control-sm) + 2px);
 		--button-padding-inline: 3px;
 	}
 }

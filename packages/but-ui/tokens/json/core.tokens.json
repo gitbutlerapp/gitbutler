@@ -217,6 +217,17 @@
         "$extensions": {
           "mode": {}
         }
+      },
+      "row": {
+        "$type": "dimension",
+        "$value": {
+          "value": 40,
+          "unit": "px"
+        },
+        "$description": "Height of a one-line row in a table or a description list, and of a location bar: a line of text with room above and below it. Taller than size/bar, as a row holds content rather than a popup's search or footer.",
+        "$extensions": {
+          "mode": {}
+        }
       }
     },
     "space": {
@@ -642,7 +653,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-09T15:16:56.710Z"
+        "createdAt": "2026-11-10T13:57:06.538Z"
       }
     }
   }

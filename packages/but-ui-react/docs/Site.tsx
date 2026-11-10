@@ -19,13 +19,16 @@ import {
 	currentPage,
 	pageLink,
 	pickAccent,
+	pickDensity,
 	pickRadius,
 	pickTheme,
 	savedAccent,
+	savedDensity,
 	savedRadius,
 	savedTheme,
 	subscribePage,
 	type Accent,
+	type Density,
 	type Radius,
 	type Theme,
 } from "./site.ts";
@@ -194,8 +197,14 @@ const ACCENTS: Array<{ name: string; accent: Accent; hex: string }> = [
 
 const RADII: Record<Radius, { name: string; icon: IconName }> = {
 	sharp: { name: "Sharp", icon: "corner-none" },
-	default: { name: "Default", icon: "corner-small" },
+	soft: { name: "Soft", icon: "corner-small" },
 	round: { name: "Round", icon: "corner-large" },
+};
+
+const DENSITIES: Record<Density, { name: string; icon: IconName }> = {
+	compact: { name: "Compact", icon: "6x6-grid" },
+	balanced: { name: "Balanced", icon: "6x4-grid" },
+	spacious: { name: "Spacious", icon: "4x4-grid" },
 };
 
 const THEMES: Record<Theme, { name: string; icon: IconName }> = {
@@ -209,6 +218,7 @@ const THEMES: Record<Theme, { name: string; icon: IconName }> = {
 const Appearance: FC = () => {
 	const [folded, setFolded] = useState(false);
 	const [radius, setRadius] = useState(savedRadius);
+	const [density, setDensity] = useState(savedDensity);
 	const [theme, setTheme] = useState(savedTheme);
 	const [accent, setAccent] = useState(savedAccent);
 
@@ -238,6 +248,21 @@ const Appearance: FC = () => {
 							}}
 						>
 							{Object.entries(RADII).map(([value, { name, icon }]) => (
+								<MenuRadioItem key={value} value={value} icon={icon}>
+									{name}
+								</MenuRadioItem>
+							))}
+						</MenuRadioGroup>
+					</Setting>
+					<Setting name="Density" icon={DENSITIES[density].icon} value={DENSITIES[density].name}>
+						<MenuRadioGroup
+							value={density}
+							onValueChange={(next) => {
+								setDensity(next as Density);
+								pickDensity(next as Density);
+							}}
+						>
+							{Object.entries(DENSITIES).map(([value, { name, icon }]) => (
 								<MenuRadioItem key={value} value={value} icon={icon}>
 									{name}
 								</MenuRadioItem>

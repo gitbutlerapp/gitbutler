@@ -1,9 +1,11 @@
 import { renderFrame } from "./frame.tsx";
 import {
 	paintAccent,
+	paintDensity,
 	paintRadius,
 	paintTheme,
 	savedAccent,
+	savedDensity,
 	savedRadius,
 	savedTheme,
 } from "./site.ts";
@@ -20,5 +22,6 @@ if (story !== null) {
 	paintTheme(savedTheme());
 	paintAccent(savedAccent());
 	paintRadius(savedRadius());
+	paintDensity(savedDensity());
 	createRoot(root).render(<Site />);
 }

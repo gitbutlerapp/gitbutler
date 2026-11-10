@@ -43,8 +43,9 @@
 }
 
 .small {
-	/* Between the 20px and 28px controls: a count's badge needs 4px around it. */
-	--segment-height: 24px;
+	/* 4px over the small control, between it and the regular one (24 at the default density): a
+	   count's badge needs room around it. */
+	--segment-height: calc(var(--but-size-control-sm) + 4px);
 	--segment-padding-inline: 8px;
 	--segment-gap: 4px;
 	--segment-icon-size: 14px;

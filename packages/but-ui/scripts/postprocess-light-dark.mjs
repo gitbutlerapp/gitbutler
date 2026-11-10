@@ -1,5 +1,6 @@
 import { liftComposedColors } from "./composed-colors.mjs";
 import { appendAccents } from "./generate-accents.mjs";
+import { appendDensities } from "./generate-density.mjs";
 import { appendRadii } from "./generate-radius.mjs";
 import { generateShadowVars } from "./generate-shadow-vars.mjs";
 import { stripCollectionPrefix } from "./terrazzo-css-helpers.mjs";
@@ -120,7 +121,7 @@ function buildLightDarkCss(sourceCss) {
 function postprocessTokens() {
 	const sourceCss = readFileSync(TOKENS_CSS_PATH, "utf8");
 	const withLightDark = buildLightDarkCss(sourceCss);
-	const outputCss = appendRadii(appendAccents(generateShadowVars(withLightDark)));
+	const outputCss = appendDensities(appendRadii(appendAccents(generateShadowVars(withLightDark))));
 	if (outputCss !== sourceCss) {
 		writeFileSync(TOKENS_CSS_PATH, outputCss, "utf8");
 	}

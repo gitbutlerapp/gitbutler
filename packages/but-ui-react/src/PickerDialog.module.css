@@ -40,7 +40,7 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
-	min-height: 28px;
+	min-height: var(--but-size-control);
 	/* Inset from the list's edge, the way a `PopupSection` insets the rows it holds. A heading
 	   stays flush and reaches its 10px in with padding, so it and the labels under it stagger the
 	   2px the design gives them. */
@@ -92,7 +92,7 @@
 	flex: none;
 	align-items: center;
 	justify-content: space-between;
-	height: 36px;
+	height: var(--but-size-bar);
 	padding-inline: 12px;
 	gap: 12px;
 	border-top: 1px solid var(--but-border-subtle);

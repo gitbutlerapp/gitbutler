@@ -79,7 +79,7 @@
    cover: it takes the trigger's width exactly. The search row is not part of the scroller, so
    the list's own cap leaves room for it under the height the window offers. */
 .searchablePopup {
-	--search-row-height: 36px;
+	--search-row-height: var(--but-size-bar);
 
 	min-width: var(--anchor-width);
 
