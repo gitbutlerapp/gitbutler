@@ -15,7 +15,7 @@ use super::{AppView, KeyPlace, tile_label};
 use crate::commands::{COMMANDS, title_of};
 use crate::control::Reply;
 use crate::detail::KeyPane;
-use crate::state::{RowKey, Selection, Store, Tile};
+use crate::state::{Area, RowKey, Selection, Store, Tile};
 
 /// The actions a person never runs by name, as a field's own editing keys.
 const UNLISTED: [&str; 2] = ["zed::", "stories::"];
@@ -71,9 +71,10 @@ pub(crate) fn handle(request: Request, reply: Reply, window: &mut Window, cx: &m
 impl AppView {
     fn ui_state(&self, window: &Window, cx: &App) -> State {
         let store = self.store.read(cx);
-        let tiles = (self.shown_tiles(cx).into_iter())
-            .map(|(tile, area)| ui::Tile {
-                id: self.tile_id(&tile, cx),
+        let tiles = (self.tile_ids(cx).into_iter())
+            .filter(|_| self.detail_open)
+            .map(|(tile, area, id)| ui::Tile {
+                id,
                 shows: self.tile_shows(&tile, cx),
                 area: UiArea {
                     left: area.left,
@@ -96,7 +97,7 @@ impl AppView {
         }
         .map(str::to_owned);
         State {
-            navigator: self.navigator_open,
+            navigator: self.rows_in_sight(),
             detail: self.detail_open,
             selection: store.selection.as_ref().map(|s| row_of(store, s)),
             tiles,
@@ -235,14 +236,13 @@ impl AppView {
                         "The navigator has no panes",
                     ));
                 }
-                if !self.navigator_open {
+                if !self.rows_in_sight() {
                     return Err(RpcError::new(
                         code::NOT_AVAILABLE,
                         "The navigator is hidden: app::ToggleNavigator shows it",
                     ));
                 }
-                let focus = gpui::Focusable::focus_handle(self.navigator.read(cx), cx);
-                window.focus(&focus, cx);
+                self.focus_place(&KeyPlace::Navigator, window, cx);
                 return Ok(());
             }
             Some(TERMINALS) => {
@@ -261,10 +261,11 @@ impl AppView {
                 self.focus_place(&KeyPlace::Terminals, window, cx);
                 return Ok(());
             }
+            Some(_) if !self.detail_open => return Err(detail_hidden()),
             Some(id) => {
-                let tile = (self.shown_tiles(cx).into_iter())
-                    .map(|(tile, _)| tile)
-                    .find(|tile| self.tile_id(tile, cx) == id)
+                let tile = (self.tile_ids(cx).into_iter())
+                    .find(|(_, _, shown)| shown == id)
+                    .map(|(tile, _, _)| tile)
                     .ok_or_else(|| {
                         RpcError::new(
                             code::NOT_FOUND,
@@ -281,6 +282,9 @@ impl AppView {
         let Some(pane) = params.pane.as_deref() else {
             return Ok(());
         };
+        if !self.detail_open {
+            return Err(detail_hidden());
+        }
         let tile_id = self.tile_id(&tile, cx);
         let detail = self.tile_detail(&tile, cx).ok_or_else(|| {
             RpcError::new(
@@ -304,11 +308,36 @@ impl AppView {
         Ok(())
     }
 
+    /// The tiles that show, with ids that tell them apart.
+    fn tile_ids(&self, cx: &App) -> Vec<(Tile, Area, String)> {
+        let store = self.store.read(cx);
+        let shown = self.shown_tiles(cx);
+        let labels: Vec<String> = (shown.iter())
+            .filter_map(|(tile, _)| match tile {
+                Tile::Home => None,
+                Tile::Pinned(row) => Some(tile_label(store, row).1.to_string()),
+            })
+            .collect();
+        let mut ids = unique_ids(
+            labels.iter().map(String::as_str),
+            &[HOME, NAVIGATOR, TERMINALS],
+        )
+        .into_iter();
+        (shown.into_iter())
+            .map(|(tile, area)| {
+                let id = match tile {
+                    Tile::Home => HOME.to_owned(),
+                    Tile::Pinned(_) => ids.next().unwrap_or_default(),
+                };
+                (tile, area, id)
+            })
+            .collect()
+    }
+
     fn tile_id(&self, tile: &Tile, cx: &App) -> String {
-        match tile {
-            Tile::Home => HOME.to_owned(),
-            Tile::Pinned(row) => tile_label(self.store.read(cx), row).1.to_string(),
-        }
+        (self.tile_ids(cx).into_iter())
+            .find(|(shown, _, _)| shown == tile)
+            .map_or_else(|| HOME.to_owned(), |(_, _, id)| id)
     }
 
     fn tile_shows(&self, tile: &Tile, cx: &App) -> Row {
@@ -393,5 +422,57 @@ fn kind_of(selection: &Selection) -> &'static str {
         Selection::Commit(..) => "commit",
         Selection::Upstream(..) => "upstream-commit",
         Selection::Mesh(..) => "mesh",
+    }
+}
+
+fn detail_hidden() -> RpcError {
+    RpcError::new(
+        code::NOT_AVAILABLE,
+        "The detail is hidden, and its tiles with it: app::ToggleDetail shows it",
+    )
+}
+
+/// Each label as an id, a repeated one or one in `taken` numbered on, as `Terminal 2`.
+fn unique_ids<'a>(labels: impl IntoIterator<Item = &'a str>, taken: &[&str]) -> Vec<String> {
+    let labels: Vec<&str> = labels.into_iter().collect();
+    let mut used = std::collections::HashSet::new();
+    let free = |id: &str, used: &std::collections::HashSet<String>| {
+        !used.contains(id) && !taken.contains(&id)
+    };
+    (labels.iter())
+        .map(|label| {
+            let mut id = (*label).to_owned();
+            let mut n = 1;
+            while !free(&id, &used) || (n > 1 && labels.contains(&id.as_str())) {
+                n += 1;
+                id = format!("{label} {n}");
+            }
+            used.insert(id.clone());
+            id
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unique_ids;
+
+    #[test]
+    fn tiles_that_show_the_same_get_ids_of_their_own() {
+        assert_eq!(
+            unique_ids(["Terminal", "Graph", "Terminal", "Terminal"], &[]),
+            ["Terminal", "Graph", "Terminal 2", "Terminal 3"],
+            "a repeated label is numbered on"
+        );
+        assert_eq!(
+            unique_ids(["home", "navigator"], &["home", "navigator", "terminals"]),
+            ["home 2", "navigator 2"],
+            "a label can't take a name the window keeps for itself"
+        );
+        assert_eq!(
+            unique_ids(["Terminal 2", "Terminal", "Terminal"], &[]),
+            ["Terminal 2", "Terminal", "Terminal 3"],
+            "nor one another tile already has"
+        );
     }
 }
