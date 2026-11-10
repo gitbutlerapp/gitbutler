@@ -337,6 +337,9 @@ pub struct ProjectEntry {
     /// Which local branch is the target, when the failure to read it is that several track
     /// it: the project's page asks.
     pub target_choice: Option<crate::backend::TargetChoice>,
+    /// The commits made on top of its workspace commit, when they're why it can't be read: its
+    /// page offers to uncommit them.
+    pub commits_above: Option<crate::backend::CommitsAboveWorkspaceCommit>,
     loading: bool,
     /// What to read again once the running load lands, if anything was asked for meanwhile.
     queued: Option<Reload>,
@@ -356,12 +359,14 @@ impl ProjectEntry {
             crate::backend::metrics::load_failed(&failure, err, self.workspace.as_ref());
         }
         self.gone = failure.folder_gone || failure.repo_gone;
-        // What was read of it would only mislead, as files deleted on the way out.
-        if self.gone {
+        // What was read of it would only mislead, as files deleted on the way out, or branches
+        // without the commits made on top of them, which its page offers to uncommit.
+        if self.gone || failure.commits_above.is_some() {
             self.workspace = None;
         }
         self.error = Some(load::load_error(&failure, err));
         self.target_choice = failure.target_choice;
+        self.commits_above = failure.commits_above;
     }
 
     /// It read, so there's nothing wrong to say.
@@ -369,6 +374,7 @@ impl ProjectEntry {
         self.gone = false;
         self.error = None;
         self.target_choice = None;
+        self.commits_above = None;
     }
 }
 
@@ -940,8 +946,9 @@ impl Store {
             return;
         };
         let Some(workspace) = self.workspace(selection.project()) else {
-            // Of a project that's gone only its page is left, which offers to remove it.
-            if (self.project(id)).is_some_and(|entry| entry.gone)
+            // Of a project that's gone, or has commits made on top of its workspace, only its
+            // page is left, which offers to remove it or to uncommit them.
+            if (self.project(id)).is_some_and(|entry| entry.gone || entry.commits_above.is_some())
                 && !matches!(selection, Selection::Project(_))
             {
                 self.select(Some(Selection::Project(id.clone())), cx);

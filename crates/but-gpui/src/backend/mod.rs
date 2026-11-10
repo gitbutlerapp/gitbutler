@@ -1104,6 +1104,8 @@ pub async fn folder_gone(path: std::path::PathBuf) -> bool {
     run(move || Ok(!path.exists())).await.unwrap_or(false)
 }
 
+pub use but_workspace::ref_info::CommitsAboveWorkspaceCommit;
+
 /// What a project that failed to load needs said beyond its error.
 #[derive(Default)]
 pub struct LoadFailure {
@@ -1116,6 +1118,9 @@ pub struct LoadFailure {
     pub sparse_index: bool,
     /// What to pick a target from, when the one an older GitButler stored names no single branch.
     pub target_choice: Option<TargetChoice>,
+    /// Commits made on top of the workspace commit outside GitButler, as by `git commit`, which
+    /// keep it from being read, and which is said instead.
+    pub commits_above: Option<CommitsAboveWorkspaceCommit>,
 }
 
 /// What's behind `err`, if loading the project at `path` failed. Off the UI thread, as finding
@@ -1125,6 +1130,7 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
         return LoadFailure::default();
     };
     let unresolved = unresolved_target(err).cloned();
+    let commits_above = err.downcast_ref().copied();
     run(move || {
         let folder_gone = !path.exists();
         let repo = gix::open(&path);
@@ -1135,6 +1141,7 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
                 .and_then(|repo| repo.index_or_empty().ok())
                 .is_some_and(|index| index.is_sparse()),
             target_choice: unresolved.and_then(|target| target_choice(&path, &target)),
+            commits_above,
         })
     })
     .await

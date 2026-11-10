@@ -397,6 +397,10 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     props.insert("repoGone".into(), failure.repo_gone.into());
     props.insert("sparseIndex".into(), failure.sparse_index.into());
     props.insert(
+        "commitsAbove".into(),
+        failure.commits_above.is_some().into(),
+    );
+    props.insert(
         "targetChoice".into(),
         failure.target_choice.is_some().into(),
     );
@@ -409,6 +413,7 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     let known = failure.folder_gone
         || failure.repo_gone
         || failure.sparse_index
+        || failure.commits_above.is_some()
         || failure.target_choice.is_some();
     if !known && unexpected(err) {
         report_error("Couldn't read the project".into(), err, "load", &names);

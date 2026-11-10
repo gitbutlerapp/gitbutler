@@ -38,6 +38,9 @@ pub enum OpKind {
     Redo(SnapshotId),
     /// Operations history's restore, the way back when a project can't be read.
     Restore,
+    /// Undoing commits made on top of the workspace commit, the way back when they're why a
+    /// project can't be read.
+    UncommitAboveWorkspace,
     /// Merging a pull request, turning its auto-merge on or off, making it a draft or ready
     /// for review, or editing its title and description.
     Forge,

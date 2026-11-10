@@ -1733,7 +1733,13 @@ impl Store {
         // engine can make a commit it then fails to report.
         let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
             && !(kind.remote_only()
-                || matches!(kind, OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore));
+                || matches!(
+                    kind,
+                    OpKind::Undo(_)
+                        | OpKind::Redo(_)
+                        | OpKind::Restore
+                        | OpKind::UncommitAboveWorkspace
+                ));
         unreadable
             .then(|| format!("Can't read the project{in_project} now; fix what it says first"))
     }

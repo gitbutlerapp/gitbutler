@@ -1891,9 +1891,36 @@ impl Detail {
                     )
                     .into_any_element()
             }),
+            entry.commits_above.map(|above| {
+                let project = project.clone();
+                callout(theme.danger.opacity(0.08))
+                    .child(div().text_color(theme.danger).children(entry.error.clone()))
+                    .child(
+                        crate::ui::button("uncommit-above", "Uncommit, keep the changes")
+                            .small()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let project = project.clone();
+                                this.store.update(cx, |store, cx| {
+                                    store.apply(
+                                        &project,
+                                        "Uncommit",
+                                        Default::default(),
+                                        backend::history::UncommitAboveWorkspace {
+                                            workspace_commit: above.workspace_commit_id,
+                                        },
+                                        |_, (), _| {},
+                                        cx,
+                                    )
+                                })
+                            })),
+                    )
+                    .into_any_element()
+            }),
             // Which branch is the target is asked beside, so it isn't said here too.
             (entry.error.clone())
-                .filter(|_| !missing && entry.target_choice.is_none())
+                .filter(|_| {
+                    !missing && entry.target_choice.is_none() && entry.commits_above.is_none()
+                })
                 .map(|err| {
                     h_flex()
                         .gap(dp(8.))

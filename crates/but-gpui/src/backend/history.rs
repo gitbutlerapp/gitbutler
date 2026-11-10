@@ -582,6 +582,50 @@ impl Intent for TakeSnapshot {
     }
 }
 
+/// Undo the commits made on top of `workspace_commit` outside GitButler, as `git reset --soft`
+/// does: the workspace reads again, with their changes uncommitted.
+pub struct UncommitAboveWorkspace {
+    pub workspace_commit: gix::ObjectId,
+}
+
+impl Intent for UncommitAboveWorkspace {
+    type Done = ();
+
+    fn apply(self, run: &mut Run) -> Result<()> {
+        run.locked(|ctx, perm| {
+            let repo = ctx.repo.get()?.clone();
+            super::ops::refuse_unfinished(&repo, false)?;
+            let mut workspace = repo.find_reference(WORKSPACE_REF_NAME)?;
+            let tip = workspace.peel_to_id()?.detach();
+            // Only commits on top of it go, never ones it was moved away from since.
+            anyhow::ensure!(
+                tip != self.workspace_commit
+                    && repo
+                        .merge_base(tip, self.workspace_commit)?
+                        .map(gix::Id::detach)
+                        == Some(self.workspace_commit),
+                "The workspace changed since. Read the project again and try once more."
+            );
+            but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
+                ctx,
+                SnapshotDetails::new(OperationKind::UndoCommit),
+                &[],
+                perm.read_permission(),
+            )?
+            .commit(ctx, perm)?;
+            workspace.set_target_id(
+                self.workspace_commit,
+                "GitButler: uncommit commits on top of the workspace commit",
+            )?;
+            Ok(())
+        })
+    }
+
+    fn kind(&self) -> OpKind {
+        OpKind::UncommitAboveWorkspace
+    }
+}
+
 /// Redo what the undo that recorded `undo` took back, while that's still the last undo and
 /// isn't one of `kept`, or `None` when something changed the project since. It stops for
 /// uncommitted files written since the undo outside `spans`, as undo does, or since `accepted`
@@ -905,6 +949,46 @@ mod tests {
                 Change::TargetMoved { .. } => panic!("compare leaves the target alone"),
             })
             .collect()
+    }
+
+    #[test]
+    fn commits_made_on_top_of_the_workspace_are_uncommitted() {
+        use crate::backend::ops::tests::{branch_named, git, repo_with, target_origin_main};
+        use but_workspace::ref_info::CommitsAboveWorkspaceCommit;
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
+            crate::backend::apply(path, branch_named("second")).unwrap();
+            std::fs::write(path.join("oops"), "oops\n").unwrap();
+            git(path, &["add", "oops"]);
+            git(path, &["commit", "-q", "-m", "Made with git"]);
+
+            let err = crate::backend::load_workspace(path, Default::default()).unwrap_err();
+            let above = *err.downcast_ref::<CommitsAboveWorkspaceCommit>().unwrap();
+            assert_eq!(above.count, 1);
+            let uncommit = || {
+                crate::backend::apply(
+                    path,
+                    super::UncommitAboveWorkspace {
+                        workspace_commit: above.workspace_commit_id,
+                    },
+                )
+            };
+            uncommit().unwrap();
+
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let uncommitted: Vec<_> = (workspace.uncommitted.iter())
+                .map(|file| file.path.as_str())
+                .collect();
+            assert_eq!(uncommitted, ["oops"], "the commit's changes are kept");
+            assert!(
+                uncommit().is_err(),
+                "with nothing on top of the workspace commit any more, nothing goes"
+            );
+        })
     }
 
     #[test]
