@@ -795,6 +795,21 @@ mod tests {
     }
 
     #[test]
+    fn find_in_the_navigator_filters_it() {
+        for os in PLATFORMS {
+            // Of bindings that work as deep in the window, the last one bound wins.
+            let last = (bound(Keymap::Standard, os).iter().rev())
+                .find(|entry| entry.keys == "secondary-f" && works_in(entry, "Navigator"))
+                .map(|entry| entry.action.clone());
+            assert_eq!(
+                last.as_deref(),
+                Some("navigator::FocusFilter"),
+                "on {os}: ⌘F in the navigator does what / does, not find in the diff"
+            );
+        }
+    }
+
+    #[test]
     fn a_key_macos_keeps_is_kept_in_a_section_for_every_platform() {
         assert_eq!(kept_by_platform("secondary-tab", None), Some("macos"));
     }

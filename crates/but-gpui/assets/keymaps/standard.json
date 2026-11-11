@@ -650,14 +650,9 @@
     }
   },
   {
-    "context": "Navigator || Diff || FindBar",
-    "bindings": {
-      "secondary-f": "find::FindInDiff"
-    }
-  },
-  {
     "context": "Diff || FindBar",
     "bindings": {
+      "secondary-f": "find::FindInDiff",
       "secondary-g": "find::FindNext",
       "secondary-shift-g": "find::FindPrevious"
     }
