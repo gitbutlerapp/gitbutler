@@ -118,13 +118,25 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
 /// The colour of the outline over what the squash shown in `project` goes into: a squash's, or
 /// a conflict's where it leaves that conflicted.
 pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
-    let conflicts = shown(store, project)
-        .and_then(|moving| moving.squashed(store))
-        .is_some_and(|transfer| !transfer.lands_cleanly());
-    match conflicts {
+    match squash_conflicts(store, project) {
         true => theme.warn,
         false => mark_of(store, project, theme),
     }
+}
+
+/// Whether the squash shown in `project` leaves what it goes into conflicted.
+fn squash_conflicts(store: &Store, project: &ProjectId) -> bool {
+    shown(store, project)
+        .and_then(|moving| moving.squashed(store))
+        .is_some_and(|transfer| !transfer.lands_cleanly())
+}
+
+/// Whether `item` is a commit the squash shown in its project goes into and leaves conflicted,
+/// which its row then marks as it does a conflicted commit.
+pub(super) fn left_conflicted(store: &Store, item: &Selection) -> bool {
+    matches!(item, Selection::Commit(..))
+        && lands_on(store, item)
+        && squash_conflicts(store, item.project())
 }
 
 /// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
@@ -1845,9 +1857,14 @@ pub(super) fn new_commit_row(
         Some(title) => div().child(title.to_owned()),
         None => div().text_color(style.muted()).child("New commit"),
     };
+    // Marked as a conflicted commit is, as it would be one.
+    let (glyph, colour) = match conflicts {
+        true => (Icon::Warning, theme.warn),
+        false => (Icon::Commit, theme.blue),
+    };
     (style.row(format!("new-commit-{project}"), COMMIT_INDENT))
         .gap(dp(10.))
-        .child(small_icon(Icon::Commit).text_color(style.meta(theme.blue)))
+        .child(small_icon(glyph).text_color(style.meta(colour)))
         .child(title.flex_1().min_w_0().truncate())
         .into_any_element()
 }

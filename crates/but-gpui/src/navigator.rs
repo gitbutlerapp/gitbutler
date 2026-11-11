@@ -75,9 +75,9 @@ pub(crate) use terminals::TerminalOverview;
 
 use moving::Mark;
 use rows::{
-    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving, ROW_LEFT, Row,
-    RowKey, Rows, caption, card_ends, checkout_holds, in_checkout, in_inactive, inactive_open,
-    row_keys, span_height,
+    BETWEEN, CARD_EDGE, CARD_PADDING, COMMIT_INDENT, Drawer, Fold, HEADING_HEIGHT, Moving,
+    ROW_LEFT, Row, RowKey, Rows, caption, card_ends, checkout_holds, in_checkout, in_inactive,
+    inactive_open, row_keys, span_height,
 };
 
 /// The room a pressable mark has around it for its tint under the pointer. A negative margin
@@ -510,7 +510,9 @@ impl<'a> RowStyle<'a> {
         rename: Option<AnyElement>,
     ) -> Stateful<Div> {
         let theme = self.theme;
-        let (glyph, color) = if commit.conflicted {
+        // Conflicted, or about to be, by a squash into it that leaves it so.
+        let item = Selection::Commit(project.clone(), commit.id);
+        let (glyph, color) = if commit.conflicted || moving::left_conflicted(store, &item) {
             (Icon::Warning, theme.warn)
         } else {
             match commit.state {
