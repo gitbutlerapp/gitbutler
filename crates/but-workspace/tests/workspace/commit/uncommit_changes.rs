@@ -406,9 +406,7 @@ fn uncommit_changes_from_commits_groups_and_orders_sources() -> Result<()> {
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -474,9 +472,7 @@ fn uncommit_changes_from_commits_removes_multiple_changes_from_one_source() -> R
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -534,9 +530,7 @@ fn uncommit_changes_from_commits_groups_duplicate_commit_ids() -> Result<()> {
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -600,9 +594,7 @@ fn uncommit_changes_from_commits_reports_failures_and_materializes_successes() -
         outcome.failures[0]
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("one successful source should still produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -644,7 +636,7 @@ aac5238
 }
 
 #[test]
-fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
+fn uncommit_changes_from_commits_all_failures_rewrites_nothing() -> Result<()> {
     let (_tmp, graph, repo, mut meta, _description, mut db) =
         writable_scenario("reword-three-commits", |_| {})?;
 
@@ -663,14 +655,11 @@ fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
     )?;
 
     assert_eq!(outcome.failures.len(), 2);
-    assert!(
-        outcome.rebase.is_none(),
-        "all failed sources should avoid producing a rebase"
-    );
+    outcome.rebase.materialize_without_checkout()?;
     assert_eq!(
         repo.rev_parse_single("three")?,
         three_before,
-        "refs should be unchanged when there is no rebase to materialize"
+        "refs are unchanged when every source failed"
     );
 
     Ok(())
@@ -702,9 +691,7 @@ fn uncommit_changes_from_commits_can_uncommit_selected_lines() -> Result<()> {
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid selected lines should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -772,9 +759,7 @@ fn uncommit_changes_from_commits_merges_multiple_specs_for_same_file() -> Result
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -845,10 +830,7 @@ fn uncommit_changes_from_commits_whole_file_spec_supersedes_hunk_specs() -> Resu
         outcome.failures
     );
 
-    outcome
-        .rebase
-        .expect("valid sources should produce a rebase")
-        .materialize_without_checkout()?;
+    outcome.rebase.materialize_without_checkout()?;
 
     // The whole file was reverted, including the hunk not named by any spec.
     let committed = repo
@@ -887,9 +869,7 @@ fn uncommit_changes_from_commits_handles_parallel_stacks() -> Result<()> {
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid parallel stack sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 
@@ -967,9 +947,7 @@ fn uncommit_changes_from_commits_handles_unordered_overwrites_of_same_file() -> 
         outcome.failures
     );
 
-    let rebase = outcome
-        .rebase
-        .expect("valid overwrite sources should produce a rebase");
+    let rebase = outcome.rebase;
     rebase.materialize_without_checkout()?;
     let graph_after = visualize_commit_graph_all(&repo)?;
 

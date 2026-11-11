@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use crate::WorkspaceState;
 use anyhow::Context as _;
@@ -440,30 +440,19 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
 
     let mut rebase = outcome.rebase;
     let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
-        if let Some(rebase) = rebase.as_mut() {
-            let graph = rebase.overlayed_graph()?;
-            let replaced_commits = rebase.history.commit_mappings().sole_successors();
-            let conflicted_commits = rebase.history.conflicted_commits.clone();
-            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-            (
-                &mut graph.into_workspace()?,
-                replaced_commits,
-                conflicted_commits,
-                repo,
-                meta,
-                db,
-            )
-        } else {
-            (
-                &mut ws,
-                BTreeMap::new(),
-                Vec::new(),
-                &*repo,
-                &mut meta,
-                &mut *db,
-            )
-        }
-    } else if let Some(mut rebase) = rebase {
+        let graph = rebase.overlayed_graph()?;
+        let replaced_commits = rebase.history.commit_mappings().sole_successors();
+        let conflicted_commits = rebase.history.conflicted_commits.clone();
+        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
+        (
+            &mut graph.into_workspace()?,
+            replaced_commits,
+            conflicted_commits,
+            repo,
+            meta,
+            db,
+        )
+    } else {
         rebase.keep_worktrees_unchanged()?;
         let materialized = rebase.materialize(Default::default())?;
         (
@@ -473,15 +462,6 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             &*repo,
             materialized.meta,
             materialized.db,
-        )
-    } else {
-        (
-            &mut ws,
-            BTreeMap::new(),
-            Vec::new(),
-            &*repo,
-            &mut meta,
-            &mut *db,
         )
     };
 
