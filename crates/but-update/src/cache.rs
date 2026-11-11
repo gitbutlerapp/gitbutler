@@ -16,7 +16,6 @@ pub fn last_checked(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option<Dat
 
 #[derive(Debug, Clone)]
 pub struct AvailableUpdate {
-    /// The current version of the application.
     pub current_version: String,
     pub available_version: String,
     /// Markdown-formatted release notes for the new version.

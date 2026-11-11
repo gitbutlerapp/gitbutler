@@ -179,7 +179,6 @@ struct CheckUpdatesRequest {
     channel: String,
     os: String,
     arch: String,
-    /// The current version of the application.
     version: String,
     /// The name of the application (e.g., "tauri", "but-cli").
     app_name: String,
