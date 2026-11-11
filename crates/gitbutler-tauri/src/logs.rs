@@ -165,7 +165,6 @@ fn prune_old_logs(
         return Ok(());
     }
 
-    // sort the files by their creation timestamps.
     files.sort_by_key(|(_, created_at)| *created_at);
 
     // delete files, so that (n-1) files remain, because we will create another log file

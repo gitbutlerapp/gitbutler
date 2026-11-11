@@ -215,7 +215,6 @@ pub(crate) mod state {
             state_by_label.remove(window);
         }
 
-        /// Return the list of project ids that are currently open.
         pub fn open_projects(&self) -> Vec<ProjectHandleOrLegacyProjectId> {
             let state_by_label = self.state.lock();
             state_by_label
