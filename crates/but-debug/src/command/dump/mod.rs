@@ -1,5 +1,3 @@
-//! Implementation of the `dump` debug command.
-//!
 //! ## QUALITY NOTICE
 //! NOTE: mostly vibed, what's properly reviewed is the tests. Also tested by hand of course.
 
@@ -23,7 +21,6 @@ mod progress;
 mod repo_installer;
 use progress::{DumpProgress, ProgressReader, ProgressWriter};
 
-/// Execute the `dump` subcommand.
 pub(crate) fn run(
     args: &Args,
     dump_args: &DumpArgs,
@@ -41,7 +38,6 @@ pub(crate) fn run(
     }
 }
 
-/// Execute the `dump repo` subcommand.
 fn run_repo(
     args: &Args,
     repo_args: &RepoDumpArgs,
@@ -175,8 +171,6 @@ fn open_archive_dir_unless_requested(archive_path: &Path, disabled: bool) -> Res
 
 /// Keeps worktree files and Git files under the right top-level paths in the zip.
 ///
-/// Computes and stores the zip-internal root names for repository content.
-///
 /// These are owned `String` values because they are derived at runtime from the
 /// repository directory name and are reused while writing the archive. They are
 /// not `PathBuf`s because they are zip entry prefixes, not filesystem paths:
@@ -259,7 +253,6 @@ struct ArchiveWriter<'progress, W: io::Write + io::Seek> {
 }
 
 impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
-    /// Create an archive writer around `writer`.
     fn new(writer: W, progress: &'progress DumpProgress) -> Self {
         Self {
             zip: ZipWriter::new(writer),
@@ -269,8 +262,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         }
     }
 
-    /// Add all selected repository entries to `self`.
-    ///
     /// `repo` supplies the worktree, index, ignore rules, and Git directory
     /// locations to archive. `layout` defines the zip-internal roots used for
     /// worktree and Git state entries. `output_path` identifies the archive
@@ -359,8 +350,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         Ok(())
     }
 
-    /// Add `entry` to `self`.
-    ///
     /// The `written` set makes duplicate archive names a no-op. This matters
     /// for linked worktrees, where common Git state and per-worktree Git state
     /// are overlaid into one `.git` directory. Symlinks are stored as symlinks
@@ -401,7 +390,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         Ok(())
     }
 
-    /// Finish writing `self` and return the wrapped writer.
     fn finish(self, err: &mut dyn io::Write) -> Result<W> {
         self.report_skipped_unarchivable_paths(err)?;
         Ok(self.zip.finish()?)
@@ -457,7 +445,6 @@ impl ArchiveEntry {
         self.meta.is_file() || self.meta.file_type().is_symlink()
     }
 
-    /// Return the zip compression method to use for `self`.
     fn compression_method(&self) -> CompressionMethod {
         if is_git_object_entry(&self.entry_name) {
             CompressionMethod::Stored
@@ -636,8 +623,6 @@ fn visit_worktree_entries(
     Ok(())
 }
 
-/// Visit Git repository state from `repo`.
-///
 /// Entries are rooted under `archive_root` and skip `output_path`.
 ///
 /// A normal repository has the same `git_dir()` and `common_dir()`, so its
@@ -828,7 +813,6 @@ struct OutputPath {
 }
 
 impl OutputPath {
-    /// Create an output path handle for `path`.
     fn new(path: PathBuf, current_dir: PathBuf) -> Self {
         let realpath = realpath(&path, &current_dir);
         Self {
@@ -887,7 +871,6 @@ fn is_git_object_entry(entry_name: &str) -> bool {
     false
 }
 
-/// Return zip directory options.
 fn directory_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
         .compression_method(CompressionMethod::Stored)
@@ -901,7 +884,6 @@ fn generated_file_options() -> SimpleFileOptions {
         .unix_permissions(0o644)
 }
 
-/// Return zip file options for a generated executable.
 fn generated_executable_options() -> SimpleFileOptions {
     SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
@@ -922,7 +904,6 @@ fn stored_file_options() -> SimpleFileOptions {
         .unix_permissions(0o644)
 }
 
-/// Return zip symlink options.
 fn symlink_options() -> SimpleFileOptions {
     SimpleFileOptions::default().unix_permissions(0o777)
 }

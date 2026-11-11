@@ -1,5 +1,3 @@
-//! Diagnostics archive support for `but-debug dump`.
-
 use std::{
     fs,
     io::{self, Write as _},
@@ -33,7 +31,6 @@ pub(super) fn capture_from_current_dir(
     Diagnostics::capture(&ctx, dot_timeout, out, err)
 }
 
-/// Execute the `dump diagnostics` subcommand.
 pub(super) fn run(
     args: &Args,
     diagnostics_args: &DiagnosticsDumpArgs,
@@ -124,7 +121,6 @@ impl Diagnostics {
             .map(|file| (file.relative_path, file.contents.as_slice()))
     }
 
-    /// Return the number of files that will be emitted.
     pub(super) fn file_count(&self) -> usize {
         self.files.len()
     }

@@ -8,7 +8,6 @@ use gix::bstr::ByteSlice;
 
 use crate::args::{ApiArgs, ApiSubcommands, ApiUnapplyStackArgs, Args, DebugWorkspaceArgs};
 
-/// Execute the `api` subcommand.
 pub(crate) fn run(
     args: &Args,
     api_args: &ApiArgs,

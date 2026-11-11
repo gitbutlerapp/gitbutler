@@ -1,5 +1,3 @@
-//! Tracing setup for `but-debug`.
-
 use anyhow::Result;
 use tracing::Level;
 use tracing_subscriber::{
