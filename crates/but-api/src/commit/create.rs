@@ -1,11 +1,9 @@
-use crate::{WorkspaceState, commit::json::ChangesSource};
+use crate::commit::json::ChangesSource;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::{Commit, with_transaction_with_perm_only};
 use but_workspace::commit::ChangeSource;
 use gix::bstr::ByteSlice;
 use tracing::instrument;
@@ -31,7 +29,6 @@ pub fn commit_create_only(
     message: String,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCreateResult> {
-    let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
     commit_create_only_impl(
         ctx,
@@ -41,7 +38,6 @@ pub fn commit_create_only(
         &changes_source,
         message,
         dry_run,
-        context_lines,
         guard.write_permission(),
     )
 }
@@ -59,41 +55,30 @@ pub(crate) fn commit_create_only_impl(
     changes_source: &ChangesSource,
     message: String,
     dry_run: DryRun,
-    context_lines: u32,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let but_workspace::commit::CommitCreateOutcome {
-        rebase,
-        commit_selector,
-        rejected_specs,
-    } = but_workspace::commit::commit_create(
-        editor,
-        changes,
-        relative_to,
-        side,
-        &message,
-        context_lines,
-        worktree
-            .as_ref()
-            .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
-                repo,
-                name: name.as_bstr(),
-            }),
-    )?;
-
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let (_, (created, workspace)) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            let source = worktree
+                .as_ref()
+                .map_or(ChangeSource::Head, |(name, repo)| ChangeSource::Worktree {
+                    repo,
+                    name: name.as_bstr(),
+                });
+            Ok(Commit(tx.create_commit(
+                relative_to,
+                side,
+                changes,
+                message,
+                source,
+            )?))
+        })?;
 
     Ok(CommitCreateResult {
-        new_commit,
-        rejected_specs,
+        new_commit: created.new_commit.map(|commit| commit.id),
+        rejected_specs: created.rejected_specs,
         workspace,
     })
 }
@@ -122,7 +107,6 @@ pub fn commit_create(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
-    let context_lines = ctx.settings.context_lines;
     let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
@@ -140,7 +124,6 @@ pub fn commit_create(
         &changes_source,
         message,
         dry_run,
-        context_lines,
         perm,
     );
     if let Some(snapshot) = maybe_oplog_entry

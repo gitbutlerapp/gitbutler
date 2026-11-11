@@ -21,7 +21,8 @@ use but_rebase::graph_rebase::{
 use but_workspace::RefInfo;
 use but_workspace::branch::create_reference::Anchor;
 use but_workspace::commit::{
-    ChangeSource, MoveChangesOutcome, SquashCommitsOutcome,
+    ChangeSource, MoveChangesOutcome, SquashCommitsOutcome, UncommitChangesFailure,
+    UncommitChangesFromCommitsOutcome, UncommitChangesSource,
     squash_commits::MessageCombinationStrategy,
 };
 use but_workspace::editor_workspace::{leave_unnecessary_workspace, workspace_tips};
@@ -392,6 +393,59 @@ where
 
             let new_commit = rebase.lookup_commit(commit_selector)?;
             Ok((new_commit, rebase))
+        })
+    }
+
+    pub fn uncommit_changes_from_commit(
+        &mut self,
+        source: gix::ObjectId,
+        changes: Vec<DiffSpec>,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, commit_mappings| {
+            let but_workspace::commit::UncommitChangesOutcome {
+                mut rebase,
+                commit_selector,
+            } = but_workspace::commit::uncommit_changes(
+                editor,
+                commit_mappings.current(source)?,
+                changes,
+                context_lines,
+            )?;
+            rebase.keep_worktrees_unchanged()?;
+
+            let new_commit = rebase.lookup_commit(commit_selector)?;
+            Ok((new_commit, rebase))
+        })
+    }
+
+    /// Uncommit what it can of `sources`, returning those it couldn't. See
+    /// [`but_workspace::commit::uncommit_changes_from_commits()`].
+    pub fn uncommit_changes_from_commits(
+        &mut self,
+        sources: impl IntoIterator<Item = UncommitChangesSource>,
+    ) -> anyhow::Result<Vec<UncommitChangesFailure>> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, commit_mappings| {
+            let sources = sources
+                .into_iter()
+                .map(|source| {
+                    anyhow::Ok(UncommitChangesSource {
+                        commit_id: commit_mappings.current(source.commit_id)?,
+                        changes: source.changes,
+                    })
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            let UncommitChangesFromCommitsOutcome {
+                mut rebase,
+                failures,
+            } = but_workspace::commit::uncommit_changes_from_commits(
+                editor,
+                sources,
+                context_lines,
+            )?;
+            rebase.keep_worktrees_unchanged()?;
+            Ok((failures, rebase))
         })
     }
 

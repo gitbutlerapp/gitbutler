@@ -3,13 +3,9 @@ use std::collections::HashSet;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::{Commit, with_transaction_with_perm_only};
 use tracing::instrument;
-
-use crate::WorkspaceState;
 
 use super::types::CommitCherryPickResult;
 
@@ -50,18 +46,15 @@ pub fn commit_cherry_pick_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let (rebase, inserted_selectors) =
-        but_workspace::commit::cherry_pick_commits(editor, source_commit_ids, relative_to, side)?;
-    let new_commits = inserted_selectors
-        .into_iter()
-        .map(|selector| rebase.lookup_pick(selector))
-        .collect::<anyhow::Result<Vec<_>>>()?;
+    let (_, (new_commits, workspace)) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            let picked = tx.cherry_pick_commits(source_commit_ids, relative_to, side, false)?;
+            Ok(Commit(picked.into_iter().map(|commit| commit.id).collect()))
+        })?;
 
     Ok(CommitCherryPickResult {
         new_commits,
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+        workspace,
     })
 }
 

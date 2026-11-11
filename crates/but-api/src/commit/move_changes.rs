@@ -1,8 +1,7 @@
-use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::Editor;
+use but_transaction::with_transaction_with_perm_only;
 use tracing::instrument;
 
 use super::types::MoveChangesResult;
@@ -51,19 +50,12 @@ pub fn commit_move_changes_between_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let outcome = but_workspace::commit::move_changes_between_commits(
-        editor,
-        source_commit_id,
-        destination_commit_id,
-        changes,
-        context_lines,
-    )?;
-    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.move_committed_changes_between(source_commit_id, destination_commit_id, changes)?;
+            Ok(())
+        })?;
 
     Ok(MoveChangesResult { workspace })
 }

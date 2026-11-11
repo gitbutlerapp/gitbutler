@@ -1,8 +1,7 @@
-use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::Editor;
+use but_transaction::with_transaction_with_perm_only;
 use tracing::instrument;
 
 use crate::commit::types::{CommitDiscardResult, MoveChangesResult};
@@ -53,13 +52,10 @@ pub fn commit_discard_only_with_perm(
 ) -> anyhow::Result<CommitDiscardResult> {
     let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let rebase =
-        but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())?;
-
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.discard_commits(subject_commit_ids.iter().copied())
+        })?;
 
     Ok(CommitDiscardResult {
         discarded_commits: subject_commit_ids,
@@ -157,14 +153,12 @@ pub fn commit_discard_changes_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let outcome =
-        but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
-    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.discard_changes_from_commit(commit_id, changes)?;
+            Ok(())
+        })?;
 
     Ok(MoveChangesResult { workspace })
 }

@@ -376,3 +376,44 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn stacking_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    let sibling = gix::refs::FullName::try_from("refs/heads/sibling")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    but_api::branch::apply_only(&mut ctx, sibling.as_ref())?;
+    assert_eq!(
+        ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+        "two lanes need the workspace"
+    );
+
+    let result = move_branch_above(&mut ctx, sibling.as_ref(), feature.as_ref(), DryRun::No)?;
+
+    {
+        let repo = ctx.repo.get()?;
+        assert_eq!(
+            repo.head_name()?.expect("HEAD is symbolic"),
+            sibling,
+            "with one stack left `HEAD` moves onto its top branch"
+        );
+        assert!(
+            repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+                .is_none(),
+            "the workspace reference is gone"
+        );
+    }
+    assert_workspace_ref(&result.workspace, "refs/heads/sibling");
+
+    crate::support::undo(&mut ctx)?;
+    assert_eq!(
+        ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+        "undo brings the workspace back"
+    );
+    Ok(())
+}

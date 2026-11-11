@@ -48,8 +48,8 @@ pub struct UncommitChangesFailure {
 /// The result of uncommitting changes from multiple commits.
 #[derive(Debug)]
 pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The successful rebase result, present when at least one source was uncommitted.
-    pub rebase: Option<SuccessfulRebase<'ws, 'meta, M>>,
+    /// The successful rebase result, which rewrites nothing when no source was uncommitted.
+    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Sources that could not be uncommitted.
     pub failures: Vec<UncommitChangesFailure>,
 }
@@ -85,9 +85,8 @@ pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
 /// Removes changes from multiple commits, grouped by commit id and applied in
 /// child-to-parent order.
 ///
-/// Invalid or inapplicable grouped sources are collected in `failures`. When at
-/// least one source succeeds, all successful replacements are rebased once at
-/// the end. When no source succeeds, `rebase` is `None`.
+/// Invalid or inapplicable grouped sources are collected in `failures`. All
+/// successful replacements are rebased once at the end.
 pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     sources: impl IntoIterator<Item = UncommitChangesSource>,
@@ -132,7 +131,6 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
         .collect::<Result<Vec<_>>>()?;
     ordered_ids.reverse();
 
-    let mut success_count = 0usize;
     for commit_id in ordered_ids {
         let Some(group) = group_by_commit
             .get(&commit_id)
@@ -142,10 +140,7 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
         };
 
         match uncommit_changes_no_rebase(editor, commit_id, group.changes.clone(), context_lines) {
-            Ok((updated_editor, _selector)) => {
-                editor = updated_editor;
-                success_count += 1;
-            }
+            Ok((updated_editor, _selector)) => editor = updated_editor,
             Err(err) => {
                 failures.push(failure(group, err.to_string()));
                 editor = err.into_editor;
@@ -153,13 +148,10 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    let rebase = if success_count == 0 {
-        None
-    } else {
-        Some(editor.rebase()?)
-    };
-
-    Ok(UncommitChangesFromCommitsOutcome { rebase, failures })
+    Ok(UncommitChangesFromCommitsOutcome {
+        rebase: editor.rebase()?,
+        failures,
+    })
 }
 
 struct UncommitChangesNoRebaseError<'ws, 'meta, M: RefMetadata> {
