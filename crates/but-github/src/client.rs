@@ -132,7 +132,6 @@ impl GitHubClient {
         })
     }
 
-    /// This is used to verify that the client has been correctly created and it holds the right authentication.
     pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
         #[derive(Deserialize)]
         struct User {
@@ -785,7 +784,6 @@ impl GitHubClient {
         Ok(comment.into())
     }
 
-    /// This is used e.g. to update the description footers for stacked reviews.
     pub async fn update_pull_request(
         &self,
         params: &UpdatePullRequestParams<'_>,
@@ -1712,7 +1710,6 @@ pub struct CommentReactions {
     pub eyes: i64,
 }
 
-/// A submitted review on a pull request, with the reactions left on it.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReview {
     pub id: i64,

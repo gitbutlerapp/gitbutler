@@ -40,7 +40,6 @@ pub enum Availability<T> {
     Supported(T),
 }
 
-/// A reconcile plan plus the pull requests whose native membership survives it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedPlan {
     pub plan: ReconcilePlan,
