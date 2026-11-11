@@ -127,17 +127,14 @@ fn line_nums_from_hunk(diff: &BString, old_start: u32, new_start: u32) -> (Vec<u
         };
         match *first_char {
             b'+' => {
-                // Line added in new version
                 line_nums_added_new.push(new_line_num);
                 new_line_num += 1;
             }
             b'-' => {
-                // Line removed from old version
                 line_nums_removed_old.push(old_line_num);
                 old_line_num += 1;
             }
             b'@' => {
-                // Header line, skip
                 continue;
             }
             // Context lines (' ') and anything else are treated as unchanged.
@@ -340,7 +337,6 @@ pub struct HunkRange {
 
 // TODO: one day make this struct use `HunkRange` instead of loose fields.
 impl HunkHeader {
-    /// Return our old-range as self-contained structure.
     pub fn old_range(&self) -> HunkRange {
         HunkRange {
             start: self.old_start,
@@ -348,7 +344,6 @@ impl HunkHeader {
         }
     }
 
-    /// Return our new-range as self-contained structure.
     pub fn new_range(&self) -> HunkRange {
         HunkRange {
             start: self.new_start,
@@ -356,7 +351,6 @@ impl HunkHeader {
         }
     }
 
-    /// Return `true` if this hunk is fully contained in the other hunk.
     pub fn contains(self, other: HunkHeader) -> bool {
         self.old_range().contains(other.old_range()) && self.new_range().contains(other.new_range())
     }

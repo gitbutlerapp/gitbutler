@@ -6,7 +6,6 @@ use gix::{merge::tree::TreatAsUnresolved, object::tree::EntryKind, prelude::Obje
 
 use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_hunks};
 
-/// Utility types for the [`create_tree()`] function
 pub mod create_tree {
 
     /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
@@ -168,7 +167,6 @@ pub fn create_tree(
 
 fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
     *input = match std::mem::replace(input, Ok(Default::default())) {
-        // What we thought was a good change turned out to be a no-op, rejected.
         Ok(inner) => Err((reason, inner)),
         Err(inner) => Err(inner),
     };

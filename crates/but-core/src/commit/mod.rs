@@ -32,11 +32,8 @@ pub struct Headers {
     pub conflicted: Option<u64>,
 }
 
-/// Lifecycle
 impl Headers {
-    /// Create a headers structure with both change_id and conflicted unset.
-    ///
-    /// This is only useful if you're going to set one of the properties right after. You _probably_ want to
+    /// Only useful if you're going to set one of the properties right after.
     pub fn empty() -> Self {
         Self {
             change_id: None,
@@ -75,7 +72,6 @@ impl Headers {
         self
     }
 
-    /// Creates a new set of headers with a randomly generated change_id.
     #[cfg(feature = "legacy")]
     #[deprecated = "We want deterministic change-ids, use Headers::synthetic_change_id_from_commit_id() instead."]
     pub fn new_with_random_change_id() -> Self {
@@ -114,7 +110,6 @@ impl Headers {
         }
     }
 
-    /// Create a new instance from a specified change_id
     pub fn from_change_id(change_id: ChangeId) -> Self {
         Headers {
             change_id: Some(change_id),
@@ -122,7 +117,6 @@ impl Headers {
         }
     }
 
-    /// Extract header information from the given `commit`, or return `None` if not present.
     pub fn try_from_commit(commit: &gix::objs::Commit) -> Option<Self> {
         Self::try_from_commit_headers(|| commit.extra_headers())
     }
@@ -158,7 +152,6 @@ impl Headers {
         })
     }
 
-    /// Remove all header fields from `commit`.
     pub fn remove_in_commit(commit: &mut gix::objs::Commit) {
         for field in [
             HEADERS_VERSION_FIELD,
@@ -216,13 +209,11 @@ impl From<&Headers> for Vec<(BString, BString)> {
     }
 }
 
-/// Determines how to sign the commit.
 #[derive(Default, PartialEq, Copy, Clone, Debug)]
 pub enum SignCommit {
     /// Unconditionally sign the commit. Note that this places responsibility on the caller to
     /// ensure that commit signing is configured, or at least handling that it was not.
     Yes,
-    /// Do not sign the commit.
     No,
     /// Sign the commit only if `gitbutler.signCommits=true`, *or* `gitbutler.signCommits` is unset
     /// but `commit.gpgSign=true`. In other words, `gitbutler.signCommits` takes precedence over
@@ -370,9 +361,7 @@ impl TreeKind {
     }
 }
 
-/// Lifecycle
 impl<'repo> Commit<'repo> {
-    /// Decode the object at `commit_id` and keep its data for later query.
     pub fn from_id(commit_id: gix::Id<'repo>) -> anyhow::Result<Self> {
         commit_id.object()?.try_into_commit()?.try_into()
     }
@@ -426,14 +415,12 @@ impl std::ops::DerefMut for CommitOwned {
 }
 
 impl Headers {
-    /// Return `true` if this commit contains a tree that is conflicted.
     pub fn is_conflicted(&self) -> bool {
         self.conflicted.is_some()
     }
 }
 
 impl CommitOwned {
-    /// Attach `repo` to this instance to be able to do way more with it.
     pub fn attach(self, repo: &gix::Repository) -> Commit<'_> {
         let CommitOwned { id, inner } = self;
         Commit {
@@ -452,7 +439,6 @@ impl CommitOwned {
     }
 }
 
-/// Mutations
 impl Commit<'_> {
     /// Set this commit to use the given `headers`, completely replacing the ones it might currently have.
     pub fn set_headers(&mut self, header: &Headers) {
@@ -460,15 +446,11 @@ impl Commit<'_> {
     }
 }
 
-/// Access
 impl<'repo> Commit<'repo> {
-    /// Remove the `repo` reference to become a fully owned instance.
     pub fn detach(self) -> CommitOwned {
         self.into()
     }
 
-    /// Return `true` if this commit contains a tree that is conflicted.
-    ///
     /// Conflict metadata is only authoritative when the tree contains at least
     /// one synthetic conflict entry. This avoids treating copied conflict
     /// trailers on otherwise ordinary commits as conflict state while keeping
@@ -577,7 +559,6 @@ impl<'repo> Commit<'repo> {
         Ok(ids)
     }
 
-    /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<Headers> {
         Headers::try_from_commit(&self.inner)
     }
@@ -592,10 +573,7 @@ impl<'repo> Commit<'repo> {
     }
 }
 
-/// Conflict specific details
 impl Commit<'_> {
-    /// Obtains the conflict entries of a conflicted commit if the commit is
-    /// conflicted, otherwise returns None.
     pub fn conflict_entries(&self) -> anyhow::Result<Option<ConflictEntries>> {
         let repo = self.id.repo;
 
@@ -635,7 +613,6 @@ pub struct ConflictEntries {
 but_schemars::register_sdk_type!(ConflictEntries);
 
 impl ConflictEntries {
-    /// If there are any conflict entries
     pub fn has_entries(&self) -> bool {
         !self.ancestor_entries.is_empty()
             || !self.our_entries.is_empty()
@@ -802,11 +779,8 @@ pub fn write_conflicted_tree(
         .map(|tree_id| tree_id.detach())
 }
 
-/// A commit with change id.
 #[derive(Debug, Clone)]
 pub struct CommitIdentifiers {
-    /// The commit sha.
     pub id: gix::ObjectId,
-    /// The change id.
     pub change_id: ChangeId,
 }

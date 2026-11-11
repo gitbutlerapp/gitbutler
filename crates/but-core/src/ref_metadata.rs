@@ -27,8 +27,6 @@ pub struct ProjectMeta {
 pub struct LocalRefName(gix::refs::FullName);
 
 impl LocalRefName {
-    /// Create a new `LocalRefName` from a Git reference name.
-    ///
     /// Returns an error if `reference` is not a local branch.
     pub fn new(reference: gix::refs::FullName) -> Result<LocalRefName> {
         match reference
@@ -50,13 +48,10 @@ impl LocalRefName {
         }
     }
 
-    /// Like [`gix::refs::FullName::shorten`].
     pub fn shorten(&self) -> &BStr {
         self.0.shorten()
     }
 
-    /// Convert into a [`gix::refs::FullNameRef`].
-    ///
     /// Be careful passing this to functions that require remote refs.
     ///
     /// It is also this reasion that we don't implement `AsRef<gix::refs::FullNameRef> for
@@ -96,7 +91,6 @@ impl<'a> TryFrom<&'a LocalRefName> for &'a gix::refs::PartialNameRef {
 /// this information.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
-    /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
 
     /// An array entry for each parent of the *workspace commit* the last time we saw it, and while it is
@@ -123,7 +117,6 @@ pub struct ProjectedWorkspaceStack {
     pub branches: Vec<gix::refs::FullName>,
 }
 
-/// Mutations
 impl Workspace {
     /// Add missing metadata for stacks visible in the current workspace projection.
     ///
@@ -498,8 +491,6 @@ impl ProjectMeta {
 }
 
 impl ProjectMeta {
-    /// Read project metadata for `repo` from repository-local Git configuration.
-    ///
     /// This re-reads the repository-local configuration file from disk so that changes made
     /// through other repository handles or by other processes are always observed.
     /// This is a read-only operation.
@@ -518,8 +509,6 @@ impl ProjectMeta {
         ))
     }
 
-    /// Read project metadata from the given repository-local Git configuration.
-    ///
     /// Malformed target ref names, refs that aren't local or remote-tracking branches, the
     /// workspace branch, and invalid target commit IDs are ignored with a warning.
     ///
@@ -840,14 +829,10 @@ fn remove_branch_from_stacks(
 pub enum StackKind {
     /// Find stacks that are meant to be applied only.
     Applied,
-    /// Find all stacks.
     AppliedAndUnapplied,
 }
 
-/// Access
 impl Workspace {
-    /// Return all stacks that are supposed to be inside the workspace, i.e. applied.
-    /// Use `kind` for filtering.
     pub fn stacks(&self, kind: StackKind) -> impl Iterator<Item = &WorkspaceStack> {
         self.stacks.iter().filter(move |s| {
             if matches!(kind, StackKind::Applied) {
@@ -858,8 +843,6 @@ impl Workspace {
         })
     }
 
-    /// Return all stacks that are supposed to be inside the workspace as mutable reference, i.e. applied.
-    /// Use `kind` for filtering.
     pub fn stacks_mut(&mut self, kind: StackKind) -> impl Iterator<Item = &mut WorkspaceStack> {
         self.stacks.iter_mut().filter(move |s| {
             if matches!(kind, StackKind::Applied) {
@@ -870,22 +853,16 @@ impl Workspace {
         })
     }
 
-    /// Return the names of the tips of all stacks in the workspace.
-    /// Use `kind` for filtering.
     pub fn stack_names(&self, kind: StackKind) -> impl Iterator<Item = &gix::refs::FullNameRef> {
         self.stacks(kind)
             .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
     }
 
-    /// Return `true` if `name` is an reference mentioned in our [stacks](Workspace::stacks).
-    /// Use `kind` for filtering.
     pub fn contains_ref(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> bool {
         self.stacks(kind)
             .any(|stack| stack.branches.iter().any(|b| b.ref_name == name))
     }
 
-    /// Find a given `name` within our stack branches and return it for modification.
-    /// Use `kind` for filtering.
     pub fn find_branch_mut(
         &mut self,
         name: &gix::refs::FullNameRef,
@@ -895,8 +872,6 @@ impl Workspace {
             .find_map(|stack| stack.branches.iter_mut().find(|b| b.ref_name == name))
     }
 
-    /// Find a given `name` within our stack branches and return it.
-    /// Use `kind` for filtering.
     pub fn find_branch(
         &self,
         name: &gix::refs::FullNameRef,
@@ -906,8 +881,6 @@ impl Workspace {
             .find_map(|stack| stack.branches.iter().find(|b| b.ref_name == name))
     }
 
-    /// Find a given `name` within our stack branches and return the stack itself.
-    /// Use `kind` for filtering.
     pub fn find_stack_with_branch(
         &self,
         name: &gix::refs::FullNameRef,
@@ -959,7 +932,6 @@ pub struct Branch {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Branch);
 
-/// Mutations
 impl Branch {
     /// Claim that we now updated the branch in some way, and possibly also set the created time
     /// if `is_new_ref` is `true`
@@ -1033,13 +1005,10 @@ pub struct RefInfo {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(RefInfo);
 
-/// Mutations
 impl RefInfo {
-    /// Set the `updated_at` field to the current time.
     pub fn set_updated_to_now(&mut self) {
         self.updated_at = Some(gix::date::Time::now_local_or_utc());
     }
-    /// Set the `created_at` field to the current time.
     pub fn set_created_to_now(&mut self) {
         self.created_at = Some(gix::date::Time::now_local_or_utc());
     }
@@ -1057,7 +1026,6 @@ impl std::fmt::Debug for RefInfo {
     }
 }
 
-/// Access
 impl RefInfo {
     /// If `true`, this means we created the branch as part of creating a new stack.
     /// This means we may also remove it and its remote tracking branch if it's removed
@@ -1084,10 +1052,8 @@ impl StackId {
 }
 
 /// A stack that was, at some point in time, applied to the workspace, i.e. a parent of the *workspace commit*.
-/// Note that if `in_workspace` is `false`, it's not considered unapplied.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceStack {
-    /// A unique and stable identifier for the stack itself.
     pub id: StackId,
     /// All branches that were reachable from the tip of the stack that at the time it was merged into
     /// the *workspace commit*.
@@ -1096,7 +1062,6 @@ pub struct WorkspaceStack {
     ///
     /// Thus, branches are stored in traversal order, from the tip towards the base.
     pub branches: Vec<WorkspaceStackBranch>,
-    /// How the stack acts in relation to the workspace commit.
     pub workspacecommit_relation: WorkspaceCommitRelation,
 }
 
@@ -1143,7 +1108,6 @@ impl WorkspaceCommitRelation {
 /// stored alongside a stack that is available in a workspace.
 #[derive(Clone, PartialEq, Eq)]
 pub struct WorkspaceStackBranch {
-    /// The name of the branch.
     pub ref_name: gix::refs::FullName,
     /// If `true`, the branch is now underneath the lower-base of the workspace after a workspace update.
     /// This means it's not interesting anymore, by all means, but we'd still have to keep it available and list
@@ -1310,7 +1274,6 @@ pub enum LocalTrackingBranchMatch {
     /// At least two local branches have the requested upstream, and none is named as the branch on
     /// the remote.
     Ambiguous {
-        /// The first matching branch.
         first: LocalRefName,
         /// The second matching branch; additional matches are not collected.
         second: LocalRefName,

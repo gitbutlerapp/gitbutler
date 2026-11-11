@@ -41,7 +41,6 @@
 //!     - It's tuned to contain only information we are interested in, which includes if an addition is implied by an untracked file.
 //! * **UnifiedDiff**
 //!     - A list of patches in unified diff format, with easily accessible line number information. It isn't baked into the patch string itself.
-//!
 
 use std::{
     any::Any,
@@ -57,9 +56,7 @@ use gix::{
 };
 use serde::Serialize;
 
-/// Functions to obtain changes between various items.
 pub mod diff;
-/// Fundamental data types for reuse
 mod diff_types;
 pub mod index;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
@@ -70,20 +67,16 @@ pub use hunks::{
     diff_specs_with_changes, hunks_from_changes, worktree_hunks,
 };
 
-/// Commit related utility types.
 pub mod commit;
 
 /// The generic changeset-similarity engine, used to detect when two commits represent the same change.
 pub mod changeset;
 
-/// Utilities related to branches
 pub mod branch;
 
-/// Utilities for editing Git configuration files.
 // TODO(gix): this should be so easy that nobody needs helpers.
 pub mod git_config;
 
-/// Types for use in the user interface.
 pub mod ui;
 
 mod id;
@@ -92,33 +85,25 @@ pub use id::Id;
 mod change_id;
 pub use change_id::ChangeId;
 
-/// utility types
 pub mod unified_diff;
 
-/// utilities for command-invocation.
 pub mod cmd;
 
-/// Utilities for running Git hooks.
 pub mod hooks;
 
-/// Various settings
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;
 pub use settings::git::ui::{GitHubStackingMode, ReviewStackingDescription};
 
 pub mod snapshot;
 
-/// Utilities to deal with git worktrees.
 pub mod worktree;
 
-/// Utilities to create Git trees.
 pub mod tree;
 
-/// Various types
 pub mod ref_metadata;
 use crate::ref_metadata::ValueInfo;
 
-/// Utilities to sync project access.
 pub mod sync;
 
 mod ext;
@@ -130,8 +115,6 @@ pub use repo_ext::{RepositoryExt, update_head_reference};
 /// The legacy single-workspace reference used by GitButler.
 pub const WORKSPACE_REF_NAME: &str = "refs/heads/gitbutler/workspace";
 
-/// Return `true` if `ref_name` looks like the standard GitButler workspace.
-///
 /// Note that in the future, ideally we won't rely on the name at all, but instead
 /// check for the presence of workspace ref-metadata.
 ///
@@ -233,13 +216,11 @@ pub trait RefMetadata {
         Ok(if ws.is_default() { None } else { Some(ws) })
     }
 
-    /// Set workspace metadata to match `value`.
     fn set_workspace(
         &mut self,
         value: &Self::Handle<ref_metadata::Workspace>,
     ) -> anyhow::Result<()>;
 
-    /// Set branch metadata to match `value`.
     fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
 
     /// Return the ordered local branch refs in the same stack as `ref_name`, from tip to base.
@@ -265,7 +246,6 @@ pub trait RefMetadata {
         anyhow::bail!("This metadata backend doesn't support branch stack order")
     }
 
-    /// Return `true` if this backend can persist ad-hoc/single-branch stack order.
     fn can_persist_branch_stack_order(&self) -> bool {
         false
     }
@@ -318,18 +298,14 @@ pub trait RefMetadata {
 /// A decoded commit object with easy access to additional GitButler information.
 #[derive(Debug, Clone)]
 pub struct Commit<'repo> {
-    /// The id of the commit itself.
     pub id: gix::Id<'repo>,
-    /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,
 }
 
 /// A decoded commit object with easy access to additional GitButler information, without repo reference.
 #[derive(Debug, Clone)]
 pub struct CommitOwned {
-    /// The id of the commit itself.
     pub id: gix::ObjectId,
-    /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,
 }
 
@@ -408,23 +384,18 @@ pub fn open_repo_for_merging(path: impl Into<PathBuf>) -> anyhow::Result<gix::Re
 pub struct TreeChange {
     /// The *relative* path in the worktree where the entry can be found.
     pub path: BString,
-    /// The specific information about this change.
     pub status: TreeStatus,
 }
 
-/// Specifically defines a [`TreeChange`].
 #[derive(Debug, Clone)]
 pub enum TreeStatus {
     /// Something was added or scheduled to be added.
     Addition {
-        /// The current state of what was added or will be added
         state: ChangeState,
         /// If `true`, this is a future addition from an untracked file, a file that wasn't yet added to the index (`.git/index`).
         is_untracked: bool,
     },
-    /// Something was deleted.
     Deletion {
-        /// The that Git stored before the deletion.
         previous_state: ChangeState,
     },
     /// A tracked entry was modified, which might mean:
@@ -433,9 +404,7 @@ pub enum TreeStatus {
     /// * the type changed, a file is now a symlink or something else
     /// * the executable bit changed, so a file is now executable, or isn't anymore.
     Modification {
-        /// The that Git stored before the modification.
         previous_state: ChangeState,
-        /// The current state, i.e. the modification itself.
         state: ChangeState,
         /// Derived information based on the mode of both states.
         flags: Option<ModeFlags>,
@@ -446,9 +415,7 @@ pub enum TreeStatus {
     Rename {
         /// The path relative to the repository at which the entry was previously located.
         previous_path: BString,
-        /// The that Git stored before the modification.
         previous_state: ChangeState,
-        /// The current state, i.e. the modification itself.
         state: ChangeState,
         /// Derived information based on the mode of both states.
         flags: Option<ModeFlags>,
@@ -460,7 +427,6 @@ pub enum TreeStatus {
 pub enum TreeStatusKind {
     /// Something was added or scheduled to be added.
     Addition,
-    /// Something was deleted.
     Deletion,
     /// A tracked entry was modified, which might mean:
     ///
@@ -477,12 +443,9 @@ pub enum TreeStatusKind {
 /// Something that fully identifies the state of a [`TreeChange`].
 #[derive(Debug, Clone, Copy)]
 pub struct ChangeState {
-    /// The content of the committable.
-    ///
     /// If [`null`](gix::ObjectId::is_null), the current state isn't known which can happen
     /// if this state is living in the worktree and has never been hashed.
     pub id: gix::ObjectId,
-    /// The kind of the committable.
     pub kind: EntryKind,
 }
 
@@ -531,6 +494,4 @@ pub struct WorktreeChanges {
     pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
 }
 
-// Represents whether an operation should be materialized on disk or remain in
-// memory.
 gen_boolean_enum!(pub serde DryRun);

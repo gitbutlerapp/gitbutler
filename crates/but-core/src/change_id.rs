@@ -1,5 +1,3 @@
-//! A type representing ChangeIDs in commit headers.
-
 use std::{fmt, ops::Deref, sync::Arc};
 
 use bstr::{BStr, BString};
@@ -20,9 +18,7 @@ const CHANGE_ID_REVERSE_BYTE_LEN: usize = CHANGE_ID_REVERSE_HEX_LEN / 2;
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChangeId(Arc<[u8]>);
 
-/// Lifecycle
 impl ChangeId {
-    /// Creates a ChangeId from a number for testing purposes.
     pub fn from_number_for_testing(value: u128) -> Self {
         let bstr = BString::from(value.to_string());
         ChangeId(Vec::<u8>::from(bstr).into())
@@ -55,12 +51,10 @@ impl ChangeId {
 }
 
 impl ChangeId {
-    /// Return the raw bytes backing this `ChangeId`.
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_ref()
     }
 
-    /// Return the `BStr` backing this `ChangeId`.
     pub fn as_bstr(&self) -> &BStr {
         BStr::new(&*self.0)
     }
@@ -89,7 +83,6 @@ impl ChangeId {
 ///
 /// Use with care and only if you know what you are doing.
 impl ChangeId {
-    /// Prefixes this instance with the given `prefix` bytes.
     pub fn prefixed_with(self, prefix: impl IntoIterator<Item = u8>) -> Self {
         let mut bstr = BString::from(&*self.0);
         bstr.splice(0..0, prefix);

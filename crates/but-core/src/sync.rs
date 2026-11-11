@@ -278,13 +278,11 @@ static WORKTREE_LOCKS: parking_lot::Mutex<BTreeMap<PathBuf, Arc<parking_lot::RwL
 /// As opposed to its actual implementation, it will ignore failures due to lack of filesystem support.
 /// It also prints traces using the path to the locked file to aid observability.
 pub struct LockFile {
-    /// The actual lock implementation.
     inner: fslock::LockFile,
     /// The path which was originally locked, for error reporting.
     path: PathBuf,
 }
 
-/// Lifecycle and operations
 impl LockFile {
     /// Open the file at `path`, possibly creating it, for the purpose of using it for file-based locking.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, fslock::Error> {

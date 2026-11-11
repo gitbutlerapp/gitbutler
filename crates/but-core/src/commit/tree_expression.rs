@@ -10,9 +10,7 @@ use smallvec::{SmallVec, smallvec};
 /// the count of sides is exactly one more than the count of bases.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TreeExpression {
-    /// Base tree IDs.
     pub base_tree_ids: Vec<gix::ObjectId>,
-    /// Side tree IDs.
     pub side_tree_ids: SmallVec<[gix::ObjectId; 1]>,
 }
 
@@ -46,7 +44,6 @@ impl From<gix::ObjectId> for TreeExpression {
     }
 }
 
-/// Arithmetic
 impl TreeExpression {
     /// Subtracts `base` then adds `side`. This extends self's bases with the
     /// sides of `base` and the bases of `side`, and then extends self's sides
@@ -84,7 +81,6 @@ pub enum MergeOutcome<'repo> {
     },
 }
 
-/// Simplification
 impl TreeExpression {
     /// Cancel out terms in the bases and sides wherever possible, then
     /// repeatedly merge until only one side remains or a conflict is

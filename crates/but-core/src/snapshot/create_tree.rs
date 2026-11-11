@@ -20,7 +20,6 @@ pub struct State {
     pub head: bool,
 }
 
-/// Contains all state that the snapshot contains.
 #[derive(Debug, Copy, Clone)]
 pub struct Outcome {
     /// The snapshot itself, with all the subtrees available that are also listed in this structure.

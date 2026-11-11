@@ -98,7 +98,6 @@ pub trait RepositoryExt: Sized {
     /// i.e. with an object database configured to *not* check for new packs.
     fn for_commit_shortening(self) -> Self;
 
-    /// Just like the above, but with `gix` types.
     fn merges_cleanly(
         &self,
         ancestor_tree: gix::ObjectId,
@@ -428,8 +427,6 @@ impl RepositoryExt for gix::Repository {
 const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
 const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
-/// Provide a signature with the GitButler author, and the current time or the time overridden
-/// depending on the value for `purpose`.
 fn committer_signature() -> gix::actor::Signature {
     gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),

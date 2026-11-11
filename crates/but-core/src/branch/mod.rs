@@ -16,13 +16,8 @@ pub use generate::{
 
 /// Resolve the remote-tracking ref that corresponds to a local branch ref.
 ///
-/// `ref_name` is the full name of the local branch whose effective tracking ref
-/// should be discovered.
-///
 /// `repo` provides branch configuration and ref lookup access used to resolve
 /// the configured tracking branch or a unique fallback under `refs/remotes/*`.
-///
-/// Returns the resolved remote-tracking ref name as a borrowed or owned value.
 pub fn resolve_tracking_branch_ref_name<'a>(
     ref_name: &'a gix::refs::FullNameRef,
     repo: &'a gix::Repository,

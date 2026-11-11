@@ -126,7 +126,6 @@ pub struct Edit<'index> {
 }
 
 impl<'index> Edit<'index> {
-    /// Start editing `state`.
     pub fn new(state: &'index mut gix::index::State) -> Self {
         Edit {
             state,

@@ -138,7 +138,6 @@ impl TreeChanges {
     }
 }
 
-/// Notably skip changes that
 fn changes_to_unidiff(
     changes: Vec<TreeChange>,
     repo: &gix::Repository,

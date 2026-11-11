@@ -11,7 +11,6 @@ use uuid::Uuid;
 pub struct Id<const KIND: char>(pub Uuid);
 
 impl<const KIND: char> Id<KIND> {
-    /// Generate a new ID.
     #[must_use]
     pub fn generate() -> Self {
         Id(Uuid::new_v4())

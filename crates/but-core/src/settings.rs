@@ -20,7 +20,6 @@ pub mod git {
     const GPG_PROGRAM: &str = "gpg.program";
     const GPG_SSH_PROGRAM: &str = "gpg.ssh.program";
 
-    /// UI types
     pub mod ui {
         use but_serde::BStringForFrontend;
 
@@ -195,7 +194,6 @@ pub mod git {
     use ui::{GitHubStackingMode, ReviewStackingDescription};
 
     impl GitConfigSettings {
-        /// Read all settings from the given snapshot.
         pub fn try_from_snapshot(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
             fn string_or_ignore(v: BString) -> Option<String> {
                 Vec::from(v).into_string().ok()

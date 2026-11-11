@@ -3,7 +3,6 @@
 use anyhow::bail;
 use bstr::{BStr, ByteSlice};
 
-/// The title of every padding commit message.
 pub const TITLE: &str = "GitButler Padding Commit";
 
 const BODY: &str = "\
@@ -13,7 +12,6 @@ auto-resolved changes instead of conflict markers.
 There's nothing to do with me. GitButler takes me out again once you resolve the
 conflict, and anything you commit on top of me moves onto the conflicted commit.";
 
-/// Return `true` if the title of `commit_message` is [`TITLE`].
 pub fn is_padding_by_message(commit_message: &BStr) -> bool {
     let message = gix::objs::commit::MessageRef::from_bytes(commit_message);
     message.title.trim().as_bstr() == TITLE

@@ -53,7 +53,6 @@ impl TreeChanges {
     }
 }
 
-/// Utilities
 impl TreeChanges {
     /// Compute diff statistics on all blobs in this instance, using `repo` for blob retrieval and diff setup.
     ///
@@ -81,7 +80,6 @@ impl TreeChanges {
         Ok(stats)
     }
 
-    /// Convert this instance into a list of [`TreeChange`] instances.
     pub fn into_tree_changes(self) -> Vec<TreeChange> {
         self.0.into_iter().map(Into::into).collect()
     }
