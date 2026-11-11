@@ -590,7 +590,6 @@ struct DbTomlFileState {
     toml_last_seen_sha256: Option<String>,
 }
 
-/// Extract just the parts that corelate the db state with the toml file from `db_state`.
 fn into_db_toml_file_info(db_state: VbState) -> DbTomlFileState {
     DbTomlFileState {
         toml_last_seen_mtime_ns: db_state.toml_last_seen_mtime_ns,

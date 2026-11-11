@@ -22,10 +22,6 @@ mod stack {
     use gitbutler_reference::{Refname, RemoteRefname};
     use serde::{Deserialize, Serialize, Serializer};
 
-    // this is the struct for the virtual branch data that is stored in our data
-    // store. it is more or less equivalent to a git branch reference, but it is not
-    // stored or accessible from the git repository itself. it is stored in our
-    // session storage under the branches/ directory.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Stack {
         pub id: StackId,
@@ -41,7 +37,6 @@ mod stack {
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
         pub in_workspace: bool,
-        /// Represents the Stack state of pseudo-references ("heads").
         #[serde(default)]
         pub heads: Vec<StackBranch>,
 
@@ -168,7 +163,6 @@ mod stack {
     /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct StackBranch {
-        /// The target of the reference - this can be a commit or a change that points to a commit.
         #[serde(alias = "target")]
         #[serde(with = "commit_id_serde")]
         pub head: gix::ObjectId,
@@ -254,7 +248,6 @@ mod stack {
     #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     #[deprecated(note = "Use gix::ObjectId directly instead")]
     pub enum CommitOrChangeId {
-        /// A reference that points directly to a commit.
         CommitId(String),
     }
 

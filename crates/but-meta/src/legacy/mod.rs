@@ -262,7 +262,6 @@ impl Snapshot {
 /// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
 #[derive(Debug)]
 pub struct VirtualBranchesTomlMetadata {
-    // What is currently in memory for query or editing.
     snapshot: Snapshot,
     // Invariant: this stays `true` for normal metadata instances so `Drop` persists pending
     // changes. It is set to `false` only in consuming explicit-write paths after the final write
