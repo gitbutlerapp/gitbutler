@@ -652,8 +652,6 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     // current set of local refs here, alongside the legacy metadata garbage collection.
     crate::workspace::prune_missing_branch_stack_order(ctx)?;
 
-    // Updates the project controller with the last fetched timestamp
-    //
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
     gitbutler_project::update(gitbutler_project::UpdateRequest {
         project_data_last_fetched: Some(project_data_last_fetched),

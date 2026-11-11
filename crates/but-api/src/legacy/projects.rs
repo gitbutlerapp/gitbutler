@@ -221,7 +221,6 @@ pub struct ProjectForFrontend {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ProjectForFrontend);
 
-/// JSON transport types for project APIs.
 pub mod json {
     use super::ProjectForFrontend;
 

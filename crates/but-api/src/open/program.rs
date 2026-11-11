@@ -10,19 +10,15 @@ use crate::open::spawn::spawn_and_reap;
 use nonempty::NonEmpty;
 use serde::Deserialize;
 
-/// Name of the user-defined programs file
 pub const USER_DEFINED_PROGRAMS_FILENAME: &str = "programs.json";
 
-/// Placeholder used for filepath interpolation.
 pub const FILEPATH_PLACEHOLDER: &str = "{{filepath}}";
 
-/// Placeholder used for line number.
 pub const LINE_NUMBER_PLACEHOLDER: &str = "{{line_number}}";
 
 /// Wildcard used to match any file extension (even the empty one)
 pub const FILE_EXTENSION_WILDCARD: &str = "*";
 
-/// JSON transport types for programs.
 pub mod json {
     use super::ProgramSpec;
     use serde::Serialize;
@@ -48,7 +44,6 @@ pub mod json {
     }
 }
 
-/// Internal program category.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub enum ProgramCategory {
     #[default]
@@ -76,22 +71,16 @@ impl From<UserDefinedProgramCategory> for ProgramCategory {
 /// Supported program to open a file or directory in.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProgramSpec {
-    /// Identifier used to refer to the program.
     pub id: String,
-    /// Name of the program.
     pub name: String,
     /// The CLI argument formatter for e.g. opening a specific line in a file.
     cli_arg_supplier: CliArgumentSupplier,
-    /// The exuctable to invoke to start the program.
     pub executable: ExecutableProgram,
-    /// The category of the program.
     pub category: ProgramCategory,
-    /// Associated program extensions.
     pub extensions: Option<Vec<String>>,
 }
 
 impl ProgramSpec {
-    /// True if this is a GUI editor.
     pub fn is_gui_editor(&self) -> bool {
         self.category == ProgramCategory::Editor && !self.requires_terminal()
     }
@@ -118,10 +107,8 @@ pub struct PathExecutable {
     pub requires_tty: bool,
 }
 
-/// The executable to invoke for a program.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExecutableProgram {
-    /// A program that can be executed by name or path.
     PathExecutable(PathExecutable),
     /// A macOS application installed s.t. it has a bundle identifier.
     #[cfg(target_os = "macos")]
@@ -459,11 +446,8 @@ pub(crate) static PROGRAMS: LazyLock<Vec<ProgramSpec>> = LazyLock::new(|| {
     ])
 });
 
-/// Specification to open.
 pub enum OpenSpec {
-    /// A single file.
     File(PathBuf),
-    /// Multiple files.
     Files(NonEmpty<PathBuf>),
     /// A single file at a specific line.
     FileAtLine(PathBuf, u32),
@@ -529,7 +513,6 @@ fn open_in_path_executable(
 #[cfg(target_os = "macos")]
 #[derive(Clone, Debug, PartialEq)]
 pub struct MacosApplication {
-    /// macOS bundle identifier for the application.
     pub bundle_identifier: String,
     /// Location of the CLI wrapper inside the application bundle, if it exists.
     pub cli_wrapper_path: Option<String>,
@@ -633,9 +616,7 @@ pub struct UserDefinedProgramSpec {
     pub id: Option<String>,
     /// The display name of the program.
     pub name: Option<String>,
-    /// The exuctable to invoke to start the program.
     pub executable: Option<UserDefinedExecutableProgram>,
-    /// The kind of the program.
     pub category: Option<UserDefinedProgramCategory>,
     /// Arguments to pass to the executable when invoked to open a file.
     ///
@@ -718,18 +699,15 @@ impl UserDefinedProgramSpec {
     }
 }
 
-/// The executable to invoke for a program.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum UserDefinedExecutableProgram {
-    /// A program that can be executed by name or path.
     PathExecutable(UserDefinedPathExecutable),
     /// A macOS application installed s.t. it has a bundle identifier.
     #[cfg(target_os = "macos")]
     MacosApplication(UserDefinedMacosApplication),
 }
 
-/// A user defined executable.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDefinedPathExecutable {
@@ -742,15 +720,12 @@ pub struct UserDefinedPathExecutable {
     pub requires_terminal: bool,
 }
 
-/// Program category.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UserDefinedProgramCategory {
     /// A text editor/IDE.
     Editor,
-    /// A file manager.
     FileManager,
-    /// Anything else.
     Other,
 }
 
@@ -759,7 +734,6 @@ pub enum UserDefinedProgramCategory {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserDefinedMacosApplication {
-    /// macOS bundle identifier for the application.
     pub bundle_id: String,
     /// Location of the CLI wrapper inside the application bundle, if it exists.
     pub cli_wrapper_path: Option<String>,

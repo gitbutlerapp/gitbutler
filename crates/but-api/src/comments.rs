@@ -9,7 +9,6 @@ use but_core::sync::RepoShared;
 use but_ctx::Context;
 use tracing::instrument;
 
-/// The comment store of the project behind `ctx`.
 pub fn store(ctx: &Context) -> CommentStore {
     CommentStore::from_project_data_dir(ctx.project_data_dir())
 }

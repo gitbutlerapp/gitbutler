@@ -24,7 +24,6 @@ use super::context::{FileConflict, ResolutionRequest, is_marker_shaped, scan_con
 use super::{HunkResolution, RemainingConflicts, ResolutionSpec};
 use crate::WorkspaceState;
 
-/// What applying resolutions produced.
 pub(crate) struct AppliedResolution {
     /// The rewritten commit's final id after the rebase.
     pub new_commit: gix::ObjectId,
@@ -35,7 +34,6 @@ pub(crate) struct AppliedResolution {
     /// conflict is resolved. The commit can still be conflicted with `manual`
     /// files even when this is empty.
     pub remaining: Vec<RemainingConflicts>,
-    /// Workspace state after the apply.
     pub workspace: WorkspaceState,
 }
 

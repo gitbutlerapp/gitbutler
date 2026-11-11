@@ -68,7 +68,6 @@ pub enum BranchLandKind {
     },
 }
 
-/// The result of landing a branch onto the target.
 #[derive(Debug, Clone)]
 pub struct BranchLandResult {
     /// What landing did to the target.
@@ -83,11 +82,9 @@ pub struct BranchLandResult {
     /// tracking ref hadn't caught up yet, or uncommitted worktree changes conflicted with the
     /// rebase. The land itself succeeded; the caller should suggest running `but pull`.
     pub reconcile_skipped: bool,
-    /// The post-land workspace state.
     pub workspace: WorkspaceState,
 }
 
-/// JSON transport types for the land API.
 pub mod json {
     use crate::json::HexHash;
     use serde::Serialize;

@@ -26,50 +26,37 @@ use but_workspace::branch::{
 };
 use tracing::instrument;
 
-/// Outcome after moving a branch.
 pub struct MoveBranchResult {
     /// Workspace state after moving or tearing off a branch.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after creating a branch.
 pub struct BranchCreateResult {
-    /// Workspace state after creating the branch.
     pub workspace: WorkspaceState,
-    /// The name of the crated reference
     pub new_ref: gix::refs::FullName,
 }
 
-/// Outcome after removing a branch.
 #[derive(Debug)]
 pub struct BranchRemoveResult {
-    /// Workspace state after removing the branch.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after renaming a branch.
 #[derive(Debug)]
 pub struct BranchRenameResult {
-    /// Workspace state after renaming the branch.
     pub workspace: WorkspaceState,
-    /// The full name of the renamed reference.
     pub new_ref: gix::refs::FullName,
 }
 
-/// Outcome after integrating a branch with an interactive integration plan.
 pub struct IntegrateBranchResult {
     /// Workspace state after applying or previewing the integration.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after checking out a branch.
 #[derive(Debug)]
 pub struct BranchCheckoutResult {
-    /// Workspace state after checking out the branch.
     pub workspace: WorkspaceState,
 }
 
-/// JSON transport types for branch APIs.
 pub mod json {
     use bstr::ByteSlice;
     use but_workspace::{branch::apply::OutcomeStatus, ui::ref_info::BranchReference};
@@ -1663,9 +1650,7 @@ pub struct ListedStack {
 /// A listed branch and its cached forge review, if present.
 #[derive(Debug)]
 pub struct ListedBranch {
-    /// The branch listing data.
     pub branch: but_branches::ListedBranch,
-    /// The cached review associated with the branch.
     pub review: Option<but_forge::ForgeReview>,
 }
 

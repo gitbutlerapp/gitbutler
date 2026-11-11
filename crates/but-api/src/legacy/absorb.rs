@@ -40,8 +40,6 @@ use but_core::DryRun;
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
-    // Create a snapshot before performing absorb operations
-    // This allows the user to undo if needed
     let _snapshot = ctx
         .create_snapshot(
             SnapshotDetails::new(OperationKind::Absorb),
@@ -120,7 +118,6 @@ pub fn absorption_plan_with_perm(
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
     let (candidates, dependencies) = match target {
         AbsorptionTarget::Branch { branch_name } => {
-            // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
@@ -132,10 +129,8 @@ pub fn absorption_plan_with_perm(
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
-            // Get the stack ID for this branch
             let workspace = crate::legacy::workspace::head_info(ctx)?;
 
-            // Find the stack that contains this branch
             let stack = workspace
                 .stacks
                 .iter()
@@ -151,7 +146,6 @@ pub fn absorption_plan_with_perm(
 
             let stack_id = stack.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?;
 
-            // Filter assignments to just this stack
             let candidates: Vec<AbsorbCandidate> = all_assignments
                 .into_iter()
                 .filter(|a| a.stack_id == Some(stack_id))
@@ -168,7 +162,6 @@ pub fn absorption_plan_with_perm(
             changes,
             assigned_stack_id,
         } => {
-            // Get all worktree changes, assignments, and dependencies
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
                 ctx,
                 ChangesSource::Head,
@@ -204,7 +197,6 @@ pub fn absorption_plan_with_perm(
             (hunks.into_iter().map(Into::into).collect(), dependencies)
         }
         AbsorptionTarget::All => {
-            // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
             let worktree_changes = crate::diff::changes_in_worktree_with_perm(
@@ -224,11 +216,9 @@ pub fn absorption_plan_with_perm(
         }
     };
 
-    // Group all changes by their target commit
     let changes_by_commit =
         group_changes_by_target_commit(ctx, &candidates, dependencies.as_ref(), perm)?;
 
-    // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
 
     Ok(commit_absorptions)
@@ -250,9 +240,7 @@ fn group_changes_by_target_commit(
     // Build an index for O(1) lock lookups per candidate
     let lock_index = dependencies.map(build_lock_index);
 
-    // Process each candidate
     for candidate in candidates {
-        // Determine the target commit for this candidate
         let locks = lock_index
             .as_ref()
             .map(|idx| locks_for_candidate(idx, candidate))
@@ -369,7 +357,6 @@ fn find_top_most_lock<'a>(locks: &'a [HunkLock], workspace: &RefInfo) -> Option<
     None
 }
 
-/// Find the stack identified by `stack_id` in the workspace projection.
 fn stack_by_id(workspace: &RefInfo, stack_id: StackId) -> Option<&Stack> {
     workspace
         .stacks
@@ -535,7 +522,6 @@ fn prepare_commit_absorptions(
     Ok(commit_absorptions)
 }
 
-/// Get the commit summary message
 fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<String> {
     let commit = repo.find_commit(commit_id)?;
     // The title still carries the trailing newline of single-paragraph messages.

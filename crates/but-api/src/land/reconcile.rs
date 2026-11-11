@@ -20,9 +20,7 @@ use but_workspace::BottomUpdate;
 
 use crate::WorkspaceState;
 
-/// The outcome of reconciling after a land.
 pub(super) struct Reconciled {
-    /// The resulting workspace state.
     pub workspace: WorkspaceState,
     /// `true` when uncommitted worktree changes blocked the rebase, so the remaining branches were
     /// left untouched. The target move already happened, so this is a partial success the caller

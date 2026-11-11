@@ -12,7 +12,6 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
-/// JSON types.
 pub mod json {
     use serde::Serialize;
 

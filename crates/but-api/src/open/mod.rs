@@ -1,4 +1,3 @@
-//! In place of commands.rs
 use std::{env, ffi::OsStr};
 
 use anyhow::{Context as _, Result, bail};
@@ -19,13 +18,11 @@ use crate::open::{
     spawn::spawn_and_reap,
 };
 
-/// Terminal configuration and detection.
 pub mod terminal;
 
 /// Editor configuration.
 pub mod program;
 
-/// Spawn helpers.
 pub(crate) mod spawn;
 
 /// Opens a supported URL or file path with the platform's default handler.
@@ -385,7 +382,6 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     if cfg!(target_os = "macos") {
         use std::process::Stdio;
 
-        /// Helper to run a command and check its exit status
         /// Used for macOS terminals that are launched via `open` or direct commands.
         /// These typically return immediately (async launch), so we only check if the launch succeeded.
         fn run_terminal_command(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {
@@ -548,7 +544,6 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             .to_owned();
         let canonical_path = &canonical_path;
 
-        // Check if the terminal binary exists in PATH before attempting to launch.
         let binary_found = which::which(&terminal_id).is_ok();
         if !binary_found {
             return Err(anyhow::anyhow!("'{terminal_id}' was not found.")
@@ -630,14 +625,12 @@ fn reveal_in_file_manager(path: &Path) -> Result<()> {
 
     #[cfg(target_os = "linux")]
     {
-        // For directories, open the directory directly
         if path.is_dir() {
             open_that(
                 &Url::from_file_path(path).map_err(|_| anyhow::anyhow!("Failed to parse URL"))?,
             )
             .with_context(|| format!("Failed to open directory '{display}' in file manager"))?;
         } else {
-            // For files, try to open the parent directory
             if let Some(parent) = path.parent() {
                 open_that(
                     &Url::from_file_path(parent)
@@ -670,8 +663,6 @@ pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
         .collect())
 }
 
-/// List all user-defined programs.
-///
 /// This function never fails, it only logs errors as warnings if something goes wrong.
 fn list_user_defined_program_specs() -> Vec<ProgramSpec> {
     let Ok(user_defined_programs_file) =
@@ -713,7 +704,6 @@ fn list_user_defined_program_specs() -> Vec<ProgramSpec> {
         .collect()
 }
 
-/// List all program specifications.
 pub fn list_program_specs() -> Vec<ProgramSpec> {
     let mut specs = list_user_defined_program_specs();
 

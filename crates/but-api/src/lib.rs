@@ -19,10 +19,8 @@ pub mod gitlab;
 /// Functions for Bitbucket authentication.
 pub mod bitbucket;
 
-/// Functions that take a branch as input.
 pub mod branch;
 
-/// Functions that operate on the workspace.
 pub mod workspace;
 
 /// Listing target-branch history relative to the workspace.
@@ -38,7 +36,6 @@ pub mod land;
 /// Ephemeral comments anchored to lines in diffs, shared between the GUI and the CLI.
 pub mod comments;
 
-/// Functions that operate commits
 pub mod commit;
 
 /// Functions that operate on linked git worktrees (experimental).
@@ -54,14 +51,12 @@ pub mod diff;
 /// EXPERIMENTAL
 pub mod json;
 
-/// Functions releated to platform detection and information.
 pub mod platform;
 
 pub mod open;
 
 pub mod panic_capture;
 
-/// App-level AI configuration.
 pub mod ai;
 
 pub use but_transaction::{WorkspaceState, workspace_state};

@@ -1,4 +1,3 @@
-//! In place of commands.rs
 use anyhow::Result;
 use but_api_macros::but_api;
 use but_core::{

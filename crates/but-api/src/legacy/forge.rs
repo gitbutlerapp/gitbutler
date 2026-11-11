@@ -1,4 +1,3 @@
-//! In place of commands.rs
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
@@ -2350,7 +2349,6 @@ fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::Full
 #[but_api]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
-    // Get all applied stacks and their branches
     let workspace = crate::legacy::workspace::head_info(ctx)?;
 
     // Collect branch references that have CI checks cached
@@ -2385,7 +2383,6 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         );
         // Ignore errors for individual branches to ensure we process all branches
 
-        // Track this reference as having CI checks
         current_refs.insert(name);
     }
 
@@ -2393,7 +2390,6 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
     let db = &mut *ctx.db.get_cache_mut()?;
     let all_cached_refs = db.ci_checks().list_all_references()?;
 
-    // Delete CI checks for references that are no longer in applied stacks
     for cached_ref in all_cached_refs {
         if !current_refs.contains(&cached_ref) {
             db.ci_checks_mut()?.delete_for_reference(&cached_ref)?;

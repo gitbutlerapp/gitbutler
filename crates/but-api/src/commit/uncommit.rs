@@ -95,10 +95,6 @@ impl SurfacedHunks {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Uncommit entire commits (changes are kept in the workspace)
-// ---------------------------------------------------------------------------
-
 /// Uncommit one or more commits, removing them from branch history while
 /// **keeping their changes** in the workspace as uncommitted modifications.
 ///
@@ -230,10 +226,6 @@ pub fn commit_uncommit_only_with_perm(
     })
 }
 
-// ---------------------------------------------------------------------------
-// Uncommit specific changes from a commit (changes are kept in the workspace)
-// ---------------------------------------------------------------------------
-
 /// Uncommit specific changes from a commit (removes them from the commit tree)
 /// without performing a checkout.
 ///
@@ -356,10 +348,6 @@ pub fn commit_uncommit_changes_with_perm(
 
     res
 }
-
-// ---------------------------------------------------------------------------
-// Uncommit specific changes from multiple commits (best effort)
-// ---------------------------------------------------------------------------
 
 /// Uncommit specific changes from multiple commits without performing a
 /// checkout.

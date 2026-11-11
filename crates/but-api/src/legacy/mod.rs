@@ -1,5 +1,4 @@
 //! Legacy data structures and functionality tied to `gitbutler-*` crates.
-//!
 
 pub mod absorb;
 pub mod askpass;
