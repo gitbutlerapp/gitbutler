@@ -51,9 +51,7 @@ pub struct SingleBranchMode {
 struct Target {
     ref_name: LocalRefName,
     commit_id: ObjectId,
-    /// It's the branch checked out.
     checked_out: bool,
-    /// `HEAD` is at its commit.
     head_at_commit: bool,
 }
 
