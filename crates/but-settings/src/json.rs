@@ -1,4 +1,3 @@
-// Given a current json value and an update json value, return a json value that represents the difference between the two.
 pub fn json_difference(
     current: serde_json::Value,
     update: &serde_json::Value,
