@@ -448,7 +448,6 @@ impl<'a> ScopeDiffs<'a> {
     }
 }
 
-/// Compute the anchorable diff lines of `path` from a scope's `changes`.
 fn file_diff_lines(
     repo: &gix::Repository,
     changes: &[but_core::TreeChange],
