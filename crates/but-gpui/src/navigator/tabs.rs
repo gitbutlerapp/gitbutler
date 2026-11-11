@@ -2240,7 +2240,7 @@ impl Navigator {
     /// rows.
     pub(super) fn scope_rows(&self, scope: &TabKey, cx: &App) -> Rows {
         let store = self.store.read(cx);
-        let mut rows = Rows::default();
+        let mut rows = Rows::new(self.row);
         let found = match scope {
             TabKey::Project(id) => (store.project(id)).map(|entry| {
                 self.card_rows(store, entry, &mut rows);

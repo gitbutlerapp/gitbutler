@@ -2122,7 +2122,7 @@ impl Detail {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
                             // Under a merge's commits' titles.
                             Row::Note(note) => h_flex()
-                                .h(dp(crate::ui::ROW_HEIGHT))
+                                .h(dp(theme.sizes.control))
                                 .mx(dp(6.))
                                 .pl(dp(8. + 14. + 8. + 12. + 8.))
                                 .child(guide(FOLD_MIDDLE, theme))

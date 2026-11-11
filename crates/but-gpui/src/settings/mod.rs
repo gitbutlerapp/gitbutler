@@ -25,7 +25,9 @@ use crate::overlays::MenuItem;
 use crate::state::{
     NavigatorPlace, Prefs, ProjectEntry, ProjectId, ScopeLines, Store, TerminalRuns, TileDragFeel,
 };
-use crate::theme::{Appearance, CodeSize, ColorScheme, Theme, UiScale};
+use crate::theme::{
+    Accent, Appearance, CodeSize, ColorScheme, Corners, Density, Ground, Theme, UiScale,
+};
 use crate::ui::fold::{self, Folds};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -266,6 +268,8 @@ pub struct SettingsView {
     terminals: Vec<Program>,
     /// The command terminals opened here run, as typed until saved.
     terminal_command: Entity<TextInput>,
+    /// A custom accent, as typed.
+    accent_color: Entity<TextInput>,
     /// The commands "New terminal with command" offers, one a line, as typed until saved.
     terminal_launchers: Entity<TextInput>,
     fetch_interval: Option<u64>,
@@ -326,6 +330,12 @@ impl SettingsView {
             input.load(command, cx);
             input
         });
+        let accent = store.read(cx).prefs.accent_color.clone();
+        let accent_color = cx.new(|cx| {
+            let mut input = TextInput::new("A colour, as #3b82f6", false, cx);
+            input.load(accent, cx);
+            input
+        });
         let launchers = store.read(cx).prefs.terminal_launchers().join("\n");
         let terminal_launchers = cx.new(|cx| {
             let mut input = TextInput::new("One command a line", true, cx);
@@ -371,6 +381,19 @@ impl SettingsView {
                     }
                 },
             ),
+            // The app takes on a custom accent as soon as the field holds a colour.
+            cx.subscribe_in(
+                &accent_color,
+                window,
+                |this, _, event, window, cx| match event {
+                    InputEvent::Changed => this.save_accent_color(window, cx),
+                    InputEvent::Submit => this.back_to_search(window, cx),
+                    InputEvent::Cancel => {
+                        this.reset_accent_color(cx);
+                        this.back_to_search(window, cx);
+                    }
+                },
+            ),
             // The command saves as the field's left, and as Settings closes with it focused.
             cx.on_blur(&terminal_command.focus_handle(cx), window, |this, _, cx| {
                 this.save_terminal_command(cx)
@@ -404,6 +427,7 @@ impl SettingsView {
             editors: Vec::new(),
             terminals: Vec::new(),
             terminal_command,
+            accent_color,
             terminal_launchers,
             fetch_interval: None,
             open_at_start: None,
@@ -652,6 +676,178 @@ impl SettingsView {
         .with_keywords("accessibility a11y voiceover")
     }
 
+    /// The look: a preset, then the accent, ground, corners and density it's made of or set
+    /// apart.
+    fn look_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
+        let theme = Theme::get(cx);
+        let prefs = &self.store.read(cx).prefs;
+        let own_colours = matches!(prefs.color_scheme, ColorScheme::GitButler);
+        let colours_note = "Only in GitButler's colours: a colour scheme brings its own.";
+        let (store, app) = (self.store.clone(), self.app.clone());
+        let presets: Vec<_> = crate::theme::presets()
+            .map(|(name, corners, density)| (Some((corners, density)), name))
+            .collect();
+        let current = (crate::theme::presets())
+            .any(|(_, c, d)| (c, d) == (prefs.corners, prefs.density))
+            .then_some((prefs.corners, prefs.density));
+        let preset = segmented(
+            "preset",
+            presets,
+            current,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |picked: Option<(Corners, Density)>, window, cx| {
+                    let Some((corners, density)) = picked else {
+                        return;
+                    };
+                    store.update(cx, |store, cx| {
+                        store.set_prefs(
+                            |p| {
+                                p.corners = corners;
+                                p.density = density;
+                            },
+                            cx,
+                        )
+                    });
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let accent = segmented(
+            "accent",
+            [
+                (Accent::Teal, "Teal"),
+                (Accent::Blue, "Blue"),
+                (Accent::Purple, "Purple"),
+                (Accent::Custom, "Custom"),
+            ],
+            prefs.accent,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |accent, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.accent = accent, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let ground = segmented(
+            "ground",
+            [
+                (Ground::Gray, "Gray"),
+                (Ground::Slate, "Slate"),
+                (Ground::Sage, "Sage"),
+                (Ground::Sand, "Sand"),
+            ],
+            prefs.ground,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |ground, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.ground = ground, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let corners = segmented(
+            "corners",
+            [
+                (Corners::Sharp, "Sharp"),
+                (Corners::Soft, "Soft"),
+                (Corners::Round, "Round"),
+            ],
+            prefs.corners,
+            {
+                let (store, app) = (store.clone(), app.clone());
+                move |corners, window, cx| {
+                    store.update(cx, |store, cx| store.set_prefs(|p| p.corners = corners, cx));
+                    app_look(&app, window, cx);
+                }
+            },
+            theme,
+        );
+        let density = segmented(
+            "density",
+            [
+                (Density::Compact, "Compact"),
+                (Density::Balanced, "Balanced"),
+                (Density::Spacious, "Spacious"),
+            ],
+            prefs.density,
+            move |density, window, cx| {
+                store.update(cx, |store, cx| store.set_prefs(|p| p.density = density, cx));
+                app_look(&app, window, cx);
+            },
+            theme,
+        );
+        let mut accent = Row::new(
+            "Accent",
+            match own_colours {
+                true => {
+                    "The colour of primary buttons, ticks and what's picked out. Custom takes any \
+                     colour, set so text on it still reads."
+                }
+                false => colours_note,
+            },
+            accent,
+        )
+        .with_keywords("color colour theme primary");
+        if prefs.accent == Accent::Custom {
+            let focused = self.accent_color.focus_handle(cx).is_focused(window);
+            accent = accent.with_below(field(&self.accent_color, focused, theme));
+        }
+        vec![
+            Row::new(
+                "Preset",
+                "Corners and density together. Changing either makes the look your own.",
+                preset,
+            )
+            .with_keywords("style theme look"),
+            accent,
+            Row::new(
+                "Ground",
+                match own_colours {
+                    true => "The gray everything sits on: neutral, or a touch cool, green or warm.",
+                    false => colours_note,
+                },
+                ground,
+            )
+            .with_keywords("background gray grey neutral tint theme"),
+            Row::new(
+                "Corners",
+                "How round buttons, cards and popovers are.",
+                corners,
+            )
+            .with_keywords("radius rounded"),
+            Row::new(
+                "Density",
+                "How tall buttons and controls are, and the room beside their labels.",
+                density,
+            )
+            .with_keywords("compact spacious size height"),
+        ]
+    }
+
+    /// Keep the custom accent as typed once it's a colour, and draw the app in it.
+    fn save_accent_color(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let color = self.accent_color.read(cx).text().trim().to_owned();
+        if crate::theme::parse_hex(&color).is_none()
+            || color == self.store.read(cx).prefs.accent_color
+        {
+            return;
+        }
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|p| p.accent_color = color, cx)
+        });
+        app_look(&self.app, window, cx);
+    }
+
+    fn reset_accent_color(&mut self, cx: &mut Context<Self>) {
+        let color = self.store.read(cx).prefs.accent_color.clone();
+        (self.accent_color).update(cx, |input, cx| input.set_text(color, cx));
+    }
+
     /// Save the command as typed, unless it's what's saved already.
     fn save_terminal_command(&self, cx: &mut App) {
         let command = self.terminal_command.read(cx).text().trim().to_owned();
@@ -689,7 +885,7 @@ impl SettingsView {
     }
 
     /// The theme, then how diffs show.
-    fn appearance_cards(&self, cx: &Context<Self>) -> Vec<Card> {
+    fn appearance_cards(&self, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         let theme = Theme::get(cx);
         let prefs = &self.store.read(cx).prefs;
         let (store, app) = (self.store.clone(), self.app.clone());
@@ -972,6 +1168,7 @@ impl SettingsView {
                     terminal_overview,
                 ],
             ),
+            Card::new(Some("Look"), self.look_rows(window, cx)),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts, folder_stops]),
             Card::new(Some("Diff"), diff),
@@ -1455,7 +1652,7 @@ impl SettingsView {
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
-            Page::App(AppPage::Appearance) => self.appearance_cards(cx),
+            Page::App(AppPage::Appearance) => self.appearance_cards(window, cx),
             Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
             Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
             Page::App(AppPage::Git) => vec![
@@ -2090,6 +2287,11 @@ fn read_failed(
 /// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
 /// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
 /// app.
+/// Draw the app in the look just picked, once the update picking it is over.
+fn app_look(app: &AppHandle, window: &mut Window, cx: &mut App) {
+    app.update_later(window, cx, |app, window, cx| app.apply_look(window, cx));
+}
+
 fn segmented<T: Copy + PartialEq + 'static>(
     id: &str,
     choices: impl IntoIterator<Item = (T, &'static str)>,

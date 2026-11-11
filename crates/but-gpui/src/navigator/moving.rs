@@ -26,7 +26,7 @@ use crate::transfer::{
     Changes, Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots,
 };
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, ROW_HEIGHT, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
+use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -161,8 +161,8 @@ pub(super) struct SquashOutline {
 impl SquashOutline {
     /// The outline of the squash shown in `rows`: around what it goes into, or with `home`,
     /// back where it started, around the selection's row and those squashed with it, as their
-    /// dashed outline goes around them.
-    pub(super) fn of(rows: &[Row], store: &Store, home: bool) -> Option<SquashOutline> {
+    /// dashed outline goes around them. An item's row is `row` tall.
+    pub(super) fn of(rows: &[Row], store: &Store, home: bool, row: f32) -> Option<SquashOutline> {
         let squashed = |ix: &usize| matches!(rows.get(*ix), Some(Row::Item(item)) if matches!(mark(store, item), Some(Mark::Taken(_))));
         let (ix, first, last) = (rows.iter().enumerate()).find_map(|(ix, row)| match row {
             Row::Item(item) if lands_on(store, item) => Some((ix, ix, ix)),
@@ -176,15 +176,15 @@ impl SquashOutline {
             }
             _ => None,
         })?;
-        let Some(Row::Item(row)) = rows.get(ix) else {
+        let Some(Row::Item(item)) = rows.get(ix) else {
             return None;
         };
         Some(SquashOutline {
-            row: row.clone(),
-            row_top: span_height(rows, 0..ix),
-            row_bottom: span_height(rows, 0..ix + 1),
-            top: span_height(rows, 0..first),
-            bottom: span_height(rows, 0..last + 1),
+            row: item.clone(),
+            row_top: span_height(rows, 0..ix, row),
+            row_bottom: span_height(rows, 0..ix + 1, row),
+            top: span_height(rows, 0..first, row),
+            bottom: span_height(rows, 0..last + 1, row),
         })
     }
 
@@ -636,7 +636,7 @@ impl Navigator {
                     of,
                     outlined_with,
                     under: self.row_keys.get(above)?.clone()?,
-                    by: span_height(&self.rows, above..ix),
+                    by: span_height(&self.rows, above..ix, self.row),
                     inset: self.insets.get(ix).copied().unwrap_or_default(),
                     guides: self.guides.get(ix).cloned().unwrap_or_default(),
                     since: now,
@@ -1787,7 +1787,7 @@ pub(super) fn ghost_row(
             }),
         _ => None,
     };
-    row.unwrap_or_else(|| div().h(dp(ROW_HEIGHT)).into_any_element())
+    row.unwrap_or_else(|| div().h(dp(theme.sizes.control)).into_any_element())
 }
 
 /// The commit uncommitted changes being committed in `project` would make, where it'd go,
@@ -1937,7 +1937,7 @@ pub(super) fn ghost_branch_row(
         None => "New independent branch".into(),
     };
     h_flex()
-        .min_h(dp(ROW_HEIGHT))
+        .min_h(dp(theme.sizes.control))
         .mx(dp(3.))
         .pl(dp(8. + inset))
         .pr(dp(12.))

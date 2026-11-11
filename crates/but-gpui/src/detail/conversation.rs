@@ -223,7 +223,7 @@ impl Detail {
                             .child(format!("{name}{lines}")),
                     ),
             )
-            .children(state.map(|label| tag(theme.text_2, theme.shape).child(label)))
+            .children(state.map(|label| tag(theme.text_2, theme).child(label)))
             .when(!open, |el| {
                 el.child(
                     div()
@@ -313,9 +313,9 @@ fn header(note: &Note, verdict: Option<Verdict>, compact: bool, theme: &Theme) -
         .gap(dp(6.))
         .children(author)
         .when(note.bot, |el| {
-            el.child(tag(theme.text_2, theme.shape).child("Agent"))
+            el.child(tag(theme.text_2, theme).child("Agent"))
         })
-        .children(verdict.map(|(label, color)| tag(color, theme.shape).child(label)))
+        .children(verdict.map(|(label, color)| tag(color, theme).child(label)))
         .child(div().flex_grow(1.))
         .children(note.at.map(|at| opens(note, at, compact, theme)))
 }

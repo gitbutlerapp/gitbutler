@@ -413,11 +413,7 @@ impl Detail {
             .and_then(|writing| self.talk_composer(writing, true, cx));
         // What's next for it, in the corner: that it's done with, or the way to answer.
         let end = match (resolved, &replying) {
-            (true, _) => Some(
-                tag(theme.safe, theme.shape)
-                    .child("Resolved")
-                    .into_any_element(),
-            ),
+            (true, _) => Some(tag(theme.safe, theme).child("Resolved").into_any_element()),
             (false, Some(_)) => None,
             (false, None) => {
                 let parent = thread.id.clone();
@@ -540,7 +536,7 @@ impl Detail {
                             .flex_none()
                             .ml_auto()
                             .gap(dp(6.))
-                            .child(tag(theme.blue, theme.shape).child("Not sent"))
+                            .child(tag(theme.blue, theme).child("Not sent"))
                             .child(
                                 icon_button(("brief-note-drop", id as u64), Icon::Cross)
                                     .small()

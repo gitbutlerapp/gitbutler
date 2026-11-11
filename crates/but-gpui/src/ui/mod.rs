@@ -208,6 +208,8 @@ pub const REVEAL: &str = if cfg!(target_os = "macos") {
 };
 
 pub use window_controls::WINDOW_CONTROLS_WIDTH;
+/// How tall a list row is at Balanced density. Rows are drawn at `theme.sizes.control`, which
+/// the density moves; this stays for minimums and for tests, which count at Balanced.
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 40.;
 pub const STATUS_BAR_HEIGHT: f32 = 30.;
@@ -789,7 +791,7 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .role(Role::ListItem)
         .aria_selected(selected)
         .flex_none()
-        .h(dp(ROW_HEIGHT))
+        .h(dp(theme.sizes.control))
         .mx(dp(6.))
         .px(dp(8.))
         .gap(dp(8.))

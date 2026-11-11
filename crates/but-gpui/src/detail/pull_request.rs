@@ -1260,13 +1260,13 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
 
 /// A badge of a word or two on a ground tinted `color`: a pull request's state, a
 /// review's verdict.
-pub(super) fn tag(color: Hsla, shape: crate::theme::Shape) -> Div {
+pub(super) fn tag(color: Hsla, theme: &Theme) -> Div {
     h_flex()
         .flex_none()
-        .h(dp(20.))
+        .h(dp(theme.sizes.control_sm))
         .px(dp(7.))
         .gap(dp(4.))
-        .rounded(dp(shape.control))
+        .rounded(dp(theme.shape.control))
         .bg(color.opacity(0.14))
         .text_color(color)
         .text_size(dp(12.))
@@ -1276,7 +1276,7 @@ pub(super) fn tag(color: Hsla, shape: crate::theme::Shape) -> Div {
 /// Its state as a tinted badge, and its number, which opens it on the forge.
 fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
     let (glyph, color) = ui_review::state_glyph(state, theme);
-    let badge = tag(color, theme.shape)
+    let badge = tag(color, theme)
         .child(small_icon(glyph).size(dp(12.)).text_color(color))
         .child(ui_review::state_label(state));
     let link = review.url.clone().map(|url| {
@@ -1470,11 +1470,11 @@ pub(super) fn tab(
         .id(id)
         .group(id)
         .relative()
-        .h(dp(28.))
+        .h(dp(theme.sizes.control))
         // Room for the bar, 6 below, down to the header's edge.
         .mb(dp(10.))
         .gap(dp(6.))
-        .px(dp(8.))
+        .px(dp(8. + theme.sizes.padding))
         .rounded(dp(theme.shape.control))
         .text_size(dp(13.))
         .font_weight(gpui::FontWeight::SEMIBOLD)

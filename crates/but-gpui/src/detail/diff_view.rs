@@ -1106,7 +1106,8 @@ impl Detail {
 
     /// How tall a file's header draws, as [`diff::file_header_height`] says for this diff.
     pub(super) fn file_header_height(&self, cx: &App) -> Pixels {
-        Theme::get(cx).scaled(diff::file_header_height(self.titled_header(cx)))
+        let theme = Theme::get(cx);
+        theme.scaled(diff::file_header_height(self.titled_header(cx), theme))
     }
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and

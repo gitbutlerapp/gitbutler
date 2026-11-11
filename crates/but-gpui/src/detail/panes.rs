@@ -1749,7 +1749,7 @@ pub(super) fn side_list(
         cx.processor(move |this, ix, window, cx| {
             let theme = Theme::get(cx);
             let moved = moving(this, ix);
-            let shown = moved.map(|moved| moved.shown(ROW_HEIGHT));
+            let shown = moved.map(|moved| moved.shown(theme.sizes.control));
             // Under the curtain, a row isn't drawn at all.
             if shown.is_some_and(|height| height <= 0.) {
                 return div().into_any_element();
@@ -1758,7 +1758,7 @@ pub(super) fn side_list(
                 return div().into_any_element();
             };
             // A list item is as wide as its content unless something stretches it.
-            let slot = div().w_full().h(dp(ROW_HEIGHT)).child(row);
+            let slot = div().w_full().h(dp(theme.sizes.control)).child(row);
             match moved.zip(shown) {
                 Some((moved, height)) => clipped(slot, dp(height), moved.closing)
                     .w_full()
@@ -1775,7 +1775,7 @@ pub(super) fn side_list(
 /// they're drawn, at the interface's scale, keeping its place.
 pub(super) fn resize_side_list(scroll: &ListState, count: usize, theme: &Theme) {
     let top = scroll.logical_scroll_top();
-    scroll.reset_with_uniform_height(count, theme.scaled(ROW_HEIGHT));
+    scroll.reset_with_uniform_height(count, theme.scaled(theme.sizes.control));
     scroll.scroll_to(top);
 }
 
@@ -1785,7 +1785,7 @@ pub(super) fn rows_under(scroll: &ListState, ix: usize, theme: &Theme) -> usize 
     let view = scroll.viewport_bounds();
     (scroll.bounds_for_item(ix)).map_or(MOVING_ROWS, |row| {
         let room = (view.bottom() - row.bottom()).max(Pixels::ZERO);
-        (room / theme.scaled(ROW_HEIGHT)).ceil() as usize
+        (room / theme.scaled(theme.sizes.control)).ceil() as usize
     })
 }
 
@@ -1808,7 +1808,7 @@ pub(super) fn reveal_side_row(
                 item_ix: ix,
                 offset_in_item: Pixels::ZERO,
             });
-            let room = scroll.viewport_bounds().size.height - theme.scaled(ROW_HEIGHT);
+            let room = scroll.viewport_bounds().size.height - theme.scaled(theme.sizes.control);
             scroll.scroll_by(-room / 2.);
         }
     }
@@ -1823,7 +1823,7 @@ pub(super) fn side_list_state() -> ListState {
 pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement {
     section_label(text, theme)
         .w_full()
-        .h(dp(ROW_HEIGHT))
+        .h(dp(theme.sizes.control))
         .flex()
         .items_end()
         .px(dp(14.))

@@ -212,6 +212,82 @@ impl Accent {
     }
 }
 
+/// The gray GitButler's own colours are built on: gray, or one of but-ui's tinted grays, at
+/// gray's lightness step for step, so everything reads as it does on gray.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Ground {
+    #[default]
+    Gray,
+    Slate,
+    Sage,
+    Sand,
+}
+
+impl Ground {
+    /// Its name in but-ui's settings.
+    fn name(self) -> &'static str {
+        match self {
+            Ground::Gray => "gray",
+            Ground::Slate => "slate",
+            Ground::Sage => "sage",
+            Ground::Sand => "sand",
+        }
+    }
+}
+
+/// How round corners are: but-ui's scale moved sharper or rounder, Soft its own.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Corners {
+    Sharp,
+    #[default]
+    Soft,
+    Round,
+}
+
+impl Corners {
+    /// Its name in but-ui's settings.
+    pub fn name(self) -> &'static str {
+        match self {
+            Corners::Sharp => "sharp",
+            Corners::Soft => "soft",
+            Corners::Round => "round",
+        }
+    }
+}
+
+/// How tall controls are: but-ui's sizes a step shorter or taller, Balanced its own.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Density {
+    Compact,
+    #[default]
+    Balanced,
+    Spacious,
+}
+
+impl Density {
+    /// Its name in but-ui's settings.
+    pub fn name(self) -> &'static str {
+        match self {
+            Density::Compact => "compact",
+            Density::Balanced => "balanced",
+            Density::Spacious => "spacious",
+        }
+    }
+}
+
+/// but-ui's presets, each a corner setting and a density by one name.
+pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
+    (tokens::PRESETS.iter()).filter_map(|&(_, name, corners, density)| {
+        let corners = [Corners::Sharp, Corners::Soft, Corners::Round]
+            .into_iter()
+            .find(|c| c.name() == corners)?;
+        let density = [Density::Compact, Density::Balanced, Density::Spacious]
+            .into_iter()
+            .find(|d| d.name() == density)?;
+        Some((name, corners, density))
+    })
+}
+
 /// Which colours the app draws in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColorScheme {
@@ -379,6 +455,49 @@ impl Theme {
         self
     }
 
+    /// This theme on `ground`, when it's in GitButler's own colours; a colour scheme keeps its
+    /// own. Called before anything else changes it, as it draws GitButler's colours again.
+    pub fn with_ground(self, ground: Ground) -> Self {
+        let Some(dark) = self.own_colours else {
+            return self;
+        };
+        Theme {
+            code_text: self.code_text,
+            code_line: self.code_line,
+            ..Self::gitbutler_on(dark, CodeSize::default(), ground)
+        }
+    }
+
+    /// This theme with corners as `corners` has them.
+    pub fn with_corners(mut self, corners: Corners) -> Self {
+        if let Some((_, [xs, control, card, popup])) =
+            (tokens::CORNERS.iter()).find(|(name, _)| *name == corners.name())
+        {
+            self.shape = Shape {
+                xs: *xs,
+                control: *control,
+                card: *card,
+                popup: *popup,
+            };
+        }
+        self
+    }
+
+    /// This theme with controls as tall as `density` has them.
+    pub fn with_density(mut self, density: Density) -> Self {
+        if let Some((_, [control, control_sm, bar, padding])) =
+            (tokens::DENSITIES.iter()).find(|(name, _)| *name == density.name())
+        {
+            self.sizes = Sizes {
+                control: *control,
+                control_sm: *control_sm,
+                bar: *bar,
+                padding: *padding,
+            };
+        }
+        self
+    }
+
     /// This theme at interface scale `scale`.
     pub fn with_scale(mut self, scale: UiScale) -> Self {
         self.scale = scale.factor();
@@ -441,6 +560,26 @@ impl Theme {
 
     /// GitButler's own colours, light or dark, the terminals' too.
     pub(crate) fn gitbutler(dark: bool, code: CodeSize) -> Self {
+        Self::gitbutler_on(dark, code, Ground::Gray)
+    }
+
+    /// GitButler's own colours on `ground`, light or dark, the terminals' too.
+    fn gitbutler_on(dark: bool, code: CodeSize, ground: Ground) -> Self {
+        // The colours that come out differently on the ground than on gray.
+        let on_ground = (tokens::GROUNDS.iter())
+            .find(|(name, _)| *name == ground.name())
+            .map_or(&[][..], |(_, colors)| *colors);
+        let grounded = |name: &str, gray: [u32; 2]| {
+            (on_ground.iter())
+                .find(|(token, _)| *token == name)
+                .map_or(gray, |(_, colors)| *colors)
+        };
+        // A but-ui token, as it comes out on the ground.
+        macro_rules! on_ground {
+            ($token:ident) => {
+                grounded(stringify!($token), tokens::$token)
+            };
+        }
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };
@@ -453,9 +592,10 @@ impl Theme {
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
         // Coloured text is a hue's step 11, which reads at 4.5:1 on the gray grounds.
-        let [safe, danger] = [tokens::SUCCESS_TEXT, tokens::DANGER_TEXT].map(token);
-        let [fill_gray, text_inverted] = [tokens::INVERSE, tokens::INVERSE_FOREGROUND].map(token);
-        let [done_light, done_dark] = tokens::DONE_TEXT;
+        let [safe, danger] = [on_ground!(SUCCESS_TEXT), on_ground!(DANGER_TEXT)].map(token);
+        let [fill_gray, text_inverted] =
+            [on_ground!(INVERSE), on_ground!(INVERSE_FOREGROUND)].map(token);
+        let [done_light, done_dark] = on_ground!(DONE_TEXT);
         let on_solid = |accent| {
             color(readable_on(
                 rgb_hex(accent),
@@ -468,38 +608,38 @@ impl Theme {
             code_line,
             scale: 1.,
             // The cards and panes, and the window's ground.
-            bg_1: token(tokens::BACKGROUND),
-            bg_2: token(tokens::CANVAS),
+            bg_1: token(on_ground!(BACKGROUND)),
+            bg_2: token(on_ground!(CANVAS)),
             // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
             // details, on both grounds.
-            text_1: token(tokens::FOREGROUND),
-            text_2: token(tokens::MUTED_FOREGROUND),
-            text_3: token(tokens::SUBTLE_FOREGROUND),
-            border_1: token(tokens::BORDER_HOVER),
-            border_2: token(tokens::BORDER),
-            border_3: token(tokens::BORDER_SUBTLE),
+            text_1: token(on_ground!(FOREGROUND)),
+            text_2: token(on_ground!(MUTED_FOREGROUND)),
+            text_3: token(on_ground!(SUBTLE_FOREGROUND)),
+            border_1: token(on_ground!(BORDER_HOVER)),
+            border_2: token(on_ground!(BORDER)),
+            border_3: token(on_ground!(BORDER_SUBTLE)),
             fill_gray,
             text_inverted,
             // The accent as text, and as the ground its label and tick read on at 4.5:1, in
             // both themes.
-            pop: token(tokens::PRIMARY_TEXT),
-            pop_bg: token(tokens::PRIMARY),
-            pop_button: token(tokens::PRIMARY),
-            on_pop: token(tokens::PRIMARY_FOREGROUND),
-            blue: token(tokens::INFO_TEXT),
+            pop: token(on_ground!(PRIMARY_TEXT)),
+            pop_bg: token(on_ground!(PRIMARY)),
+            pop_button: token(on_ground!(PRIMARY)),
+            on_pop: token(on_ground!(PRIMARY_FOREGROUND)),
+            blue: token(on_ground!(INFO_TEXT)),
             safe,
-            warn: token(tokens::WARNING_TEXT),
+            warn: token(on_ground!(WARNING_TEXT)),
             danger,
             purple: token([done_light, done_dark]),
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
             purple_on_solid: token([done_dark, done_light]),
-            snackbar_bg: token(tokens::SNACKBAR),
-            snackbar_border: token(tokens::SNACKBAR_BORDER),
-            snackbar_text: token(tokens::SNACKBAR_FOREGROUND),
-            snackbar_warn: token(tokens::WARNING),
-            snackbar_divider: token(tokens::SNACKBAR_DIVIDER),
-            snackbar_hover: token(tokens::SNACKBAR_HOVER),
+            snackbar_bg: token(on_ground!(SNACKBAR)),
+            snackbar_border: token(on_ground!(SNACKBAR_BORDER)),
+            snackbar_text: token(on_ground!(SNACKBAR_FOREGROUND)),
+            snackbar_warn: token(on_ground!(WARNING)),
+            snackbar_divider: token(on_ground!(SNACKBAR_DIVIDER)),
+            snackbar_hover: token(on_ground!(SNACKBAR_HOVER)),
             diff_added: added,
             diff_removed: removed,
             diff_added_bg: pick(0xeef7ee, 0x2c3f35),
@@ -509,19 +649,19 @@ impl Theme {
             diff_muted: pick(0x696c70, 0x999da1),
             // Each hue's step 9.
             change_status: [
-                tokens::CHANGE_STATUS_ADDITION,
-                tokens::CHANGE_STATUS_MODIFICATION,
-                tokens::CHANGE_STATUS_DELETION,
-                tokens::CHANGE_STATUS_RENAME,
+                on_ground!(CHANGE_STATUS_ADDITION),
+                on_ground!(CHANGE_STATUS_MODIFICATION),
+                on_ground!(CHANGE_STATUS_DELETION),
+                on_ground!(CHANGE_STATUS_RENAME),
             ]
             .map(token),
             // Teal, purple, green, amber and red at step 7.
             person: [
-                tokens::CATEGORY_1,
-                tokens::CATEGORY_2,
-                tokens::CATEGORY_3,
-                tokens::CATEGORY_4,
-                tokens::CATEGORY_5,
+                on_ground!(CATEGORY_1),
+                on_ground!(CATEGORY_2),
+                on_ground!(CATEGORY_3),
+                on_ground!(CATEGORY_4),
+                on_ground!(CATEGORY_5),
             ]
             .map(token),
             // Embedded by `ui::fonts`.

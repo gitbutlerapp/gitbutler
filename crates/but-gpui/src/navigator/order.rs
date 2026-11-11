@@ -304,7 +304,7 @@ impl Navigator {
             .flatten();
         let slot = depth.map(|depth| {
             let cards: Vec<(&ProjectId, f32)> = (cards(&self.rows).into_iter())
-                .map(|(id, span)| (id, span_height(&self.rows, span)))
+                .map(|(id, span)| (id, span_height(&self.rows, span, self.row)))
                 .collect();
             nearest_slot(&cards, &dragged, depth)
         });
@@ -402,8 +402,9 @@ impl Navigator {
         let depth = (event.bounds.contains(&at))
             .then(|| self.depth_at(at, Theme::get(cx)))
             .flatten();
-        let slot = (depth.zip(order))
-            .and_then(|(depth, order)| worktree_slot(&self.rows, project, name, &order, depth));
+        let slot = (depth.zip(order)).and_then(|(depth, order)| {
+            worktree_slot(&self.rows, project, name, &order, depth, self.row)
+        });
         self.hold_worktree(project, name.as_ref(), slot, cx);
     }
 
@@ -471,7 +472,7 @@ impl Navigator {
         }
         let stop = self.depth_at(at, Theme::get(cx)).and_then(|depth| {
             let lists = self.listed_terminals(self.store.read(cx));
-            terminal_slot(&self.rows, id, &lists, depth)
+            terminal_slot(&self.rows, id, &lists, depth, self.row)
         });
         if stop.is_some() {
             self.hold_terminal(&project, id, stop, cx);
@@ -544,7 +545,7 @@ impl Navigator {
             }
             (ix, bounds) = (next, next_bounds);
         }
-        let above = span_height(&self.rows, 0..ix);
+        let above = span_height(&self.rows, 0..ix, self.row);
         Some(above + f32::from(at.y - bounds.top()) / theme.scale)
     }
 }
@@ -573,7 +574,8 @@ pub(super) fn cards(rows: &[Row]) -> Vec<(&ProjectId, Range<usize>)> {
 /// places, so where the dragged one is shown now doesn't change where it goes, and showing it
 /// there never sends it back.
 fn nearest_slot(cards: &[(&ProjectId, f32)], dragged: &ProjectId, depth: f32) -> CardSlot {
-    let gap = Row::Gap.height();
+    // A gap is as tall at every density.
+    let gap = Row::Gap.height(ROW_HEIGHT);
     let off = |top: f32| (top + HEADING_MIDDLE - depth).abs();
     let (mut top, mut nearest) = (0., (f32::INFINITY, CardSlot::End));
     for (id, height) in cards.iter().filter(|(id, _)| *id != dragged) {
@@ -632,17 +634,17 @@ pub(super) fn moving_terminal(store: &Store) -> Option<(TerminalId, &TerminalLis
 
 /// The rows of `project`'s card in `rows`, and how far down its top is ([`span_height`]), if a
 /// pointer `depth` down the rows is on it.
-fn card_at(rows: &[Row], project: &ProjectId, depth: f32) -> Option<(Range<usize>, f32)> {
-    let (on, card, top) = card_under(rows, depth)?;
+fn card_at(rows: &[Row], project: &ProjectId, depth: f32, row: f32) -> Option<(Range<usize>, f32)> {
+    let (on, card, top) = card_under(rows, depth, row)?;
     (on == project).then_some((card, top))
 }
 
 /// The card in `rows` a pointer `depth` down the rows is on, by its project, with its rows and
 /// how far down its top is ([`span_height`]).
-fn card_under(rows: &[Row], depth: f32) -> Option<(&ProjectId, Range<usize>, f32)> {
+fn card_under(rows: &[Row], depth: f32, row: f32) -> Option<(&ProjectId, Range<usize>, f32)> {
     cards(rows).into_iter().find_map(|(project, card)| {
-        let top = span_height(rows, 0..card.start);
-        let on = depth >= top && depth < top + span_height(rows, card.clone());
+        let top = span_height(rows, 0..card.start, row);
+        let on = depth >= top && depth < top + span_height(rows, card.clone(), row);
         on.then_some((project, card, top))
     })
 }
@@ -666,8 +668,9 @@ fn worktree_slot(
     name: &BString,
     order: &[BString],
     depth: f32,
+    row: f32,
 ) -> Option<Slot<BString>> {
-    let (card, _) = card_at(rows, project, depth)?;
+    let (card, _) = card_at(rows, project, depth, row)?;
     // Each one listed with it as shown, by its name, how far down its heading is, and how tall
     // it is, down through the divider below it.
     let shown: Vec<(&BString, f32, f32)> = card
@@ -676,7 +679,11 @@ fn worktree_slot(
                 if p == project && order.contains(n) =>
             {
                 let end = worktree_end(rows, ix);
-                Some((n, span_height(rows, 0..ix), span_height(rows, ix..end)))
+                Some((
+                    n,
+                    span_height(rows, 0..ix, row),
+                    span_height(rows, ix..end, row),
+                ))
             }
             _ => None,
         })
@@ -700,7 +707,7 @@ fn worktree_slot(
     if depth >= home_top && depth < home_top + own {
         return None;
     }
-    let off = |top: f32| (top + ROW_HEIGHT / 2. - depth).abs();
+    let off = |top: f32| (top + row / 2. - depth).abs();
     let (nearest, _) =
         (tops.iter().enumerate()).min_by(|(_, a), (_, b)| off(**a).total_cmp(&off(**b)))?;
     Some(match others.get(nearest) {
@@ -730,8 +737,9 @@ fn terminal_slot(
     id: TerminalId,
     lists: &[(ProjectCheckout, Vec<TerminalId>)],
     depth: f32,
+    row: f32,
 ) -> Option<(ProjectCheckout, Slot<TerminalId>)> {
-    let (project, card, top) = card_under(rows, depth)?;
+    let (project, card, top) = card_under(rows, depth, row)?;
     let listed = |checkout: Checkout| {
         (lists.iter()).find_map(|(on, list)| {
             (on.project == *project && on.checkout == checkout).then_some((on, list))
@@ -743,10 +751,10 @@ fn terminal_slot(
     let mut under: Option<(&ProjectCheckout, &Vec<TerminalId>)> = None;
     let own = |row: &&Row| matches!(row, Row::Item(Selection::Terminal(_, other)) if *other == id);
     let above = rows.get(..card.start).unwrap_or_default().iter();
-    let mut at = top - above.filter(own).map(Row::height).sum::<f32>();
+    let mut at = top - above.filter(own).map(|r| r.height(row)).sum::<f32>();
     let mut card_rows = rows.get(card)?.iter().peekable();
-    while let Some(row) = card_rows.next() {
-        match row {
+    while let Some(shown) = card_rows.next() {
+        match shown {
             Row::Item(Selection::Terminal(p, terminal)) if p == project => {
                 if *terminal == id {
                     continue;
@@ -757,24 +765,24 @@ fn terminal_slot(
             }
             // A worktree's uncommitted changes sit between its heading and its terminals.
             Row::Item(Selection::Uncommitted(p, _)) if p == project => {}
-            row => {
+            other => {
                 if let Some((on, _)) = under.take() {
                     places.push((at, (on.clone(), Slot::End)));
                 }
-                under = match row {
+                under = match other {
                     Row::Item(heading) if heading.project() == project => {
-                        heads(row, card_rows.peek().copied()).and_then(listed)
+                        heads(other, card_rows.peek().copied()).and_then(listed)
                     }
                     _ => None,
                 };
             }
         }
-        at += row.height();
+        at += shown.height(row);
     }
     if let Some((on, _)) = under {
         places.push((at, (on.clone(), Slot::End)));
     }
-    let off = |top: f32| (top + ROW_HEIGHT / 2. - depth).abs();
+    let off = |top: f32| (top + row / 2. - depth).abs();
     let (_, nearest) = (places.into_iter()).min_by(|(a, _), (b, _)| off(*a).total_cmp(&off(*b)))?;
     Some(nearest)
 }
@@ -805,7 +813,7 @@ mod tests {
         for name in order {
             tops.push((
                 BString::from(name),
-                super::span_height(&rows, 0..rows.len()),
+                super::span_height(&rows, 0..rows.len(), ROW_HEIGHT),
             ));
             rows.push(Row::Item(Selection::Checkout(
                 p.clone(),
@@ -826,7 +834,7 @@ mod tests {
         let (p, rows, tops) = worktrees(["a", "b", "c"]);
         let top = |name: &str| (tops.iter().find(|(n, _)| n == name)).map_or(0., |(_, top)| *top);
         let b = BString::from("b");
-        let goes = |depth| worktree_slot(&rows, &p, &b, &order, depth);
+        let goes = |depth| worktree_slot(&rows, &p, &b, &order, depth, ROW_HEIGHT);
         assert!(
             goes(top("b") + 1.).is_none() && goes(top("c") - 1.).is_none(),
             "over its own rows, down through its divider, what it carries lands there"
@@ -872,9 +880,9 @@ mod tests {
             branch(),
             branch(),
         ];
-        let top = |ix: usize| super::span_height(&rows, 0..ix);
+        let top = |ix: usize| super::span_height(&rows, 0..ix, ROW_HEIGHT);
         let b = BString::from("b");
-        let goes = |depth| worktree_slot(&rows, &p, &b, &order, depth);
+        let goes = |depth| worktree_slot(&rows, &p, &b, &order, depth, ROW_HEIGHT);
         assert!(
             goes(top(4) + 1.).is_none(),
             "over its own branch, what it carries lands there"
@@ -885,7 +893,7 @@ mod tests {
         );
         let a = BString::from("a");
         assert!(
-            worktree_slot(&rows, &p, &a, &order, top(4) + 1.) == Some(Slot::End),
+            worktree_slot(&rows, &p, &a, &order, top(4) + 1., ROW_HEIGHT) == Some(Slot::End),
             "and a dragged over b's branch goes below b"
         );
     }
@@ -897,7 +905,7 @@ mod tests {
         let shown = [["b", "a", "c"], ["a", "b", "c"], ["a", "c", "b"]].map(worktrees);
         for depth in (0..300).map(|d| d as f32) {
             let went: Vec<Option<Slot<BString>>> = (shown.iter())
-                .map(|(p, rows, _)| worktree_slot(rows, p, &b, &order, depth))
+                .map(|(p, rows, _)| worktree_slot(rows, p, &b, &order, depth, ROW_HEIGHT))
                 .collect();
             assert!(
                 went.windows(2).all(|pair| pair.first() == pair.last()),
@@ -1030,8 +1038,8 @@ mod tests {
     fn a_terminal_from_a_tile_goes_where_its_row_would_be_nearest() {
         let (_, rows) = terminals(&[1, 2], &[3]);
         let lists = lists();
-        let middle = |ix: usize| super::span_height(&rows, 0..ix) + ROW_HEIGHT / 2.;
-        let goes = |depth| terminal_slot(&rows, TerminalId(4), &lists, depth);
+        let middle = |ix: usize| super::span_height(&rows, 0..ix, ROW_HEIGHT) + ROW_HEIGHT / 2.;
+        let goes = |depth| terminal_slot(&rows, TerminalId(4), &lists, depth, ROW_HEIGHT);
         assert!(
             goes(middle(4)) == Some((on("p", Checkout::Main), Slot::Before(TerminalId(2)))),
             "unlisted, it has no row of its own to leave out, so it goes before the row it's over"
@@ -1046,8 +1054,8 @@ mod tests {
     fn a_dragged_terminal_goes_where_its_row_would_be_nearest_among_every_open_worktree() {
         let (_, rows) = terminals(&[1, 2], &[3]);
         let lists = lists();
-        let middle = |ix: usize| super::span_height(&rows, 0..ix) + ROW_HEIGHT / 2.;
-        let goes = |depth| terminal_slot(&rows, TerminalId(2), &lists, depth);
+        let middle = |ix: usize| super::span_height(&rows, 0..ix, ROW_HEIGHT) + ROW_HEIGHT / 2.;
+        let goes = |depth| terminal_slot(&rows, TerminalId(2), &lists, depth, ROW_HEIGHT);
         let (main, w) = (
             on("p", Checkout::Main),
             on("p", Checkout::Linked("w".into())),
@@ -1075,7 +1083,8 @@ mod tests {
             "folded f lists no terminals to go among, so the nearest place is under w"
         );
         assert!(
-            goes(-10.).is_none() && goes(super::span_height(&rows, 0..rows.len())).is_none(),
+            goes(-10.).is_none()
+                && goes(super::span_height(&rows, 0..rows.len(), ROW_HEIGHT)).is_none(),
             "off the cards it goes nowhere"
         );
     }
@@ -1096,8 +1105,8 @@ mod tests {
         let own_row = (there.iter())
             .position(|row| matches!(row, Row::Item(Selection::Terminal(_, id)) if id.0 == 2))
             .expect("it's listed on q");
-        let depth = super::span_height(&there, 0..own_row) + ROW_HEIGHT / 2.;
-        let goes = |rows| terminal_slot(rows, TerminalId(2), &lists, depth);
+        let depth = super::span_height(&there, 0..own_row, ROW_HEIGHT) + ROW_HEIGHT / 2.;
+        let goes = |rows| terminal_slot(rows, TerminalId(2), &lists, depth, ROW_HEIGHT);
         assert!(
             goes(&there) == Some((on("q", Checkout::Main), Slot::End)),
             "over its own row, after 3, it stays there"
@@ -1121,8 +1130,8 @@ mod tests {
             (on("q", Checkout::Main), vec![TerminalId(4)]),
             (on("q", Checkout::Linked("w".into())), vec![]),
         ]);
-        let middle = |ix: usize| super::span_height(&rows, 0..ix) + ROW_HEIGHT / 2.;
-        let goes = |depth| terminal_slot(&rows, TerminalId(2), &lists, depth);
+        let middle = |ix: usize| super::span_height(&rows, 0..ix, ROW_HEIGHT) + ROW_HEIGHT / 2.;
+        let goes = |depth| terminal_slot(&rows, TerminalId(2), &lists, depth, ROW_HEIGHT);
         let q_main = on("q", Checkout::Main);
         assert!(
             goes(middle(q_start + 2)) == Some((q_main.clone(), Slot::Before(TerminalId(4)))),
@@ -1154,7 +1163,7 @@ mod tests {
         ];
         for depth in (0..400).map(|d| d as f32) {
             let went: Vec<_> = (shown.iter())
-                .map(|(_, rows)| terminal_slot(rows, TerminalId(1), &lists, depth))
+                .map(|(_, rows)| terminal_slot(rows, TerminalId(1), &lists, depth, ROW_HEIGHT))
                 .collect();
             assert!(
                 went.windows(2).all(|pair| pair.first() == pair.last()),
