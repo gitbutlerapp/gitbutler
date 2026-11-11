@@ -12,7 +12,7 @@ const meta = stories({
 	title: "Content & status/CodeBlock",
 	id: "components-codeblock",
 	component: CodeBlock,
-	parameters: { ...figma("4614-15710"), width: 480 },
+	parameters: { ...figma("4614-15711"), width: 480 },
 });
 
 const copyToClipboard = (code: string) => void navigator.clipboard.writeText(code);

@@ -18,7 +18,7 @@ const meta = stories({
 	title: "Overlays/Modal",
 	id: "components-modal",
 	component: Modal,
-	parameters: figma("2229-1566"),
+	parameters: figma("4663-66371"),
 	args: {
 		size: "small",
 		align: "center",

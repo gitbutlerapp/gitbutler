@@ -51,6 +51,8 @@ const glyph = (type: string | undefined): IconName =>
  * description that can hold real content, at most one action under it, and a close button. Every
  * type wears the same surface; the glyph alone carries the verdict.
  *
+ * @figma `type` is the `type` a toast is added with: one of each, drawn.
+ * @see packages/but-ui/design/patterns/toasts-and-snackbars.md
  * @import import { Toasts } from "@gitbutler/but-ui-react/Toasts.tsx";
  */
 export const Toasts: FC = () => {

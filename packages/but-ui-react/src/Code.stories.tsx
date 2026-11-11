@@ -13,7 +13,7 @@ const meta = stories({
 	title: "Content & status/Code",
 	id: "components-code",
 	component: Code,
-	parameters: figma("4633-925"),
+	parameters: figma("4633-926"),
 });
 
 export const Default = meta.story({

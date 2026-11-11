@@ -14,7 +14,7 @@ const meta = stories({
 	title: "Content & status/Section",
 	id: "components-section",
 	component: Section,
-	parameters: { ...figma("4630-892"), width: 386 },
+	parameters: { ...figma("4630-893"), width: 386 },
 });
 
 const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);
