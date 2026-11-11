@@ -1,5 +1,3 @@
-//! Display-oriented types and helpers for branch upstream integration.
-
 use std::{collections::HashMap, fmt};
 
 use anyhow::Result;
@@ -11,7 +9,6 @@ use crate::{divergence::TargetCommitRelation, ui::Author};
 /// A single commit row in the divergence display.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IntegrationDivergenceCommit {
-    /// The commit shown in the graph row.
     pub id: gix::ObjectId,
     /// The first-line subject shown for the commit.
     pub subject: String,
@@ -85,11 +82,6 @@ impl fmt::Display for IntegrationDivergenceDisplay {
 }
 
 /// Build a display row for a single divergence commit.
-///
-/// `repo` provides commit decoding so the commit subject can be loaded.
-///
-/// `target_relation` describes how `commit_id` relates to the configured target
-/// branch.
 pub(super) fn divergence_commit(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -124,11 +116,6 @@ pub(super) fn divergence_commit(
 ///
 /// `merge_base` is the shared merge-base row that should receive the label if
 /// the labeled commit is not present in `primary`.
-///
-/// `id` is the optional commit id that should receive `label`.
-///
-/// `label` is the human-facing ref label to append when the target row is
-/// found.
 pub(super) fn add_ref_label(
     primary: &mut [IntegrationDivergenceCommit],
     merge_base: &mut IntegrationDivergenceCommit,
@@ -150,10 +137,6 @@ pub(super) fn add_ref_label(
 }
 
 /// Look up the target-branch relation for a displayed commit.
-///
-/// `target_relations` is the precomputed map of commit ids to their target
-/// branch relation.
-///
 /// Returns the stored relation for `commit_id`, or `NotIntegrated` when the
 /// commit is absent from the map.
 pub(super) fn relation_for(

@@ -302,7 +302,6 @@ pub fn add(
 }
 
 enum CopyMode {
-    /// Copy files wholesale.
     Copy,
     #[cfg(target_os = "macos")]
     /// Attempt to clone files, falling back to copying if cloning fails.

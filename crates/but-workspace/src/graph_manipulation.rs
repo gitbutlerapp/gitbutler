@@ -1,5 +1,3 @@
-//! Shared graph editor traversal and edge-manipulation helpers.
-
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
 use but_graph::workspace::StackSegment;
@@ -9,9 +7,7 @@ use but_rebase::graph_rebase::{
 };
 use std::collections::HashSet;
 
-/// Payload containing information about how to disconnect a segment in the graph.
 pub struct DisconnectParameters {
-    /// The bounds of the segment to disconnect.
     pub(crate) delimiter: SegmentDelimiter<Selector, Selector>,
     /// The children of the child-most segment bound to disconnect.
     pub(crate) children_to_disconnect: SelectorSet,
@@ -165,17 +161,11 @@ pub fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
 /// Which direct edge set to resolve from a selector.
 #[derive(Clone, Copy)]
 pub(crate) enum EdgeSelection {
-    /// Resolve direct child edges.
     Children,
-    /// Resolve direct parent edges.
     Parents,
 }
 
 /// Disconnect all parent edges from a single selector without reconnecting them.
-///
-/// `editor` is the mutable graph editor whose connectivity will be updated.
-///
-/// `selector` is the node whose parent edges should be removed.
 pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     selector: Selector,
@@ -194,8 +184,6 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
 }
 
 /// Resolve concrete direct edges selected by a selector set, preserving edge order.
-///
-/// `editor` provides the direct parent or child edges that can be selected.
 ///
 /// `target` is the node whose adjacent edges should be filtered.
 ///
@@ -239,8 +227,6 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 }
 
 /// Reconnect a rebuilt segment to previously selected children and parents.
-///
-/// `editor` is the mutable graph editor whose edges will be recreated.
 ///
 /// `delimiter` identifies the rebuilt segment's child-most and parent-most
 /// selectors.
@@ -318,15 +304,10 @@ fn next_available_order(
 /// This is useful when rebuilding an editor segment and we want to reuse an existing
 /// pick node without adding a duplicate edge to the same commit.
 ///
-/// `editor` provides access to the current parent edges and commit selectors.
-///
 /// `child` is the node whose direct parents should be inspected.
 ///
 /// `step` is the candidate step whose pick commit should be matched against the
 /// already-connected parents of `child`.
-///
-/// Returns the matching direct parent selector when `step` already corresponds
-/// to an attached pick parent, or `None` otherwise.
 pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     child: Selector,
@@ -382,10 +363,6 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
 }
 
 /// Find all parent-reachable nodes from and including the provided tip.
-///
-/// `editor` provides the parent-edge traversal used for the walk.
-///
-/// `tip` is the starting selector whose ancestors should be collected.
 pub(crate) fn traverse_nodes<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     tip: Selector,

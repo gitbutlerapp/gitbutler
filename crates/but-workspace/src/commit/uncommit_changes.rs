@@ -26,7 +26,6 @@ pub struct UncommitChangesOutcome<'ws, 'meta, M: RefMetadata> {
 pub struct UncommitChangesSource {
     /// The commit to remove `changes` from.
     pub commit_id: gix::ObjectId,
-    /// The changes to remove from the commit.
     pub changes: Vec<DiffSpec>,
 }
 
@@ -35,7 +34,6 @@ pub struct UncommitChangesSource {
 pub struct UncommitChangesFailure {
     /// The commit whose changes failed to uncommit.
     pub commit_id: gix::ObjectId,
-    /// All changes requested for this commit.
     pub changes: Vec<DiffSpec>,
     /// Human-readable failure reason.
     pub error: String,
@@ -46,7 +44,6 @@ pub struct UncommitChangesFailure {
 pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     /// The successful rebase result, which rewrites nothing when no source was uncommitted.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// Sources that could not be uncommitted.
     pub failures: Vec<UncommitChangesFailure>,
 }
 

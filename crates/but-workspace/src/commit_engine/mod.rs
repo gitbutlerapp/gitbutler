@@ -53,9 +53,7 @@ pub struct StackSegmentId {
 pub struct UpdatedReference {
     // TODO: The virtual variant could contain stack-id as well, but it remains to be seen how useful this is.
     pub reference: but_core::Reference,
-    /// The commit to which `reference` pointed before the update.
     pub old_commit_id: gix::ObjectId,
-    /// The commit to which `reference` points now.
     pub new_commit_id: gix::ObjectId,
 }
 
@@ -72,8 +70,6 @@ pub struct CreateCommitOutcome {
     /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
     /// Otherwise, it's `<commit>^{tree}` + changes.
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
-    /// The rewritten references `(old, new, reference)`, along with their `old` and `new` commit location, along
-    /// with the reference itself.
     /// If `new_commit` is `None`, this array will be an empty.
     pub references: Vec<UpdatedReference>,
     /// `Some(_)` if a rebase was performed.

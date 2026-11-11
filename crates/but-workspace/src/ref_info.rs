@@ -33,7 +33,6 @@ pub struct Commit {
     /// These can be names of tags and branches.
     pub refs: Vec<but_graph::RefInfo>,
     pub flags: StackCommitFlags,
-    /// Whether the commit is in a conflicted state, a GitButler concept.
     /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
     /// Conflicts are resolved via the Edit Mode mechanism.
     ///
@@ -46,7 +45,6 @@ pub struct Commit {
     /// if it's not stored in the Commit. Use [`Self::change_id()`] to always get the change id,
     /// if necessary, by deriving it from the commit hash itself.
     pub change_id: Option<but_core::ChangeId>,
-    /// Optional URL to the Gerrit review for this commit, if applicable.
     pub gerrit_review_url: Option<String>,
 }
 
@@ -349,7 +347,6 @@ pub struct Lane<'a> {
 /// What a segment is known by before and after its lane is rebased.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SegmentIdentity {
-    /// The branch naming the segment.
     Branch(gix::refs::FullName),
     /// The worktree whose detached `HEAD` owns the segment, by its stable name.
     DetachedWorktree(BString),

@@ -1,5 +1,3 @@
-//! Shared helpers for branch/upstream divergence discovery.
-
 use anyhow::{Context as _, Result};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
@@ -46,12 +44,6 @@ impl TargetCommitRelation {
 /// described.
 ///
 /// `upstream_ref_name` is the effective tracking ref paired with `ref_name`.
-///
-/// `editor` provides the in-memory graph view used to walk refs, picks, and
-/// preserved parentage consistently within the current operation.
-///
-/// Returns the local-only selectors, upstream-only selectors, and the selector
-/// for their shared merge base.
 pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
     ref_name: &'a gix::refs::FullNameRef,
     upstream_ref_name: Cow<'a, gix::refs::FullNameRef>,
@@ -90,11 +82,6 @@ pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
     })
 }
 
-/// Convert selectors into their current picked commit ids.
-///
-/// `editor` provides the graph lookup used to resolve each selector to its
-/// current picked commit id.
-///
 /// Returns the commit ids for all provided selectors in iteration order.
 pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
@@ -132,9 +119,6 @@ pub(crate) fn find_local_commit_until_merge_base<M: RefMetadata>(
 }
 
 /// Classify candidate selectors by whether the target branch reaches them.
-///
-/// `editor` provides the graph traversal and pick lookup operations used during
-/// classification.
 ///
 /// `target_ref_selector` is the selector whose reachable history defines what
 /// counts as already integrated.

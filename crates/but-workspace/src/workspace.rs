@@ -30,7 +30,6 @@ pub enum GraphRowData {
 pub struct GraphRow {
     pub data: GraphRowData,
 
-    /// The node columns for this row.
     pub node_line: Vec<NodeLine>,
 
     /// The link columns for this row, if a link row is necessary.
@@ -40,7 +39,6 @@ pub struct GraphRow {
     /// filled in with pad lines.
     pub term_line: Option<Vec<bool>>,
 
-    /// The pad columns for this row.
     pub pad_lines: Vec<PadLine>,
 }
 
@@ -48,16 +46,13 @@ pub struct GraphRow {
 pub struct LinearSegment {
     /// The reference that starts this segment, if any.
     pub reference_idx: Option<usize>,
-    /// The row indices in this segment.
     pub row_idxs: Vec<usize>,
 }
 
 /// A reference and the rows reachable from it, down to the next reference. A
 /// commit reachable from more than one reference is included in each of them.
 pub struct ReferenceSegment {
-    /// The reference row index.
     pub reference_idx: usize,
-    /// The row indices in this segment.
     pub row_idxs: Vec<usize>,
 }
 
@@ -70,7 +65,6 @@ pub struct Stack {
     pub reference_segments: Vec<ReferenceSegment>,
 }
 
-/// The Graph Workspace that has been decorated with a bunch of types
 pub struct DetailedGraphWorkspace {
     pub stacks: Vec<Stack>,
 }

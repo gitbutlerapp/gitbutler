@@ -4,7 +4,6 @@ use serde::Serialize;
 
 use crate::commit_engine::RejectionReason;
 
-/// A rejected change with its reason and path.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RejectedChange {

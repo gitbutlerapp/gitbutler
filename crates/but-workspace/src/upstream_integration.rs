@@ -32,7 +32,6 @@ pub enum BottomUpdateKind {
     Merge,
 }
 
-/// Describes a particular bottom node and how it should be updated.
 pub struct BottomUpdate {
     pub kind: BottomUpdateKind,
     /// A pointer to one of the bottom most commits in a stack.
@@ -393,7 +392,6 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    // Handle integrated stacks.
     // Determine which stacks (or branches) are integrated, and remove them from the workspace
     // if any.
     let workspace_commit_selector = head_is_workspace_commit
@@ -1047,8 +1045,6 @@ fn reference_points_to_target(
         .unwrap_or(false)
 }
 
-/// Whether an integrated local branch ref should be deleted during integration.
-///
 /// Only local branches are eligible for deletion here. As a conservative
 /// heuristic, never delete local `main` or `master`, even if the graph marks
 /// them as integrated. Those names often represent a user's primary local
@@ -1170,8 +1166,6 @@ fn highest_review_heads<M: RefMetadata>(
     Ok(out)
 }
 
-/// Convert a list of selectors into their current commit ids.
-///
 /// Use the commit ids with great care as they might go out of date or have
 /// expected parentages after mutations in the editor.
 ///

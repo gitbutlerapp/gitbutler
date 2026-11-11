@@ -190,7 +190,6 @@ pub struct AncestorWorkspaceCommit {
     /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
     /// The vec *should* not be empty, but it can be empty in practice for reasons yet to be discovered.
     pub commits_outside: Vec<ref_info::Commit>,
-    /// The index of the segment that actually holds the managed workspace commit.
     pub segment_with_managed_commit: SegmentIndex,
     /// The index of the workspace commit within the `commits` array in its parent segment.
     pub commit_index_of_managed_commit: but_graph::CommitIndex,
@@ -201,7 +200,6 @@ pub struct AncestorWorkspaceCommit {
 #[derive(Debug, Clone)]
 pub struct WorkspaceCommit<'repo> {
     pub id: gix::Id<'repo>,
-    /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,
 }
 

@@ -23,8 +23,6 @@ pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
 ///
 /// ## Parameters
 ///
-/// - `source_commit_id`: The commit to remove changes from
-/// - `destination_commit_id`: The commit to add changes to
 /// - `changes_to_move`: The changes to move (as "subtraction" specs)
 /// - `context_lines`: Number of context lines for hunk matching
 ///

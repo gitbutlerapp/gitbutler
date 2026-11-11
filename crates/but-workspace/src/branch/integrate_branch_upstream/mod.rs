@@ -40,7 +40,6 @@ use plan::prepare_integration_steps_for_editor;
 pub enum InteractiveIntegrationStep {
     /// Pick a commit, keeping it in the branch.
     Pick { commit_id: gix::ObjectId },
-    /// Squash the commits into one.
     Squash {
         commits: Vec<gix::ObjectId>,
         message: Option<String>,
@@ -68,10 +67,8 @@ impl fmt::Display for InteractiveIntegrationStep {
     }
 }
 
-/// The necessary information about the integration to be performed.
 #[derive(Debug)]
 pub struct InteractiveIntegration {
-    /// The list of steps to follow in order to integrate the upstream changes into the local.
     pub steps: Vec<InteractiveIntegrationStep>,
     /// Merge base between the upstream and the local reference.
     pub merge_base: gix::ObjectId,
@@ -245,14 +242,6 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 ///
 /// The returned steps are ordered for application from parent to child so they
 /// can be passed directly to integration without reordering by the caller.
-///
-/// `ref_name` - The full reference name of the local branch to get the integration steps for.
-///
-/// `workspace` - The current workspace graph projection used to construct the editor.
-///
-/// `meta` - Reference metadata used while constructing the editor.
-///
-/// Returns the initial integration script and current divergence display state.
 pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,

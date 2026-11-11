@@ -187,7 +187,6 @@ pub mod merge {
     use super::Stack;
     use crate::WorkspaceCommit;
 
-    /// A optionally named tip that can be merged.
     #[derive(Debug, Clone)]
     pub struct Tip {
         /// The name of the reference that points to `commit_id`, or `None` if there is no such reference.
@@ -210,7 +209,6 @@ pub mod merge {
         pub missing_stacks: Vec<gix::refs::FullName>,
     }
 
-    /// A minimal stack for to represent a stack that conflicted.
     #[derive(Clone)]
     pub struct ConflictingStack {
         /// The tip that could not be merged in.
