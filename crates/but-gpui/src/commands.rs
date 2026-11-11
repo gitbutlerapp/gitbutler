@@ -177,6 +177,10 @@ commands! {
     NewBranchOnTop => "New branch above",
     crate::app::NewWorktree => "New worktree" { listed: has_target },
     crate::app::NewWorktreeWithName => "New worktree with name" { listed: has_target },
+    crate::app::RecycleWorktree => "Recycle worktree" {
+        listed: has_target,
+        aliases: &["Reuse worktree"],
+    },
     Reword => "Reword" {
         aliases: &["Reword commit", "Rename commit", "Edit commit message"],
     },

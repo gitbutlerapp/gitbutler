@@ -1173,6 +1173,34 @@ impl Store {
         );
     }
 
+    /// Show again the archived worktree [`backend::worktrees::RecycleWorktree`] finds, else
+    /// make a new one, and select it.
+    pub fn recycle_worktree(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let selected = project.clone();
+        self.apply(
+            project,
+            "Recycle worktree",
+            Overlay::default(),
+            backend::worktrees::RecycleWorktree,
+            move |store, recycled, cx| {
+                let (done, name) = match recycled {
+                    backend::worktrees::Recycled::Unarchived(name) => {
+                        (format!("Recycled worktree {name}"), name)
+                    }
+                    backend::worktrees::Recycled::Created(name) => {
+                        (format!("Created worktree {name}"), name)
+                    }
+                };
+                store.snack(done, cx);
+                store.select(
+                    Some(Selection::Checkout(selected, Checkout::Linked(name))),
+                    cx,
+                )
+            },
+            cx,
+        );
+    }
+
     /// Delete linked worktree `name` from disk, with its uncommitted files `lost`, by their
     /// write times and sizes, which the user agreed to lose. Its branch stays. Undo can't
     /// bring the folder back.

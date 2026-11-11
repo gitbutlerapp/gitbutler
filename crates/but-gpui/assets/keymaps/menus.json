@@ -114,6 +114,7 @@
         "action": "navigator::NewWorktreeWithName",
         "title": "New Worktree With Name…"
       },
+      "navigator::RecycleWorktree",
       "navigator::ArchiveWorktree",
       {
         "action": "navigator::UnarchiveWorktree",

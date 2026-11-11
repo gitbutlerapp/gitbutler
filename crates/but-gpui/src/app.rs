@@ -101,6 +101,7 @@ actions!(
         NewBranchOnTop,
         NewWorktree,
         NewWorktreeWithName,
+        RecycleWorktree,
         SelectPrevious,
         SelectNext,
         Expand,
@@ -1005,6 +1006,13 @@ impl AppView {
         };
         let create = backend::worktrees::CreateWorktree::New(None);
         (self.store).update(cx, |store, cx| store.create_worktree(&project, create, cx))
+    }
+
+    fn recycle_worktree(&mut self, _: &RecycleWorktree, _: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project_to_start_in(cx) else {
+            return;
+        };
+        (self.store).update(cx, |store, cx| store.recycle_worktree(&project, cx))
     }
 
     fn new_worktree_with_name(
@@ -5516,6 +5524,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::new_branch))
             .on_action(cx.listener(Self::new_worktree))
             .on_action(cx.listener(Self::new_worktree_with_name))
+            .on_action(cx.listener(Self::recycle_worktree))
             .on_action(cx.listener(Self::push_selected))
             // Where the diff shows what's selected, which can squash.
             .when(
