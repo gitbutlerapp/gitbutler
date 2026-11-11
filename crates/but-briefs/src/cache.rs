@@ -276,7 +276,7 @@ impl Cache {
         Ok(())
     }
 
-    /// Keep a version read on its own, at `now`, in seconds since the epoch.
+    /// Keep a version read on its own.
     pub fn put_version(&self, version: &FetchedVersion) -> rusqlite::Result<()> {
         put_version(&self.conn, version)
     }
