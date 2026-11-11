@@ -76,7 +76,6 @@ impl Anchor {
         }
     }
 
-    /// The segment the ref maps to, whatever its relation.
     pub(crate) fn segment(&self) -> SegmentIndex {
         match *self {
             Anchor::OwnsTip(segment) | Anchor::MidHistory(segment) | Anchor::Unreached(segment) => {
