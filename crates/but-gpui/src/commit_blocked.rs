@@ -209,7 +209,7 @@ fn amend_offers(
     };
     let mut offers = Vec::new();
     if blocked.takes_others {
-        let label = "Leave them out".to_owned();
+        let label = "Amend unlocked changes".to_owned();
         offers.push(offer(label, into, true, Conflicts::Reject, None, false));
     }
     if blocked.with_conflicts.is_some() {
@@ -222,7 +222,7 @@ fn amend_offers(
     }
     if let Some(stacking) = &blocked.restack {
         let primary = blocked.instead.is_none();
-        let label = format!("Stack on {} and amend", short_ref(&stacking.onto));
+        let label = "Restack and amend".to_owned();
         let restack = Some(stacking.clone());
         offers.push(offer(
             label,
