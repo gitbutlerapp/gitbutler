@@ -13,7 +13,7 @@ const meta = stories({
 	title: "Content & status/Banner",
 	id: "components-banner",
 	component: Banner,
-	parameters: { ...figma("2763-6872"), width: 360 },
+	parameters: { ...figma("2763-6859"), width: 360 },
 	args: {
 		variant: "warn",
 		title: "Live updates paused · may be out of date",

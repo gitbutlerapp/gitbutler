@@ -11,7 +11,7 @@ const meta = stories({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=333-415&t=WybubQHtVH7UitJU-1",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=353-132&t=WybubQHtVH7UitJU-1",
 		},
 	},
 	decorators: [
