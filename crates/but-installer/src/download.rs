@@ -6,7 +6,6 @@ use anyhow::{Context, Result, anyhow, bail};
 
 use crate::http::create_client;
 
-/// Download a URL and return its contents as a string.
 #[cfg(target_os = "linux")]
 pub(crate) fn download_to_string(url: &str) -> Result<String> {
     let mut easy = create_client()?;
@@ -54,7 +53,6 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     easy.url(url)
         .with_context(|| format!("Failed to set URL: {url}"))?;
 
-    // Enable libcurl's built-in progress reporting
     easy.progress(true)?;
 
     let file = File::create(dest).context("Failed to create download file")?;

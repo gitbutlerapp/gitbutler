@@ -353,7 +353,6 @@ fn validate_tarball(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Check if a file has valid gzip magic bytes
 fn is_gzip_file(path: &Path) -> Result<bool> {
     let mut file = File::open(path).context("Failed to open file")?;
     let mut magic_bytes = [0u8; 2];
