@@ -357,7 +357,9 @@ impl Rows {
 }
 
 /// The places `commits` of `project` can land, in the order `rows` list them, and which of
-/// them is where they are: the one just above the first of them. A folded branch takes them at
+/// them is where they are: the one just above the first of them. `copied`, as a cherry-pick
+/// leaves them there, they land right below themselves too, and that one above them is where
+/// their copies go right above them, not where they already are. A folded branch takes them at
 /// its top, where they show under its row, its commits stepped over and it staying folded.
 /// `open` says whether a heading shows what it holds: the main checkout's stacks show only
 /// while its heading's open, as a new stack goes before and after them, which starts from the
@@ -368,6 +370,7 @@ pub(super) fn stops<'a>(
     rows: impl IntoIterator<Item = &'a Row>,
     project: &ProjectId,
     commits: &[CommitId],
+    copied: bool,
     workspace: &Workspace,
     open: impl Fn(&Selection) -> bool,
 ) -> (Vec<Stop>, usize) {
@@ -432,9 +435,11 @@ pub(super) fn stops<'a>(
                 in_branch = false;
             }
             Row::Item(Selection::Commit(p, id)) if p == project => {
-                if commits.contains(id) {
+                let own = commits.contains(id);
+                if own {
                     start = start.or(stops.len().checked_sub(1));
-                } else if in_branch {
+                }
+                if in_branch && (copied || !own) {
                     stops.push(Stop::In(Destination::BelowCommit(*id)));
                 }
             }
@@ -719,24 +724,31 @@ impl Navigator {
                     | Moving::Files(_)
                     | Moving::Copies(_) => &[],
                 };
-                let all = stops(self.shown_rows(), project, commits, workspace, open);
+                let all = stops(self.shown_rows(), project, commits, false, workspace, open);
                 let Moving::Branch(branch) = what else {
                     return Some(all);
                 };
                 branch_stops(all.0, branch, lands)
             }
-            // Where commits moved can land. The workspace's start where they are, and copies of
-            // others, which are nowhere here, on top of the topmost branch, as a new commit
-            // does.
+            // Where commits moved can land, and right below the workspace's, which start right
+            // above where they are, as copies go beside them. Copies of others, which are
+            // nowhere here, start on top of the topmost branch, as a new commit does.
             Op::CherryPick => {
                 let Moving::Commits(commits) = what else {
-                    let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                    let (all, _) = stops(self.shown_rows(), project, &[], false, workspace, open);
                     let topmost = (all.iter())
                         .position(|stop| matches!(stop, Stop::In(Destination::Branch(_))))
                         .unwrap_or_default();
                     return Some((all, topmost));
                 };
-                Some(stops(self.shown_rows(), project, commits, workspace, open))
+                Some(stops(
+                    self.shown_rows(),
+                    project,
+                    commits,
+                    true,
+                    workspace,
+                    open,
+                ))
             }
             Op::Squash(_) => {
                 let home = what.home(project, store.selection.as_ref())?;
@@ -745,7 +757,7 @@ impl Navigator {
             // Where commits moved can land. It starts where it's started from
             // ([`Self::start_committing`]), not where anything is.
             Op::Commit => {
-                let (all, _) = stops(self.shown_rows(), project, &[], workspace, open);
+                let (all, _) = stops(self.shown_rows(), project, &[], false, workspace, open);
                 let mut stops: Vec<Stop> = all.into_iter().filter(|stop| lands(stop)).collect();
                 // The main checkout's changes can always go in a new branch of their own, after
                 // the rest, even with its heading folded and none of its branches listed.
@@ -1223,10 +1235,7 @@ impl Navigator {
         cx: &mut Context<Self>,
     ) {
         let op = Op::CherryPick;
-        // Somewhere besides where they are, which copies of others are nowhere here.
-        let copies = matches!(what, Moving::Copies(_));
         let start = (self.stops_for(&project, &what, op, cx))
-            .filter(|(stops, _)| stops.len() > 1 || (copies && !stops.is_empty()))
             .and_then(|(stops, start)| stops.into_iter().nth(start));
         let Some(at) = start else {
             return snack(&self.store, "Nowhere to cherry-pick it", cx);
@@ -2086,7 +2095,7 @@ mod tests {
     fn a_commit_stops_between_every_branch_and_commit_but_in_what_is_folded() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (stops, start) = stops(&rows, &project, &[id(2)], &ws, open);
+        let (stops, start) = stops(&rows, &project, &[id(2)], false, &ws, open);
         // A new stack before the main checkout's stacks, a new branch above every branch of a
         // stack and below its last, each branch's top and the place below each of its commits
         // but the one moving, which starts below 3 at the top of api; then a new stack once the
@@ -2117,11 +2126,43 @@ new branch below agent
     }
 
     #[test]
+    fn a_cherry_pick_stops_right_above_and_right_below_the_commit() {
+        let project = ProjectId::from("p");
+        let (ws, rows) = listed(&project);
+        let (stops, start) = stops(&rows, &project, &[id(2)], true, &ws, open);
+        // As a move's, but the copy also goes below 2, and starts right above it, at the top
+        // of api, as the original stays.
+        snapbox::assert_data_eq!(
+            describe(&stops, start),
+            snapbox::str![[r#"
+new stack first
+new branch above ui
+top of ui
+below 3
+new branch above api
+top of api <
+below 2
+below 1
+new branch below api
+new branch above typo
+top of typo
+new branch below typo
+new stack
+new branch above agent
+top of agent
+below 5
+new branch below agent
+
+"#]]
+        );
+    }
+
+    #[test]
     fn a_folded_main_checkout_takes_nothing_and_without_a_target_no_new_stack_is_offered() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
         let shut = |_: &Selection| false;
-        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], &ws, shut);
+        let (folded, _) = stops(rows.iter().take(2), &project, &[id(2)], false, &ws, shut);
         assert!(
             folded.is_empty(),
             "nothing shows under the folded heading, and no new stack goes after it"
@@ -2131,7 +2172,7 @@ new branch below agent
             target_branch: None,
             ..ws
         };
-        let (stops, start) = stops(&rows, &project, &[id(1)], &untargeted, open);
+        let (stops, start) = stops(&rows, &project, &[id(1)], false, &untargeted, open);
         // A stack of its own starts from the target, so without one there's no new stack,
         // only new branches beside the others, in every lane.
         snapbox::assert_data_eq!(
@@ -2319,7 +2360,7 @@ into uncommitted on wt
                 Row::Item(Selection::Checkout(..) | Selection::Uncommitted(..))
             )
         });
-        let (stops, _) = stops(&rows, &project, &[id(2)], &ws, open);
+        let (stops, _) = stops(&rows, &project, &[id(2)], false, &ws, open);
         assert_eq!(
             (stops.first(), stops.last()),
             (
@@ -2345,7 +2386,7 @@ into uncommitted on wt
                 Some(full("refs/heads/agent")),
             )),
         ];
-        let (stops, _) = super::stops(&filtered, &project, &[id(5)], &ws, open);
+        let (stops, _) = super::stops(&filtered, &project, &[id(5)], false, &ws, open);
         assert!(
             !stops
                 .iter()
@@ -2433,7 +2474,7 @@ into 1
     fn a_branch_stops_only_between_branches_and_where_it_is() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
         let api = full("refs/heads/api");
         // Below itself it doesn't move, and a branch keeps to its own side, out of wt.
         let lands = |stop: &Stop| match stop {
@@ -2485,7 +2526,7 @@ new stack
             Row::Item(Selection::Branch(p(), named("low"))),
             Row::Item(Selection::Commit(p(), id(1))),
         ];
-        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
         // It's already right above low.
         let above_low = Stop::NewBranch {
             beside: full("refs/heads/low"),
@@ -2568,7 +2609,7 @@ last on p/empty
     /// Commit 2 of `listed`'s being moved as `op`, with the stops a move of it has.
     fn moving_commit(project: &ProjectId, op: Op) -> (Move, Vec<Stop>, usize) {
         let (ws, rows) = listed(project);
-        let (stops, start) = stops(&rows, project, &[id(2)], &ws, open);
+        let (stops, start) = stops(&rows, project, &[id(2)], false, &ws, open);
         let moving = Move {
             project: project.clone(),
             what: Moving::Commits(Arc::from([id(2)])),
@@ -2633,7 +2674,7 @@ last on p/empty
     fn a_click_on_a_folded_branch_puts_a_branch_above_it() {
         let project = ProjectId::from("p");
         let (ws, rows) = listed(&project);
-        let (all, _) = stops(&rows, &project, &[], &ws, open);
+        let (all, _) = stops(&rows, &project, &[], false, &ws, open);
         let api = full("refs/heads/api");
         let (stops, start) = branch_stops(all, &api, |_| true).unwrap();
         let moving = Move {
