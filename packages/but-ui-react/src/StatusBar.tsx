@@ -37,8 +37,12 @@ export const StatusBar: FC<StatusBarProps> = ({ start, end, ...props }) => (
 );
 
 type StatusNoteProps = {
-	/** `danger` for something broken (CI failed, Couldn't fetch) and for the counts in a {@link StatusAlert}. @default "default" */
-	tone?: "default" | "danger";
+	/**
+	 * `warning` for what an action would leave conflicted (With conflicts, while committing or
+	 * amending). `danger` for something broken (CI failed, Couldn't fetch) and for the counts in a
+	 * {@link StatusAlert}. @default "default"
+	 */
+	tone?: "default" | "warning" | "danger";
 	/** The glyph before the label. */
 	icon?: IconName;
 	/** The glyph after the label, as the refresh arrow on "Fetched 2m ago". */
@@ -48,6 +52,7 @@ type StatusNoteProps = {
 /**
  * A footer button: quiet text/2 at rest, so the bar stays calm until something needs attention.
  * The default tone is for status and the ways in (Fetched 2m ago, 1 unread, ⌘K Commands);
+ * `warning` puts warning text on a warning tint, for what an action would leave conflicted, never danger;
  * `danger` puts text/danger on a danger tint. Its label states a count and what it is, never a verb.
  *
  * @import import { StatusNote } from "@gitbutler/but-ui-react/StatusBar.tsx";
@@ -62,7 +67,13 @@ export const StatusNote: FC<StatusNoteProps> = ({
 	<button
 		type="button"
 		{...props}
-		className={classes(props.className, "text-12", styles.note, tone === "danger" && styles.danger)}
+		className={classes(
+			props.className,
+			"text-12",
+			styles.note,
+			tone === "warning" && styles.warning,
+			tone === "danger" && styles.danger,
+		)}
 	>
 		{icon !== undefined && <Icon name={icon} size={14} />}
 		{children}

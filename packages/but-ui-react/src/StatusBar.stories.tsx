@@ -127,7 +127,7 @@ export const FilesInLinkedWorktree = meta.story({
 	),
 });
 
-/** A note at rest is quiet text/2; `danger` is for something broken and the conflicts' counts. */
+/** A note at rest is quiet text/2; `warning` is for what an action would leave conflicted, and `danger` for something broken and the conflicts' counts. */
 export const Notes = meta.story({
 	parameters: { ...core("4852-2344"), layout: undefined },
 	decorators: [pane],
@@ -135,6 +135,9 @@ export const Notes = meta.story({
 		<>
 			<StatusNote iconEnd="refresh">Fetched 2m ago</StatusNote>
 			<StatusNote icon="commit">1 unread</StatusNote>
+			<StatusNote tone="warning" icon="warning">
+				With conflicts
+			</StatusNote>
 			<StatusNote tone="danger" icon="cross">
 				CI failed
 			</StatusNote>

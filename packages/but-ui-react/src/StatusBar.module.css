@@ -59,6 +59,15 @@
 	}
 }
 
+.warning {
+	background-color: color-mix(in srgb, var(--but-warning) 10%, transparent);
+	color: var(--but-warning-text);
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--but-warning) 18%, transparent);
+	}
+}
+
 .danger {
 	background-color: color-mix(in srgb, var(--but-danger) 10%, transparent);
 	color: var(--but-danger-text);
