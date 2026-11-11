@@ -1853,21 +1853,17 @@ pub fn tear_off_branch_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
-    branch_mutation_with_snapshot(
+    let mut meta = ctx.meta()?;
+    let workspace = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
         perm,
-        OperationKind::TearOffBranch,
+        SnapshotDetails::new(OperationKind::TearOffBranch),
+        &[],
         dry_run,
-        |ctx, perm| {
-            let mut meta = ctx.meta()?;
-            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-            let rebase = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
-            Ok(MoveBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-            })
-        },
-    )
+        |mut tx| tx.tear_off_branch(subject_branch, None),
+    )?;
+    Ok(MoveBranchResult { workspace })
 }
 
 fn branch_mutation_with_snapshot<T, F>(
