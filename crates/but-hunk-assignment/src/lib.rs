@@ -1,14 +1,3 @@
-//!
-//!
-//! Hunk - File, range
-//!
-//! HunkAssignment - None or Some(Stack in workspace)
-//!
-//! reconcile_assignments - takes worktree changes (`Vec<TreeChange>`) + current assignments (`Vec<HunkAssignment>`)
-//! returns updated assignments (`Vec<HunkAssignment>`)
-//!
-//! set_assignments
-
 mod reconcile;
 mod state;
 
@@ -247,14 +236,12 @@ pub struct CommitAbsorption {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(CommitAbsorption);
 
-/// JSON output structure for a file being absorbed
 #[derive(Debug, Serialize)]
 pub struct JsonFileAbsorption {
     pub path: String,
     pub hunks: Vec<String>,
 }
 
-/// JSON output structure for a commit absorption
 #[derive(Debug, Serialize)]
 pub struct JsonCommitAbsorption {
     pub commit_id: String,
@@ -264,7 +251,6 @@ pub struct JsonCommitAbsorption {
     pub files: Vec<JsonFileAbsorption>,
 }
 
-/// JSON output structure for the entire absorb operation
 #[derive(Debug, Serialize)]
 pub struct JsonAbsorbOutput {
     pub total_files: usize,
@@ -739,7 +725,6 @@ impl From<but_core::SingleHunk> for AbsorbCandidate {
     }
 }
 
-/// Type alias for grouped changes by commit
 pub type GroupedChanges = BTreeMap<
     (but_core::ref_metadata::StackId, gix::ObjectId),
     (Vec<AbsorbCandidate>, AbsorptionReason),

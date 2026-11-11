@@ -21,17 +21,13 @@ impl HunkAssignment {
         valid_branch_refs: &HashSet<&gix::refs::FullName>,
         update_unassigned: bool,
     ) {
-        // Always set the path from the other assignment
         self.path = other.path.clone();
-        // Override the id only if the other assignment has an id
         if other.id.is_some() {
             self.id = other.id;
         }
-        // Override the lines added only if the other assignment has them set
         if other.line_nums_added.is_some() {
             self.line_nums_added = other.line_nums_added.clone();
         }
-        // Override the lines removed only if the other assignment has them set
         if other.line_nums_removed.is_some() {
             self.line_nums_removed = other.line_nums_removed.clone();
         }
