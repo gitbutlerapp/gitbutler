@@ -14,7 +14,6 @@ use crate::AppChannel;
 /// place in it `at` names.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpenLink {
-    /// The project's directory.
     pub path: PathBuf,
     /// Open it in a window of its own rather than the one in front.
     pub new_window: bool,
