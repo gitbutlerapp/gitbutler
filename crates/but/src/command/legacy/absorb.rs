@@ -137,7 +137,6 @@ pub(crate) fn handle(
     let plan_json = display_absorption_plan(&absorption_plan, &id_map, out, dry_run)?;
 
     if dry_run {
-        // Nothing more to do
         if let Some(out) = out.for_human() {
             let t = theme::get();
             let message = t.success.paint("Dry run complete. No changes were made.");
@@ -164,7 +163,6 @@ pub(crate) fn handle(
     Ok(())
 }
 
-/// Absorb a single file into the appropriate commit
 fn absorb_assignments(
     ctx: &mut Context,
     absorption_plan: Vec<CommitAbsorption>,
@@ -175,7 +173,6 @@ fn absorb_assignments(
 ) -> anyhow::Result<()> {
     let total_rejected = but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, perm)?;
 
-    // Display completion message
     let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(out)?;
@@ -213,7 +210,6 @@ fn absorb_assignments(
     Ok(())
 }
 
-/// Format a hunk range for display
 fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
     if hunk_header.old_lines == 0 {
         // New file or added lines only
@@ -233,7 +229,6 @@ fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
     }
 }
 
-/// Get all hunk ranges for a file
 fn get_hunk_ranges(hunk: &but_core::SingleHunk) -> Vec<String> {
     if let Some(hunk_header) = &hunk.hunk_header {
         vec![format_hunk_range(hunk_header)]
@@ -254,14 +249,12 @@ fn display_absorption_plan(
     out: &mut OutputChannel,
     write_json: bool,
 ) -> anyhow::Result<Option<JsonAbsorbOutput>> {
-    // Count total files
     let total_files: usize = commit_absorptions
         .iter()
         .flat_map(|c| c.hunks.iter().map(|h| &h.path))
         .unique()
         .count();
 
-    // Handle empty case
     if commit_absorptions.is_empty() || total_files == 0 {
         let output = JsonAbsorbOutput {
             total_files: 0,

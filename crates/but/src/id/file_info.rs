@@ -16,7 +16,6 @@ pub(crate) struct FileInfo {
 }
 
 impl FileInfo {
-    /// Extracts file information from tree changes.
     pub(crate) fn from_tree_changes(
         tree_changes: Vec<but_core::TreeChange>,
     ) -> anyhow::Result<Self> {

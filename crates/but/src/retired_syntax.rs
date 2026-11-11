@@ -54,7 +54,6 @@ pub(crate) fn mark_used() {
     USED.store(true, Ordering::Relaxed);
 }
 
-/// Whether the current invocation used retired syntax.
 pub(crate) fn was_used() -> bool {
     USED.load(Ordering::Relaxed)
 }

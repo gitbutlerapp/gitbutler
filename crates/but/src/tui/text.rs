@@ -1,5 +1,3 @@
-//! Shared utilities for terminal-width detection and text truncation.
-//!
 //! Every function here is Unicode-width-aware (CJK, emoji, combining marks)
 //! and ANSI-escape-aware so that colored strings are measured and truncated
 //! correctly.
@@ -18,8 +16,6 @@ pub fn terminal_width() -> usize {
     }
 }
 
-/// Truncate `text` to fit within `max_width` display columns.
-///
 /// Uses [`unicode_width`] so that CJK / emoji characters (which occupy
 /// two terminal columns each) are measured correctly. ANSI escape
 /// sequences (e.g. color codes) are passed through without counting
@@ -82,8 +78,6 @@ pub fn truncate_text<'a>(text: impl Into<Cow<'a, str>>, max_width: usize) -> Cow
     out.into()
 }
 
-/// Remove all ANSI escape sequences from `s`, returning plaintext.
-///
 /// Useful when you need to measure the *display* width of a string
 /// that may contain color / style codes.
 pub fn strip_ansi_codes(s: &str) -> Cow<'_, str> {

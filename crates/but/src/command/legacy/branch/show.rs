@@ -31,15 +31,12 @@ pub fn show(
         (branch_arg, id_map)
     };
 
-    // Get the list of commits ahead of base for this branch
     let commits = get_commits_ahead(ctx, &branch_arg, show_files, &id_map)?;
 
-    // Get uncommitted files for this branch
     let uncommitted_files = get_uncommitted_files(ctx, &branch_arg)?;
 
     let branch_name = &branch_arg.0;
 
-    // Get review information if requested
     let reviews = if review {
         crate::command::legacy::forge::review::get_review_map(
             ctx,
@@ -52,7 +49,6 @@ pub fn show(
         Vec::new()
     };
 
-    // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
         let git_config = gix::config(None, &gix::open::Options::default())?;
         Some(generate_branch_summary(branch_name, &commits, &git_config)?)
@@ -60,7 +56,6 @@ pub fn show(
         None
     };
 
-    // Check merge conflicts if requested
     let merge_check = if check_merge {
         Some(check_merge_conflicts(ctx, branch_name, &id_map)?)
     } else {
@@ -135,7 +130,6 @@ fn check_merge_conflicts(
     let repo = ctx.repo.get()?;
     let branch = BranchArg(branch_name.to_owned()).resolve_branch(&repo)?;
 
-    // Find merge base
     let (merge_base, target) = workspace_target::merge_base_with_target_with_perm(
         ctx,
         guard.read_permission(),
@@ -146,7 +140,6 @@ fn check_merge_conflicts(
     let target_tree_id = repo.find_commit(target.oid())?.tree_id()?.detach();
     let branch_tree_id = repo.find_commit(branch.head)?.tree_id()?.detach();
 
-    // Check if branch merges cleanly into target
     let merges_cleanly =
         merge_repo.merges_cleanly(merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
@@ -154,7 +147,6 @@ fn check_merge_conflicts(
 
     // If there are conflicts, identify which files conflict and which commits modified them
     if !merges_cleanly {
-        // Get the list of conflicting files from the merge
         let conflict_paths =
             get_merge_conflict_paths(&repo, merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
@@ -199,7 +191,6 @@ fn get_merge_conflict_paths(
 
     let mut paths = Vec::new();
 
-    // Extract conflicting file paths
     if merge_result.has_unresolved_conflicts(conflict_kind) {
         for conflict in merge_result.conflicts.iter() {
             if conflict.is_unresolved(conflict_kind) {
@@ -238,7 +229,6 @@ fn find_commits_modifying_file(
         let commit = repo.find_commit(info.id)?;
         let commit = commit.decode()?;
 
-        // Check if this commit modified the file
         let modified_file = but_core::diff::commit_changes(info.id())?
             .into_tree_changes()
             .into_iter()
@@ -316,7 +306,6 @@ fn get_commits_ahead(
         let changes = but_core::diff::commit_changes(info.id())?;
         let stats = changes.compute_line_stats(&repo)?;
 
-        // Collect per-file stats if requested
         let files = if show_files {
             changes
                 .clone()
@@ -364,7 +353,6 @@ fn get_uncommitted_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::R
     if let Some(stack) = stack
         && let Some(stack_id) = stack.id
     {
-        // Get worktree changes and assignments
         let worktree_changes = but_api::diff::changes_in_worktree(
             ctx,
             but_api::commit::json::ChangesSource::Head,
@@ -432,7 +420,6 @@ fn generate_branch_summary(
         )
     })?;
 
-    // Build the prompt with commit information
     let mut prompt = format!(
         "Please provide a concise summary (2-3 sentences) of what this branch '{branch_name}' accomplishes based on the following commits:\n\n"
     );
@@ -498,12 +485,10 @@ fn output_json(
         "reviews": reviews_json,
     });
 
-    // Add AI summary if available
     if let Some(summary) = ai_summary {
         output["aiSummary"] = serde_json::json!(summary);
     }
 
-    // Add merge check if available
     if let Some(check) = merge_check {
         output["mergeCheck"] = serde_json::json!({
             "mergesCleanly": check.merges_cleanly,
@@ -528,10 +513,8 @@ fn output_human(
 
     let t = theme::get();
 
-    // Build output as a string first
     let mut buf = String::new();
 
-    // Show branch name with review info if available
     let reviews_str = if !reviews.is_empty() {
         let review_numbers = reviews
             .iter()
@@ -570,7 +553,6 @@ fn output_human(
                 t.hint.paint(&commit.author_name)
             )?;
 
-            // Show diff stats
             let stats_str = format!(
                 "{} file{} changed, {} insertion{}, {} deletion{}",
                 commit.files_changed,
@@ -582,7 +564,6 @@ fn output_human(
             );
             writeln!(buf, "    {}", t.hint.paint(stats_str))?;
 
-            // Show per-file changes if available
             if !commit.files.is_empty() {
                 writeln!(buf)?;
                 for file in &commit.files {
@@ -615,7 +596,6 @@ fn output_human(
         }
     }
 
-    // Display uncommitted files if any exist
     if !uncommitted_files.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
@@ -625,7 +605,6 @@ fn output_human(
         }
     }
 
-    // Display review details if available
     if !reviews.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
@@ -651,7 +630,6 @@ fn output_human(
                 && !body.is_empty()
             {
                 writeln!(buf, "  {}", t.hint.paint("Description:"))?;
-                // Indent each line of the description
                 for line in body.lines() {
                     writeln!(buf, "    {line}")?;
                 }
@@ -668,7 +646,6 @@ fn output_human(
         }
     }
 
-    // Display AI summary if available
     if let Some(summary) = ai_summary {
         writeln!(buf)?;
         writeln!(buf)?;
@@ -677,7 +654,6 @@ fn output_human(
         writeln!(buf)?;
     }
 
-    // Display merge check if available
     if let Some(check) = merge_check {
         writeln!(buf)?;
         writeln!(buf)?;

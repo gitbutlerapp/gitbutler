@@ -48,12 +48,10 @@ impl ResolvedTarget {
         Self::from_workspace(&ws, &repo)
     }
 
-    /// Return the effective target commit ID.
     pub(crate) fn oid(&self) -> gix::ObjectId {
         self.oid
     }
 
-    /// Return the effective target reference name when one is available.
     pub(crate) fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_name.as_ref().map(|name| name.as_ref())
     }
@@ -63,7 +61,6 @@ impl ResolvedTarget {
         self.ref_name().map(|name| name.shorten().to_string())
     }
 
-    /// Return the effective push remote name when one is available.
     pub(crate) fn push_remote_name(&self) -> Option<&str> {
         self.push_remote_name.as_deref()
     }

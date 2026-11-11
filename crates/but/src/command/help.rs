@@ -224,7 +224,6 @@ fn print_grouped_with_truncation(
     let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
     let groups = grouped_subcommands(&cmd);
 
-    // Define command groupings and their order (excluding MISC)
     let t = theme::get();
 
     writeln!(
@@ -257,7 +256,6 @@ fn print_grouped_with_truncation(
     const LONGEST_COMMAND_LEN: usize = 13;
     const LONGEST_COMMAND_LEN_AND_ELLIPSIS: usize = LONGEST_COMMAND_LEN + 3;
 
-    // Print grouped commands
     for (group, clap_subcommands) in &groups {
         if clap_subcommands.is_empty() {
             continue;
@@ -307,7 +305,6 @@ fn print_grouped_with_truncation(
         writeln!(out)?;
     }
 
-    // Add command completion instructions
     writeln!(
         out,
         "To add command completion, add this to your shell rc: (for example ~/.zshrc)"

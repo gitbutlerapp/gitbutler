@@ -309,7 +309,6 @@ impl UncommittedSelection {
         &self.source
     }
 
-    /// The changes themselves.
     pub fn into_changes(self) -> NonEmpty<UncommittedHunkOrFile> {
         self.changes
     }

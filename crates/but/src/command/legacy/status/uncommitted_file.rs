@@ -2,7 +2,6 @@ use bstr::BString;
 
 use crate::{CliId, IdMap, utils::change_source::ChangeSourceId};
 
-/// An uncommitted file with the ID that addresses it.
 #[derive(Debug, Clone)]
 pub(crate) struct UncommittedFileWithId {
     /// The ID naming the whole file.

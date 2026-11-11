@@ -130,7 +130,6 @@ fn allocate_name_short_id(
             return Ok(short_id);
         }
     }
-    // If none are available, use the next generated ID.
     allocate_generated_short_id(id_usage, non_hex_used_short_ids)
 }
 
@@ -148,7 +147,6 @@ fn populate_branch_short_ids(
             mark_name_short_id_used(uncommitted_short_filename, id_usage, non_hex_used_short_ids);
     }
 
-    // Populate branch short IDs in `stacks`.
     for segment in stacks
         .iter_mut()
         .flat_map(|stack| stack.segments.iter_mut())

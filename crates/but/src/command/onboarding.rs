@@ -1,18 +1,11 @@
-//! Onboarding command implementation.
-//!
-//! Marks onboarding as complete and shows metrics info message (for human output only).
-
 use anyhow::Result;
 
 use crate::utils::OutputChannel;
 
-/// Handle the onboarding command.
-///
 /// If `onboarding_complete` is false, marks onboarding as complete and shows
 /// the metrics info message (only for human-readable output formats).
 /// If already complete, does nothing (silent).
 pub fn handle(out: &mut OutputChannel) -> Result<()> {
-    // Load settings to check onboarding status
     let app_settings_sync = match crate::command::config::load_app_settings_sync() {
         Ok(settings) => settings,
         Err(err) => {
@@ -21,7 +14,6 @@ pub fn handle(out: &mut OutputChannel) -> Result<()> {
         }
     };
 
-    // Check if onboarding is already complete
     let onboarding_complete = match app_settings_sync.get() {
         Ok(settings) => settings.onboarding_complete,
         Err(err) => {
@@ -33,7 +25,6 @@ pub fn handle(out: &mut OutputChannel) -> Result<()> {
         return Ok(());
     }
 
-    // Mark onboarding as complete
     if let Err(err) = app_settings_sync.update_onboarding_complete(true) {
         tracing::warn!(?err, "Failed to persist onboarding status");
     }

@@ -31,13 +31,10 @@ enum BranchSelection {
     None,
 }
 
-/// Batch push result for JSON output
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct BatchPushResult {
-    /// Successfully pushed branches
     pushed: Vec<but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome>,
-    /// Failed branches with error messages
     failed: Vec<FailedBranch>,
 }
 
@@ -62,13 +59,11 @@ pub async fn handle(
         return Err(bad_input("No push remote configured").into());
     }
 
-    // Check gerrit mode early
     let gerrit_mode = {
         let repo = ctx.repo.get()?;
         repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false)
     };
 
-    // If dry-run, show what would be pushed
     if args.dry_run {
         return handle_dry_run(ctx, &args, out);
     }
@@ -78,9 +73,7 @@ pub async fn handle(
         IdMap::new_from_context(ctx, guard.read_permission(), None)?
     };
 
-    // If no branch_id is provided, show all branches and prompt or push all
     let branch_selection = if let Some(ref branch_id) = args.branch_id {
-        // Resolve branch_id to actual branch name
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
         BranchSelection::Selected(vec![branch_name])
     } else {
@@ -128,26 +121,18 @@ pub async fn handle(
     Ok(())
 }
 
-/// Information about what would be pushed for a branch
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DryRunBranchInfo {
-    /// The branch name
     branch_name: String,
-    /// The stack this branch belongs to
     stack_name: String,
-    /// Number of unpushed commits
     unpushed_commits: usize,
-    /// The remote where it will be pushed
     remote: String,
-    /// The remote ref name where it will be pushed
     remote_ref: gix::refs::FullName,
-    /// Commit details
     commits: Vec<DryRunCommit>,
     /// Upstream commits that would be overwritten (requires force push)
     #[serde(skip_serializing_if = "Vec::is_empty")]
     upstream_commits: Vec<DryRunCommit>,
-    /// Whether this push requires force
     requires_force: bool,
     /// Warning message if push cannot proceed safely
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -160,19 +145,15 @@ struct DryRunBranchInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DryRunCommit {
-    /// Short SHA
     sha_short: String,
-    /// Full SHA
     sha: String,
     /// Commit message (first line)
     message: String,
 }
 
-/// Batch dry-run result for JSON output
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DryRunResult {
-    /// Branches that would be pushed
     branches: Vec<DryRunBranchInfo>,
 }
 
@@ -180,20 +161,16 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
     let t = theme::get();
     let mut progress = out.progress_channel();
 
-    // Fetch from remote first to get latest state
     writeln!(progress, "Fetching from remote...")?;
 
     but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("dry_run_push".into()))?;
 
-    // Get all branches with info
     let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     let mut refusals = std::collections::HashMap::new();
     let mut outcome: CliResult<()> = Ok(());
 
-    // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = &args.branch_id {
-        // Resolve branch name
         let id_map = IdMap::legacy_new_from_context(ctx)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
         let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name.as_str())?;
@@ -269,7 +246,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
         return Ok(());
     }
 
-    // Get detailed information for each branch
     let mut dry_run_infos = Vec::new();
 
     let lanes = crate::legacy::workspace::applied_lanes_with_expensive_commit_info(ctx)?;
@@ -289,7 +265,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
     let remote_names = repo.remote_names();
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
-        // Find the lane containing this branch
         for stack_entry in &lanes {
             if let Some(branch_detail) = stack_entry.branch(branch_name) {
                 let remote_ref = match repo
@@ -308,7 +283,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                             format!("Failed to determine remote for dry-run ref `{remote_ref}`")
                         })?;
 
-                // Collect commit information
                 let commits: Vec<DryRunCommit> = branch_detail
                     .commits
                     .iter()
@@ -325,7 +299,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                     .map(|c| dry_run_commit(&repo, c.id, &c.message))
                     .collect();
 
-                // Determine if force push is required and generate warning
                 let requires_force = matches!(
                     branch_detail.push_status,
                     but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
@@ -374,7 +347,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
         }
     }
 
-    // Output JSON if requested
     if let Some(out) = out.for_json() {
         out.write_value(&DryRunResult {
             branches: dry_run_infos.clone(),
@@ -394,7 +366,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
     )?;
     writeln!(human)?;
 
-    // Group branches by stack
     let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
         std::collections::HashMap::new();
     for info in &dry_run_infos {
@@ -451,7 +422,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 writeln!(human)?;
             }
 
-            // Determine the gutter character
             let gutter = if is_in_stack {
                 if is_first {
                     "┌─" // Top branch in stack
@@ -464,7 +434,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 "  " // Base branch (no parent)
             };
 
-            // Display branch name with stacking indicator and visual line
             if let Some(stacked_on) = &info.stacked_on {
                 writeln!(
                     human,
@@ -493,7 +462,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
             .map(|(_, short_name)| short_name.to_string())
             .unwrap_or_else(|| info.remote_ref.shorten().to_string());
 
-            // Determine the line prefix for details (vertical line or space)
             // Show line if there are more branches after this one
             let line_prefix = if has_next { "│ " } else { "  " };
 
@@ -545,7 +513,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 }
             }
 
-            // Show upstream commits if any
             if !info.upstream_commits.is_empty() {
                 writeln!(human)?;
                 writeln!(
@@ -573,7 +540,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 }
             }
 
-            // Show warning if present
             if let Some(warning) = &info.warning {
                 writeln!(human)?;
                 // A refusal spans several lines, which all belong inside the gutter.
@@ -587,7 +553,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
                 )?;
             }
 
-            // Show force push indicator
             if info.requires_force {
                 writeln!(human)?;
                 writeln!(
@@ -704,17 +669,14 @@ async fn push_single_branch(
     Ok(())
 }
 
-// Shared implementation for pushing a single branch
 async fn push_single_branch_impl(
     ctx: &mut Context,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
 ) -> CliResult<but_api::legacy::workspace::WorkspaceBranchAndAncestorsPushOutcome> {
-    // Check for conflicted commits before pushing
     check_for_conflicted_commits(ctx, branch_name)?;
 
-    // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
     let branch = gix::refs::Category::LocalBranch.to_full_name(branch_name)?;
@@ -745,7 +707,6 @@ async fn push_all_branches(
     let branches_to_push = get_push_candidates(ctx)?;
 
     if branches_to_push.is_empty() {
-        // Output empty result for JSON
         if let Some(out) = out.for_json() {
             let batch_result = BatchPushResult {
                 pushed: vec![],
@@ -807,7 +768,6 @@ async fn push_all_branches(
         }
     }
 
-    // Output JSON if requested
     if let Some(out) = out.for_json() {
         let batch_result = BatchPushResult {
             pushed: pushed_results.clone(),
@@ -958,7 +918,6 @@ fn handle_no_branch_specified(
 
     writeln!(progress)?;
 
-    // Multiple pushable branches - let the prompt handle it
     let options = candidates
         .iter()
         .map(|candidate| {
@@ -1083,7 +1042,6 @@ fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String,
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| "unnamed".to_string());
 
-        // Get branch names from the heads
         for branch in &stack.branches {
             branches_info.push((
                 branch.name.clone(),
@@ -1127,7 +1085,6 @@ pub fn get_gerrit_flags(
     if args.wip {
         flags.push(but_gerrit::PushFlag::Wip);
     } else {
-        // Default to Ready, or explicit Ready
         flags.push(but_gerrit::PushFlag::Ready);
     }
 
@@ -1149,7 +1106,6 @@ pub fn get_gerrit_flags(
         flags.push(but_gerrit::PushFlag::Topic(branch_name.to_string()));
     }
 
-    // Handle private flag
     if args.private {
         flags.push(but_gerrit::PushFlag::Private);
     }

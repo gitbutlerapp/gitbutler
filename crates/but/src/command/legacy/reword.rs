@@ -372,7 +372,6 @@ fn actually_get_commit_message_from_editor(
     diff: Option<&[BString]>,
     comment_prefix: &str,
 ) -> Result<String> {
-    // Generate commit message template with current message
     let mut template = String::new();
     template.push_str(current_message);
     if !current_message.is_empty() && !current_message.ends_with('\n') {
@@ -400,7 +399,6 @@ fn actually_get_commit_message_from_editor(
         }
     }
 
-    // Read the result and strip comments
     let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
         "commit_msg",
         &template,

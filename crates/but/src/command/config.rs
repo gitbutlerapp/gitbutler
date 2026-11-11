@@ -1,8 +1,3 @@
-//! Command implementation for managing `but` configuration.
-//!
-//! Provides subcommands to view and modify configuration settings including
-//! user information, AI provider, forge accounts, and target branch.
-
 use std::fmt::{Display, Write};
 
 use anyhow::{Context as _, Result};
@@ -81,7 +76,6 @@ impl AiScope {
 
 type AiConfigInfo = AiConfigurationSnapshot;
 
-/// Main entry point for config command
 pub async fn exec(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -124,7 +118,6 @@ pub(crate) fn ai_config(
     ai_config_inner(None, out, cmd, local, global)
 }
 
-/// Show overview of important settings
 async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     let t = theme::get();
     #[derive(Serialize)]
@@ -142,14 +135,12 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         username: String,
     }
 
-    // Get user info from git config
     let user_info = {
         let repo = ctx.repo.get()?;
         let config = repo.config_snapshot();
         get_user_config_info(&config)
     };
 
-    // Get target branch
     cfg_if! {
         if #[cfg(feature = "legacy")] {
             let mut guard = ctx.exclusive_worktree_access();
@@ -160,7 +151,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
     };
 
-    // Get forge accounts
     let known_accounts = but_api::github::list_known_github_accounts()?;
     let forge_accounts: Vec<ForgeAccountInfo> = known_accounts
         .iter()
@@ -174,11 +164,9 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         writeln!(out, "\n{}", t.important.paint("GitButler Configuration"))?;
         writeln!(out)?;
 
-        // User section
         writeln!(out, "{}:", t.important.paint("User"))?;
         write_user_config_human(out, &user_info)?;
 
-        // Target branch
         writeln!(out, "{}:", t.important.paint("Target Branch"))?;
         if let Some(branch) = &target_branch {
             writeln!(out, "    {}", t.config_value.paint(branch))?;
@@ -187,7 +175,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
-        // Forge
         writeln!(out, "{}:", t.important.paint("Forge"))?;
         if forge_accounts.is_empty() {
             writeln!(
@@ -208,7 +195,6 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
-        // Hints
         writeln!(out, "{}", t.hint.paint("Available subcommands:"))?;
         writeln!(
             out,
@@ -449,7 +435,6 @@ pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
-/// User configuration information
 #[derive(serde::Serialize)]
 struct UserConfigInfo {
     name: Option<String>,
@@ -463,7 +448,6 @@ struct UserConfigInfo {
     editor_scope: Option<gix::config::Source>,
 }
 
-/// Get user configuration info from git config
 fn get_user_config_info(config: &gix::config::File) -> UserConfigInfo {
     let (name, name_scope) = get_config_string_and_scope(config, "user.name");
     let (email, email_scope) = get_config_string_and_scope(config, "user.email");
@@ -480,7 +464,6 @@ fn get_user_config_info(config: &gix::config::File) -> UserConfigInfo {
     }
 }
 
-/// Write user config info in human-readable format
 fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo) -> Result<()> {
     let t = theme::get();
     writeln!(
@@ -515,7 +498,6 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
     Ok(())
 }
 
-/// Handle user config subcommand
 pub(crate) async fn user_config(
     ctx: Option<&Context>,
     out: &mut OutputChannel,
@@ -525,7 +507,6 @@ pub(crate) async fn user_config(
     let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
 
     match cmd {
-        // View user config
         None => {
             let user_info = match repo.as_deref() {
                 Some(repo) => get_user_config_info(&repo.config_snapshot()),
@@ -553,7 +534,6 @@ pub(crate) async fn user_config(
                 out.write_value(serde_json::json!(user_info))?;
             }
         }
-        // Set user config
         Some(UserSubcommand::Set { key, value, global }) => {
             let git_key = key.to_git_key();
             edit_git_config(repo.as_deref(), global.into(), |config| {
@@ -581,7 +561,6 @@ pub(crate) async fn user_config(
                 }))?;
             }
         }
-        // Unset user config
         Some(UserSubcommand::Unset { key, global }) => {
             let git_key = key.to_git_key();
             edit_git_config(repo.as_deref(), global.into(), |config| {
@@ -780,7 +759,6 @@ fn extract_account_details(
 ) -> Vec<ForgeAccount> {
     let mut accounts: Vec<ForgeAccount> = Vec::new();
 
-    // Add GitHub accounts
     for account in &known_gh_accounts {
         let (username, account_type) = match account {
             but_github::GithubAccountIdentifier::OAuthUsername { username } => {
@@ -801,7 +779,6 @@ fn extract_account_details(
         });
     }
 
-    // Add GitLab accounts
     for account in &known_gl_accounts {
         let (username, account_type) = match account {
             but_gitlab::GitlabAccountIdentifier::PatUsername { username } => {
@@ -819,7 +796,6 @@ fn extract_account_details(
         });
     }
 
-    // Add Bitbucket accounts
     for account in &known_bb_accounts {
         let (username, account_type) = match account {
             but_bitbucket::BitbucketAccountIdentifier::ApiToken { email } => {
@@ -835,7 +811,6 @@ fn extract_account_details(
     accounts
 }
 
-/// Authenticate with a forge provider (GitHub, GitLab, etc)
 async fn forge_auth(out: &mut OutputChannel) -> CliResult<()> {
     #[derive(Debug, Clone)]
     enum ForgeProvider {
@@ -932,7 +907,6 @@ async fn bitbucket_auth(out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitLab
 async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
     #[derive(Debug, Clone)]
     enum AuthMethod {
@@ -968,7 +942,6 @@ async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
     }
 }
 
-/// Authenticate with GitLab using a Personal Access Token (PAT)
 async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_gitlab::AuthStatusResponse;
 
@@ -984,7 +957,6 @@ async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with self-hosted GitLab
 async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_gitlab::AuthStatusResponse;
 
@@ -1004,7 +976,6 @@ async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitHub
 async fn github_auth(out: &mut OutputChannel) -> Result<()> {
     #[derive(Debug, Clone)]
     enum AuthMethod {
@@ -1044,7 +1015,6 @@ async fn github_auth(out: &mut OutputChannel) -> Result<()> {
     }
 }
 
-/// Authenticate with GitHub using a Personal Access Token (PAT)
 async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_github::AuthStatusResponse;
 
@@ -1060,7 +1030,6 @@ async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Authenticate with GitHub Enterprise
 async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
     use but_github::AuthStatusResponse;
 
@@ -1252,7 +1221,6 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
     }
 }
 
-/// Forget a GitHub account
 async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
@@ -1279,7 +1247,6 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         }
     }
 
-    // Handle case where no matching account was found
     if accounts_to_delete.is_empty() {
         if let Some((username, out)) = username.zip(out.for_human()) {
             writeln!(out, "No known forge account matching '{username}'")?;
@@ -1287,7 +1254,6 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         return Ok(());
     }
 
-    // Handle different scenarios based on number of accounts
     match accounts_to_delete.as_slice() {
         [single_account] => {
             // Single account: delete automatically
@@ -1796,7 +1762,6 @@ fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<
     }
 }
 
-/// Handle target config subcommand
 async fn target_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -1976,7 +1941,6 @@ fn create_branch_to_track(
     Ok(Some(LocalRefName::new(local)?))
 }
 
-/// Handle push remote config subcommand.
 fn push_remote_config(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -2049,7 +2013,6 @@ fn config_source_scope(source: gix::config::Source) -> &'static str {
     }
 }
 
-/// Format the scope for display
 fn format_scope(scope: Option<gix::config::Source>) -> String {
     match scope {
         Some(source) => theme::get()

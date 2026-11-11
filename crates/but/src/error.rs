@@ -1,5 +1,3 @@
-//! Utilities for communicating user errors (i.e. the equivalent of 4xx HTTP responses) to the user.
-
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fmt::Display;
@@ -15,11 +13,8 @@ use crate::theme::{self, Paint};
 pub struct BadInput {
     /// A message to print verbatim to the user
     message: String,
-    /// If applicable, the name of the input argument to which the bad input was passed
     arg_name: Option<String>,
-    /// If applicable, the bad value that was passed
     arg_value: Option<String>,
-    /// A hint to guide the user to proper usage of the command
     hint: Option<String>,
     /// A stable code that telemetry can filter on
     code: Option<Cow<'static, str>>,
@@ -28,7 +23,6 @@ pub struct BadInput {
 }
 
 impl BadInput {
-    /// Create a new [`BadInput`] that was raised by the caller.
     #[track_caller]
     pub fn new<S: AsRef<str>>(message: S) -> Self {
         Self {
@@ -41,19 +35,16 @@ impl BadInput {
         }
     }
 
-    /// Add the name of the argument for which this message applies.
     pub fn arg_name<S: AsRef<str>>(mut self, name: S) -> Self {
         self.arg_name = Some(name.as_ref().to_string());
         self
     }
 
-    /// Add the value that was passed by the user.
     pub fn arg_value<S: AsRef<str>>(mut self, value: S) -> Self {
         self.arg_value = Some(value.as_ref().to_string());
         self
     }
 
-    /// Add a hint to guide the user to correct usage.
     pub fn hint<S: AsRef<str>>(mut self, hint: S) -> Self {
         self.hint = Some(hint.as_ref().to_string());
         self
@@ -96,7 +87,6 @@ pub(crate) fn track_remote_target_hint(
     }
 }
 
-/// Convenience wrapper around [`BadInput::new`].
 #[track_caller]
 pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
     BadInput::new(message)
@@ -143,11 +133,9 @@ impl Display for BadInput {
 
 #[derive(Debug)]
 pub enum CliError {
-    /// User provided bad input.
     BadInput(BadInput),
     /// We tried to execute the subcommand as an external command, but that command was not found.
     ExternalCommandNotFound(OsString),
-    /// An external subcommand failed with this exit code.
     ExternalCommandFailed(i32),
     /// Something went wrong internally, at the location that made it a `CliError`.
     Internal(anyhow::Error, &'static Location<'static>),

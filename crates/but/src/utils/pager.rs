@@ -19,8 +19,6 @@ const DEFAULT_PAGER_ARGS: &str = "FXR"; // Do not put S in here. Like, really. D
 const DEFAULT_PAGER_ENV_VAR: &str = "LESS";
 const LESS_ANSI_END_CHARS_ENV_VAR: &str = "LESSANSIENDCHARS";
 
-/// Attempt to initialize a new pager.
-///
 /// We first try to spawn an external pager, and if that fails, we fall back on the builtin
 /// one. If that _also_ fails we simply move on with our lives without a pager, as the app does
 /// function without it. It's just less great.

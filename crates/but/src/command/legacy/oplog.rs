@@ -18,7 +18,6 @@ pub enum OplogFilter {
 }
 
 impl OplogFilter {
-    /// Convert the filter to a list of OperationKind to include
     fn to_include_kinds(self) -> Vec<OperationKind> {
         match self {
             OplogFilter::Snapshot => vec![OperationKind::OnDemandSnapshot],
@@ -32,7 +31,6 @@ pub(crate) fn show_oplog(
     since: Option<&str>,
     filter: Option<OplogFilter>,
 ) -> anyhow::Result<()> {
-    // Convert filter to include_kind parameter for the API
     let include_kind = filter.map(|f| f.to_include_kinds());
 
     // Resolve partial SHA to full SHA using rev_parse if provided
@@ -320,7 +318,6 @@ pub(crate) fn restore_to_oplog(
         writeln!(out, "  Snapshot: {}", t.commit_id.paint(&commit_short))?;
     }
 
-    // Restore to the target snapshot using the but-api crate
     but_api::legacy::oplog::restore_snapshot_with_kind(
         ctx,
         RestoreKind::ExplicitRestoreFromSnapshot,

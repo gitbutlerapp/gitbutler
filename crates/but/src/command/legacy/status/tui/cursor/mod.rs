@@ -195,7 +195,6 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Selects what should be focused after discarding the currently selected commit.
     pub fn select_after_discarded_commit(
         self,
         lines: &[StatusOutputLine],
@@ -214,7 +213,6 @@ impl Cursor {
         }
     }
 
-    /// Selects what should be focused after discarding marked items.
     pub fn select_after_discarded_marks(
         self,
         lines: &[StatusOutputLine],
@@ -283,7 +281,6 @@ impl Cursor {
         None
     }
 
-    /// Selects what should be focused after discarding marked commits.
     pub fn select_after_discarded_commits(
         self,
         lines: &[StatusOutputLine],
@@ -345,7 +342,6 @@ impl Cursor {
         None
     }
 
-    /// Selects what should be focused after discarding the currently selected branch.
     pub fn select_after_discarded_branch(
         self,
         lines: &[StatusOutputLine],
@@ -397,7 +393,6 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Select the line of the file at `path` in the given commit.
     pub fn select_committed_file(
         object_id: gix::ObjectId,
         path: &BStr,
@@ -446,7 +441,7 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Select the first uncommitted file line that points to the given path in the given stack.
+    /// Select the first uncommitted file line that points to the given path.
     pub fn select_uncommitted_file(path: &BStr, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::UncommittedHunkOrFile(uncommitted)) =
@@ -475,7 +470,6 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Select the merge-base line.
     pub fn select_merge_base(lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines
             .iter()
@@ -894,7 +888,6 @@ impl Cursor {
     }
 }
 
-/// Finds the start index of the nearest section at or before `idx`.
 fn find_section_start_at_or_before(
     lines: &[StatusOutputLine],
     mode: &Mode,
@@ -909,7 +902,6 @@ fn find_section_start_at_or_before(
         .map(|(idx, _)| idx)
 }
 
-/// Finds the next section start after `idx`.
 fn find_next_section_start(lines: &[StatusOutputLine], mode: &Mode, idx: usize) -> Option<usize> {
     lines
         .iter()
@@ -919,7 +911,6 @@ fn find_next_section_start(lines: &[StatusOutputLine], mode: &Mode, idx: usize) 
         .map(|(idx, _)| idx)
 }
 
-/// Finds the previous section start before `search_end`.
 fn find_previous_section_start(
     lines: &[StatusOutputLine],
     mode: &Mode,
@@ -934,7 +925,6 @@ fn find_previous_section_start(
         .map(|(idx, _)| idx)
 }
 
-/// Finds the first selectable line in the section starting at `section_start`.
 fn first_selectable_in_section(
     lines: &[StatusOutputLine],
     mode: &Mode,
@@ -1123,7 +1113,6 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
     }
 }
 
-/// Returns true if a line is a section header row.
 fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
     match mode {
         Mode::Normal(..)

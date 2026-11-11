@@ -582,8 +582,6 @@ pub enum DetailsLayoutMessage {
     Dismiss,
 }
 
-/// The cause for a reload.
-///
 /// Used to surpress watcher triggered reloads that happen after an operation from the TUI. Otherwise
 /// we'd get double reloads after performing an operation from the TUI since that changes the git
 /// repo which triggers the watcher.
@@ -605,7 +603,6 @@ pub enum FilesMessage {
     ToggleFilesForSelectedCommit,
 }
 
-/// What to select after reloading
 #[derive(Debug)]
 pub enum SelectAfterReload {
     Commit(gix::ObjectId),

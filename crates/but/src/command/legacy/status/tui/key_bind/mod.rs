@@ -368,7 +368,6 @@ struct KeyBindId(usize);
 
 #[derive(Debug)]
 pub struct KeyBinds {
-    /// All registered key binds.
     all_key_binds: Vec<KeyBind>,
     /// Which key binds are available in which modes?
     mode_to_key_binds: HashMap<ModeDiscriminant, Vec<KeyBindId>>,

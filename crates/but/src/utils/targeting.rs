@@ -1,5 +1,3 @@
-//! Utility functions for targeting operations.
-
 use std::fmt::Display;
 
 use but_rebase::graph_rebase::mutate::InsertSide;

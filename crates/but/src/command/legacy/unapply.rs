@@ -1,5 +1,3 @@
-//! Implementation of the `but unapply` command.
-
 use anyhow::Context as _;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;

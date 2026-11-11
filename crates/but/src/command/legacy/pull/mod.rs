@@ -389,7 +389,6 @@ async fn handle_pull(
         )?;
     }
 
-    // Fetch from remotes to get latest upstream info
     let base_branch = fetch_base_branch(ctx, has_upstream, "pull")?;
     let incoming = incoming_commits(ctx, &base_branch)?;
     // Without an upstream, the new commits are on the target branch itself.
@@ -582,7 +581,6 @@ async fn handle_pull(
                         .as_ref()
                         .map(|name| name.as_local_full_name_ref()),
                 );
-                // Report detailed results for each resolution
                 let mut successful_rebases: Vec<String> = Vec::new();
                 let mut conflicted_rebases: Vec<String> = Vec::new();
                 collect_materialized_rebase_results(
@@ -592,25 +590,21 @@ async fn handle_pull(
                     &mut conflicted_rebases,
                 );
 
-                // Check if there are any conflicted files
                 let has_conflicts = !conflicted_rebases.is_empty()
                     || post_statuses
                         .iter()
                         .any(|status| matches!(status.status, PullBranchStatus::Conflicted));
 
-                // Update final status
                 pull_result.status = if has_conflicts {
                     "completed_with_conflicts".to_string()
                 } else {
                     "completed".to_string()
                 };
 
-                // Update summary counts
                 pull_result.summary.branches_updated = successful_rebases.len();
                 pull_result.summary.branches_conflicted = conflicted_rebases.len();
                 pull_result.summary.branches_integrated = pull_result.integrated_branches.len();
 
-                // Set undo command
                 pull_result.undo_command = Some("but undo".to_string());
 
                 // The integration ran on its own thread-local context, so this
@@ -656,7 +650,6 @@ async fn handle_pull(
                 let workspace_conflicts = conflicted_rebases.is_empty()
                     || worktree_conflicts.len() < conflicted_rebases.len();
 
-                // Populate conflicts info
                 for branch_name in &conflicted_rebases {
                     pull_result.conflicts.push(ConflictInfo {
                         branch: branch_name.clone(),
@@ -677,7 +670,6 @@ async fn handle_pull(
                     });
                 }
 
-                // Show results for each branch
                 if let Some(out) = out.for_human() {
                     writeln!(out)?;
 
@@ -691,7 +683,6 @@ async fn handle_pull(
                         writeln!(out, "{}", t.success.paint("Rebase successful"))?;
                     }
 
-                    // Report on integrated branches
                     if !pull_result.integrated_branches.is_empty() {
                         writeln!(out)?;
                         for branch in &pull_result.integrated_branches {
@@ -714,11 +705,9 @@ async fn handle_pull(
                         }
                     }
 
-                    // Final summary
                     writeln!(out, "\n{}", t.important.paint("Summary"))?;
                     writeln!(out, "────────")?;
 
-                    // List each branch with color-coded status
                     for branch in &successful_rebases {
                         writeln!(
                             out,
@@ -754,7 +743,6 @@ async fn handle_pull(
                         }
                     }
 
-                    // Conflict resolution instructions
                     if has_conflicts {
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
@@ -810,13 +798,11 @@ async fn handle_pull(
                         }
                     }
 
-                    // Undo instructions
                     writeln!(out)?;
                     writeln!(out, "{}", t.important.paint("To undo this operation:"))?;
                     writeln!(out, "  Run `but undo`")?;
                 }
 
-                // Output JSON result
                 if let Some(out) = out.for_json() {
                     out.write_value(&pull_result)?;
                 }

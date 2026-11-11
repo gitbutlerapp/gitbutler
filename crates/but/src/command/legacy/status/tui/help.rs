@@ -203,7 +203,6 @@ impl Help {
             }
         }
 
-        // scrollbar
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(None)
             .end_symbol(None)

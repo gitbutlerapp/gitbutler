@@ -220,7 +220,6 @@ impl Tui for App {
         } else {
             Duration::from_millis(30)
         };
-        // poll terminal events
         events.clear();
         event_polling.poll_into(event_poll_timeout, events)?;
         for event in events.drain(..) {
@@ -229,7 +228,6 @@ impl Tui for App {
         }
         dedup_mutation_messages(messages, other_messages);
 
-        // check for any out of band messages
         self.incoming_out_of_band_messages
             .retain(|rx| match rx.try_recv() {
                 Ok(msg) => {
@@ -242,7 +240,6 @@ impl Tui for App {
                 },
             });
 
-        // handle messages
         let mut did_reload = false;
         loop {
             if messages.is_empty() {
@@ -2034,7 +2031,6 @@ impl App {
         Ok(())
     }
 
-    /// Returns the currently selected commit id when the selected line is a commit.
     fn selected_commit_id(&self) -> Option<CommitId> {
         let selection = self.cursor.selected_line(&self.status_lines)?;
 

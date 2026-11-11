@@ -1,5 +1,3 @@
-//! A global, serializable color theme for CLI output.
-//!
 //! Styled output *must* begin from one of the global theme's styles. Using [`colored`] or [`Style`]
 //! independently of this theme is prohibited, as that breaks user-defined theming.
 //!
@@ -56,11 +54,8 @@ const MONOKAI_THEME_LIGHT: &[u8] =
 /// short IDs remain visually distinctive.
 pub(crate) const MIN_DISPLAYED_CHANGE_ID_CHARS: usize = 3;
 
-/// Global theme instance, initialized once at startup.
 static THEME: OnceLock<Theme> = OnceLock::new();
 
-/// Initialize the global theme.
-///
 /// Must be called exactly once, before any call to [`get`].
 /// Panics if called more than once.
 pub fn init(theme: Theme) {
@@ -69,8 +64,6 @@ pub fn init(theme: Theme) {
         .expect("theme may only be initialized once");
 }
 
-/// Return a reference to the global theme.
-///
 /// Panics if [`init`] has not been called yet.
 pub fn get() -> &'static Theme {
     #[cfg(test)]
@@ -137,7 +130,6 @@ impl Paint for Style {
     }
 }
 
-/// Apply foreground color using `colored`.
 fn apply_foreground(styled: ColoredString, color: Color) -> ColoredString {
     match color {
         Color::Black => styled.black(),
@@ -161,7 +153,6 @@ fn apply_foreground(styled: ColoredString, color: Color) -> ColoredString {
     }
 }
 
-/// Apply background color using `colored`.
 fn apply_background(styled: ColoredString, color: Color) -> ColoredString {
     match color {
         Color::Black => styled.on_black(),
@@ -185,7 +176,6 @@ fn apply_background(styled: ColoredString, color: Color) -> ColoredString {
     }
 }
 
-/// Apply all style modifiers supported by `colored`.
 fn apply_modifiers(mut styled: ColoredString, modifiers: Modifier) -> ColoredString {
     if modifiers.contains(Modifier::BOLD) {
         styled = styled.bold();
@@ -214,12 +204,9 @@ fn apply_modifiers(mut styled: ColoredString, modifiers: Modifier) -> ColoredStr
     styled
 }
 
-/// Identifiers for the theme presets.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ThemePreset {
-    /// The dark preset.
     Dark,
-    /// The light preset.
     Light,
 }
 
@@ -261,7 +248,6 @@ fn theme_preset_from_terminal_mode(mode: terminal_colorsaurus::ThemeMode) -> The
 #[serde(default)]
 pub struct Theme {
     // Concrete "things"
-    /// Local branch name
     pub local_branch: Style,
     /// Remote / target branch name
     pub remote_branch: Style,
@@ -271,7 +257,6 @@ pub struct Theme {
     pub change_id: Style,
     /// The HEAD marker identifying the checked-out branch.
     pub head: Style,
-    /// Short CLI identifiers
     pub cli_id: Style,
     /// PR / review number decorations
     pub pr_number: Style,
@@ -283,13 +268,9 @@ pub struct Theme {
     pub config_key: Style,
 
     // Modifications
-    /// An addition
     pub addition: Style,
-    /// A deletion
     pub deletion: Style,
-    /// A modification
     pub modification: Style,
-    /// A renaming
     pub renaming: Style,
     /// Context surrounding modifications
     pub context: Style,
@@ -332,21 +313,16 @@ pub struct Theme {
     pub important: Style,
     /// Suggested command the user can run (e.g. `but config target …`).
     pub command_suggestion: Style,
-    /// Default styling
     pub default: Style,
     /// User information, typically author or committer-related
     pub user: Style,
-    /// Time-related information
     pub time: Style,
     /// In-progress action labels (e.g. "Pushing...", "Fetching...", "Setting up...").
     pub progress: Style,
 
     // Layout
-    /// Default border style
     pub border: Style,
-    /// Active border style
     pub border_active: Style,
-    /// Highlight style to denote selection
     pub selection_highlight: Style,
     /// Alternative selection highlight that is meant to be more discrete than the primary selection
     /// highlight. Useful when selecting larger areas and the [`Self::selection_highlight`] is a bit
@@ -369,32 +345,27 @@ pub struct Theme {
     syntax_highlighting_theme_raw: &'static [u8],
 }
 
-/// Helper — builds a [`Style`] with the given foreground color.
 const fn style_fg(fg: Color) -> Style {
     Style::new().fg(fg)
 }
 
-/// Helper — builds a bold + colored [`Style`].
 const fn style_fg_bold(fg: Color) -> Style {
     Style::new().fg(fg).add_modifier(Modifier::BOLD)
 }
 
 impl Default for Theme {
-    /// Produces the canonical color palette.
     fn default() -> Self {
         Self::default_for(ThemePreset::Dark)
     }
 }
 
 impl Theme {
-    /// Get the symbols for this theme.
     pub fn sym(&self) -> &ThemeSymbols {
         self.symbols
             .as_ref()
             .expect("symbols must always be initialized")
     }
 
-    /// Produces a specific default color palette.
     pub fn default_for(preset: ThemePreset) -> Self {
         let mut t = match preset {
             ThemePreset::Light => Self::default_light(),
@@ -404,7 +375,6 @@ impl Theme {
         t
     }
 
-    /// Load the syntax highlighting theme.
     pub fn load_syntax_highlighting_theme(&self) -> anyhow::Result<highlighting::Theme> {
         Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(
             self.syntax_highlighting_theme_raw,
@@ -543,18 +513,13 @@ impl Theme {
     }
 }
 
-/// Symbols styled with a [`Theme`].
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ThemeSymbols {
-    /// Successful state.
     pub success: StyledSymbol,
-    /// Error state.
     pub error: StyledSymbol,
-    /// Warning indicator.
     pub warning: StyledSymbol,
     /// Generic dot marker — use `.success()`/`.attention()`/`.error()`/`.info()` for context.
     pub dot: StyledSymbol,
-    /// Arrow indicator.
     pub arrow: StyledSymbol,
     /// Force / lightning indicator.
     pub lightning: StyledSymbol,
@@ -588,17 +553,14 @@ pub struct StyledSymbol {
 }
 
 impl StyledSymbol {
-    /// Create a new [`StyledSymbol`].
     pub fn new(content: &'static str, style: Style) -> Self {
         StyledSymbol { content, style }
     }
 
-    /// Convert the [`StyledSymbol`] into a styled [`Span`].
     pub fn span(&self) -> Span<'_> {
         Span::styled(self.content, self.style)
     }
 
-    /// Return a new symbol styled for success.
     pub fn success(&self) -> StyledSymbol {
         let t = get();
         StyledSymbol::new(self.content, t.success.add_modifier(Modifier::BOLD))
@@ -610,13 +572,11 @@ impl StyledSymbol {
         StyledSymbol::new(self.content, t.attention.add_modifier(Modifier::BOLD))
     }
 
-    /// Return a new symbol styled for error.
     pub fn error(&self) -> StyledSymbol {
         let t = get();
         StyledSymbol::new(self.content, t.error.add_modifier(Modifier::BOLD))
     }
 
-    /// Return a new symbol styled for info.
     pub fn info(&self) -> StyledSymbol {
         let t = get();
         StyledSymbol::new(self.content, t.info.add_modifier(Modifier::BOLD))

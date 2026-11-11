@@ -10,7 +10,6 @@ use crate::{
     utils::OutputChannel,
 };
 
-/// Options for the clean command.
 pub struct CleanOptions {
     pub dry_run: bool,
     pub include_upstream: bool,
@@ -146,7 +145,6 @@ fn find_empty_branches(
     ctx: &mut but_ctx::Context,
     include_upstream: bool,
 ) -> anyhow::Result<Vec<(StackId, String)>> {
-    // Get the set of stack IDs that have worktree changes assigned to them.
     let stacks_with_changes = stacks_with_assigned_changes(ctx)?;
 
     let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;

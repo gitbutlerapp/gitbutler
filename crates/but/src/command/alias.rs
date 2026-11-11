@@ -1,7 +1,3 @@
-//! Command implementation for managing `but` aliases.
-//!
-//! Provides subcommands to list, add, and remove aliases stored in git config.
-
 use std::collections::HashMap;
 
 use anyhow::{Context as _, Result};
@@ -15,7 +11,6 @@ use crate::{
     utils::OutputChannel,
 };
 
-/// An alias entry with its name, effective value, and all contributing scopes.
 #[derive(Debug, Clone, Serialize)]
 pub struct AliasEntry {
     pub name: String,
@@ -24,7 +19,6 @@ pub struct AliasEntry {
     pub scopes: Vec<&'static str>,
 }
 
-/// List all configured `but` aliases
 pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
     let repo = ctx.map(|ctx| ctx.repo.get()).transpose()?;
     let user_aliases = match repo.as_deref() {
@@ -32,10 +26,8 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
         None => get_all_aliases(&gix::config(None, &gix::open::Options::default())?),
     };
 
-    // Get default aliases
     let default_aliases = get_default_aliases();
 
-    // Check if we have any aliases to show
     if user_aliases.is_empty() && default_aliases.is_empty() {
         if let Some(out) = out.for_human() {
             writeln!(out, "No aliases configured.")?;
@@ -53,7 +45,6 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
 
     if let Some(out) = out.for_human() {
         let t = theme::get();
-        // Calculate max name length for alignment
         let max_name_len = user_aliases
             .iter()
             .map(|a| a.name.len())
@@ -61,7 +52,6 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
             .max()
             .unwrap_or(0);
 
-        // Show user-configured aliases first
         if !user_aliases.is_empty() {
             writeln!(out, "{}:", t.important.paint("User aliases"))?;
             writeln!(out)?;
@@ -81,7 +71,6 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
             writeln!(out)?;
         }
 
-        // Show default aliases
         if !default_aliases.is_empty() {
             writeln!(
                 out,
@@ -92,7 +81,6 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
             writeln!(out)?;
 
             for (name, value) in &default_aliases {
-                // Check if this default is overridden
                 let is_overridden = user_aliases.iter().any(|a| &a.name == name);
 
                 if is_overridden {
@@ -134,7 +122,6 @@ pub fn list(ctx: Option<&Context>, out: &mut OutputChannel) -> Result<()> {
 
 /// Get configured aliases from every source, preserving the last value for each name.
 fn get_all_aliases(cfg: &gix::config::File) -> Vec<AliasEntry> {
-    // Track aliases by name with their scopes
     let mut alias_map: HashMap<String, (String, Vec<&'static str>)> = HashMap::new();
 
     for section in cfg.sections() {
@@ -203,12 +190,10 @@ fn get_all_aliases(cfg: &gix::config::File) -> Vec<AliasEntry> {
     user_aliases
 }
 
-/// Get all default aliases
 fn get_default_aliases() -> Vec<(String, String)> {
     crate::alias::get_all_default_aliases()
 }
 
-/// Add a new alias
 pub fn add(
     ctx: Option<&Context>,
     out: &mut OutputChannel,
@@ -216,7 +201,6 @@ pub fn add(
     value: &str,
     global: EditGlobalConfig,
 ) -> Result<()> {
-    // Validate alias name doesn't conflict with known commands
     if crate::alias::is_known_subcommand(name) {
         anyhow::bail!("Cannot create alias '{name}': it conflicts with a built-in command");
     }
@@ -252,7 +236,6 @@ pub fn add(
     Ok(())
 }
 
-/// Remove an alias
 pub fn remove(
     ctx: Option<&Context>,
     out: &mut OutputChannel,

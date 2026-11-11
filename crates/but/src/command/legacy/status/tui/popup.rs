@@ -29,7 +29,6 @@ pub struct Popup {
 }
 
 impl Popup {
-    /// Create a popup with the given outer dimensions.
     pub fn new(theme: &'static Theme, width: u16, height: u16) -> Self {
         Self {
             width,
@@ -39,7 +38,6 @@ impl Popup {
         }
     }
 
-    /// Set the padding between the border and content area.
     pub fn padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
