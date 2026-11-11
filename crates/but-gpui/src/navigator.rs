@@ -4001,7 +4001,7 @@ impl Navigator {
                 // Folded, it stands in for the commits a lock marks.
                 .when(
                     !open && (branch.commits.iter()).any(|c| store.lock_marks(id, c.id)),
-                    |el| el.bg(theme.warn_soft),
+                    |el| el.bg(theme.info_soft),
                 )
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
                 .child(glyph)
@@ -4229,7 +4229,7 @@ impl Navigator {
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .when(store.lock_marks(id, *commit_id), |el| {
-                    el.bg(style.theme.warn_soft)
+                    el.bg(style.theme.info_soft)
                 })
                 .map(|el| self.selectable(el, item, cx))
                 .when(several, |el| {

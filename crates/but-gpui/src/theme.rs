@@ -46,8 +46,9 @@ pub struct Theme {
     pub blue: Hsla,
     pub safe: Hsla,
     pub warn: Hsla,
-    /// A row's ground that `warn` marks, as but-ui's `warning-soft`.
-    pub warn_soft: Hsla,
+    /// A row's ground that marks what something builds on, as the commits a lock is on, as
+    /// but-ui's `info-soft`: a fact, not a warning.
+    pub info_soft: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
     /// `safe` and `danger` on a solid selection: each stepped toward `text_inverted` until it
@@ -631,7 +632,7 @@ impl Theme {
             blue: token(on_ground!(INFO_TEXT)),
             safe,
             warn: token(on_ground!(WARNING_TEXT)),
-            warn_soft: token(on_ground!(WARNING_SOFT)),
+            info_soft: token(on_ground!(INFO_SOFT)),
             danger,
             purple: token([done_light, done_dark]),
             safe_on_solid: on_solid(safe),
@@ -784,7 +785,7 @@ impl Theme {
             blue: color(blue),
             safe: color(safe),
             warn: color(text(ansi(3), 4.5)),
-            warn_soft: color(ground(3)),
+            info_soft: color(ground(4)),
             danger: color(danger),
             purple: color(purple),
             safe_on_solid: color(readable_on(safe, bg, fg)),
