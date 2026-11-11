@@ -91,12 +91,6 @@ export const Kinds = meta.story({
  * them until the pointer reaches one, and each tooltip says what pressing it does.
  */
 export const Pressable = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=4945-70998",
-		},
-	},
 	render: () => (
 		<div style={{ display: "flex", gap: 12, alignItems: "center" }}>
 			<Tooltip content="Update from main">

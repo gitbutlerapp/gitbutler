@@ -122,7 +122,7 @@ export const MovedElsewhere = meta.story({
 
 /** With nothing to do about it, the banner drops the action; `icon={false}` drops the glyph. */
 export const WithoutActionOrIcon = meta.story({
-	parameters: figma("2773-10545"),
+	parameters: figma("2773-10546"),
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 			<Banner variant="gray" title="This branch is read-only on this machine" />

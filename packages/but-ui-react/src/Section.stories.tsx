@@ -35,7 +35,7 @@ export const Default = meta.story({
 
 /** The settings for a Claude Code cloud environment, as the connect modal lists them. */
 export const CloudSessionSettings = meta.story({
-	parameters: figma("4630-916"),
+	parameters: figma("4630-917"),
 	render: () => (
 		<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 			<Section title="Network access">

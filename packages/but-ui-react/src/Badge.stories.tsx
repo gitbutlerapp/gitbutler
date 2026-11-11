@@ -74,12 +74,6 @@ export const Inverted = meta.story({
 });
 
 export const WithIcon = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2787-6907",
-		},
-	},
 	render: () => (
 		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
 			<Badge variant="safe">

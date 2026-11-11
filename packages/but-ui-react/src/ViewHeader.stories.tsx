@@ -109,12 +109,6 @@ export const Default = meta.story({
 
 /** An applied branch on the Diff tab: its tabs. No buttons. */
 export const Branch = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14125",
-		},
-	},
 	args: {
 		icon: "branch",
 		title: "feature/JIRA-404-search-filters",
@@ -128,12 +122,6 @@ export const Branch = meta.story({
  * meta line spelling out each count, each led by its glyph.
  */
 export const SpelledOut = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3178-47285",
-		},
-	},
 	args: {
 		icon: "branch",
 		title: "ios-push-handoff",
@@ -166,12 +154,6 @@ export const SpelledOut = meta.story({
  * the title, the pull request's Auto-merge first.
  */
 export const BranchWithButtons = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=3249-48559",
-		},
-	},
 	args: {
 		icon: "branch",
 		title: "ios-push-handoff",
@@ -243,12 +225,6 @@ export const BranchPullRequestTab = meta.story({
 
 /** A branch outside the workspace: no review, so the tab says why, and Apply is its action. */
 export const BranchNotApplied = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14379",
-		},
-	},
 	args: {
 		icon: "branch",
 		title: "debug-this-nightmare",
@@ -260,12 +236,6 @@ export const BranchNotApplied = meta.story({
 
 /** No tabs, so no toolbar: the author line ends the header. */
 export const Commit = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14583",
-		},
-	},
 	args: {
 		icon: "commit",
 		title: "fix: sanitize user input in search query",
@@ -276,12 +246,6 @@ export const Commit = meta.story({
 
 /** A commit whose review has landed: its tabs lead the author line rather than take a row. */
 export const CommitLandedReview = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14697",
-		},
-	},
 	args: {
 		icon: "commit",
 		title: "Add test file 18 to collection",
@@ -293,12 +257,6 @@ export const CommitLandedReview = meta.story({
 
 /** A conflicted commit: the badge keeps its size while the subject gives way. */
 export const CommitConflicted = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-14907",
-		},
-	},
 	args: {
 		icon: "commit",
 		title: (
@@ -314,12 +272,6 @@ export const CommitConflicted = meta.story({
 
 /** A clean worktree: the title alone. */
 export const Uncommitted = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15185",
-		},
-	},
 	args: {
 		icon: "file-diff",
 		title: "Uncommitted",
@@ -328,12 +280,6 @@ export const Uncommitted = meta.story({
 
 /** but.dev's repository checkout: what it holds besides commits, and where to send it. */
 export const Worktree = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15276",
-		},
-	},
 	args: {
 		icon: "folder",
 		title: "gitbutler",
@@ -344,12 +290,6 @@ export const Worktree = meta.story({
 
 /** but.dev's machine: an entity, so it wears the picture of its kind as its avatar. */
 export const Machine = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15368",
-		},
-	},
 	args: {
 		avatar: <img src={machinePictures[0].src} alt="" width={38} height={38} />,
 		title: "pave--macbook-pro",
@@ -360,12 +300,6 @@ export const Machine = meta.story({
 
 /** but.dev's cloud session: an avatar, the branch's tabs, and Send to… as the surface's pop. */
 export const CloudSession = meta.story({
-	parameters: {
-		design: {
-			type: "figma",
-			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=2801-15458",
-		},
-	},
 	args: {
 		avatar: <Icon name="cloud" size={32} />,
 		title: "Panel incoming commits count",
