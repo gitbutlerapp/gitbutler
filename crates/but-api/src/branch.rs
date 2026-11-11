@@ -1084,35 +1084,16 @@ pub fn branch_name_segment_with_perm(
     // The snapshot lists `new_ref` so that undo deletes it again. Not when a linked worktree
     // gets it checked out: undo can't restore that worktree, and won't delete a ref it has.
     let undone_ref = matches!(checkout, but_graph::WorktreeKind::Main).then_some(new_ref.as_ref());
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+    let mut meta = ctx.meta()?;
+    let workspace = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
+        perm,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
         undone_ref.as_slice(),
-        perm.read_permission(),
         DryRun::No,
-    );
-    {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-        but_workspace::branch::name_segment(editor, &checkout, commit_id, new_ref.as_ref())?
-            .materialize(Default::default())?;
-    }
-
-    ctx.reload_repo_and_invalidate_workspace(perm)?;
-    if let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm).ok();
-    }
-    let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
+        |mut tx| tx.name_segment(&checkout, commit_id, new_ref.as_ref()),
     )?;
     Ok(BranchCreateResult { workspace, new_ref })
 }
