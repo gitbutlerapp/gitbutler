@@ -194,7 +194,6 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
     }
 }
 
-/// A more descriptive way of showing if the stack is included in the workspace or not.
 pub enum StackState {
     InWorkspace,
     /// The stack is supposed to be outside the workspace, and unapplied.

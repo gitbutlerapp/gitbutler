@@ -463,7 +463,6 @@ impl Sandbox {
         out
     }
 
-    /// Returns the target sha we ended up setting.
     pub fn set_target_sha(&self, spec: &str) -> gix::ObjectId {
         let repo = self.open_repo();
         let target_sha = repo.rev_parse_single(spec).unwrap();
