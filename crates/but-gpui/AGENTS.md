@@ -291,7 +291,7 @@ and tests it.
 
 ## Conventions
 
-- Match the rules in `packages/but-ui-react/design/`. Adapt Tauri and but.dev rather than copy
+- Match the rules in `packages/but-ui/design/`. Adapt Tauri and but.dev rather than copy
   them, and leave out what GPUI has no data for.
 - Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not

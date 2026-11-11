@@ -7,7 +7,7 @@ import type { FC, Ref } from "react";
 /**
  * Ghost and outline are the two quiet buttons and rank equally; gray and pop are the two ways to
  * raise one above the rest. Reach for a quiet one unless there is a reason not to. Gray is how you
- * highlight, pop is how you point — see `packages/but-ui-react/design/foundations/emphasis.md`.
+ * highlight, pop is how you point — see `packages/but-ui/design/foundations/emphasis.md`.
  * Danger says what pressing does and takes pop's place rather than a step on the ladder: one
  * coloured button per surface, soft unless it answers a confirmation, then `danger-solid`.
  *

@@ -41,9 +41,11 @@ description: what was needed, which components you tried.
 
 ## Read the design pages you need
 
-The shared design language is the library's `DESIGN.md`, beside `src/` in the
-same two places: an index of one page per topic, in `design/`, each saying
-when to read it. Read the pages for what you are building, not all of them.
+The shared design language is `@gitbutler/but-ui`'s `DESIGN.md`, in
+`packages/but-ui/` here and in `node_modules/@gitbutler/but-ui/` elsewhere: an
+index of one page per topic, in `design/` beside it, each saying when to read
+it. Read the pages for what you are building, not all of them. How to build
+with this library is the one page in the library's own `design/`.
 
 Each app keeps its own choices in its own `DESIGN.md`; but.dev's is at its
 repository root.

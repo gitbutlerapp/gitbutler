@@ -5,10 +5,12 @@ styles. It ships source, not a build; each consumer's Vite compiles it, and
 React Compiler runs on it under the consumer's config as it does on the
 consumer's own code.
 
-`DESIGN.md` beside this file is the visual language: how things should look
-and read. It is an index of the pages in `design/`, one per topic; read the
-ones for what you are changing before changing anything a user sees. This file
-is the tooling that enforces them.
+The visual language, how things should look and read on every platform, is
+`@gitbutler/but-ui`'s `DESIGN.md` (`packages/but-ui/DESIGN.md`): an index of
+the pages in its `design/`, one per topic; read the ones for what you are
+changing before changing anything a user sees. `DESIGN.md` beside this file
+has only how to build with this library. This file is the tooling that
+enforces them.
 
 ## Writing the code
 
@@ -115,7 +117,7 @@ its count is zero, and a `state` property (`default`, `hover`) for what CSS
 draws under the pointer, as Button has; two components the code keeps apart
 stay apart in Figma and are placed side by side where a surface shows both.
 
-A component's description in Figma says what its JSDoc and DESIGN.md say
+A component's description in Figma says what its JSDoc and the design notes say
 about it: what it is for, when to pick which variant, and a `Code:` line
 naming the component and its file. Change one and change the other in the
 same piece of work; a description that lags the code is what an agent reading
@@ -176,7 +178,8 @@ A story takes `args`, a `render(args)`, `decorators`, `parameters` (`design`,
 the Figma link, and `layout`) and a `play` function. The docs site, in
 `docs/`, is a small Vite app that draws every page with these components: one
 page per component under its group's heading, every story on it with its
-JSDoc, and the design notes from `DESIGN.md` and `design/`. It runs on port
+JSDoc, and the design notes from but-ui's `DESIGN.md` and `design/`, and this
+library's own `design/`. It runs on port
 6007:
 
 ```console
@@ -277,8 +280,10 @@ component one. A styling helper is not how a control is offered:
 `getButtonClassName` is for making another component look like a button, and
 a button is `<Button>`.
 
-A new design notes page is a Markdown file in its folder under `design/` and a
-row in DESIGN.md; the site finds it and titles it from its heading.
+A new design notes page is a Markdown file in its folder under
+`packages/but-ui/design/` and a row in that package's DESIGN.md; the site finds
+it and titles it from its heading. Only a page about building with this library
+goes in `design/` here.
 
 ### Linting & formatting
 

@@ -67,7 +67,7 @@ but push
 
 ---
 
-See [the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui-react/DESIGN.md) before changing a component.
+See [the design notes](https://github.com/gitbutlerapp/gitbutler/blob/master/packages/but-ui/DESIGN.md) before changing a component.
 
 Then run \`but status\` to check.`,
 	},
