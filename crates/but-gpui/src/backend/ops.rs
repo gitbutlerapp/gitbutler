@@ -423,14 +423,16 @@ pub struct Blocked {
     /// Whether the commit would still take some of what was asked, without them.
     pub takes_others: bool,
     /// Where they build on two stacks: stacking one on the other, after which a new branch
-    /// above it takes them all, tried and found to conflict nothing.
+    /// above it takes them all, tried and found to conflict nothing. `None` where `restack`
+    /// takes them.
     pub stack: Option<Stacking>,
     /// Where they build on other stacks: stacking those below the one it goes in, after which
-    /// it takes them all where it was asked to go, tried and found to conflict nothing.
+    /// it takes them all where it was asked to go, tried and found to conflict nothing. It's
+    /// then all that's offered: nowhere else, and no conflicts kept.
     pub restack: Option<Stacking>,
     /// Taking them all where it was asked to go anyway, keeping what doesn't merge, as a dry
-    /// run found it: `None` where even that doesn't take them all, or where it's an amend
-    /// `restack` takes cleanly.
+    /// run found it: `None` where even that doesn't take them all, or where `restack` takes
+    /// them cleanly.
     pub with_conflicts: Option<WithConflicts>,
     /// For an amend `restack` doesn't take, the commit they build on topmost in its stack,
     /// which takes them all instead, as tried.
@@ -705,11 +707,6 @@ fn blocked(
         })
     };
     let clean = |also: Option<Vec<_>>| also.is_some_and(|also| also.is_empty());
-    // The first that works, as each is tried in full.
-    let stack = (stackings.into_iter()).find(|stacking| {
-        let on_top = Tried::Commit(&stacking.top, None);
-        clean(dry_run(Some(stacking), on_top, Conflicts::Reject))
-    });
     let tried = match asked {
         Asked::Commit(_) => at
             .as_ref()
@@ -719,13 +716,20 @@ fn blocked(
     let restack = restack.filter(|stacking| {
         tried.is_some_and(|tried| clean(dry_run(Some(stacking), tried, Conflicts::Reject)))
     });
-    // An amend stacking takes where it was asked to go is offered no other commit, nor conflicts.
-    let amend_restacks = matches!(asked, Asked::Amend(_)) && restack.is_some();
+    // What stacking takes where it was asked to go is offered nowhere else, nor conflicted.
+    let elsewhere = restack.is_none();
+    // The first that works, as each is tried in full.
+    let stack = (stackings.into_iter())
+        .filter(|_| elsewhere)
+        .find(|stacking| {
+            let on_top = Tried::Commit(&stacking.top, None);
+            clean(dry_run(Some(stacking), on_top, Conflicts::Reject))
+        });
     let instead = instead.filter(|commit| {
-        !amend_restacks && clean(dry_run(None, Tried::Amend(*commit), Conflicts::Reject))
+        elsewhere && clean(dry_run(None, Tried::Amend(*commit), Conflicts::Reject))
     });
     // A stack of its own has nothing above it to conflict.
-    let with_conflicts = match (explain && keepable && !amend_restacks, tried) {
+    let with_conflicts = match (explain && keepable && elsewhere, tried) {
         (false, _) => None,
         (true, Some(tried)) => {
             dry_run(None, tried, Conflicts::Keep).map(|also| WithConflicts { also })
@@ -4672,14 +4676,18 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
             let dir = an_edit_building_on_alpha_and_beta();
             let path = dir.path();
             let both = || CommitChanges {
-                to: CommitTo::Branch(full("refs/heads/alpha")),
+                to: CommitTo::NewBranchAt {
+                    beside: None,
+                    first: false,
+                    name: None,
+                },
                 ..commit_to_main(vec![Selected::whole(&uncommitted(path)[0])], "Both", false)
             };
             let before = crate::backend::history::oplog_head(&open(path).unwrap());
 
             let (outcome, _) = crate::backend::apply(path, both()).unwrap();
             let CommitOutcome::Blocked(blocked) = outcome else {
-                panic!("alpha alone can't take the edit of beta's line: {outcome:?}");
+                panic!("a stack of its own can take neither edit: {outcome:?}");
             };
             assert_eq!(blocked.builds_on, None, "no one branch takes it all");
             let stacking = blocked.stack.expect("the two branches stack cleanly");
@@ -4857,10 +4865,13 @@ feature: CreateCommit on gitbutler/workspace; undid Created commit: on feature, 
                 Some("alpha <- beta"),
                 "with alpha below beta, beta takes it, as tried"
             );
-            assert_eq!(
-                on_beta.with_conflicts.map(|kept| kept.also.len()),
-                Some(0),
-                "kept, its conflicts conflict nothing else"
+            assert!(
+                on_beta.with_conflicts.is_none(),
+                "restacked, beta takes it cleanly, so it isn't offered conflicted"
+            );
+            assert!(
+                on_beta.stack.is_none(),
+                "nor is it offered another branch once they're stacked"
             );
 
             let tip = git(path, &["rev-parse", "beta"]);
