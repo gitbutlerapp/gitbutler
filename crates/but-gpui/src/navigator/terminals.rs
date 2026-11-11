@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, FocusHandle, Focusable, ListAlignment, ListState,
-    MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*,
+    MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
 };
 
 use super::rows::ROW_LEFT;
@@ -560,10 +560,11 @@ impl TerminalOverview {
                     .child(terminal.title.clone())
                     .into_any_element(),
             })
+            // Always there, the title giving way to it, up to a share of the row.
             .child(
                 div()
-                    .flex_shrink(1000.)
-                    .min_w_0()
+                    .flex_none()
+                    .max_w(relative(0.4))
                     .truncate()
                     .text_size(dp(11.))
                     .text_color(style.quiet())
