@@ -63,7 +63,6 @@ pub enum SupportedTemplateDirectory {
 
 pub struct ReviewTemplateFunctions {
     pub is_review_template: fn(&str) -> bool,
-    /// Get the forge directory path
     pub get_root: fn(&path::Path) -> path::PathBuf,
     pub is_valid_review_template_path: fn(&path::Path) -> bool,
     pub supported_template_directories: &'static [SupportedTemplateDirectory],
@@ -351,7 +350,6 @@ impl ForgeReview {
         self.merged_at.is_some()
     }
 
-    /// Whether the review points to the given commit ID and has been merged
     pub fn is_merged_at_commit(&self, commit_id: &str) -> bool {
         self.is_merged() && self.sha == commit_id
     }
@@ -2660,8 +2658,6 @@ pub fn compute_review_target_updates(
 /// footer is removed.
 ///
 /// # Arguments
-/// * `body` - The existing PR body text (may be None or empty)
-/// * `pr_number` - The PR number for which to update the body
 /// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
 /// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
 #[cfg(test)]
@@ -2789,7 +2785,6 @@ fn compose_body(head: &str, footer: &str, tail: &str) -> String {
 /// Generates a footer for use in pull request descriptions when part of a stack.
 ///
 /// # Arguments
-/// * `for_pr_number` - The PR number for which to generate the footer
 /// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
 /// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
 #[cfg(test)]
@@ -3562,7 +3557,6 @@ mod tests {
     fn test_update_body_single_pr_empty_body() {
         let result = update_body(None, 123, &[123], "#");
 
-        // Should return empty string (or just whitespace)
         assert!(result.is_empty() || result.trim().is_empty());
         assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
     }

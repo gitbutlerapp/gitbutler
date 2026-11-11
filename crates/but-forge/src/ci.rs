@@ -100,7 +100,7 @@ fn refresh_cache_with_fetched(
     }
 }
 
-/// Fetch checks from the forge. `None` means the ref did not resolve.
+/// `None` means the ref did not resolve.
 fn ci_checks_for_ref(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
