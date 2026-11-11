@@ -1352,7 +1352,7 @@ impl AppView {
             choices.insert(0, choice);
         }
         let mut choices: Vec<Choice> = choices.into_iter().map(|(_, choice)| choice).collect();
-        // What an error card offers to try instead, as Update anyway, found by typing: last,
+        // What an error card offers to try instead, as Pull anyway, found by typing: last,
         // so ⌘K then Enter never runs one.
         choices.extend((self.store.read(cx).toasts.iter()).filter_map(
             |toast| match &toast.notice {

@@ -808,8 +808,8 @@ impl Store {
     }
 
     /// Rebase what `scope` picks of the project onto its target's latest commits. It stops
-    /// short of leaving anything conflicted that isn't now, with a card that offers to update
-    /// anyway, unless that's what was `accepted` there.
+    /// short of leaving anything conflicted that isn't now, and the window asks whether to
+    /// update anyway ([`StoreEvent::UpdateConflicts`]), unless that's what was `accepted` there.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
@@ -828,20 +828,17 @@ impl Store {
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
                 match outcome {
                     UpdateOutcome::UpToDate => store.snack(up_to_date(scope, &target), cx),
+                    // Asked in a dialog rather than a card in a corner, which left the Update
+                    // pressed looking as if it had done nothing, so it was pressed again.
                     UpdateOutcome::WouldConflict(found) => {
-                        let again = updated.clone();
-                        let title = store.card_title(&updated, "Updating leaves conflicts".into());
                         let workspace = store.workspace(&updated);
                         let detail = update_conflicts_detail(&target, &found, workspace, scope);
-                        store.error_with_retry(
-                            title,
+                        cx.emit(StoreEvent::UpdateConflicts {
+                            project: updated.clone(),
+                            scope,
+                            found,
                             detail,
-                            "Update anyway",
-                            move |store, cx| {
-                                store.update_from_target(&again, scope, Some(found.clone()), cx)
-                            },
-                            cx,
-                        )
+                        })
                     }
                     UpdateOutcome::Updated {
                         conflicted,

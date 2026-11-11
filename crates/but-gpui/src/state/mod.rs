@@ -289,6 +289,14 @@ pub enum StoreEvent {
     /// A commit wasn't made, as some of its changes couldn't go where it was asked to: ask
     /// the user where they go instead ([`Store::take_blocked_commit`]).
     CommitBlocked,
+    /// Updating a project would leave conflicted what isn't now, as `detail` says: ask whether
+    /// to update anyway, accepting just what was `found`.
+    UpdateConflicts {
+        project: ProjectId,
+        scope: backend::upstream::UpdateScope,
+        found: backend::upstream::UpdateConflicts,
+        detail: String,
+    },
 }
 
 /// An error card's button: its label, and what it runs.

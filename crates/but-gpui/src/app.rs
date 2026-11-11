@@ -14,7 +14,7 @@ use gpui::{
     prelude::*, relative,
 };
 
-use crate::backend::upstream::UpdateScope;
+use crate::backend::upstream::{UpdateConflicts, UpdateScope};
 use crate::backend::{self, Checkout, short_ref};
 use crate::command_editor::OpenCommandEditor;
 use crate::detail::{Detail, DiffPane, KeptPages, KeyMove, KeyPane};
@@ -514,6 +514,19 @@ impl AppView {
                 StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
                 StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
                 StoreEvent::CommitBlocked => this.ask_where_blocked_commit_goes(window, cx),
+                StoreEvent::UpdateConflicts {
+                    project,
+                    scope,
+                    found,
+                    detail,
+                } => this.ask_to_update_with_conflicts(
+                    project.clone(),
+                    *scope,
+                    found.clone(),
+                    detail,
+                    window,
+                    cx,
+                ),
                 StoreEvent::LinkOpened {
                     project,
                     existed,
@@ -2201,7 +2214,7 @@ impl AppView {
     }
 
     /// Rebase what `scope` picks onto the target. When that would leave commits conflicted
-    /// that aren't now, the card saying so offers to go ahead.
+    /// that aren't now, the window asks whether to go ahead.
     pub fn update_from_target(
         &mut self,
         project: ProjectId,
@@ -2223,6 +2236,26 @@ impl AppView {
         }
         self.store.update(cx, |store, cx| {
             store.update_from_target(&project, scope, None, cx)
+        });
+    }
+
+    /// Ask whether to update `project` anyway, leaving conflicted just what the update `found`
+    /// it would, as `detail` says.
+    fn ask_to_update_with_conflicts(
+        &mut self,
+        project: ProjectId,
+        scope: UpdateScope,
+        found: UpdateConflicts,
+        detail: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = Some(Selection::Project(project.clone()));
+        let message = "Update and leave conflicts?".to_owned();
+        self.confirm_then(at, message, detail, "Update", window, cx, move |app, cx| {
+            app.store.update(cx, |store, cx| {
+                store.update_from_target(&project, scope, Some(found), cx)
+            })
         });
     }
 

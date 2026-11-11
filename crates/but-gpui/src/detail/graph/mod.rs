@@ -583,6 +583,7 @@ impl GraphView {
             | StoreEvent::TilingMoved { .. }
             | StoreEvent::MoveToward(_)
             | StoreEvent::CommitBlocked
+            | StoreEvent::UpdateConflicts { .. }
             | StoreEvent::RowDragEnded => {}
         })]);
         GraphView {
