@@ -526,8 +526,8 @@ impl Theme {
             .map(token),
             // Embedded by `ui::fonts`.
             ui_font: "Inter".into(),
-            mono_font: "Geist Mono".into(),
-            diff_font: "Geist Mono".into(),
+            mono_font: "GeistMono Nerd Font Mono".into(),
+            diff_font: "GeistMono Nerd Font Mono".into(),
             diff_digit: 0.6,
             diff_features: FontFeatures::default(),
             terminal_font: gpui::font("GeistMono Nerd Font Mono"),
