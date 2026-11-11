@@ -61,7 +61,7 @@ export const Default = meta.story({
  * title's verb. Escape and the backdrop cancel it.
  */
 export const Confirm = meta.story({
-	parameters: figma("2283-1871"),
+	parameters: figma("3537-71665"),
 	render: function Confirm() {
 		const [open, setOpen] = useState(true);
 		return (
@@ -143,7 +143,7 @@ export const LongList = meta.story({
  * answer. The description names the one field, so it has no label above it, only an `aria-label`.
  */
 export const Form = meta.story({
-	parameters: figma("2283-1878"),
+	parameters: figma("3537-71672"),
 	render: function Form() {
 		const [open, setOpen] = useState(true);
 		return (
@@ -192,7 +192,7 @@ export const Form = meta.story({
  * question with nothing to list takes `xsmall` and no body.
  */
 export const Destructive = meta.story({
-	parameters: figma("2283-1882"),
+	parameters: figma("3537-71676"),
 	render: function Destructive() {
 		const [open, setOpen] = useState(true);
 		return (
@@ -234,7 +234,7 @@ const places: Array<{ id: Place; label: string }> = [
  * list next time. Back returns focus to the choice it came from.
  */
 export const WithBack = meta.story({
-	parameters: figma("2302-2152"),
+	parameters: figma("3537-71683"),
 	render: function WithBack() {
 		const [open, setOpen] = useState(true);
 		const [place, setPlace] = useState<Place | null>(null);

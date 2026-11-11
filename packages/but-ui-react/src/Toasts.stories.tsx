@@ -63,7 +63,7 @@ export const Default = meta.story({
 
 /** A failure with a way round it: the action sits under the description, however long its label. */
 export const ApplyConflict = meta.story({
-	parameters: figma("2811-1414"),
+	parameters: figma("4333-246659"),
 	render: () => (
 		<Raise
 			toasts={[
@@ -82,7 +82,7 @@ export const ApplyConflict = meta.story({
 
 /** A commit that came off in part: the description breaks down what was left behind, and why. */
 export const RejectedChanges = meta.story({
-	parameters: figma("2811-1438"),
+	parameters: figma("4333-246660"),
 	render: () => (
 		<Raise
 			toasts={[
@@ -108,7 +108,7 @@ export const RejectedChanges = meta.story({
 
 /** News with no verdict, and the next step it offers; `data.icon` gives it the updater's own glyph. */
 export const UpdateReady = meta.story({
-	parameters: figma("2811-1462"),
+	parameters: figma("4333-246661"),
 	render: () => (
 		<Raise
 			toasts={[
@@ -126,7 +126,7 @@ export const UpdateReady = meta.story({
 
 /** A success the screen doesn't otherwise show. */
 export const ConflictsResolved = meta.story({
-	parameters: figma("2811-1486"),
+	parameters: figma("4333-246662"),
 	render: () => (
 		<Raise
 			toasts={[
@@ -162,13 +162,13 @@ const stack: Array<Options> = [
 
 /** Several at once fold behind the newest: the ones further back show only their top edge. */
 export const Stack = meta.story({
-	parameters: figma("2821-63766"),
+	parameters: figma("4333-246670"),
 	render: () => <Raise toasts={stack} />,
 });
 
 /** Under the pointer or keyboard focus the stack unfolds into a column, 8px apart. */
 export const StackExpanded = meta.story({
-	parameters: figma("2821-63761"),
+	parameters: figma("4333-246666"),
 	render: () => <Raise toasts={stack} />,
 	play: async ({ canvas, userEvent, canvasElement }) => {
 		await userEvent.click(canvas.getByRole("button", { name: "Show" }));
