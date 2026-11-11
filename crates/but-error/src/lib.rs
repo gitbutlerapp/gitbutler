@@ -243,7 +243,6 @@ impl std::fmt::Display for Code {
     }
 }
 
-/// A context for classifying errors.
 #[derive(Default, Debug, Clone)]
 pub struct Context {
     pub code: Code,
@@ -342,7 +341,6 @@ fn cause_chain(err: &(dyn std::error::Error + 'static)) -> String {
 pub enum Marker {
     /// Invalid state was detected, making the repository invalid for operation.
     VerificationFailure,
-    /// See usages for details on what these conflicts can be.
     ProjectConflict,
     /// An indicator that a branch conflicted during applying to the workspace.
     BranchConflict,
