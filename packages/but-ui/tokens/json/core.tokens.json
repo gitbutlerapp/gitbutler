@@ -686,7 +686,29 @@
       "bg-selected-inactive": {
         "$type": "string",
         "$value": "10%",
-        "$description": "How much inverse a selected row keeps while its list doesn&#39;t have focus, so the selection stays legible from elsewhere. Used by selected/inactive.",
+        "$description": "How much inverse a selected row keeps while its list doesn't have focus, so the selection stays legible from elsewhere. Used by selected/inactive.",
+        "$extensions": {
+          "mode": {},
+          "figmaScopes": [
+            "OPACITY"
+          ]
+        }
+      },
+      "wash": {
+        "$type": "string",
+        "$value": "14%",
+        "$description": "How much of a hue a wash lays over what must still show through it: a mark on a row, a drop target, a comment's words. Used by each hue's wash, as primary/wash.",
+        "$extensions": {
+          "mode": {},
+          "figmaScopes": [
+            "OPACITY"
+          ]
+        }
+      },
+      "wash-strong": {
+        "$type": "string",
+        "$value": "28%",
+        "$description": "How much of a hue a strong wash lays over what must still show through it: what's matched, selected or being written now. Used by each hue's wash-strong, as primary/wash-strong.",
         "$extensions": {
           "mode": {},
           "figmaScopes": [
@@ -752,7 +774,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-11T12:30:20.299Z"
+        "createdAt": "2026-11-11T21:30:21.898Z"
       }
     }
   }

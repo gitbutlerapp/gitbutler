@@ -158,6 +158,46 @@
             }
           }
         }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.primary.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "The accent laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use primary/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.primary.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.primary.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.primary.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "primary/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.primary.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.primary.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            }
+          }
+        }
       }
     },
     "danger": {
@@ -236,6 +276,46 @@
             "mode": {
               "light": "{ramps.red.4}",
               "dark": "{ramps.red.4}"
+            }
+          }
+        }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.danger.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "Danger laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use danger/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.danger.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.danger.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.danger.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "danger/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.danger.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.danger.$root}",
+              "alpha": "{core.opacity.wash-strong}"
             }
           }
         }
@@ -334,6 +414,48 @@
             "dark": "#dfdfdf"
           }
         }
+      },
+      "soft": {
+        "$root": {
+          "$type": "color",
+          "$value": {
+            "components": "{semantic.inverse.foreground}",
+            "alpha": "15%"
+          },
+          "$description": "A faint ground, rule or track on inverse: a badge, a bar's track, the line between joined rows, as secondary and border/subtle are on background.",
+          "$extensions": {
+            "mode": {
+              "light": {
+                "components": "{semantic.inverse.foreground}",
+                "alpha": "15%"
+              },
+              "dark": {
+                "components": "{semantic.inverse.foreground}",
+                "alpha": "15%"
+              }
+            }
+          }
+        },
+        "hover": {
+          "$type": "color",
+          "$value": {
+            "components": "{semantic.inverse.foreground}",
+            "alpha": "22%"
+          },
+          "$description": "inverse/soft under the pointer.",
+          "$extensions": {
+            "mode": {
+              "light": {
+                "components": "{semantic.inverse.foreground}",
+                "alpha": "22%"
+              },
+              "dark": {
+                "components": "{semantic.inverse.foreground}",
+                "alpha": "22%"
+              }
+            }
+          }
+        }
       }
     },
     "warning": {
@@ -412,6 +534,46 @@
             "mode": {
               "light": "{ramps.amber.4}",
               "dark": "{ramps.amber.4}"
+            }
+          }
+        }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.warning.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "Warning laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use warning/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.warning.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.warning.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.warning.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "warning/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.warning.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.warning.$root}",
+              "alpha": "{core.opacity.wash-strong}"
             }
           }
         }
@@ -496,6 +658,46 @@
             }
           }
         }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.success.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "Success laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use success/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.success.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.success.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.success.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "success/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.success.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.success.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            }
+          }
+        }
       }
     },
     "done": {
@@ -574,6 +776,46 @@
             "mode": {
               "light": "{ramps.purple.4}",
               "dark": "{ramps.purple.4}"
+            }
+          }
+        }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.done.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "Done laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use done/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.done.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.done.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.done.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "done/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.done.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.done.$root}",
+              "alpha": "{core.opacity.wash-strong}"
             }
           }
         }
@@ -677,6 +919,46 @@
             "mode": {
               "light": "{ramps.blue.4}",
               "dark": "{ramps.blue.4}"
+            }
+          }
+        }
+      },
+      "wash": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.info.$root}",
+          "alpha": "{core.opacity.wash}"
+        },
+        "$description": "Info laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use info/soft.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.info.$root}",
+              "alpha": "{core.opacity.wash}"
+            },
+            "dark": {
+              "components": "{semantic.info.$root}",
+              "alpha": "{core.opacity.wash}"
+            }
+          }
+        }
+      },
+      "wash-strong": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.info.$root}",
+          "alpha": "{core.opacity.wash-strong}"
+        },
+        "$description": "info/wash, stronger: what's matched, selected or being written now.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.info.$root}",
+              "alpha": "{core.opacity.wash-strong}"
+            },
+            "dark": {
+              "components": "{semantic.info.$root}",
+              "alpha": "{core.opacity.wash-strong}"
             }
           }
         }
@@ -1415,7 +1697,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-10T22:27:01.455Z"
+        "createdAt": "2026-11-11T21:30:21.898Z"
       }
     }
   }
