@@ -159,6 +159,16 @@ dependency sets a variable at runtime that the script can't see, or a
 component reads a knob its host may set, add it to `KNOWN_RUNTIME` in the
 script with who sets it.
 
+### Design notes
+
+A design note names a token, a component, a file or a prop rather than writing
+out what it is, and `check` runs `scripts/check-notes.mjs`, which fails on any
+of them that's gone: a rename that leaves a note pointing at nothing fails here,
+not in an agent's build. It checks but-ui's notes and this library's, and the
+links between them. The 🍑 But UI nodes a note names, as the toasts note's, are
+checked only with `FIGMA_API_KEY` and `FIGMA_FILE_KEY` set, as when pulling
+tokens.
+
 ### Stories and the docs site
 
 Every component has a story beside it, in both themes, and a component that
