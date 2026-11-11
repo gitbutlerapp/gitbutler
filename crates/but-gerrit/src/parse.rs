@@ -48,12 +48,10 @@ pub fn push_output(output: &str) -> Result<PushOutput> {
     for line in output.lines() {
         let line = line.trim_start_matches("remote: ");
 
-        // Check for SUCCESS
         if line.trim() == "SUCCESS" {
             success = true;
         }
 
-        // Check for warnings
         if line.contains("warning:") {
             warnings.push(line.to_string());
         }
@@ -81,7 +79,6 @@ pub fn push_output(output: &str) -> Result<PushOutput> {
             changes.push(change_info);
         }
 
-        // Parse processing info
         if line.contains("Processing changes:")
             && line.contains("refs:")
             && let Some(info) = parse_processing_info(line)
@@ -127,7 +124,6 @@ fn parse_change_info(line: &str) -> Option<ChangeInfo> {
     let url = parts[0].to_string();
     let rest = parts[1];
 
-    // Check for [WIP], [NEW], and [PRIVATE] tags
     let is_wip = rest.contains("[WIP]");
     let is_new = rest.contains("[NEW]");
     let is_private = rest.contains("[PRIVATE]");
@@ -249,19 +245,16 @@ remote:"#;
         assert_eq!(result.warnings.len(), 0);
         assert_eq!(result.changes.len(), 3);
 
-        // Check first change
         let change1 = &result.changes[0];
         assert_eq!(change1.url, "http://15a45d4cba1a/c/gerrit-test/+/42");
         assert_eq!(change1.commit_title, "aaaaaaa");
         assert!(change1.is_new);
 
-        // Check second change
         let change2 = &result.changes[1];
         assert_eq!(change2.url, "http://15a45d4cba1a/c/gerrit-test/+/43");
         assert_eq!(change2.commit_title, "bbbbbb");
         assert!(change2.is_new);
 
-        // Check third change
         let change3 = &result.changes[2];
         assert_eq!(change3.url, "http://15a45d4cba1a/c/gerrit-test/+/44");
         assert_eq!(change3.commit_title, "cccccc");
@@ -303,7 +296,6 @@ remote:"#;
 
     #[test]
     fn test_edge_cases_no_panic() {
-        // Test empty string
         let result = push_output("");
         assert!(result.is_ok());
 
