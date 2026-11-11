@@ -1,6 +1,5 @@
 //! Implementations for `but-core` metadata traits, associating data with Git entities.
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
 
 #[cfg(feature = "legacy")]
 mod legacy;

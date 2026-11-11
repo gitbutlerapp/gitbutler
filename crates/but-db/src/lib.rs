@@ -54,7 +54,6 @@
 //! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
-#![deny(missing_docs)]
 use but_utils::OnDemand;
 use rusqlite::ErrorCode;
 use std::path::PathBuf;

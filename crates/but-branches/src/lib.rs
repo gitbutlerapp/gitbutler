@@ -4,7 +4,6 @@
 //! that includes every relevant branch tip. All commit counts are answered from graph
 //! memory; no tree or blob diffs are computed here. Expensive per-branch data belongs
 //! to the selected-branch APIs, like `but_workspace::ui::diff::changes_in_branch()`.
-#![deny(missing_docs)]
 
 mod walk;
 

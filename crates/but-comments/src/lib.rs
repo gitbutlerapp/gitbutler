@@ -14,7 +14,6 @@
 //! Comments are stored in a plain JSON file in the project data directory (see
 //! [`CommentStore`]), not the project database — deliberately the lightest possible storage
 //! while the feature proves itself.
-#![deny(missing_docs)]
 
 mod anchor;
 mod store;

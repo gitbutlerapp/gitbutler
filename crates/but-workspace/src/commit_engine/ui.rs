@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 use but_serde::BStringForFrontend;
 use gix::ObjectId;
 use serde::Serialize;

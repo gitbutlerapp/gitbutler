@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 //! Legacy data structures and functionality tied to `gitbutler-*` crates.
 //!
 

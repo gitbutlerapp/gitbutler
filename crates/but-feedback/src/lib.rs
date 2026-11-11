@@ -1,5 +1,4 @@
 //! Provide utilities for creating archives for letting users provide feedback.
-#![deny(missing_docs)]
 use std::path::PathBuf;
 
 use anyhow::Result;

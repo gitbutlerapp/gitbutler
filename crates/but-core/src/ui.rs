@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 use std::collections::BTreeMap;
 
 use bstr::BString;
@@ -339,7 +338,6 @@ but_schemars::register_sdk_type!(ChangeState);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[expect(missing_docs)]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,

@@ -1,7 +1,6 @@
 //! An API for an interactive rebases, suitable for interactive, UI driven, and programmatic use.
 //!
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
-#![deny(missing_docs)]
 
 use anyhow::{Context as _, Ok, Result, anyhow, bail};
 use bstr::BString;

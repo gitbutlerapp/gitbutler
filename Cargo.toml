@@ -7,7 +7,6 @@ members = [
     ##
     ### ✅Exemplary 🏆
     ##
-    # Exhaustive documentation (via `#![deny(missing_docs)]`)
     # Exhaustive tests
     # No or minimal 'legacy' support
     # No `but-ctx` dependency
@@ -27,7 +26,6 @@ members = [
     ##
     # Shows many or all traits of Exemplary
     # Substantial legacy code or legacy dependencies
-    # Partial or incomplete documentation.
     # Tests for core capabilities.
     # 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
     "crates/but-rebase", # 📄Alter commit-graphs in various ways

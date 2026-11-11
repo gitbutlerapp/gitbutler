@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 

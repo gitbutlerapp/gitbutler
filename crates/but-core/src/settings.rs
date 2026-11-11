@@ -58,7 +58,6 @@ pub mod git {
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
         #[serde(rename_all = "camelCase")]
-        #[expect(missing_docs)]
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,

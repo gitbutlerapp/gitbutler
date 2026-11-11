@@ -4,7 +4,6 @@
 //! `gitbutler-project` while legacy project storage still exists.
 //! Once `gitbutler-project` is removed, `ProjectHandle` will be merged back into
 //! `but-ctx` and this crate will go away.
-#![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
 #[cfg(feature = "legacy")]

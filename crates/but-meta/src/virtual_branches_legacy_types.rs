@@ -1,7 +1,6 @@
 //! Legacy types that won't be needed anymore once the toml is removed.
 //!
 //! The types here are the only ones to implement `serde`.
-#![allow(missing_docs)]
 use std::collections::HashMap;
 
 use but_core::ref_metadata::StackId;

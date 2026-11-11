@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use serde::{Deserialize, Serialize};
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};

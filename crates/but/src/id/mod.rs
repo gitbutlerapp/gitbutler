@@ -4,8 +4,6 @@
 //! entities including branches, commits, and files. These IDs are used in the CLI to make commands
 //! more convenient and readable than using full SHA-1 hashes or long branch names.
 
-#![forbid(missing_docs)]
-
 use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
 

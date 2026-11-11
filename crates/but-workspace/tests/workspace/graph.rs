@@ -92,7 +92,7 @@ const GLYPHS: [&str; 13] = [
     "  ", "──", "│ ", "╷ ", "╯ ", "╰─", "┴─", "╮ ", "╭─", "┬─", "┤ ", "├─", "┼─",
 ];
 
-#[allow(dead_code, clippy::missing_docs_in_private_items)]
+#[allow(dead_code)]
 mod glyph {
     pub const SPACE: usize = 0;
     pub const HORIZONTAL: usize = 1;

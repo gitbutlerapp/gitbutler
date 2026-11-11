@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 #![deny(clippy::indexing_slicing)]
 
 //! ### Terminology

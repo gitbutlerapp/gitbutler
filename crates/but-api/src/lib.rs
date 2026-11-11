@@ -6,7 +6,6 @@
 //! on this level.
 //! Lower-level crates like `but-workspace` won't use filesystem-based locking beyond what Git offers natively.
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
 
 #[cfg(feature = "legacy")]
 pub mod legacy;

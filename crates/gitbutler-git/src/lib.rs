@@ -4,7 +4,7 @@
 //! **Important Note:** This is an interim library. Please do not rely on it;
 //! it's only used as a temporary measure in the GitButler app until we implement
 //! a longer-term solution for managing Git operations.
-#![deny(missing_docs, unsafe_code)]
+#![deny(unsafe_code)]
 #![allow(async_fn_in_trait)]
 #![allow(unknown_lints)]
 

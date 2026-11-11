@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Testing utilities
 
 use std::{

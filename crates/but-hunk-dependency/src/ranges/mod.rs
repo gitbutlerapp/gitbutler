@@ -26,7 +26,6 @@ pub struct WorkspaceRanges {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[expect(missing_docs)]
 pub struct CalculationError {
     pub error_message: String,
     pub target: HunkLockTarget,

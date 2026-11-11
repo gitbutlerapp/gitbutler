@@ -1,5 +1,4 @@
 //! A crate to host a `Context` type, suitable to provide the context *applications* need to operate on a Git repository.
-#![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
 use std::{

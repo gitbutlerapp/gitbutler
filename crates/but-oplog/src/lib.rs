@@ -51,7 +51,7 @@
 //! with the restore point.
 //!
 //! Non-legacy commands can use the [`UnmaterializedOplogSnapshot`] utility to insert the snapshot into the log on successful effects.
-#![forbid(unsafe_code, missing_docs)]
+#![forbid(unsafe_code)]
 
 /// This is just a sketch for an in-memory snapshot that isn't observable through the on-disk repository.
 /// It will be committed only if the main effect of a function was successfully applied.

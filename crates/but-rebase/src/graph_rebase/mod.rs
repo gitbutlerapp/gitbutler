@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! One graph based engine to rule them all,
 //! one vector based to find them,
 //! one mess of git2 code to bring them all,

@@ -1,5 +1,4 @@
 //! Utilities for testing.
-#![deny(missing_docs)]
 
 use std::{collections::HashMap, io::Write, path::Path};
 

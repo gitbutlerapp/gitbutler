@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! The basic primitives that GitButler is built around.
 //!
 //! It also is a catch-all for code until it's worth putting it into its own crate, *as long as it doesn't come with more dependencies*.

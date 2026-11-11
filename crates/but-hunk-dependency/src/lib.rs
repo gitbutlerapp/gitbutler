@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 //! ## Module Guidelines
 //!
 //! ### Data for consumption by UI

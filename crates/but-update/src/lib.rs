@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Application update checking and management for GitButler.
 //!
 //! This crate provides functionality to check for new versions of GitButler applications
