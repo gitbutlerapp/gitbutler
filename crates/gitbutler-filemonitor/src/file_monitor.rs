@@ -866,7 +866,6 @@ impl WatchedCheckout {
     }
 }
 
-/// A classification for a changed file.
 #[derive(Debug, Eq, PartialEq)]
 enum FileKind {
     /// A file in the `.git` repository of the current project itself.
