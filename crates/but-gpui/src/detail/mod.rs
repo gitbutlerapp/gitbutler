@@ -517,7 +517,6 @@ pub struct Detail {
     cursor: Cursor,
     /// How many times what y copied here has blinked, and what it last was and when.
     blinked: (usize, Option<(Copied, Instant)>),
-    /// What that overview reads beyond the workspace.
     now: worktree::Now,
     /// The place to put the cursor on once the diff loading now lands, as when following the
     /// file being read into the commit an agent made of it.
@@ -529,7 +528,6 @@ pub struct Detail {
     review_list: ListState,
     /// The project whose Branches page lists only the branches a brief is known of.
     branches_with_brief: Option<ProjectId>,
-    /// What the Brief tab holds.
     brief: brief::BriefView,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
@@ -2518,12 +2516,10 @@ impl Detail {
         self.listed_messages(key, cx).is_some()
     }
 
-    /// Whose messages the loaded diff lists first.
     fn loaded_messages(&self, cx: &App) -> Option<Messages> {
         self.listed_messages(&self.diff.as_ref()?.key, cx)
     }
 
-    /// Whether the loaded diff lists the messages first.
     pub(super) fn message_listed(&self, cx: &App) -> bool {
         self.loaded_messages(cx).is_some()
     }
@@ -2866,7 +2862,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// Show code in diffs at `size`.
     pub fn set_code_size(&mut self, size: crate::theme::CodeSize, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.code_size = size, cx)
@@ -3363,7 +3358,6 @@ impl Detail {
         })
     }
 
-    /// The column's width while nothing slides.
     fn column_at_rest(&self, window: &Window, cx: &App) -> f32 {
         let window = self.laid_out_width(window, cx);
         let navigator = self.navigator_shown.get();

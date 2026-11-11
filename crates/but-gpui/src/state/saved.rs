@@ -468,7 +468,6 @@ impl ScopeLines {
     }
 }
 
-/// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub(super) struct Saved {
@@ -508,7 +507,6 @@ pub struct Prefs {
     pub accent_color: String,
     /// The gray GitButler's own colours are built on.
     pub ground: crate::theme::Ground,
-    /// How round corners are.
     pub corners: crate::theme::Corners,
     /// How tall controls are.
     pub density: crate::theme::Density,
@@ -663,7 +661,6 @@ pub enum Part {
 }
 
 impl Prefs {
-    /// Whether `part` of the window draws.
     pub fn shows(&self, part: Part) -> bool {
         match part {
             Part::StatusBar => !self.hide_status_bar,

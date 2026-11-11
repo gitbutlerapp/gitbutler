@@ -228,7 +228,6 @@ fn repositories_in(path: &Path) -> Vec<String> {
     names
 }
 
-/// Make the folder `path` a Git repository, as `git init` does.
 pub fn init_repository(path: &Path) -> Result<()> {
     gix::init(path)
         .with_context(|| format!("Couldn't make {} a Git repository", path.display()))?;
@@ -683,7 +682,6 @@ fn remote_has_branches(repo: &gix::Repository, name: &gix::refs::FullNameRef) ->
     .any(|branch| !branch.name().as_bstr().ends_with(b"/HEAD"))
 }
 
-/// The commit `name` points at, if it's there.
 pub(crate) fn ref_tip(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
@@ -948,10 +946,6 @@ impl FileChange {
 /// aren't counted: reading them all would hold up every reload.
 const COUNT_LINES_UP_TO: usize = 300;
 
-/// Uncommitted files, each with when it was last written and, while there are few enough,
-/// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
-/// them. A file `previous` has with the same change, written at the same time, keeps the lines
-/// counted then: while an agent writes, most files stay as they were between reads.
 /// What status says changed in `repo`'s checkout, but for the repository's linked worktrees
 /// inside it, as agents' under `.claude/worktrees`, which look to status like repositories
 /// added: they're checkouts of their own, which committing would record and discarding would
@@ -977,6 +971,10 @@ fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
     Ok(changes)
 }
 
+/// Uncommitted files, each with when it was last written and, while there are few enough,
+/// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
+/// them. A file `previous` has with the same change, written at the same time, keeps the lines
+/// counted then: while an agent writes, most files stay as they were between reads.
 fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
     let changes = own_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
@@ -1210,7 +1208,6 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
     })
 }
 
-/// Whether `err` is Git having no author to record a commit with.
 pub fn is_author_missing(err: &anyhow::Error) -> bool {
     err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::AuthorMissing)
 }

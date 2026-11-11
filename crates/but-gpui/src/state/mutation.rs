@@ -346,7 +346,6 @@ fn files_named(files: &[String]) -> String {
 
 const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
 
-/// What runs once a commit is made.
 type OnCommitted = std::rc::Rc<dyn Fn(&mut Store, backend::Committed, &mut Context<Store>)>;
 
 /// A commit not made as some of its changes couldn't go where it was asked to, for the user to
@@ -481,8 +480,6 @@ impl Store {
         self.running.iter().filter(|r| r.phase == Phase::Working)
     }
 
-    /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
-    /// others by when it started.
     /// Count a write the app made outside an operation, which `started` and ran for `span`, as
     /// its own, as a file edited in the diff saving itself: undo then doesn't take it for
     /// someone else's, nor the checkout for active. One that `recorded` a snapshot is what ⌘Z
@@ -508,6 +505,8 @@ impl Store {
         }
     }
 
+    /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
+    /// others by when it started.
     fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, started: Instant) {
         let done = backend::now_millis();
         (self.undo_steps).push(UndoStep {

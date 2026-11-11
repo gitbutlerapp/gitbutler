@@ -174,7 +174,6 @@ pub struct SinceCommit {
     pub title: String,
 }
 
-/// Code a brief shows.
 #[derive(Debug, Clone)]
 pub struct BriefCode {
     pub path: String,
@@ -187,7 +186,6 @@ pub struct BriefCode {
     pub omitted: Vec<String>,
 }
 
-/// Where code a brief shows comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CodeSource {
     Committed,

@@ -179,16 +179,13 @@ pub struct TerminalOverview {
     was_empty: bool,
     /// What the rows were last sorted out under, to sort them out again at once as it changes.
     grouped_by: TerminalGrouping,
-    /// The headings folded, whatever they group by.
     folded: HashSet<Group>,
-    /// The headings opening or closing now.
     folds: Folds<Group>,
     /// The keys stepped onto a heading, which folds but shows nothing, so the terminal shown
     /// stays as it was: see [`TerminalOverview::step`].
     on_heading: Option<Group>,
     /// The terminal shown when the store last changed, to leave the heading once another is.
     shown: Option<TerminalId>,
-    /// The terminal whose name is being edited in its row, and the field it's edited in.
     renaming: Option<Renaming>,
     focus: FocusHandle,
     _store: Subscription,

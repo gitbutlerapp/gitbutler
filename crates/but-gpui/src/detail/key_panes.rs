@@ -202,7 +202,6 @@ impl Detail {
             .unwrap_or(KeyPane::Diff)
     }
 
-    /// The pane the keys last left on this page.
     fn last_pane(&self) -> Option<KeyPane> {
         self.page.files().and_then(|files| files.last_pane)
     }

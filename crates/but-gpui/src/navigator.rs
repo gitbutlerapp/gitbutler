@@ -96,7 +96,6 @@ const CARD_MARGIN: f32 = 8.;
 /// right against, so the gap's divider and the list's scrollbar are the navigator's own.
 const CARD_MARGIN_BESIDE: f32 = 7.;
 
-/// How far below its top the list lays out its first row.
 const LIST_TOP: f32 = 0.;
 
 /// How many rows above the last one the list drew last frame draws the rows sliding into view
@@ -184,7 +183,6 @@ pub(crate) struct RowStyle<'a> {
 /// What a row's blink is of: see [`Navigator::blinked`].
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Blink {
-    /// The selection, just copied.
     Copied,
     /// Where the move under way would land, as a click it can't use reminds the user of it.
     Move,
@@ -554,13 +552,10 @@ pub struct Navigator {
     /// How tall a row is, in design pixels, as the density draws it: the theme's control
     /// height, taken as the navigator draws, so its row maths and its rows agree.
     row: f32,
-    /// How far in each row sits.
     insets: Vec<f32>,
-    /// Where each row's guides run.
     guides: Vec<Vec<f32>>,
     /// Each row's place in the fold it moves with, while one does.
     moving: Vec<Option<Moving>>,
-    /// The folds opening or closing now.
     folds: Folds<Fold>,
     /// The rows sliding to where a reorder put them, and each row's key, to tell which.
     reorder: Reorder<RowKey>,
@@ -696,7 +691,6 @@ pub struct Navigator {
     /// edge, up when negative, and the task that scrolls it.
     edge_scroll: f32,
     edge_scrolling: Option<Task<()>>,
-    /// The branch whose name is being edited in its row.
     renaming: Option<rename::Renaming>,
     /// How many times a row has blinked, and the last blink: what it was of, and when.
     blinked: (usize, Option<(Blink, Instant)>),
@@ -4366,7 +4360,6 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// Whether the rows under a section's heading are listed.
     fn heading_open(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
         let store = self.store.read(cx);
         match section {

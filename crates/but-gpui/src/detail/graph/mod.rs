@@ -563,7 +563,6 @@ impl GraphView {
         self.tell_pinned(false, cx);
     }
 
-    /// The graph of the project selected, or with `pinned`, of that one, for a pinned tile.
     pub fn new(store: Entity<Store>, cx: &mut Context<Self>) -> Self {
         let subscriptions = Vec::from([cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),

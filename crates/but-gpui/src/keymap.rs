@@ -27,7 +27,6 @@ use crate::state::Store;
 /// The platforms a section can name, as `std::env::consts::OS` names them.
 pub const PLATFORMS: [&str; 3] = ["macos", "windows", "linux"];
 
-/// What people call the platform `os`.
 pub fn platform_name(os: &str) -> &str {
     match os {
         "macos" => "macOS",
@@ -43,7 +42,6 @@ pub enum KeymapFile {
     Standard,
     /// The keys every keymap shares.
     Base,
-    /// The menu bar.
     Menus,
 }
 
@@ -97,7 +95,6 @@ impl Keymap {
         [self.own_file(), KeymapFile::Base]
     }
 
-    /// The file of the keys only it binds.
     pub fn own_file(self) -> KeymapFile {
         match self {
             Keymap::Standard => KeymapFile::Standard,
@@ -246,7 +243,6 @@ pub struct Binding {
 }
 
 impl Binding {
-    /// Whether it binds on the platform `os`.
     pub fn binds_on(&self, os: &str) -> bool {
         (self.os.as_ref()).is_none_or(|names| names.iter().any(|name| name == os))
     }
@@ -566,7 +562,6 @@ mod tests {
         assert_eq!(prefs, Some((Keymap::Standard, 1)));
     }
 
-    /// The keys `keymap` binds to Discard on `os`.
     fn discard_keys(keymap: Keymap, os: &str) -> Vec<String> {
         (bound(keymap, os).into_iter())
             .filter(|entry| entry.action == "edits::Discard")

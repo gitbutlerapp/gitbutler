@@ -19,7 +19,6 @@ struct Pair {
     comma: Option<usize>,
 }
 
-/// A section, as the text has it.
 struct SectionText {
     object: Range<usize>,
     comma: Option<usize>,

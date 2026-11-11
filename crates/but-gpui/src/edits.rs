@@ -52,7 +52,6 @@ actions!(
 /// What a branch is found by in ⌘K besides what Discard says of it.
 pub(crate) const BRANCH_ALIASES: &[&str] = &["Remove branch", "Discard branch"];
 
-/// What Discard does to a row.
 pub(crate) struct RowDiscard {
     /// What a menu calls it.
     pub phrase: String,
@@ -190,7 +189,6 @@ pub struct BranchEdits {
     /// It has more than one commit to squash into one, and none conflicted, which the
     /// engine won't squash.
     pub squash_all: bool,
-    /// Other branches share its stack.
     pub stacked: bool,
     /// It shares its stack and can go in one of its own, which starts from the target.
     pub unstack: bool,

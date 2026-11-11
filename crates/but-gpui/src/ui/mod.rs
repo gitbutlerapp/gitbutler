@@ -577,7 +577,6 @@ pub fn v_flex() -> Div {
     div().flex().flex_col()
 }
 
-/// Secondary text, like a setting's description.
 pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
     div()
         .text_size(dp(12.))
@@ -999,7 +998,6 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         })
 }
 
-/// A button showing a choice, which opens a menu of the others when clicked.
 pub fn dropdown(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,

@@ -15,7 +15,6 @@ pub(super) struct Active {
     pub(super) last: Option<Instant>,
     /// Each view since then: how many times it was opened, and how long it was looked at.
     views: BTreeMap<&'static str, (u64, Duration)>,
-    /// The view on screen.
     shown: Option<&'static str>,
     /// While the window is in front: up to when time is counted, and the last key or click.
     front: Option<(Instant, Instant)>,

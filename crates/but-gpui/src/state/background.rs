@@ -129,7 +129,6 @@ impl Store {
         cx.notify();
     }
 
-    /// Show the update card again, now.
     pub fn show_update(&mut self, cx: &mut Context<Self>) {
         self.update_put_off = None;
         cx.notify();

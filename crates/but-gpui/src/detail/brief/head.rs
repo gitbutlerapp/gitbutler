@@ -285,7 +285,6 @@ impl Detail {
         })
     }
 
-    /// Whether what the brief measured is of the branch as it is.
     fn brief_sizes_differ(&self, page: &BriefPage) -> bool {
         let (Some(changed), Some(loaded)) = (
             page.changed.filter(|changed| changed.files > 0),

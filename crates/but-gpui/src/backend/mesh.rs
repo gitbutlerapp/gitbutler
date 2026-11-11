@@ -28,13 +28,10 @@ const LOGIN_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 /// This machine's connection, as `but mesh service status` reports it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connection {
-    /// Who it's signed in as.
     pub login: String,
-    /// What the mesh calls this machine.
     pub machine: String,
     /// The mesh server, which but.dev links point at.
     pub server: String,
-    /// Whether the daemon runs, reporting this machine's work.
     pub daemon_running: bool,
     /// The repositories the daemon reports, by path.
     pub reported: Vec<PathBuf>,
@@ -241,7 +238,6 @@ pub struct Status {
     pub checkouts: Vec<Checkout>,
 }
 
-/// A project as the mesh knows it.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Project {
     pub id: String,

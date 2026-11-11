@@ -21,7 +21,6 @@ use crate::backend::{CommitId, FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
 
-/// How a page's files are being looked at.
 pub(super) struct FilesState {
     /// The file list beside the diff is hidden, for more room.
     pub(super) files_hidden: bool,
@@ -99,7 +98,6 @@ impl FilePlace {
         }
     }
 
-    /// Where it is in `files`.
     fn find<'a>(&self, files: &'a [FileDiff]) -> Option<(usize, &'a FileDiff)> {
         (files.iter().enumerate()).find(|(_, file)| file.file.path == self.path)
     }

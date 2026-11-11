@@ -12,7 +12,6 @@ use crate::theme::Theme;
 
 actions!(message_editor, [ToBody, ToTitle, LeaveEmptyBody]);
 
-/// What a commit message's fields say while they're empty.
 pub const COMMIT_PLACEHOLDERS: [&str; 2] = ["Commit title", "Commit message"];
 
 #[derive(Clone, Copy, PartialEq)]

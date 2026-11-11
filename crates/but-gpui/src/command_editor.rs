@@ -56,7 +56,6 @@ const KEYS_MIN_WIDTH: f32 = 190.;
 /// The table's small text: what's mono, and the notes beside a key.
 const SMALL_TEXT: f32 = 13.;
 
-/// The window, once it's been opened.
 struct EditorWindow(WindowHandle<CommandEditor>);
 
 impl gpui::Global for EditorWindow {}
@@ -153,7 +152,6 @@ fn between(anchor: usize, head: usize) -> Range<usize> {
     anchor.min(head)..anchor.max(head)
 }
 
-/// What the window shows.
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Keys,

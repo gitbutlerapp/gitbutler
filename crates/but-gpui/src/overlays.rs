@@ -187,7 +187,6 @@ impl MenuItem {
         .danger()
     }
 
-    /// The other names ⌘K finds it by.
     pub fn found_by(mut self, aliases: &'static [&'static str]) -> Self {
         self.aliases = aliases;
         self

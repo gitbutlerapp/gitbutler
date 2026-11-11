@@ -93,7 +93,6 @@ impl Detail {
         self.brief.talk = Some((key, task));
     }
 
-    /// Keep a note on the whole brief, as written for them.
     pub(super) fn keep_note_on_brief(&mut self, body: String, cx: &mut Context<Self>) {
         if let Some((id, version)) = self.shown_version() {
             self.keep_brief_note(id, version, None, CommentTo::Brief, body, cx);

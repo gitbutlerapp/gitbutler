@@ -101,7 +101,6 @@ impl Row {
         }
     }
 
-    /// The block it draws of, if it does.
     fn block(self) -> Option<usize> {
         match self {
             Row::Block(at) | Row::Text { at, .. } => Some(at),
@@ -528,7 +527,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// The tab's rows as it's drawn now.
     fn brief_rows(&self) -> Vec<Row> {
         let state = self.page.brief();
         match state.and_then(|state| Some((state, state.page()?))) {

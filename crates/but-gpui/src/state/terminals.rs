@@ -74,7 +74,6 @@ struct Open {
     terminal: Entity<Terminal>,
     /// What the shell titled it, kept while the user's name shows in its place.
     title: SharedString,
-    /// The name the user gave it, if they did.
     named: Option<SharedString>,
     status: Status,
     /// When `status` last changed, or it opened.
@@ -112,8 +111,6 @@ impl Terminals {
             .map(|open| &open.status)
     }
 
-    /// Those open on `project`'s `checkout`, in the order they opened, but for those living in
-    /// a tile alone.
     /// What every terminal open on `project` is at, tiled or not, or only those on `checkout`.
     pub fn statuses_on<'a>(
         &'a self,
@@ -126,6 +123,8 @@ impl Terminals {
             .map(|open| &open.status)
     }
 
+    /// Those open on `project`'s `checkout`, in the order they opened, but for those living in
+    /// a tile alone.
     pub fn on<'a>(
         &'a self,
         project: &'a ProjectId,

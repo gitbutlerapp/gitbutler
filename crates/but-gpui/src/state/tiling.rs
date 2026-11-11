@@ -383,7 +383,6 @@ impl Side {
 }
 
 impl Area {
-    /// All the room there is.
     pub const WHOLE: Area = Area {
         left: 0.,
         top: 0.,

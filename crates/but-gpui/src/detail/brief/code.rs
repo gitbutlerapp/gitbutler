@@ -293,7 +293,6 @@ impl Detail {
         self.go_to_code(CodePlace::File { path, line }, window, cx);
     }
 
-    /// Go to line `line` of hunk `hunk` of file `path` in the branch's own diff.
     pub(super) fn brief_go_to_line(
         &mut self,
         path: &str,
@@ -353,7 +352,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// The tile of this row's changes, if it's beside the brief.
     pub(super) fn changes_beside(&self, cx: &App) -> Option<RowKey> {
         let row = RowKey::Changes(self.selection()?);
         let tile = Tile::Pinned(row.clone());

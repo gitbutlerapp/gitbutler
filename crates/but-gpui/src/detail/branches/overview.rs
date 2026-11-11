@@ -44,7 +44,6 @@ struct Lane<'a> {
 
 struct Summary<'a> {
     commits: usize,
-    /// How many people wrote them.
     people: usize,
     /// How many of the lanes' branches had their first commit on the days summed up.
     started: usize,

@@ -460,7 +460,6 @@ pub struct ForgeUser {
     pub avatar_url: Option<String>,
 }
 
-/// A CI check on a pull request's branch.
 #[derive(Debug, Clone)]
 pub struct CheckRun {
     pub name: String,
@@ -478,10 +477,8 @@ pub struct CheckRun {
 pub enum CheckState {
     /// It failed, timed out or wants someone to act.
     Failed,
-    /// Someone stopped it.
     Cancelled,
     Running,
-    /// It waits for a runner.
     Queued,
     Passed,
     /// It ran nothing: skipped, or neutral.
@@ -529,7 +526,6 @@ pub struct Note {
     pub body: Vec<crate::ui::markdown::Block>,
     /// When it was written, in seconds since the epoch.
     pub at: Option<i64>,
-    /// Changed since it was written.
     pub edited: bool,
     /// Where it shows on the forge.
     pub url: String,
@@ -561,7 +557,6 @@ pub enum ReviewState {
     Closed,
 }
 
-/// How a branch's CI checks stand.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Checks {
     pub passed: usize,
@@ -1360,7 +1355,6 @@ pub struct DiffLine {
     pub new: Option<u32>,
     /// Shared, so drawing the line doesn't copy it.
     pub text: Arc<str>,
-    /// Syntax token spans within `text`.
     pub spans: Vec<(std::ops::Range<usize>, Token)>,
     /// The words that changed, when the line pairs up with one on the other side.
     pub emph: Vec<std::ops::Range<usize>>,

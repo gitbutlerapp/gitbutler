@@ -86,7 +86,6 @@ pub(super) struct Branches {
 }
 
 impl Branches {
-    /// Branch `ref_name`, while it's listed.
     fn branch(&self, ref_name: &FullName) -> Option<&OtherBranch> {
         self.list.iter().find(|b| b.ref_name == *ref_name)
     }
@@ -348,7 +347,6 @@ impl Detail {
         )
     }
 
-    /// `project`'s branches, once read.
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
         self.branches.get(project).filter(|b| b.failed.is_none())
     }
@@ -755,7 +753,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// List the branches changed as recently as `recency` says.
     fn filter_recency(&mut self, recency: Recency, cx: &mut Context<Self>) {
         if let Some(branches) = self.page_branches_mut() {
             branches.recency = recency;

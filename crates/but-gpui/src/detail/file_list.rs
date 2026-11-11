@@ -75,7 +75,6 @@ use crate::ui::{
     h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
 };
 
-/// Where a file list's files come from.
 #[derive(Clone)]
 enum FileSource {
     /// A checkout's uncommitted files.

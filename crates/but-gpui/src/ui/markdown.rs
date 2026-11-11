@@ -52,7 +52,6 @@ const MAX_IMAGES: usize = 24;
 /// a row a line, so a description can't have the app draw every empty cell of thousands of rows.
 const MAX_CELLS: usize = 4096;
 
-/// The HTML tags that make a block of their own.
 const HTML_BLOCKS: &[&str] = &[
     "h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "center", "details", "summary",
 ];
@@ -64,7 +63,6 @@ pub struct Block {
     pub kind: Kind,
     /// Lists and quotes it's in.
     pub depth: usize,
-    /// Inside a quote.
     pub quoted: bool,
     /// The outermost list it's in, counted from 1, or 0 outside lists: a list's items sit
     /// together, and another list stands apart from it.
@@ -82,7 +80,6 @@ pub struct Block {
 }
 
 impl Block {
-    /// Whether any of its words have `tint` behind them.
     pub fn has_tint(&self, tint: Tint) -> bool {
         (self.styles.iter()).any(|(_, style)| style.tint == Some(tint))
     }
@@ -101,7 +98,6 @@ pub enum Kind {
     Images(Vec<Image>),
 }
 
-/// An image a description draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Image {
     pub src: String,

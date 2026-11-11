@@ -110,8 +110,6 @@ impl Detail {
         }
     }
 
-    /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
-    /// beside its pull request, takes them back from the diff.
     /// The next of the page's tabs, or `forward` false the one before, going round. Says whether
     /// it had another, as a key with nothing to do here goes on to its next binding.
     pub(crate) fn switch_tab(

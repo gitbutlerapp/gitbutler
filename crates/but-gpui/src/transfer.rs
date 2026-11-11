@@ -799,7 +799,6 @@ impl Move {
         matches!(&self.what, Moving::Branch(branch) if branch == name)
     }
 
-    /// Whether `item` is the row a squash is at.
     pub fn squashes_into(&self, item: &Selection) -> bool {
         matches!(&self.at, Stop::Into(target)
             if *item.project() == self.project && Target::of(item).as_ref() == Some(target))

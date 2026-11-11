@@ -126,7 +126,6 @@ impl MenuBarEditor {
         cx.notify();
     }
 
-    /// Show the commands the search finds.
     fn find(&mut self, cx: &mut Context<MenuBarEditor>) {
         let query = self.search.read(cx).text().to_lowercase();
         self.found = (self.commands.iter().enumerate())
@@ -633,7 +632,6 @@ impl Render for MenuBarEditor {
     }
 }
 
-/// What `item` shows in the menu.
 fn shown(item: &BarItem, cx: &App) -> Shown {
     let title = item.title().into();
     let BarItem::Action { action, .. } = item else {

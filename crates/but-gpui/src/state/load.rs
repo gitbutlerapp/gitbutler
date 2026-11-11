@@ -37,7 +37,6 @@ pub(super) struct Reload {
 /// What asked for a project by its folder.
 #[derive(Debug, Clone)]
 enum Asked {
-    /// Add project.
     Add,
     /// A `but://open` link, at the place in the project it names.
     Link(Vec<(String, String)>),

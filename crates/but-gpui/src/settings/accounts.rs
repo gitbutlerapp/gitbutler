@@ -39,7 +39,6 @@ pub(super) struct Accounts {
     login: Option<Entity<TextInput>>,
 }
 
-/// A token being added, with its fields.
 struct Adding {
     forge: Forge,
     /// GitHub Enterprise or self-hosted GitLab, whose URL `other` takes.
@@ -88,7 +87,6 @@ impl Adding {
 }
 
 impl SettingsView {
-    /// Read the accounts again, as after a change.
     pub(super) fn load_accounts(&mut self, cx: &mut Context<Self>) {
         // Another app may have signed in or out meanwhile.
         self.store.update(cx, |store, cx| store.load_account(cx));

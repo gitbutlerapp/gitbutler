@@ -714,7 +714,6 @@ impl Detail {
         }
     }
 
-    /// The row a note on `to` shows in.
     pub(super) fn row_of_note(&self, to: &CommentTo) -> Option<usize> {
         let page = self.page.brief()?.page()?;
         (self.brief_rows().iter())

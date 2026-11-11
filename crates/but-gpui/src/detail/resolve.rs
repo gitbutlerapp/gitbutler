@@ -160,7 +160,6 @@ impl Detail {
             })
     }
 
-    /// How `conflict`, of the file at `path`, lays out.
     pub(super) fn conflict_view(&self, path: &str, conflict: &Conflict) -> conflict::View {
         let r = &self.resolving;
         let key = key(path, conflict);

@@ -457,7 +457,6 @@ pub struct BlockedHunk {
     pub builds_on: Vec<BuiltOn>,
 }
 
-/// A commit a hunk builds on.
 #[derive(Debug)]
 pub struct BuiltOn {
     /// What it's shown by: see [`super::short_reference`].
@@ -1167,7 +1166,6 @@ impl Intent for TearOffBranch {
     }
 }
 
-/// Where [`move_branch`] puts a branch.
 enum BranchTo {
     /// To that side of a branch or commit.
     Beside(RelativeTo, InsertSide),

@@ -129,7 +129,6 @@ fn select_route<'a>(
     })
 }
 
-/// The selection of `kind` that `get` names in `project`.
 fn selection<'a>(
     kind: SelectionKind,
     get: &impl Fn(&str) -> Option<&'a str>,

@@ -38,7 +38,6 @@ pub(super) enum Fetch {
     Failed(SharedString),
 }
 
-/// What's fetched of other machines' branches, and what's still to fetch.
 #[derive(Default)]
 pub(super) struct MeshFetches {
     /// Each branch's fetch, with the tip that machine reported when it started: a new one

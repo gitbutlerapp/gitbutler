@@ -92,7 +92,6 @@ pub(super) fn mark_what_is_new(blocks: &mut [markdown::Block], old: &[String]) {
     }
 }
 
-/// Where the words of `text` are.
 fn word_spans(text: &str) -> Vec<std::ops::Range<usize>> {
     let mut spans = Vec::new();
     let mut start = None;

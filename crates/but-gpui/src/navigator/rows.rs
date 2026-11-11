@@ -76,7 +76,6 @@ pub(super) enum Row {
     /// one stack's last branch joins that stack rather than the next, which as a branch alone
     /// has no caption to tell it apart.
     Between(ProjectId),
-    /// The line after a worktree's section.
     WorktreeDivider,
     /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
     /// the checkout it's in on the first of each lane.

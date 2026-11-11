@@ -129,7 +129,6 @@ enum Build {
     Failed,
 }
 
-/// The interface scales the toolbar offers.
 const SCALES: [u16; 3] = [100, 125, 150];
 
 impl Gallery {

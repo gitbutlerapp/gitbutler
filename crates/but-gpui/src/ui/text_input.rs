@@ -105,7 +105,6 @@ impl Target {
     }
 }
 
-/// Keys [`bind_keys`] binds.
 pub struct BoundKey {
     /// What they do, as `Move` and `Delete` run keys for many targets.
     pub title: String,

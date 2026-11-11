@@ -4450,7 +4450,6 @@ impl AppView {
         }
     }
 
-    /// Whether a row's being dragged from the navigator.
     fn row_dragged(&self, cx: &App) -> bool {
         cx.has_active_drag() && self.store.read(cx).dragged_row.is_some()
     }

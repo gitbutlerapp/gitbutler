@@ -15,7 +15,6 @@ use crate::ui::{Icon, dp, v_flex};
 
 /// What's left in a quiet worktree, which says whether it can go.
 enum Left {
-    /// Commits no remote has, and how many.
     Unpushed(usize),
     Merged,
     Pushed,
