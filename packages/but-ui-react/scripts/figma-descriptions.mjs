@@ -78,6 +78,21 @@ function variantsOf(source, name) {
 		.join("\n");
 }
 
+/**
+ * `text` as written, from Figma's description, which it hands back with `'`, `"`, `<`, `>` and `&`
+ * as HTML entities.
+ * @param {string} text
+ * @returns {string}
+ */
+function unescaped(text) {
+	return text
+		.replaceAll("&#39;", "'")
+		.replaceAll("&quot;", '"')
+		.replaceAll("&lt;", "<")
+		.replaceAll("&gt;", ">")
+		.replaceAll("&amp;", "&");
+}
+
 /** A node id in Figma's link form, `217-317`, or as a helper is handed it, `figma("217-317")`. */
 const NODE = /(?:node-id=|\(")(\d+)-(\d+)/;
 
@@ -201,7 +216,7 @@ if (!process.argv.includes("--check")) {
 		for (const [id, { component, description }] of moved) {
 			const drawn = nodes[id]?.document?.description;
 			if (drawn === undefined) problems.push(`${component} (${id}): no such node in 🍑 But UI`);
-			else if (drawn !== description)
+			else if (unescaped(drawn) !== description)
 				problems.push(`${component} (${id}): Figma's description differs from the JSDoc's`);
 		}
 	}
