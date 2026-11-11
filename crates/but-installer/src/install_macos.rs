@@ -92,14 +92,11 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
     let _ = fs::remove_dir_all(&install_app_new);
     let _ = fs::remove_dir_all(&install_app_backup);
 
-    // Create Applications directory if it doesn't exist
     fs::create_dir_all(home_dir.join("Applications"))?;
 
-    // Install to temporary location first
     info("Installing to temporary location...");
     copy_dir_all(app_dir, &install_app_new)?;
 
-    // Remove macOS quarantine attribute
     if let Err(e) = remove_quarantine_recursive(&install_app_new) {
         warn(&format!(
             "Could not remove quarantine attribute: {e} - macOS may show security warnings"
@@ -107,7 +104,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
         info("If macOS blocks the app, go to System Settings > Privacy & Security and allow it");
     }
 
-    // Create bin directory
     let bin_dir = home_dir.join(".local/bin");
     fs::create_dir_all(&bin_dir)?;
 
@@ -140,7 +136,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
         let existing_target = fs::read_link(&but_symlink)?;
         let existing_target_str = existing_target.to_string_lossy();
 
-        // Detect channel switching
         let previous_channel = if existing_target_str.contains("Nightly") {
             Some(Channel::Nightly)
         } else if existing_target_str.contains("/GitButler.app/") {
@@ -166,7 +161,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
 
     unix_fs::symlink(&new_app_macos_dir, &but_new)?;
 
-    // Verify the new installation works
     let verify_status = Command::new(&but_new)
         .arg("--version")
         .stdout(Stdio::null())
@@ -184,13 +178,11 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
     // New installation is valid - now do the atomic swap
     info("Swapping new installation into place...");
 
-    // Helper to clean up stale installation artifacts
     let cleanup_artifacts = || {
         let _ = fs::remove_dir_all(&install_app_new);
         let _ = fs::remove_file(&but_new);
     };
 
-    // Backup existing installation if it exists
     let had_backup = install_app.exists();
     if had_backup && let Err(e) = fs::rename(&install_app, &install_app_backup) {
         // Failed to backup - clean up artifacts before failing
@@ -200,7 +192,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
 
     // Move new installation into place with rollback on failure
     if let Err(e) = fs::rename(&install_app_new, &install_app) {
-        // Clean up stale artifacts before handling the error
         cleanup_artifacts();
 
         // Critical failure - restore backup if we created one
@@ -218,11 +209,9 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
                 "Failed to install new version: {e}. Previous installation restored successfully."
             );
         }
-        // No backup to restore, just fail
         bail!("Failed to move new installation into place: {e}");
     }
 
-    // Update the symlink to point to the new installation
     let final_target = install_app.join("Contents/MacOS/gitbutler-tauri");
     let _ = fs::remove_file(&but_symlink);
 
@@ -256,7 +245,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
     }
 
     if !validate_installed_binary(&but_symlink) {
-        // Try to restore backup
         warn("Final installation verification failed - attempting to restore backup");
         if install_app_backup.exists() {
             fs::remove_dir_all(&install_app)?;
@@ -283,7 +271,6 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
         "{} installed successfully",
         app_basename.to_string_lossy()
     ));
-    // Remove backup on success
     let _ = fs::remove_dir_all(&install_app_backup);
 
     success("GitButler CLI (but) installed successfully");
@@ -319,7 +306,6 @@ pub(crate) fn extract_tarball(tarball: &Path, dest_dir: &Path) -> Result<PathBuf
         .unpack(dest_dir)
         .context("Failed to extract archive")?;
 
-    // Find the extracted .app bundle
     let mut app_dir = None;
     for entry in fs::read_dir(dest_dir)? {
         let entry = entry?;
@@ -354,7 +340,6 @@ pub(crate) fn verify_app_structure(app_dir: &Path) -> Result<()> {
 }
 
 fn validate_tarball(path: &Path) -> Result<()> {
-    // Check if file is not empty
     let metadata = fs::metadata(path).context("Failed to read tarball metadata")?;
     if metadata.len() == 0 {
         bail!("Downloaded file is empty");
@@ -380,13 +365,10 @@ fn is_gzip_file(path: &Path) -> Result<bool> {
     }
 }
 
-/// Recursively remove the macOS quarantine attribute from a directory
 fn remove_quarantine_recursive(path: &Path) -> Result<()> {
-    // Try to remove the quarantine attribute from this path
     // It's OK if it doesn't exist - we just want to ensure it's not there
     let _ = xattr::remove(path, "com.apple.quarantine");
 
-    // If it's a directory, recurse into it
     if path.is_dir() {
         for entry in fs::read_dir(path).context("Failed to read directory")? {
             let entry = entry.context("Failed to read directory entry")?;
@@ -432,7 +414,6 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let test_file = temp_dir.path().join("empty.gz");
 
-        // Create empty file
         File::create(&test_file).unwrap();
 
         // Empty file can't be a valid gzip
@@ -457,7 +438,6 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let test_file = temp_dir.path().join("empty.tar.gz");
 
-        // Create empty file
         File::create(&test_file).unwrap();
 
         // Should fail because file is empty

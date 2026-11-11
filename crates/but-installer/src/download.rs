@@ -66,13 +66,11 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     {
         let mut transfer = easy.transfer();
 
-        // Write downloaded data to file
         transfer
             .write_function(|data| {
                 match file.borrow_mut().write_all(data) {
                     Ok(_) => Ok(data.len()),
                     Err(e) => {
-                        // Store the error for later propagation
                         *write_error.borrow_mut() = Some(e);
                         // Abort the transfer by returning 0 bytes written
                         // (returning a size != data.len() signals an error to libcurl)
@@ -104,7 +102,6 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
 
         let perform_result = transfer.perform();
 
-        // Check if we had a write error
         if let Some(io_err) = write_error.borrow_mut().take() {
             // Clear progress line before showing error
             crate::ui::println_empty();
@@ -115,7 +112,6 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
         perform_result.with_context(|| format!("Failed to download from {url}"))?;
     }
 
-    // Clear progress line
     crate::ui::println_empty();
 
     let response_code = easy

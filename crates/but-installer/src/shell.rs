@@ -10,7 +10,6 @@ use anyhow::Result;
 
 use crate::ui::{self, info, success, warn};
 
-/// Detected shell type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellType {
     Zsh,
@@ -124,7 +123,6 @@ impl ShellConfig {
         // Look for lines that export PATH and contain .local/bin
         let has_path = contents.lines().any(|line| {
             let trimmed = line.trim();
-            // Must be a PATH export line
             if !trimmed.starts_with("export PATH=") && !trimmed.starts_with("export PATH ") {
                 return false;
             }
@@ -258,7 +256,6 @@ fn setup_shell_config(cfg: &ShellConfig) -> Result<()> {
         return Ok(());
     }
 
-    // Try to add to config file
     match OpenOptions::new().append(true).open(&cfg.config_path) {
         Ok(mut file) => {
             writeln!(file)?;

@@ -1,5 +1,3 @@
-//! User interface and output functions.
-//!
 //! Provides colored output functions for the installer. All functions ignore I/O errors
 //! to ensure the installation can continue even if output fails (e.g., broken pipe).
 
@@ -75,7 +73,6 @@ pub fn println(msg: &str) {
     print_stdout(msg);
 }
 
-/// Prints an empty line to stdout.
 pub fn println_empty() {
     print_stdout("");
 }

@@ -1,5 +1,3 @@
-//! HTTP client configuration
-
 use std::time::Duration;
 
 use anyhow::{Context, Result};

@@ -1,6 +1,4 @@
 #![cfg(unix)]
-//! GitButler installer library
-//!
 //! This library provides functionality for installing GitButler on Linux and macOS systems.
 //! It handles downloading releases, verifying signatures, extracting archives,
 //! and setting up the application and CLI tools.
@@ -21,7 +19,6 @@ mod install_macos;
 
 use anyhow::Result;
 use config::{Channel, InstallerConfig};
-// Re-export types for public API consumers
 pub use config::{Version, VersionRequest};
 use install::but_binary_path;
 use release::fetch_release;
@@ -33,8 +30,6 @@ use crate::install_linux::download_and_install_app;
 #[cfg(target_os = "macos")]
 use crate::install_macos::download_and_install_app;
 
-/// Runs the complete GitButler installation process with a specific version.
-///
 /// This is the main entry point that orchestrates:
 /// - Fetching release information from the API
 /// - Downloading and verifying the application tarball
@@ -42,7 +37,6 @@ use crate::install_macos::download_and_install_app;
 /// - Setting up the `but` CLI and shell configuration
 ///
 /// # Arguments
-/// * `version_request` - Version to install (Release, Nightly, or Specific version).
 /// * `interactive` - Whether this is an interactive installation (e.g., from the install script).
 ///   When `true`, runs `but onboarding` and prints usage instructions after installation.
 ///   Set to `false` when called from CLI tools (like `but update`) where the user
@@ -58,8 +52,6 @@ pub fn run_installation_with_version(
     run_installation_impl(config, interactive)
 }
 
-/// Runs the complete GitButler installation process.
-///
 /// Reads version from command-line arguments or GITBUTLER_VERSION environment variable.
 /// If neither is provided, installs the latest release.
 ///
@@ -115,7 +107,6 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
 
     info(&format!("Detected platform: {}", config.platform));
 
-    // Fetch release information
     let message = match &config.version_request {
         VersionRequest::Nightly => "Fetching latest nightly release information...",
         VersionRequest::Specific(_) => "Fetching release information...",
@@ -125,7 +116,6 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
 
     let release = fetch_release(&config)?;
 
-    // Display version information
     let channel = match &config.version_request {
         VersionRequest::Nightly => {
             info(&format!(
