@@ -226,14 +226,12 @@ fn combine_branches(
         let Some(identity) = branch.identity(&remotes) else {
             continue;
         };
-        // Skip branches that should not be listed, e.g. the gitbutler technical branches like 'gitbutler/workspace'
         if !should_list_git_branch(&identity) {
             continue;
         }
         groups.entry(identity).or_default().push(branch);
     }
 
-    // Convert to Branch entries for the API response, filtering out any errors
     Ok(groups
         .into_iter()
         .filter_map(|(identity, group_branches)| {
@@ -359,7 +357,6 @@ fn branch_group_to_branch(
     }))
 }
 
-/// A sum type of branch that can be a plain git branch or a virtual branch
 enum GroupBranch<'a> {
     Local(gix::Reference<'a>),
     Remote(gix::Reference<'a>),
@@ -407,7 +404,6 @@ impl GitButlerStack {
         let first_segment = stack.segments.first();
         Ok(Some(GitButlerStack {
             id,
-            // The ones we have reachable are never
             in_workspace: true,
             name: stack
                 .name()
@@ -454,7 +450,7 @@ impl GitButlerStack {
 }
 
 impl GitButlerStack {
-    /// Return the top-most stack's commit id.
+    /// The commit id of the top-most unarchived segment.
     fn head_oid<'repo>(&self, repo: &'repo gix::Repository) -> anyhow::Result<gix::Id<'repo>> {
         let tip_ref = self
             .unarchived_segments
