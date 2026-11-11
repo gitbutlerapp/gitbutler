@@ -244,14 +244,9 @@ impl std::fmt::Display for Code {
 }
 
 /// A context for classifying errors.
-///
-/// It provides a [`Code`], which may be [unknown](Code::Unknown), and a `message` which explains
-/// more about the problem at hand.
 #[derive(Default, Debug, Clone)]
 pub struct Context {
-    /// The classification of the error.
     pub code: Code,
-    /// A description of what went wrong, if available.
     pub message: Option<Cow<'static, str>>,
 }
 
@@ -271,7 +266,6 @@ impl From<Code> for Context {
 }
 
 impl Context {
-    /// Create a new instance with `code` and an owned `message`.
     pub fn new(message: impl Into<String>) -> Self {
         Context {
             code: Code::Unknown,
@@ -279,7 +273,6 @@ impl Context {
         }
     }
 
-    /// Create a new instance with `code` and a statically known `message`.
     pub const fn new_static(code: Code, message: &'static str) -> Self {
         Context {
             code,
@@ -287,7 +280,6 @@ impl Context {
         }
     }
 
-    /// Adjust the `code` of this instance to the given one.
     pub fn with_code(mut self, code: Code) -> Self {
         self.code = code;
         self
@@ -301,12 +293,9 @@ mod private {
 /// A way to obtain attached Code or context information from `anyhow` contexts, so that
 /// the more complete information is preferred.
 pub trait AnyhowContextExt: private::Sealed {
-    /// Return our custom context that might be attached to this instance.
-    ///
     /// Note that it could not be named `context()` as this method already exists.
     fn custom_context(&self) -> Option<Context>;
 
-    /// Return our custom context or, if none is attached, a context whose message contains the error chain.
     fn custom_context_or_error_chain(&self) -> Context;
 }
 
@@ -353,8 +342,6 @@ fn cause_chain(err: &(dyn std::error::Error + 'static)) -> String {
 pub enum Marker {
     /// Invalid state was detected, making the repository invalid for operation.
     VerificationFailure,
-    /// An indicator for a conflict in the project.
-    ///
     /// See usages for details on what these conflicts can be.
     ProjectConflict,
     /// An indicator that a branch conflicted during applying to the workspace.
