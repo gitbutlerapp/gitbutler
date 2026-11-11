@@ -289,7 +289,8 @@ impl Navigator {
 
     /// What the row `target` offers: [`Self::menu_items`], and splitting its page, which picks
     /// what shows beside it, but for picked commits, which the menu acts on together, and
-    /// another machine's work, which is only looked at.
+    /// another machine's work, which is only looked at. A branch or a commit can also be shown
+    /// in the graph.
     pub(crate) fn row_menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let mut items = self.menu_items(target, cx);
         let store = self.store.read(cx);
@@ -299,6 +300,17 @@ impl Navigator {
             let mut right = MenuItem::command(&SplitRight, cx);
             right.separated = !items.is_empty();
             items.extend([right, MenuItem::command(&SplitBelow, cx)]);
+            let in_graph = matches!(
+                target,
+                Selection::Commit(..) | Selection::Branch(_, Some(_))
+            );
+            if in_graph && store.branch_for(target).is_some() {
+                let row = target.clone();
+                items.push(MenuItem::new("Show in graph", move |app, _, cx| {
+                    let row = row.clone();
+                    (app.detail).update(cx, |detail, cx| detail.show_in_graph(row, cx))
+                }));
+            }
         }
         items
     }
