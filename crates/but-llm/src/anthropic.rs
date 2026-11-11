@@ -34,31 +34,18 @@ pub enum CredentialsKind {
 
 #[derive(Debug, Clone)]
 pub struct AnthropicClient {
-    kind: CredentialsKind,
+    api_base: &'static str,
     client: reqwest::Client,
 }
 
 impl AnthropicClient {
     pub fn new(kind: CredentialsKind, credentials: &Sensitive<String>) -> Result<Self> {
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(
-            "x-api-key",
-            credentials
-                .0
-                .parse()
-                .unwrap_or(HeaderValue::from_static("")),
-        );
-        headers.insert(
-            "anthropic-version",
-            HeaderValue::from_static(ANTHROPIC_VERSION),
-        );
-
+        let (api_base, headers) = endpoint(&kind, credentials);
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()?;
 
-        Ok(Self { kind, client })
+        Ok(Self { api_base, client })
     }
 
     /// Send a message request to the Anthropic Messages API
@@ -69,7 +56,7 @@ impl AnthropicClient {
     }
 
     async fn message_raw(&self, request: &AnthropicRequest) -> Result<Response> {
-        let api_base = self.api_base();
+        let api_base = self.api_base;
         let response = self
             .client
             .post(format!("{api_base}/messages"))
@@ -85,13 +72,32 @@ impl AnthropicClient {
 
         Ok(response)
     }
+}
 
-    fn api_base(&self) -> &str {
-        match self.kind {
-            CredentialsKind::GitButlerProxied => GB_ANTHROPIC_API_BASE,
-            _ => ANTHROPIC_API_BASE,
+/// Where requests go, and the headers they send there. GitButler's proxy knows the user by
+/// their GitButler token in `X-Auth-Token`, as GitButler's other endpoints do, and sends its
+/// own key on to Anthropic.
+fn endpoint(kind: &CredentialsKind, credentials: &Sensitive<String>) -> (&'static str, HeaderMap) {
+    let (api_base, auth) = match kind {
+        CredentialsKind::GitButlerProxied => (GB_ANTHROPIC_API_BASE, "X-Auth-Token"),
+        CredentialsKind::EnvVarAnthropicKey | CredentialsKind::OwnAnthropicKey => {
+            (ANTHROPIC_API_BASE, "x-api-key")
         }
-    }
+    };
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert(
+        auth,
+        credentials
+            .0
+            .parse()
+            .unwrap_or(HeaderValue::from_static("")),
+    );
+    headers.insert(
+        "anthropic-version",
+        HeaderValue::from_static(ANTHROPIC_VERSION),
+    );
+    (api_base, headers)
 }
 
 #[derive(Debug, Clone)]
@@ -1052,4 +1058,29 @@ pub fn tool_calling_loop_stream(
         final_response,
         message_history: chat_messages,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_endpoint_gets_the_token_in_the_header_it_reads() {
+        let token = Sensitive("token".to_owned());
+        let (api_base, headers) = endpoint(&CredentialsKind::GitButlerProxied, &token);
+        assert_eq!(api_base, GB_ANTHROPIC_API_BASE);
+        assert_eq!(
+            headers.get("X-Auth-Token").map(HeaderValue::as_bytes),
+            Some(b"token".as_slice()),
+            "app.gitbutler.com knows the user only by X-Auth-Token and answers 401 without it"
+        );
+
+        let (api_base, headers) = endpoint(&CredentialsKind::OwnAnthropicKey, &token);
+        assert_eq!(api_base, ANTHROPIC_API_BASE);
+        assert_eq!(
+            headers.get("x-api-key").map(HeaderValue::as_bytes),
+            Some(b"token".as_slice()),
+            "Anthropic's own API takes the user's key as x-api-key"
+        );
+    }
 }
