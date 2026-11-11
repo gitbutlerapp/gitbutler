@@ -104,8 +104,6 @@ pub async fn exec(
 }
 
 /// Handle AI config subcommand without repository context.
-///
-/// This supports global configuration from outside of a git repository.
 pub(crate) fn ai_config(
     out: &mut OutputChannel,
     cmd: Option<AiSubcommand>,
@@ -1256,14 +1254,12 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
 
     match accounts_to_delete.as_slice() {
         [single_account] => {
-            // Single account: delete automatically
             forget_account(single_account)?;
             if let Some(out) = out.for_human() {
                 writeln!(out, "Forgot forge account '{single_account}'")?;
             }
         }
         _ => {
-            // Multiple accounts: prompt user to select
             let Some(mut input) = out.prepare_for_terminal_input() else {
                 anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
             };

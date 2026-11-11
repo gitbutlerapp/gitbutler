@@ -207,8 +207,6 @@ pub enum TuiRunOptions {
     PickChanges,
 }
 
-/// The outcome of running the TUI.
-///
 /// Under normal circumstances this will be [`TuiOutcome::None`] but if the TUI is launched via
 /// [`tui_with_options`] it might be something else.
 ///

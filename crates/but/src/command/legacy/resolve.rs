@@ -1589,7 +1589,6 @@ pub(crate) fn find_conflicted_commits(
                 .sorting(Sorting::BreadthFirst)
                 .all()?;
 
-            // Collect commits first, then reverse for REVERSE sorting behavior
             let mut commit_ids: Vec<gix::ObjectId> = traversal
                 .filter_map(Result::ok)
                 .map(|info| info.id)

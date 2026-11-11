@@ -224,7 +224,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
             .into());
         }
 
-        // Show all branches with unpushed commits
         branches_with_info
             .into_iter()
             .filter(|(_, count, _)| *count > 0)
@@ -462,7 +461,6 @@ fn handle_dry_run(ctx: &mut Context, args: &Command, out: &mut OutputChannel) ->
             .map(|(_, short_name)| short_name.to_string())
             .unwrap_or_else(|| info.remote_ref.shorten().to_string());
 
-            // Show line if there are more branches after this one
             let line_prefix = if has_next { "│ " } else { "  " };
 
             writeln!(
@@ -794,7 +792,6 @@ async fn push_all_branches(
             )?;
             writeln!(human)?;
 
-            // Print combined branch, remote, and SHA information for all pushed branches
             let repo = ctx.repo.get()?.clone().for_commit_shortening();
             let gerrit_review_ref = if gerrit_mode {
                 let guard = ctx.shared_worktree_access();
@@ -885,13 +882,11 @@ fn handle_no_branch_specified(
         tracing::info!(
             "Non-interactive mode detected. Pushing all branches with unpushed commits..."
         );
-        // Non-interactive mode: push all branches with unpushed commits
         return Ok(BranchSelection::All);
     }
 
     let candidates = get_push_candidates(ctx)?;
 
-    // Interactive mode: show branches and prompt for selection
     let mut progress = out.progress_channel();
 
     // Covers the empty workspace too, where this is vacuously true; either
@@ -1019,12 +1014,10 @@ fn branch_unpushed_count(branch: &crate::legacy::workspace::HeadInfoBranch) -> u
     // even if we don't find any LocalOnly commits (e.g., for new branches).
     match branch.push_status {
         but_workspace::ui::PushStatus::CompletelyUnpushed => {
-            // All commits on the branch need to be pushed
             branch.commits.len().max(local_only_count)
         }
         but_workspace::ui::PushStatus::UnpushedCommits
         | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
-            // There are commits to push
             local_only_count.max(1) // At least 1 if push_status says so
         }
         _ => local_only_count,
@@ -1088,7 +1081,6 @@ pub fn get_gerrit_flags(
         flags.push(but_gerrit::PushFlag::Ready);
     }
 
-    // Handle hashtags - can be multiple
     for hashtag in &args.hashtag {
         if hashtag.trim().is_empty() {
             return Err(anyhow::anyhow!("Hashtag cannot be empty"));
@@ -1096,7 +1088,6 @@ pub fn get_gerrit_flags(
         flags.push(but_gerrit::PushFlag::Hashtag(hashtag.clone()));
     }
 
-    // Handle topic - at most one
     if let Some(topic) = &args.topic {
         if topic.trim().is_empty() {
             return Err(anyhow::anyhow!("Topic cannot be empty"));
@@ -1114,7 +1105,6 @@ pub fn get_gerrit_flags(
 }
 
 fn resolve_branch_name(ctx: &mut Context, id_map: &IdMap, branch_id: &str) -> CliResult<String> {
-    // Try to resolve as CliId first
     let cli_ids = id_map.parse_using_context(branch_id, ctx)?;
 
     if cli_ids.is_empty() {
@@ -1256,7 +1246,6 @@ fn gerrit_review_ref(
     Ok(format!("refs/for/{target_branch}"))
 }
 
-/// Check if a push of this branch would include any conflicted commits.
 /// The push covers the branch and everything beneath it, named by a branch
 /// or not, so all of that is checked. Refuses as bad input if conflicted
 /// commits are found.

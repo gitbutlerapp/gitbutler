@@ -51,7 +51,6 @@ impl SkillFile {
         join_relative_path(base_dir, self.path_components)
     }
 
-    /// Format the relative path for output and JSON.
     fn display_path(&self) -> String {
         self.path_components.join("/")
     }
@@ -114,7 +113,6 @@ fn skill_files_in_write_order(layout: SkillLayout) -> impl Iterator<Item = &'sta
 #[derive(Debug, Clone)]
 struct SkillFormat {
     name: &'static str,
-    /// Description of where this format is used
     description: &'static str,
     /// Whether this format should be offered for local and/or global installs.
     availability: SkillFormatAvailability,
@@ -718,8 +716,6 @@ fn is_current_skill_installation(path: &std::path::Path, version: &str) -> bool 
 const SCOPE_GLOBAL: &str = "global";
 const SCOPE_LOCAL: &str = "local";
 
-/// Find all GitButler skill installations.
-///
 /// Returns a list of (install_path, format_name, scope) tuples.
 fn find_all_installations(
     ctx: Option<&mut Context>,
@@ -757,7 +753,6 @@ fn find_all_installations(
     Ok(installations)
 }
 
-/// Check the status of all installed skills.
 pub fn check_skill_status(
     ctx: Option<&mut Context>,
     check_global: bool,

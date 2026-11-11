@@ -1837,8 +1837,6 @@ impl UncommittedHunkOrFile {
     }
 }
 
-/// A user-friendly CLI ID that identifies a GitButler entity,
-/// with each identified by a variant.
 #[derive(Debug, Clone)]
 pub enum CliId {
     UncommittedHunkOrFile(UncommittedHunkOrFile),
@@ -2235,7 +2233,6 @@ impl PartialEq for CommittedFileIdRef<'_> {
     }
 }
 
-/// The lane a segment belongs to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LaneId {
     /// A workspace stack, with its metadata ID when it has one.

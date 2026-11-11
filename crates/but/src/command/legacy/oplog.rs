@@ -10,7 +10,6 @@ use crate::{
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
-/// Filter for oplog entries by operation kind
 #[derive(Debug, Clone, Copy)]
 pub enum OplogFilter {
     /// Show only on-demand snapshot entries
@@ -33,7 +32,6 @@ pub(crate) fn show_oplog(
 ) -> anyhow::Result<()> {
     let include_kind = filter.map(|f| f.to_include_kinds());
 
-    // Resolve partial SHA to full SHA using rev_parse if provided
     let since_sha = if let Some(sha_prefix) = since {
         let repo = ctx.repo.get()?;
         let resolved = repo

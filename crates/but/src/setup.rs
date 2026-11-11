@@ -42,9 +42,7 @@ pub(crate) enum TargetRequirement {
 
 #[derive(Default)]
 pub(crate) struct InitCtxOptions {
-    /// Controls whether to perform automatic background synchronization.
     pub background_sync: BackgroundSync,
-    /// Controls whether to check for workspace commit integrity.
     pub workspace_check: WorkspaceCheck,
     /// Controls whether single-branch initialization must lazily infer a target.
     pub target_requirement: TargetRequirement,
@@ -265,7 +263,6 @@ fn infer_target(ctx: &mut Context) -> CliResult<()> {
     Ok(())
 }
 
-/// Tracks which background sync operations should be performed.
 #[derive(Debug)]
 struct SyncOperations {
     fetch: bool,

@@ -6,7 +6,6 @@ use ratatui::{
 
 use crate::theme::Theme;
 
-/// The occupied area of a rendered popup.
 #[derive(Debug, Clone, Copy)]
 pub struct PopupArea {
     /// The full popup area, including borders and padding.

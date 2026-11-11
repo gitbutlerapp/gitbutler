@@ -90,17 +90,13 @@ pub(crate) fn handle(
                 if let ChangeSourceId::Worktree(name) = source {
                     return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
                 }
-                // Absorb this particular file
                 AbsorptionTarget::Hunks {
                     hunks: hunks.map(|id_and_hunk| id_and_hunk.hunk).into(),
                 }
             }
-            CliId::Branch(branch) => {
-                // Absorb everything that is assigned to this lane
-                AbsorptionTarget::Branch {
-                    branch_name: branch.name,
-                }
-            }
+            CliId::Branch(branch) => AbsorptionTarget::Branch {
+                branch_name: branch.name,
+            },
             _ => {
                 return Err(anyhow::anyhow!(
                     "Invalid source: expected an uncommitted file or branch"
@@ -112,7 +108,6 @@ pub(crate) fn handle(
         if let ChangeSourceId::Worktree(name) = invoked_from.managed_source(&id_map)? {
             return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
         }
-        // Try to absorb everything uncommitted
         Default::default()
     };
 
@@ -145,8 +140,6 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    // Create a snapshot before performing absorb or auto-commit operations
-    // This allows the user to undo if needed
     let operation = OperationKind::Absorb;
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
@@ -334,8 +327,6 @@ fn display_absorption_plan(
         }
     }
 
-    // When write_json is false (non-dry-run), return the plan so the caller can
-    // combine it with the operation result in a single write_value call.
     Ok(if write_json { None } else { Some(plan_output) })
 }
 

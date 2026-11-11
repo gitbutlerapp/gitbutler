@@ -134,8 +134,6 @@ pub fn handle(
     Ok(Some(ws))
 }
 
-/// Find all empty branches in the workspace.
-///
 /// Returns a list of `(StackId, branch_name)` pairs for branches that are empty.
 /// A branch is considered empty if:
 /// - It has no local commits
@@ -180,7 +178,6 @@ fn find_empty_branches(
     Ok(empty_branches)
 }
 
-/// Returns the set of stack IDs that have at least one worktree change assigned to them.
 fn stacks_with_assigned_changes(ctx: &but_ctx::Context) -> anyhow::Result<HashSet<StackId>> {
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;

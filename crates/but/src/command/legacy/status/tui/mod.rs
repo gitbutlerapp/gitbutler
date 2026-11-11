@@ -76,7 +76,6 @@ mod tests;
 const NOOP: &str = "noop";
 const CURSOR_CONTEXT_ROWS: usize = 3;
 
-/// How much does the detail area grow/shrink with when adjusted
 const DETAILS_SIZE_ADJUSTMENT_PERCENTAGE: u16 = 5;
 
 const DETAILS_MIN_SIZE_PERCENTAGE: u16 = 30;
@@ -467,7 +466,6 @@ fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
 
 #[derive(Debug)]
 pub enum Message {
-    // Lifecycle
     JustRender,
     Quit,
     ConfirmAndQuit,
@@ -494,7 +492,6 @@ pub enum Message {
     UnfocusDetails,
     WatcherEvent(gitbutler_watcher::Change),
 
-    // Cursor movement
     MoveCursorUp(usize),
     MoveCursorDown(usize),
     MoveCursorPreviousSection,
@@ -505,7 +502,6 @@ pub enum Message {
     SelectBranch(FullName),
     SelectWorktree(BString),
 
-    // Features
     Commit(CommitMessage),
     Squash(SquashMessage),
     Reword(RewordMessage),
@@ -528,7 +524,6 @@ pub enum Message {
     Redo,
     ShowModal(Modal),
 
-    // Utilities
     CopySelection,
     CopySelectionPicker,
     CopyToClipboard(String),
@@ -590,10 +585,11 @@ pub enum ReloadCause {
     /// Reloading because some mutation was made by the TUI.
     Mutation,
     /// Reloading because the watcher came back with an event.
-    Watcher { details_selection_changed: bool },
+    Watcher {
+        details_selection_changed: bool,
+    },
     /// Reloading only because some TUI view state changed, not because any real data changed.
     ViewOnly,
-    /// The user manually triggered a reload.
     Manual,
 }
 

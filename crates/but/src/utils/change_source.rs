@@ -43,7 +43,6 @@ impl InvokedFrom {
         })
     }
 
-    /// Whether `dir` is the root of this checkout.
     pub fn is_rooted_at(&self, dir: &Path) -> bool {
         self.directory
             .as_ref()

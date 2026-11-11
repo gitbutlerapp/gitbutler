@@ -13,7 +13,6 @@
 //! Note that unit tests **do not need to initializes** the theme as they will automatically fall
 //! back on the default if not initialized.
 //!
-//!
 //! # Serialization
 //!
 //! Style fields are [`ratatui::style::Style`] values which serialize to JSON like:
@@ -383,7 +382,6 @@ impl Theme {
 
     fn default_dark() -> Self {
         Self {
-            // Concrete "things"
             local_branch: style_fg(Color::Green),
             remote_branch: style_fg(Color::Magenta),
             commit_id: style_fg(Color::Cyan),
@@ -397,7 +395,6 @@ impl Theme {
             config_value: style_fg(Color::Cyan),
             config_key: style_fg(Color::Green),
 
-            // Modifications
             addition: style_fg(Color::Green),
             deletion: style_fg(Color::Red),
             modification: style_fg(Color::Yellow),
@@ -419,13 +416,11 @@ impl Theme {
             deletion_rich_subsection: Style::new()
                 .bg(Color::from_hsl(Hsl::new(-0.468, 0.8, 0.313))),
 
-            // State signals
             success: style_fg(Color::Green),
             attention: style_fg(Color::Yellow),
             error: style_fg(Color::Red),
             info: style_fg(Color::Cyan),
 
-            // TUI modes
             tui_mode_normal: Style::new().bg(Color::DarkGray).fg(Color::White),
             tui_mode_commit: Style::new().bg(Color::Green).fg(Color::Black),
             tui_mode_squash: Style::new().bg(Color::Blue).fg(Color::Black),
@@ -438,7 +433,6 @@ impl Theme {
                 Rgb(30, 30, 45).lerp(Rgb(69, 71, 88), 0.6).into_bg_style()
             },
 
-            // General purpose
             hint: Style::new().add_modifier(Modifier::DIM),
             important: Style::new().add_modifier(Modifier::BOLD),
             command_suggestion: Style::new().fg(Color::Blue).add_modifier(Modifier::DIM),
@@ -447,7 +441,6 @@ impl Theme {
             time: style_fg(Color::Cyan),
             progress: Style::new().add_modifier(Modifier::DIM),
 
-            // Layout
             border: Style::new().fg(Color::DarkGray),
             border_active: Style::new().fg(Color::Cyan),
             selection_highlight: Style::new()
@@ -473,14 +466,12 @@ impl Theme {
         let dark_t = Self::default_dark();
 
         Self {
-            // Modifications
             // Colors from Delta for preserving foreground syntax highlighting
             addition_rich: Style::new().bg(Color::Rgb(208, 255, 208)),
             addition_rich_subsection: Style::new().bg(Color::Rgb(160, 239, 160)),
             deletion_rich: Style::new().bg(Color::Rgb(255, 224, 224)),
             deletion_rich_subsection: Style::new().bg(Color::Rgb(255, 192, 192)),
 
-            // TUI modes
             tui_mode_normal: dark_t.tui_mode_normal.fg(white_256),
             tui_mode_commit: dark_t.tui_mode_commit.fg(white_256),
             tui_mode_squash: dark_t.tui_mode_squash.fg(white_256),
@@ -498,11 +489,9 @@ impl Theme {
                     .into_bg_style()
             },
 
-            // General purpose
             hint: style_fg(Color::DarkGray),
             progress: style_fg(Color::DarkGray),
 
-            // Layout
             selection_highlight: Style::new().fg(Color::Black).bg(Color::Indexed(252)),
             discrete_selection_highlight: Style::new().bg(Color::Indexed(255)),
 
@@ -566,7 +555,6 @@ impl StyledSymbol {
         StyledSymbol::new(self.content, t.success.add_modifier(Modifier::BOLD))
     }
 
-    /// Return a new symbol styled for attention / warning.
     pub fn attention(&self) -> StyledSymbol {
         let t = get();
         StyledSymbol::new(self.content, t.attention.add_modifier(Modifier::BOLD))

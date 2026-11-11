@@ -324,12 +324,10 @@ impl Help {
         })
     }
 
-    /// Returns the popup height for the given available area.
     fn height(&self, area: Rect) -> u16 {
         area.height.saturating_mul(Self::HEIGHT_PERCENT) / 100
     }
 
-    /// Returns the maximum scroll offset for the given list viewport height.
     fn max_scroll_for_height(&self, viewport_height: u16) -> usize {
         self.list_entries()
             .count()

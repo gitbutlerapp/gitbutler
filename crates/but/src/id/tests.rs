@@ -4055,7 +4055,6 @@ mod util {
             DebugState { inner: self }
         }
 
-        /// Return a list of all branch CliIds.
         pub fn branch_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
             for stack_with_id in self.lanes.iter() {
@@ -4066,12 +4065,10 @@ mod util {
             short_ids
         }
 
-        /// Return all stack CliIds.
         pub fn stack_short_ids(&self) -> impl Iterator<Item = String> + '_ {
             self.lanes.iter().filter_map(|lane| lane.short_id.clone())
         }
 
-        /// Return a list of all commit CliIds.
         pub fn commit_ids(&self) -> Vec<String> {
             let mut short_ids = Vec::new();
             for stack_with_id in self.lanes.iter() {

@@ -27,7 +27,6 @@ pub(crate) fn show_commit(
     // A branch's verbose output already has the line counts.
     let verbose = verbose || stat;
 
-    // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch_match = branches.iter().find(|b| {
         b.name.as_bytes() == commit_id_str.as_bytes()
@@ -38,7 +37,6 @@ pub(crate) fn show_commit(
         return show_branch(ctx, out, &branch.name.to_string(), verbose, &id_map);
     }
 
-    // Also check stacks to find branches within stacks
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
@@ -99,7 +97,6 @@ pub(crate) fn show_commit(
     let raw_commit = repo.find_commit(commit_id)?;
     let decoded = raw_commit.decode()?;
 
-    // Get diff with first parent
     let parent_id = raw_commit.parent_ids().next().map(|id| id.detach());
     let tree_changes = but_core::diff::TreeChanges::from_trees(&repo, parent_id, commit_id)?;
 
@@ -118,12 +115,10 @@ pub(crate) fn show_commit(
             t.commit_id.paint(commit_id.to_string()),
         )?;
 
-        // Change ID (if present)
         if let Some(ref change_id) = change_id {
             writeln!(out, "{} {}", t.important.paint("Change-ID:"), change_id)?;
         }
 
-        // Author
         let author_sig = decoded.author()?;
         writeln!(
             out,
@@ -345,7 +340,6 @@ fn show_branch(
                         )?;
                     }
 
-                    // Add vertical line separator between commits (but not after the last one)
                     if idx < commits.len() - 1 {
                         writeln!(out, "{}", t.border.paint("│"))?;
                     }
@@ -461,7 +455,7 @@ struct StackChainBranch {
     commit_count: usize,
 }
 
-/// Helper function to find a branch OID by name, checking both list_branches and stacks
+/// Checks both `list_branches` and the applied stacks.
 fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     if let Some(branch) = branches
@@ -471,7 +465,6 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
         return Ok(branch.head);
     }
 
-    // Not found in list_branches, check stacks
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
@@ -520,7 +513,6 @@ fn get_branch_commits(
         return Ok((Vec::new(), None));
     };
 
-    // Walk from branch head to merge base, collecting commits
     let traversal = branch_oid
         .attach(&repo)
         .ancestors()

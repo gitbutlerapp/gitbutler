@@ -145,7 +145,6 @@ fn check_merge_conflicts(
 
     let mut conflicting_files = Vec::new();
 
-    // If there are conflicts, identify which files conflict and which commits modified them
     if !merges_cleanly {
         let conflict_paths =
             get_merge_conflict_paths(&repo, merge_base_tree_id, target_tree_id, branch_tree_id)?;
@@ -289,7 +288,6 @@ fn get_commits_ahead(
         }
     };
 
-    // Walk from branch head to merge base, collecting commits
     let traversal = branch
         .head
         .attach(&repo)
@@ -589,7 +587,6 @@ fn output_human(
                 }
             }
 
-            // Add blank line between commits (but not after the last one)
             if i < commits.len() - 1 {
                 writeln!(buf)?;
             }
@@ -692,7 +689,6 @@ fn output_human(
             for file in &check.conflicting_files {
                 writeln!(buf, "  {}", t.attention.paint(&file.path))?;
 
-                // Show branch commits that modified this file
                 if !file.branch_commits.is_empty() {
                     writeln!(buf, "    Modified by this branch:")?;
                     for commit in &file.branch_commits {
@@ -712,7 +708,6 @@ fn output_human(
                     writeln!(buf)?;
                 }
 
-                // Show upstream commits that modified this file
                 if !file.upstream_commits.is_empty() {
                     writeln!(buf, "    Modified by upstream:")?;
                     for commit in &file.upstream_commits {

@@ -18,7 +18,6 @@
 //! #### Non-Legacy builds
 //!
 //! Tests aren't available in this mode yet, but one can compile it with `cargo check -p but --no-default-features`.
-//!
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
@@ -436,8 +435,6 @@ fn expand_watwat(args: &mut [OsString]) -> bool {
     true
 }
 
-/// Expand aliases in the argument list.
-///
 /// The parser treats aliases in the same way as external subcommands, so they end up inside of
 /// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
 /// first word in the command string as an alias.

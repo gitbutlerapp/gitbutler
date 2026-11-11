@@ -83,7 +83,6 @@ pub fn list(
                 .iter()
                 .any(|branch| branch.name.to_lowercase().contains(&filter_lower))
         });
-        // Also filter the heads within each stack
         for stack in &mut applied_stacks {
             stack
                 .branches
@@ -110,7 +109,6 @@ pub fn list(
         });
     }
 
-    // Filter out dependabot branches unless --all is specified
     if !all {
         branches.retain(|branch| {
             !branch
@@ -329,7 +327,6 @@ fn output_json(
     Ok(())
 }
 
-/// Read display metadata for an applied stack head commit.
 fn applied_head_commit_info(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -465,13 +462,11 @@ fn calculate_commits_ahead(
     for branch in branches {
         let branch_oid = branch.head;
 
-        // Count commits ahead using merge base
         let merge_base = match repo.merge_base_with_graph(branch_oid, target_oid, &mut graph) {
             Ok(Some(base)) => base,
             Ok(None) | Err(_) => continue, // Skip if no merge base found
         };
 
-        // Walk from branch head to merge base
         let traversal = match branch_oid
             .attach(&repo)
             .ancestors()
@@ -537,7 +532,6 @@ fn print_applied_branches_table(
 
     let repo = &*ctx.repo.get()?;
 
-    // Define column headers with fixed widths
     // BRANCH is marked no_truncate so the name is always fully visible.
     // AUTHOR is flexible and will shrink first when space is tight.
     let headers = vec![
@@ -586,7 +580,6 @@ fn print_applied_branches_table(
 
             let painted_branch_name = t.local_branch.paint(&branch.name);
 
-            // Branch name with tree prefix and merge status
             let branch_with_prefix = if is_single_branch {
                 format!(
                     "{}{}{}",
@@ -663,7 +656,6 @@ fn print_branches_table(
         return Ok(());
     }
 
-    // Define column headers with fixed widths
     // BRANCH is marked no_truncate so the name is always fully visible.
     // AUTHOR is flexible and will shrink first when space is tight.
     let headers = vec![
@@ -702,7 +694,6 @@ fn print_branches_table(
             .or_else(|| branch.last_commiter.email.as_ref().map(|e| e.to_string()))
             .unwrap_or_else(|| "Unknown".to_string());
 
-        // Branch name with PR info and merge status
         let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name.to_string()) {
             let review_numbers = reviews
                 .iter()

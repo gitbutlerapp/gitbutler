@@ -601,7 +601,6 @@ fn commit_with_transaction(
     Ok(but_transaction::Commit((new_commit, branch_name)))
 }
 
-/// Targeting modes for committing.
 pub enum CommitOperationTargetIsh {
     /// Target the branch if it exists, or create it at the newest base if it does not.
     Branch(CliIdArg),
@@ -1265,7 +1264,6 @@ impl CommitAtOperation {
     }
 }
 
-/// Place a commit relative to something in the workspace.
 #[derive(Clone, Debug)]
 pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.

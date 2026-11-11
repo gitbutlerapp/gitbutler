@@ -251,7 +251,6 @@ impl App {
     }
 }
 
-/// Formats an exit status for human-readable error messages.
 fn format_exit_status(status: std::process::ExitStatus) -> String {
     if let Some(code) = status.code() {
         code.to_string()

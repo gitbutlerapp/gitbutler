@@ -132,7 +132,6 @@ fn auto_merge_summary_lines(
     lines
 }
 
-/// Set the draftiness of one or multiple reviews.
 pub async fn set_draftiness(
     ctx: &mut Context,
     selector: Option<String>,
@@ -338,7 +337,6 @@ pub async fn create_review(
             }
             return Ok(());
         } else if branches_without_prs.len() == 1 {
-            // If there's only one branch without a PR, ask for confirmation
             let branch_name = &branches_without_prs[0];
             let mut inout = out
                 .prepare_for_terminal_input()
@@ -354,7 +352,6 @@ pub async fn create_review(
                 return Ok(());
             }
         } else {
-            // Multiple branches without PRs - let the prompt handle it
             None
         }
     };
@@ -909,7 +906,6 @@ pub fn parse_review_message(content: &str) -> Option<ForgeReviewMessage> {
         return None;
     }
 
-    // Skip any leading blank lines after the title, then collect the rest as description
     let body = lines
         .skip_while(|l| l.trim().is_empty())
         .collect::<Vec<_>>()
@@ -1020,7 +1016,6 @@ fn get_pr_title_and_body_from_editor(
 ) -> anyhow::Result<(String, String)> {
     let mut template = String::new();
 
-    // Use the first line of the commit message as the default title if available
     let commit_title =
         extract_commit_title(commit).map(|s| s.replace(HTML_COMMENT_START_MARKER, "<\\!--"));
     if let Some(commit_title) = commit_title {
@@ -1055,7 +1050,6 @@ HTML comments are stripped before submit.
 "
     );
 
-    // Add commit list with modified files as context
     if let Ok(commits) = branch_commits(ctx, branch_name)
         && !commits.is_empty()
     {
@@ -1119,7 +1113,6 @@ HTML comments are stripped before submit.
     Ok((message.title, message.body))
 }
 
-/// Extract the commit description (body) from the commit message, skipping the first line (title).
 fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     commit.and_then(|c| {
         let desc_lines: Vec<&str> = c
@@ -1214,13 +1207,11 @@ fn resolve_review_selection(
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
     let target_review_ids = if let Some(selector) = selector {
-        // Extract any review IDs that match any of the associated reviews in the workspace.
         let review_ids = lanes
             .iter()
             .flat_map(review_ids_for_stack)
             .collect::<Vec<_>>();
         let mut unique_review_ids = parse_review_ids(&selector, &review_ids);
-        // Concatenate any review IDs associated with the selected CliIDs.
         unique_review_ids.extend(resolve_cli_ids_to_review_ids(
             ctx, &selector, &lanes, &id_map,
         ));

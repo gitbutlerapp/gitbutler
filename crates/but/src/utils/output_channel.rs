@@ -15,7 +15,6 @@ use crate::{
     },
 };
 
-/// Default value for a confirmation prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
@@ -612,12 +611,10 @@ pub(crate) enum PromptLine {
     Cancelled,
 }
 
-/// How to play input back to the user during prompts.
 #[derive(Debug)]
 enum InputEcho {
     /// Show everything that's typed and displayable.
     Visible,
-    /// Do not show what's printed.
     Hidden,
 }
 
@@ -759,7 +756,6 @@ impl OutputChannel {
         self.format.is_agent()
     }
 
-    /// A convenience function to create a progress channel that only writes when the output format permits progress.
     /// The progress channel writes to stderr if it's a terminal and the output format permits progress.
     pub fn progress_channel(&self) -> ProgressChannel {
         ProgressChannel::new(self.format.allows_human_ui())

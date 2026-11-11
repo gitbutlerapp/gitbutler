@@ -264,12 +264,10 @@ fn edit_commit_message_by_id_and_reword_commit(
     let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
     let current_message = commit_details.commit.inner.message.to_string();
 
-    // Get new message from provided argument, format flag, or editor
     let new_message = if format {
         if message.is_some() {
             bail!("Cannot use both --fix-formatting and --message flags together");
         }
-        // Format the current message without opening an editor
         Some(but_action::commit_format::format_commit_message(
             &current_message,
         ))

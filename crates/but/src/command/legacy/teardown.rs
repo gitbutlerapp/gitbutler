@@ -91,7 +91,6 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    // Create an oplog snapshot
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", t.hint.paint("→ Creating snapshot..."))?;
     }
@@ -182,7 +181,6 @@ pub(crate) fn teardown(
         }
     }
 
-    // Check out the target branch using Git directly
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -290,7 +288,6 @@ fn try_stack_fixes(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()>
     // check if gitbutler/workspace is pointing at a commit that does not start with "GitButler Workspace Commit"
     let repo = ctx.repo.get()?;
 
-    // Look for dangling commits on gitbutler/workspace
     if let Some(out) = out.for_human() {
         writeln!(
             out,

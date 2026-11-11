@@ -29,7 +29,6 @@ pub fn handle(out: &mut OutputChannel) -> Result<()> {
         tracing::warn!(?err, "Failed to persist onboarding status");
     }
 
-    // Show the metrics info message only for interactive human UI output.
     if let Some(human_out) = out.for_human_ui() {
         std::fmt::Write::write_str(
             human_out,

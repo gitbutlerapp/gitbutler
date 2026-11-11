@@ -976,11 +976,8 @@ pub enum ResolvedSquash<'a> {
     Branches {
         target: BranchSquashTarget,
         source_commits: Vec<CommitId>,
-        /// The branches that we're squashing.
-        ///
         /// This is just used to generate the output.
         source_branches: NonEmpty<FullName>,
-        /// The branches that should be removed after squashing the commits.
         branches_to_remove: Vec<FullName>,
     },
     UncommittedHunk(AmendUncommittedHunks<'a>),

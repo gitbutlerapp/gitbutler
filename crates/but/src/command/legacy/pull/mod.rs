@@ -379,7 +379,6 @@ async fn handle_pull(
 
     let mut progress = out.progress_channel();
 
-    // Step 1: Check upstream data
     let has_upstream = target_has_upstream(ctx)?;
     if has_upstream {
         writeln!(
@@ -404,7 +403,6 @@ async fn handle_pull(
     pull_result.upstream_url = upstream_url.clone();
     pull_result.upstream_commits_found = incoming.len();
 
-    // Populate recent commits from the incoming commits (actual new commits to integrate)
     let commits_to_show = 5.min(incoming.len());
     for commit in incoming.iter().take(commits_to_show) {
         pull_result.recent_commits.push(CommitInfo {
@@ -428,7 +426,6 @@ async fn handle_pull(
                 t.remote_branch.paint(&base_branch.branch_name)
             )?;
 
-            // Show upstream commits (actual new commits to integrate)
             let repo = ctx.repo.get()?.clone().for_commit_shortening();
             for commit_info in &pull_result.recent_commits {
                 let msg = commit_info
@@ -480,7 +477,7 @@ async fn handle_pull(
         return Ok(None);
     }
 
-    // Step 2: Dry-run integration and derive statuses from the preview, like the desktop app.
+    // Dry-run integration and derive statuses from the preview, like the desktop app.
     let upstream::IntegrationPreview {
         current: current_head_info,
         outcome: _preview,
@@ -545,7 +542,6 @@ async fn handle_pull(
         Some(statuses)
     };
 
-    // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
         let integration_result = {
             let mut ctx = ctx.to_sync().into_thread_local();
