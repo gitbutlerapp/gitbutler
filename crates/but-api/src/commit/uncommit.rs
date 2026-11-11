@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use anyhow::Context as _;
 use but_api_macros::but_api;
-use but_core::{DryRun, sync::RepoExclusive};
+use but_core::{
+    DryRun,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_hunk_assignment::{HunkAssignmentRequest, HunkAssignmentTarget};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_transaction::{Commit, with_transaction_with_perm_only};
@@ -25,22 +28,21 @@ impl SurfacedHunks {
     /// `None` when there is nothing to assign, and on a dry run - which reports no assignments and
     /// must persist none, so the exchange is skipped outright rather than performed and undone.
     fn record_before(
+        ctx: &but_ctx::Context,
         assign_to: Option<but_core::ref_metadata::StackId>,
         dry_run: DryRun,
-        db: &mut but_db::DbHandle,
-        repo: &gix::Repository,
-        workspace: &but_graph::Workspace,
-        context_lines: u32,
+        perm: &RepoShared,
     ) -> anyhow::Result<Option<Self>> {
         let (Some(stack_id), DryRun::No) = (assign_to, dry_run) else {
             return Ok(None);
         };
+        let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             db.hunk_assignments_mut()?,
-            repo,
-            workspace,
+            &repo,
+            &workspace,
             None::<Vec<but_core::TreeChange>>,
-            context_lines,
+            ctx.settings.context_lines,
         )?;
         Ok(Some(Self {
             stack_id,
@@ -52,18 +54,14 @@ impl SurfacedHunks {
     }
 
     /// Assign every hunk that appeared since [`Self::record_before()`] to the target stack.
-    fn assign_after(
-        self,
-        db: &mut but_db::DbHandle,
-        repo: &gix::Repository,
-        workspace: &but_graph::Workspace,
-        context_lines: u32,
-    ) -> anyhow::Result<()> {
+    fn assign_after(self, ctx: &but_ctx::Context, perm: &RepoShared) -> anyhow::Result<()> {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
         let mut tx = db.transaction()?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
+            &repo,
+            &workspace,
             None::<Vec<but_core::TreeChange>>,
             context_lines,
         )?;
@@ -86,8 +84,8 @@ impl SurfacedHunks {
 
         but_hunk_assignment::assign(
             tx.hunk_assignments_mut()?,
-            repo,
-            workspace,
+            &repo,
+            &workspace,
             to_assign,
             context_lines,
         )?;
@@ -204,11 +202,7 @@ pub fn commit_uncommit_only_with_perm(
     if subject_commit_ids.is_empty() {
         anyhow::bail!("no commit IDs provided for uncommit");
     }
-    let context_lines = ctx.settings.context_lines;
-    let surfaced = {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?
-    };
+    let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
     let mut meta = ctx.meta()?;
     let (_, workspace) =
@@ -227,8 +221,7 @@ pub fn commit_uncommit_only_with_perm(
         })?;
 
     if let Some(surfaced) = surfaced {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        surfaced.assign_after(&mut db, &repo, &ws, context_lines)?;
+        surfaced.assign_after(ctx, perm.read_permission())?;
     }
 
     Ok(UncommitResult {
@@ -284,11 +277,7 @@ pub fn commit_uncommit_changes_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
-    let context_lines = ctx.settings.context_lines;
-    let surfaced = {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?
-    };
+    let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
     let mut meta = ctx.meta()?;
     let (_, workspace) =
@@ -298,8 +287,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         })?;
 
     if let Some(surfaced) = surfaced {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        surfaced.assign_after(&mut db, &repo, &ws, context_lines)?;
+        surfaced.assign_after(ctx, perm.read_permission())?;
     }
 
     Ok(MoveChangesResult { workspace })
@@ -406,11 +394,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<UncommitChangesFromCommitsResult> {
-    let context_lines = ctx.settings.context_lines;
-    let surfaced = {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?
-    };
+    let surfaced = SurfacedHunks::record_before(ctx, assign_to, dry_run, perm.read_permission())?;
 
     let mut meta = ctx.meta()?;
     let (_, (failures, workspace)) =
@@ -426,8 +410,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         })?;
 
     if let Some(surfaced) = surfaced {
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        surfaced.assign_after(&mut db, &repo, &ws, context_lines)?;
+        surfaced.assign_after(ctx, perm.read_permission())?;
     }
 
     Ok(UncommitChangesFromCommitsResult {
