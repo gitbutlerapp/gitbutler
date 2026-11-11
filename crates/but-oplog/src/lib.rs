@@ -82,7 +82,6 @@ mod oplog_snapshot {
 
     use crate::UnmaterializedOplogSnapshot;
 
-    /// Lifecycle
     impl UnmaterializedOplogSnapshot {
         /// Create a new instance from `details`, which is a snapshot that isn't committed to the oplog yet.
         /// When `dry_run` is enabled, return `None` instead of preparing
