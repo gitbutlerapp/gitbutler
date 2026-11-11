@@ -18,7 +18,6 @@ use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent, LinkedWorktree};
 
 mod handler;
 
-/// Re-export for convenience
 pub use gitbutler_filemonitor::WatchMode;
 
 /// An abstraction over a link to the spawned watcher, which runs in the background.
