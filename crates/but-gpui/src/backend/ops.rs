@@ -1792,9 +1792,8 @@ impl Intent for Amend {
                 DryRun::No,
                 |mut tx| {
                     stack_in(&mut tx, restack.as_ref())?;
-                    let asked = specs.len();
                     let made = tx.amend_commit(into.0, specs, source, conflicts)?;
-                    let takes_others = made.rejected_specs.len() < asked;
+                    let takes_others = made.new_commit.is_some();
                     let amended = match made.new_commit {
                         Some(amended) if leave_out || made.rejected_specs.is_empty() => amended,
                         _ => {
@@ -3473,6 +3472,10 @@ pub(super) mod tests {
             assert!(
                 into_beta.with_conflicts.is_none(),
                 "restacked, beta takes it cleanly, so it isn't offered conflicted"
+            );
+            assert!(
+                into_beta.takes_others,
+                "line 15 builds on beta's own commit, so it goes there without line 5"
             );
 
             // Line 15 alone builds only on beta's commit, a stack apart from alpha's.
