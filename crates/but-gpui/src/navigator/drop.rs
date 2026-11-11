@@ -422,13 +422,17 @@ fn row_at(rows: &[Row], depth: f32, row: f32) -> Option<(usize, f32)> {
 
 /// The row the pointer `depth` down `rows` aims at, and how far down it, as [`row_at`] says,
 /// but an open stack's caption stands for the top of the branch listed right under it: its top
-/// one, or under the filter the first that matches, where the divider then shows it lands.
+/// one, or under the filter the first that matches, where the divider then shows it lands. The
+/// gap between two stacks stands for the bottom of the row above it or the top of the row
+/// below, whichever half the pointer's in.
 fn aimed_at(rows: &[Row], depth: f32, row: f32) -> Option<(usize, f32)> {
     let (ix, y) = row_at(rows, depth, row)?;
     match (rows.get(ix), rows.get(ix + 1)) {
         (Some(Row::Item(Selection::Stack(..))), Some(Row::Item(Selection::Branch(..)))) => {
             Some((ix + 1, 0.))
         }
+        (Some(Row::Between(_)), _) if y < 0.5 && ix > 0 => Some((ix - 1, 0.99)),
+        (Some(Row::Between(_)), Some(_)) => Some((ix + 1, 0.)),
         _ => Some((ix, y)),
     }
 }
@@ -596,7 +600,7 @@ fn divider(color: Hsla) -> Div {
 mod tests {
     use std::sync::Arc;
 
-    use super::{Row, divider_at, drag_zone, over_own_row, stop_at};
+    use super::{Row, aimed_at, divider_at, drag_zone, over_own_row, stop_at};
     use crate::backend::model::build::{full, id};
     use crate::backend::{Checkout, CommitId, Destination};
     use crate::state::{ProjectId, Selection};
@@ -881,6 +885,27 @@ mod tests {
             divider_at(&rows, &project(), &top_of("ui")),
             Some((2, Place::Above)),
             "what's listed before its commits stays above where it lands"
+        );
+    }
+
+    #[test]
+    fn the_gap_between_stacks_aims_at_the_row_on_its_side() {
+        let rows = Vec::from([branch("ui"), Row::Between(project()), branch("api")]);
+        let row = ROW_HEIGHT;
+        let gap = rows[1].height(row);
+        assert!(
+            gap > 0.,
+            "the gap between stacks takes room, so it can be pointed at"
+        );
+        assert_eq!(
+            aimed_at(&rows, row + gap * 0.25, row).map(|(ix, _)| ix),
+            Some(0),
+            "its top half stands for the bottom of the stack above"
+        );
+        assert_eq!(
+            aimed_at(&rows, row + gap * 0.75, row),
+            Some((2, 0.)),
+            "its bottom half stands for the top of the stack below"
         );
     }
 

@@ -17,7 +17,7 @@ use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
 use crate::backend::{
-    Checkout, Commit, CommitId, Conflicts, Destination, FullName, Messages, Workspace, short_ref,
+    Checkout, Commit, CommitId, Conflicts, Destination, FullName, Messages, Workspace,
 };
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
@@ -26,7 +26,7 @@ use crate::transfer::{
     Changes, Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots,
 };
 use crate::ui::fold::{self, on_top};
-use crate::ui::{Icon, blink_once, dp, fixed, guide, h_flex, icon, small_icon};
+use crate::ui::{Icon, blink_once, count_badge, dp, fixed, guide, h_flex, icon, small_icon};
 
 /// The move of commits or a branch shown in `project`, or the squash of those or files, with
 /// copies where it'd land: the one under way, or one Return landed, until the reload after it
@@ -290,6 +290,8 @@ enum Gone {
     Branch { id: String, name: String },
     /// The new branch commits being moved would land in at that stop.
     NewBranch(Stop),
+    /// The caption of the stack that new branch would make.
+    NewStack,
 }
 
 /// The rows keyed `old` that a move takes away as they go to `new`, the commits where it left
@@ -311,7 +313,7 @@ fn taken_away(
             Some(key @ RowKey::Left(own)) => {
                 !kept.contains(key) && (landing || !kept.contains(&**own))
             }
-            Some(key @ RowKey::GhostBranch(_)) => !kept.contains(key),
+            Some(key @ (RowKey::GhostBranch(_) | RowKey::GhostStack(_))) => !kept.contains(key),
             Some(key @ RowKey::Commit(..)) => ended && !kept.contains(key),
             Some(
                 RowKey::Item(_)
@@ -468,6 +470,7 @@ pub(super) fn stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::GhostStack(_)
             | Row::NewCommit(_)
             | Row::Between(_) => {}
             // A checkout's terminals, listed above its branches.
@@ -571,6 +574,7 @@ pub(super) fn squash_stops<'a>(
             | Row::Pending(..)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::GhostStack(_)
             | Row::NewCommit(_)
             | Row::Between(_) => None,
             _ => {
@@ -643,6 +647,7 @@ impl Navigator {
                         }
                     }
                     Row::GhostBranch(_, at) => Gone::NewBranch(at.clone()),
+                    Row::GhostStack(_) => Gone::NewStack,
                     _ => return None,
                 };
                 let outlined_with = (
@@ -1919,6 +1924,7 @@ pub(super) fn stand_in(
         }
         Gone::Branch { id, name } => branch_copy(id.clone(), name.clone(), style),
         Gone::NewBranch(at) => ghost_branch_row(at, *inset, op.colour(theme), None, theme),
+        Gone::NewStack => ghost_stack_row(*inset, op.colour(theme), None, theme),
     };
     let guides = guides.iter().map(|at| guide(*at, theme));
     div()
@@ -1939,8 +1945,8 @@ pub(super) fn stand_in(
 
 /// The new branch commits being moved or made would land in at stop `at`, over their copies,
 /// set in by `inset` as an item row is, marked in `mark`, the colour of what's doing it, and
-/// blinking as they do. It names the branch it goes above or below in their stack, or says
-/// it's independent, in a stack of its own.
+/// blinking as they do. In a stack, where it sits among the stack's rows says what it builds on,
+/// so it names no branch; in a stack of its own, it says it's independent.
 pub(super) fn ghost_branch_row(
     at: &Stop,
     inset: f32,
@@ -1948,21 +1954,14 @@ pub(super) fn ghost_branch_row(
     blink: Option<usize>,
     theme: &Theme,
 ) -> AnyElement {
-    let beside = match at {
-        Stop::NewBranch { beside, below } => {
-            let side = if *below { "below" } else { "above" };
-            Some((side, short_ref(beside).into_owned()))
-        }
+    let said = match at {
+        Stop::NewBranch { .. } => "New branch",
         Stop::In(_)
         | Stop::NewStack { .. }
         | Stop::Card(_)
         | Stop::Worktree(_)
         | Stop::Terminal { .. }
-        | Stop::Into(_) => None,
-    };
-    let said = match &beside {
-        Some((side, _)) => format!("New branch {side}"),
-        None => "New independent branch".into(),
+        | Stop::Into(_) => "New independent branch",
     };
     h_flex()
         .min_h(dp(theme.sizes.control))
@@ -1980,20 +1979,36 @@ pub(super) fn ghost_branch_row(
             el.relative().child(blink_once(("blink", n), shape, mark))
         })
         .child(small_icon(Icon::Branch).text_color(mark))
-        .child(
-            // One phrase, a space apart, the branch's name as it's written in its row.
-            h_flex()
-                .min_w_0()
-                .gap(dp(4.))
-                .child(div().flex_none().child(said))
-                .children(beside.map(|(_, name)| {
-                    div()
-                        .min_w_0()
-                        .truncate()
-                        .text_color(theme.text_1)
-                        .child(name)
-                })),
-        )
+        .child(div().min_w_0().truncate().child(said))
+        .into_any_element()
+}
+
+/// The caption a new branch landing beside a branch alone in its lane would give the two, as
+/// the stack they'd make, set in by `inset` and marked in `mark`, as [`ghost_branch_row`] is.
+pub(super) fn ghost_stack_row(
+    inset: f32,
+    mark: Hsla,
+    blink: Option<usize>,
+    theme: &Theme,
+) -> AnyElement {
+    h_flex()
+        .min_h(dp(theme.sizes.control))
+        .mx(dp(3.))
+        .pl(dp(8. + inset))
+        .pr(dp(12.))
+        .gap(dp(8.))
+        .rounded(dp(theme.shape.control))
+        .border_1()
+        .border_dashed()
+        .border_color(mark)
+        .text_color(mark)
+        .when_some(blink, |el, n| {
+            let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
+            el.relative().child(blink_once(("blink", n), shape, mark))
+        })
+        .child(small_icon(Icon::Stack).text_color(mark))
+        .child(count_badge(2, theme))
+        .child(div().flex_none().child("Stack"))
         .into_any_element()
 }
 

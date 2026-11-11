@@ -69,11 +69,14 @@ pub(super) enum Row {
     Ghost(Selection),
     /// The new branch commits being moved would land in at that stop, over their copies.
     GhostBranch(ProjectId, Stop),
+    /// The caption a branch alone in its lane would get as a new branch lands beside it,
+    /// making the two a stack, over both.
+    GhostStack(ProjectId),
     /// The commit uncommitted changes being committed would make where the commit's at.
     NewCommit(ProjectId),
-    /// Where one stack ends and the next starts. It draws nothing, but a branch dropped low on
-    /// one stack's last branch joins that stack rather than the next, which as a branch alone
-    /// has no caption to tell it apart.
+    /// Where one stack ends and the next starts, a hairline across, so two branches alone in
+    /// their lanes don't read as one stack. A branch dropped low on one stack's last branch
+    /// joins that stack rather than the next.
     Between(ProjectId),
     /// The line after a worktree's section.
     WorktreeDivider,
@@ -99,6 +102,7 @@ pub(super) enum RowKey {
     /// to place, and back over it.
     Left(Box<RowKey>),
     GhostBranch(ProjectId),
+    GhostStack(ProjectId),
     /// The commit being made, which slides from stop to stop as the commit steps.
     NewCommit(ProjectId),
     /// No row's: the top edge of the outline of what a squash goes into, which slides from row
@@ -135,13 +139,14 @@ pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
             }
             Row::NewBranch(project) => Some(RowKey::NewBranch(project.clone())),
             Row::GhostBranch(project, _) => Some(RowKey::GhostBranch(project.clone())),
+            Row::GhostStack(project) => Some(RowKey::GhostStack(project.clone())),
             Row::NewCommit(project) => Some(RowKey::NewCommit(project.clone())),
             Row::Pending(_, _, Some(moved)) => Some(moved.clone()),
             _ => (before.clone()).map(|before| RowKey::After(Box::new(before))),
         };
         if !matches!(
             row,
-            Row::Ghost(_) | Row::GhostBranch(..) | Row::NewCommit(_)
+            Row::Ghost(_) | Row::GhostBranch(..) | Row::GhostStack(_) | Row::NewCommit(_)
         ) {
             before = key.clone();
         }
@@ -181,7 +186,7 @@ impl Row {
     pub(super) fn height(&self, row: f32) -> f32 {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
-            Row::Between(_) => 0.,
+            Row::Between(_) => BETWEEN,
             Row::WorktreeDivider => 12.,
             Row::Item(Selection::Project(_)) => HEADING_HEIGHT,
             Row::More(..) | Row::Fewer(..) | Row::RestsOn(..) => 24.,
@@ -191,6 +196,7 @@ impl Row {
             | Row::NewBranch(_)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
+            | Row::GhostStack(_)
             | Row::NewCommit(_) => row,
         }
     }
@@ -265,6 +271,9 @@ pub(super) const COMMIT_INDENT: f32 = 6. + STEP + 2.;
 /// Where the middle of a row's icon sits in a row set in by nothing: the row's left edge, its
 /// indent and half the 16-point icon.
 pub(super) const GUIDE_AT: f32 = ROW_LEFT + 6. + 8.;
+
+/// How tall the gap between two stacks is, its hairline across the middle.
+pub(super) const BETWEEN: f32 = 9.;
 
 /// The caption over `project`'s lane of `branches`, as drawn: over two or more, by the bottom one.
 pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Selection> {
@@ -561,16 +570,23 @@ impl Navigator {
         // they're listed alike, a mark between each stack and the next; with none, as on
         // the default branch, there's nothing to list, and the next commit starts one.
         // Commits being moved to a new stack show where it goes, first or last.
+        // The commits' new stack is parted from the others as they are from each other.
+        let mut parted = false;
         if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: true }) {
             rows.push_ghosts(moving, true);
+            parted = true;
         }
-        for (ix, stack) in stacks.enumerate() {
-            if ix > 0 {
+        for stack in stacks {
+            if parted {
                 rows.push(Row::Between(id.clone()));
             }
             self.lane_rows(store, id, &stack.branches, rows);
+            parted = true;
         }
         if let Some(moving) = landing_at(store, id, |at| *at == Stop::NewStack { first: false }) {
+            if parted {
+                rows.push(Row::Between(id.clone()));
+            }
             rows.push_ghosts(moving, true);
         }
     }
@@ -730,7 +746,22 @@ impl Navigator {
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
         let Some(caption) = caption(id, branches) else {
-            return self.stacked_rows(store, id, branches, rows);
+            // A new branch landing beside a branch alone makes the two a stack, so they show
+            // under the caption they'd have, stepped in as a stack's branches are.
+            let stacks = |branch: &Branch| {
+                landing_at(
+                    store,
+                    id,
+                    |at| matches!(at, Stop::NewBranch { beside, .. } if branch.ref_name.as_ref() == Some(beside)),
+                )
+            };
+            if !branches.iter().any(|branch| stacks(branch).is_some()) {
+                return self.stacked_rows(store, id, branches, rows);
+            }
+            rows.push(Row::GhostStack(id.clone()));
+            rows.open_in(STEP);
+            self.stacked_rows(store, id, branches, rows);
+            return rows.close();
         };
         let selected = (store.selection.as_ref())
             .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
