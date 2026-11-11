@@ -1866,11 +1866,9 @@ impl AppView {
 
     /// As the window's close button does: closing it quits, asking first while operations run
     /// or terminals are open. A tile that can close and has the keys takes the action first and
-    /// closes instead, and a terminal selected in the navigator closes, as its menu says.
+    /// closes instead.
     fn close_window(&mut self, _: &CloseWindow, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Selection::Terminal(project, id)) = self.store.read(cx).selection.clone() {
-            self.close_terminal(project, id, window, cx);
-        } else if self.can_quit(window, cx) {
+        if self.can_quit(window, cx) {
             cx.quit();
         }
     }
@@ -2572,7 +2570,8 @@ impl AppView {
         // detail draws the page in the home tile's area of it, under its bar while there are
         // others, and the diff and the terminal selected go over that.
         // A terminal there closes, a terminal pinned beside it taking its place, as terminals
-        // are alike. ⌘W closes it unless a pinned tile has the keys (`close_window`).
+        // are alike. ⌘W closes it while it has the keys, as it does a pinned tile, and the
+        // window otherwise.
         let close_home = self.close_home(cx);
         let home_bar = drawn_home.and_then(|_| {
             let store = self.store.read(cx);
@@ -2635,6 +2634,9 @@ impl AppView {
             }));
         // The detail draws the card under it; a terminal's edge is drawn over it here.
         let home = placed(home)
+            .when_some(close_home, |el, close| {
+                el.on_action(move |_: &CloseWindow, window, cx| close(window, cx))
+            })
             .child(tile_content().child(page).children(home_bar))
             .children(self.tile_edge(&Tile::Home, window, theme, cx))
             .when(self.shown_terminal(cx).is_some(), |el| {
