@@ -184,14 +184,11 @@ pub struct AppCacheHandle {
     path: PathBuf,
 }
 
-/// A structure to receive a project-local cache.
 pub struct CacheHandle {
     conn: rusqlite::Connection,
     path: PathBuf,
 }
 
-/// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
-///
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
@@ -204,10 +201,7 @@ pub struct DbHandle {
     pub cache: OnDemand<CacheHandle>,
 }
 
-/// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
-/// and make sure multiple dependent calls to the ORM can be consistent.
 pub struct Transaction<'conn> {
-    /// The actual transaction as holder of the database connection.
     /// It's always set.
     inner: Option<rusqlite::Transaction<'conn>>,
     /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection

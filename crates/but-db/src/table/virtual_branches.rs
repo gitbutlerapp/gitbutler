@@ -72,7 +72,6 @@ pub struct VbState {
     pub initialized: bool,
     /// Last observed mtime (ns since unix epoch) for `virtual_branches.toml`.
     pub toml_last_seen_mtime_ns: Option<i64>,
-    /// Last observed SHA-256 for `virtual_branches.toml`.
     pub toml_last_seen_sha256: Option<String>,
 }
 
@@ -114,7 +113,6 @@ pub struct VbStack {
 /// A stack head ("series") row from `vb_stack_heads`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VbStackHead {
-    /// Parent stack id this head belongs to.
     pub stack_id: String,
     /// Zero-based ordering position within the parent stack.
     pub position: i64,
@@ -127,7 +125,6 @@ pub struct VbStackHead {
     pub review_id: Option<String>,
 }
 
-/// Canonical normalized VB payload read from / written to the database.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VirtualBranchesSnapshot {
     /// Global singleton VB state row.
@@ -178,8 +175,6 @@ pub struct VirtualBranchesHandleMut<'conn> {
 }
 
 impl VirtualBranchesHandle<'_> {
-    /// Read the complete normalized VB snapshot from the database.
-    ///
     /// Returns `Ok(None)` if the singleton `vb_state` row does not exist yet.
     pub fn get_snapshot(&self) -> rusqlite::Result<Option<VirtualBranchesSnapshot>> {
         // In autocommit mode, each SELECT would otherwise get its own snapshot.

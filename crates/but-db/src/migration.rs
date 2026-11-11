@@ -4,7 +4,6 @@ use crate::{M, SchemaVersion, cache};
 
 pub type Error = crate::Error;
 
-/// The time we wait at most if the database is locked or busy before giving up acquiring a lock.
 pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Note that these will be ordered by [`run()`].
@@ -55,7 +54,6 @@ pub fn run<'m>(
         ));
     }
 
-    // Bail early if our read detects that nothing is to be done
     let should_bump_forward_compatibility_version = db_schema_version != application_schema_version;
     let maybe_num_applied_versions = num_applied_versions(&trans, &migrations).ok();
     if let Some(count) = maybe_num_applied_versions
@@ -139,7 +137,6 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
             .map_err(crate::map_err)?
     };
 
-    // Validate that existing migrations match the provided migrations list
     for (idx, existing_version) in existing_versions.iter().enumerate() {
         let existing_version: u64 = existing_version
             .parse()

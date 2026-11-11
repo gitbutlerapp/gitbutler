@@ -67,16 +67,12 @@ pub struct CachedCheckResult {
     pub status: CheckUpdateStatus,
     /// This allows users to temporarily hide update notifications.
     pub suppressed_at: Option<DateTime<Utc>>,
-    /// The number of hours to suppress update notifications.
     /// After this duration expires from `suppressed_at`, notifications will resume.
     pub suppress_duration_hours: Option<u32>,
 }
 
-/// Information about the latest available version and whether an update is needed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckUpdateStatus {
-    /// The version of the app for which this update check is valid.
-    ///
     /// This is used to check for cache staleness. As the version comparison is done server side,
     /// the value of [`Self::up_to_date`] is only valid if the current version of the app matches
     /// the version running at the time of the update check.
@@ -87,7 +83,6 @@ pub struct CheckUpdateStatus {
     /// longer be able to write to the table.
     pub valid_for_version: Option<String>,
 
-    /// `true` if the current version matches the latest available version, `false` otherwise.
     pub up_to_date: bool,
 
     /// The version string of the latest available release (e.g., "0.18.3").
@@ -100,8 +95,6 @@ pub struct CheckUpdateStatus {
     /// what's new in the update.
     pub release_notes: Option<String>,
 
-    /// Direct download URL for the update package.
-    ///
     /// This field is `None` if no update is needed (`up_to_date == true`) or if the server
     /// doesn't provide a direct download link. The URL points to a platform-specific installer
     /// or update package.
@@ -116,8 +109,6 @@ pub struct CheckUpdateStatus {
 }
 
 impl UpdateCheckHandle<'_> {
-    /// Retrieves the cached update check result if available.
-    ///
     /// Returns `None` if no update check has been cached yet, or if there was an error.
     pub fn get(&self) -> Option<CachedCheckResult> {
         self.try_get().ok().flatten()
@@ -212,8 +203,6 @@ impl UpdateCheckHandleMut<'_> {
         Ok(())
     }
 
-    /// Suppresses update notifications for a specified duration in `hours`.
-    ///
     /// If no update check record exists yet, the function returns an error.
     pub fn suppress(self, hours: u32) -> rusqlite::Result<()> {
         let sp = self.sp;

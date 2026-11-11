@@ -2,8 +2,6 @@ use std::path::Path;
 
 use rusqlite::ErrorCode;
 
-/// Storage for cache tables, along with their types.
-///
 /// ### Usage
 ///
 /// Caches work the same as [`crate::table`]s.
@@ -39,7 +37,7 @@ pub enum SchemaVersion {
     One = 1,
 }
 
-/// Open `url` with migrations applied. However, we don't retry as:
+/// Doesn't retry, as:
 /// - if the database is locked, and we'd need to run migrations, we fall back to an in-memory DB just this time
 /// - if we don't need to run migrations, all is good anyway, and we figure this out in read-only mode of the migration.
 fn run_migrations<'m>(

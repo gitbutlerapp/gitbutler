@@ -157,7 +157,6 @@ impl ForgeReviewsHandleMut<'_> {
         ForgeReviewsHandle { conn: &self.sp }
     }
 
-    /// Sets the forge_reviews table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     pub fn set_all(self, reviews: Vec<ForgeReview>) -> rusqlite::Result<()> {
         self.sp.execute("DELETE FROM forge_reviews", [])?;

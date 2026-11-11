@@ -135,7 +135,6 @@ impl CiChecksHandleMut<'_> {
         CiChecksHandle { conn: &self.sp }
     }
 
-    /// Sets the ci_checks table for a specific reference to the provided values.
     /// Any existing entries for this reference are deleted.
     ///
     /// Consumes this handle because it commits the internal savepoint/transaction,

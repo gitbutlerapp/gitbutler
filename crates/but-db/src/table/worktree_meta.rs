@@ -124,8 +124,6 @@ impl WorktreeMetaHandleMut<'_> {
         Ok(())
     }
 
-    /// Record that the one-time adoption of pre-existing worktrees has run.
-    ///
     /// Idempotent - marking again has no effect. The row's `adopted_at` column is
     /// filled by the database as a debugging breadcrumb; nothing reads it.
     pub fn mark_adopted(&mut self) -> rusqlite::Result<()> {

@@ -51,7 +51,6 @@ pub struct ButlerAction {
     pub external_prompt: Option<String>,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
     pub external_summary: String,
-    /// The handler / implementation that performed the action.
     pub handler: String,
     /// A GitBulter Oplog snapshot ID (git oid) before the action was performed.
     pub snapshot_before: String,

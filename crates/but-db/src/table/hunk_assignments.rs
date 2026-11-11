@@ -101,7 +101,6 @@ impl HunkAssignmentsHandleMut<'_> {
         HunkAssignmentsHandle { conn: &self.sp }
     }
 
-    /// Sets the hunk assignments table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     /// `stack_id` is preserved only for reads of legacy rows and is no longer written.
     pub fn set_all(self, assignments: Vec<HunkAssignment>) -> rusqlite::Result<()> {
