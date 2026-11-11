@@ -2192,11 +2192,22 @@ impl AppView {
         self.open_settings_at(Page::Project(project, ProjectPage::Project), window, cx);
     }
 
-    /// Settings, at General; already open, it stays on the page it shows.
+    /// Settings, where it was left as it closed, else at General; already open, it stays on
+    /// the page it shows.
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        if self.open_settings_view().is_none() {
-            self.open_settings_at(Page::App(AppPage::General), window, cx);
+        if self.open_settings_view().is_some() {
+            return;
         }
+        // A project since removed leaves nothing to go back to.
+        let left = (self.settings_left.clone()).filter(|(page, _)| {
+            (page.project()).is_none_or(|project| self.store.read(cx).project(project).is_some())
+        });
+        let Some((page, offset)) = left else {
+            self.open_settings_at(Page::App(AppPage::General), window, cx);
+            return;
+        };
+        let view = self.open_settings_at(page, window, cx);
+        view.read(cx).cards_scroll.set_offset(offset);
     }
 
     pub fn open_keyboard_shortcuts(
@@ -2232,6 +2243,10 @@ impl AppView {
         }
         let (store, app, detail) = (self.store.clone(), AppHandle::of(cx), self.detail.clone());
         let view = cx.new(|cx| SettingsView::new(store, app, detail, page, window, cx));
+        cx.observe_release(&view, |this, view, _| {
+            this.settings_left = Some((view.page.clone(), view.cards_scroll.offset()));
+        })
+        .detach();
         self.open_modal(view.clone(), window, cx);
         view
     }

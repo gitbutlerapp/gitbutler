@@ -255,6 +255,9 @@ pub struct AppView {
         Subscription,
         Option<FocusHandle>,
     )>,
+    /// The page Settings showed as it closed, and how far its cards were scrolled, which it
+    /// opens to again.
+    pub(crate) settings_left: Option<(crate::settings::Page, gpui::Point<gpui::Pixels>)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     /// The build under way or last ended, and what shows it when it fails out of sight.
@@ -706,6 +709,7 @@ impl AppView {
             palette: None,
             previewed_scheme: None,
             modal: None,
+            settings_left: None,
             recent_commands: Vec::new(),
             building: None,
             fps: cx.new(|_| crate::fps::Fps::default()),
