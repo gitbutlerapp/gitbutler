@@ -324,7 +324,6 @@ fn format_jsdoc(description: &str, indent: usize) -> String {
     }
 }
 
-/// Convert a JSON Schema (as serde_json::Value) to a TypeScript type string.
 fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
     // Handle boolean schemas
     match schema {
@@ -554,7 +553,6 @@ mod tests {
     use schemars::JsonSchema;
     use serde::Serialize;
 
-    /// Convert a schemars-annotated type to its TypeScript representation.
     fn ts_for<T: JsonSchema>() -> String {
         let schema = schemars::schema_for!(T);
         let json = serde_json::to_value(&schema).unwrap();
