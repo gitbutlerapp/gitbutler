@@ -139,6 +139,7 @@ impl Detail {
         if self.has_brief() {
             self.brief.first = tab == PageTab::Brief;
         }
+        let picked = self.shown_tab(cx) != tab;
         // What it found is in the tab it was opened on.
         self.find = None;
         if let Some(review) = self.page.review_mut() {
@@ -146,6 +147,14 @@ impl Detail {
         }
         if let Some(brief) = self.page.brief_mut() {
             brief.left_for_code = false;
+        }
+        if let Some(project) = self.selected_project().filter(|_| picked) {
+            let view = match tab {
+                PageTab::Changes => "changes",
+                PageTab::Review => "review",
+                PageTab::Brief => "brief",
+            };
+            self.store.read(cx).count_view_named(view, &project);
         }
         match self.tabs_focus.is_focused(window) {
             true => cx.notify(),

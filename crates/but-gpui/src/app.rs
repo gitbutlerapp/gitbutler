@@ -614,6 +614,7 @@ impl AppView {
             }),
             // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
+                backend::metrics::in_front(window.is_window_active());
                 if window.is_window_active() {
                     #[cfg(target_os = "macos")]
                     show_cursor_again(window);
@@ -658,6 +659,7 @@ impl AppView {
         // Visibility arrives only as it changes, so a window that opens hidden says so here.
         let visible = scripted() || window.is_visible();
         store.update(cx, |store, cx| store.set_visible(window_id, visible, cx));
+        backend::metrics::in_front(window.is_window_active());
         Self {
             store,
             detail,

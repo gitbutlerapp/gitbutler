@@ -1200,6 +1200,10 @@ impl Detail {
             self.reset_view();
         }
         self.show_page(left_at, tab, window, cx);
+        // A project's page comes back on the tab it was left on.
+        if tab.is_none() && self.project_tab() != ProjectTab::Overview {
+            self.count_tab(cx);
+        }
         let project = self.selected_project();
         let checkout = self.selected_checkout().map(|(_, worktree)| worktree);
         if self.checks_project != project {

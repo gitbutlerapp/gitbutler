@@ -149,7 +149,7 @@ unseen is what a laptop's battery pays for.
 
 Like the mesh, metrics must never break or slow anything else.
 
-- Its code stays in `backend/metrics.rs` and `backend/metrics/crashes.rs`. Capture only where the
+- Its code stays in `backend/metrics.rs` and `backend/metrics/`. Capture only where the
   user acts, never in render, loads, the watcher or a loop. Failures and errors of one kind go
   out once a minute (`limit`).
 - A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
