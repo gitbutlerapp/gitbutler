@@ -127,8 +127,8 @@ pub fn load_diff(
         let changes = but_core::diff::tree_changes(&repo, base, tip)?;
         Ok(changes.into_iter().map(file_change).collect())
     };
-    // Which commit each file is from, where a diff of several commits can say.
-    let mut owners = Vec::new();
+    // The commits that made each file, where a diff of several commits can say.
+    let mut made_by = Vec::new();
     let changes: Vec<FileChange> = match &source {
         // With modification times, as the workspace's file list has them.
         DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
@@ -143,14 +143,14 @@ pub fn load_diff(
         DiffSource::Range { oldest, newest } => {
             let base = present_first_parent(&repo.find_commit(oldest.0)?);
             let changes = tree_changes(base, newest.0)?;
-            owners = sole_makers(&repo, base, *newest, &changes)?;
+            made_by = makers(&repo, base, *newest, &changes)?;
             changes
         }
         DiffSource::Commits(ids) => {
             let mut all = Vec::new();
             for id in ids.iter() {
                 let changes = tree_changes(present_first_parent(&repo.find_commit(id.0)?), id.0)?;
-                owners.extend(std::iter::repeat_n(Some(*id), changes.len()));
+                made_by.extend(std::iter::repeat_n(vec![*id], changes.len()));
                 all.extend(changes);
             }
             all
@@ -203,8 +203,8 @@ pub fn load_diff(
     )
     .into_iter()
     .collect::<Result<Vec<_>>>()?;
-    for (diff, owner) in diffs.iter_mut().zip(owners) {
-        diff.commit = owner;
+    for (diff, made_by) in diffs.iter_mut().zip(made_by) {
+        diff.made_by = made_by;
     }
     match (&source, workdir) {
         (DiffSource::Commit(id), _) => add_conflicts(&ctx, *id, scope_lines, &mut diffs),
@@ -217,18 +217,21 @@ pub fn load_diff(
     Ok(diffs)
 }
 
-/// The commit that made each of `changes`, the diff from `base` to `newest`: the only one
-/// between them to change that path, when its change is the same one, from the same content
-/// to the same content. The file's diff here is then its diff in that commit, hunk for hunk.
-/// `None` for a file that several commits changed.
-fn sole_makers(
+/// The commits that made each of `changes`, the diff from `base` to `newest`, oldest first:
+/// those between them that change that path, when their changes add up to the diff's own.
+/// The oldest starts from the content the diff starts from, each next one from what the one
+/// before it left, and the newest ends where the diff ends. With one commit, the file's diff
+/// here is its diff in that commit, hunk for hunk. Empty for a file whose changes don't add up
+/// so, and for one that several commits changed with a rename among them.
+fn makers(
     repo: &gix::Repository,
     base: Option<gix::ObjectId>,
     newest: CommitId,
     changes: &[FileChange],
-) -> Result<Vec<Option<CommitId>>> {
-    // By path, the one commit that changes it and how, or `None` once a second one does.
-    let mut made: HashMap<BString, Option<(CommitId, but_core::TreeChange)>> = HashMap::new();
+) -> Result<Vec<Vec<CommitId>>> {
+    use but_core::TreeChange;
+    // By path, each commit that changes it and how, newest first, as the walk goes.
+    let mut made: HashMap<BString, Vec<(CommitId, TreeChange)>> = HashMap::new();
     let walk = (repo.rev_walk([newest.0]).first_parent_only())
         .with_hidden(base)
         .all()?;
@@ -236,22 +239,35 @@ fn sole_makers(
         let commit = info?.object()?;
         let parent = present_first_parent(&commit);
         for change in but_core::diff::tree_changes(repo, parent, commit.id)? {
-            made.entry(change.path.clone())
-                .and_modify(|maker| *maker = None)
-                .or_insert(Some((CommitId(commit.id), change)));
+            (made.entry(change.path.clone()).or_default()).push((CommitId(commit.id), change));
         }
     }
-    // Both sides of a change: what it is, and what it was and where.
-    let sides = |change: &but_core::TreeChange| {
-        let side = |state: but_core::ChangeState| (state.id, state.kind);
-        let before = (change.status.previous_state_and_path())
-            .map(|(state, path)| (side(state), path.map(BStr::to_owned)));
-        (change.status.state().map(side), before)
+    // What a change leaves, and what it starts from and where.
+    let after = |change: &TreeChange| change.status.state().map(|state| (state.id, state.kind));
+    let before = |change: &TreeChange| {
+        (change.status.previous_state_and_path())
+            .map(|(state, path)| ((state.id, state.kind), path.map(BStr::to_owned)))
+    };
+    let adds_up = |by: &[(CommitId, TreeChange)], whole: &TreeChange| {
+        let (Some((_, newest)), Some((_, oldest))) = (by.first(), by.last()) else {
+            return false;
+        };
+        let follow_on = by
+            .iter()
+            .zip(by.iter().skip(1))
+            .all(|((_, newer), (_, older))| before(newer).map(|(state, _)| state) == after(older));
+        let renames = by
+            .iter()
+            .any(|(_, change)| change.previous_path().is_some());
+        after(newest) == after(whole)
+            && before(oldest) == before(whole)
+            && follow_on
+            && (by.len() == 1 || !renames)
     };
     Ok((changes.iter())
-        .map(|file| match made.get(&file.change.path)? {
-            Some((commit, change)) if sides(change) == sides(&file.change) => Some(*commit),
-            _ => None,
+        .map(|file| match made.get(&file.change.path) {
+            Some(by) if adds_up(by, &file.change) => by.iter().rev().map(|(id, _)| *id).collect(),
+            _ => Vec::new(),
         })
         .collect())
 }
@@ -321,7 +337,7 @@ fn row(
         annotated: true,
         scope_lines,
         drawing: None,
-        commit: None,
+        made_by: Vec::new(),
     });
     Some(diffs.len() - 1)
 }
@@ -568,7 +584,7 @@ fn load_file(
         annotated: up_to_date(old),
         scope_lines,
         drawing: old.drawing.clone(),
-        commit: None,
+        made_by: Vec::new(),
     };
     // An uncommitted file last written at the same moment, to the same size, against the
     // same base, has the same patch, so it isn't computed again, much as git skips files
@@ -683,7 +699,7 @@ fn load_file(
         annotated,
         scope_lines,
         drawing,
-        commit: None,
+        made_by: Vec::new(),
     })
 }
 
@@ -1673,7 +1689,7 @@ rename to moved
     }
 
     #[test]
-    fn a_range_names_the_commit_of_each_file_only_one_commit_changed() {
+    fn a_range_names_the_commits_that_made_each_file() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\ntwo\nthree\n");
             let path = dir.path();
@@ -1694,18 +1710,18 @@ rename to moved
             let range = DiffSource::Range { oldest, newest };
             let diff = super::load_diff(path, range, None, None, None, None).unwrap();
             let made: Vec<_> = (diff.iter())
-                .map(|file| (file.file.path.as_str(), file.commit))
+                .map(|file| (file.file.path.as_str(), file.made_by.clone()))
                 .collect();
             assert_eq!(
                 made,
                 [
-                    ("early", Some(oldest)),
-                    ("file", None),
-                    ("late", Some(newest)),
-                    ("undone", None)
+                    ("early", vec![oldest]),
+                    ("file", vec![oldest, newest]),
+                    ("late", vec![newest]),
+                    ("undone", vec![oldest, newest])
                 ],
                 "a file one commit changed is that commit's, as its diff there is the same; \
-                 one that two changed is neither's"
+                 one that two changed is both's, oldest first"
             );
             let alone = DiffSource::Commit(oldest);
             let alone = super::load_diff(path, alone, None, None, None, None).unwrap();
@@ -1722,7 +1738,7 @@ rename to moved
     }
 
     #[test]
-    fn a_range_names_no_commit_for_a_file_whose_change_there_is_another_one() {
+    fn a_range_names_no_commits_for_a_file_whose_change_there_is_another_one() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\ntwo\nthree\n");
             let path = dir.path();
@@ -1737,11 +1753,11 @@ rename to moved
             let range = DiffSource::Range { oldest, newest };
             let diff = super::load_diff(path, range, None, None, None, None).unwrap();
             let made: Vec<_> = (diff.iter())
-                .map(|file| (file.file.path.as_str(), file.commit))
+                .map(|file| (file.file.path.as_str(), file.made_by.clone()))
                 .collect();
             assert_eq!(
                 made,
-                [("file", None), ("moved", None)],
+                [("file", Vec::new()), ("moved", Vec::new())],
                 "each path has one commit that changes it, but the range changes `file` and \
                  adds `moved`, where the commits rename the one and add the other: a diff \
                  that isn't the commit's own can't be taken from it"

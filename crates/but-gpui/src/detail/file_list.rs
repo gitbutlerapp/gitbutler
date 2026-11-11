@@ -254,16 +254,20 @@ fn header_row() -> Div {
         .text_size(dp(12.))
 }
 
-/// The one commit that made all of `files` in `diff`, a range of commits, by what each of its
-/// files says ([`FileDiff::commit`]). `None` when they're of different commits, or several
-/// commits changed one of them.
-fn sole_commit(diff: &LoadedDiff, files: &[Selected]) -> Option<CommitId> {
-    let paths: HashSet<&str> = files.iter().map(|file| file.file.path.as_str()).collect();
-    let mut made = (diff.files.iter())
-        .filter(|file| paths.contains(file.file.path.as_str()))
-        .map(|file| file.commit);
-    let first = made.next()??;
-    made.all(|commit| commit == Some(first)).then_some(first)
+/// The commit that `files` of a range of commits are taken from: the oldest of those that made
+/// each ([`Selected::made_by`]), when that's the same one for them all. `None` when it isn't,
+/// when the range names no commits for one of them, and for some of a file that several
+/// commits made, which is taken whole or not at all.
+fn taken_commit(files: &[Selected]) -> Option<CommitId> {
+    let mut from = files
+        .iter()
+        .map(|part| match (&*part.made_by, &part.hunks) {
+            ([only], _) => Some(*only),
+            ([oldest, ..], None) => Some(*oldest),
+            _ => None,
+        });
+    let first = from.next()??;
+    from.all(|commit| commit == Some(first)).then_some(first)
 }
 
 impl Detail {
@@ -770,7 +774,7 @@ impl Detail {
         let here = match source {
             FileSource::Uncommitted(p, w) => from.is_none() && (p, w) == (project, worktree),
             FileSource::Diff => self.diff.as_ref().is_some_and(|diff| {
-                let taken = self.taken_from(diff, || sole_commit(diff, files), cx);
+                let taken = self.taken_from(diff, || taken_commit(files), cx);
                 &diff.key.project == project && taken == Some((*from, worktree.clone()))
             }),
         };
@@ -788,7 +792,7 @@ impl Detail {
         cx: &App,
     ) -> Option<(ProjectId, Changes)> {
         let diff = self.diff.as_ref()?;
-        let (from, worktree) = self.taken_from(diff, || sole_commit(diff, &files), cx)?;
+        let (from, worktree) = self.taken_from(diff, || taken_commit(&files), cx)?;
         let changes = Changes {
             from,
             worktree,
@@ -800,7 +804,7 @@ impl Detail {
     /// Where changes of `diff`, the loaded one, are taken from: a commit listed in the
     /// navigator, or with `None` a checkout's uncommitted changes. A range of commits, as a
     /// branch's diff is, takes them from the commit that `made` them, as each file says
-    /// ([`FileDiff::commit`]). Commits shown one after another can change one path twice, and
+    /// ([`FileDiff::made_by`]). Commits shown one after another can change one path twice, and
     /// a commit of the target's history, on the project page, isn't the workspace's to
     /// change: their files aren't.
     pub(super) fn taken_from(
@@ -914,6 +918,10 @@ impl Detail {
         let (_, Changes { from, files, .. }) = self.discard_changes(window, cx)?;
         let kind = change_kind(self.takes_lines(&files), &files);
         Some(match from {
+            Some(_) if files.iter().any(|file| file.made_by.len() > 1) => {
+                let whose = if files.len() == 1 { "its" } else { "their" };
+                format!("Discard {kind} from {whose} commits")
+            }
             Some(_) => format!("Discard {kind} from commit"),
             None => format!("Discard {kind}"),
         })
@@ -953,7 +961,7 @@ impl Detail {
         };
         (self.shown_files().into_iter())
             .filter_map(|ix| diff.files.get(ix))
-            .map(|f| Selected::whole(&f.file))
+            .map(|f| f.part(None))
             .collect()
     }
 
@@ -1105,9 +1113,8 @@ impl Detail {
                 let diff = self.diff.as_ref()?;
                 let leaving = diff.key.leaving(store);
                 let files = (diff.files.iter())
-                    .map(|f| &f.file)
-                    .filter(|f| under(&f.path) && !leaving(&f.path))
-                    .map(Selected::whole)
+                    .filter(|f| under(&f.file.path) && !leaving(&f.file.path))
+                    .map(|f| f.part(None))
                     .collect();
                 self.owned_changes(files, cx)?
             }

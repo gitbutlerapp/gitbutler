@@ -1001,11 +1001,12 @@ pub struct FileDiff {
     pub scope_lines: Option<usize>,
     /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
     pub drawing: Option<Drawing>,
-    /// The commit that made it, in a diff of several commits: of commits shown one after
-    /// another, as for commits picked with others between them, the one it's shown under; of
-    /// a range, as a branch's, the only one that changed the file, and `None` where several
-    /// did. A range's file is taken from that commit.
-    pub commit: Option<CommitId>,
+    /// The commits that made it, oldest first, in a diff of several commits. Of commits shown
+    /// one after another, as for commits picked with others between them, it's the one it's
+    /// shown under. Of a range, as a branch's, they're the commits whose changes to the file
+    /// add up to this one, which is taken from them. A range leaves it empty for a file it
+    /// can't say that of, as one renamed on the way.
+    pub made_by: Vec<CommitId>,
 }
 
 /// An SVG file's sides drawn as images are shown; a side is missing for an added or
@@ -1032,6 +1033,7 @@ impl FileDiff {
         Selected {
             file: self.file.clone(),
             hunks: hunks.filter(|keys| !(self.file.whole_only() && all(keys))),
+            made_by: self.made_by.clone(),
         }
     }
 
@@ -1387,6 +1389,10 @@ pub struct Selected {
     pub file: FileChange,
     /// `None` takes the whole file.
     pub hunks: Option<Vec<HunkKey>>,
+    /// The commits it's taken from, oldest first, when a range of commits made it
+    /// ([`FileDiff::made_by`]): the first is the one the operation names, and what the later
+    /// ones change of the file is gathered into it first. Empty anywhere else.
+    pub made_by: Vec<CommitId>,
 }
 
 impl Selected {
@@ -1395,6 +1401,7 @@ impl Selected {
         Self {
             file: file.clone(),
             hunks: None,
+            made_by: Vec::new(),
         }
     }
 

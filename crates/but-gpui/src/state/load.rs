@@ -1062,9 +1062,14 @@ fn follow_changes(changes: &mut Changes, old: Option<&Workspace>, new: &Workspac
     } = changes;
     match from {
         // Some of a commit's file goes once the commit is rewritten, as the lines
-        // picked may have moved with it.
+        // picked may have moved with it, and a file of several commits once any of the later
+        // ones is, as it names them as they were.
         Some(commit) => follow_from_workspace(old, new, *commit)
-            .filter(|new| new == commit || files.iter().all(|f| f.hunks.is_none()))
+            .filter(|now| now == commit || files.iter().all(|f| f.hunks.is_none()))
+            .filter(|_| {
+                let mut later = files.iter().flat_map(|f| f.made_by.iter().skip(1));
+                later.all(|later| new.find_commit(*later).is_some())
+            })
             .map(|new| *commit = new)
             .is_some(),
         // Uncommitted files go when one of them is no longer uncommitted, and some of
