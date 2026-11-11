@@ -7,6 +7,7 @@ use but_core::{DryRun, sync::RepoExclusive};
 use but_hunk_assignment::{HunkAssignmentRequest, HunkAssignmentTarget};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::Editor;
+use but_transaction::with_transaction_with_perm_only;
 use tracing::instrument;
 
 use super::types::{
@@ -206,67 +207,35 @@ pub fn commit_uncommit_only_with_perm(
         anyhow::bail!("no commit IDs provided for uncommit");
     }
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-    let surfaced =
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
-
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-
-    let mut rebase =
-        but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
-            .with_context(|| {
-                format!(
-                    "failed to uncommit commits: {}",
-                    subject_commit_ids
-                        .iter()
-                        .map(|id| id.to_hex().to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            })?;
-
-    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
-        let replaced_commits = rebase.history.commit_mappings().sole_successors();
-        let conflicted_commits = rebase.history.conflicted_commits.clone();
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            conflicted_commits,
-            repo,
-            meta,
-            db,
-        )
-    } else {
-        rebase.keep_worktrees_unchanged()?;
-        let materialized = rebase.materialize(Default::default())?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings().sole_successors(),
-            materialized.history.conflicted_commits,
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
+    let surfaced = {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?
     };
 
+    let mut meta = ctx.meta()?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.uncommit_commits(subject_commit_ids.iter().copied())
+                .with_context(|| {
+                    format!(
+                        "failed to uncommit commits: {}",
+                        subject_commit_ids
+                            .iter()
+                            .map(|id| id.to_hex().to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                })
+        })?;
+
     if let Some(surfaced) = surfaced {
-        surfaced.assign_after(db, repo, workspace, context_lines)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        surfaced.assign_after(&mut db, &repo, &ws, context_lines)?;
     }
 
     Ok(UncommitResult {
         uncommitted_ids: subject_commit_ids,
-        workspace: WorkspaceState::from_workspace_with_db(
-            workspace,
-            meta,
-            repo,
-            replaced_commits,
-            conflicted_commits,
-            db,
-        )?,
+        workspace,
     })
 }
 
