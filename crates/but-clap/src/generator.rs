@@ -16,7 +16,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
         output.push_str(&format!("{body}\n\n"));
     }
 
-    // Add usage
     let usage = generate_usage(cmd);
     output.push_str(&format!("**Usage:** `{usage}`\n\n"));
 
@@ -40,7 +39,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
                 output.push_str(&format!("{about}\n\n"));
             }
 
-            // Add subcommand usage
             let sub_usage = generate_usage_for_subcommand(cmd.get_name(), subcmd);
             output.push_str(&format!("**Usage:** `{sub_usage}`\n\n"));
 
@@ -176,7 +174,6 @@ fn generate_usage(cmd: &Command) -> String {
         usage.push_str(" <COMMAND>");
     }
 
-    // Add positional arguments
     for arg in cmd.get_positionals() {
         if arg.is_hide_set() {
             continue;
@@ -200,7 +197,6 @@ fn generate_usage(cmd: &Command) -> String {
 fn generate_usage_for_subcommand(parent: &str, cmd: &Command) -> String {
     let mut usage = format!("but {} {}", parent, cmd.get_name());
 
-    // Add positional arguments
     for arg in cmd.get_positionals() {
         if arg.is_hide_set() {
             continue;
@@ -231,7 +227,6 @@ fn generate_argument_doc(arg: &Arg) -> String {
         doc.push_str(&format!("— {help}"));
     }
 
-    // Add required indicator
     if arg.is_required_set() {
         doc.push_str(" (required)");
     }
@@ -273,14 +268,12 @@ fn generate_option_doc(opt: &Arg) -> String {
         doc.push_str(&format!("— {help}"));
     }
 
-    // Add default value
     let default_values = opt.get_default_values();
     if !default_values.is_empty() {
         let default_str = default_values[0].to_string_lossy();
         doc.push_str(&format!(" (default: `{default_str}`)"));
     }
 
-    // Add required indicator
     if opt.is_required_set() {
         doc.push_str(" (required)");
     }

@@ -14,7 +14,6 @@ fn main() -> Result<()> {
     }
     fs::create_dir_all(next_docs_dir).context("Failed to create cli-docs.next directory")?;
 
-    // Get the main Args command
     let app = but::args::Args::command();
 
     // Generate documentation for each non-hidden subcommand
