@@ -20,13 +20,9 @@ pub(crate) const M: &[M<'static>] = &[M::up(
 pub struct GerritMeta {
     /// Unique Gerrit change ID (primary key)
     pub change_id: String,
-    /// Git commit ID
     pub commit_id: String,
-    /// Gerrit review URL
     pub review_url: String,
-    /// The time when the metadata was created
     pub created_at: chrono::NaiveDateTime,
-    /// The time when the metadata was last updated
     pub updated_at: chrono::NaiveDateTime,
 }
 
@@ -59,7 +55,6 @@ pub struct GerritMetadataHandleMut<'conn> {
 }
 
 impl GerritMetadataHandle<'_> {
-    /// Get a GerritMeta entry by change_id (primary key)
     pub fn get(&self, change_id: &str) -> rusqlite::Result<Option<GerritMeta>> {
         let mut stmt = self.conn.prepare(
             "SELECT change_id, commit_id, review_url, created_at, updated_at \
@@ -83,12 +78,10 @@ impl GerritMetadataHandle<'_> {
 }
 
 impl GerritMetadataHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> GerritMetadataHandle<'_> {
         GerritMetadataHandle { conn: self.conn }
     }
 
-    /// Insert a new GerritMeta entry
     pub fn insert(&mut self, meta: GerritMeta) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO gerrit_metadata (change_id, commit_id, review_url, created_at, updated_at) \
@@ -104,7 +97,6 @@ impl GerritMetadataHandleMut<'_> {
         Ok(())
     }
 
-    /// Update an existing GerritMeta entry
     pub fn update(&mut self, meta: GerritMeta) -> rusqlite::Result<()> {
         self.conn.execute(
             "UPDATE gerrit_metadata SET commit_id = ?1, review_url = ?2, updated_at = ?3 \

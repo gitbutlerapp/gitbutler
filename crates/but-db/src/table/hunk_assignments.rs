@@ -76,7 +76,6 @@ pub struct HunkAssignmentsHandleMut<'conn> {
 }
 
 impl HunkAssignmentsHandle<'_> {
-    /// Lists all hunk assignments in the database.
     pub fn list_all(&self) -> rusqlite::Result<Vec<HunkAssignment>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, hunk_header, path, path_bytes, stack_id, branch_ref FROM hunk_assignments",
@@ -98,7 +97,6 @@ impl HunkAssignmentsHandle<'_> {
 }
 
 impl HunkAssignmentsHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> HunkAssignmentsHandle<'_> {
         HunkAssignmentsHandle { conn: &self.sp }
     }

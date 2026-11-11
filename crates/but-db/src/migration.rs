@@ -2,14 +2,11 @@ use tracing::instrument;
 
 use crate::{M, SchemaVersion, cache};
 
-/// The error produced when running migrations.
 pub type Error = crate::Error;
 
 /// The time we wait at most if the database is locked or busy before giving up acquiring a lock.
 pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// Return a sequence of our own, well known migrations.
-///
 /// Note that these will be ordered by [`run()`].
 pub fn ours() -> impl Iterator<Item = M<'static>> {
     crate::MIGRATIONS
@@ -83,7 +80,6 @@ pub fn run<'m>(
     };
 
     let mut count = 0;
-    // Run only new migrations (after all existing ones)
     for migration in migrations.iter().skip(num_applied_consecutive_versions) {
         trans.execute_batch(migration.up).map_err(crate::map_err)?;
 

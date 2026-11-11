@@ -161,7 +161,6 @@ pub struct ClaudeMut<'conn> {
 }
 
 impl Claude<'_> {
-    // Permission Requests
     pub fn get_permission_request(
         &self,
         id: &str,
@@ -209,7 +208,6 @@ impl Claude<'_> {
         results.collect::<Result<Vec<_>, _>>()
     }
 
-    // Sessions
     pub fn get_session(&self, id: &str) -> rusqlite::Result<Option<ClaudeSession>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions \
@@ -261,7 +259,6 @@ impl Claude<'_> {
         Ok(result)
     }
 
-    // Messages
     pub fn list_messages_by_session(
         &self,
         session_id: &str,
@@ -312,7 +309,6 @@ impl Claude<'_> {
 }
 
 impl ClaudeMut<'_> {
-    // Permission Requests
     pub fn insert_permission_request(
         &mut self,
         request: ClaudePermissionRequest,
@@ -364,7 +360,6 @@ impl ClaudeMut<'_> {
         Ok(())
     }
 
-    // Sessions
     pub fn insert_session(&mut self, session: ClaudeSession) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO claude_sessions (id, current_id, session_ids, created_at, updated_at, in_gui, approved_permissions, denied_permissions) \
@@ -430,7 +425,6 @@ impl ClaudeMut<'_> {
         Ok(())
     }
 
-    // Messages
     pub fn insert_message(&mut self, message: ClaudeMessage) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO claude_messages (id, session_id, created_at, content_type, content) \

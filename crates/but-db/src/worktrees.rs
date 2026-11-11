@@ -28,7 +28,6 @@ fn is_workspace_ref(ref_name: &gix::refs::FullName) -> bool {
 pub struct WorktreeEntry {
     /// Whether the worktree is hidden from listings and graph traversal.
     pub archived: bool,
-    /// The worktree checkout directory.
     pub path: PathBuf,
     /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`,
     /// which survives `git worktree move`.

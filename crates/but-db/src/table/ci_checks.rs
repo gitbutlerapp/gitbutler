@@ -84,7 +84,6 @@ pub struct CiChecksHandleMut<'conn> {
 }
 
 impl CiChecksHandle<'_> {
-    /// Lists CI checks for a specific reference.
     pub fn list_for_reference(&self, ref_name: &str) -> rusqlite::Result<Vec<CiCheck>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, output_summary, output_text, output_title, started_at, 
@@ -132,7 +131,6 @@ impl CiChecksHandle<'_> {
 }
 
 impl CiChecksHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> CiChecksHandle<'_> {
         CiChecksHandle { conn: &self.sp }
     }
@@ -145,10 +143,8 @@ impl CiChecksHandleMut<'_> {
     pub fn set_for_reference(self, ref_name: &str, checks: Vec<CiCheck>) -> rusqlite::Result<()> {
         let sp = self.sp;
 
-        // Delete existing entries for this reference
         sp.execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;
 
-        // Insert new entries
         if !checks.is_empty() {
             let mut stmt = sp.prepare(
                 "INSERT INTO ci_checks (id, name, output_summary, output_text, output_title,
@@ -185,7 +181,6 @@ impl CiChecksHandleMut<'_> {
         Ok(())
     }
 
-    /// Deletes all CI check entries for a specific reference.
     pub fn delete_for_reference(self, ref_name: &str) -> rusqlite::Result<()> {
         self.sp
             .execute("DELETE FROM ci_checks WHERE reference = ?1", [ref_name])?;

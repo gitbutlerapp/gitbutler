@@ -118,15 +118,12 @@ pub struct VbStackHead {
     pub stack_id: String,
     /// Zero-based ordering position within the parent stack.
     pub position: i64,
-    /// Name of the virtual head/series.
     pub name: String,
     /// Object id (hex) this head currently points to.
     pub head_sha: String,
-    /// Optional pull request number associated with this head.
     pub pr_number: Option<i64>,
     /// Whether this head is archived/integrated.
     pub archived: bool,
-    /// Optional review identifier associated with this head.
     pub review_id: Option<String>,
 }
 
@@ -142,13 +139,10 @@ pub struct VirtualBranchesSnapshot {
 }
 
 impl DbHandle {
-    /// Return a read-only handle for virtual-branches tables on this database connection.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: &self.conn }
     }
 
-    /// Return a mutating handle for virtual-branches tables backed by a savepoint.
-    ///
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
@@ -158,13 +152,10 @@ impl DbHandle {
 }
 
 impl<'conn> Transaction<'conn> {
-    /// Return a read-only handle for virtual-branches tables scoped to this transaction.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: self.inner() }
     }
 
-    /// Return a mutating handle for virtual-branches tables scoped to this transaction.
-    ///
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
@@ -173,8 +164,6 @@ impl<'conn> Transaction<'conn> {
     }
 }
 
-/// Read-only accessor for virtual-branches tables.
-///
 /// Created from [`DbHandle::virtual_branches`] or [`Transaction::virtual_branches`].
 pub struct VirtualBranchesHandle<'conn> {
     conn: &'conn rusqlite::Connection,
@@ -308,7 +297,6 @@ impl VirtualBranchesHandle<'_> {
 }
 
 impl VirtualBranchesHandleMut<'_> {
-    /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: &self.sp }
     }

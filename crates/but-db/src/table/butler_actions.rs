@@ -46,7 +46,6 @@ ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
 pub struct ButlerAction {
     /// UUID identifier of the action.
     pub id: String,
-    /// The time when the action was performed.
     pub created_at: chrono::NaiveDateTime,
     /// The prompt that was used to generate the changes that were made, if applicable
     pub external_prompt: Option<String>,
@@ -60,7 +59,6 @@ pub struct ButlerAction {
     pub snapshot_after: String,
     /// The outcome of the action, if it was successful.
     pub response: Option<String>,
-    /// An error message if the action failed.
     pub error: Option<String>,
     /// The source of the action (e.g. "ButCli", "GitButler", "Mcp", "Unknown")
     pub source: Option<String>,
@@ -95,8 +93,7 @@ pub struct ButlerActionsHandleMut<'conn> {
 }
 
 impl ButlerActionsHandle<'_> {
-    /// Lists butler actions with pagination, ordered by created_at descending.
-    /// Returns a tuple of (total_count, actions).
+    /// Ordered by `created_at` descending, returning `(total_count, actions)`.
     pub fn list(&self, offset: i64, limit: i64) -> rusqlite::Result<(i64, Vec<ButlerAction>)> {
         let mut stmt = self.conn.prepare(
             "SELECT id, created_at, external_prompt, external_summary, handler, \
@@ -130,12 +127,10 @@ impl ButlerActionsHandle<'_> {
 }
 
 impl ButlerActionsHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> ButlerActionsHandle<'_> {
         ButlerActionsHandle { conn: self.conn }
     }
 
-    /// Insert a new butler action.
     pub fn insert(&mut self, action: ButlerAction) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO butler_actions (id, created_at, external_prompt, external_summary, handler, \

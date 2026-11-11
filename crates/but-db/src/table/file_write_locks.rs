@@ -49,7 +49,6 @@ pub struct FileWriteLocksHandleMut<'conn> {
 }
 
 impl FileWriteLocksHandle<'_> {
-    /// Lists all file write locks.
     pub fn list(&self) -> rusqlite::Result<Vec<FileWriteLock>> {
         let mut stmt = self
             .conn
@@ -68,7 +67,6 @@ impl FileWriteLocksHandle<'_> {
 }
 
 impl FileWriteLocksHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> FileWriteLocksHandle<'_> {
         FileWriteLocksHandle { conn: self.conn }
     }
@@ -82,7 +80,6 @@ impl FileWriteLocksHandleMut<'_> {
         Ok(())
     }
 
-    /// Deletes a file write lock by path.
     pub fn delete(&mut self, path: &str) -> rusqlite::Result<()> {
         self.conn
             .execute("DELETE FROM file_write_locks WHERE path = ?1", [path])?;

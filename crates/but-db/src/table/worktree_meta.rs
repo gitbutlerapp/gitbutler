@@ -60,7 +60,6 @@ pub struct WorktreeMetaHandleMut<'conn> {
 }
 
 impl WorktreeMetaHandle<'_> {
-    /// Get a WorktreeMeta entry by name (primary key).
     pub fn get(&self, name: &[u8]) -> rusqlite::Result<Option<WorktreeMeta>> {
         let mut stmt = self
             .conn
@@ -78,7 +77,6 @@ impl WorktreeMetaHandle<'_> {
         Ok(result)
     }
 
-    /// List all WorktreeMeta entries.
     pub fn list(&self) -> rusqlite::Result<Vec<WorktreeMeta>> {
         let mut stmt = self
             .conn
@@ -106,12 +104,10 @@ impl WorktreeMetaHandle<'_> {
 }
 
 impl WorktreeMetaHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> WorktreeMetaHandle<'_> {
         WorktreeMetaHandle { conn: self.conn }
     }
 
-    /// Insert or replace a WorktreeMeta entry.
     pub fn upsert(&mut self, meta: WorktreeMeta) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO worktree_meta (name, archived) VALUES (?1, ?2)",

@@ -4,10 +4,8 @@ use tracing::instrument;
 
 use crate::{AppCacheHandle, CacheHandle};
 
-/// Lifecycle
 impl AppCacheHandle {
-    /// Infallible constructor that opens from `dir` or from memory if that is `None`,
-    /// with an infallible constructor that falls back to an in-memory database.
+    /// Falls back to an in-memory database if `dir` is `None` or can't be opened.
     pub fn new_in_directory(dir: Option<impl AsRef<Path>>) -> Self {
         let db_path = dir.map_or(":memory:".into(), |d| d.as_ref().join("app-cache.sqlite"));
         if let Some(cache_dir) = db_path.parent() {
@@ -16,7 +14,6 @@ impl AppCacheHandle {
         Self::new_at_path(db_path)
     }
 
-    /// Create a new instance at `path`.
     #[instrument(name = "AppCacheHandle::new_at_path", level = "trace", skip(path))]
     pub fn new_at_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
@@ -42,16 +39,13 @@ impl std::fmt::Debug for AppCacheHandle {
     }
 }
 
-/// Lifecycle
 impl CacheHandle {
-    /// Infallible constructor that opens the project-local cache from `dir`,
-    /// with an infallible fallback to an in-memory database.
+    /// Falls back to an in-memory database if `dir` can't be opened.
     pub fn new_in_directory(dir: impl AsRef<Path>) -> Self {
         create_dir_all_log_failure(&dir);
         Self::new_at_path(dir.as_ref().join("but_cache.sqlite"))
     }
 
-    /// Create a new instance at `path`.
     #[instrument(name = "CacheHandle::new_at_path", level = "trace", skip(path))]
     pub fn new_at_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
@@ -77,7 +71,6 @@ impl std::fmt::Debug for CacheHandle {
     }
 }
 
-/// Attempt to create the given directory, logging failures as warnings.
 fn create_dir_all_log_failure(dir: impl AsRef<Path>) {
     if let Err(err) = std::fs::create_dir_all(&dir) {
         tracing::warn!(
