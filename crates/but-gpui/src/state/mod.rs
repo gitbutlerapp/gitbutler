@@ -22,6 +22,7 @@ mod briefs;
 mod checkout;
 mod cli;
 mod load;
+mod locks;
 mod mesh;
 mod mutation;
 mod picks;
@@ -35,8 +36,8 @@ use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshPickKind, MeshState};
 use mutation::Running;
 pub use mutation::{
-    BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
-    marked_parts, up_to_date,
+    Asked, BlockedCommit, Instead, Label, NewAt, Overlay, Rereads, SLOW, branch_moved,
+    conflicted_parts, marked_parts, up_to_date,
 };
 pub use picks::Picks;
 pub use saved::{
@@ -530,6 +531,13 @@ pub struct Store {
     /// The commits each merge of a remote brought in, by the merge, as read when its commits
     /// were first shown, and whether it brought more than those; `None` while reading.
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
+    /// What each project's uncommitted hunks build on, read after a load lands, so the files
+    /// show without waiting for them.
+    pub locks: HashMap<ProjectId, backend::locks::Locks>,
+    /// The commits the lock the pointer is on builds on, which the navigator marks.
+    pub lock_hovered: Option<(ProjectId, Vec<CommitId>)>,
+    /// The projects whose locks are being read, each with whether a load landed meanwhile.
+    locks_reading: HashMap<ProjectId, bool>,
     /// The commits each project had before the app's last operation on it, and the checkouts
     /// it made commits in: see [`Overlay::checkouts`]. Commits that appear there after it are
     /// the app's own doing, so they load as already seen. A person's operations with the CLI
@@ -670,6 +678,9 @@ impl Store {
             arrived: HashMap::new(),
             drafts: HashMap::new(),
             merged: HashMap::new(),
+            locks: HashMap::new(),
+            lock_hovered: None,
+            locks_reading: HashMap::new(),
             widths: saved.widths,
             prefs: saved.prefs,
             // Read with the saved state, so the diff doesn't start in the other layout.
@@ -798,6 +809,41 @@ impl Store {
             let (merged, _) = self.merged.get(&merge.id)?.as_ref()?;
             Some((merge.id, merged.iter().find(|commit| commit.id == id)?))
         })
+    }
+
+    pub fn hover_lock(
+        &mut self,
+        hovered: Option<(ProjectId, Vec<CommitId>)>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.lock_hovered != hovered {
+            self.lock_hovered = hovered;
+            cx.notify();
+        }
+    }
+
+    /// Whether `project`'s commit `id` is one the lock the pointer is on, or the main
+    /// checkout's changes being dragged, build on.
+    pub fn lock_marks(&self, project: &str, id: CommitId) -> bool {
+        use crate::transfer::{Changes, Dragged, Moving};
+        let hovered = (self.lock_hovered.as_ref())
+            .is_some_and(|(on, commits)| on == project && commits.contains(&id));
+        let dragged = match (&self.dragging, self.locks.get(project)) {
+            (
+                Some(Dragged {
+                    project: on,
+                    what:
+                        Moving::Files(Changes {
+                            from: None,
+                            worktree: Checkout::Main,
+                            files,
+                        }),
+                }),
+                Some(locks),
+            ) if on == project => (files.iter()).any(|file| locks.of(file).any(|c| c == id)),
+            _ => false,
+        };
+        hovered || dragged
     }
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {

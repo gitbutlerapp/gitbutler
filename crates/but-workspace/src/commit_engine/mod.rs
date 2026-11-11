@@ -7,11 +7,16 @@ use but_core::{
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
+
+use crate::commit::Conflicts;
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
 
 /// Types for use in the frontend with serialization support.
 pub mod ui;
+
+mod merge;
+use merge::Merge;
 
 /// The place to apply the [change-specifications](DiffSpec) to.
 ///
@@ -65,16 +70,14 @@ pub struct UpdatedReference {
 /// Additional information about the outcome of a [`create_commit()`] call.
 #[derive(Debug)]
 pub struct CreateCommitOutcome {
-    /// Changes that were removed from a commit because they caused conflicts when rebasing dependent commits,
-    /// when merging the workspace commit, or because the specified hunks didn't match exactly due to changes
-    /// that happened in the meantime, or if a file without a change was specified.
+    /// Changes, or the hunks of them, that were left out of the commit because they conflicted
+    /// with it while conflicts were rejected, or because the specified hunks didn't match exactly
+    /// due to changes that happened in the meantime, or if a file without a change was specified.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
+    /// The changes, or the hunks of them, that went into the commit.
+    pub consumed_specs: Vec<DiffSpec>,
     /// The newly created commit, or `None` if no commit could be created as all changes-requests were rejected.
     pub new_commit: Option<gix::ObjectId>,
-    /// If `new_commit` is `Some(_)`, this field is `Some(_)` as well and denotes the base-tree + all changes.
-    /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
-    /// Otherwise, it's `<commit>^{tree}` + changes.
-    pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
     /// The rewritten references `(old, new, reference)`, along with their `old` and `new` commit location, along
     /// with the reference itself.
     /// If `new_commit` is `None`, this array will be an empty.
@@ -122,6 +125,7 @@ pub fn create_commit(
     destination: Destination,
     changes: Vec<DiffSpec>,
     context_lines: u32,
+    conflicts: Conflicts,
 ) -> anyhow::Result<CreateCommitOutcome> {
     let parents = match &destination {
         Destination::NewCommit {
@@ -145,7 +149,7 @@ pub fn create_commit(
         bail!("cannot currently handle more than 1 parent")
     }
 
-    let target_tree = match &destination {
+    let onto = match &destination {
         Destination::NewCommit {
             parent_commit_id: None,
             ..
@@ -162,87 +166,117 @@ pub fn create_commit(
             .detach(),
     };
 
-    let requested = changes.len();
+    let asked = !changes.is_empty();
     let CreateTreeOutcome {
-        rejected_specs,
-        destination_tree,
-        changed_tree_pre_cherry_pick,
-    } = create_tree(repo, target_tree, changes, context_lines)?;
-    let all_rejected = requested > 0 && rejected_specs.len() == requested;
-    let new_commit = if let Some(new_tree) = destination_tree {
-        match destination {
-            // With every change rejected, as when each builds on another branch, it would be
-            // empty.
-            Destination::NewCommit { .. } if all_rejected => None,
-            Destination::NewCommit {
-                message,
-                parent_commit_id: _,
-                stack_segment: _,
-            } => {
-                let (author, committer) = repo.commit_signatures()?;
-                let new_commit = create_possibly_signed_commit(
-                    repo, author, committer, &message, new_tree, parents, None,
-                )?;
-                Some(new_commit)
-            }
-            Destination::AmendCommit {
-                commit_id,
-                new_message,
-            } => {
-                let mut commit = but_core::Commit::from_id(commit_id.attach(repo))?;
-                commit.tree = new_tree;
-                if let Some(message) = new_message {
-                    commit.message = message.into();
-                }
-                let change_id = commit.change_id();
-                Some(but_rebase::commit::create(
-                    repo,
-                    commit.inner,
-                    DateMode::CommitterUpdateAuthorKeep,
-                    SignCommit::IfSignCommitsEnabled,
-                    Some(change_id),
-                )?)
-            }
-        }
-    } else {
-        None
+        mut rejected_specs,
+        changed_tree,
+    } = create_tree(repo, changes.clone(), context_lines)?;
+    let Some(changed) = changed_tree else {
+        return Ok(CreateCommitOutcome::unmade(rejected_specs));
     };
+    let applied = applied(changes, &rejected_specs);
+    let merge = Merge {
+        head: repo.head_tree_id_or_empty()?.detach(),
+        changed,
+        onto,
+    };
+    let mut merged = merge.merged_tree(repo)?;
+    let consumed_specs = match (conflicts, merged.conflict.take()) {
+        (Conflicts::Reject, Some(conflict)) => {
+            let split = merge.split(repo, merged.tree_id, &conflict.conflict_entries, applied)?;
+            rejected_specs.extend(split.left_out);
+            split.taken
+        }
+        (Conflicts::Keep, conflict) => {
+            merged.conflict = conflict;
+            applied
+        }
+        (Conflicts::Reject, None) => applied,
+    };
+    if asked && consumed_specs.is_empty() {
+        return Ok(CreateCommitOutcome::unmade(rejected_specs));
+    }
+
+    let (mut commit, date_mode, change_id) = match destination {
+        Destination::NewCommit { message, .. } => (
+            unwritten_commit(repo, &message, parents)?,
+            DateMode::CommitterKeepAuthorKeep,
+            None,
+        ),
+        Destination::AmendCommit {
+            commit_id,
+            new_message,
+        } => {
+            let amended = but_core::Commit::from_id(commit_id.attach(repo))?;
+            let change_id = amended.change_id();
+            let mut commit = amended.detach().inner;
+            if let Some(message) = new_message {
+                commit.message = message.into();
+            }
+            (commit, DateMode::CommitterUpdateAuthorKeep, Some(change_id))
+        }
+    };
+    merged.apply_to(repo, &mut commit)?;
+    let new_commit = but_rebase::commit::create(
+        repo,
+        commit,
+        date_mode,
+        SignCommit::IfSignCommitsEnabled,
+        change_id,
+    )?;
     Ok(CreateCommitOutcome {
         rejected_specs,
-        new_commit,
-        changed_tree_pre_cherry_pick,
+        consumed_specs,
+        new_commit: Some(new_commit),
         references: Vec::new(),
         rebase_output: None,
         index: None,
     })
 }
 
-/// Create a commit exactly as specified, and sign it depending on Git and GitButler specific Git configuration.
-fn create_possibly_signed_commit(
+impl CreateCommitOutcome {
+    /// No commit made, as every change was left out, for the reasons `rejected_specs` gives.
+    fn unmade(rejected_specs: Vec<(RejectionReason, DiffSpec)>) -> Self {
+        CreateCommitOutcome {
+            rejected_specs,
+            consumed_specs: Vec::new(),
+            new_commit: None,
+            references: Vec::new(),
+            rebase_output: None,
+            index: None,
+        }
+    }
+}
+
+/// The specs of `changes` that `rejected` doesn't name the file of.
+pub(crate) fn applied(
+    changes: Vec<DiffSpec>,
+    rejected: &[(RejectionReason, DiffSpec)],
+) -> Vec<DiffSpec> {
+    let rejected: std::collections::BTreeSet<_> =
+        rejected.iter().map(|(_, spec)| &spec.path).collect();
+    changes
+        .into_iter()
+        .filter(|spec| !rejected.contains(&spec.path))
+        .collect()
+}
+
+/// A commit with `message` on `parents`, signed by the repository's identities and with the
+/// headers its configuration asks for, to be given a tree and written.
+fn unwritten_commit(
     repo: &gix::Repository,
-    author: gix::actor::Signature,
-    committer: gix::actor::Signature,
     message: &str,
-    tree: gix::ObjectId,
-    parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
-    commit_headers: Option<but_core::commit::Headers>,
-) -> anyhow::Result<gix::ObjectId> {
-    let commit_headers =
-        commit_headers.unwrap_or_else(|| Headers::from_config(&repo.config_snapshot()));
-    let commit = gix::objs::Commit {
+    parents: Vec<gix::ObjectId>,
+) -> anyhow::Result<gix::objs::Commit> {
+    let (author, committer) = repo.commit_signatures()?;
+    let headers = Headers::from_config(&repo.config_snapshot());
+    Ok(gix::objs::Commit {
         message: message.into(),
-        tree,
+        tree: gix::ObjectId::empty_tree(repo.object_hash()),
         author,
         committer,
         encoding: None,
-        parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: (&commit_headers).into(),
-    };
-    but_rebase::commit::create(
-        repo,
-        commit,
-        DateMode::CommitterKeepAuthorKeep,
-        SignCommit::IfSignCommitsEnabled,
-        None,
-    )
+        parents: parents.into(),
+        extra_headers: (&headers).into(),
+    })
 }

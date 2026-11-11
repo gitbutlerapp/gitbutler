@@ -33,7 +33,7 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         super::CreateCommitOutcome {
             rejected_specs,
             new_commit,
-            changed_tree_pre_cherry_pick: _,
+            consumed_specs: _,
             references: _,
             rebase_output,
             index: _,

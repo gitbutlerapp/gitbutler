@@ -328,14 +328,35 @@ const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo 
 /// What runs once a commit is made.
 type OnCommitted = std::rc::Rc<dyn Fn(&mut Store, backend::Committed, &mut Context<Store>)>;
 
-/// A commit not made as some of its changes couldn't go where it was asked to, for the user to
-/// say where they go instead: `commit` as it was asked for, why it wasn't made, and what runs
-/// once it's made after all.
+/// What runs once an amend is made, with the commit it became.
+type OnAmended = Box<dyn FnOnce(&mut Store, CommitId, &mut Context<Store>)>;
+
+/// A commit or amend not made as some of its changes couldn't go where they were asked to, for
+/// the user to say what's done instead: what was `asked`, and why it wasn't done.
 pub struct BlockedCommit {
     pub project: ProjectId,
-    pub commit: backend::CommitChanges,
+    pub asked: Asked,
     pub blocked: backend::Blocked,
-    committed: OnCommitted,
+}
+
+/// A commit or amend as it was asked for, with what runs once it's made after all.
+pub enum Asked {
+    Commit {
+        commit: backend::CommitChanges,
+        committed: OnCommitted,
+    },
+    Amend {
+        amend: backend::Amend,
+        amended: OnAmended,
+    },
+}
+
+/// What a blocked commit or amend does instead, as the user said: commit to a place, or amend
+/// a commit, of the kind that was asked.
+#[derive(Clone)]
+pub enum Instead {
+    Commit(backend::CommitTo),
+    Amend(CommitId),
 }
 
 impl Store {
@@ -370,50 +391,77 @@ impl Store {
             backend::CommitOutcome::Committed(made) => committed(store, made, cx),
             backend::CommitOutcome::Blocked(blocked) => {
                 let (project, commit) = asked;
-                store.blocked_commit = Some(BlockedCommit {
-                    project,
-                    commit,
-                    blocked,
-                    committed,
-                });
-                cx.emit(StoreEvent::CommitBlocked);
+                let asked = Asked::Commit { commit, committed };
+                store.block(project, asked, blocked, cx);
             }
         };
         self.apply(project, label, overlay, commit, done, cx)
     }
 
-    /// The commit last blocked, for the window to ask about, once.
+    /// Keep what `asked` for, as `blocked` says it couldn't be done, for the window to ask the
+    /// user what's done instead ([`StoreEvent::CommitBlocked`]).
+    fn block(
+        &mut self,
+        project: ProjectId,
+        asked: Asked,
+        blocked: backend::Blocked,
+        cx: &mut Context<Self>,
+    ) {
+        self.blocked_commit = Some(BlockedCommit {
+            project,
+            asked,
+            blocked,
+        });
+        cx.emit(StoreEvent::CommitBlocked);
+    }
+
+    /// The commit or amend last blocked, for the window to ask about, once.
     pub fn take_blocked_commit(&mut self) -> Option<BlockedCommit> {
         self.blocked_commit.take()
     }
 
-    /// Commit what `blocked` asked for to `to` instead, as the user said, leaving out the
-    /// changes it can't take with `leave_out`, or stacking first as `restack` says.
-    pub fn commit_instead(
+    /// Do what `blocked` asked for as `instead` says, as the user said, leaving out the changes
+    /// it can't take with `leave_out`, keeping what doesn't merge as `conflicts` says, or
+    /// stacking first as `restack` says. An amend into another commit keeps that one's message.
+    pub fn retry(
         &mut self,
         blocked: BlockedCommit,
-        to: backend::CommitTo,
+        instead: Instead,
         leave_out: bool,
+        conflicts: backend::Conflicts,
         restack: Option<backend::Stacking>,
         cx: &mut Context<Self>,
     ) {
-        let BlockedCommit {
-            project,
-            commit,
-            committed,
-            ..
-        } = blocked;
-        let overlay = Overlay {
-            files_in: commit.checkout.clone(),
-            ..Overlay::files(commit.changes.iter())
-        };
-        let commit = backend::CommitChanges {
-            to,
-            leave_out,
-            restack,
-            ..commit
-        };
-        self.commit_with(&project, "Commit".into(), overlay, commit, committed, cx)
+        let project = blocked.project;
+        match (blocked.asked, instead) {
+            (Asked::Commit { commit, committed }, Instead::Commit(to)) => {
+                let overlay = Overlay {
+                    files_in: commit.checkout.clone(),
+                    ..Overlay::files(commit.changes.iter())
+                };
+                let commit = backend::CommitChanges {
+                    to,
+                    leave_out,
+                    conflicts,
+                    restack,
+                    ..commit
+                };
+                self.commit_with(&project, "Commit".into(), overlay, commit, committed, cx)
+            }
+            (Asked::Amend { amend, amended }, Instead::Amend(into)) => {
+                let amend = backend::Amend {
+                    into,
+                    message: amend.message.filter(|_| into == amend.into),
+                    leave_out,
+                    conflicts,
+                    restack,
+                    ..amend
+                };
+                self.amend_with(&project, amend, amended, cx)
+            }
+            (Asked::Commit { .. }, Instead::Amend(_))
+            | (Asked::Amend { .. }, Instead::Commit(_)) => {}
+        }
     }
 
     /// Confirm an operation, or warn about the changes it had to leave out.
@@ -1342,7 +1390,9 @@ impl Store {
         );
     }
 
-    /// Amend as `amend` says, then call `then` with the commit it became once that worked.
+    /// Amend as `amend` says, then call `then` with the commit it became once that worked. One
+    /// some of whose changes can't go into it is not made at all, and the window asks the user
+    /// what's done instead ([`StoreEvent::CommitBlocked`]).
     pub fn amend(
         &mut self,
         project: &ProjectId,
@@ -1350,7 +1400,18 @@ impl Store {
         then: impl FnOnce(&mut Store, CommitId, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
+        self.amend_with(project, amend, Box::new(then), cx)
+    }
+
+    fn amend_with(
+        &mut self,
+        project: &ProjectId,
+        amend: backend::Amend,
+        amended: OnAmended,
+        cx: &mut Context<Self>,
+    ) {
         let into = amend.into;
+        let asked = (project.clone(), amend.clone());
         let undoable = self.undoable(project, [amend.checkout.clone()]);
         let reworded = (amend.message.clone())
             .and_then(|message| Some((self.key_of(project, into)?, message)));
@@ -1369,17 +1430,25 @@ impl Store {
             Label::new("Amend", format!("Amend {named}")),
             overlay,
             amend,
-            move |store, amended, cx| {
-                store.follow(&amended.rewritten, cx);
+            move |store, outcome, cx| {
+                let made = match outcome {
+                    backend::AmendOutcome::Amended(made) => made,
+                    backend::AmendOutcome::Blocked(blocked) => {
+                        let (project, amend) = asked;
+                        let asked = Asked::Amend { amend, amended };
+                        return store.block(project, asked, *blocked, cx);
+                    }
+                };
+                store.follow(&made.rewritten, cx);
                 if !undoable {
                     store.keep_last_snapshot(cx);
                 }
-                store.report_left_out(&said, &amended.left_out, cx);
-                if let Some(output) = amended.hook_failed {
+                store.report_left_out(&said, &made.left_out, cx);
+                if let Some(output) = made.hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
-                let made = amended.rewritten.get(&into).copied().unwrap_or(into);
-                then(store, made, cx)
+                let became = made.rewritten.get(&into).copied().unwrap_or(into);
+                amended(store, became, cx)
             },
             cx,
         );

@@ -8,7 +8,7 @@ use but_rebase::graph_rebase::{
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
+use super::{ChangeSource, Conflicts, cancel_consumed_changes};
 
 /// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
@@ -47,6 +47,9 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
+///
+/// `conflicts` says what happens to changes that don't merge onto the new commit's parent.
+#[expect(clippy::too_many_arguments)]
 pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     changes: Vec<DiffSpec>,
@@ -55,40 +58,36 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     message: &str,
     context_lines: u32,
     source: ChangeSource<'_>,
+    conflicts: Conflicts,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
 
-    // Clone before `create_commit` consumes the vec — needed afterwards
-    // to determine which changes were consumed (not rejected).
-    let all_changes = changes.clone();
-    let create_out = create_commit(
+    let destination = Destination::NewCommit {
+        parent_commit_id,
+        stack_segment: None,
+        message: message.to_owned(),
+    };
+    let created = create_commit(
         source.repo(&editor),
-        Destination::NewCommit {
-            parent_commit_id,
-            stack_segment: None,
-            message: message.to_owned(),
-        },
+        destination,
         changes,
         context_lines,
+        conflicts,
     )?;
+    let (new_commit, rejected_specs) = (created.new_commit, created.rejected_specs);
 
-    let Some(new_commit_id) = create_out.new_commit else {
+    let Some(new_commit_id) = new_commit else {
         return Ok(CommitCreateOutcome {
             rebase: editor.rebase()?,
             commit_selector: None,
-            rejected_specs: create_out.rejected_specs,
+            rejected_specs,
         });
     };
 
     // Runs before `insert` so an unknown worktree fails with zero graph mutation.
-    cancel_consumed_changes(
-        &mut editor,
-        &source,
-        consumed_changes(all_changes, &create_out.rejected_specs),
-        context_lines,
-    )?;
+    cancel_consumed_changes(&mut editor, &source, created.consumed_specs, context_lines)?;
 
     let commit_selector = editor.insert(
         relative_to_selector,
@@ -99,7 +98,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     Ok(CommitCreateOutcome {
         rebase: editor.rebase()?,
         commit_selector: Some(commit_selector),
-        rejected_specs: create_out.rejected_specs,
+        rejected_specs,
     })
 }
 

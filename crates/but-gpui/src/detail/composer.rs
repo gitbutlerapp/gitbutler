@@ -697,6 +697,7 @@ impl Detail {
                 message: String::new(),
                 run_hooks,
                 leave_out: false,
+                conflicts: backend::Conflicts::Reject,
                 restack: None,
             };
             store.commit(
@@ -1229,6 +1230,7 @@ impl Detail {
                 message,
                 run_hooks: store.runs_hooks(&project),
                 leave_out: false,
+                conflicts: backend::Conflicts::Reject,
                 restack: None,
             };
             store.commit(
@@ -1401,6 +1403,9 @@ impl Detail {
                 checkout: worktree,
                 message,
                 run_hooks: store.runs_hooks(&project),
+                leave_out: false,
+                conflicts: backend::Conflicts::Reject,
+                restack: None,
             };
             store.amend(&project, amend, landed, cx)
         });

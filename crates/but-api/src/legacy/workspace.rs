@@ -306,6 +306,7 @@ pub fn stash_into_branch(
             "Mo-Stashed changes",
             context_lines,
             but_workspace::commit::ChangeSource::Head,
+            but_workspace::commit::Conflicts::Reject,
         )?;
 
         let new_commit = commit_selector
@@ -331,7 +332,7 @@ pub fn stash_into_branch(
         Ok(commit_engine::CreateCommitOutcome {
             rejected_specs,
             new_commit,
-            changed_tree_pre_cherry_pick: None,
+            consumed_specs: Vec::new(),
             references: Vec::new(),
             rebase_output,
             index: None,

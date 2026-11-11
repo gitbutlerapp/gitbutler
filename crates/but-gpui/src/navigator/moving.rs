@@ -17,7 +17,7 @@ use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
 use crate::backend::{
-    Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace, short_ref,
+    Checkout, Commit, CommitId, Conflicts, Destination, FullName, Messages, Workspace, short_ref,
 };
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
@@ -113,6 +113,18 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
         true => Mark::Copied(op),
         false => Mark::Taken(op),
     })
+}
+
+/// The colour of the outline over what the squash shown in `project` goes into: a squash's, or
+/// a conflict's where it leaves that conflicted.
+pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
+    let conflicts = shown(store, project)
+        .and_then(|moving| moving.squashed(store))
+        .is_some_and(|transfer| !transfer.lands_cleanly());
+    match conflicts {
+        true => theme.warn,
+        false => mark_of(store, project, theme),
+    }
 }
 
 /// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
@@ -1472,11 +1484,12 @@ impl Navigator {
                 | Transfer::StageOnBranch { .. }
                 | Transfer::CommitOnBranch { .. } => target.row(&project),
             };
-            return self.store.update(cx, |store, cx| {
-                store.select(Some(on), cx);
-                // Only staging comes back, which a squash never is.
-                let _ = transfer.perform(&project, None, store, cx);
-            });
+            self.store
+                .update(cx, |store, cx| store.select(Some(on), cx));
+            // Only staging comes back, which a squash never is.
+            let _ =
+                (self.store).update(cx, |store, cx| transfer.perform(&project, None, store, cx));
+            return;
         }
         // A card, a worktree or a terminal, already shown where it goes, goes there in the
         // order they keep.
@@ -1809,13 +1822,19 @@ pub(super) fn new_commit_row(
     store: &Store,
     theme: &Theme,
 ) -> AnyElement {
+    let moving = shown(store, project);
+    let conflicts = (moving.and_then(|moving| moving.commit_fit(store)))
+        .is_some_and(|fit| fit.conflicts == Conflicts::Keep);
     let style = RowStyle {
         held: true,
-        mark: Op::Commit.colour(theme),
+        mark: match conflicts {
+            true => theme.warn,
+            false => Op::Commit.colour(theme),
+        },
         blink,
         ..RowStyle::plain(theme, inset)
     };
-    let title = shown(store, project).and_then(|moving| moving.commit_title(store));
+    let title = moving.and_then(|moving| moving.commit_title(store));
     // Untitled till its message is written, quiet as an empty title is.
     let title = match title {
         Some(title) => div().child(title.to_owned()),

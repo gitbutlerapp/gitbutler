@@ -1,14 +1,24 @@
 //! An action to amend an existing commit with selected changes.
 
 use anyhow::{Result, bail};
-use but_core::{DiffSpec, RefMetadata};
+use but_core::{DiffSpec, RefMetadata, tree::create_tree::RejectionReason};
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
 };
 
 use crate::commit_engine::{Destination, create_commit};
 
-use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
+use super::{ChangeSource, cancel_consumed_changes};
+
+/// What an amend does with a change that doesn't merge into the commit it goes into, as one
+/// rewriting lines a later commit wrote.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Conflicts {
+    /// Leave the change out, rejected.
+    Reject,
+    /// Take it, leaving the commit conflicted.
+    Keep,
+}
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
@@ -25,7 +35,7 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
     pub commit_selector: Option<Selector>,
     /// Rejected diff specs from commit creation. See [`create_commit`] for
     /// more details.
-    pub rejected_specs: Vec<(but_core::tree::create_tree::RejectionReason, DiffSpec)>,
+    pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
 }
 
 /// Amend a commit specified by `commit` selector.
@@ -51,18 +61,28 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
+///
+/// `conflicts` says what happens to changes that don't merge into `commit`.
 pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
+    conflicts: Conflicts,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
     let AmendInEditorOutcome {
         commit_selector,
         consumed,
         rejected_specs,
-    } = amend_in_editor(&mut editor, commit, changes, context_lines, &source)?;
+    } = amend_in_editor(
+        &mut editor,
+        commit,
+        changes,
+        context_lines,
+        &source,
+        conflicts,
+    )?;
     cancel_consumed_changes(&mut editor, &source, consumed, context_lines)?;
 
     Ok(CommitAmendOutcome {
@@ -81,7 +101,7 @@ pub struct AmendInEditorOutcome {
     pub consumed: Vec<DiffSpec>,
     /// Rejected diff specs from commit creation. See [create_commit] for
     /// more details.
-    pub rejected_specs: Vec<(but_core::tree::create_tree::RejectionReason, DiffSpec)>,
+    pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
 }
 
 /// Like [commit_amend()], but amends `commit` in `editor` without rebasing, and leaves it to the
@@ -92,6 +112,7 @@ pub fn amend_in_editor<M: RefMetadata>(
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: &ChangeSource<'_>,
+    conflicts: Conflicts,
 ) -> Result<AmendInEditorOutcome> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
@@ -112,31 +133,31 @@ pub fn amend_in_editor<M: RefMetadata>(
         );
     }
 
-    // Clone before `create_commit` consumes the vec — needed afterwards
-    // to determine which changes were consumed (not rejected).
-    let all_changes = changes.clone();
-    let create_out = create_commit(
+    let destination = Destination::AmendCommit {
+        commit_id: target_id,
+        new_message: None,
+    };
+    let created = create_commit(
         source.repo(editor),
-        Destination::AmendCommit {
-            commit_id: target_id,
-            new_message: None,
-        },
+        destination,
         changes,
         context_lines,
+        conflicts,
     )?;
+    let (new_commit, rejected_specs) = (created.new_commit, created.rejected_specs);
 
-    let Some(new_commit_id) = create_out.new_commit else {
+    let Some(new_commit_id) = new_commit else {
         return Ok(AmendInEditorOutcome {
             commit_selector: None,
             consumed: Vec::new(),
-            rejected_specs: create_out.rejected_specs,
+            rejected_specs,
         });
     };
     editor.amend_pick(target_selector, new_commit_id)?;
 
     Ok(AmendInEditorOutcome {
         commit_selector: Some(target_selector),
-        consumed: consumed_changes(all_changes, &create_out.rejected_specs),
-        rejected_specs: create_out.rejected_specs,
+        consumed: created.consumed_specs,
+        rejected_specs,
     })
 }

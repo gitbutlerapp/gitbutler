@@ -1112,6 +1112,7 @@ impl CommitToNewBranchOperation {
                 changes,
                 String::new(),
                 source,
+                but_workspace::commit::Conflicts::Reject,
             )
             .context("failed to create commit")?;
 
@@ -1159,8 +1160,14 @@ impl CommitAtOperation {
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = self.create_target(tx, sbm)?;
 
-        let commit_create_result =
-            tx.create_commit(relative_to, side, changes, String::new(), source)?;
+        let commit_create_result = tx.create_commit(
+            relative_to,
+            side,
+            changes,
+            String::new(),
+            source,
+            but_workspace::commit::Conflicts::Reject,
+        )?;
 
         Ok((commit_create_result, branch_name_target))
     }
@@ -1408,7 +1415,7 @@ pub fn run_in_unborn_repo(
     let but_workspace::commit_engine::CreateCommitOutcome {
         new_commit,
         rejected_specs,
-        changed_tree_pre_cherry_pick: _,
+        consumed_specs: _,
         references: _,
         rebase_output: _,
         index: _,
@@ -1421,6 +1428,7 @@ pub fn run_in_unborn_repo(
         },
         changes,
         context_lines,
+        but_workspace::commit::Conflicts::Reject,
     )?;
 
     if !rejected_specs.is_empty() {

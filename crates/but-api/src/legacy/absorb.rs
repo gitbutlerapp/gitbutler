@@ -76,6 +76,7 @@ pub fn absorb_with_perm(
             diff_specs,
             context_lines,
             &ChangeSource::Head,
+            but_workspace::commit::Conflicts::Reject,
         )?;
         if !outcome.rejected_specs.is_empty() {
             tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");

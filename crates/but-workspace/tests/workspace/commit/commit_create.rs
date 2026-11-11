@@ -4,7 +4,8 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeToRef},
 };
-use but_workspace::commit::{ChangeSource, commit_create};
+use but_testsupport::{git, git_status};
+use but_workspace::commit::{ChangeSource, Conflicts, commit_create};
 use but_workspace::commit_engine::{Destination, create_commit};
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
@@ -15,6 +16,204 @@ fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
         .into_iter()
         .map(DiffSpec::from)
         .collect())
+}
+
+/// Commit the uncommitted change, which rewrites a line `second` wrote, below `second`, with
+/// `conflicts`, returning the repository, how many specs it rejected and its status.
+fn commit_below_what_it_builds_on(
+    conflicts: Conflicts,
+) -> Result<(
+    gix::Repository,
+    usize,
+    String,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+)> {
+    let (tmp, graph, repo, mut meta, _description, mut db) =
+        writable_scenario("amend-below-what-it-builds-on", |_| {})?;
+    let second = repo.rev_parse_single("stack-1")?.detach();
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let outcome = commit_create(
+        editor,
+        worktree_changes_as_specs(&repo)?,
+        RelativeToRef::Commit(second),
+        InsertSide::Below,
+        "below second",
+        0,
+        ChangeSource::Head,
+        conflicts,
+    )?;
+    let rejected = outcome.rejected_specs.len();
+    outcome.rebase.materialize(Default::default())?;
+    let status = git_status(&repo)?;
+    Ok((repo, rejected, status, tmp))
+}
+
+#[test]
+fn commit_below_a_partly_conflicting_change_takes_the_hunks_that_merge() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description, mut db) =
+        writable_scenario("commit-below-a-partly-conflicting-change", |_| {})?;
+    let second = repo.rev_parse_single("stack-1")?.detach();
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let outcome = commit_create(
+        editor,
+        worktree_changes_as_specs(&repo)?,
+        RelativeToRef::Commit(second),
+        InsertSide::Below,
+        "below second",
+        3,
+        ChangeSource::Head,
+        Conflicts::Reject,
+    )?;
+    let hunk = |old_start, old_lines, new_start, new_lines| but_core::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    };
+    let [(_, left_out)] = outcome.rejected_specs.as_slice() else {
+        panic!(
+            "only test.txt is left out, in part: {:?}",
+            outcome.rejected_specs
+        );
+    };
+    assert_eq!(
+        left_out.hunk_headers,
+        [hunk(2, 1, 0, 0), hunk(0, 0, 2, 1)],
+        "line 2 builds on `second`, so it's left out, as a selection of its old and new line"
+    );
+    outcome.rebase.materialize(Default::default())?;
+
+    let blob = |spec: &str| -> Result<String> {
+        Ok(String::from_utf8_lossy(&repo.rev_parse_single(spec)?.object()?.data).into_owned())
+    };
+    // The new commit took line 9, and `second` rebased onto it changes line 2 as before.
+    snapbox::assert_data_eq!(
+        format!(
+            "{}{}",
+            blob("stack-1~1:test.txt")?,
+            blob("stack-1:test.txt")?
+        ),
+        snapbox::str![[r#"
+1
+two
+3
+4
+5
+6
+7
+8
+nine c
+10
+1
+two b
+3
+4
+5
+6
+7
+8
+nine c
+10
+
+"#]]
+    );
+    let diff = git(&repo).args(["diff", "-U0", "--no-prefix"]).output()?;
+    // What's left uncommitted is line 2 alone.
+    snapbox::assert_data_eq!(
+        String::from_utf8_lossy(&diff.stdout).into_owned(),
+        snapbox::str![[r#"
+diff --git test.txt test.txt
+index 763cf68..1edb7dd 100644
+--- test.txt
++++ test.txt
+@@ -2 +2 @@
+-two b
++two c
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn commit_below_what_it_builds_on_rejects_it() -> Result<()> {
+    let (repo, rejected, status, _tmp) = commit_below_what_it_builds_on(Conflicts::Reject)?;
+    assert_eq!(rejected, 1, "the change doesn't merge onto `first`");
+    assert_eq!(status, " M test.txt\n", "it stays uncommitted");
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 4adab82 (HEAD -> stack-1) second
+* 6d68248 first
+* 84731fe (origin/main, main) base
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn commit_below_what_it_builds_on_keeping_conflicts_conflicts_it() -> Result<()> {
+    let (repo, rejected, status, _tmp) = commit_below_what_it_builds_on(Conflicts::Keep)?;
+    assert_eq!(rejected, 0, "the change goes into the new commit");
+    let blob = |spec: &str| -> Result<String> {
+        Ok(String::from_utf8_lossy(&repo.rev_parse_single(spec)?.object()?.data).into_owned())
+    };
+    // The new commit keeps `first`'s lines, and the sides that conflicted on them.
+    snapbox::assert_data_eq!(
+        [
+            "stack-1~1:test.txt",
+            "stack-1~1:.conflict-side-0/test.txt",
+            "stack-1~1:.conflict-side-1/test.txt",
+            "stack-1~1:.conflict-base-0/test.txt",
+            "stack-1:test.txt",
+        ]
+        .map(|spec| Ok(format!("{spec}\n{}", blob(spec)?)))
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?
+        .join("\n"),
+        snapbox::str![[r#"
+stack-1~1:test.txt
+one
+two
+three
+
+stack-1~1:.conflict-side-0/test.txt
+one
+two
+three
+
+stack-1~1:.conflict-side-1/test.txt
+one
+two c
+three
+
+stack-1~1:.conflict-base-0/test.txt
+one
+two b
+three
+
+stack-1:test.txt
+one
+two b
+three
+
+"#]]
+    );
+    snapbox::assert_data_eq!(status, snapbox::str![[r#""#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 3f1ce43 (HEAD -> stack-1) second
+* 8073e91 [conflict] below second
+* 6d68248 first
+* 84731fe (origin/main, main) base
+
+"#]]
+    );
+    Ok(())
 }
 
 #[test]
@@ -42,6 +241,7 @@ fn new_commit_uses_configured_user_as_committer() -> Result<()> {
             },
             worktree_changes_as_specs(&repo)?,
             0,
+            Conflicts::Reject,
         )?;
         let commit = repo.find_commit(outcome.new_commit.expect("a commit was created"))?;
         let committer = commit.committer()?;
@@ -84,6 +284,7 @@ fn new_commit_whose_every_change_is_rejected_is_not_made() -> Result<()> {
         },
         worktree_changes_as_specs(&repo)?,
         0,
+        Conflicts::Reject,
     )?;
     assert_eq!(
         outcome.rejected_specs.len(),
@@ -118,6 +319,7 @@ fn commit_above_commit() -> Result<()> {
         "insert above commit",
         0,
         ChangeSource::Head,
+        Conflicts::Reject,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -166,6 +368,7 @@ fn commit_below_commit() -> Result<()> {
         "insert below commit",
         0,
         ChangeSource::Head,
+        Conflicts::Reject,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -208,6 +411,7 @@ fn commit_above_reference() -> Result<()> {
         "insert above reference",
         0,
         ChangeSource::Head,
+        Conflicts::Reject,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -261,6 +465,7 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "insert below merge",
         0,
         ChangeSource::Head,
+        Conflicts::Reject,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -301,6 +506,7 @@ fn commit_all_rejected_is_noop() -> Result<()> {
         "no-op commit",
         0,
         ChangeSource::Head,
+        Conflicts::Reject,
     )?;
 
     assert!(

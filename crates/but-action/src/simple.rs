@@ -123,6 +123,7 @@ pub(crate) fn handle_changes(
             &commit_message,
             context_lines,
             but_workspace::commit::ChangeSource::Head,
+            but_workspace::commit::Conflicts::Reject,
         )?;
 
         if !outcome.rejected_specs.is_empty() {

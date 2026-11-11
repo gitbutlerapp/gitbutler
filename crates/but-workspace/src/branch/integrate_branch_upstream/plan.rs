@@ -3,18 +3,11 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, Result, bail};
-use bstr::BStr;
-use but_core::{
-    ChangeId, RefMetadata, RepositoryExt,
-    commit::{add_conflict_markers, write_conflicted_tree},
-};
+use but_core::{ChangeId, RefMetadata, RepositoryExt};
 use but_error::bail_precondition;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{
-        Editor, Selector, Step, merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::SegmentDelimiter,
-    },
+    graph_rebase::{Editor, Selector, Step, mutate::SegmentDelimiter},
 };
 
 use crate::divergence::TargetCommitRelation;
@@ -304,39 +297,12 @@ fn prepare_squash_step_for_editor<M: RefMetadata>(
         .expect("validated non-empty squash commit list");
     let mut squashed_commit = editor.find_commit(tip_commit_id)?;
     squashed_commit.inner.parents = vec![squashed_parent].into();
-    let commit_message = message
-        .map(|message| message.as_bytes().to_vec())
-        .unwrap_or_else(|| Vec::from(squashed_commit.message.clone()));
-    apply_merge_commit_changes_outcome(
-        editor.repo(),
-        &mut squashed_commit,
-        merge_outcome,
-        commit_message,
-    )?;
+    if let Some(message) = message {
+        squashed_commit.message = message.as_bytes().into();
+    }
+    merge_outcome.apply_to(editor.repo(), &mut squashed_commit)?;
 
     editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)
-}
-
-fn apply_merge_commit_changes_outcome(
-    repo: &gix::Repository,
-    commit: &mut but_core::CommitOwned,
-    outcome: MergeCommitChangesOutcome,
-    message: Vec<u8>,
-) -> Result<()> {
-    if let Some(conflict) = outcome.conflict {
-        commit.tree = write_conflicted_tree(
-            repo,
-            outcome.tree_id,
-            &conflict.tree_expression,
-            &conflict.conflict_entries,
-        )?;
-        commit.message = add_conflict_markers(BStr::new(&message));
-    } else {
-        commit.tree = outcome.tree_id;
-        commit.message = message.into();
-    }
-
-    Ok(())
 }
 
 /// Builds and inserts the integrated commit chain under `ref_name` down to the last step.

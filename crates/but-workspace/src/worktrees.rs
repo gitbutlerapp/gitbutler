@@ -791,12 +791,7 @@ pub fn move_uncommitted_changes(
             if selection.is_empty() {
                 bail!("No changes were selected to move");
             }
-            let outcome = but_core::tree::create_tree(
-                worktree_repo,
-                worktree_head_tree,
-                selection,
-                context_lines,
-            )?;
+            let outcome = but_core::tree::create_tree(worktree_repo, selection, context_lines)?;
             let rejected: Vec<_> = outcome
                 .rejected_specs
                 .iter()
@@ -808,7 +803,7 @@ pub fn move_uncommitted_changes(
                     rejected.join(", ")
                 );
             }
-            outcome.destination_tree.context("No changes to move")?
+            outcome.changed_tree.context("No changes to move")?
         }
     };
     if moved_tree == worktree_head_tree {

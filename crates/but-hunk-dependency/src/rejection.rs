@@ -286,6 +286,123 @@ pub fn stackings(
     found
 }
 
+/// What changes going into a stack sit on.
+#[derive(Debug, Clone, Copy)]
+pub enum Footing<'a> {
+    /// The branch's top, as a commit on it has.
+    OnTop(&'a gix::refs::FullNameRef),
+    /// What's below the branch, as a new branch under it has.
+    Under(&'a gix::refs::FullNameRef),
+    /// What's below the commit, as one put right below it has.
+    Below(gix::ObjectId),
+    /// The commit itself, as an amend into it has.
+    Into(gix::ObjectId),
+}
+
+/// The stacking that puts every other stack `changes` depend on below the one they go into at
+/// `footing`, so they have all they depend on below them there: those stacks whole, in the
+/// workspace's order, the first staying, the rest moved onto it, and their own moved last.
+///
+/// `None` where they depend on no other stack, on a commit in their own stack above
+/// `footing`, on a stack with a branch in `merged` that would move, or on something stacking
+/// can't fix, as [`dependency_branch`] says.
+pub fn stacking_under(
+    ws: &Workspace,
+    changes: &[RejectedChange],
+    merged: &[gix::refs::FullName],
+    footing: Footing<'_>,
+) -> Option<Stacking> {
+    use but_graph::workspace::{StackCommitFlags, StackSegment};
+    let (own, under) = footing_in(ws, footing)?;
+    let own_commits = ws.stacks.get(own)?.segments.iter().flat_map(|s| &s.commits);
+    let own_commits: Vec<gix::ObjectId> = own_commits.map(|commit| commit.id).collect();
+    for change in changes {
+        let above = (change.dependencies.iter())
+            .flat_map(|dependency| &dependency.commits)
+            .any(|commit| {
+                own_commits.contains(&commit.commit_id) && !under.contains(&commit.commit_id)
+            });
+        let suspected_in_own = (change.suspected_branches.iter())
+            .any(|name| position_of(ws, name.as_ref()).is_some_and(|(stack, _)| stack == own));
+        if above || suspected_in_own {
+            return None;
+        }
+    }
+    let mut others: Vec<usize> = (stacks_depended_on(ws, changes)?.into_iter())
+        .map(|(stack, _)| stack)
+        .filter(|stack| *stack != own)
+        .collect();
+    others.sort_unstable();
+    others.dedup();
+    let (&stays, moved) = others.split_first()?;
+    let onto = ws
+        .stacks
+        .get(stays)?
+        .segments
+        .first()?
+        .ref_name()?
+        .to_owned();
+    let mut segments: Vec<&StackSegment> = Vec::new();
+    for &stack in moved.iter().chain([&own]) {
+        segments.extend(ws.stacks.get(stack)?.segments.iter().rev());
+    }
+    let is_merged = |segment: &&StackSegment| {
+        (segment.ref_name()).is_some_and(|name| merged.iter().any(|m| m.as_ref() == name))
+    };
+    if segments.iter().any(is_merged) {
+        return None;
+    }
+    let branches = (segments.iter())
+        .map(|segment| segment.ref_name().map(ToOwned::to_owned))
+        .collect::<Option<Vec<_>>>()?;
+    let pushed = (segments.iter())
+        .filter(|segment| {
+            (segment.commits.iter()).any(|commit| {
+                commit
+                    .flags
+                    .contains(StackCommitFlags::ReachableByMatchingRemote)
+            })
+        })
+        .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
+        .collect();
+    Some(Stacking {
+        onto,
+        top: branches.last()?.clone(),
+        branches,
+        pushed,
+    })
+}
+
+/// The stack `footing` is in, and the commits of it at or below what it sits on.
+fn footing_in(ws: &Workspace, footing: Footing<'_>) -> Option<(usize, Vec<gix::ObjectId>)> {
+    let from_segment = |stack: usize, segment: usize| -> Option<Vec<gix::ObjectId>> {
+        let segments = ws.stacks.get(stack)?.segments.iter().skip(segment);
+        Some(segments.flat_map(|s| &s.commits).map(|c| c.id).collect())
+    };
+    let from_commit = |commit: gix::ObjectId, skip: usize| {
+        (ws.stacks.iter().enumerate()).find_map(|(stack, s)| {
+            let commits: Vec<gix::ObjectId> = (s.segments.iter())
+                .flat_map(|s| &s.commits)
+                .map(|c| c.id)
+                .collect();
+            let at = commits.iter().position(|id| *id == commit)?;
+            Some((stack, commits.get(at + skip..)?.to_vec()))
+        })
+    };
+    match footing {
+        Footing::OnTop(branch) => {
+            let (stack, segment) = position_of(ws, branch)?;
+            Some((stack, from_segment(stack, segment)?))
+        }
+        Footing::Under(branch) => {
+            let (stack, segment) = position_of(ws, branch)?;
+            Some((stack, from_segment(stack, segment + 1)?))
+        }
+        Footing::Below(commit) => from_commit(commit, 1),
+        Footing::Into(commit) => from_commit(commit, 0),
+    }
+}
+
 /// The stack holding `branch` and its segment in it, counted from the tip.
 fn position_of(ws: &Workspace, branch: &gix::refs::FullNameRef) -> Option<(usize, usize)> {
     ws.stacks.iter().enumerate().find_map(|(stack_ix, stack)| {
@@ -325,7 +442,7 @@ fn dependencies_for_spec(
             || spec
                 .hunk_headers
                 .iter()
-                .any(|spec_hunk| hunks_overlap(spec_hunk, &hunk));
+                .any(|spec_hunk| spec_hunk.overlaps(hunk));
         if !overlaps {
             continue;
         }
@@ -409,15 +526,4 @@ fn branches_touching_path(
         }
     }
     branches
-}
-
-/// Whether two hunks touch the same lines on the new (worktree) side, which is
-/// the coordinate space both the spec hunk and the dependency hunk share.
-///
-/// Zero-length ranges (pure deletions) are treated as covering a single line so
-/// that they still match an overlapping hunk.
-fn hunks_overlap(a: &HunkHeader, b: &HunkHeader) -> bool {
-    let end_a = a.new_start.saturating_add(a.new_lines.max(1));
-    let end_b = b.new_start.saturating_add(b.new_lines.max(1));
-    a.new_start < end_b && b.new_start < end_a
 }

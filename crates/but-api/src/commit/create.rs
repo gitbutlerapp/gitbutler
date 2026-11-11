@@ -84,6 +84,7 @@ pub(crate) fn commit_create_only_impl(
                 repo,
                 name: name.as_bstr(),
             }),
+        but_workspace::commit::Conflicts::Reject,
     )?;
 
     let new_commit = commit_selector

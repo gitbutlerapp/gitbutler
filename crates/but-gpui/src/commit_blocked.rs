@@ -1,7 +1,7 @@
-//! A commit that wasn't made, as some of its changes couldn't go where it was asked to, as
-//! when they build on another branch's commits. A modal says which and why, and offers where
-//! they could all go instead, or to commit without them. Nothing is left out of a commit
-//! without the user saying so here.
+//! A commit or amend that wasn't made, as some of its changes couldn't go where they were
+//! asked to, as when they build on another branch's commits. A modal says which and why, what
+//! doing it anyway with conflicts would leave, and offers where they could all go instead, or
+//! to go ahead without them. Nothing is left out or conflicted without the user saying so here.
 
 use gpui::{
     App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
@@ -10,10 +10,10 @@ use gpui::{
 
 use crate::app::{AppView, Confirm};
 use crate::backend::{
-    BLOCKED_FILES_SHOWN, BLOCKED_HUNKS_SHOWN, Blocked, BlockedChange, BlockedHunk, CommitTo,
-    FullName, Stacking, short_ref,
+    BLOCKED_FILES_SHOWN, BLOCKED_HUNKS_SHOWN, Blocked, BlockedChange, BlockedHunk, CommitId,
+    CommitTo, Conflicts, FullName, Stacking, WithConflicts, short_ref,
 };
-use crate::state::{BlockedCommit, Store};
+use crate::state::{Asked, BlockedCommit, Instead, Store};
 use crate::theme::Theme;
 use crate::ui::diff::excerpt;
 use crate::ui::modal::{ModalSize, modal};
@@ -44,11 +44,13 @@ impl AppView {
     }
 }
 
-/// Where the user can have a blocked commit go instead.
+/// What the user can have a blocked commit or amend do instead.
 struct Offer {
     label: SharedString,
-    to: CommitTo,
+    instead: Instead,
     leave_out: bool,
+    /// What happens to changes that don't merge there.
+    conflicts: Conflicts,
     /// Branches to stack first.
     restack: Option<Stacking>,
     primary: bool,
@@ -57,16 +59,62 @@ struct Offer {
     shrinks: bool,
 }
 
-/// What can be done instead of `blocked`'s commit, the one primary choice last.
-fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
-    let asked = &blocked.commit.to;
+/// What can be done instead of what `blocked` asked, naming commits with `named`, the one
+/// primary choice last.
+fn offers(blocked: &BlockedCommit, named: impl Fn(CommitId) -> String) -> Vec<Offer> {
+    let mut offers = match &blocked.asked {
+        Asked::Commit { commit, .. } => commit_offers(&blocked.blocked, &commit.to),
+        Asked::Amend { amend, .. } => amend_offers(&blocked.blocked, amend.into, named),
+    };
+    offers.sort_by_key(|offer| offer.primary);
+    offers
+}
+
+/// What `verb`ing without the changes `blocked` left out is called: by their locks, where
+/// every one of them is known to build on other commits.
+fn without(blocked: &Blocked, verb: &str) -> String {
+    let locked = |change: &BlockedChange| !(change.hunks.is_empty() && change.suspects.is_empty());
+    match blocked.changes.iter().all(locked) {
+        true => format!("{verb} unlocked changes"),
+        false => "Leave them out".to_owned(),
+    }
+}
+
+/// What can be done instead of committing to `asked`, as `blocked` says.
+fn commit_offers(blocked: &Blocked, asked: &CommitTo) -> Vec<Offer> {
     let into = into(asked);
     let mut offers = Vec::new();
-    if blocked.blocked.takes_others {
+    if blocked.takes_others {
         offers.push(Offer {
-            label: "Leave them out".into(),
-            to: asked.clone(),
+            label: without(blocked, "Commit").into(),
+            instead: Instead::Commit(asked.clone()),
             leave_out: true,
+            conflicts: Conflicts::Reject,
+            restack: None,
+            primary: false,
+            shrinks: false,
+        });
+    }
+    // Stacked under where it was asked to go, it goes there, so nowhere else is offered.
+    if let Some(stacking) = &blocked.restack {
+        offers.push(Offer {
+            label: "Restack and commit".into(),
+            instead: Instead::Commit(asked.clone()),
+            leave_out: false,
+            conflicts: Conflicts::Reject,
+            restack: Some(stacking.clone()),
+            primary: true,
+            shrinks: false,
+        });
+        return offers;
+    }
+    // Where it was asked to go, as the dry run found it would conflict.
+    if blocked.with_conflicts.is_some() {
+        offers.push(Offer {
+            label: "Commit with conflicts".into(),
+            instead: Instead::Commit(asked.clone()),
+            leave_out: false,
+            conflicts: Conflicts::Keep,
             restack: None,
             primary: false,
             shrinks: false,
@@ -78,15 +126,16 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
         _ => None,
     };
     // A merged branch takes no commits, only a new branch above it.
-    let merged = blocked.blocked.builds_on_merged;
-    match &blocked.blocked.builds_on {
+    let merged = blocked.builds_on_merged;
+    match &blocked.builds_on {
         // Built on later commits of the branch it goes below one of.
         Some(branch) if Some(branch) == into && !merged => {
             if matches!(asked, CommitTo::BelowCommit { .. }) {
                 offers.push(Offer {
                     label: format!("Commit on top of {}", short_ref(branch)).into(),
-                    to: CommitTo::Branch(branch.clone()),
+                    instead: Instead::Commit(CommitTo::Branch(branch.clone())),
                     leave_out: false,
+                    conflicts: Conflicts::Reject,
                     restack: None,
                     primary: true,
                     shrinks: true,
@@ -96,12 +145,13 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
         Some(branch) => {
             offers.push(Offer {
                 label: format!("New branch above {}", short_ref(branch)).into(),
-                to: CommitTo::NewBranchAt {
+                instead: Instead::Commit(CommitTo::NewBranchAt {
                     beside: Some((branch.clone(), false)),
                     first: false,
                     name: name.clone(),
-                },
+                }),
                 leave_out: false,
+                conflicts: Conflicts::Reject,
                 restack: None,
                 primary: merged,
                 shrinks: true,
@@ -109,8 +159,9 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
             if !merged {
                 offers.push(Offer {
                     label: format!("Commit to {}", short_ref(branch)).into(),
-                    to: CommitTo::Branch(branch.clone()),
+                    instead: Instead::Commit(CommitTo::Branch(branch.clone())),
                     leave_out: false,
+                    conflicts: Conflicts::Reject,
                     restack: None,
                     primary: true,
                     shrinks: true,
@@ -121,29 +172,95 @@ fn offers(blocked: &BlockedCommit) -> Vec<Offer> {
     }
     // Stacked, the branch on top takes them all, as does a new branch above it, which is the
     // default.
-    if let Some(stacking) = &blocked.blocked.stack {
+    if let Some(stacking) = &blocked.stack {
         offers.push(Offer {
             label: format!("Stack and commit to {}", short_ref(&stacking.top)).into(),
-            to: CommitTo::Branch(stacking.top.clone()),
+            instead: Instead::Commit(CommitTo::Branch(stacking.top.clone())),
             leave_out: false,
+            conflicts: Conflicts::Reject,
             restack: Some(stacking.clone()),
             primary: false,
             shrinks: true,
         });
+        let primary = !offers.iter().any(|offer| offer.primary);
         offers.push(Offer {
             label: "Stack and commit to a new branch".into(),
-            to: CommitTo::NewBranchAt {
+            instead: Instead::Commit(CommitTo::NewBranchAt {
                 beside: Some((stacking.top.clone(), false)),
                 first: false,
                 name,
-            },
+            }),
             leave_out: false,
+            conflicts: Conflicts::Reject,
             restack: Some(stacking.clone()),
-            primary: true,
+            primary,
             shrinks: false,
         });
     }
     offers
+}
+
+/// What can be done instead of amending `into`, as `blocked` says, naming commits with
+/// `named`: amend the commit they build on, or `into` once what they build on is stacked below
+/// it.
+fn amend_offers(
+    blocked: &Blocked,
+    into: CommitId,
+    named: impl Fn(CommitId) -> String,
+) -> Vec<Offer> {
+    let offer = |label: String, instead, leave_out, conflicts, restack, primary| Offer {
+        label: label.into(),
+        instead: Instead::Amend(instead),
+        leave_out,
+        conflicts,
+        restack,
+        primary,
+        shrinks: true,
+    };
+    let mut offers = Vec::new();
+    if blocked.takes_others {
+        let label = without(blocked, "Amend");
+        offers.push(offer(label, into, true, Conflicts::Reject, None, false));
+    }
+    if blocked.with_conflicts.is_some() {
+        let label = "Amend with conflicts".to_owned();
+        offers.push(offer(label, into, false, Conflicts::Keep, None, false));
+    }
+    if let Some(commit) = blocked.instead {
+        let label = format!("Amend {}", named(commit));
+        offers.push(offer(label, commit, false, Conflicts::Reject, None, true));
+    }
+    if let Some(stacking) = &blocked.restack {
+        let primary = blocked.instead.is_none();
+        let label = "Restack and amend".to_owned();
+        let restack = Some(stacking.clone());
+        offers.push(offer(
+            label,
+            into,
+            false,
+            Conflicts::Reject,
+            restack,
+            primary,
+        ));
+    }
+    offers
+}
+
+/// Where `to` commits, as the dialog's title says it.
+fn target(to: &CommitTo) -> String {
+    match to {
+        CommitTo::Branch(branch) | CommitTo::BelowCommit { branch, .. } => {
+            short_ref(branch).into_owned()
+        }
+        CommitTo::NewBranchAt {
+            beside: Some((branch, below)),
+            ..
+        } => match below {
+            true => format!("a new branch below {}", short_ref(branch)),
+            false => format!("a new branch above {}", short_ref(branch)),
+        },
+        CommitTo::NewBranchAt { beside: None, .. } => "a new branch".to_owned(),
+    }
 }
 
 /// The branch `to` commits to that's there already.
@@ -214,6 +331,63 @@ fn explanation(blocked: &Blocked, to: &CommitTo) -> String {
                     .to_owned(),
             }
         }
+    }
+}
+
+/// Why the amend into `named` wasn't made, as `blocked` says.
+fn amend_explanation(blocked: &Blocked, named: &str) -> String {
+    match &blocked.builds_on {
+        Some(branch) if blocked.builds_on_merged => format!(
+            "The changes below build on commits in {}, which is merged, so no commit there \
+             takes them.",
+            short_ref(branch)
+        ),
+        Some(branch) => format!(
+            "The changes below build on commits in {} that {named} doesn't have.",
+            short_ref(branch)
+        ),
+        None => format!("The changes below build on commits {named} doesn't have."),
+    }
+}
+
+/// What stacking as `stacking` says does, before what it's for lands on top.
+fn restack_note(stacking: &Stacking) -> String {
+    let named = |branch: &FullName| short_ref(branch).into_owned();
+    let pushed = match stacking.pushed.as_slice() {
+        [] => String::new(),
+        [branch] => format!(" {} is pushed, so it needs a force push.", named(branch)),
+        branches => format!(
+            " {} are pushed, so they need a force push.",
+            listed(branches.iter().map(named))
+        ),
+    };
+    format!(
+        "Stacking {} on {} puts what they build on below them.{pushed}",
+        listed(stacking.branches.iter().map(named)),
+        named(&stacking.onto)
+    )
+}
+
+/// What doing it with its conflicts does, as the dry run found: `done` as "Committed", to
+/// `named` as "the new commit".
+fn with_conflicts(kept: &WithConflicts, done: &str, named: &str) -> String {
+    let also = (kept.also.iter()).map(|(branch, count)| {
+        let commits = plural(*count, "commit");
+        match branch {
+            Some(branch) => format!("{commits} in {}", short_ref(branch)),
+            None => commits,
+        }
+    });
+    match kept.also.is_empty() {
+        true => format!(
+            "{done} with its conflicts, only {named} is conflicted. They stay in it, not in \
+             your files, until you resolve it."
+        ),
+        false => format!(
+            "{done} with its conflicts, it leaves {} conflicted too. They stay in the commits, \
+             not in your files, until you resolve them.",
+            listed(also)
+        ),
     }
 }
 
@@ -358,31 +532,46 @@ impl CommitBlocked {
         if !self.focus.is_focused(window) {
             return cx.propagate();
         }
-        let primary = (self.blocked.as_ref())
-            .and_then(|blocked| offers(blocked).into_iter().find(|offer| offer.primary));
+        let named = |id| self.named(id, cx);
+        let primary = (self.blocked.as_ref()).and_then(|blocked| {
+            offers(blocked, named)
+                .into_iter()
+                .find(|offer| offer.primary)
+        });
         if let Some(Offer {
-            to,
+            instead,
             leave_out,
+            conflicts,
             restack,
             ..
         }) = primary
         {
-            self.commit_instead(to, leave_out, restack, cx);
+            self.retry(instead, leave_out, conflicts, restack, cx);
         }
     }
 
-    /// Commit again to `to`, leaving out what can't go with `leave_out`, or stacking first as
-    /// `restack` says, and close.
-    fn commit_instead(
+    /// Commit `id` of the project, as the dialog names it: `"title"`.
+    fn named(&self, id: CommitId, cx: &App) -> String {
+        let project = self.blocked.as_ref().map(|blocked| &blocked.project);
+        let commit = project.and_then(|project| self.store.read(cx).find_commit(project, id));
+        commit.map_or("the commit".into(), |(_, commit)| {
+            format!("\"{}\"", commit_title(&commit.title))
+        })
+    }
+
+    /// Do it again as `instead` says, leaving out what can't go with `leave_out`, keeping what
+    /// doesn't merge as `conflicts` says, or stacking first as `restack` says, and close.
+    fn retry(
         &mut self,
-        to: CommitTo,
+        instead: Instead,
         leave_out: bool,
+        conflicts: Conflicts,
         restack: Option<Stacking>,
         cx: &mut Context<Self>,
     ) {
         if let Some(blocked) = self.blocked.take() {
             (self.store).update(cx, |store, cx| {
-                store.commit_instead(blocked, to, leave_out, restack, cx)
+                store.retry(blocked, instead, leave_out, conflicts, restack, cx)
             });
         }
         cx.emit(DismissEvent);
@@ -398,11 +587,30 @@ impl Render for CommitBlocked {
         let Some(blocked) = &self.blocked else {
             return card;
         };
-        let to = &blocked.commit.to;
-        let target = match into(to) {
-            Some(branch) => short_ref(branch).into_owned(),
-            None => "a new branch".to_owned(),
+        let why = &blocked.blocked;
+        let (title, explanation, kept) = match &blocked.asked {
+            Asked::Commit { commit, .. } => {
+                let target = target(&commit.to);
+                let title = match &why.with_conflicts {
+                    Some(_) => format!("Committing this to {target} leaves it conflicted"),
+                    None => format!("Can't commit all of this to {target}"),
+                };
+                let kept = (why.with_conflicts.as_ref())
+                    .map(|kept| with_conflicts(kept, "Committed", "the new commit"));
+                (title, explanation(why, &commit.to), kept)
+            }
+            Asked::Amend { amend, .. } => {
+                let named = self.named(amend.into, cx);
+                let title = match &why.with_conflicts {
+                    Some(_) => format!("Amending {named} leaves it conflicted"),
+                    None => format!("Can't amend all of this into {named}"),
+                };
+                let kept = (why.with_conflicts.as_ref())
+                    .map(|kept| with_conflicts(kept, "Amended", &named));
+                (title, amend_explanation(why, &named), kept)
+            }
         };
+        let restacked = why.restack.as_ref().map(restack_note);
         let changes = &blocked.blocked.changes;
         let rows = (changes.iter().take(BLOCKED_FILES_SHOWN)).map(|change| left_out(change, theme));
         let more = changes.len().saturating_sub(BLOCKED_FILES_SHOWN);
@@ -423,32 +631,38 @@ impl Render for CommitBlocked {
             theme,
         )
         .flex_none();
-        let offers = offers(blocked).into_iter().enumerate().map(|(ix, offer)| {
-            let Offer {
-                label,
-                to,
-                leave_out,
-                restack,
-                primary,
-                shrinks,
-            } = offer;
-            let style = match primary {
-                true => ButtonStyle::Pop,
-                false => ButtonStyle::Gray,
-            };
-            let choice = button(("commit-blocked-offer", ix), label.clone())
-                .small()
-                .style(style)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.commit_instead(to.clone(), leave_out, restack.clone(), cx)
-                }));
-            // Cut short, its tooltip names the branch in full.
-            match shrinks {
-                true => choice.shrinks().tooltip(label),
-                false => choice,
-            }
-        });
+        let named = |id| self.named(id, cx);
+        let offers = offers(blocked, named)
+            .into_iter()
+            .enumerate()
+            .map(|(ix, offer)| {
+                let Offer {
+                    label,
+                    instead,
+                    leave_out,
+                    conflicts,
+                    restack,
+                    primary,
+                    shrinks,
+                } = offer;
+                let style = match primary {
+                    true => ButtonStyle::Pop,
+                    false => ButtonStyle::Gray,
+                };
+                let choice = button(("commit-blocked-offer", ix), label.clone())
+                    .small()
+                    .style(style)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.retry(instead.clone(), leave_out, conflicts, restack.clone(), cx)
+                    }));
+                // Cut short, its tooltip names the branch in full.
+                match shrinks {
+                    true => choice.shrinks().tooltip(label),
+                    false => choice,
+                }
+            });
         let actions = h_flex()
+            .items_end()
             .gap(dp(6.))
             .child(
                 button("commit-blocked-cancel", "Cancel")
@@ -457,11 +671,12 @@ impl Render for CommitBlocked {
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(DismissEvent))),
             )
             .child(div().flex_grow(1.))
-            // On one line: a long branch name cuts short the choices naming it, rather than
-            // wrapping them or pushing them past the card's edge.
+            // Wrapped onto more lines as they need, so each reads in full; only a branch name
+            // too long for a line of its own cuts short the choice naming it.
             .child(
                 h_flex()
                     .min_w_0()
+                    .flex_wrap()
                     .justify_end()
                     .gap(dp(6.))
                     .children(offers),
@@ -472,10 +687,57 @@ impl Render for CommitBlocked {
                 div()
                     .text_size(dp(14.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(format!("Can't commit all of this to {target}")),
+                    .child(title),
             )
-            .child(muted(explanation(&blocked.blocked, to), theme))
+            .child(muted(explanation, theme))
+            .when_some(restacked, |el, note| el.child(muted(note, theme)))
+            .when_some(kept, |el, kept| el.child(muted(kept, theme)))
             .child(list)
             .child(actions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::model::build::id;
+
+    #[test]
+    fn what_a_restack_takes_is_offered_only_that_or_going_without_whats_locked() {
+        let full = |name: &str| FullName::try_from(format!("refs/heads/{name}")).unwrap();
+        let blocked = Blocked {
+            changes: vec![BlockedChange {
+                path: "file".into(),
+                hunks: Vec::new(),
+                suspects: vec![full("alpha")],
+                builds_on: vec![full("alpha")],
+                why: "",
+            }],
+            builds_on: Some(full("alpha")),
+            builds_on_merged: false,
+            takes_others: true,
+            stack: None,
+            restack: Some(Stacking {
+                onto: full("alpha"),
+                branches: vec![full("beta")],
+                top: full("beta"),
+                pushed: Vec::new(),
+            }),
+            with_conflicts: None,
+            instead: None,
+        };
+        let labels = |offers: Vec<Offer>| -> Vec<String> {
+            (offers.iter().map(|offer| offer.label.to_string())).collect()
+        };
+        assert_eq!(
+            labels(commit_offers(&blocked, &CommitTo::Branch(full("beta")))),
+            ["Commit unlocked changes", "Restack and commit"],
+            "alpha, which they build on, isn't offered in beta's place"
+        );
+        assert_eq!(
+            labels(amend_offers(&blocked, id(1), |_| String::new())),
+            ["Amend unlocked changes", "Restack and amend"],
+            "an amend is offered the same"
+        );
     }
 }

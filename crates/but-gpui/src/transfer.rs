@@ -45,11 +45,13 @@ pub enum Transfer {
         keep: Messages,
         emptied: Option<FullName>,
     },
-    /// Uncommitted files of `worktree` into a commit.
+    /// Uncommitted files of `worktree` into a commit, with how the main checkout's locks say
+    /// they `fit` there.
     Amend {
         into: CommitId,
         files: Arc<[Selected]>,
         worktree: Checkout,
+        fit: Option<backend::locks::Fit>,
     },
     MoveFiles {
         from: CommitId,
@@ -743,6 +745,18 @@ impl Move {
         self.commit_in(store.workspace(&self.project)?)
     }
 
+    /// How committing where it's at sits with what its changes build on.
+    pub fn commit_fit(&self, store: &Store) -> Option<backend::locks::Fit> {
+        let Moving::Files(Changes {
+            worktree, files, ..
+        }) = &self.what
+        else {
+            return None;
+        };
+        let to = self.commit_to(store)?;
+        store.lock_fit(&self.project, worktree, files, |ws| ws.footing(&to))
+    }
+
     /// [`Self::commit_to`] in `workspace`.
     fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {
@@ -834,10 +848,24 @@ impl Move {
             (Op::Move, _) => "move here",
             (Op::CherryPick, _) => "cherry-pick here",
             // Once there's a message, Return commits; till then it goes to writing one.
-            (Op::Commit, _) => match self.describe(store).is_empty() {
-                true => "write the message",
-                false => "commit",
+            (Op::Commit, _) => match (self.describe(store).is_empty(), self.commit_fit(store)) {
+                (true, _) => "write the message",
+                (false, Some(fit)) if fit.restack.is_some() => "restack and commit",
+                (false, Some(fit)) if fit.conflicts == backend::Conflicts::Keep => {
+                    "commit with conflicts"
+                }
+                (false, _) => "commit",
             },
+            (Op::Squash(_), Some(Transfer::Amend { fit: Some(fit), .. }))
+                if fit.restack.is_some() =>
+            {
+                "restack and amend"
+            }
+            (Op::Squash(_), Some(Transfer::Amend { fit: Some(fit), .. }))
+                if fit.conflicts == backend::Conflicts::Keep =>
+            {
+                "amend with conflicts"
+            }
             (Op::Squash(_), Some(Transfer::Amend { .. })) => "amend",
             (Op::Squash(_), Some(Transfer::Uncommit { .. } | Transfer::UncommitFiles { .. })) => {
                 "uncommit"
@@ -1112,11 +1140,15 @@ impl Transfer {
             ) => match (*from, target) {
                 // The engine won't amend a conflicted commit, nor move changes in or out of one.
                 _ if from.is_some_and(conflicted) => return None,
-                (None, Selection::Commit(_, into)) if !conflicted(*into) => Transfer::Amend {
-                    into: *into,
-                    files: files.clone(),
-                    worktree: worktree.clone(),
-                },
+                (None, Selection::Commit(_, into)) if !conflicted(*into) => {
+                    let fit = store.lock_fit(project, worktree, files, |ws| ws.footing_into(*into));
+                    Transfer::Amend {
+                        into: *into,
+                        files: files.clone(),
+                        worktree: worktree.clone(),
+                        fit,
+                    }
+                }
                 // The composer commits the main checkout's files to the workspace's branches.
                 (None, Selection::Branch(_, Some(branch)))
                     if !worktree.is_linked() && !store.in_linked(target) =>
@@ -1152,6 +1184,15 @@ impl Transfer {
         })
     }
 
+    /// Whether it lands as it is, as far as the locks tell: an amend they say restacks or
+    /// conflicts doesn't.
+    pub fn lands_cleanly(&self) -> bool {
+        match self {
+            Transfer::Amend { fit: Some(fit), .. } => fit.is_clean(),
+            _ => true,
+        }
+    }
+
     /// What a drop does, said in the drag's pill: the row under the pointer shows where.
     pub fn verb(&self) -> &'static str {
         match self {
@@ -1169,6 +1210,10 @@ impl Transfer {
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
+            Transfer::Amend { fit: Some(fit), .. } if fit.restack.is_some() => "Restack and amend",
+            Transfer::Amend { fit: Some(fit), .. } if fit.conflicts == backend::Conflicts::Keep => {
+                "Amend with conflicts"
+            }
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
             Transfer::StageOnBranch { .. } => "Start a commit here",
@@ -1338,6 +1383,7 @@ impl Transfer {
                 into,
                 files,
                 worktree,
+                ..
             } => {
                 let amend = backend::Amend {
                     into,
@@ -1345,6 +1391,9 @@ impl Transfer {
                     checkout: worktree,
                     message: None,
                     run_hooks: store.runs_hooks(project),
+                    leave_out: false,
+                    conflicts: backend::Conflicts::Reject,
+                    restack: None,
                 };
                 store.amend(project, amend, |_, _, _| {}, cx)
             }
@@ -1382,6 +1431,7 @@ impl Transfer {
                     message: String::new(),
                     run_hooks: false,
                     leave_out: false,
+                    conflicts: backend::Conflicts::Reject,
                     restack: None,
                 };
                 store.commit(
