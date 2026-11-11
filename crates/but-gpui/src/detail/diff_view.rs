@@ -1369,16 +1369,22 @@ impl Detail {
                         move |event, window, cx| open(event.position(), window, cx)
                     });
                 // In a diff of several commits, the one it's from, where its changes are taken
-                // from. One that several of a branch's commits changed says so, as nothing is
-                // taken from it here.
-                let from = match file_diff.commit {
-                    Some(id) => (store.workspace(&diff.key.project))
-                        .and_then(|workspace| workspace.find_commit(id))
+                // from, or how many of a branch's it's from, which it's taken from whole. One
+                // the branch's commits can't be named for says so, as nothing is taken from it
+                // here.
+                let from = match &*file_diff.made_by {
+                    [only] => (store.workspace(&diff.key.project))
+                        .and_then(|workspace| workspace.find_commit(*only))
                         .map(|(_, commit)| (commit_title(&commit.title), None)),
-                    None => matches!(diff.key.source, DiffSource::Range { .. }).then(|| {
+                    [] => matches!(diff.key.source, DiffSource::Range { .. }).then(|| {
                         let why = "Open one of its commits to move or take out its changes";
                         ("Several commits".into(), Some(Tooltip::text(why)))
                     }),
+                    several => {
+                        let why = "Moved or taken out whole, from all of them";
+                        let label = format!("{} commits", several.len()).into();
+                        Some((label, Some(Tooltip::text(why))))
+                    }
                 };
                 let from = from.map(|(label, why): (SharedString, _)| {
                     div()
@@ -1896,8 +1902,8 @@ impl Detail {
 
     /// What line `place` (its file, hunk and index in the hunk) offers in its numbers outside
     /// the composer: picking it, and a grip that drags what it takes. None for an unchanged
-    /// line, and for a file whose changes can't move, like one several commits of a branch
-    /// changed.
+    /// line, and for a file whose changes can't move line by line, like one several commits
+    /// of a branch changed, which moves whole.
     fn line_gutter(
         &self,
         place: (usize, usize, usize),
@@ -1913,7 +1919,11 @@ impl Detail {
             return None;
         }
         // Lines of a file nothing can be taken from have no grip, nor numbers to pick.
-        self.taken_from(self.diff.as_ref()?, || diff_file.commit, cx)?;
+        let alone = || match &*diff_file.made_by {
+            [only] => Some(*only),
+            _ => None,
+        };
+        self.taken_from(self.diff.as_ref()?, alone, cx)?;
         let picked = self.line_picked(&diff_file.file.path, key, line);
         // What a grip takes is worked out for the one under the pointer only, afresh as lines
         // get picked or the diff changes: it can be a whole file's lines, too many to work out

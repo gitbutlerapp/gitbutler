@@ -563,7 +563,7 @@ impl Detail {
                     annotated: true,
                     scope_lines: None,
                     drawing: None,
-                    commit: None,
+                    made_by: Vec::new(),
                 };
                 // The filter would hide it.
                 if this.filtering && !super::keeps_path(&this.filter_terms(cx), &change.path) {

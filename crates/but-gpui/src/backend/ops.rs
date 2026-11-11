@@ -1737,6 +1737,38 @@ impl Intent for UncommitFiles {
     fn apply(self, run: &mut Run) -> Result<Rewritten> {
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
+        // A file that several commits made leaves each of them. The engine takes it out of
+        // those it can and says which it couldn't, so it's tried first without writing, and
+        // nothing is changed unless all of it can go.
+        if files.iter().any(|file| file.made_by.len() > 1) {
+            use but_api::commit::types::UncommitChangesSource;
+            use but_api::commit::uncommit::commit_uncommit_changes_from_commits_with_perm as uncommit;
+            let sources = || -> Vec<UncommitChangesSource> {
+                (files.iter().zip(&changes))
+                    .flat_map(|(file, spec)| {
+                        let from = match file.made_by.is_empty() {
+                            true => std::slice::from_ref(&commit),
+                            false => &file.made_by,
+                        };
+                        from.iter().map(move |from| UncommitChangesSource {
+                            commit_id: from.0,
+                            changes: vec![spec.clone()],
+                        })
+                    })
+                    .collect()
+            };
+            let outcome = run.locked(|ctx, perm| {
+                let tried = uncommit(ctx, sources(), None, DryRun::Yes, perm)?;
+                if let Some(failed) = tried.failures.first() {
+                    bail!(
+                        "Couldn't take the changes out of a commit: {}",
+                        failed.error
+                    );
+                }
+                uncommit(ctx, sources(), None, DryRun::No, perm)
+            })?;
+            return Ok(rewritten(&outcome.workspace));
+        }
         let outcome = run.locked(|ctx, perm| {
             but_api::commit::uncommit::commit_uncommit_changes_with_perm(
                 ctx,
@@ -1749,6 +1781,28 @@ impl Intent for UncommitFiles {
         })?;
         Ok(rewritten(&outcome.workspace))
     }
+}
+
+/// Gather each of `files` that several commits made ([`Selected::made_by`]) into the oldest of
+/// them, which then holds all of the file's change, to take from as from any commit. From the
+/// newest down, what each changes of the file moves into the one before it, which left the
+/// file as that change found it, so it applies as it is. Files the same commits made go
+/// together, as each move rebases what's above it.
+fn gather<M: RefMetadata>(tx: &mut Transaction<'_, '_, M>, files: &[Selected]) -> Result<()> {
+    let mut groups: Vec<(&[CommitId], Vec<DiffSpec>)> = Vec::new();
+    for file in files.iter().filter(|file| file.made_by.len() > 1) {
+        let spec = DiffSpec::from(&file.file.change);
+        match groups.iter_mut().find(|(by, _)| *by == file.made_by) {
+            Some((_, specs)) => specs.push(spec),
+            None => groups.push((&file.made_by, vec![spec])),
+        }
+    }
+    for (by, specs) in groups {
+        for (older, newer) in by.iter().zip(by.iter().skip(1)).rev() {
+            tx.move_committed_changes_between(newer.0, older.0, specs.clone())?;
+        }
+    }
+    Ok(())
 }
 
 /// Move `files` that `from` changes into `to`.
@@ -1774,6 +1828,7 @@ impl Intent for MoveFiles {
                 &[],
                 DryRun::No,
                 |mut tx| {
+                    gather(&mut tx, &files)?;
                     tx.move_committed_changes_between(from.0, to.0, changes)?;
                     Ok(())
                 },
@@ -1806,6 +1861,7 @@ impl Intent for DiscardFromCommit {
                 &[],
                 DryRun::No,
                 |mut tx| {
+                    gather(&mut tx, &files)?;
                     tx.discard_changes_from_commit(commit.0, changes)?;
                     Ok(())
                 },
@@ -2589,8 +2645,8 @@ pub(super) mod tests {
             let path = dir.path();
             let files = uncommitted(path);
             let part = Selected {
-                file: files[0].clone(),
                 hunks: Some(Vec::new()),
+                ..Selected::whole(&files[0])
             };
             let refused = discard(path, Checkout::Main, &[part], true).unwrap_err();
             assert!(
@@ -2827,13 +2883,13 @@ pub(super) mod tests {
             let diff = load_diff(path, source, None, None, None, None).unwrap();
             let selected: Vec<Selected> = (diff.iter())
                 .map(|file| Selected {
-                    file: file.file.clone(),
                     hunks: match &file.body {
                         DiffBody::Hunks { hunks, .. } if file.file.path == "gone" => {
                             Some(vec![hunks[0].key])
                         }
                         _ => None,
                     },
+                    ..Selected::whole(&file.file)
                 })
                 .collect();
             assert_eq!(selected.len(), 2, "the conflicted file and the edit");
@@ -6207,6 +6263,180 @@ second
             let above = git(path, &["show", &format!("{}:file", empty.0)]);
             assert!(!below.contains("five b"), "{below}");
             assert!(above.contains("five a\nfive b\n"), "{above}");
+        })
+    }
+
+    /// A workspace whose two commits, on top of the target, both rewrite line 5 of `file`, the
+    /// second what the first wrote, under a third that changes nothing: `file` as their range
+    /// has it, to take whole, the three commits oldest first, and `file` as the target has it.
+    fn workspace_with_a_file_two_commits_made()
+    -> (tempfile::TempDir, Selected, [CommitId; 3], String) {
+        let lines: Vec<String> = twenty_lines();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        let mut edited = lines.clone();
+        let mut commit = |line: &str, message: &str| {
+            edited[4] = line.into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
+            git(path, &["commit", "-q", "-am", message]);
+            head(path)
+        };
+        let oldest = commit("five, once\n", "edit");
+        let newest = commit("five, twice\n", "edit again");
+        git(path, &["commit", "-q", "--allow-empty", "-m", "other"]);
+        let other = head(path);
+        let range = DiffSource::Range { oldest, newest };
+        let diff = load_diff(path, range, None, None, None, None).unwrap();
+        assert_eq!(
+            diff[0].made_by,
+            [oldest, newest],
+            "both made the file's change"
+        );
+        (
+            dir,
+            diff[0].part(None),
+            [oldest, newest, other],
+            lines.concat(),
+        )
+    }
+
+    /// `file` as each of `commits` has it, wherever `rewritten` says each went, none of the
+    /// workspace's commits being left conflicted.
+    fn file_in(path: &Path, rewritten: &Rewritten, commits: &[CommitId]) -> Vec<String> {
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        let conflicted: Vec<_> = (workspace.commits().filter(|commit| commit.conflicted))
+            .map(|commit| &commit.title)
+            .collect();
+        assert!(conflicted.is_empty(), "left conflicted: {conflicted:?}");
+        (commits.iter())
+            .map(|commit| rewritten.get(commit).unwrap_or(commit))
+            .map(|commit| git(path, &["show", &format!("{}:file", commit.0)]))
+            .collect()
+    }
+
+    #[test]
+    fn moving_a_file_two_commits_made_takes_all_of_it_into_the_other_commit() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, file, [oldest, newest, other], base) =
+                workspace_with_a_file_two_commits_made();
+            let path = dir.path();
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+            let move_files = MoveFiles {
+                from: oldest,
+                to: other,
+                files: [file].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, move_files).unwrap();
+            let files = file_in(path, &rewritten, &[oldest, newest, other]);
+            assert_eq!(
+                files[..2],
+                [base.clone(), base],
+                "neither changes it any more, though both wrote the same line"
+            );
+            assert!(
+                files[2].contains("five, twice\n"),
+                "the other has it all: {}",
+                files[2]
+            );
+            // One step for undo, however many commits the file came out of.
+            snapbox::assert_data_eq!(
+                entries_since(path, before),
+                snapbox::str![[r#"
+MoveCommitFile
+
+"#]]
+            );
+        })
+    }
+
+    #[test]
+    fn uncommitting_a_file_two_commits_made_takes_it_out_of_both() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, file, [oldest, newest, other], base) =
+                workspace_with_a_file_two_commits_made();
+            let path = dir.path();
+            let before = crate::backend::history::oplog_head(&open(path).unwrap());
+            let uncommit = UncommitFiles {
+                commit: oldest,
+                files: [file].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, uncommit).unwrap();
+            let files = file_in(path, &rewritten, &[oldest, newest, other]);
+            assert_eq!(files, [base.clone(), base.clone(), base], "none has it now");
+            let on_disk = std::fs::read_to_string(path.join("file")).unwrap();
+            assert!(
+                on_disk.contains("five, twice\n"),
+                "it's uncommitted: {on_disk}"
+            );
+            snapbox::assert_data_eq!(
+                entries_since(path, before),
+                snapbox::str![[r#"
+DiscardChanges
+
+"#]]
+            );
+        })
+    }
+
+    #[test]
+    fn moving_a_file_two_commits_made_into_the_older_one_leaves_it_all_there() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, file, [oldest, newest, _], _) = workspace_with_a_file_two_commits_made();
+            let path = dir.path();
+            let move_files = MoveFiles {
+                from: oldest,
+                to: oldest,
+                files: [file].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, move_files).unwrap();
+            let files = file_in(path, &rewritten, &[oldest, newest]);
+            assert!(files[0].contains("five, twice\n"), "{}", files[0]);
+            assert_eq!(
+                files[0], files[1],
+                "the newer one changes nothing of it now"
+            );
+        })
+    }
+
+    #[test]
+    fn uncommitting_a_file_changes_nothing_when_one_of_its_commits_is_gone() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, mut file, [oldest, newest, _], _) = workspace_with_a_file_two_commits_made();
+            let path = dir.path();
+            // As a commit an agent rewrote since the diff was read.
+            file.made_by = vec![oldest, CommitId(gix::ObjectId::null(gix::hash::Kind::Sha1))];
+            let tip = head(path);
+            let uncommit = UncommitFiles {
+                commit: oldest,
+                files: [file].into(),
+            };
+            crate::backend::apply(path, uncommit).unwrap_err();
+            assert_eq!(head(path), tip, "the older commit keeps its part too");
+            let kept = git(path, &["show", &format!("{}:file", newest.0)]);
+            assert!(kept.contains("five, twice\n"), "{kept}");
+        })
+    }
+
+    #[test]
+    fn discarding_a_file_two_commits_made_takes_it_out_of_both_and_the_worktree() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, file, [oldest, newest, other], base) =
+                workspace_with_a_file_two_commits_made();
+            let path = dir.path();
+            let discard = DiscardFromCommit {
+                commit: oldest,
+                files: [file].into(),
+            };
+            let (rewritten, _) = crate::backend::apply(path, discard).unwrap();
+            let files = file_in(path, &rewritten, &[oldest, newest, other]);
+            assert_eq!(
+                files,
+                [base.clone(), base.clone(), base.clone()],
+                "none has it now"
+            );
+            assert_eq!(std::fs::read_to_string(path.join("file")).unwrap(), base);
         })
     }
 

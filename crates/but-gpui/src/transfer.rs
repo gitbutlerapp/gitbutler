@@ -1139,7 +1139,12 @@ impl Transfer {
                         files: files.clone(),
                     }
                 }
-                (Some(from), Selection::Commit(_, to)) if from != *to && !conflicted(*to) => {
+                // Into another commit, or into the oldest of several that made a file, which
+                // then has all of it.
+                (Some(from), Selection::Commit(_, to))
+                    if (from != *to || files.iter().any(|file| file.made_by.len() > 1))
+                        && !conflicted(*to) =>
+                {
                     Transfer::MoveFiles {
                         from,
                         to: *to,

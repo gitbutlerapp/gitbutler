@@ -1553,10 +1553,22 @@ impl AppView {
         let moved = store.moved_by(&project, &[commit]);
         let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
-        let question = format!(
-            "Discard {what} from commit {}?",
-            store.short_reference(&project, commit)
-        );
+        // A branch's diff takes a file out of every commit that made it.
+        let several = files.iter().any(|file| file.made_by.len() > 1);
+        let whose = if files.len() == 1 { "its" } else { "their" };
+        let (question, done) = match several {
+            true => (
+                format!("Discard {what} from {whose} commits?"),
+                "Discarded from every commit",
+            ),
+            false => (
+                format!(
+                    "Discard {what} from commit {}?",
+                    store.short_reference(&project, commit)
+                ),
+                "Discarded from the commit",
+            ),
+        };
         let at = Selection::Commit(project.clone(), commit);
         let run = then_run(
             project,
@@ -1565,7 +1577,7 @@ impl AppView {
             backend::DiscardFromCommit { commit, files },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
-                store.snack_after(undoable, "Discarded from the commit", cx)
+                store.snack_after(undoable, done, cx)
             },
         );
         if undoable {

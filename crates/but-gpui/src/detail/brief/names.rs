@@ -275,7 +275,7 @@ mod tests {
             annotated: true,
             scope_lines: None,
             drawing: None,
-            commit: None,
+            made_by: Vec::new(),
         }
     }
 

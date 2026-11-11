@@ -407,6 +407,7 @@ impl Detail {
                 .map_or(file, |loaded| &loaded.file)
                 .clone(),
             hunks: partial.then_some(picked),
+            made_by: Vec::new(),
         })
     }
 
@@ -2070,7 +2071,7 @@ mod tests {
             annotated: true,
             scope_lines: None,
             drawing: None,
-            commit: None,
+            made_by: Vec::new(),
         };
         let mut checks = Checks::default();
         let picked = hunk(key(10, 2), "    new();");
@@ -2121,7 +2122,7 @@ mod tests {
             annotated: true,
             scope_lines: None,
             drawing: None,
-            commit: None,
+            made_by: Vec::new(),
         };
         let mut checks = Checks {
             known: Some(["picked.rs".to_owned()].into()),
