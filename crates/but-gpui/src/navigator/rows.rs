@@ -17,7 +17,6 @@ use crate::edits::BranchEdits;
 use crate::state::{NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
-use crate::ui::ROW_HEIGHT;
 use crate::ui::fold::{Folds, MOVING_ROWS};
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -163,12 +162,13 @@ fn item_key(item: &Selection, commits: &HashMap<CommitId, &str>) -> RowKey {
     }
 }
 
-/// How tall rows `span` of `rows` are together, as [`Row::height`] counts them.
-pub(super) fn span_height(rows: &[Row], span: Range<usize>) -> f32 {
+/// How tall rows `span` of `rows` are together, as [`Row::height`] counts them with rows `row`
+/// tall.
+pub(super) fn span_height(rows: &[Row], span: Range<usize>, row: f32) -> f32 {
     rows.get(span)
         .unwrap_or_default()
         .iter()
-        .map(Row::height)
+        .map(|r| r.height(row))
         .sum()
 }
 
@@ -176,8 +176,9 @@ impl Row {
     /// How tall the row is drawn, near enough for a fold moving it to count by. The gap between
     /// two cards counts their edges too, rather than the rows either side of it, so a row that
     /// comes to start or end a card, as a heading does as its card folds, keeps its height, and
-    /// rows sliding as cards trade places start where they're drawn.
-    pub(super) fn height(&self) -> f32 {
+    /// rows sliding as cards trade places start where they're drawn. `row` is how tall an item's
+    /// row is, as the density has it.
+    pub(super) fn height(&self, row: f32) -> f32 {
         match self {
             Row::Gap => super::CARD_GAP + 2. * CARD_EDGE,
             Row::Between(_) => 0.,
@@ -190,7 +191,7 @@ impl Row {
             | Row::NewBranch(_)
             | Row::Ghost(..)
             | Row::GhostBranch(..)
-            | Row::NewCommit(_) => ROW_HEIGHT,
+            | Row::NewCommit(_) => row,
         }
     }
 }
@@ -238,6 +239,8 @@ pub(super) struct Rows {
     /// The first item the filter found, which Enter in it selects.
     pub(super) first_hit: Option<Selection>,
     pub(super) drawer: Drawer,
+    /// How tall an item's row is, as the density has it, which a fold that moves counts by.
+    pub(super) row: f32,
 }
 
 /// The projects not watched, in the drawer under the cards: their rows while it's open, how
@@ -272,6 +275,14 @@ pub(super) fn caption(project: &ProjectId, branches: &[Branch]) -> Option<Select
 }
 
 impl Rows {
+    /// No rows yet, an item's row `row` tall.
+    pub(super) fn new(row: f32) -> Self {
+        Rows {
+            row,
+            ..Rows::default()
+        }
+    }
+
     pub(super) fn push(&mut self, row: Row) {
         self.rows.push(row);
         self.insets.push(self.inset);
@@ -301,7 +312,10 @@ impl Rows {
             return;
         }
         self.truncate(self.rows.len().min(from + MOVING_ROWS));
-        let heights: Vec<f32> = (self.rows.iter().skip(from)).map(Row::height).collect();
+        let row = self.row;
+        let heights: Vec<f32> = (self.rows.iter().skip(from))
+            .map(|r| r.height(row))
+            .collect();
         let extent = heights.iter().sum();
         let mut top = 0.;
         for (moving, height) in self.moving.iter_mut().skip(from).zip(heights) {
@@ -382,7 +396,7 @@ impl Navigator {
             return self.scope_rows(&scope, cx);
         }
         let store = self.store.read(cx);
-        let mut rows = Rows::default();
+        let mut rows = Rows::new(self.row);
         for entry in self.watched(store) {
             if !rows.rows.is_empty() {
                 rows.push(Row::Gap);
@@ -560,7 +574,7 @@ impl Navigator {
     fn build_filtered_rows(&self, terms: &[String], cx: &App) -> Rows {
         let store = self.store.read(cx);
         let hit = |held, own| matches(terms, held, own);
-        let mut rows = Rows::default();
+        let mut rows = Rows::new(self.row);
         for entry in self.watched(store) {
             let id = &entry.id;
             let start = rows.rows.len();

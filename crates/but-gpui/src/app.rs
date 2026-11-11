@@ -896,14 +896,25 @@ impl AppView {
             store.set_prefs(|prefs| prefs.ui_scale = scale, cx)
         });
         cx.set_global(Theme::get(cx).clone().with_scale(scale));
-        // The lists keep the heights their rows had, which only the width changing drops.
+        self.remeasure_lists(cx);
+        cx.refresh_windows();
+    }
+
+    /// The lists keep the heights their rows had, which only the width changing drops: after
+    /// anything else changes how tall a row draws, they measure them again.
+    fn remeasure_lists(&mut self, cx: &mut Context<Self>) {
         self.detail.update(cx, |detail, cx| detail.remeasure(cx));
         self.navigator.update(cx, |navigator, _| {
             navigator.list.remeasure();
             navigator.drawer_list.remeasure()
         });
         self.terminals.read(cx).remeasure();
-        cx.refresh_windows();
+    }
+
+    /// Draw the app as the look in Settings has it: its accent, ground, corners and density.
+    pub fn apply_look(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.apply_appearance(window, cx);
+        self.remeasure_lists(cx);
     }
 
     /// ⌘+, ⌘− and ⌘0: the scale `step` gives, said in a snackbar.
@@ -5788,7 +5799,10 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
+        .with_ground(prefs.ground)
         .with_accent(prefs.accent, &prefs.accent_color)
+        .with_corners(prefs.corners)
+        .with_density(prefs.density)
         .with_scale(prefs.ui_scale)
         .with_diff_font(prefs.diff_font.as_deref(), digit)
         .with_ligatures(prefs.ligatures)

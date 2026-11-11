@@ -451,6 +451,12 @@ pub struct Prefs {
     pub accent: crate::theme::Accent,
     /// A custom accent, as typed, kept while another one is picked.
     pub accent_color: String,
+    /// The gray GitButler's own colours are built on.
+    pub ground: crate::theme::Ground,
+    /// How round corners are.
+    pub corners: crate::theme::Corners,
+    /// How tall controls are.
+    pub density: crate::theme::Density,
     /// The editor files open in, by program id. Asked for the first time it's needed.
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.

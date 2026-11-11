@@ -3,7 +3,10 @@
 	grid-template-columns: auto 1fr auto;
 	column-gap: 8px;
 	align-items: center;
-	padding: 8px 10px;
+	/* A bar, as a popup's search row is: its small buttons centred in it, its sides moving with
+	   the density as a control's do. */
+	min-height: var(--but-size-bar);
+	padding: 0 calc(10px + var(--but-density-padding));
 	background-color: var(--but-background);
 	white-space: nowrap;
 

@@ -26,8 +26,8 @@ use crate::theme::Theme;
 use crate::ui::fold::{Folds, Place, clipped};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Icon, ROW_HEIGHT, dp, faint, field, fixed, fold_button, guide, icon_button, section_label,
-    small_icon, v_flex,
+    Icon, dp, faint, field, fixed, fold_button, guide, icon_button, section_label, small_icon,
+    v_flex,
 };
 
 /// The room under the last row.
@@ -192,19 +192,20 @@ impl TerminalOverview {
         if self.shut {
             return bar;
         }
+        let row = Theme::get(cx).sizes.control;
         let rows = match self.folds.any() {
             true => (0..self.items.len())
                 .map(|ix| {
                     let moved = self
                         .folds
                         .moved(self.places.get(ix).and_then(Option::as_ref));
-                    moved.map_or(ROW_HEIGHT, |moved| moved.shown(ROW_HEIGHT))
+                    moved.map_or(row, |moved| moved.shown(row))
                 })
                 .sum(),
-            false => items_of(self.sorted(cx), &self.shut()).len() as f32 * ROW_HEIGHT,
+            false => items_of(self.sorted(cx), &self.shut()).len() as f32 * row,
         };
         // Or the line saying there are none.
-        bar + rows.max(ROW_HEIGHT) + ROWS_PADDING
+        bar + rows.max(row) + ROWS_PADDING
     }
 
     /// Draw its rows at their heights again, as the interface's scale changed.
@@ -414,7 +415,7 @@ impl TerminalOverview {
         let moved = self
             .folds
             .moved(self.places.get(ix).and_then(Option::as_ref));
-        let shown = moved.map(|moved| moved.shown(ROW_HEIGHT));
+        let shown = moved.map(|moved| moved.shown(theme.sizes.control));
         // Under the curtain, a row isn't drawn at all.
         if shown.is_some_and(|height| height <= 0.) {
             return div().into_any_element();
@@ -434,7 +435,7 @@ impl TerminalOverview {
         let slot = div()
             .relative()
             .w_full()
-            .h(dp(ROW_HEIGHT))
+            .h(dp(theme.sizes.control))
             .children(row)
             .when(guided, |el| el.child(guide(GUIDE_AT, theme)));
         match moved.zip(shown) {
@@ -645,7 +646,7 @@ impl Render for TerminalOverview {
         let rows = (!self.shut).then(|| {
             let rows = match self.items.is_empty() {
                 true => div()
-                    .h(dp(ROW_HEIGHT))
+                    .h(dp(theme.sizes.control))
                     .flex()
                     .items_center()
                     // Under the bar's name, past its chevron and the gap after it.

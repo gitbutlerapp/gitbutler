@@ -45,11 +45,11 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reo
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, TILE_MARGIN, Tooltip,
-    WINDOW_CONTROLS_WIDTH, above_drag, blink_once, button, commit_title, count_badge, dot, dp,
-    faint, field, fixed, fold_button, fold_row, gap_divider, glow_once, guide, h_flex, icon,
-    icon_button, list_row, mark_dragged, meta_count, plural, pulsing, review, section_label,
-    small_icon, spinning, unread_line, v_flex,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, TILE_MARGIN, Tooltip, WINDOW_CONTROLS_WIDTH,
+    above_drag, blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed,
+    fold_button, fold_row, gap_divider, glow_once, guide, h_flex, icon, icon_button, list_row,
+    mark_dragged, meta_count, plural, pulsing, review, section_label, small_icon, spinning,
+    unread_line, v_flex,
 };
 
 mod account;
@@ -547,6 +547,9 @@ pub struct Navigator {
     focus: FocusHandle,
     /// The rows as last drawn, which the list draws as they scroll into view.
     rows: Vec<Row>,
+    /// How tall a row is, in design pixels, as the density draws it: the theme's control
+    /// height, taken as the navigator draws, so its row maths and its rows agree.
+    row: f32,
     /// How far in each row sits.
     insets: Vec<f32>,
     /// Where each row's guides run.
@@ -806,6 +809,7 @@ impl Navigator {
             detail,
             focus: cx.focus_handle(),
             rows: Vec::new(),
+            row: Theme::get(cx).sizes.control,
             insets: Vec::new(),
             guides: Vec::new(),
             moving: Vec::new(),
@@ -1718,7 +1722,7 @@ impl Navigator {
 
     fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
         // Rows not drawn yet count as one row tall, which a project's row is.
-        let row = Theme::get(cx).scaled(ROW_HEIGHT);
+        let row = Theme::get(cx).scaled(self.row);
         // At the very top a list stays there, showing what's added, as the diff does: rows
         // added above the first one count as added above the top, which would leave it
         // scrolled to their end, as the drawer's rows are when it opens.
@@ -1766,7 +1770,8 @@ impl Navigator {
                     && headings_reordered(&self.rows, &rows)
                 {
                     let theme = Theme::get(cx);
-                    (self.list).scroll_to(as_deep(&self.rows, &rows, old.start, top, theme));
+                    (self.list)
+                        .scroll_to(as_deep(&self.rows, &rows, old.start, top, theme, self.row));
                 }
                 spliced.is_some()
             }
@@ -1796,7 +1801,7 @@ impl Navigator {
                 && matches!(moving.at, Stop::Into(_))
                 && !moving.shows_landing(store)
         });
-        let outline = moving::SquashOutline::of(&rows, store, home);
+        let outline = moving::SquashOutline::of(&rows, store, home, self.row);
         if let (Some(was), Some(is)) = (&self.squash_outline, &outline)
             && was.row != is.row
         {
@@ -2171,7 +2176,7 @@ impl Navigator {
             return;
         }
         let (spacer, _) = self.footer.get();
-        let scale = f32::from(row) / ROW_HEIGHT;
+        let scale = f32::from(row) / self.row;
         let above = spacer + CARD_MARGIN + DRAWER_CHROME;
         self.reveal_in_footer(fixed(above * scale) + row * ix as f32, row);
     }
@@ -2207,10 +2212,11 @@ impl Navigator {
         every: bool,
         landing: bool,
     ) -> HashMap<RowKey, f32> {
+        let row = self.row;
         let sized = |keys: &[Option<RowKey>], rows: &[Row]| -> Vec<(Option<RowKey>, f32)> {
             keys.iter()
                 .cloned()
-                .zip(rows.iter().map(Row::height))
+                .zip(rows.iter().map(|r| r.height(row)))
                 .collect()
         };
         let (old, new) = (sized(&self.row_keys, &self.rows), sized(keys, rows));
@@ -2218,7 +2224,7 @@ impl Navigator {
             true => shifted(&old, &new),
             false => reordered(&old, &new),
         };
-        let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix);
+        let top = |rows: &[Row], ix: usize| span_height(rows, 0..ix, row);
         // The row of what's moving is keyed apart while it moves, as its copy takes its key,
         // but they're the same thing: as a move starts, the row stays where it was under its
         // own key; the copy comes out from it rather than showing up in place, and slides back
@@ -2314,10 +2320,10 @@ impl Navigator {
     fn slid_in(&self, ix: usize, down: bool, window: &Window, cx: &Context<Self>) -> AnyElement {
         let reach = self.reorder.furthest()
             + match down {
-                true => (ABOVE_LAST_LISTED + 3) as f32 * ROW_HEIGHT,
+                true => (ABOVE_LAST_LISTED + 3) as f32 * self.row,
                 false => 0.,
             };
-        let height = |ix: usize| self.rows.get(ix).map_or(0., Row::height);
+        let height = |ix: usize| self.rows.get(ix).map_or(0., |r| r.height(self.row));
         let mut far = 0.;
         let rows = match down {
             true => {
@@ -2410,7 +2416,7 @@ impl Navigator {
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow, _)) => h_flex()
-                .min_h(dp(ROW_HEIGHT))
+                .min_h(dp(theme.sizes.control))
                 .mx(dp(3.))
                 .pl(dp(8. + COMMIT_INDENT))
                 .pr(dp(12.))
@@ -2554,13 +2560,13 @@ impl Navigator {
             }
             true => 0.,
             false => {
-                let room = card_beyond(&self.rows, ix, true, -slid);
+                let room = card_beyond(&self.rows, ix, true, -slid, self.row);
                 (slid_at(ix + 1) - slid).max(room).max(0.)
             }
         };
         let above = match first {
             true => 0.,
-            false => card_beyond(&self.rows, ix, false, slid).max(0.),
+            false => card_beyond(&self.rows, ix, false, slid, self.row).max(0.),
         };
         // What's in the card being dragged goes over everything, as it goes over the cards it
         // passes (see below), and so do the rows of a linked worktree being moved, over those of
@@ -3041,7 +3047,7 @@ impl Navigator {
     fn drawer_rows_height(&self) -> f32 {
         let full = match self.drawer.rows.len() {
             0 => 0.,
-            n => n as f32 * ROW_HEIGHT + DRAWER_PADDING,
+            n => n as f32 * self.row + DRAWER_PADDING,
         };
         full * self.folds.openness(&Fold::Drawer).unwrap_or(1.)
     }
@@ -3145,7 +3151,7 @@ impl Navigator {
             let open = moving.and_then(|m| Some((m, self.folds.openness(&m.fold)?)));
             let height = match open {
                 Some((m, open)) => curtain(open, m.extent, m.top, m.height),
-                None => row.height(),
+                None => row.height(self.row),
             };
             (row, height)
         })
@@ -3466,7 +3472,11 @@ impl Navigator {
                 .row(format!("project-{id}"), 6.)
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
-                .h(dp(if expanded { HEADING_HEIGHT } else { ROW_HEIGHT }))
+                .h(dp(if expanded {
+                    HEADING_HEIGHT
+                } else {
+                    theme.sizes.control
+                }))
                 .when(unread, |el| el.relative().child(style.unread_line(false)))
                 .child(glyph)
                 // However narrow the navigator, the name stays: what the row sums up gives way
@@ -4515,7 +4525,7 @@ impl Navigator {
 /// A row of words in place of others: why a project has none, or what's loading.
 fn note_row(text: &SharedString, is_error: bool, theme: &Theme) -> AnyElement {
     h_flex()
-        .min_h(dp(ROW_HEIGHT))
+        .min_h(dp(theme.sizes.control))
         .px(dp(12.))
         .py(dp(4.))
         .gap(dp(6.))
@@ -4568,16 +4578,16 @@ fn past_last_row(mut above: impl Iterator<Item = f32>, slid: f32) -> f32 {
 /// How far the rest of row `ix`'s card goes on from it, down or else up, up to `room`, short of
 /// the card's last or first row: a stretch over those would show its square corners outside
 /// their round ones, which they're drawn with anyway, by the list or by [`Navigator::slid_in`].
-fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32) -> f32 {
+fn card_beyond(rows: &[Row], ix: usize, down: bool, room: f32, row: f32) -> f32 {
     let (before, after) = rows.split_at(ix.min(rows.len()));
     let far = |rest: &mut dyn Iterator<Item = &Row>| {
         let mut rest = rest.take_while(|row| !matches!(row, Row::Gap)).peekable();
         let mut far = 0.;
-        while let Some(row) = rest.next() {
+        while let Some(next) = rest.next() {
             if far >= room || rest.peek().is_none() {
                 break;
             }
-            far += row.height();
+            far += next.height(row);
         }
         f32::min(far, room)
     };
@@ -4622,11 +4632,19 @@ fn headings_reordered(old: &[Row], new: &[Row]) -> bool {
 
 /// Where the list's `top` in `old` goes in `new`, their rows the same up to `from`: as far
 /// down past `from`, as the rows count their heights ([`span_height`]).
-fn as_deep(old: &[Row], new: &[Row], from: usize, top: ListOffset, theme: &Theme) -> ListOffset {
-    let depth = span_height(old, from..top.item_ix) + f32::from(top.offset_in_item) / theme.scale;
+fn as_deep(
+    old: &[Row],
+    new: &[Row],
+    from: usize,
+    top: ListOffset,
+    theme: &Theme,
+    row: f32,
+) -> ListOffset {
+    let depth =
+        span_height(old, from..top.item_ix, row) + f32::from(top.offset_in_item) / theme.scale;
     let mut above = 0.;
-    for (ix, row) in new.iter().enumerate().skip(from) {
-        let height = row.height();
+    for (ix, item) in new.iter().enumerate().skip(from) {
+        let height = item.height(row);
         if above + height > depth {
             return ListOffset {
                 item_ix: ix,
@@ -4955,6 +4973,7 @@ fn shows_where_it_lands(store: &Store, row: &Row) -> bool {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.row = Theme::get(cx).sizes.control;
         self.card_top.set(None);
         self.next_frame();
         let mut built = self.build_rows(cx);

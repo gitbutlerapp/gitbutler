@@ -18,14 +18,13 @@ use crate::backend::{
 };
 use crate::theme::Theme;
 
-pub const FILE_HEADER_HEIGHT: f32 = 38.;
-
-/// How tall a file's header is: [`FILE_HEADER_HEIGHT`], or as tall as the file list's heading
-/// beside it where it titles the pane, so the two read as one row.
-pub fn file_header_height(titled: bool) -> f32 {
+/// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
+/// follows the density; or as tall as the file list's heading beside it where it titles the
+/// pane, so the two read as one row.
+pub fn file_header_height(titled: bool, theme: &Theme) -> f32 {
     match titled {
         true => 44.,
-        false => FILE_HEADER_HEIGHT,
+        false => theme.sizes.bar + 2.,
     }
 }
 
@@ -627,7 +626,7 @@ pub fn file_header(
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
-        .h(dp(file_header_height(titled)))
+        .h(dp(file_header_height(titled, theme)))
         .pl(dp(if titled { 16. } else { 10. }))
         .pr(dp(8.))
         .gap(dp(8.))
@@ -822,8 +821,8 @@ pub fn hunk_header(
             h_flex()
                 .flex_1()
                 .min_w_0()
-                .h(dp(28.))
-                .pl(dp(10.))
+                .h(dp(theme.sizes.control))
+                .pl(dp(10. + theme.sizes.padding))
                 .pr(dp(3.))
                 .gap(dp(8.))
                 .rounded(dp(theme.shape.card))

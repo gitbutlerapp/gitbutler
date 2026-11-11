@@ -21,10 +21,11 @@
 }
 
 /* The bar's buttons are regular icon-only ghosts, their 16px glyph on a ground squared down to
-   24×22: the size the bar's line is drawn around, which no Button size gives. */
+   24×22 at Balanced: the size the bar's line is drawn around, which no Button size gives. They
+   follow the density as a small button does, from control-sm. */
 :is(.leading, .state) > button {
-	--button-width: 24px;
-	--button-height: 22px;
+	--button-width: calc(var(--but-size-control-sm) + 4px);
+	--button-height: calc(var(--but-size-control-sm) + 2px);
 	--button-padding-inline: 4px;
 }
 

@@ -65,7 +65,9 @@ fn color_tokens(out: &Path) {
         })
         .collect::<String>()
         + &lengths(&data)
-        + &accents(&data);
+        + &accents(&data)
+        + &grounds(&data)
+        + &shapes(&data);
     fs::write(out.join("color_tokens.rs"), consts).expect("OUT_DIR is writable");
 }
 
@@ -84,14 +86,108 @@ fn lengths(tokens: &serde_json::Value) -> String {
         .collect()
 }
 
-/// The accents a person can pick, from but-ui's settings: each named one's primary family as
-/// `[light, dark]`, resolved through `tokens`, and the numbers the any-colour one is drawn by.
-fn accents(tokens: &serde_json::Value) -> String {
+/// but-ui's settings, as its build writes them.
+fn settings() -> serde_json::Value {
     let path = Path::new("../../packages/but-ui/tokens/settings.json");
     println!("cargo:rerun-if-changed={}", path.display());
     let settings = fs::read_to_string(path).expect("but-ui's settings are in packages/but-ui");
-    let settings: serde_json::Value =
-        serde_json::from_str(&settings).expect("settings.json is JSON");
+    serde_json::from_str(&settings).expect("settings.json is JSON")
+}
+
+/// `#rrggbb` or `#rrggbbaa` for `light` and `dark` as Rust's `[light, dark]`.
+fn modes(token: &str, modes: &serde_json::Value) -> String {
+    let [light, dark] = ["light", "dark"].map(|mode| {
+        (modes[mode].as_str().and_then(rgba))
+            .unwrap_or_else(|| panic!("{token} has a {mode} colour as #rrggbb or #rrggbbaa"))
+    });
+    format!("[{light:#010x}, {dark:#010x}]")
+}
+
+/// The grounds a person can pick, each as the colours that come out differently on it than on
+/// gray, named as their constants are.
+fn grounds(tokens: &serde_json::Value) -> String {
+    let grounds: String = (tokens["grounds"].as_object())
+        .expect("tokens.json has grounds")
+        .iter()
+        .map(|(ground, colors)| {
+            let colors: String = (colors.as_object())
+                .expect("a ground has its colours")
+                .iter()
+                .map(|(token, value)| {
+                    let name = token.to_uppercase().replace('-', "_");
+                    format!("(\"{name}\", {}), ", modes(token, value))
+                })
+                .collect();
+            format!("    (\"{ground}\", &[{colors}]),\n")
+        })
+        .collect();
+    format!("pub const GROUNDS: &[(&str, Family)] = &[\n{grounds}];\n")
+}
+
+/// Each corner setting as the shape's roles `[xs, control, card, popup]`, which follow the steps
+/// the roles name; each density as `[control, control-sm, bar, padding]`; and the presets as
+/// `(id, name, corners, density)`.
+fn shapes(tokens: &serde_json::Value) -> String {
+    let settings = settings();
+    let steps = |setting: &str, names: &[&str]| -> String {
+        (settings[setting]["values"].as_object())
+            .unwrap_or_else(|| panic!("settings.json has {setting}"))
+            .iter()
+            .map(|(choice, values)| {
+                let px: Vec<String> = (names.iter())
+                    .map(|&token| {
+                        let step = tokens["aliases"][token].as_str().unwrap_or(token);
+                        let px = (values[step].as_f64())
+                            .unwrap_or_else(|| panic!("{choice} {setting} sets {step}"));
+                        format!("{:?}", px as f32)
+                    })
+                    .collect();
+                format!("    (\"{choice}\", [{}]),\n", px.join(", "))
+            })
+            .collect()
+    };
+    let corners = steps(
+        "radius",
+        &["radius-xs", "radius-control", "radius-card", "radius-popup"],
+    );
+    let densities = steps(
+        "density",
+        &[
+            "size-control",
+            "size-control-sm",
+            "size-bar",
+            "density-padding",
+        ],
+    );
+    let path = Path::new("../../packages/but-ui/presets.json");
+    println!("cargo:rerun-if-changed={}", path.display());
+    let presets = fs::read_to_string(path).expect("but-ui's presets are in packages/but-ui");
+    let presets: serde_json::Value = serde_json::from_str(&presets).expect("presets.json is JSON");
+    let presets: String = (presets.as_array())
+        .expect("presets.json is a list")
+        .iter()
+        .map(|preset| {
+            let field = |key: &str| preset[key].as_str().expect("a preset names each field");
+            format!(
+                "    (\"{}\", \"{}\", \"{}\", \"{}\"),\n",
+                field("id"),
+                field("name"),
+                field("radius"),
+                field("density")
+            )
+        })
+        .collect();
+    format!(
+        "pub const CORNERS: &[(&str, [f32; 4])] = &[\n{corners}];\n\
+         pub const DENSITIES: &[(&str, [f32; 4])] = &[\n{densities}];\n\
+         pub const PRESETS: &[(&str, &str, &str, &str)] = &[\n{presets}];\n"
+    )
+}
+
+/// The accents a person can pick, from but-ui's settings: each named one's primary family as
+/// `[light, dark]`, resolved through `tokens`, and the numbers the any-colour one is drawn by.
+fn accents(tokens: &serde_json::Value) -> String {
+    let settings = settings();
     let accent = &settings["accent"];
     let color = |token: &str| -> String {
         let modes = &tokens["colors"][token];

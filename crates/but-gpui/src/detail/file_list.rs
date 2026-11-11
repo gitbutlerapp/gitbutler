@@ -69,9 +69,8 @@ use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::fold;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state,
-    faint, fixed, h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row,
-    small_icon, v_flex,
+    Icon, Tooltip, blink_once, checkbox, commit_title, count_badge, dp, empty_state, faint, fixed,
+    h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -145,7 +144,7 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
 /// it short wraps, whole and from the end, onto a second line the row is too short to show, so
 /// a narrow list keeps the names. A part with a zero basis, as a file's folder, only takes the
 /// room left.
-fn name_and_counts() -> Div {
+fn name_and_counts(theme: &Theme) -> Div {
     h_flex()
         .flex_1()
         .min_w_0()
@@ -154,7 +153,7 @@ fn name_and_counts() -> Div {
         .overflow_hidden()
         .gap(dp(GAP))
         // Each line as tall as the row, so the second starts below it.
-        .line_height(dp(ROW_HEIGHT))
+        .line_height(dp(theme.sizes.control))
 }
 
 /// A tree row's indent, as but-ui-react's FileListItem draws it: a step per level, each with a
@@ -447,7 +446,7 @@ impl Detail {
         popover(theme)
             .w(dp(340.))
             // The rows, the padding and the border.
-            .h(dp((count as f32 * ROW_HEIGHT).min(400.) + 10.))
+            .h(dp((count as f32 * theme.sizes.control).min(400.) + 10.))
             .py(dp(4.))
             .child(rows)
             .into_any_element()
@@ -1267,7 +1266,7 @@ impl Detail {
         let (name, parent) = diff::split_path(dir);
         let header = h_flex()
             .flex_none()
-            .h(dp(diff::FILE_HEADER_HEIGHT))
+            .h(dp(theme.sizes.bar + 2.))
             .pl(dp(10.))
             .pr(dp(12.))
             .gap(dp(8.))
@@ -1295,7 +1294,7 @@ impl Detail {
             .child(faint(plural(files.len(), "file"), theme).flex_none())
             .child(diff::stats(added, removed, false, theme))
             .children(diff::change_scale(added, removed, theme));
-        let height = files.len() as f32 * ROW_HEIGHT + 8.;
+        let height = files.len() as f32 * theme.sizes.control + 8.;
         let prefix = format!("{dir}/");
         let current = files.get(self.summary_place(&files)).copied();
         let files = std::rc::Rc::new(files);
@@ -1321,7 +1320,7 @@ impl Detail {
                     .aria_label(path.clone())
                     .child(file_icon(path, cx))
                     .child(
-                        name_and_counts()
+                        name_and_counts(theme)
                             .child(
                                 (div().min_w_0().overflow_hidden().whitespace_nowrap())
                                     .text_ellipsis_middle()
@@ -1431,7 +1430,7 @@ impl Detail {
         // that tells it from its siblings. Folded, how many files it holds follows the name, so
         // its end lines up with the files'.
         .child(
-            name_and_counts()
+            name_and_counts(theme)
                 .child(
                     (div().min_w_0().overflow_hidden().whitespace_nowrap())
                         .text_ellipsis_middle()
@@ -1719,7 +1718,7 @@ impl Detail {
             // The name whole where it fits, then its folder dimmed and cut in the middle, as the
             // folder's end tells two files of one name apart.
             .child(
-                name_and_counts()
+                name_and_counts(theme)
                     .child(
                         (div().min_w_0().overflow_hidden().whitespace_nowrap())
                             .text_ellipsis_middle()

@@ -2030,7 +2030,7 @@ impl AppView {
                 .role(Role::TabList)
                 .aria_label("Status")
                 .flex_none()
-                .h(dp(28.))
+                .h(dp(theme.sizes.control))
                 .px(dp(12.))
                 .gap(dp(14.))
                 .border_b_1()

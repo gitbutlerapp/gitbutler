@@ -10,11 +10,12 @@ import { formatHex, formatHex8 } from "culori";
 /** How tokens.css writes a colour, once its aliases are followed. */
 const COLOR = /^(light-dark|color-mix|hsl|oklch)\(|^#/;
 
-/** { colors, lengths, aliases } for the tokens `css` declares: a colour as sRGB hex for light
- * and for dark, with its alpha last when it has one, a length in px, and for a length that
+/** { colors, lengths, aliases, grounds } for the tokens `css` declares: a colour as sRGB hex for
+ * light and for dark, with its alpha last when it has one, a length in px, and for a length that
  * aliases another, the one it names, as a setting moves only the steps and the roles follow
- * them. Names are tokens.css's without `--but-`. */
-export function tokensData(css) {
+ * them. `grounds` has, for each ground of `ground` (the setting) but its default, every colour
+ * that comes out differently on it. Names are tokens.css's without `--but-`. */
+export function tokensData(css, ground) {
 	const declarations = rootDeclarations(css);
 	/** The token `value` aliases, if it's only an alias. */
 	function aliased(value) {
@@ -25,8 +26,8 @@ export function tokensData(css) {
 		const alias = aliased(value);
 		return alias ? literal(declarations.get(alias) ?? "") : value;
 	}
-	function hex(value, mode) {
-		const { r, g, b, alpha } = resolveColor(value, mode, declarations);
+	function hex(value, mode, scope = declarations) {
+		const { r, g, b, alpha } = resolveColor(value, mode, scope);
 		const colour = { mode: "rgb", r, g, b, alpha };
 		return alpha < 1 ? formatHex8(colour) : formatHex(colour);
 	}
@@ -43,5 +44,20 @@ export function tokensData(css) {
 		} else if (COLOR.test(end))
 			colors[token] = { light: hex(value, "light"), dark: hex(value, "dark") };
 	}
-	return { colors, lengths, aliases };
+	const grounds = {};
+	for (const [name, steps] of Object.entries(ground?.values ?? {})) {
+		if (name === ground.default) continue;
+		const scope = new Map([
+			...declarations,
+			...Object.entries(steps).map(([step, to]) => [step, `var(--but-${to})`]),
+		]);
+		grounds[name] = {};
+		for (const [token, value] of declarations) {
+			if (!(token in colors)) continue;
+			const drawn = { light: hex(value, "light", scope), dark: hex(value, "dark", scope) };
+			if (drawn.light !== colors[token].light || drawn.dark !== colors[token].dark)
+				grounds[name][token] = drawn;
+		}
+	}
+	return { colors, lengths, aliases, grounds };
 }
