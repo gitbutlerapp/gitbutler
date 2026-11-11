@@ -9,6 +9,8 @@
 	"scripts": {
 		"dev": "vite dev --host 0.0.0.0",
 		"build": "vite build",
+		"build:node": "cross-env BUILD_TARGET=node vite build",
+		"start": "node build",
 		"preview": "vite preview",
 		"package": "svelte-kit sync",
 		"prepare": "svelte-kit sync",
@@ -25,6 +27,7 @@
 		"@gitbutler/ui-svelte": "workspace:*",
 		"@playwright/test": "catalog:",
 		"@reduxjs/toolkit": "catalog:redux",
+		"@sveltejs/adapter-node": "^5.5.8",
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
