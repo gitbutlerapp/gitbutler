@@ -1612,7 +1612,17 @@ impl Detail {
                         Some(_) => "Amend",
                         None => "Commit to",
                     })
-                    .child(self.render_target_picker(target, amending.is_none(), theme, cx))
+                    .child(
+                        self.render_target_picker(
+                            target,
+                            amending.is_none(),
+                            amending
+                                .as_ref()
+                                .is_some_and(|moving| moving.conflicts(self.store.read(cx))),
+                            theme,
+                            cx,
+                        ),
+                    )
                     // Saying it's writing, as an answer can take a while to start. Above the
                     // box, as in it the words would run under it.
                     .when(self.writing.is_some(), |el| {
@@ -1735,10 +1745,13 @@ impl Detail {
     /// Where the commit goes, said as `label`, which with `pickable` picks another branch, the
     /// main checkout's or a linked worktree's. A linked worktree's commits go on its own
     /// branches.
+    /// What the commit goes to, or the commit amended when it isn't `pickable`, marked as a
+    /// conflicted commit is when the amend leaves it `conflicted`.
     fn render_target_picker(
         &self,
         label: String,
         pickable: bool,
+        conflicted: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
@@ -1753,13 +1766,14 @@ impl Detail {
             .bg(theme.fill_gray.opacity(0.08))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
-            .child(
-                small_icon(match pickable {
-                    true => Icon::Branch,
-                    false => Icon::Commit,
-                })
-                .text_color(theme.blue),
-            )
+            .child({
+                let (glyph, colour) = match (pickable, conflicted) {
+                    (true, _) => (Icon::Branch, theme.blue),
+                    (false, true) => (Icon::Warning, theme.warn),
+                    (false, false) => (Icon::Commit, theme.blue),
+                };
+                small_icon(glyph).text_color(colour)
+            })
             .child(div().min_w_0().truncate().child(label))
             .when(pickable && !self.checks_worktree.is_linked(), |el| {
                 el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))

@@ -16,9 +16,7 @@ use super::{Navigator, RowStyle};
 use crate::app::{
     MoveHere, MoveSelection, SquashIntoSelection, SquashSelection, StartAmend, UseTargetMessage,
 };
-use crate::backend::{
-    Checkout, Commit, CommitId, Conflicts, Destination, FullName, Messages, Workspace,
-};
+use crate::backend::{Checkout, Commit, CommitId, Destination, FullName, Messages, Workspace};
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
@@ -118,25 +116,21 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
 /// The colour of the outline over what the squash shown in `project` goes into: a squash's, or
 /// a conflict's where it leaves that conflicted.
 pub(super) fn outline_colour(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
-    match squash_conflicts(store, project) {
+    let conflicts = shown(store, project)
+        .and_then(|moving| moving.squashed(store))
+        .is_some_and(|transfer| !transfer.lands_cleanly());
+    match conflicts {
         true => theme.warn,
         false => mark_of(store, project, theme),
     }
 }
 
-/// Whether the squash shown in `project` leaves what it goes into conflicted.
-fn squash_conflicts(store: &Store, project: &ProjectId) -> bool {
-    shown(store, project)
-        .and_then(|moving| moving.squashed(store))
-        .is_some_and(|transfer| !transfer.lands_cleanly())
-}
-
-/// Whether `item` is a commit the squash shown in its project goes into and leaves conflicted,
+/// Whether `item` is a commit the amend shown in its project goes into and leaves conflicted,
 /// which its row then marks as it does a conflicted commit.
 pub(super) fn left_conflicted(store: &Store, item: &Selection) -> bool {
     matches!(item, Selection::Commit(..))
         && lands_on(store, item)
-        && squash_conflicts(store, item.project())
+        && shown(store, item.project()).is_some_and(|moving| moving.conflicts(store))
 }
 
 /// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
@@ -1840,8 +1834,7 @@ pub(super) fn new_commit_row(
     theme: &Theme,
 ) -> AnyElement {
     let moving = shown(store, project);
-    let conflicts = (moving.and_then(|moving| moving.commit_fit(store)))
-        .is_some_and(|fit| fit.conflicts == Conflicts::Keep);
+    let conflicts = moving.is_some_and(|moving| moving.conflicts(store));
     let style = RowStyle {
         held: true,
         mark: match conflicts {

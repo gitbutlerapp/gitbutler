@@ -757,6 +757,20 @@ impl Move {
         store.lock_fit(&self.project, worktree, files, |ws| ws.footing(&to))
     }
 
+    /// Whether landing where it's at leaves a commit conflicted, as the locks say: the commit
+    /// uncommitted changes make, or the one they amend.
+    pub fn conflicts(&self, store: &Store) -> bool {
+        let fit = match self.op {
+            Op::Commit => self.commit_fit(store),
+            Op::Squash(_) => match self.squashed(store) {
+                Some(Transfer::Amend { fit, .. }) => fit,
+                _ => None,
+            },
+            Op::Move | Op::CherryPick => None,
+        };
+        fit.is_some_and(|fit| fit.conflicts == backend::Conflicts::Keep)
+    }
+
     /// [`Self::commit_to`] in `workspace`.
     fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {

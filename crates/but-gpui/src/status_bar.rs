@@ -140,12 +140,22 @@ impl AppView {
             };
             // In the colour each marks rows in, as the TUI's modes have their own.
             let (doing, color) = (moving.doing(), moving.op.colour(&theme));
+            // Said from the start, before a message is written, not only as Return's verb.
+            let conflicts = lands && moving.conflicts(store);
             let state = h_flex()
                 .gap(dp(6.))
                 .min_w_0()
                 .overflow_hidden()
                 .child(div().flex_none().text_color(color).child(doing))
-                .child(div().min_w_0().truncate().child(what));
+                .child(div().min_w_0().truncate().child(what))
+                .when(conflicts, |el| {
+                    el.child(
+                        div()
+                            .flex_none()
+                            .text_color(theme.warn)
+                            .child("with conflicts"),
+                    )
+                });
             // Commits squashed into one keep both messages, or only the one they go into's.
             let messages = match (moving.op, moving.squashed(store)) {
                 (Op::Squash(keep), Some(Transfer::Squash { .. })) => {
