@@ -243,10 +243,9 @@ pub enum StoreEvent {
     /// their diff opens there once it's read, and says so if it lacks it.
     FileAsked(Selection, CodePlace),
     /// The project a `but://open` link names is open, for the window to go where `at` points in
-    /// it. `existed` says whether it was added before the link.
+    /// it.
     LinkOpened {
         project: ProjectId,
-        existed: bool,
         at: Vec<(String, String)>,
     },
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
@@ -410,8 +409,6 @@ pub struct Store {
     /// While an operation of a project the user has left finishes, which leaves the selection,
     /// and what's picked with it, where the user is.
     staying: bool,
-    /// A project just added, until its first load says which page it opens on.
-    added: Option<ProjectId>,
     /// What a link selected, and what to say if it isn't there, until its project's read.
     linked: Option<(Selection, &'static str)>,
     /// Whether the user was asked for Git's missing author since the app started: once is
@@ -626,7 +623,6 @@ impl Store {
             followed: None,
             made: None,
             staying: false,
-            added: None,
             linked: None,
             asked_author: false,
             dragging: None,
@@ -974,7 +970,6 @@ impl Store {
                 {
                     Selection::Branch(project, Some(ref_name))
                 }
-                Selection::Upstream(..) | Selection::Section(..) => Selection::Project(project),
                 // Changes all committed or discarded go up to their linked worktree's heading,
                 // if it's still there.
                 Selection::Uncommitted(_, checkout @ Checkout::Linked(_))
@@ -983,7 +978,7 @@ impl Store {
                 {
                     Selection::Checkout(project, checkout)
                 }
-                _ => self.home(&project),
+                _ => Selection::Project(project),
             };
             self.select(Some(home), cx);
         }

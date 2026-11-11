@@ -59,15 +59,6 @@ impl Store {
             })
     }
 
-    /// What's selected once what was goes: its main checkout's heading, or the project's row
-    /// standing in for it.
-    pub fn home(&self, project: &ProjectId) -> Selection {
-        match self.main_headed(project) {
-            true => Selection::Checkout(project.clone(), Checkout::Main),
-            false => Selection::Project(project.clone()),
-        }
-    }
-
     /// The checkouts rewriting commits `ids` of `project` moves.
     pub fn moved_by(&self, project: &ProjectId, ids: &[CommitId]) -> HashSet<Checkout> {
         (self.workspace(project).into_iter())

@@ -281,7 +281,7 @@ impl Store {
         self.close_terminals_gone(cx);
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
-            self.select(first.map(|entry| self.opening(&entry.id)), cx);
+            self.select(first.map(|entry| Selection::Project(entry.id.clone())), cx);
         }
 
         for id in &open {
@@ -297,21 +297,12 @@ impl Store {
                 .selection
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
-                .map(|entry| self.opening(&entry.id));
+                .map(|entry| Selection::Project(entry.id.clone()));
             if let Some(selection) = handed.or(open) {
                 self.select(Some(selection), cx);
             }
         }
         cx.notify();
-    }
-
-    /// What selecting `project` as a whole picks: its Main worktree, or the project itself
-    /// while its card is folded, so it stays folded.
-    fn opening(&self, project: &ProjectId) -> Selection {
-        match self.prefs.folded_projects.contains(project.as_ref()) {
-            true => Selection::Project(project.clone()),
-            false => Selection::Checkout(project.clone(), Checkout::Main),
-        }
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
@@ -346,16 +337,15 @@ impl Store {
                     store.set_projects(projects, cx);
                     store.set_expanded(&id, true, cx);
                     if let Asked::Link(at) = asked {
-                        return store.link_opened(id, existed, at, cx);
+                        return cx.emit(StoreEvent::LinkOpened { project: id, at });
                     }
-                    store.select(Some(Selection::Checkout(id.clone(), Checkout::Main)), cx);
+                    store.select(Some(Selection::Project(id.clone())), cx);
                     match (existed, store.project(&id)) {
                         (true, Some(entry)) => {
                             let name = entry.project.name.clone();
                             store.snack(format!("{name} is already added"), cx)
                         }
                         _ => {
-                            store.added = Some(id);
                             // A new user's first project opens the getting-started docs, as in
                             // the desktop app. Any other project listed means the user isn't new,
                             // and a dev build's user is one of us.
@@ -372,25 +362,6 @@ impl Store {
             .ok();
         })
         .detach();
-    }
-
-    /// Hand the `but://open` link that asked for `id` back to the window, now the project's open,
-    /// to go where `at` points in it. `existed` says whether it was added before the link.
-    fn link_opened(
-        &mut self,
-        id: ProjectId,
-        existed: bool,
-        at: Vec<(String, String)>,
-        cx: &mut Context<Self>,
-    ) {
-        if !existed {
-            self.added = Some(id.clone());
-        }
-        cx.emit(StoreEvent::LinkOpened {
-            project: id,
-            existed,
-            at,
-        });
     }
 
     /// Select `selection` as a `but://open` link asks, as a click on its row does, with its diff
@@ -430,13 +401,11 @@ impl Store {
         self.validate_selection(&project, cx);
     }
 
-    /// Select `id` as a link naming no place in it does: where it opens, just added or while the
-    /// user is in another project; in it already, they stay where they are.
-    pub(crate) fn select_opened(&mut self, id: &ProjectId, existed: bool, cx: &mut Context<Self>) {
-        if !existed {
-            self.select_by_hand(Selection::Checkout(id.clone(), Checkout::Main), cx);
-        } else if (self.selection.as_ref()).is_none_or(|s| s.project() != id) {
-            self.select_by_hand(self.opening(id), cx);
+    /// Select `id`'s page as a link naming no place in it does, unless the selection's in it
+    /// already.
+    pub(crate) fn select_opened(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if (self.selection.as_ref()).is_none_or(|s| s.project() != id) {
+            self.select_by_hand(Selection::Project(id.clone()), cx);
         }
     }
 
@@ -808,17 +777,6 @@ impl Store {
                 {
                     store.show_terminals(cx);
                     cx.emit(StoreEvent::TilingChanged);
-                }
-                // A project just added opens on its page while it has no target: that's
-                // where one is picked. One without commits stays on its files, as there's no
-                // branch to pick until the first commit makes one, which it then targets.
-                let untargeted = (store.workspace(&id))
-                    .is_some_and(|ws| ws.target.is_none() && ws.tree.is_some());
-                if store.added.take_if(|added| *added == id).is_some()
-                    && untargeted
-                    && store.selection == Some(Selection::Checkout(id.clone(), Checkout::Main))
-                {
-                    store.select(Some(Selection::Project(id.clone())), cx);
                 }
                 if settles {
                     store.settled(&id, cx);
