@@ -43,15 +43,17 @@ for what you are building, not all of them; each stands on its own.
 
 Rules for one component that its docs don't carry yet.
 
-| Page                                          | Read it when                                  |
-| --------------------------------------------- | --------------------------------------------- |
-| [Buttons](design/components/buttons.md)       | Picking a `Button` variant or size            |
-| [Badges](design/components/badges.md)         | Picking a `Badge`'s colour                    |
-| [Banners](design/components/banners.md)       | A condition that holds until it clears        |
-| [Meta lines](design/components/meta-lines.md) | The facts under a header's title, or in a row |
-| [Links](design/components/links.md)           | A link, or text that opens something          |
-| [Tooltips](design/components/tooltips.md)     | A hover hint                                  |
-| [Fields](design/components/fields.md)         | A form, a settings row, a search box          |
+| Page                                                | Read it when                                  |
+| --------------------------------------------------- | --------------------------------------------- |
+| [Buttons](design/components/buttons.md)             | Picking a `Button` variant or size            |
+| [Badges](design/components/badges.md)               | Picking a `Badge`'s colour                    |
+| [Banners](design/components/banners.md)             | A condition that holds until it clears        |
+| [Meta lines](design/components/meta-lines.md)       | The facts under a header's title, or in a row |
+| [View headers](design/components/view-headers.md)   | A details view's header: its buttons and tabs |
+| [Location bars](design/components/location-bars.md) | The bar above a view's header                 |
+| [Links](design/components/links.md)                 | A link, or text that opens something          |
+| [Tooltips](design/components/tooltips.md)           | A hover hint                                  |
+| [Fields](design/components/fields.md)               | A form, a settings row, a search box          |
 
 ## Patterns
 

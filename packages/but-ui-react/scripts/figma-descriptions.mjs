@@ -5,8 +5,9 @@
  * carries, made from the code so the two can't say different things.
  *
  * A component's drawing is the Figma node its stories link in their meta's `design` parameter,
- * else in their `Default` story's. Its description is the component's JSDoc, then its `@figma`
- * tag (what only the drawing has, such as a `state` property for what CSS draws under the
+ * else in their `Default` story's. Its description is the component's JSDoc, then each
+ * documented value of its `<Name>Variant` type and what its `<Name>Size` type says, then its
+ * `@figma` tag (what only the drawing has, such as a `state` property for what CSS draws under the
  * pointer), then a `Rules:` line linking each note its `@see` tags name, and a `Code:` line with
  * its import. The JSDoc says what the component is and how to pick between its props; the rules
  * for using it are the notes', so the description links them rather than repeating them.
@@ -93,11 +94,40 @@ function unescaped(text) {
 		.replaceAll("&amp;", "&");
 }
 
+/**
+ * The JSDoc on `export type <name>Size` in `source`, where a component says which size goes where.
+ * @param {string} source
+ * @param {string} name
+ * @returns {string}
+ */
+function sizesOf(source, name) {
+	const doc = new RegExp(
+		String.raw`\/\*\*([^*]*(?:\*(?!\/)[^*]*)*)\*\/\s*export type ${name}Size\b`,
+	).exec(source)?.[1];
+	const text = (doc ?? "").replaceAll(/\n\s*\*\s?/g, " ").replaceAll(/\s+/g, " ");
+	return (text.split(/(?:^|\s)@\w/)[0] ?? "").trim();
+}
+
 /** A node id in Figma's link form, `217-317`, or as a helper is handed it, `figma("217-317")`. */
 const NODE = /(?:node-id=|\(")(\d+)-(\d+)/;
 
 /** The components whose description is written from the code; see the top of this file. */
-const MOVED = new Set(["Badge", "Banner", "Button", "MetaPart", "Snackbar", "Toasts"]);
+const MOVED = new Set([
+	"Avatar",
+	"Badge",
+	"Banner",
+	"Button",
+	"Cell",
+	"FileListItem",
+	"LocationBar",
+	"MetaCount",
+	"MetaPart",
+	"Popup",
+	"Snackbar",
+	"Toasts",
+	"Tooltip",
+	"ViewHeader",
+]);
 
 /**
  * `text` as Figma shows it: a `{@link Name}` as the name alone, and a paragraph on one line, as
@@ -108,7 +138,7 @@ const MOVED = new Set(["Badge", "Banner", "Button", "MetaPart", "Snackbar", "Toa
 function plain(text) {
 	return text
 		.replaceAll(/\{@link\s+([^}\s]+)\s*\}/g, "$1")
-		.replaceAll(/([^\n])\n(?!\n|- )/g, "$1 ");
+		.replaceAll(/([^\n])\n[ \t]*(?!\n|- )/g, "$1 ");
 }
 
 /**
@@ -142,6 +172,7 @@ for (const storiesFile of readdirSync(src)
 	const source = readFileSync(join(src, file), "utf8");
 	const doc = jsdocOf(source, component);
 	const variants = variantsOf(source, component);
+	const sizes = sizesOf(source, component);
 	/** @param {string} name */
 	const tagged = (name) =>
 		(doc?.tags ?? []).filter(([tag]) => tag === name).map(([, value]) => value);
@@ -152,6 +183,7 @@ for (const storiesFile of readdirSync(src)
 	const lines = [
 		plain(doc?.text ?? ""),
 		variants === "" ? "" : `variant:\n${plain(variants)}`,
+		sizes === "" ? "" : `size: ${plain(sizes)}`,
 		figma === "" ? "" : `In Figma: ${plain(figma)}`,
 		notes.length === 0 ? "" : `Rules: ${notes.map((note) => blob + note).join(", ")}`,
 		`Code: ${component} in @gitbutler/but-ui-react/${file}`,

@@ -8,6 +8,14 @@ uncommitted, an agent waiting), blue is work to send (unpushed), green is an
 agent at work or a branch this one follows, red is what failed. The rest are
 gray.
 
+**A header's line says what needs you.** Then one fact about the thing and its
+age: three or four parts at most. What the page shows below the header, or a
+hover explains, stays off it: a worktree's branches and diff stats, a branch's
+place in its stack, a plain Pushed, a machine's OS. A branch's header says its
+worktree's uncommitted files only on a plain checkout, where a commit lands on
+that branch; in a GitButler workspace they belong to no branch until they're
+committed, so the worktree's header says them instead.
+
 **A header names what it counts; a row doesn't.** A header has room a sidebar
 row lacks, so each part says what it counts, and stays short:
 
@@ -52,6 +60,10 @@ no underline, since the row is what opens the work. Nothing on a worktree or
 branch page, the branch on a repo page, repo › branch on a machine page with
 more than one repo, and nothing when the title names the place. It stands last
 and is what truncates, never a fact before it; a narrow pane keeps the branch.
+
+**Agents show as one.** While an agent works or waits, its row shows how long
+it has been working or waiting in place of the age. Several agents show as one,
+and waiting wins.
 
 **A running row says who and what.** Who comes first, since every row there is
 running and only the doer differs: the agent's logo and name, or a code glyph

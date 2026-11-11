@@ -67,6 +67,11 @@ const present = (node: ReactNode) => node !== undefined && node !== null && node
  * only; what goes in each slot is the app's. One component for every view, rather than one per
  * view, so the rules that keep the views alike live here: the buttons stand at the end, and the
  * meta line never wraps.
+ *
+ * @figma `view` picks a sample of each kind of page; the code is one component with slots. The
+ * meta line's parts are MetaPart instances, `width=narrow` in a pane under 640px.
+ * @see packages/but-ui/design/components/view-headers.md
+ * @see packages/but-ui/design/components/meta-lines.md
  * @import import { ViewHeader } from "@gitbutler/but-ui-react/ViewHeader.tsx";
  */
 export const ViewHeader: FC<Props> = ({
