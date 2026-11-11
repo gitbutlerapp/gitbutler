@@ -429,10 +429,11 @@ pub struct Blocked {
     /// it takes them all where it was asked to go, tried and found to conflict nothing.
     pub restack: Option<Stacking>,
     /// Taking them all where it was asked to go anyway, keeping what doesn't merge, as a dry
-    /// run found it: `None` where even that doesn't take them all.
+    /// run found it: `None` where even that doesn't take them all, or where it's an amend
+    /// `restack` takes cleanly.
     pub with_conflicts: Option<WithConflicts>,
-    /// For an amend, the commit they build on topmost in its stack, which takes them all
-    /// instead, as tried.
+    /// For an amend `restack` doesn't take, the commit they build on topmost in its stack,
+    /// which takes them all instead, as tried.
     pub instead: Option<CommitId>,
 }
 
@@ -718,10 +719,13 @@ fn blocked(
     let restack = restack.filter(|stacking| {
         tried.is_some_and(|tried| clean(dry_run(Some(stacking), tried, Conflicts::Reject)))
     });
-    let instead =
-        instead.filter(|commit| clean(dry_run(None, Tried::Amend(*commit), Conflicts::Reject)));
+    // An amend stacking takes where it was asked to go is offered no other commit, nor conflicts.
+    let amend_restacks = matches!(asked, Asked::Amend(_)) && restack.is_some();
+    let instead = instead.filter(|commit| {
+        !amend_restacks && clean(dry_run(None, Tried::Amend(*commit), Conflicts::Reject))
+    });
     // A stack of its own has nothing above it to conflict.
-    let with_conflicts = match (explain && keepable, tried) {
+    let with_conflicts = match (explain && keepable && !amend_restacks, tried) {
         (false, _) => None,
         (true, Some(tried)) => {
             dry_run(None, tried, Conflicts::Keep).map(|also| WithConflicts { also })
@@ -3406,17 +3410,18 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn a_refused_amend_offers_what_it_builds_on_a_restack_or_its_conflicts() {
+    fn a_refused_amend_offers_a_restack_alone_else_what_it_builds_on_or_its_conflicts() {
         but_testsupport::isolated_app_data_dir(|| {
-            let blocked = |path: &Path, into| {
-                let changes = vec![Selected::whole(&uncommitted(path)[0])];
-                match crate::backend::apply(path, amend_main(into, changes))
-                    .unwrap()
-                    .0
-                {
-                    AmendOutcome::Blocked(blocked) => blocked,
-                    AmendOutcome::Amended(_) => panic!("it builds on what the commit lacks"),
-                }
+            let whole = |path: &Path| vec![Selected::whole(&uncommitted(path)[0])];
+            let blocked = |path: &Path, into, changes| match crate::backend::apply(
+                path,
+                amend_main(into, changes),
+            )
+            .unwrap()
+            .0
+            {
+                AmendOutcome::Blocked(blocked) => blocked,
+                AmendOutcome::Amended(_) => panic!("it builds on what the commit lacks"),
             };
 
             // Line 15 edited again builds on "second", above "edit" in the same branch.
@@ -3429,7 +3434,7 @@ pub(super) mod tests {
             crate::backend::apply(path, name_at(second, "feature")).unwrap();
             edited[14] = "fifteen again\n".into();
             std::fs::write(path.join("file"), edited.concat()).unwrap();
-            let into_edit = blocked(path, edit);
+            let into_edit = blocked(path, edit, whole(path));
             assert_eq!(
                 into_edit.instead,
                 Some(second),
@@ -3450,7 +3455,7 @@ pub(super) mod tests {
             let path = dir.path();
             let tip = git(path, &["rev-parse", "beta"]);
             let beta = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
-            let into_beta = blocked(path, beta);
+            let into_beta = blocked(path, beta, whole(path));
             let restack = into_beta.restack.expect("alpha can go below beta");
             assert_eq!(
                 (restack.onto, restack.branches),
@@ -3460,6 +3465,31 @@ pub(super) mod tests {
             assert_eq!(
                 into_beta.instead, None,
                 "no one commit has both stacks' changes below it"
+            );
+            assert!(
+                into_beta.with_conflicts.is_none(),
+                "restacked, beta takes it cleanly, so it isn't offered conflicted"
+            );
+
+            // Line 15 alone builds only on beta's commit, a stack apart from alpha's.
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let line_15 = diff[0].part(Some(vec![diff[0].hunks()[1].key]));
+            let tip = git(path, &["rev-parse", "alpha"]);
+            let alpha = CommitId(gix::ObjectId::from_hex(tip.trim().as_bytes()).unwrap());
+            let into_alpha = blocked(path, alpha, vec![line_15]);
+            let restack = into_alpha.restack.expect("beta can go below alpha");
+            assert_eq!(
+                (restack.onto, restack.branches),
+                (full("refs/heads/beta"), vec![full("refs/heads/alpha")]),
+                "alpha goes on beta, then takes it"
+            );
+            assert_eq!(
+                into_alpha.instead, None,
+                "beta's commit is in another stack, so it isn't offered in alpha's place"
+            );
+            assert!(
+                into_alpha.with_conflicts.is_none(),
+                "nor is alpha offered it conflicted"
             );
         })
     }
