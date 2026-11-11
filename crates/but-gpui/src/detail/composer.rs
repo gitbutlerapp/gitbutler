@@ -1616,8 +1616,7 @@ impl Detail {
                         self.render_target_picker(
                             target,
                             amending.is_none(),
-                            amending
-                                .as_ref()
+                            (amending.clone().or_else(|| self.committing(cx)))
                                 .is_some_and(|moving| moving.conflicts(self.store.read(cx))),
                             theme,
                             cx,
@@ -1746,7 +1745,7 @@ impl Detail {
     /// main checkout's or a linked worktree's. A linked worktree's commits go on its own
     /// branches.
     /// What the commit goes to, or the commit amended when it isn't `pickable`, marked as a
-    /// conflicted commit is when the amend leaves it `conflicted`.
+    /// conflicted commit is when committing or amending there leaves the commit `conflicted`.
     fn render_target_picker(
         &self,
         label: String,
@@ -1768,8 +1767,8 @@ impl Detail {
             .text_color(theme.blue)
             .child({
                 let (glyph, colour) = match (pickable, conflicted) {
-                    (true, _) => (Icon::Branch, theme.blue),
-                    (false, true) => (Icon::Warning, theme.warn),
+                    (_, true) => (Icon::Warning, theme.warn),
+                    (true, false) => (Icon::Branch, theme.blue),
                     (false, false) => (Icon::Commit, theme.blue),
                 };
                 small_icon(glyph).text_color(colour)
