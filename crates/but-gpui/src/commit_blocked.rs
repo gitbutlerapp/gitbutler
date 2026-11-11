@@ -70,13 +70,23 @@ fn offers(blocked: &BlockedCommit, named: impl Fn(CommitId) -> String) -> Vec<Of
     offers
 }
 
+/// What `verb`ing without the changes `blocked` left out is called: by their locks, where
+/// every one of them is known to build on other commits.
+fn without(blocked: &Blocked, verb: &str) -> String {
+    let locked = |change: &BlockedChange| !(change.hunks.is_empty() && change.suspects.is_empty());
+    match blocked.changes.iter().all(locked) {
+        true => format!("{verb} unlocked changes"),
+        false => "Leave them out".to_owned(),
+    }
+}
+
 /// What can be done instead of committing to `asked`, as `blocked` says.
 fn commit_offers(blocked: &Blocked, asked: &CommitTo) -> Vec<Offer> {
     let into = into(asked);
     let mut offers = Vec::new();
     if blocked.takes_others {
         offers.push(Offer {
-            label: "Leave them out".into(),
+            label: without(blocked, "Commit").into(),
             instead: Instead::Commit(asked.clone()),
             leave_out: true,
             conflicts: Conflicts::Reject,
@@ -84,6 +94,19 @@ fn commit_offers(blocked: &Blocked, asked: &CommitTo) -> Vec<Offer> {
             primary: false,
             shrinks: false,
         });
+    }
+    // Stacked under where it was asked to go, it goes there, so nowhere else is offered.
+    if let Some(stacking) = &blocked.restack {
+        offers.push(Offer {
+            label: "Restack and commit".into(),
+            instead: Instead::Commit(asked.clone()),
+            leave_out: false,
+            conflicts: Conflicts::Reject,
+            restack: Some(stacking.clone()),
+            primary: true,
+            shrinks: false,
+        });
+        return offers;
     }
     // Where it was asked to go, as the dry run found it would conflict.
     if blocked.with_conflicts.is_some() {
@@ -147,19 +170,6 @@ fn commit_offers(blocked: &Blocked, asked: &CommitTo) -> Vec<Offer> {
         }
         None => {}
     }
-    // Stacked under where it was asked to go, it goes there.
-    if let Some(stacking) = &blocked.restack {
-        let primary = !offers.iter().any(|offer: &Offer| offer.primary);
-        offers.push(Offer {
-            label: format!("Stack on {} and commit", short_ref(&stacking.onto)).into(),
-            instead: Instead::Commit(asked.clone()),
-            leave_out: false,
-            conflicts: Conflicts::Reject,
-            restack: Some(stacking.clone()),
-            primary,
-            shrinks: true,
-        });
-    }
     // Stacked, the branch on top takes them all, as does a new branch above it, which is the
     // default.
     if let Some(stacking) = &blocked.stack {
@@ -209,7 +219,7 @@ fn amend_offers(
     };
     let mut offers = Vec::new();
     if blocked.takes_others {
-        let label = "Amend unlocked changes".to_owned();
+        let label = without(blocked, "Amend");
         offers.push(offer(label, into, true, Conflicts::Reject, None, false));
     }
     if blocked.with_conflicts.is_some() {
@@ -684,5 +694,50 @@ impl Render for CommitBlocked {
             .when_some(kept, |el, kept| el.child(muted(kept, theme)))
             .child(list)
             .child(actions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::model::build::id;
+
+    #[test]
+    fn what_a_restack_takes_is_offered_only_that_or_going_without_whats_locked() {
+        let full = |name: &str| FullName::try_from(format!("refs/heads/{name}")).unwrap();
+        let blocked = Blocked {
+            changes: vec![BlockedChange {
+                path: "file".into(),
+                hunks: Vec::new(),
+                suspects: vec![full("alpha")],
+                builds_on: vec![full("alpha")],
+                why: "",
+            }],
+            builds_on: Some(full("alpha")),
+            builds_on_merged: false,
+            takes_others: true,
+            stack: None,
+            restack: Some(Stacking {
+                onto: full("alpha"),
+                branches: vec![full("beta")],
+                top: full("beta"),
+                pushed: Vec::new(),
+            }),
+            with_conflicts: None,
+            instead: None,
+        };
+        let labels = |offers: Vec<Offer>| -> Vec<String> {
+            (offers.iter().map(|offer| offer.label.to_string())).collect()
+        };
+        assert_eq!(
+            labels(commit_offers(&blocked, &CommitTo::Branch(full("beta")))),
+            ["Commit unlocked changes", "Restack and commit"],
+            "alpha, which they build on, isn't offered in beta's place"
+        );
+        assert_eq!(
+            labels(amend_offers(&blocked, id(1), |_| String::new())),
+            ["Amend unlocked changes", "Restack and amend"],
+            "an amend is offered the same"
+        );
     }
 }
