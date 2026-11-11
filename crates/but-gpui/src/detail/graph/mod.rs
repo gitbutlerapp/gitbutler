@@ -35,7 +35,7 @@ use crate::backend::{
     short_ref,
 };
 use crate::clock;
-use crate::state::{self, ProjectId, Store, StoreEvent};
+use crate::state::{self, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
@@ -503,6 +503,8 @@ pub struct GraphView {
     /// The pinned commit and its ancestors.
     lineage: Rc<HashSet<usize>>,
     drag: Option<Drag>,
+    /// The branch or commit Show in graph asked for, until the graph is read and placed.
+    to_show: Option<Selection>,
     /// The canvas's bounds as last drawn, in the window.
     bounds: Rc<Cell<Bounds<Pixels>>>,
     /// Where each commit was drawn last, for finding the one under the pointer.
@@ -619,6 +621,7 @@ impl GraphView {
             pinned: None,
             lineage: Rc::default(),
             drag: None,
+            to_show: None,
             bounds: Rc::default(),
             drawn: Rc::default(),
             titles: Rc::default(),
@@ -632,6 +635,10 @@ impl GraphView {
 
     /// Show `project`'s graph, as the detail it's in comes to its tab, or none as it leaves it.
     pub fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
+        // Leaving the tab drops what Show in graph asked for, so it never turns up later.
+        if project.is_none() {
+            self.to_show = None;
+        }
         self.shown = project;
         self.follow(cx);
     }
@@ -642,6 +649,36 @@ impl GraphView {
             let to = self.opening(&scene);
             self.glide_to(to, cx);
         }
+    }
+
+    /// Pin `row`, a branch or a commit, and glide to it, once the graph is read and placed.
+    pub(crate) fn show_row(&mut self, row: Selection, cx: &mut Context<Self>) {
+        self.to_show = Some(row);
+        cx.notify();
+    }
+
+    /// Pin what Show in graph asked for and glide to it, at 100% or nearer, as Target does: a
+    /// commit, or a branch's newest commit, or its tags while it has none.
+    fn go_to_row(&mut self, cx: &mut Context<Self>) {
+        let row = (self.to_show.take()).filter(|row| self.project.as_ref() == Some(row.project()));
+        let (Some(scene), Some(row)) = (self.scene.clone(), row) else {
+            return;
+        };
+        let found = (scene.nodes.iter().enumerate()).find(|(_, node)| match &row {
+            Selection::Commit(_, id) => node.id == *id && node.shape != Shape::Empty,
+            Selection::Branch(_, Some(name)) => {
+                let key = slot_key(name);
+                node.key == key || node.slot.as_ref() == Some(&key)
+            }
+            _ => false,
+        });
+        let Some((ix, node)) = found else {
+            return;
+        };
+        self.pin(Some(ix), cx);
+        self.following = false;
+        let to = self.centred(node.at, self.camera.zoom.max(1.));
+        self.glide_to(to, cx);
     }
 
     /// Glide to where the Workspace button goes.
@@ -3027,6 +3064,9 @@ impl Render for GraphView {
             self.following = left.following;
             self.placed = true;
             self.seen = true;
+        }
+        if self.to_show.is_some() && self.placed && !self.loading {
+            cx.defer_in(window, |this, _, cx| this.go_to_row(cx));
         }
         // The oldest commits read in view, it reads further back.
         let oldest = scene.extent.origin.y + scene.extent.size.height;

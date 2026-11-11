@@ -98,6 +98,19 @@ impl Detail {
         }
     }
 
+    /// Show `row`, a branch or a commit, pinned on its project's Graph tab, unless an agent took
+    /// it away since its menu opened.
+    pub(crate) fn show_in_graph(&self, row: Selection, cx: &mut App) {
+        let project = row.project().clone();
+        let shown = self.store.read(cx).branch_for(&row).is_some()
+            && (self.store).update(cx, |store, cx| {
+                store.show_tab(project, ProjectTab::Graph, cx)
+            });
+        if shown {
+            self.graph.update(cx, |graph, cx| graph.show_row(row, cx));
+        }
+    }
+
     /// Unpin the graph's commit, sliding its changes away, as Esc does. Whether one was.
     pub(crate) fn unpin_graph(&mut self, cx: &mut Context<Self>) -> bool {
         let pinned = self.graph_commit().is_some();
