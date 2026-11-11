@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::{GitHubClient, response_error};
 
-/// A GitHub native pull-request stack.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct Stack {
     /// The repository-scoped number used to address the stack.
@@ -19,7 +18,6 @@ pub struct Stack {
     pub pull_requests: Vec<StackPullRequest>,
 }
 
-/// A pull request belonging to a native stack.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct StackPullRequest {
     pub number: i64,

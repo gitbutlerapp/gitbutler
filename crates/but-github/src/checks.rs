@@ -3,8 +3,6 @@ use anyhow::{Context as _, Result};
 use crate::client::{CheckRun, GitHubClient, HttpStatusError};
 use crate::pr::classify_forge_error;
 
-/// Fetch CI check runs for a branch ref.
-///
 /// Returns `None` when GitHub can't resolve the ref (a 422 — a branch that was
 /// deleted, renamed, or hasn't propagated yet after a push). That is an expected
 /// "no checks" state for display, but because it can be transient the caller
