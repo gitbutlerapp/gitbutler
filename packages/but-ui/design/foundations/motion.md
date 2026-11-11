@@ -1,9 +1,9 @@
 # Motion
 
 **Two speeds, both tokens.** Every duration comes from but-ui.
-`--but-transition-fast` (80ms) is for a control changing state in place: hover and
+`--but-transition-fast` is for a control changing state in place: hover and
 press on a button, a focused field's outline, a small opacity fade.
-`--but-transition-medium` (150ms) is for something that moves or changes shape: a
+`--but-transition-medium` is for something that moves or changes shape: a
 switch thumb, a chevron turning, a section folding, the minimap fading in. No
 hand-written durations; if neither tier fits, add a tier in Figma.
 

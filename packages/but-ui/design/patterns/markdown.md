@@ -4,16 +4,17 @@ How rendered markdown — a pull request description, a comment — looks in any
 app. `Markdown` draws it; these are its rules, and 🍑 But UI's Markdown section
 draws the same.
 
-**The rhythm is 12, 16, 4.** 12px between text blocks; 16px around anything
-with an edge — a table, a code block, a quote bar, an image, a rule — because a
-box lacks text's leading; 4px between list items, nested lists included. A
-heading takes 24px above (twice the text gap), 20px for h3 and below, and 8px
-below, collapsing into the next block's margin. Margins collapse, so a box next
-to a paragraph gets 16, not 28.
+**The rhythm is three gaps.** `--but-space-2xl` between text blocks;
+`--but-space-3xl` around anything with an edge — a table, a code block, a quote
+bar, an image, a rule — because a box lacks text's leading; `--but-space-sm`
+between list items, nested lists included. A heading takes `--but-space-5xl`
+above (twice the text gap), `--but-space-4xl` for h3 and below, and
+`--but-space-lg` below, collapsing into the next block's margin. Margins
+collapse, so a box next to a paragraph gets the larger gap, not the two added.
 
 **Text reads narrow; media spreads wide.** Headings, paragraphs, lists, quotes
-and code keep to `--but-size-prose` (620px), a comfortable line. Tables, images,
-galleries and video take `--but-size-prose-wide` (820px), centred on the same axis,
+and code keep to `--but-size-prose`, a comfortable line. Tables, images,
+galleries and video take `--but-size-prose-wide`, centred on the same axis,
 so they break out of the text on both sides.
 
 **Type.** Text is 14 on a 160% line: but-ui's `text-prose`, Figma's

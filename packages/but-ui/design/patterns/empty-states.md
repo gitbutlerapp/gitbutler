@@ -59,10 +59,11 @@ the next action will do, or the live answer behind the emptiness — a count, a
 branch name, a time. "You have 5 branches to pick from", not "There is nothing
 here".
 
-**The block caps at 320px.** It is a block, not a banner. The cap is on the
-component and is the measure for the copy; nothing inside sets a narrower one.
+**The block has a cap.** It is a block, not a banner. The cap is on the
+component, `EmptyState`, and is the measure for the copy; nothing inside sets a
+narrower one.
 
-**Both lines wrap balanced.** They get `text-balance` within the 320 measure.
+**Both lines wrap balanced.** They get `text-balance` within that measure.
 Figma has no equivalent, so lines there are broken by hand.
 
 **At most two buttons, and never `pop`.** The surface's accent is spent
