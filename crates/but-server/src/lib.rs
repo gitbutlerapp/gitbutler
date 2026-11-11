@@ -278,9 +278,9 @@ fn is_localhost_host(host: &[u8]) -> bool {
 /// Configuration for the but-server, populated from CLI args.
 #[derive(Debug, Default)]
 pub struct Config {
-    /// Port to listen on. `but-server` defaults to 6978.
+    /// `but-server` defaults to 6978.
     pub port: Option<u16>,
-    /// Address to bind to. Defaults to 127.0.0.1. Override with --bind-addr if needed
+    /// Defaults to 127.0.0.1. Override with --bind-addr if needed
     /// (e.g. 0.0.0.0 in a container environment).
     pub bind_addr: Option<String>,
     /// Prefix all API routes with this path (e.g. `/api`).
