@@ -3,15 +3,11 @@
 
 use std::{path::Path, process::Command};
 
-/// Options passed to `git log`
 pub struct LogOptions {
-    /// Controls whether the `--oneline` flag is passed.
     /// default: true
     pub oneline: bool,
-    /// Controls whether the `--graph` flag is passed.
     /// default: true
     pub graph: bool,
-    /// Controls whether the `--all` flag is passed.
     /// default: false
     pub all: bool,
     /// The reference that should be logged
@@ -79,9 +75,7 @@ pub fn git_log(path: &Path, options: &LogOptions) {
     println!("{}", std::str::from_utf8(&result).unwrap());
 }
 
-/// Options passed to `git ls-tree`
 pub struct LsTreeOptions {
-    /// Controls whether the `-r` flag should be passed.
     /// default: true
     pub recursive: bool,
     /// The reference that should be peeled to a tree
