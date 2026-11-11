@@ -20,7 +20,6 @@ mod handler;
 
 pub use gitbutler_filemonitor::WatchMode;
 
-/// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
     /// Must be dropped synchronously so disconnecting its command channel unblocks
     /// `BlockingPool::shutdown` during Tokio runtime teardown.
