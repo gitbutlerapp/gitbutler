@@ -1030,37 +1030,17 @@ pub fn branch_create_with_perm(
 
     // The snapshot lists `new_ref` so that undo deletes it again: left behind, it would join
     // a stack on the next change.
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+    let mut meta = ctx.meta()?;
+    let workspace = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
+        perm,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
         &[new_ref.as_ref()],
-        perm.read_permission(),
         DryRun::No,
-    );
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    but_workspace::branch::create_reference(editor, new_ref.as_ref(), anchor, order)?
-        .materialize(Default::default())?;
-    drop((repo, db, meta));
-    ctx.update_workspace_cache(ws);
-
-    if let Some(snapshot) = maybe_oplog_entry {
-        snapshot.commit(ctx, perm).ok();
-    }
-
-    let mut meta = ctx.meta()?;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace_with_db(
-        &ws,
-        &mut meta,
-        &repo,
-        BTreeMap::new(),
-        Vec::new(),
-        &mut db,
+        |mut tx| tx.create_reference(new_ref.as_ref(), anchor, order),
     )?;
-    drop((ws, repo, db, meta));
     Ok(BranchCreateResult { workspace, new_ref })
 }
 
