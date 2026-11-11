@@ -1,9 +1,9 @@
 .tooltip {
 	display: flex;
 	align-items: center;
-	max-width: 240px;
-	padding: 6px 8px;
-	gap: 7px;
+	max-width: var(--but-size-tooltip-max);
+	padding: var(--but-padding-tooltip-block) var(--but-padding-tooltip-inline);
+	gap: var(--but-gap-tooltip);
 	transform-origin: var(--transform-origin);
 	border-radius: var(--but-radius-control);
 	background-color: var(--but-popover);
@@ -42,7 +42,7 @@
 }
 
 .withKbd {
-	padding-right: 6px;
+	padding-right: var(--but-padding-tooltip-block);
 
 	/* The shortcut keeps its intrinsic width; only the text wraps. */
 	& > :not(.content) {

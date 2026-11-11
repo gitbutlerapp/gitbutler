@@ -31,7 +31,7 @@ use gpui::{
 };
 
 use crate::state::{Area, Pane, Store};
-use crate::theme::Theme;
+use crate::theme::{Theme, tokens};
 pub use format::*;
 use illustration::{Illustration, illustration};
 
@@ -1061,12 +1061,19 @@ pub fn snackbar(
         .id(id)
         .role(Role::Alert)
         .aria_label(message.clone())
-        // As Figma's: 10px before a glyph and 14px before bare words; 14px after the words, or
-        // after a button 6px, as above and below it. Each a pixel less here, for the border.
-        .h(dp(32.))
-        .pl(dp(if warning { 9. } else { 13. }))
-        .pr(dp(if action.is_some() { 5. } else { 13. }))
-        .gap(dp(8.))
+        // As but-ui's: the start padding before a glyph and the end padding before bare words;
+        // the end padding after the words, or after a button the block padding, as above and
+        // below it. Each a pixel less here, for the border.
+        .h(dp(tokens::SIZE_SNACKBAR))
+        .pl(dp(match warning {
+            true => tokens::PADDING_SNACKBAR_START,
+            false => tokens::PADDING_SNACKBAR_END,
+        } - 1.))
+        .pr(dp(match action.is_some() {
+            true => tokens::PADDING_SNACKBAR_BLOCK,
+            false => tokens::PADDING_SNACKBAR_END,
+        } - 1.))
+        .gap(dp(tokens::GAP_SNACKBAR))
         .rounded(dp(theme.shape.popup))
         .border_1()
         .border_color(theme.snackbar_border)
@@ -1528,14 +1535,19 @@ impl Render for Tooltip {
             .flex_row()
             .items_center()
             .mt(dp(4.))
-            .max_w(dp(240.))
+            .max_w(dp(tokens::SIZE_TOOLTIP_MAX))
             .rounded(dp(theme.shape.control))
-            .px(dp(8.))
-            .py(dp(6.))
+            .pl(dp(tokens::PADDING_TOOLTIP_INLINE))
+            // After a shortcut, the block padding, as but-ui's does.
+            .pr(dp(match self.key.is_some() {
+                true => tokens::PADDING_TOOLTIP_BLOCK,
+                false => tokens::PADDING_TOOLTIP_INLINE,
+            }))
+            .py(dp(tokens::PADDING_TOOLTIP_BLOCK))
             .text_size(dp(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
-            .gap(dp(7.))
+            .gap(dp(tokens::GAP_TOOLTIP))
             // Within the cap, a long one wraps, a path between its characters.
             .child(div().min_w_0().child(self.text.clone()))
             .when_some(self.key.clone(), |el, key| {
