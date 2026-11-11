@@ -643,18 +643,11 @@ impl AppView {
                 // took the keys would go on being drawn without them.
                 window.on_next_frame(|window, _| window.refresh());
             }),
-            // The navigator ⌘1 brought out goes back once the keys leave it, as ⌘2 and ⌘3 take
-            // them. GPUI blurs it as another app comes in front too, which leaves it out.
-            cx.on_focus_out(
-                &navigator.focus_handle(cx),
-                window,
-                |this, _, window, cx| {
-                    // After the frame, as a notify while it's drawn draws nothing.
-                    if this.peek.keyed && window.is_window_active() {
-                        cx.defer_in(window, |this, window, cx| this.close_peek(window, cx));
-                    }
-                },
-            ),
+            // The navigator ⌘1 brought out goes back once the keys leave it and the terminal
+            // overview under it, as ⌘2 and ⌘3 take them. GPUI blurs it as another app comes in
+            // front too, which leaves it out.
+            cx.on_focus_out(&navigator.focus_handle(cx), window, Self::keys_left_peek),
+            cx.on_focus_out(&terminals.focus_handle(cx), window, Self::keys_left_peek),
         ];
         let this = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
@@ -1333,10 +1326,7 @@ impl AppView {
         // With nothing picked, the navigator ⌘1 brought out goes back, and with it the selection
         // and the keys to where ⌘1 was pressed, while that's still there.
         let store = self.store.read(cx);
-        if self.peek.keyed
-            && store.picked.is_empty()
-            && self.navigator.focus_handle(cx).contains_focused(window, cx)
-        {
+        if self.peek.keyed && store.picked.is_empty() && self.column_has_keys(window, cx) {
             return self.send_peek_back(window, cx);
         }
         // With nothing picked, the branch opened on the Branches page goes back to its table.
@@ -1387,7 +1377,7 @@ impl AppView {
         // Asking for the hidden navigator brings it out over the detail, as the pointer does,
         // and back beside it while it's still sliding away.
         if !self.navigator_open && !self.navigator_slide.closing(clock::now()) {
-            if !navigator.contains_focused(window, cx) {
+            if !self.column_has_keys(window, cx) {
                 self.peek.returns_to = self.selection(cx).map(|s| (s, window.focused(cx)));
             }
             self.peek.keyed = true;
@@ -1503,11 +1493,11 @@ impl AppView {
         });
     }
 
-    /// Whether the terminal overview is drawn under the navigator beside the panes, or across the
-    /// top, has a tab, whose card it's drawn in once the keys are there.
+    /// Whether the terminal overview is drawn under the navigator, beside the panes or out over
+    /// the detail, or across the top, has a tab, whose card it's drawn in once the keys are
+    /// there.
     fn terminals_shown(&self, cx: &App) -> bool {
-        let beside = self.navigator_shown() && !self.peek.open;
-        (beside || self.strip_is_navigator())
+        (self.navigator_shown() || self.strip_is_navigator())
             && self.store.read(cx).prefs.shows(Part::TerminalOverview)
     }
 
@@ -2387,9 +2377,7 @@ impl AppView {
             self.navigator_slide.start(navigator_open, cx);
         }
         self.navigator_open = navigator_open;
-        let column_has_keys = self.navigator.focus_handle(cx).contains_focused(window, cx)
-            || self.terminals.focus_handle(cx).contains_focused(window, cx);
-        if !navigator_open && column_has_keys {
+        if !navigator_open && self.column_has_keys(window, cx) {
             self.focus_past_navigator(window, cx);
         } else if navigator_open && self.detail.read(cx).keys_stranded(window, cx) {
             window.focus(&self.navigator.focus_handle(cx), cx);
@@ -2559,14 +2547,35 @@ impl AppView {
     }
 
     /// Whether the navigator out over the detail stays though the pointer strayed from it:
-    /// what was opened from it is over the window, a drag may be headed for it, its filter
-    /// has the keys, or it has them since ⌘1 brought it out. The pointer's next move looks
-    /// again.
+    /// what was opened from it is over the window, a drag may be headed for it, its filter or
+    /// a terminal's name being changed under it has the keys, or it or the terminal overview
+    /// has them since ⌘1 brought it out. The pointer's next move looks again.
     fn peek_held(&self, window: &Window, cx: &App) -> bool {
-        let navigator = self.navigator.focus_handle(cx);
-        let keys = navigator.contains_focused(window, cx);
-        let typing = keys && !navigator.is_focused(window);
+        let keys = self.column_has_keys(window, cx);
+        let typing = keys
+            && !self.navigator.focus_handle(cx).is_focused(window)
+            && !self.terminals.focus_handle(cx).is_focused(window);
         self.covered() || cx.has_active_drag() || typing || (self.peek.keyed && keys)
+    }
+
+    /// Whether the keys are on the navigator or the terminal overview under it.
+    fn column_has_keys(&self, window: &Window, cx: &App) -> bool {
+        self.navigator.focus_handle(cx).contains_focused(window, cx)
+            || self.terminals.focus_handle(cx).contains_focused(window, cx)
+    }
+
+    /// Send the navigator ⌘1 brought out back as the keys leave it or the terminal overview
+    /// under it, for somewhere else than the other.
+    fn keys_left_peek(
+        &mut self,
+        _: gpui::FocusOutEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // After the frame, as a notify while it's drawn draws nothing.
+        if self.peek.keyed && window.is_window_active() {
+            cx.defer_in(window, |this, window, cx| this.close_peek(window, cx));
+        }
     }
 
     /// Send the navigator ⌘1 brought out back, and with it the selection and the keys to where
@@ -2597,7 +2606,7 @@ impl AppView {
         self.peek.returns_to = None;
         self.peek.committing = false;
         self.peek.slide.start(false, cx);
-        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+        if self.column_has_keys(window, cx) {
             self.focus_past_navigator(window, cx);
         }
         cx.notify();
@@ -4517,7 +4526,7 @@ impl AppView {
             let navigator = div()
                 .w(dp(narrowing.navigator))
                 .h_full()
-                .child(self.render_side_column(false, window, cx));
+                .child(self.render_side_column(Column::Alone, window, cx));
             return div()
                 .absolute()
                 .inset_0()
@@ -4558,9 +4567,10 @@ impl AppView {
             .when(
                 self.navigator_open || self.navigator_slide.closing(now) || sliding,
                 |el| {
-                    let navigator = div()
-                        .size_full()
-                        .child(self.render_side_column(false, window, cx));
+                    let navigator =
+                        div()
+                            .size_full()
+                            .child(self.render_side_column(Column::Alone, window, cx));
                     el.child(
                         div()
                             .absolute()
@@ -4584,11 +4594,12 @@ impl AppView {
             })
     }
 
-    /// The column the navigator takes beside the panes, or the window with the details hidden:
-    /// the navigator, and under it, while Settings shows it, the terminal overview, as tall as
-    /// its rows up to a share of the column. `beside` the details, its right edge is in by as
-    /// much as the navigator's cards are.
-    fn render_side_column(&self, beside: bool, window: &Window, cx: &App) -> Div {
+    /// The column the navigator takes beside the panes, the window with the details hidden, or
+    /// the card out over the detail: the navigator, and under it, while Settings shows it, the
+    /// terminal overview, as tall as its rows up to a share of the column. Beside the details,
+    /// its right edge is in by as much as the navigator's cards are, and out over them, it's
+    /// the foot of the card, its corners rounded.
+    fn render_side_column(&self, at: Column, window: &Window, cx: &App) -> Div {
         let navigator = (self.navigator.clone()).cached(StyleRefinement::default().size_full());
         let store = self.store.read(cx);
         let shown = store.prefs.shows(Part::TerminalOverview);
@@ -4645,13 +4656,13 @@ impl AppView {
                 .h(dp(height + TERMINALS_MARGIN))
                 .max_h(relative(most))
                 .pl(dp(TERMINALS_MARGIN))
-                .pr(dp(if beside {
-                    TERMINALS_MARGIN - 1.
-                } else {
-                    TERMINALS_MARGIN
+                .pr(dp(match at {
+                    Column::Beside => TERMINALS_MARGIN - 1.,
+                    Column::Alone | Column::Out => TERMINALS_MARGIN,
                 }))
                 .pb(dp(TERMINALS_MARGIN))
                 .bg(theme.bg_2)
+                .when(at == Column::Out, |el| el.rounded_b(dp(theme.shape.popup)))
                 .child((self.terminals.clone()).cached(StyleRefinement::default().size_full()))
                 // Folded to its bar, it has no height to drag.
                 .when(!shut, |el| el.child(divider))
@@ -4673,30 +4684,43 @@ impl AppView {
             .children(terminals)
     }
 
-    /// The navigator out over the detail: a card sliding in from past the window's edge,
-    /// shadow and all, keeping its width as it goes.
+    /// The navigator out over the detail, the terminal overview under it as beside the panes: a
+    /// card sliding in from past the window's edge, shadow and all, keeping its width as it
+    /// goes.
     fn render_peek(&self, now: Instant, window: &Window, cx: &App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let width = self.detail.read(cx).navigator_width(now, window, cx);
         let away = PEEK_INSET + width + PEEK_SHADOW;
         let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
-        let navigator = div().size_full().child(
-            self.navigator
-                .clone()
-                .cached(StyleRefinement::default().size_full()),
-        );
+        let navigator = div()
+            .size_full()
+            .child(self.render_side_column(Column::Out, window, cx));
         div()
             .absolute()
             .top(dp(PEEK_INSET))
             .bottom(dp(PEEK_INSET))
             .left(dp(left))
             .w(dp(width))
+            .bg(theme.bg_2)
             .rounded(dp(theme.shape.popup))
+            .border_1()
+            .border_color(theme.border_2)
             .shadow_lg()
             // Over the detail, taking the pointer from it.
             .occlude()
             .child(inert(navigator, !self.peek.open))
     }
+}
+
+/// Where [`AppView::render_side_column`] is drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Column {
+    /// Beside the details.
+    Beside,
+    /// Taking the window, the details hidden, or sliding over them as they come and go.
+    Alone,
+    /// Out over the detail, as a card.
+    Out,
 }
 
 /// The project and id of the terminal `tile` shows, if it's a pinned terminal.
@@ -5782,7 +5806,7 @@ impl Render for AppView {
                                     let navigator = div()
                                         .w(dp(width))
                                         .h_full()
-                                        .child(self.render_side_column(true, window, cx));
+                                        .child(self.render_side_column(Column::Beside, window, cx));
                                     el.child(
                                         div()
                                             .w(dp(width * navigator_share))

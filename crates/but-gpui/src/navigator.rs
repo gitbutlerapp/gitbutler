@@ -5109,10 +5109,11 @@ impl Render for Navigator {
             .size_full()
             .relative()
             .bg(theme.bg_2)
-            // Out over the detail, it's a popover's card. GPUI cuts what's inside to a
-            // rectangle, so the drawer along its bottom rounds its own corners.
+            // Out over the detail, it's in a popover's card, which has the edge, with the
+            // terminal overview under it. GPUI cuts what's inside to a rectangle, so the drawer
+            // along its bottom rounds its own corners.
             .map(|el| match self.floating {
-                true => (el.rounded(dp(theme.shape.popup)).border_1()).border_color(theme.border_2),
+                true => el.rounded(dp(theme.shape.popup)),
                 // On the detail's ground, which its cards edge, nothing to edge against, but the
                 // room an edge took stays, so what's against the right doesn't move.
                 false => el.border_r_1().border_color(gpui::transparent_black()),
