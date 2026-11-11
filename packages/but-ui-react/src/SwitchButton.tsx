@@ -9,7 +9,11 @@ import styles from "./SwitchButton.module.css";
  *
  * @public
  */
-export type SwitchButtonVariant = "ghost" | "outline";
+export type SwitchButtonVariant =
+	/** For one inside something that already frames it, as a ghost button is. */
+	| "ghost"
+	/** For a control on open ground, as an outline button is. */
+	| "outline";
 
 type Props = Omit<ComponentProps<typeof Switch>, "className" | "id"> & {
 	/** Sits beside the switch and shares its hit area. */

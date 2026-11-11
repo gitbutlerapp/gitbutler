@@ -4,6 +4,13 @@ import type { ComponentProps, FC } from "react";
 import styles from "./Checkbox.module.css";
 
 /**
+ * A box for one choice among many that don't exclude each other, or for a row that can be picked
+ * alongside others.
+ *
+ * Indeterminate is filled like a checked box rather than drawn as an emptier third state: it stands
+ * for a folder with some of its files checked, so it belongs on the checked side. The ground behind
+ * the box is `--checkbox-bg`, so a row can sit it on its own background rather than the popup's.
+ *
  * @import import { Checkbox } from "@gitbutler/but-ui-react/Checkbox.tsx";
  */
 export const Checkbox: FC<Omit<ComponentProps<typeof BaseCheckbox.Root>, "children">> = (p) => (

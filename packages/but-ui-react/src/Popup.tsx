@@ -29,6 +29,9 @@ import {
  * and cannot be handed one. `anchored` is what {@link Dropdown} adds over {@link Modal}: it grows
  * out of the corner it is anchored to rather than fading in place.
  *
+ * @figma The drawing is the container alone: draw a modal's backdrop as a rectangle behind it, and
+ * a pane of groups on muted, by hand.
+ * @see packages/but-ui/design/patterns/modals.md
  * @public
  * @import import { Popup } from "@gitbutler/but-ui-react/Popup.tsx";
  */

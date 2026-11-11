@@ -89,6 +89,9 @@ const Separator: FC = () => <Icon name="chevron-right" size={10} className={styl
  * A level with an `href` or an `onClick` is a link. A level with a `menu` ends in a ⌃⌄ that opens
  * its siblings, to jump across rather than up.
  *
+ * @figma A level is a Crumb, with a CrumbSeparator between each; the levels that fold are one Crumb
+ * `state=folded`.
+ * @see packages/but-ui/design/components/location-bars.md
  * @import import { Breadcrumbs } from "@gitbutler/but-ui-react/Breadcrumbs.tsx";
  */
 export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {

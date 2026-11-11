@@ -14,6 +14,7 @@ export type AvatarSize = 14 | 16 | 18;
  * `ProfileImage` draws. Never a generated face, a blank or a broken image.
  * Decorative by default: the name beside it is what a screen reader reads, so give `alt`
  * only where it stands alone.
+ * @figma The sample is the login "tj": purple, T.
  * @import import { Avatar } from "@gitbutler/but-ui-react/Avatar.tsx";
  */
 export const Avatar: FC<{

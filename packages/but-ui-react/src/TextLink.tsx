@@ -12,6 +12,10 @@ type Props = Omit<ComponentProps<"a">, "href"> & {
  * typed, because the text fonts don't carry ↗ at every weight. How a link
  * leaves is the host's to say, through `onClick`: a web page can let the
  * anchor navigate, while Electron has to hand the URL to the system browser.
+ *
+ * @figma Figma draws one underline, so it is solid at rest as on hover; in code it sits at 40% of
+ * the text colour at rest.
+ * @see packages/but-ui/design/components/links.md
  * @import import { TextLink } from "@gitbutler/but-ui-react/TextLink.tsx";
  */
 export const TextLink: FC<Props> = ({ href, children, className, ...props }) => (

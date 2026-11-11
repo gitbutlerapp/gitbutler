@@ -29,6 +29,10 @@ const filled = (slot: ReactNode) => (slot === null || slot === false ? undefined
  * or leave out the link's `href`. A disabled control inside doesn't fade a second time. Say why in
  * the `description`.
  *
+ * @figma `trailing` is none, chevron or custom, which holds the control in the Trailing slot. The
+ * light is `online`. `disabled` fades the row on a Ground layer of its own, so it shows over a
+ * fill override; leave a control in Trailing enabled, as it fades with the row. Divider has no
+ * prop in code: a RowGroup draws the lines between rows.
  * @public
  * @import import { Cell } from "@gitbutler/but-ui-react/Cell.tsx";
  */

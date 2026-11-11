@@ -16,6 +16,9 @@ type Props = {
 } & ComponentProps<"span">;
 
 /**
+ * The one-letter mark of what happened to a file: A added, M modified, D deleted, R renamed.
+ * `status` is the change's status as the SDK names it.
+ *
  * @import import { FileStatusBadge } from "@gitbutler/but-ui-react/FileStatusBadge.tsx";
  */
 export const FileStatusBadge: FC<Props> = ({ status, ...props }) => (

@@ -66,6 +66,11 @@ export type TooltipProps = Omit<BaseTooltip.Root.Props, "children"> & {
  * A disabled button swallows hover, so give one under a tooltip `focusableWhenDisabled`, which
  * keeps it hoverable and focusable while it can't be pressed.
  *
+ * `kbd` shows the shortcut that does the same thing. With `kbdScope` it shows only while that
+ * shortcut would act from where focus is, so it never advertises one that does nothing there.
+ *
+ * @figma Draw it without the shortcut for anything only the pointer reaches.
+ * @see packages/but-ui/design/components/tooltips.md
  * @import import { Tooltip } from "@gitbutler/but-ui-react/Tooltip.tsx";
  */
 export const Tooltip: FC<TooltipProps> = ({

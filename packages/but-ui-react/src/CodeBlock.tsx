@@ -16,6 +16,7 @@ import { Fragment, type FC } from "react";
  * view, since copying is usually why the block is there. The copying is the host's, as
  * `CopyableId`'s is.
  *
+ * @figma Set Prompts to one $ per line of Code.
  * @public
  * @import import { CodeBlock } from "@gitbutler/but-ui-react/CodeBlock.tsx";
  */

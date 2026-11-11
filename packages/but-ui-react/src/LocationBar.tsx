@@ -26,6 +26,10 @@ const present = (node: ReactNode) => node !== undefined && node !== null && node
  * what it shows. Layout only; what goes in each part is the app's. The trail gives way before the
  * state does: it folds and ellipsizes, the state keeps its size.
  *
+ * @figma The state's parts (Also in 2 places, LiveStatus, Refresh) are but.dev's, Presence,
+ * LiveStatus and RefreshButton in its `web/src/components/Bits.tsx`, drawn here so the bar reads
+ * whole.
+ * @see packages/but-ui/design/components/location-bars.md
  * @import import { LocationBar, LocationBarDivider } from "@gitbutler/but-ui-react/LocationBar.tsx";
  */
 export const LocationBar: FC<Props> = ({ leading, state, children, className, ...props }) => (

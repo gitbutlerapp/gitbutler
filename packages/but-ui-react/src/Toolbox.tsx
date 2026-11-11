@@ -21,6 +21,11 @@ export const ToolboxStack: FC<ComponentProps<"div">> = (props) => (
  * being aimed, an absorb waiting on its plan. It states its subject in a {@link ToolboxMeta}
  * strip and stacks one {@link ToolboxSection} per decision the subject still needs.
  *
+ * An addon, such as a type selector qualifying what the toolbox will do, is a card of its own
+ * stacked above it in a {@link ToolboxStack}, not a section: it reads as a question asked before
+ * the operation.
+ *
+ * @figma Turn Divider on for each Toolbox / Section after the first.
  * @public
  * @import import { Toolbox } from "@gitbutler/but-ui-react/Toolbox.tsx";
  */

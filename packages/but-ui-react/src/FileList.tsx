@@ -213,6 +213,8 @@ export const FileList: FC<
  *   when it isn't zero.
  * - `labelRender` and `statusRender` wrap the name and the status, for tooltip triggers.
  *
+ * @figma `state` is the drawing's only: hover is the row under the pointer, which the code draws
+ * from CSS. `line counts` shows `added` and `removed`; edit the numbers on the DiffStats inside.
  * @public
  * @import import { FileList, FileListItem } from "@gitbutler/but-ui-react/FileList.tsx";
  */

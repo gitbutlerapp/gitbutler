@@ -53,6 +53,12 @@ const reviewLabels: Record<DiffFileReviewState, string> = {
  * It draws no border and doesn't stick on its own: `DiffFile` does both when
  * it holds the header over a diff, and a virtualized viewer that places its
  * own headers does them itself.
+ *
+ * It leads with the file's name and dims its folder, which gives way first when room runs out.
+ *
+ * @figma `collapsed` turns the chevron, and `reviewState` is the Reviewed box: `reviewed` ticks it,
+ * `changed` (reviewed, then changed since) shows it mixed. Turn `stats` off where there's no patch
+ * to count.
  * @import import { DiffFileHeader } from "@gitbutler/but-ui-react/DiffFileHeader.tsx";
  */
 export const DiffFileHeader: FC<Props> = ({

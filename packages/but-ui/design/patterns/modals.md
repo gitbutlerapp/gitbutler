@@ -18,6 +18,11 @@ modal: a list to search and pick from is a `PickerDialog` (its
 `CommandPalette` story), or, anchored to the control that opened it, Popup's
 combobox (its `SelectProject` story).
 
+**A pane of groups sits on muted.** A modal holding more than one group, like
+settings or the conflict resolver, puts them on `--but-muted` rather than the
+popup's own ground, so the groups read as cards rather than sections of one
+sheet.
+
 **One task per modal.** A modal asks one thing and closes on the answer. It
 may drill in one level: a list of choices whose pick opens that choice's step
 in the same modal, with Back in the header (`onBack` on `ModalHeader`) to

@@ -9,6 +9,7 @@ import type { ComponentProps, FC } from "react";
  * row has none of its own. For names and their values use `DescriptionList`; under a title, put it
  * in a `Section`.
  *
+ * @figma Put Cell rows in Items and turn Divider off on the last one: the card's border closes it.
  * @public
  * @import import { RowGroup } from "@gitbutler/but-ui-react/RowGroup.tsx";
  */

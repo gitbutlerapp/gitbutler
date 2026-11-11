@@ -24,6 +24,9 @@ type StatusBarProps = {
  * A note that doesn't fit drops whole from the end of the start, so put them in the order they
  * matter. An operation doesn't drop: its subject and place are ellipsed instead.
  *
+ * A failed fetch replaces "Fetched" with a danger {@link StatusNote}, "Couldn't fetch".
+ *
+ * @figma The GPUI client draws its own, in `crates/but-gpui/src/status_bar.rs`.
  * @import import { StatusBar } from "@gitbutler/but-ui-react/StatusBar.tsx";
  */
 export const StatusBar: FC<StatusBarProps> = ({ start, end, ...props }) => (

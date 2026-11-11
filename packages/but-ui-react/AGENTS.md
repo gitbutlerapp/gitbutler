@@ -127,9 +127,8 @@ changing any of those, run it and apply the file to 🍑 But UI with the Figma
 MCP's `use_figma`, setting each node's `description` (the REST API can't
 write one). `check` fails when the file is out of date, and with
 `FIGMA_API_KEY` and `FIGMA_FILE_KEY` set, when a drawing's description differs
-from it. Components move to this one at a time, as their words in Figma move
-into their JSDoc and notes: only those in the script's `MOVED` are written,
-and the rest keep the description written in Figma until then.
+from it. A component drawn as a section frame, such as Modal from its three
+parts, has no description; the script's `FRAMES` lists them.
 
 ## Verifying your work
 

@@ -80,6 +80,10 @@ type MetaCountProps = { type: MetaCountType } & (
  * Its `Tooltip` then says what pressing it does ("Push 4 commits"), not what it counts. The row
  * under it still gets the click, so a host that selects rows stops it there.
  *
+ *
+ * @figma `state=hover` is the drawing's only: what it draws under the pointer when it has
+ * `onClick`.
+ * @see packages/but-ui/design/components/meta-lines.md
  * @import import { MetaCount } from "@gitbutler/but-ui-react/MetaCount.tsx";
  */
 export const MetaCount: FC<MetaCountProps> = (props) => {

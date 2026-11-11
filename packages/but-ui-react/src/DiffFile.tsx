@@ -28,6 +28,8 @@ type Props = {
  *
  * The header sticks to the nearest scrolling ancestor, so nothing between the
  * card and that scroller may clip its overflow.
+ *
+ * @figma `collapsed` drops the diff and the divider under the header.
  * @import import { DiffFile } from "@gitbutler/but-ui-react/DiffFile.tsx";
  */
 export const DiffFile: FC<Props> = ({
