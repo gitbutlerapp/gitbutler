@@ -58,7 +58,6 @@ pub fn init(
         None
     };
     let subscriber = tracing_subscriber::registry().with(console_layer).with(
-        // subscriber that writes spans to a file
         tracing_subscriber::fmt::layer()
             .event_format(format_for_humans.clone())
             .with_ansi(false)
