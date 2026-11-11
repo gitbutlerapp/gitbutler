@@ -14,6 +14,7 @@ mod accounts;
 mod ai;
 mod cli;
 mod keyboard;
+mod launchers;
 mod mesh;
 mod metrics;
 mod project;
@@ -270,8 +271,8 @@ pub struct SettingsView {
     terminal_command: Entity<TextInput>,
     /// A custom accent, as typed.
     accent_color: Entity<TextInput>,
-    /// The commands "New terminal with command" offers, one a line, as typed until saved.
-    terminal_launchers: Entity<TextInput>,
+    /// The commands "New terminal with command" offers, as typed until saved.
+    launchers: launchers::Launchers,
     fetch_interval: Option<u64>,
     /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`. `None`
     /// while first read, as the metrics are, and their switches aren't drawn until then: one
@@ -336,12 +337,7 @@ impl SettingsView {
             input.load(accent, cx);
             input
         });
-        let launchers = store.read(cx).prefs.terminal_launchers().join("\n");
-        let terminal_launchers = cx.new(|cx| {
-            let mut input = TextInput::new("One command a line", true, cx);
-            input.load(launchers, cx);
-            input
-        });
+        let launchers = Self::launchers(&store, window, cx);
         let ai = ai::Ai::new(window, cx);
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, search, event, _, cx| match event {
@@ -399,17 +395,6 @@ impl SettingsView {
                 this.save_terminal_command(cx)
             }),
             cx.on_release(|this, cx| this.save_terminal_command(cx)),
-            cx.subscribe_in(&terminal_launchers, window, |this, _, event, window, cx| {
-                if let InputEvent::Cancel = event {
-                    this.reset_terminal_launchers(cx);
-                    this.back_to_search(window, cx);
-                }
-            }),
-            cx.on_blur(
-                &terminal_launchers.focus_handle(cx),
-                window,
-                |this, _, cx| this.save_terminal_launchers(cx),
-            ),
             cx.on_release(|this, cx| this.save_terminal_launchers(cx)),
         ];
         let unwatched = (page
@@ -428,7 +413,7 @@ impl SettingsView {
             terminals: Vec::new(),
             terminal_command,
             accent_color,
-            terminal_launchers,
+            launchers,
             fetch_interval: None,
             open_at_start: None,
             usage_metrics: None,
@@ -632,18 +617,6 @@ impl SettingsView {
         }
         let focused = self.terminal_command.focus_handle(cx).is_focused(window);
         row.with_below(field(&self.terminal_command, focused, Theme::get(cx)))
-    }
-
-    /// The commands "New terminal with command" offers.
-    fn terminal_launchers_row(&self, window: &Window, cx: &Context<Self>) -> Row {
-        let focused = self.terminal_launchers.focus_handle(cx).is_focused(window);
-        Row::new(
-            "New terminal with command",
-            "The commands it offers, one a line. Each runs through your shell.",
-            div(),
-        )
-        .with_keywords("claude codex agent command launcher")
-        .with_below(field(&self.terminal_launchers, focused, Theme::get(cx)))
     }
 
     /// Whether closing a terminal asks first.
@@ -862,26 +835,6 @@ impl SettingsView {
     fn reset_terminal_command(&mut self, cx: &mut Context<Self>) {
         let command = self.store.read(cx).prefs.terminal_command.clone();
         (self.terminal_command).update(cx, |input, cx| input.set_text(command, cx));
-    }
-
-    /// Save the commands as typed, one a line, unless they're what's saved already.
-    fn save_terminal_launchers(&self, cx: &mut App) {
-        let text = self.terminal_launchers.read(cx).text();
-        let launchers: Vec<String> = (text.lines().map(str::trim))
-            .filter(|line| !line.is_empty())
-            .map(str::to_owned)
-            .collect();
-        if launchers == self.store.read(cx).prefs.terminal_launchers() {
-            return;
-        }
-        (self.store).update(cx, |store, cx| {
-            store.set_prefs(|p| p.terminal_launchers = Some(launchers), cx)
-        });
-    }
-
-    fn reset_terminal_launchers(&mut self, cx: &mut Context<Self>) {
-        let launchers = self.store.read(cx).prefs.terminal_launchers().join("\n");
-        (self.terminal_launchers).update(cx, |input, cx| input.set_text(launchers, cx));
     }
 
     /// The theme, then how diffs show.
@@ -1989,6 +1942,7 @@ impl Render for SettingsView {
         if self.folds.any() {
             window.request_animation_frame();
         }
+        self.launchers_frame(window);
         let theme = Theme::get(cx).clone();
         let query = self.search.read(cx).text().trim().to_lowercase();
         let searching = !query.is_empty();
