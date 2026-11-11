@@ -159,7 +159,6 @@ fn persist_archive(mut lock: gix::lock::File) -> Result<PathBuf> {
         .with_context(|| format!("Could not persist archive '{}'", archive_path.display()))
 }
 
-/// Open the parent directory of `archive_path` unless disabled by the caller.
 fn open_archive_dir_unless_requested(archive_path: &Path, disabled: bool) -> Result<()> {
     if !disabled {
         let dir = archive_path.parent().unwrap_or_else(|| Path::new("."));
@@ -177,9 +176,7 @@ fn open_archive_dir_unless_requested(archive_path: &Path, disabled: bool) -> Res
 /// zip entries always use `/` separators regardless of the host platform.
 #[derive(Clone)]
 struct ArchiveLayout {
-    /// Root directory for worktree files in the archive.
     worktree_root: String,
-    /// Root directory for Git repository files in the archive.
     git_root: String,
 }
 
@@ -292,7 +289,6 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
         result
     }
 
-    /// Add generated diagnostics files directly below `archive_root`.
     fn add_diagnostics(
         &mut self,
         diagnostics: &diagnostics::Diagnostics,
@@ -412,9 +408,7 @@ impl<'progress, W: io::Write + io::Seek> ArchiveWriter<'progress, W> {
     }
 }
 
-/// Filesystem entry selected for inclusion in the archive.
 struct ArchiveEntry {
-    /// Source filesystem path to read from.
     path: PathBuf,
     /// Zip entry name to write, using `/` separators and rooted in the archive layout.
     entry_name: String,
@@ -423,8 +417,6 @@ struct ArchiveEntry {
 }
 
 impl ArchiveEntry {
-    /// Return the maximum number of source bytes expected to be read for `self`.
-    ///
     /// Regular files are streamed into the zip, so their file length contributes
     /// to the progress upper bound. Directories and symlinks do not read file
     /// contents from `path`, so they contribute zero bytes.
@@ -736,7 +728,6 @@ fn is_dot_git(relative: &Path) -> bool {
         .is_some_and(|component| matches!(component, Component::Normal(name) if name == ".git"))
 }
 
-/// Return true if `relative` is a linked-worktree layout file.
 fn is_link_layout_file(relative: &Path) -> bool {
     matches!(
         relative.components().next(),
@@ -752,8 +743,6 @@ fn is_worktree_registry(relative: &Path) -> bool {
     )
 }
 
-/// Return true if `relative` is tracked in `index`.
-///
 /// Directories use `is_dir` to switch to prefix matching so ignored directories
 /// containing tracked files are still archived.
 fn is_tracked(relative: &Path, is_dir: bool, index: &gix::index::State) -> gix::Result<bool> {
@@ -797,14 +786,12 @@ fn entry_name(root: &str, relative: &Path) -> Option<String> {
     Some(name)
 }
 
-/// Stores the output archive path and its normalized form.
 #[derive(Clone)]
 struct OutputPath {
     /// The path requested by the caller.
     path: PathBuf,
     /// The current directory used to resolve relative output paths.
     current_dir: PathBuf,
-    /// Lock file path used while writing the archive.
     lock_path: Option<PathBuf>,
     /// Realpath form of `path`, even when only parent directories exist.
     realpath: Option<PathBuf>,

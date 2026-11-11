@@ -15,7 +15,6 @@ use crate::{
     command::dump::default_output_path,
 };
 
-/// Capture diagnostics by discovering a GitButler context at `current_dir`.
 pub(super) fn capture_from_current_dir(
     current_dir: &Path,
     dot_timeout: Option<Duration>,
@@ -97,7 +96,6 @@ impl Diagnostics {
         Ok(Self { files })
     }
 
-    /// Write all diagnostics into `archive` below `archive_root`.
     pub(super) fn write_to_archive<W: io::Write + io::Seek>(
         &self,
         archive: &mut ZipWriter<W>,
@@ -133,7 +131,6 @@ pub(super) fn dot_timeout(seconds: u32) -> Option<Duration> {
 struct DiagnosticFile {
     /// Path below the diagnostics archive root, using zip `/` separators.
     relative_path: &'static str,
-    /// Complete bytes written to the archive entry at `relative_path`.
     contents: Vec<u8>,
 }
 

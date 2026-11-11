@@ -8,7 +8,6 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-/// Initialize tracing output according to the requested verbosity.
 pub(crate) fn init(trace_level: u8) -> Result<()> {
     if trace_level == 0 {
         return Ok(());

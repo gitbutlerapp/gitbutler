@@ -15,9 +15,7 @@ pub(super) struct DumpProgress {
     renderer: Option<prodash::render::line::JoinHandle>,
     /// Parent task grouping all dump counters as a headline.
     _task: prodash::tree::Item,
-    /// Counter for bytes read from repository files.
     bytes_read: prodash::tree::Item,
-    /// Counter for bytes written to the archive file.
     bytes_written: prodash::tree::Item,
     /// Counter for regular files and symlinks added to the archive.
     files_processed: prodash::tree::Item,

@@ -16,7 +16,6 @@ enum DotMode {
     Print,
     /// Open the DOT representation as SVG.
     OpenAsSvg,
-    /// Debug-print the internal graph structure.
     Debug,
 }
 
