@@ -84,9 +84,22 @@ fn main() -> anyhow::Result<()> {
     } else {
         custom_settings
     };
+    // Every GitButler client writes the settings file the first time it runs, so without one,
+    // this is the first launch on this machine.
+    #[cfg(feature = "builtin-gpui")]
+    let first_launch = !but_settings::AppSettings::default_settings_path(&config_dir).exists();
     let mut app_settings =
         AppSettingsWithDiskSync::new_with_customization(config_dir, custom_settings)
             .expect("failed to create app settings");
+    // New users start in the native client. The choice is saved, so turning it off later stays
+    // off. Users who had settings from an older version are not new.
+    #[cfg(feature = "builtin-gpui")]
+    if first_launch && !app_settings.get()?.telemetry.migrated_from_legacy {
+        app_settings.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+            gpui: Some(true),
+            ..Default::default()
+        })?;
+    }
 
     // The native client, on the same settings, accounts and keychain entries. It owns the main
     // thread until it quits, so it starts here, before Tauri does.
