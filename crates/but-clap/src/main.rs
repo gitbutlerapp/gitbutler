@@ -16,7 +16,6 @@ fn main() -> Result<()> {
 
     let app = but::args::Args::command();
 
-    // Generate documentation for each non-hidden subcommand
     for subcommand in app.get_subcommands() {
         if subcommand.is_hide_set() {
             continue;

@@ -19,7 +19,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
     let usage = generate_usage(cmd);
     output.push_str(&format!("**Usage:** `{usage}`\n\n"));
 
-    // Add subcommands section if there are any
     let subcommands: Vec<_> = cmd
         .get_subcommands()
         .filter(|sub| !sub.is_hide_set())
@@ -32,7 +31,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
 
             output.push_str(&format!("### `but {} {}`\n\n", cmd.get_name(), sub_name));
 
-            // Add subcommand long description
             if let Some(long_about) = subcmd.get_long_about() {
                 output.push_str(&format!("{long_about}\n\n"));
             } else if let Some(about) = subcmd.get_about() {
@@ -42,7 +40,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
             let sub_usage = generate_usage_for_subcommand(cmd.get_name(), subcmd);
             output.push_str(&format!("**Usage:** `{sub_usage}`\n\n"));
 
-            // Add subcommand arguments
             let args: Vec<_> = subcmd
                 .get_positionals()
                 .filter(|arg| !arg.is_hide_set())
@@ -55,7 +52,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
                 output.push('\n');
             }
 
-            // Add subcommand options/flags
             let opts: Vec<_> = subcmd.get_opts().filter(|arg| !arg.is_hide_set()).collect();
             if !opts.is_empty() {
                 output.push_str("**Options:**\n\n");
@@ -80,7 +76,6 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
         output.push('\n');
     }
 
-    // Add options/flags for the main command
     let opts: Vec<_> = cmd.get_opts().filter(|arg| !arg.is_hide_set()).collect();
     if !opts.is_empty() {
         output.push_str("## Options\n\n");
@@ -169,7 +164,6 @@ fn get_description_and_body(cmd: &Command) -> (String, Option<String>) {
 fn generate_usage(cmd: &Command) -> String {
     let mut usage = format!("but {}", cmd.get_name());
 
-    // Add subcommands indicator if present
     if cmd.has_subcommands() {
         usage.push_str(" <COMMAND>");
     }
@@ -186,7 +180,6 @@ fn generate_usage(cmd: &Command) -> String {
         }
     }
 
-    // Add options indicator
     if cmd.get_opts().any(|opt| !opt.is_hide_set()) {
         usage.push_str(" [OPTIONS]");
     }
@@ -209,7 +202,6 @@ fn generate_usage_for_subcommand(parent: &str, cmd: &Command) -> String {
         }
     }
 
-    // Add options indicator
     if cmd.get_opts().any(|opt| !opt.is_hide_set()) {
         usage.push_str(" [OPTIONS]");
     }
@@ -238,7 +230,6 @@ fn generate_argument_doc(arg: &Arg) -> String {
 fn generate_option_doc(opt: &Arg) -> String {
     let mut doc = String::new();
 
-    // Build the option signature
     let mut sig = String::new();
 
     if let Some(short) = opt.get_short() {
@@ -252,7 +243,6 @@ fn generate_option_doc(opt: &Arg) -> String {
         sig.push_str(&format!("`--{long}`"));
     }
 
-    // Add value name if it takes a value
     if opt.get_action().takes_values() {
         let value_name = opt
             .get_value_names()
