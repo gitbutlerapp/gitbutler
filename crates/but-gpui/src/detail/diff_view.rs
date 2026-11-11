@@ -1368,21 +1368,30 @@ impl Detail {
                         let open = open.clone();
                         move |event, window, cx| open(event.position(), window, cx)
                     });
-                // Of commits shown one after another, which one it's from.
-                let from = (file_diff.commit).and_then(|id| {
-                    let store = self.store.read(cx);
-                    let (_, commit) = store.workspace(&diff.key.project)?.find_commit(id)?;
-                    Some(
-                        div()
-                            .max_w(dp(220.))
-                            .truncate()
-                            .text_size(dp(11.))
-                            .text_color(match on {
-                                true => theme.muted_on_solid(),
-                                false => theme.text_3,
-                            })
-                            .child(commit_title(&commit.title)),
-                    )
+                // In a diff of several commits, the one it's from, where its changes are taken
+                // from. One that several of a branch's commits changed says so, as nothing is
+                // taken from it here.
+                let from = match file_diff.commit {
+                    Some(id) => (store.workspace(&diff.key.project))
+                        .and_then(|workspace| workspace.find_commit(id))
+                        .map(|(_, commit)| (commit_title(&commit.title), None)),
+                    None => matches!(diff.key.source, DiffSource::Range { .. }).then(|| {
+                        let why = "Open one of its commits to move or take out its changes";
+                        ("Several commits".into(), Some(Tooltip::text(why)))
+                    }),
+                };
+                let from = from.map(|(label, why): (SharedString, _)| {
+                    div()
+                        .id(("file-from", ix))
+                        .max_w(dp(220.))
+                        .truncate()
+                        .text_size(dp(11.))
+                        .text_color(match on {
+                            true => theme.muted_on_solid(),
+                            false => theme.text_3,
+                        })
+                        .child(label)
+                        .when_some(why, |el, why| el.tooltip(why))
                 });
                 // Hidden controls leave the counts and buttons to the menu and the keys.
                 let controls = store.prefs.shows(Part::FileHeaderControls);
@@ -1887,7 +1896,8 @@ impl Detail {
 
     /// What line `place` (its file, hunk and index in the hunk) offers in its numbers outside
     /// the composer: picking it, and a grip that drags what it takes. None for an unchanged
-    /// line, and in a diff whose changes can't move, like a branch's.
+    /// line, and for a file whose changes can't move, like one several commits of a branch
+    /// changed.
     fn line_gutter(
         &self,
         place: (usize, usize, usize),
@@ -1902,8 +1912,8 @@ impl Detail {
         if !changed || self.composes() {
             return None;
         }
-        // Lines of a diff nothing can be taken from have no grip, nor numbers to pick.
-        self.owned_changes(Vec::new(), cx)?;
+        // Lines of a file nothing can be taken from have no grip, nor numbers to pick.
+        self.taken_from(self.diff.as_ref()?, || diff_file.commit, cx)?;
         let picked = self.line_picked(&diff_file.file.path, key, line);
         // What a grip takes is worked out for the one under the pointer only, afresh as lines
         // get picked or the diff changes: it can be a whole file's lines, too many to work out

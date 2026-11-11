@@ -1157,7 +1157,9 @@ impl Navigator {
         let moving = Move {
             project: project.clone(),
             what: what.clone(),
-            at: stops.get(start)?.clone(),
+            // With its own row out of sight, as a commit's is in a folded branch or past the
+            // commits a branch lists, it starts at the first place it can go.
+            at: stops.get(start).or(stops.first())?.clone(),
             op,
         };
         (stops.len() > 1 || moving.lands(self.store.read(cx))).then_some(moving)

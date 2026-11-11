@@ -56,7 +56,9 @@ fn change_kind(lines: bool, files: &[Selected]) -> &'static str {
         (false, false, _) => "files",
     }
 }
-use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{
+    self, Checkout, CommitId, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+};
 use crate::clipboard;
 use crate::detail::Stop;
 use crate::navigator::upstream_label;
@@ -250,6 +252,18 @@ fn header_row() -> Div {
         .pr(dp(12.))
         .gap(dp(8.))
         .text_size(dp(12.))
+}
+
+/// The one commit that made all of `files` in `diff`, a range of commits, by what each of its
+/// files says ([`FileDiff::commit`]). `None` when they're of different commits, or several
+/// commits changed one of them.
+fn sole_commit(diff: &LoadedDiff, files: &[Selected]) -> Option<CommitId> {
+    let paths: HashSet<&str> = files.iter().map(|file| file.file.path.as_str()).collect();
+    let mut made = (diff.files.iter())
+        .filter(|file| paths.contains(file.file.path.as_str()))
+        .map(|file| file.commit);
+    let first = made.next()??;
+    made.all(|commit| commit == Some(first)).then_some(first)
 }
 
 impl Detail {
@@ -755,11 +769,10 @@ impl Detail {
         };
         let here = match source {
             FileSource::Uncommitted(p, w) => from.is_none() && (p, w) == (project, worktree),
-            FileSource::Diff => matches!(
-                self.owned_changes(Vec::new(), cx),
-                Some((p, Changes { from: f, worktree: w, .. }))
-                    if (&p, &f, &w) == (project, from, worktree)
-            ),
+            FileSource::Diff => self.diff.as_ref().is_some_and(|diff| {
+                let taken = self.taken_from(diff, || sole_commit(diff, files), cx);
+                &diff.key.project == project && taken == Some((*from, worktree.clone()))
+            }),
         };
         (files.iter())
             .filter(|file| here && file.hunks.is_none())
@@ -767,36 +780,48 @@ impl Detail {
             .collect()
     }
 
-    /// `files` of the loaded diff as changes, to move or take out of where they are:
-    /// a commit listed in the navigator, or a checkout's uncommitted changes. A branch's diff
-    /// spans commits, and a commit of the target's history, on the project page, isn't the
-    /// workspace's to change: their files aren't.
+    /// `files` of the loaded diff as changes, to move or take out of where they are, if
+    /// [`Self::taken_from`] has one place for them all.
     pub(super) fn owned_changes(
         &self,
         files: Vec<Selected>,
         cx: &App,
     ) -> Option<(ProjectId, Changes)> {
-        let key = &self.diff.as_ref()?.key;
-        let (from, worktree) = match &key.source {
-            DiffSource::Worktree => (None, Checkout::Main),
-            DiffSource::Linked(name) => (None, Checkout::Linked(name.clone())),
-            // Not a conflicted commit's, which nothing takes from until it's resolved.
-            DiffSource::Commit(id)
-                if (self.store.read(cx).workspace(&key.project)).is_some_and(|ws| {
-                    ws.commits()
-                        .any(|commit| commit.id == *id && !commit.conflicted)
-                }) =>
-            {
-                (Some(*id), Checkout::Main)
-            }
-            _ => return None,
-        };
+        let diff = self.diff.as_ref()?;
+        let (from, worktree) = self.taken_from(diff, || sole_commit(diff, &files), cx)?;
         let changes = Changes {
             from,
             worktree,
             files: files.into(),
         };
-        Some((key.project.clone(), changes))
+        Some((diff.key.project.clone(), changes))
+    }
+
+    /// Where changes of `diff`, the loaded one, are taken from: a commit listed in the
+    /// navigator, or with `None` a checkout's uncommitted changes. A range of commits, as a
+    /// branch's diff is, takes them from the commit that `made` them, as each file says
+    /// ([`FileDiff::commit`]). Commits shown one after another can change one path twice, and
+    /// a commit of the target's history, on the project page, isn't the workspace's to
+    /// change: their files aren't.
+    pub(super) fn taken_from(
+        &self,
+        diff: &LoadedDiff,
+        made: impl FnOnce() -> Option<CommitId>,
+        cx: &App,
+    ) -> Option<(Option<CommitId>, Checkout)> {
+        let commit = match &diff.key.source {
+            DiffSource::Worktree => return Some((None, Checkout::Main)),
+            DiffSource::Linked(name) => return Some((None, Checkout::Linked(name.clone()))),
+            DiffSource::Commit(id) => *id,
+            DiffSource::Range { .. } => made()?,
+            DiffSource::Commits(_) | DiffSource::Branch { .. } | DiffSource::Snapshot { .. } => {
+                return None;
+            }
+        };
+        // Not a conflicted commit's, which nothing takes from until it's resolved.
+        (self.store.read(cx).workspace(&diff.key.project)?.commits())
+            .any(|listed| listed.id == commit && !listed.conflicted)
+            .then_some((Some(commit), Checkout::Main))
     }
 
     /// What the keys in the diff act on: the picked lines, or the picked files, or else the hunk
@@ -1967,16 +1992,20 @@ impl Detail {
             None => el.when(files.iter().any(|f| f.file.conflicted), |el| {
                 el.on_action(cx.listener(|this, _: &MarkResolved, _, cx| this.mark_resolved(cx)))
             }),
-            // All of it would leave the message on an empty commit.
-            Some(_) => el
-                .on_action(cx.listener(|this, _: &UncommitChanges, window, cx| {
+            // All of a commit's changes would leave its message on an empty commit, which only
+            // the commit's own diff can rule out: a branch's doesn't show all it changes.
+            Some(_) => {
+                let own = (self.diff.as_ref())
+                    .is_some_and(|diff| matches!(diff.key.source, DiffSource::Commit(_)));
+                el.on_action(cx.listener(|this, _: &UncommitChanges, window, cx| {
                     this.take_from_commit(Taken::Uncommit, window, cx)
                 }))
-                .when(!self.takes_all(&files), |el| {
+                .when(own && !self.takes_all(&files), |el| {
                     el.on_action(cx.listener(|this, _: &SplitIntoNewCommit, window, cx| {
                         this.take_from_commit(Taken::Split, window, cx)
                     }))
-                }),
+                })
+            }
         }
     }
 

@@ -1186,7 +1186,10 @@ impl AppView {
     fn detail_changes(&self, cx: &App) -> Option<(ProjectId, Changes)> {
         let detail = self.detail.read(cx);
         match self.selection(cx) {
-            Some(Selection::Commit(..)) => detail.cursor_changes(cx),
+            // A branch's or a stack's diff has them of the commits that made them.
+            Some(Selection::Commit(..) | Selection::Branch(..) | Selection::Stack(..)) => {
+                detail.cursor_changes(cx)
+            }
             Some(Selection::Uncommitted(..)) if !detail.composing() => detail.cursor_changes(cx),
             Some(Selection::Uncommitted(..)) => {
                 (detail.selected_checkout()).and_then(|(project, worktree)| {
@@ -5518,7 +5521,12 @@ impl Render for AppView {
             .when(
                 matches!(
                     self.store.read(cx).selection,
-                    Some(Selection::Commit(..) | Selection::Uncommitted(..))
+                    Some(
+                        Selection::Commit(..)
+                            | Selection::Branch(..)
+                            | Selection::Stack(..)
+                            | Selection::Uncommitted(..)
+                    )
                 ),
                 |el| el.on_action(cx.listener(Self::squash_from_detail)),
             )

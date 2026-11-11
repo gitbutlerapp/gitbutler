@@ -551,7 +551,7 @@ impl AppView {
                         separated |= item.separated;
                         return None;
                     }
-                    if let Some(phrase) = command.phrase(self, cx) {
+                    if let Some(phrase) = command.phrase(self, window, cx) {
                         item.label = phrase.into();
                     }
                 }
