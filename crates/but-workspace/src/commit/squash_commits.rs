@@ -1,7 +1,8 @@
 //! An action to squash multiple commits into a target commit.
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use but_core::RefMetadata;
+use but_error::bail_precondition;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
@@ -16,6 +17,20 @@ pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Selector pointing to the squashed replacement commit.
     pub commit_selector: Selector,
+}
+
+/// Why [`squash_commits()`] refused: a subject conflicts once it is moved next to the target,
+/// because commits between them change the same lines.
+///
+/// It sits below the [`but_error::Context`] with the message, so callers can tell this refusal
+/// from other preconditions by downcasting to it.
+#[derive(Debug)]
+pub struct SquashConflicts;
+
+impl std::fmt::Display for SquashConflicts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("squashed commits would conflict")
+    }
 }
 
 /// Append `message` to `combined`, inserting enough newlines so there are at
@@ -89,7 +104,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     let mut seen_subjects = std::collections::HashSet::with_capacity(subjects.len());
 
     if subjects.is_empty() {
-        bail!("Need at least 2 commits to squash")
+        bail_precondition!("Need at least 2 commits to squash")
     }
 
     let (target_commit_selector, target_commit_obj) =
@@ -99,7 +114,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     for subject_commit in subjects {
         let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
         if subject_commit_selector == target_commit_selector {
-            bail!("Cannot squash a commit into itself")
+            bail_precondition!("Cannot squash a commit into itself")
         }
         if !seen_subjects.insert(subject_commit_selector) {
             continue;
@@ -149,7 +164,12 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     for subject in &subject_selectors {
         let (_, commit) = editor.find_selectable_commit(*subject)?;
         if commit.attach(editor.repo()).is_conflicted() {
-            bail!("Cannot squash commits that would result in merge conflicts");
+            return Err(
+                anyhow::anyhow!(SquashConflicts).context(but_error::Context::new_static(
+                    but_error::Code::PreconditionFailed,
+                    "Cannot squash commits that would result in merge conflicts",
+                )),
+            );
         }
     }
     let child_most = *lineage

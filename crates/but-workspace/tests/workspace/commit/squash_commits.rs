@@ -448,6 +448,12 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
         err.to_string(),
         "Cannot squash commits that would result in merge conflicts"
     );
+    assert_eq!(
+        err.downcast_ref::<but_error::Context>()
+            .map(|refusal| refusal.code),
+        Some(but_error::Code::PreconditionFailed),
+        "the state refuses the squash, nothing broke"
+    );
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

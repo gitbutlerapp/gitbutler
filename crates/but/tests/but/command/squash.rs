@@ -776,6 +776,8 @@ fn cannot_squash_commit_into_itself() {
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot squash a commit into itself
 
+Hint: Use a --target that is not also a source
+
 "#]]);
 }
 
@@ -824,6 +826,9 @@ fn aborts_on_conflicts() {
     env.file("file.txt", "changed file content");
     env.but("commit -m 'change file'").assert().success();
 
+    env.file("other.txt", "other content");
+    env.but("commit -m 'add other file'").assert().success();
+
     env.remove_file("file.txt");
     env.but("commit -m 'remove file'").assert().success();
 
@@ -834,8 +839,10 @@ fn aborts_on_conflicts() {
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ br [a-branch-1]
-┊●   nwl remove file
-┊│     nwl:u D file.txt
+┊●   nvz remove file
+┊│     nvz:u D file.txt
+┊●   pkx add other file
+┊│     pkx:x A other.txt
 ┊●   lyo change file
 ┊│     lyo:u M file.txt
 ┊●   oyv add file
@@ -848,13 +855,18 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("squash nwl -t oyv")
+    // The hint names the commit that also changes file.txt, but not the one that adds other.txt.
+    env.but("squash nvz -t oyv")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot squash commits that would result in merge conflicts
 
+Hint: Earlier commits change the same lines. To squash them along, run `but squash nvz lyo -t oyv`
+
 "#]]);
+
+    env.but("squash nvz lyo -t oyv -u").assert().success();
 }
 
 #[test]
