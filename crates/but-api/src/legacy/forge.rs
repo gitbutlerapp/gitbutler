@@ -1446,13 +1446,15 @@ pub async fn merge_review(
     .await
 }
 
-/// Enable or disable a review's auto-merge.
+/// Enable or disable a review's auto-merge, merging by `merge_method`, or with `None` the
+/// way the forge offers the user first.
 #[but_api(refreshes)]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
     review_id: usize,
     enable: bool,
+    merge_method: Option<but_forge::ReviewMergeMethod>,
 ) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = forge_endpoint_context(ctx)?;
 
@@ -1461,6 +1463,7 @@ pub async fn set_review_auto_merge(
         &forge_repo_info,
         review_id,
         enable,
+        merge_method,
         &storage,
     )
     .await

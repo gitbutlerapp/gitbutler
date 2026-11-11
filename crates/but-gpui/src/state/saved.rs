@@ -124,6 +124,14 @@ impl Store {
         self.prefs.run_hooks.contains(project.as_ref())
     }
 
+    /// How pull requests in `project` merge, if one was picked there.
+    pub fn picked_merge_method(
+        &self,
+        project: &super::ProjectId,
+    ) -> Option<crate::backend::reviews::MergeMethod> {
+        self.prefs.merge_methods.get(project.as_ref()).copied()
+    }
+
     pub fn project_icon(&self, project: &super::ProjectId) -> Option<&str> {
         self.prefs
             .project_icons

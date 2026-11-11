@@ -328,15 +328,16 @@ pub struct Published {
 }
 
 /// Push `ref_name` and the branches below it, those that have anything to push, then open a
-/// pull request for it, with `auto_merge` turning its auto-merge on. `run_hooks` runs the
-/// pre-push hook first. Done says why it failed, a refused push included, so the card can offer
-/// to try again.
+/// pull request for it, with `auto_merge` turning its auto-merge on, merging by `merge_method`
+/// as [`SetAutoMerge`] does. `run_hooks` runs the pre-push hook first. Done says why it failed,
+/// a refused push included, so the card can offer to try again.
 pub struct Publish {
     pub ref_name: super::FullName,
     pub title: String,
     pub body: String,
     pub draft: bool,
     pub auto_merge: bool,
+    pub merge_method: Option<MergeMethod>,
     pub run_hooks: bool,
 }
 
@@ -360,6 +361,7 @@ impl Publish {
             body,
             draft,
             auto_merge,
+            merge_method,
             run_hooks,
         } = self;
         // The pull request's head is the branch as the remote names it: what a push reports,
@@ -384,7 +386,7 @@ impl Publish {
         let number = outcome.review.number as u64;
         // It's open by now, so a failure here only says so, as trying again would open another.
         let auto_merge_failed = match auto_merge {
-            true => set_auto_merge(&ctx, number, true).err(),
+            true => set_auto_merge(&ctx, number, true, merge_method).err(),
             false => None,
         };
         Ok(Published {
@@ -463,17 +465,19 @@ pub fn merge_status(path: &Path, number: u64) -> Result<MergeStatus> {
     (runtime().handle()).block_on(forge::get_review_merge_status(ctx, number as usize))
 }
 
-/// Turn auto-merge of pull request `number` on or off.
+/// Turn auto-merge of pull request `number` on or off, merging by `method` once it can, or with
+/// `None` the way the forge offers first.
 pub struct SetAutoMerge {
     pub number: u64,
     pub on: bool,
+    pub method: Option<MergeMethod>,
 }
 
 impl Intent for SetAutoMerge {
     type Done = ();
 
     fn apply(self, run: &mut Run) -> Result<()> {
-        set_auto_merge(run.ctx(), self.number, self.on)
+        set_auto_merge(run.ctx(), self.number, self.on, self.method)
     }
 
     fn kind(&self) -> OpKind {
@@ -481,13 +485,15 @@ impl Intent for SetAutoMerge {
     }
 }
 
-/// Turn auto-merge of pull request `number` on or off. Asking for the request again records
-/// that in the cache, so the reload after shows it.
-fn set_auto_merge(ctx: &Context, number: u64, on: bool) -> Result<()> {
+/// Turn auto-merge of pull request `number` on or off, merging by `method`, or with `None` the
+/// way the forge offers first. Asking for the request again records that in the cache, so the
+/// reload after shows it.
+fn set_auto_merge(ctx: &Context, number: u64, on: bool, method: Option<MergeMethod>) -> Result<()> {
     (runtime().handle()).block_on(forge::set_review_auto_merge(
         ctx.to_sync(),
         number as usize,
         on,
+        method,
     ))?;
     if let Err(err) = forge::get_review(ctx, number as usize) {
         tracing::warn!(
