@@ -17,12 +17,9 @@ pub struct CachedProfile {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ForgeSettings {
-    /// GitHub-specific settings.
     pub github: GitHubSettings,
-    /// GitLab-specific settings.
     #[serde(default)]
     pub gitlab: GitLabSettings,
-    /// Bitbucket-specific settings.
     #[serde(default)]
     pub bitbucket: BitbucketSettings,
     /// Cached user profiles, keyed by account `access_token_key`.
@@ -33,7 +30,6 @@ pub struct ForgeSettings {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitHubSettings {
-    /// GitHub-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitHubAccount>,
 }
@@ -90,7 +86,6 @@ impl GitHubAccount {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitLabSettings {
-    /// GitLab-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitLabAccount>,
 }
@@ -137,7 +132,6 @@ impl GitLabAccount {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketSettings {
-    /// Bitbucket-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<BitbucketAccount>,
 }

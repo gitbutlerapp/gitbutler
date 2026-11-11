@@ -15,7 +15,6 @@ impl Controller {
         }
     }
 
-    /// Get all known GitHub accounts.
     pub fn github_accounts(&self) -> anyhow::Result<Vec<crate::settings::GitHubAccount>> {
         let settings = self.read_settings()?;
         Ok(settings.github.known_accounts)
@@ -36,7 +35,6 @@ impl Controller {
         self.save_settings(&settings)
     }
 
-    /// Clear all GitHub accounts.
     /// Returns the list of access token keys that should be deleted.
     pub fn clear_all_github_accounts(&self) -> anyhow::Result<Vec<String>> {
         let mut settings = self.read_settings()?;
@@ -89,7 +87,6 @@ impl Controller {
         self.save_settings(&settings)
     }
 
-    /// Get all known GitLab accounts.
     pub fn gitlab_accounts(&self) -> anyhow::Result<Vec<crate::settings::GitLabAccount>> {
         let settings = self.read_settings()?;
         Ok(settings.gitlab.known_accounts)
@@ -110,7 +107,6 @@ impl Controller {
         self.save_settings(&settings)
     }
 
-    /// Clear all GitLab accounts.
     /// Returns the list of access token keys that should be deleted.
     pub fn clear_all_gitlab_accounts(&self) -> anyhow::Result<Vec<String>> {
         let mut settings = self.read_settings()?;
@@ -140,7 +136,6 @@ impl Controller {
         self.save_settings(&settings)
     }
 
-    /// Get all known Bitbucket accounts.
     pub fn bitbucket_accounts(&self) -> anyhow::Result<Vec<crate::settings::BitbucketAccount>> {
         let settings = self.read_settings()?;
         Ok(settings.bitbucket.known_accounts)
@@ -166,7 +161,6 @@ impl Controller {
         self.save_settings(&settings)
     }
 
-    /// Clear all Bitbucket accounts.
     /// Returns the list of access token keys that should be deleted.
     pub fn clear_all_bitbucket_accounts(&self) -> anyhow::Result<Vec<String>> {
         let mut settings = self.read_settings()?;
