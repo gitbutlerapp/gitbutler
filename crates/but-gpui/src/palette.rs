@@ -1632,6 +1632,27 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.pick_terminal_command(None, window, cx);
+    }
+
+    /// Pick a command for a new terminal as [`AppView::new_terminal_with`] does, opened in a
+    /// tile beside the one with the keys along `axis`, as [`Store::pin_terminal`] opens one.
+    pub fn new_terminal_with_beside(
+        &mut self,
+        axis: Axis,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = self.focused_tile(window, cx);
+        self.pick_terminal_command(Some((at, axis)), window, cx);
+    }
+
+    fn pick_terminal_command(
+        &mut self,
+        beside: Option<(Tile, Axis)>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.read(cx);
         let Some(selection) = store.selection.as_ref() else {
             return;
@@ -1639,10 +1660,11 @@ impl AppView {
         let project = selection.project().clone();
         let checkout = store.checkout_of(selection).unwrap_or(Checkout::Main);
         let commands = store.prefs.terminal_launchers().into_iter().map(|command| {
-            let (project, checkout) = (project.clone(), checkout.clone());
+            let (project, checkout, beside) = (project.clone(), checkout.clone(), beside.clone());
             Choice::new(command.clone(), move |this, _, cx| {
-                (this.store).update(cx, |store, cx| {
-                    store.open_terminal_running(project, checkout, command, cx)
+                (this.store).update(cx, |store, cx| match beside {
+                    Some((at, axis)) => store.pin_terminal_running(at, axis, command, cx),
+                    None => store.open_terminal_running(project, checkout, command, cx),
                 })
             })
             .icon(Icon::TextCode)

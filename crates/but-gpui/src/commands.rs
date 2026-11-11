@@ -348,6 +348,12 @@ commands! {
     crate::app::NewTerminalBelow => "New terminal below" {
         aliases: &["Split terminal below", "Split terminal down", "Terminal below"],
     },
+    crate::app::NewTerminalWithRight => "New terminal with command to the right" {
+        aliases: &["Run in new terminal to the right", "New agent terminal to the right"],
+    },
+    crate::app::NewTerminalWithBelow => "New terminal with command below" {
+        aliases: &["Run in new terminal below", "New agent terminal below"],
+    },
     crate::app::EqualizeTiles => "Equalize tiles" {
         aliases: &["Equalize splits", "Even out tiles", "Balance tiles", "Balance splits"],
     },

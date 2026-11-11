@@ -5,8 +5,8 @@
 // to the navigator, the files and the diff, ] and [ (or ⇧⌘] and ⇧⌘[) to step through a project's
 // tabs, ⌃Tab and ⌃⇧Tab to step along the navigator's tabs, ⌘B and ⌥⌘B to show and hide the
 // navigator and the details, ⌘D and ⇧⌘D to split a tile,
-// ⇧⌘T and ⌃⌘T to open a terminal beside it, ⌘] and ⌘[ to go between tiles (Ghostty's keys for
-// them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go to the tile on that side, ⇧⌘M and ⌥⌘M to move and
+// ⇧⌘T and ⌃⌘T to open a terminal beside it, ⌘I, ⇧⌘I and ⌃⌘I to pick a command for one to run,
+// ⌘] and ⌘[ to go between tiles (Ghostty's keys for them on Linux), ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L to go to the tile on that side, ⇧⌘M and ⌥⌘M to move and
 // swap one, and the keys the app's lists and overlays need.
 // `base.json`, which macOS gives every app, binds after these. `secondary` is cmd on macOS and
 // ctrl elsewhere; a section with "os" binds only there. Order matters: within a context the
@@ -134,11 +134,14 @@
     }
   },
   // ⌘I picks a command, as an agent, for a new terminal to run, as VS Code's and Cursor's start
-  // theirs. On macOS only: elsewhere Ctrl+I is a terminal's Tab.
+  // theirs, and ⇧⌘I and ⌃⌘I open it beside the tile, as ⇧⌘T and ⌃⌘T do a terminal. On macOS
+  // only: elsewhere Ctrl+I is a terminal's Tab.
   {
     "os": ["macos"],
     "bindings": {
-      "cmd-i": "terminal::NewTerminalWith"
+      "cmd-i": "terminal::NewTerminalWith",
+      "cmd-shift-i": "tiling::NewTerminalWithRight",
+      "cmd-ctrl-i": "tiling::NewTerminalWithBelow"
     }
   },
   // ⇧⌘H, ⇧⌘J, ⇧⌘K and ⇧⌘L go straight to the tile on that side, past the panes and rows of the
