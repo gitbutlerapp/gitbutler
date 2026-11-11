@@ -11,8 +11,6 @@ mod legacy_project_id;
 mod project_handle;
 mod storage_path;
 
-/// A UUID based legacy project identifier carried for compatibility while project storage
-/// still lives in `gitbutler-project`.
 #[cfg(feature = "legacy")]
 pub use legacy_project_id::LegacyProjectId;
 
