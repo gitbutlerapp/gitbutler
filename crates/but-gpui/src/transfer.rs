@@ -570,9 +570,7 @@ impl Move {
         match self.op {
             Op::Squash(_) => return self.squashed(store).is_some(),
             Op::Commit => return self.commit_to(store).is_some(),
-            Op::CherryPick => {
-                return (store.workspace(&self.project)).is_some_and(|ws| self.copies(ws));
-            }
+            Op::CherryPick => return self.copies(),
             Op::Move => {}
         }
         if let (Moving::Branch(branch), Stop::NewStack { .. }) = (&self.what, &self.at) {
@@ -596,15 +594,14 @@ impl Move {
         })
     }
 
-    /// Whether cherry-picking puts copies where it's at in `workspace`: anywhere commits can be
-    /// moved to, but right where they already are.
-    fn copies(&self, workspace: &Workspace) -> bool {
-        let Some(ids) = self.picked() else {
+    /// Whether cherry-picking puts copies where it's at: anywhere commits can be moved to,
+    /// right beside the commits too, which stay where they are.
+    fn copies(&self) -> bool {
+        if self.picked().is_none() {
             return false;
-        };
+        }
         match &self.at {
-            Stop::In(to) => !already_at(workspace, &ids, to),
-            Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
+            Stop::In(_) | Stop::NewBranch { .. } | Stop::NewStack { .. } => true,
             Stop::Into(_) | Stop::Card(_) | Stop::Worktree(_) | Stop::Terminal { .. } => false,
         }
     }
@@ -1918,40 +1915,36 @@ mod tests {
     }
 
     #[test]
-    fn a_cherry_pick_copies_anywhere_but_where_the_commits_are() {
-        use crate::backend::model::build::{branch, full, id, workspace};
-        // ui's commits newest first: 3, 2; then api's, 1.
-        let ws = workspace(
-            vec![vec![branch("ui", &[3, 2]), branch("api", &[1])]],
-            vec![],
-        );
+    fn a_cherry_pick_copies_anywhere_commits_go_even_right_beside_them() {
+        use crate::backend::model::build::{full, id};
         let picking = |what: Moving, at: Stop| Move {
             project: ProjectId::from("p"),
             what,
             at,
             op: Op::CherryPick,
         };
+        // 3 is at the top of ui, above 2.
         let three = || Moving::Commits(Arc::from([id(3)]));
         let ui = || Stop::In(Destination::Branch(full("refs/heads/ui")));
         assert!(
-            !picking(three(), ui()).copies(&ws),
-            "at the top of ui, where 3 is, it starts and goes nowhere"
+            picking(three(), ui()).copies(),
+            "at the top of ui, where 3 is, a copy goes right above it"
         );
         assert!(
-            picking(three(), Stop::In(Destination::BelowCommit(id(2)))).copies(&ws),
-            "below 2, a copy goes under it"
+            picking(three(), Stop::In(Destination::BelowCommit(id(3)))).copies(),
+            "below 3, a copy goes right under it"
         );
         assert!(
-            picking(three(), Stop::NewStack { first: false }).copies(&ws),
+            picking(three(), Stop::NewStack { first: false }).copies(),
             "a new stack takes a copy"
         );
         let outside = || Moving::Copies(Arc::from([(id(9), SharedString::from("fix"))]));
         assert!(
-            picking(outside(), ui()).copies(&ws),
+            picking(outside(), ui()).copies(),
             "a commit from outside the workspace is nowhere here, so it goes anywhere"
         );
         assert!(
-            !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(&ws),
+            !picking(outside(), Stop::Into(Target::Commit(id(3)))).copies(),
             "nothing is cherry-picked into a commit"
         );
     }
