@@ -51,7 +51,6 @@ impl FileInfo {
         }
     }
 
-    /// Create a new instance for if content is text.
     /// Note that UTF8 is assumed, or else the file will be considered binary.
     pub fn utf8_text_or_binary(path_in_worktree: &Path, content: &[u8]) -> Self {
         FileInfo {
@@ -108,8 +107,6 @@ impl FileInfo {
 }
 
 impl FileInfo {
-    /// Returns true when a file is represented as UTF-8 text content.
-    ///
     /// `FileInfo` stores valid text in `content` with no `mime_type`. Binary files either have no
     /// content, or have base64-encoded content plus a MIME type when the content can be displayed,
     /// such as images. Missing or deleted files also have no content and are not valid text.

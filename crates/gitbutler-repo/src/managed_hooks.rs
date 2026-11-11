@@ -108,12 +108,10 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
     let hook_path = hooks_dir.join(hook_type.hook_name());
     let user_backup_path = hooks_dir.join(hook_type.user_backup_name());
 
-    // Only remove if it's our managed hook
     if hook_path.exists() {
         if is_gitbutler_managed_hook(&hook_path) {
             fs::remove_file(&hook_path).context("Failed to remove managed hook")?;
         } else {
-            // Not our hook, don't touch it
             tracing::debug!(
                 "{} is not GitButler-managed, skipping",
                 hook_type.hook_name()
