@@ -737,6 +737,20 @@ mod tests {
     }
 
     #[test]
+    fn a_terminal_with_a_command_opens_beside_a_tile_from_anywhere_on_macos() {
+        assert_eq!(
+            bound_everywhere("macos", "cmd-shift-i"),
+            ["tiling::NewTerminalWithRight"],
+            "⇧⌘I picks a command for one to the right, as ⇧⌘T opens a terminal there"
+        );
+        assert_eq!(
+            bound_everywhere("macos", "cmd-ctrl-i"),
+            ["tiling::NewTerminalWithBelow"],
+            "⌃⌘I picks a command for one below, as ⌃⌘T opens a terminal there"
+        );
+    }
+
+    #[test]
     fn a_terminal_opens_beside_a_tile_from_anywhere_on_linux() {
         assert_eq!(
             bound_everywhere("linux", "ctrl-shift-t"),

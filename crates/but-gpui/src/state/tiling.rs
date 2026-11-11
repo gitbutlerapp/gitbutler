@@ -1580,6 +1580,29 @@ impl Store {
     /// have from another worktree or project, as a split of a pane opens where that pane is, or
     /// the main one when it's in none.
     pub fn pin_terminal(&mut self, at: Tile, axis: Axis, cx: &mut Context<Self>) {
+        let run = self.prefs.terminal_run().map(str::to_owned);
+        self.pin_terminal_then(at, axis, run, cx);
+    }
+
+    /// Pin a terminal beside `at` as [`Store::pin_terminal`] does, that runs `command` through
+    /// the login shell.
+    pub fn pin_terminal_running(
+        &mut self,
+        at: Tile,
+        axis: Axis,
+        command: String,
+        cx: &mut Context<Self>,
+    ) {
+        self.pin_terminal_then(at, axis, Some(command), cx);
+    }
+
+    fn pin_terminal_then(
+        &mut self,
+        at: Tile,
+        axis: Axis,
+        run: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
         let Some(selection) = self.selection.clone() else {
             return;
         };
@@ -1591,7 +1614,6 @@ impl Store {
         .unwrap_or(selection);
         let checkout = self.checkout_of(&shown).unwrap_or(Checkout::Main);
         let project = shown.project().clone();
-        let run = self.prefs.terminal_run().map(str::to_owned);
         self.open_terminal_then(project, checkout, run, Some((row, at, axis)), cx);
     }
 

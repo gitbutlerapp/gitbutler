@@ -133,6 +133,8 @@ actions!(
         SplitBelow,
         NewTerminalRight,
         NewTerminalBelow,
+        NewTerminalWithRight,
+        NewTerminalWithBelow,
         ZoomTile,
         EqualizeTiles,
         NextTile,
@@ -5471,6 +5473,12 @@ impl Render for AppView {
             }))
             .on_action(cx.listener(|this, _: &NewTerminalBelow, window, cx| {
                 this.new_terminal_beside(Axis::Down, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalWithRight, window, cx| {
+                this.new_terminal_with_beside(Axis::Across, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &NewTerminalWithBelow, window, cx| {
+                this.new_terminal_with_beside(Axis::Down, window, cx)
             }))
             .when(self.store.read(cx).tiling().is_some(), |el| {
                 el.on_action(
