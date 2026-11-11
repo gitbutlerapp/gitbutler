@@ -94,7 +94,6 @@ struct AskpassRequest {
     sender: oneshot::Sender<Option<String>>,
 }
 
-/// An ID for an askpass request.
 pub type AskpassRequestId = but_core::Id<'A'>;
 
 /// Additional context sent alongside a credential prompt.
@@ -139,7 +138,6 @@ pub struct PromptEvent<C: Serialize + Clone> {
 }
 
 impl AskpassBroker {
-    /// Create a new broker with the given event sink.
     pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) -> Self {
         Self {
             pending_requests: Arc::new(Mutex::new(HashMap::new())),
