@@ -1807,22 +1807,17 @@ pub fn move_branch_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
-    branch_mutation_with_snapshot(
+    let mut meta = ctx.meta()?;
+    let workspace = but_transaction::with_transaction_with_perm(
         ctx,
+        &mut meta,
         perm,
-        OperationKind::MoveBranch,
+        SnapshotDetails::new(OperationKind::MoveBranch),
+        &[],
         dry_run,
-        |ctx, perm| {
-            let mut meta = ctx.meta()?;
-            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-            let rebase =
-                but_workspace::branch::move_branch(editor, subject_branch, relative_to, side)?;
-            Ok(MoveBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-            })
-        },
-    )
+        |mut tx| tx.move_branch(subject_branch, relative_to, side),
+    )?;
+    Ok(MoveBranchResult { workspace })
 }
 
 /// Tears off a branch using the behavior described by [`tear_off_branch_with_perm()`].
