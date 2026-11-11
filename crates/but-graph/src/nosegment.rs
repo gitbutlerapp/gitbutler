@@ -553,7 +553,6 @@ impl WorkspaceGraph {
         worktree_by_branch: &crate::init::walk::WorktreeByBranch,
         project_meta: but_core::ref_metadata::ProjectMeta,
     ) -> Result<crate::Graph> {
-        // self.open_as_svg();
         let mut inner_graph = crate::init::PetGraph::default();
         let mut node_index_to_predecessor_segment_info =
             HashMap::<NodeIndex, PredecessorSegmentInfo>::new();
@@ -562,22 +561,23 @@ impl WorkspaceGraph {
 
         // Each local branch with the segment it names, to be paired with its remote-tracking branch.
         let mut local_branches = Vec::<(crate::SegmentIndex, FullName)>::new();
-        // References reached by a segment without a reference of its own, by the
-        // node they lead to, to be recorded on the commit they point at.
-        let mut pending_commit_refs = HashMap::<NodeIndex, Vec<crate::RefInfo>>::new();
+        // References that will end up in the [crate::Commit::refs] of a commit that has not been
+        // encountered yet, keyed by the next node towards that commit. If the node turns out to be
+        // another reference, use `forward_awaiting_refs()` to move the refs forward.
+        let mut refs_awaiting_commit = HashMap::<NodeIndex, Vec<crate::RefInfo>>::new();
         let mut remote_tracking_branch_name_to_segment_index = HashMap::new();
-        /// Moves the references pending on node `from`, followed by `reference`,
+        /// Moves the references awaiting a commit on node `from`, followed by `reference`,
         /// to node `to`, which leads to the same commit.
-        fn forward_pending_refs(
-            pending_commit_refs: &mut HashMap<NodeIndex, Vec<crate::RefInfo>>,
+        fn forward_awaiting_refs(
+            refs_awaiting_commit: &mut HashMap<NodeIndex, Vec<crate::RefInfo>>,
             from: NodeIndex,
             to: NodeIndex,
             reference: Option<crate::RefInfo>,
         ) {
-            let mut refs = pending_commit_refs.remove(&from).unwrap_or_default();
+            let mut refs = refs_awaiting_commit.remove(&from).unwrap_or_default();
             refs.extend(reference);
             if !refs.is_empty() {
-                pending_commit_refs.entry(to).or_default().extend(refs);
+                refs_awaiting_commit.entry(to).or_default().extend(refs);
             }
         }
 
@@ -624,8 +624,8 @@ impl WorkspaceGraph {
                 && !worktree_by_branch.contains_key(full_name)
                 && project_meta.target_commit_id == Some(commit_id)
             {
-                forward_pending_refs(
-                    &mut pending_commit_refs,
+                forward_awaiting_refs(
+                    &mut refs_awaiting_commit,
                     i,
                     node.parents[0],
                     Some(crate::RefInfo::from_ref(
@@ -711,7 +711,7 @@ impl WorkspaceGraph {
                         id: *oid,
                         parent_ids,
                         flags: predecessor_segment_info.commit_flags,
-                        refs: pending_commit_refs.remove(&i).unwrap_or_default(),
+                        refs: refs_awaiting_commit.remove(&i).unwrap_or_default(),
                     });
                     if entrypoint.is_none() {
                         entrypoint = Some((segment_index, crate::EntryPointCommit::AtCommit(*oid)));
@@ -728,8 +728,8 @@ impl WorkspaceGraph {
                     }
                 }
                 NodeWeight::Ref { full_name } if continued_segment.is_some() => {
-                    forward_pending_refs(
-                        &mut pending_commit_refs,
+                    forward_awaiting_refs(
+                        &mut refs_awaiting_commit,
                         i,
                         node.parents[0],
                         Some(crate::RefInfo::from_ref(
@@ -741,7 +741,7 @@ impl WorkspaceGraph {
                 }
                 NodeWeight::Ref { full_name } => {
                     // References that reached this one still point at the same commit.
-                    forward_pending_refs(&mut pending_commit_refs, i, node.parents[0], None);
+                    forward_awaiting_refs(&mut refs_awaiting_commit, i, node.parents[0], None);
                     match full_name.category() {
                         Some(gix::refs::Category::LocalBranch) => {
                             local_branches.push((segment_index, full_name.clone()));
