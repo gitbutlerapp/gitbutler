@@ -204,9 +204,6 @@ pub struct AppView {
     /// The terminals of every project, under the navigator beside the panes, while Settings
     /// shows it.
     pub(crate) terminals: Entity<TerminalOverview>,
-    /// How tall the terminal overview was laid out when last drawn, or `None` while it's left
-    /// out: see [`Self::render_side_column`].
-    terminals_drawn: Cell<Option<f32>>,
     /// Whether it's there, as Settings had it when last drawn, and it sliding down or back up.
     navigator_on_top: bool,
     tabs_slide: Slide,
@@ -680,7 +677,6 @@ impl AppView {
             navigator,
             tabs,
             terminals,
-            terminals_drawn: Cell::new(None),
             navigator_on_top,
             tabs_slide: Slide::default(),
             menu: None,
@@ -4526,7 +4522,7 @@ impl AppView {
             let navigator = div()
                 .w(dp(narrowing.navigator))
                 .h_full()
-                .child(self.render_side_column(Column::Alone, window, cx));
+                .child(self.render_side_column(Column::Alone, cx));
             return div()
                 .absolute()
                 .inset_0()
@@ -4567,10 +4563,9 @@ impl AppView {
             .when(
                 self.navigator_open || self.navigator_slide.closing(now) || sliding,
                 |el| {
-                    let navigator =
-                        div()
-                            .size_full()
-                            .child(self.render_side_column(Column::Alone, window, cx));
+                    let navigator = div()
+                        .size_full()
+                        .child(self.render_side_column(Column::Alone, cx));
                     el.child(
                         div()
                             .absolute()
@@ -4599,38 +4594,37 @@ impl AppView {
     /// terminal overview, as tall as its rows up to a share of the column. Beside the details,
     /// its right edge is in by as much as the navigator's cards are, and out over them, it's
     /// the foot of the card, its corners rounded.
-    fn render_side_column(&self, at: Column, window: &Window, cx: &App) -> Div {
-        let navigator = (self.navigator.clone()).cached(StyleRefinement::default().size_full());
+    fn render_side_column(&self, at: Column, cx: &App) -> Div {
         let store = self.store.read(cx);
         let shown = store.prefs.shows(Part::TerminalOverview);
         let theme = Theme::get(cx);
         let terminals = shown.then(|| {
             // As tall as its rows until its line is dragged, then as dragged, but just its bar
-            // while it's folded.
+            // while it's folded. Put back, it slides from where it was dragged to its rows,
+            // under the limit it had dragged.
             let overview = self.terminals.read(cx);
             let shut = overview.is_shut();
             let dragged = (store.dragged_width(Pane::Terminals)).filter(|_| !shut);
-            let (height, most) = match dragged {
-                Some(height) => (height, TERMINALS_MOST_DRAGGED),
-                None => (overview.height(cx), TERMINALS_MOST),
+            let glide = store.width_glide(Pane::Terminals);
+            let (height, most) = match (dragged, glide) {
+                (Some(height), _) => (height, TERMINALS_MOST_DRAGGED),
+                (None, Some(glide)) => (
+                    glide.at(overview.height(cx), clock::now()),
+                    TERMINALS_MOST_DRAGGED,
+                ),
+                (None, None) => (overview.height(cx), TERMINALS_MOST),
             };
             (height, most, shut)
         });
-        // The navigator fits the drawer at its foot to the room it has as it draws, which it
-        // knows only from the frame before, so once the overview's height changes it's drawn
-        // again after this frame. A callback asked for now, in a draw, runs before the next.
-        let drawn = terminals.map(|(height, ..)| height);
-        if self.terminals_drawn.replace(drawn) != drawn {
-            let navigator = self.navigator.clone();
-            window.on_next_frame(move |_, cx| navigator.update(cx, |_, cx| cx.notify()));
-        }
         let terminals = terminals.map(|(height, most, shut)| {
             let which = DividerDrag::Terminals;
             let reset = {
                 let store = self.store.clone();
                 move |event: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
                     if event.click_count() == 2 {
-                        store.update(cx, |store, cx| store.set_width(Pane::Terminals, None, cx))
+                        store.update(cx, |store, cx| {
+                            store.put_back_width(Pane::Terminals, height, cx)
+                        })
                     }
                 }
             };
@@ -4667,9 +4661,43 @@ impl AppView {
                 // Folded to its bar, it has no height to drag.
                 .when(!shut, |el| el.child(divider))
         });
+        // The gap to the detail's cards, the navigator's edge included, drags its width, its
+        // middle as far in as the edge is out. Along the overview too, so its pill is in the
+        // middle of the whole gap. Before the navigator, under its scrollbar's thumb, which
+        // shows in the gap while it scrolls.
+        let beside = at != Column::Out && self.navigator.read(cx).detail_shown.get() >= 1.;
+        let width_divider = beside.then(|| {
+            let which = DividerDrag::Navigator;
+            let store = self.store.clone();
+            gap_divider(
+                "resize-navigator",
+                Axis::Across,
+                which.clone(),
+                &self.store,
+                theme,
+                cx,
+            )
+            .top_0()
+            .bottom_0()
+            .right_0()
+            .w(dp(2. * TILE_MARGIN))
+            .on_drag(Pane::Navigator, mark_dragged(&self.store, which))
+            .on_click(move |event, _, cx| {
+                if event.click_count() == 2 {
+                    store.update(cx, |store, cx| {
+                        let from = store.width(Pane::Navigator);
+                        store.put_back_width(Pane::Navigator, from, cx)
+                    })
+                }
+            })
+        });
         let store = self.store.clone();
         v_flex()
             .size_full()
+            .relative()
+            .bg(theme.bg_2)
+            .when(at == Column::Out, |el| el.rounded(dp(theme.shape.popup)))
+            .children(width_divider)
             .on_drag_move(move |event: &DragMoveEvent<Pane>, _, cx| {
                 if *event.drag(cx) == Pane::Terminals {
                     // From the column's bottom to the pointer, less the margin under the card.
@@ -4680,8 +4708,26 @@ impl AppView {
                     });
                 }
             })
-            .child(div().flex_1().min_h_0().child(navigator))
+            .child(div().flex_1().min_h_0().child(self.navigator_sized()))
             .children(terminals)
+    }
+
+    /// The navigator, filling what it's in, told how tall that is before it draws. The drawer
+    /// at its foot fits the room the list has, which the list knows only from the frame
+    /// before, so without it the navigator would trail a frame behind the overview's line.
+    fn navigator_sized(&self) -> Div {
+        let navigator = self.navigator.clone();
+        // Laid out with the window and drawn just before the navigator, which, cached, draws
+        // only now that it knows its bounds.
+        let height = gpui::canvas(
+            move |bounds, _, cx| navigator.read(cx).drawn_height.set(bounds.size.height),
+            |_, _, _, _| {},
+        );
+        div()
+            .size_full()
+            .relative()
+            .child(height.absolute().size_full())
+            .child((self.navigator.clone()).cached(StyleRefinement::default().size_full()))
     }
 
     /// The navigator out over the detail, the terminal overview under it as beside the panes: a
@@ -4694,7 +4740,7 @@ impl AppView {
         let left = PEEK_INSET - away * (1. - self.peek.slide.share(self.peek.open, now));
         let navigator = div()
             .size_full()
-            .child(self.render_side_column(Column::Out, window, cx));
+            .child(self.render_side_column(Column::Out, cx));
         div()
             .absolute()
             .top(dp(PEEK_INSET))
@@ -5403,8 +5449,13 @@ impl Render for AppView {
         // As the window narrows or widens, each resize draws it, and a frame drawn on the
         // display's beat would be for the width before.
         let resizing = self.narrowing.is_some_and(|narrowing| !narrowing.settled);
-        let sliding =
-            navigator_sliding || files_sliding || peek_sliding || detail_sliding || tabs_sliding;
+        let widths_gliding = self.store.read(cx).widths_gliding();
+        let sliding = navigator_sliding
+            || files_sliding
+            || peek_sliding
+            || detail_sliding
+            || tabs_sliding
+            || widths_gliding;
         if sliding && !resizing {
             window.request_animation_frame();
         }
@@ -5806,7 +5857,7 @@ impl Render for AppView {
                                     let navigator = div()
                                         .w(dp(width))
                                         .h_full()
-                                        .child(self.render_side_column(Column::Beside, window, cx));
+                                        .child(self.render_side_column(Column::Beside, cx));
                                     el.child(
                                         div()
                                             .w(dp(width * navigator_share))

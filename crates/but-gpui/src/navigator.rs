@@ -30,10 +30,7 @@ use crate::backend::{
 use crate::clock;
 use crate::detail::{ChecksChanged, Detail, PageTab, oldest_conflict};
 use crate::overlays::{MenuItem, keys_at};
-use crate::state::{
-    Axis, DividerDrag, Pane, Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile,
-    WatchedOrder,
-};
+use crate::state::{Prefs, ProjectId, Section, Selection, Store, StoreEvent, Tile, WatchedOrder};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::transfer::{
@@ -45,11 +42,10 @@ use crate::ui::fold::{self, Folds, Reorder, clipped, curtain, inert, on_top, reo
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled_in_gap};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, TILE_MARGIN, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed,
-    fold_button, fold_row, gap_divider, glow_once, guide, h_flex, icon, icon_button, list_row,
-    mark_dragged, meta_count, plural, pulsing, review, section_label, small_icon, spinning,
-    unread_line, v_flex,
+    BLINK, ButtonStyle, HEADER_HEIGHT, Icon, Tooltip, WINDOW_CONTROLS_WIDTH, above_drag,
+    blink_once, button, commit_title, count_badge, dot, dp, faint, field, fixed, fold_button,
+    fold_row, glow_once, guide, h_flex, icon, icon_button, list_row, meta_count, plural, pulsing,
+    review, section_label, small_icon, spinning, unread_line, v_flex,
 };
 
 mod account;
@@ -576,6 +572,11 @@ pub struct Navigator {
     /// The room above the drawer at the list's end, and its card's height, as last worked out:
     /// see [`Self::fit_footer`].
     footer: Cell<(f32, f32)>,
+    /// How tall it's drawn in this frame, which the app sets once the window's laid out and
+    /// before this draws, and how tall it was when the list was last laid out: see
+    /// [`Self::fit_footer`].
+    pub(crate) drawn_height: Cell<Pixels>,
+    listed_height: Cell<Pixels>,
     /// The keys stepped onto the drawer's bar, which folds but is nothing to select, so the
     /// selection and its page stay as they were: see [`Step`].
     on_drawer_bar: bool,
@@ -824,6 +825,8 @@ impl Navigator {
             drawer: Drawer::default(),
             drawer_list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             footer: Cell::new((0., 0.)),
+            drawn_height: Cell::new(Pixels::ZERO),
+            listed_height: Cell::new(Pixels::ZERO),
             on_drawer_bar: false,
             reveal_selection: false,
             reveal_source: false,
@@ -3072,11 +3075,15 @@ impl Navigator {
     /// out: as tall as it's open, and below the cards, or at the column's bottom while they're short of it, as far as they end in this
     /// frame, folds and all, so it moves with them. The list keeps an item's height, so it
     /// measures this one again when it changes, and the navigator draws again, cached as it
-    /// is.
-    fn fit_footer(&self, window: &mut Window, cx: &mut Context<Self>) {
+    /// is. Gives how tall the list is in this frame.
+    fn fit_footer(&self, window: &mut Window, cx: &mut Context<Self>) -> f32 {
         let scale = Theme::get(cx).scale;
         let view = self.list.viewport_bounds();
-        let column = f32::from(view.size.height) / scale;
+        // The list is as tall as it was last laid out, give or take as much as the navigator
+        // has grown since, as the overview under it slides.
+        let drawn = self.drawn_height.get();
+        let grown = drawn - self.listed_height.replace(drawn);
+        let column = f32::from(view.size.height + grown) / scale;
         let height = DRAWER_CHROME + self.drawer_rows_height();
         // Where the cards end in this frame, which the list only knows once it's drawn it.
         let room = column - self.cards_height();
@@ -3102,6 +3109,7 @@ impl Navigator {
             // After this draw, as a notify during it draws nothing.
             cx.defer_in(window, |_, _, cx| cx.notify());
         }
+        column
     }
 
     /// Whether the navigator has the keys, but not while typing in the filter, where they go
@@ -3158,10 +3166,10 @@ impl Navigator {
     /// Where the list's top and bottom edges cut a card off as it's scrolled in this frame,
     /// the drawer's too: there the card's edge is drawn along the list's, rounded as its own,
     /// so it keeps its shape. GPUI cuts what the list draws to a rectangle, so the ground the
-    /// cards are on is painted past the corners.
-    fn card_caps(&self, theme: &Theme, cx: &App) -> Vec<Div> {
+    /// cards are on is painted past the corners. The list is `height` tall in this frame, as
+    /// [`Self::fit_footer`] works out.
+    fn card_caps(&self, height: f32, theme: &Theme, cx: &App) -> Vec<Div> {
         let scale = Theme::get(cx).scale;
-        let height = f32::from(self.list.viewport_bounds().size.height) / scale;
         let top = -f32::from(self.list.scroll_px_offset_for_scrollbar().y) / scale;
         // Each card's top and bottom, from the list's top, as `cards_height` counts them.
         let mut cards = Vec::new();
@@ -5108,45 +5116,15 @@ impl Render for Navigator {
             .map(|el| self.key_actions(el, cx))
             .size_full()
             .relative()
-            .bg(theme.bg_2)
             // Out over the detail, it's in a popover's card, which has the edge, with the
             // terminal overview under it. GPUI cuts what's inside to a rectangle, so the drawer
             // along its bottom rounds its own corners.
             .map(|el| match self.floating {
                 true => el.rounded(dp(theme.shape.popup)),
                 // On the detail's ground, which its cards edge, nothing to edge against, but the
-                // room an edge took stays, so what's against the right doesn't move.
+                // room an edge took stays, so what's against the right doesn't move. The column
+                // it's in paints the ground, under the line along its edge.
                 false => el.border_r_1().border_color(gpui::transparent_black()),
-            })
-            .when(!self.floating && detail_shown >= 1., |el| {
-                // The gap to the detail's cards, its edge included, drags the navigator's
-                // width, its middle as far in as its edge is out. Before the list, under its
-                // scrollbar's thumb, which shows in the gap while it scrolls.
-                let which = DividerDrag::Navigator;
-                el.child(
-                    gap_divider(
-                        "resize-navigator",
-                        Axis::Across,
-                        which.clone(),
-                        &self.store,
-                        &theme,
-                        cx,
-                    )
-                    .top_0()
-                    .bottom_0()
-                    .right(fixed(-1.))
-                    .w(dp(2. * TILE_MARGIN))
-                    .on_drag(Pane::Navigator, mark_dragged(&self.store, which))
-                    .on_click(cx.listener(
-                        |this, event: &ClickEvent, _, cx| {
-                            if event.click_count() == 2 {
-                                (this.store).update(cx, |store, cx| {
-                                    store.set_width(Pane::Navigator, None, cx)
-                                })
-                            }
-                        },
-                    )),
-                )
             })
             .child(header)
             .map(|el| {
@@ -5162,7 +5140,7 @@ impl Render for Navigator {
                     )
                     .size_full()
                     .pt(dp(LIST_TOP));
-                    self.fit_footer(window, cx);
+                    let height = self.fit_footer(window, cx);
                     self.find_focused_card(window, cx);
                     let scroll = Scroll::List(self.list.clone());
                     el.child(
@@ -5178,7 +5156,7 @@ impl Render for Navigator {
                             }),
                             &theme,
                         )
-                        .children(self.card_caps(&theme, cx))
+                        .children(self.card_caps(height, &theme, cx))
                         .children(self.drag_divider(&theme, cx))
                         // Ending level with the detail's cards, so what scrolls past is cut
                         // where they end.

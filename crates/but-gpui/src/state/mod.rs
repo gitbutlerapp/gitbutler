@@ -430,6 +430,9 @@ pub struct Store {
     opened: Option<(ProjectId, Checkout)>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
+    /// The pane sliding back to its default width after a double-click on its line, while it
+    /// is: see [`Store::put_back_width`].
+    width_glide: Option<(Pane, crate::ui::fold::Glide)>,
     /// Where the window is, saved for the next launch.
     window: Option<saved::WindowPlace>,
     /// What was open when the app last quit, until the first project listing uses it.
@@ -671,6 +674,7 @@ impl Store {
             drafts: HashMap::new(),
             merged: HashMap::new(),
             widths: saved.widths,
+            width_glide: None,
             prefs: saved.prefs,
             // Read with the saved state, so the diff doesn't start in the other layout.
             single_file_diff: backend::settings::single_file_diff(),
