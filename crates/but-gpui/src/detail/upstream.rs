@@ -1938,6 +1938,16 @@ impl Detail {
         let list = match upstream {
             // Its banner says so; reading its history fails with no more to say.
             _ if missing => div().flex_1().into_any_element(),
+            // There's no branch to pick until the first commit makes one.
+            _ if (entry.workspace.as_ref()).is_some_and(|ws| ws.tree.is_none()) => {
+                crate::ui::empty_state(
+                    None,
+                    "No commits yet",
+                    "Make the first one, then pick the branch your work goes into",
+                    theme,
+                    cx,
+                )
+            }
             None => crate::ui::loading_state("Loading…", theme, cx),
             // Picking the target again is the way out of what it most often is, as a target that
             // more than one local branch tracks.
