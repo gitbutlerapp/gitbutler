@@ -52,6 +52,9 @@ pub fn run() {
             cx.on_action(|_: &Quit, cx| cx.quit());
             cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
             cx.set_menus([Menu::new("Stories").items([MenuItem::action("Quit", Quit)])]);
+            // Its own icon, so the Dock tells it from the app.
+            #[cfg(target_os = "macos")]
+            crate::set_dock_icon(include_bytes!("../../assets/stories-icon.png"));
             // Started by `cargo run`, the toolbar offers to build the stories again.
             if let Some(rebuild) = Rebuild::detect() {
                 cx.set_global(rebuild);

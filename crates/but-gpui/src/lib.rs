@@ -192,27 +192,32 @@ fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
-/// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
+/// The desktop app's icon for this build's channel, as its bundle has it.
 #[cfg(target_os = "macos")]
-fn set_dock_icon() {
+fn channel_icon() -> &'static [u8] {
     use but_path::AppChannel;
+    match AppChannel::new() {
+        AppChannel::Release => include_bytes!("../../gitbutler-tauri/icons/release/icon.icns"),
+        AppChannel::Nightly => include_bytes!("../../gitbutler-tauri/icons/nightly/icon.icns"),
+        AppChannel::Dev => include_bytes!("../../gitbutler-tauri/icons/dev/icon.icns"),
+    }
+}
+
+/// Give the Dock `icon`, an image in any format `NSImage` reads. A binary run on its own has
+/// no bundle to carry one, so the Dock would show a terminal's.
+#[cfg(target_os = "macos")]
+fn set_dock_icon(icon: &[u8]) {
     use objc2::rc::{Allocated, Retained};
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
     use objc2_foundation::NSData;
 
-    let icns: &[u8] = match AppChannel::new() {
-        AppChannel::Release => include_bytes!("../../gitbutler-tauri/icons/release/icon.icns"),
-        AppChannel::Nightly => include_bytes!("../../gitbutler-tauri/icons/nightly/icon.icns"),
-        AppChannel::Dev => include_bytes!("../../gitbutler-tauri/icons/dev/icon.icns"),
-    };
-    let icns = NSData::with_bytes(icns);
+    let icon = NSData::with_bytes(icon);
     // SAFETY: AppKit's documented `NSImage` and `NSApplication` messages, sent on the main
     // thread once the application exists, with the argument types they take.
     unsafe {
         let alloc: Allocated<AnyObject> = msg_send![class!(NSImage), alloc];
-        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*icns];
+        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*icon];
         let Some(image) = image else {
             return;
         };
@@ -291,7 +296,7 @@ pub fn run(embedded: Option<Embedded>) {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
                 #[cfg(target_os = "macos")]
-                None => set_dock_icon(),
+                None => set_dock_icon(channel_icon()),
                 #[cfg(not(target_os = "macos"))]
                 None => {}
             }
