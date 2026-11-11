@@ -170,7 +170,6 @@ pub struct RawActivity {
     pub versions: Value,
 }
 
-/// A comment to post.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewComment {
     pub body: String,

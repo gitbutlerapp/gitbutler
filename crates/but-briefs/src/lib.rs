@@ -175,7 +175,6 @@ impl Client {
     }
 }
 
-/// A branch to ask about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BranchAsk {
     pub branch: String,
