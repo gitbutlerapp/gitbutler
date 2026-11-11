@@ -64,6 +64,7 @@ const placeGround = (track: HTMLElement | null) => {
  * - Name it with `aria-label`, or `aria-labelledby` when a visible label already says what it picks.
  * - Other props go to the group, as they would on Base UI's `ToggleGroup`.
  *
+ * @figma Fill Items with Segments of one size; with `fill`, set each Segment to fill the width.
  * @public
  * @import import { SegmentedControl, Segment } from "@gitbutler/but-ui-react/SegmentedControl.tsx";
  */

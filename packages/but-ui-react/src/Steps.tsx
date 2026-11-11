@@ -9,6 +9,8 @@ import type { ComponentProps, FC, ReactNode } from "react";
  * numbered and joined to the next by a line. For items that don't follow on from each other, use
  * `List`.
  *
+ * @figma The Marker numbers each Step; set its variant and done there. Turn the connector off on
+ * the last step, and stack steps 16 apart.
  * @public
  * @import import { Steps, Step } from "@gitbutler/but-ui-react/Steps.tsx";
  */

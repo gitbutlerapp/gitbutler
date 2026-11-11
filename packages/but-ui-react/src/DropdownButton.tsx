@@ -10,7 +10,13 @@ import styles from "./DropdownButton.module.css";
  *
  * @public
  */
-export type DropdownButtonVariant = "pop" | "gray" | "outline";
+export type DropdownButtonVariant =
+	/** The primary action of the whole surface, as the pop button is. */
+	| "pop"
+	/** Lifts it above the buttons around it without spending colour. */
+	| "gray"
+	/** For a control on open ground. */
+	| "outline";
 
 type Props = {
 	/** Contents of the main action button. */
@@ -45,6 +51,12 @@ type Props = {
  * Both halves stay focusable while disabled so keyboard users can reach them
  * and find out why they're unavailable — which also keeps a disabled action
  * hoverable, so `actionTooltip` needs no wrapper element to carry it.
+ *
+ * For an action with a sensible default worth pressing directly, such as Merge or Commit, whose
+ * other options are variations on it. It comes in one size, the regular button's, and the menu
+ * itself isn't part of it: the host opens its own.
+ *
+ * @see packages/but-ui/design/components/buttons.md
  * @import import { DropdownButton } from "@gitbutler/but-ui-react/DropdownButton.tsx";
  */
 export const DropdownButton: FC<Props> = ({

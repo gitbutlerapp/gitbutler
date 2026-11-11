@@ -6,6 +6,9 @@ type Props = {
 } & Omit<ComponentProps<"svg">, "width" | "height">;
 
 /**
+ * Marks a conflict: `conflict` is the warning triangle for a conflicted commit or file; `plus` and
+ * `minus` are the paired marks on the two sides of a conflicted hunk.
+ *
  * @import import { ConflictIcon } from "@gitbutler/but-ui-react/ConflictIcon.tsx";
  */
 export const ConflictIcon: FC<Props> = ({ variant, size = 16, ...props }) => {

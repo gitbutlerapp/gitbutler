@@ -28,6 +28,12 @@ type Props = {
  * counts next to it carry the numbers, so it is hidden from screen readers.
  *
  * Renders nothing when nothing changed.
+ *
+ * It sits after `DiffStats` where a surface shows both; the two stay separate components.
+ *
+ * @figma `Added` is how many of the five squares are green, which the code works out from the
+ * counts: in proportion to the lines each side touched, a side that changed anything keeping at
+ * least one square, so +1 -900 is Added=1, not 0.
  * @import import { ChangeScale } from "@gitbutler/but-ui-react/ChangeScale.tsx";
  */
 export const ChangeScale: FC<Props> = ({ added, removed, ...props }) => {

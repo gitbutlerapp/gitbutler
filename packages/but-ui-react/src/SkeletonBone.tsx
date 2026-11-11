@@ -28,6 +28,9 @@ type Props =
  * `circle` bone stands in for an avatar or an icon at that size.
  *
  * Bones are hidden from screen readers; mark the container that is loading `aria-busy`.
+ *
+ * @figma `size` is the text style for a `text` bone (11–15 for Base/11–Base/15) and the diameter
+ * for a `circle`; resize a text bone's width to how much of the line its text would fill.
  * @import import { SkeletonBone } from "@gitbutler/but-ui-react/SkeletonBone.tsx";
  */
 export const SkeletonBone: FC<Props> = (props) =>

@@ -65,11 +65,12 @@ export type RangeProps<Value extends number | ReadonlyArray<number> = number> = 
  *
  * The thumb is inset so it sits inside the track at either end rather than hanging over it, the
  * way 🍑 But UI draws it. Under the pointer it widens and grows a grip, and the drag cursor
- * takes over while it is held (see design/foundations/cursors.md).
+ * takes over while it is held.
  *
  * For a number the user knows and would rather type or nudge — a font size, a tab width — reach
  * for {@link NumberField}.
  *
+ * @see packages/but-ui/design/foundations/cursors.md
  * @public
  * @import import { Range } from "@gitbutler/but-ui-react/Range.tsx";
  */

@@ -341,6 +341,14 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
+ * Under the pointer, on keyboard focus and while selected, its state stays and the menu follows it
+ * at once, while the name gives way. An action takes the state's place under the pointer only;
+ * selected, the state stays.
+ *
+ * @figma `pr` follows the pull request: `none` shows the branch's name, the others its number and
+ * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
+ * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
+ * branch with no commits yet, turn on commits alone and set its text to empty.
  * @import import { BranchItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<
@@ -664,6 +672,8 @@ export const GroupLabel: FC<
  * it opens the card's own page, as Docs opens the overview, and only its chevron folds; with no page
  * of its own, the whole row is the button that folds.
  *
+ * @figma `selected` is the fill a focused list shows; `selected-inactive` the quiet one, as on
+ * every sidebar row.
  * @import import { NavItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const NavItem: FC<

@@ -72,6 +72,8 @@ type Props = {
  *
  * Too narrow to show every group, the buttons scroll sideways a group at a
  * time, with a chevron pair at the end for anyone without a horizontal wheel.
+ *
+ * @figma Scrolled is the strip too narrow for every group, with its chevron pair.
  * @import import { MarkdownToolbar } from "@gitbutler/but-ui-react/MarkdownToolbar.tsx";
  */
 export const MarkdownToolbar: FC<Props> = (p) => {

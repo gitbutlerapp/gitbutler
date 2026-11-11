@@ -23,6 +23,9 @@ import styles from "./ScrollArea.module.css";
  * `separator` draws a hairline across the top while the content is scrolled down, so the rows
  * passing under a sticky header read as passing under it.
  *
+ * @figma `state` is the drawing's only: hover is the pointer over the area, and the same look
+ * stands for scrolling, both of which the code draws from Base UI's data attributes. The outline on
+ * each variant only shows its bounds.
  * @public
  * @import import { ScrollArea } from "@gitbutler/but-ui-react/ScrollArea.tsx";
  */

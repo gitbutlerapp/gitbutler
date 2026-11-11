@@ -6,6 +6,8 @@ import { useId, type ComponentProps, type FC } from "react";
  * directory row in the file tree. Callers size it with CSS; it keeps its
  * proportions inside whatever box they give it.
  *
+ * @figma The drawing shows the light theme's gradient; the code mixes it from the tokens in both
+ * themes.
  * @import import { FolderIcon } from "@gitbutler/but-ui-react/FolderIcon.tsx";
  */
 export const FolderIcon: FC<ComponentProps<"svg">> = (p) => {

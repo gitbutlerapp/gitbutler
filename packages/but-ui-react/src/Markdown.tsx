@@ -23,8 +23,7 @@ type LinkRenderer = (href: string, children: ReactNode) => ReactNode;
  * a comment, a design note. It is drawn with the library's parts: headings in but-ui's
  * `text-h1` to `text-h3`, a link as a `TextLink`, inline code as `Code`, a fenced block as a
  * `CodeBlock`, a table as a `Table`, a task as a read-only `Checkbox`. Text reads in a
- * `--but-size-prose` column; tables and images take `--but-size-prose-wide`, centred on it. The rules are
- * `design/patterns/markdown.md`.
+ * `--but-size-prose` column; tables and images take `--but-size-prose-wide`, centred on it.
  *
  * HTML in the text is shown as text rather than run, and a link to an unsafe protocol loses its
  * address, so markdown from an agent or a stranger can't run a script.
@@ -34,6 +33,9 @@ type LinkRenderer = (href: string, children: ReactNode) => ReactNode;
  * the URL to the system browser, and a client can show a path on another machine as plain text.
  * With `onCopy`, a fenced block has the copy button `CodeBlock` has.
  *
+ * @figma Its blocks go in Content, and anything with an edge in a Block. A heading that opens the
+ * document drops its top padding.
+ * @see packages/but-ui/design/patterns/markdown.md
  * @public
  * @import import { Markdown } from "@gitbutler/but-ui-react/Markdown.tsx";
  */

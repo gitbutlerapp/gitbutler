@@ -10,6 +10,7 @@ import type { ComponentProps, FC, ReactNode } from "react";
  * form, the facts about a thing. It reads, it doesn't edit; for a form use `Field`, and for a list
  * of things rather than of names and values use `List`. Under a title, put it in a `Section`.
  *
+ * @figma Put DescriptionList / Item rows in Items, the divider off on the first.
  * @public
  * @import import { DescriptionList, DescriptionListItem } from "@gitbutler/but-ui-react/DescriptionList.tsx";
  */

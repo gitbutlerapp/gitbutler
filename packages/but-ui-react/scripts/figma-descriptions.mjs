@@ -12,8 +12,8 @@
  * its import. The JSDoc says what the component is and how to pick between its props; the rules
  * for using it are the notes', so the description links them rather than repeating them.
  *
- * Only the components in MOVED are written, as each one's words move out of Figma into its JSDoc
- * and notes; the rest keep the description written in Figma until theirs move too.
+ * A component drawn as a section frame rather than as one component, such as Modal from its three
+ * parts, has no description to write; FRAMES lists them.
  *
  * The file is applied to Figma through the Figma MCP's `use_figma` (the REST API can't write a
  * description); AGENTS.md says how.
@@ -111,22 +111,15 @@ function sizesOf(source, name) {
 /** A node id in Figma's link form, `217-317`, or as a helper is handed it, `figma("217-317")`. */
 const NODE = /(?:node-id=|\(")(\d+)-(\d+)/;
 
-/** The components whose description is written from the code; see the top of this file. */
-const MOVED = new Set([
-	"Avatar",
-	"Badge",
-	"Banner",
-	"Button",
-	"Cell",
-	"FileListItem",
-	"LocationBar",
-	"MetaCount",
-	"MetaPart",
-	"Popup",
-	"Snackbar",
-	"Toasts",
-	"Tooltip",
-	"ViewHeader",
+/** The components whose drawing is a section frame, which has no description; see the top. */
+const FRAMES = new Set([
+	"Dropdown",
+	"FieldRootStyles",
+	"FileIcon",
+	"List",
+	"Menu",
+	"Modal",
+	"Snackbars",
 ]);
 
 /**
@@ -195,7 +188,7 @@ for (const storiesFile of readdirSync(src)
 			`${storiesFile}: links ${taken.component}'s drawing, ${id}; a drawing describes one component`,
 		);
 	}
-	if (!MOVED.has(component)) {
+	if (FRAMES.has(component)) {
 		descriptions[id] ??= { component, file, description: "" };
 		continue;
 	}
@@ -206,7 +199,7 @@ for (const storiesFile of readdirSync(src)
 	};
 }
 
-const moved = Object.entries(descriptions).filter(([, { component }]) => MOVED.has(component));
+const moved = Object.entries(descriptions).filter(([, { component }]) => !FRAMES.has(component));
 const json = `${JSON.stringify(
 	{
 		$description:
