@@ -5,7 +5,7 @@ not how bad it is.
 
 **A snackbar is a sentence next to the thing it is about.** One glyph, one line,
 no title, floated over the surface that caused it — `Snackbar.tsx`, 🍑 But UI
-node `1706-1682`. News that won't fit in a line read without stopping isn't a
+node `2210-1708`. News that won't fit in a line read without stopping isn't a
 snackbar.
 
 **A toast is a card in the corner of the window.** A glyph, a title, a

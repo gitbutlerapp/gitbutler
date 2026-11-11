@@ -9,9 +9,10 @@
 		"./*": "./src/*"
 	},
 	"scripts": {
-		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories && pnpm check:tokens",
+		"check": "tsgo -p tsconfig.json --noEmit && pnpm lint:css && pnpm check:stories && pnpm check:tokens && pnpm check:notes",
 		"check:stories": "node scripts/check-stories.mjs",
 		"check:tokens": "node scripts/check-tokens.mjs",
+		"check:notes": "node scripts/check-notes.mjs",
 		"lint:css": "stylelint \"src/**/*.css\"",
 		"optimize-icons": "node scripts/optimize-icons.mjs",
 		"test": "vitest run && pnpm test:stories",
