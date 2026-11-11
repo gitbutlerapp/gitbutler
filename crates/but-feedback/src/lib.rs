@@ -4,11 +4,9 @@ use std::path::PathBuf;
 use anyhow::Result;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 
-/// A utility to keep important paths to make archival/zip-file creation easier later.
 pub struct Archival {
     /// The directory to put the feedback archive in.
     pub cache_dir: PathBuf,
-    /// The directory containing application logs.
     pub logs_dir: PathBuf,
 }
 
