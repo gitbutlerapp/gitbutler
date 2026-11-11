@@ -70,13 +70,17 @@ export type ButtonProps = BaseButton.Props & ButtonStyleProps & { ref?: Ref<HTML
 
 /**
  * The button: Base UI's, so `focusableWhenDisabled` and `render` work, styled by variant and size.
- * An icon goes in as a child, before or after the label; an icon-only button takes `iconOnly` and
- * needs an `aria-label`. It is `type="button"` unless told otherwise, so one inside a form doesn't
+ * An icon goes in as a child, before or after the label, and so does a `Kbd variant="button"`; an
+ * icon-only button takes `iconOnly` and needs an `aria-label`. It is `type="button"` unless told otherwise, so one inside a form doesn't
  * submit it by accident.
  *
  * To make another component look like a button — a toolbar item, a number field's stepper — give it
  * `getButtonClassName` instead; to make a Base UI trigger one, pass this as its `render`.
  *
+ * @figma `state` is the drawing's only: hover is the button under the pointer, which the code
+ * draws from CSS rather than a prop.
+ * @see packages/but-ui/design/components/buttons.md
+ * @see packages/but-ui/design/foundations/emphasis.md
  * @import import { Button } from "@gitbutler/but-ui-react/Button.tsx";
  */
 export const Button: FC<ButtonProps> = ({

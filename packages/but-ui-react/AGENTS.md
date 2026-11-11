@@ -117,11 +117,19 @@ its count is zero, and a `state` property (`default`, `hover`) for what CSS
 draws under the pointer, as Button has; two components the code keeps apart
 stay apart in Figma and are placed side by side where a surface shows both.
 
-A component's description in Figma says what its JSDoc and the design notes say
-about it: what it is for, when to pick which variant, and a `Code:` line
-naming the component and its file. Change one and change the other in the
-same piece of work; a description that lags the code is what an agent reading
-Figma will build from.
+A component's description in Figma is written from the code, so the two can't
+say different things. `scripts/figma-descriptions.mjs` makes it from the
+component's JSDoc (what it is for), the documented values of its `Variant`
+type, its `@figma` tag (what only the drawing has, such as a `state`
+property), a `Rules:` link to each note its `@see` tags name, and a `Code:`
+line, into `figma-descriptions.json`, by the node its stories link. After
+changing any of those, run it and apply the file to 🍑 But UI with the Figma
+MCP's `use_figma`, setting each node's `description` (the REST API can't
+write one). `check` fails when the file is out of date, and with
+`FIGMA_API_KEY` and `FIGMA_FILE_KEY` set, when a drawing's description differs
+from it. Components move to this one at a time, as their words in Figma move
+into their JSDoc and notes: only those in the script's `MOVED` are written,
+and the rest keep the description written in Figma until then.
 
 ## Verifying your work
 

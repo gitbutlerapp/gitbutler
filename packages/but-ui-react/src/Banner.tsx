@@ -45,6 +45,8 @@ const defaultIcon = (variant: BannerVariant): IconName =>
  *
  * Use a Snackbar for the outcome of something the user just did; a banner is for state.
  *
+ * @figma Turn on Description for the second sentence.
+ * @see packages/but-ui/design/components/banners.md
  * @public
  * @import import { Banner } from "@gitbutler/but-ui-react/Banner.tsx";
  */

@@ -27,6 +27,11 @@ type Props = {
  * own colour; a part that only explains on hover is a plain part in a `Tooltip`. Wrap the words a
  * narrow pane can do without in {@link MetaWord}, so "2 PRs · 1 failing" reads "2 · 1" there.
  *
+ * @figma `type` picks one of the parts the meta lines note describes, with its glyph, colour and
+ * words; several wrap a MetaCount. `width=narrow` is a pane under 640px. There is no pull request
+ * part: a branch with one is ViewHeader's `view=branch-pr`. `agent-working` and `agent-waiting`
+ * are but.dev's AgentsPart around a MetaCount.
+ * @see packages/but-ui/design/components/meta-lines.md
  * @import import { MetaPart } from "@gitbutler/but-ui-react/MetaPart.tsx";
  */
 export const MetaPart: FC<Props> = ({ icon, tone = "neutral", href, children, ...props }) => {

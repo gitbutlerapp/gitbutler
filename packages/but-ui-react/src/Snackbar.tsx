@@ -38,6 +38,8 @@ const defaultIcon = (variant: SnackbarVariant): IconName =>
  * Every variant wears the same surface: the verdict is carried by the glyph alone, so a run of
  * snackbars reads as one row of statements rather than a traffic light.
  *
+ * @figma `action` is `undo` when the code is given `onUndo`, `dismiss` when it's given `onDismiss`.
+ * @see packages/but-ui/design/patterns/toasts-and-snackbars.md
  * @public
  * @import import { Snackbar } from "@gitbutler/but-ui-react/Snackbar.tsx";
  */
