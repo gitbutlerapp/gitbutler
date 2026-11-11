@@ -1,5 +1,3 @@
-//! This module contains facilities to handle the persistence of secrets.
-//!
 //! These are stateless and global, while discouraging storing secrets
 //! in memory beyond their use.
 
