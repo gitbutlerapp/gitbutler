@@ -168,7 +168,6 @@ fn extract_number_after(text: &str, pattern: &str) -> Option<u32> {
     let start_pos = text.find(pattern)?;
     let start = start_pos.checked_add(pattern.len())?;
 
-    // Safe bounds check before slicing
     if start >= text.len() {
         return None;
     }
