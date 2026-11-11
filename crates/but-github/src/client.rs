@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::graphql::{
     GQL_DISABLE_PR_AUTO_MERGE, GQL_ENABLE_PR_AUTO_MERGE, GQL_GET_PR, GQL_GET_PR_NODE_ID,
-    GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS, GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
+    GQL_GET_VIEWER_DEFAULT_MERGE_METHOD, GQL_LIST_PR_REVIEW_THREADS, GQL_LIST_PR_REVIEWS,
+    GQL_SET_PR_DRAFT, GQL_SET_PR_READY_FOR_REVIEW,
 };
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
@@ -1058,7 +1059,9 @@ impl GitHubClient {
         Ok(())
     }
 
-    /// Enable or disable a PR's auto-merge.
+    /// Enable or disable a PR's auto-merge. Enabled without a merge method, it merges the way
+    /// GitHub's merge box offers the viewer first, since GitHub on its own asks for a merge
+    /// commit, which the repository may not allow.
     pub async fn set_pull_request_auto_merge(
         &self,
         params: &SetPullRequestAutoMergeParams<'_>,
@@ -1071,18 +1074,58 @@ impl GitHubClient {
             AutoMergeState::Disabled => {
                 self.disable_auto_merge_pull_request(&pull_request_id).await
             }
-            AutoMergeState::Enabled(params) => {
-                self.enable_auto_merge_pull_request(&pull_request_id, params)
+            AutoMergeState::Enabled(method) => {
+                let merge_method = match method {
+                    Some(method) => method.into(),
+                    None => {
+                        self.viewer_default_merge_method(params.owner, params.repo)
+                            .await?
+                    }
+                };
+                self.enable_auto_merge_pull_request(&pull_request_id, merge_method)
                     .await
             }
         }
         .map_err(refused_change)
     }
 
+    /// The merge method GitHub's merge box offers the viewer first in `owner/repo`: the one
+    /// they last used, else one the repository allows.
+    async fn viewer_default_merge_method(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<GraphQlMergeMethod> {
+        #[derive(Serialize)]
+        struct Variables<'a> {
+            owner: &'a str,
+            repo: &'a str,
+        }
+
+        #[derive(Deserialize)]
+        struct QueryData {
+            repository: Repository,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Repository {
+            viewer_default_merge_method: GraphQlMergeMethod,
+        }
+
+        let data: QueryData = self
+            .graphql_query(
+                GQL_GET_VIEWER_DEFAULT_MERGE_METHOD,
+                &Variables { owner, repo },
+            )
+            .await?;
+        Ok(data.repository.viewer_default_merge_method)
+    }
+
     async fn enable_auto_merge_pull_request(
         &self,
         pull_request_id: &PullRequestNodeId,
-        params: &AutoMergeEnableParams<'_>,
+        merge_method: GraphQlMergeMethod,
     ) -> Result<()> {
         #[derive(Deserialize)]
         struct MutationPayload {
@@ -1103,16 +1146,7 @@ impl GitHubClient {
         #[serde(rename_all = "camelCase")]
         struct EnablePullRequestAutoMergeInput<'a> {
             pull_request_id: &'a PullRequestNodeId,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            merge_method: Option<GraphQlMergeMethod>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            expected_head_oid: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            commit_headline: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            commit_body: Option<&'a str>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            author_email: Option<&'a str>,
+            merge_method: GraphQlMergeMethod,
         }
 
         #[derive(Deserialize)]
@@ -1127,11 +1161,7 @@ impl GitHubClient {
                 &Variables {
                     input: EnablePullRequestAutoMergeInput {
                         pull_request_id,
-                        merge_method: params.merge_method.as_ref().map(Into::into),
-                        expected_head_oid: params.expected_head_oid,
-                        commit_headline: params.commit_headline,
-                        commit_body: params.commit_body,
-                        author_email: params.author_email,
+                        merge_method,
                     },
                 },
             )
@@ -1402,29 +1432,11 @@ pub struct SetPullRequestDraftStateParams<'a> {
     pub draft: bool,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct AutoMergeEnableParams<'a> {
-    merge_method: Option<MergeMethod>,
-    expected_head_oid: Option<&'a str>,
-    commit_headline: Option<&'a str>,
-    commit_body: Option<&'a str>,
-    author_email: Option<&'a str>,
-}
-
 #[derive(Debug, Clone)]
-pub enum AutoMergeState<'a> {
+pub enum AutoMergeState {
     Disabled,
-    Enabled(AutoMergeEnableParams<'a>),
-}
-
-impl From<bool> for AutoMergeState<'_> {
-    fn from(value: bool) -> Self {
-        if value {
-            AutoMergeState::Enabled(Default::default())
-        } else {
-            AutoMergeState::Disabled
-        }
-    }
+    /// Merging by this method, or with `None` as GitHub's merge box offers the viewer first.
+    Enabled(Option<MergeMethod>),
 }
 
 #[derive(Debug, Clone)]
@@ -1432,10 +1444,10 @@ pub struct SetPullRequestAutoMergeParams<'a> {
     pub owner: &'a str,
     pub repo: &'a str,
     pub pr_number: i64,
-    pub state: AutoMergeState<'a>,
+    pub state: AutoMergeState,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum GraphQlMergeMethod {
     Merge,
@@ -2378,14 +2390,16 @@ mod tests {
     }
 
     /// Answer one connection per response, in order, checking each request's method and path.
+    /// The server's thread ends with the requests it answered.
     fn serve(
         responses: Vec<(&'static str, &'static str, &'static str)>,
-    ) -> (String, std::thread::JoinHandle<()>) {
+    ) -> (String, std::thread::JoinHandle<Vec<String>>) {
         use std::io::{Read as _, Write as _};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base_url = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let server = std::thread::spawn(move || {
+            let mut answered = Vec::new();
             for (request_line, status, body) in responses {
                 let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
                 let (mut stream, _) = loop {
@@ -2437,9 +2451,50 @@ mod tests {
                     body.len()
                 )
                 .unwrap();
+                answered.push(String::from_utf8_lossy(&request).into_owned());
             }
+            answered
         });
         (base_url, server)
+    }
+
+    #[tokio::test]
+    async fn auto_merge_asks_for_a_merge_method_the_repository_allows() {
+        let node_id = r#"{"data":{"repository":{"pullRequest":{"id":"PR_1"}}}}"#;
+        // What GitHub answers for a repository that allows only squash merges.
+        let viewer_default = r#"{"data":{"repository":{"viewerDefaultMergeMethod":"SQUASH"}}}"#;
+        let enabled = r#"{"data":{"enablePullRequestAutoMerge":{"pullRequest":{"id":"PR_1"}}}}"#;
+        for (merge_method, responses, expected) in [
+            (None, vec![node_id, viewer_default, enabled], "SQUASH"),
+            (Some(MergeMethod::Rebase), vec![node_id, enabled], "REBASE"),
+        ] {
+            let (base_url, server) = serve(
+                (responses.into_iter())
+                    .map(|body| ("POST /graphql ", "200 OK", body))
+                    .collect(),
+            );
+            let client = GitHubClient {
+                client: reqwest::Client::new(),
+                base_url,
+            };
+            client
+                .set_pull_request_auto_merge(&SetPullRequestAutoMergeParams {
+                    owner: "o",
+                    repo: "r",
+                    pr_number: 7,
+                    state: AutoMergeState::Enabled(merge_method),
+                })
+                .await
+                .expect("auto-merge turns on");
+            let requests = server.join().unwrap();
+            let mutation = requests.last().expect("the mutation was sent");
+            assert!(
+                mutation.contains(&format!(r#""mergeMethod":"{expected}""#)),
+                "GitHub would ask for a merge commit without one, which the repository may \
+                 not allow, so it's the one asked for or GitHub's default for the viewer: \
+                 {mutation}"
+            );
+        }
     }
 
     #[tokio::test(start_paused = true)]

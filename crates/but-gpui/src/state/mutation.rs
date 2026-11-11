@@ -1071,6 +1071,7 @@ impl Store {
                 body,
                 draft,
                 auto_merge,
+                merge_method: self.picked_merge_method(project),
                 run_hooks,
             },
             move |store, made, cx| {

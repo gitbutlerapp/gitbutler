@@ -81,7 +81,7 @@ pub async fn enable_auto_merge(
             writeln!(out, "Auto-merge {action} for review {review_id}")?;
         }
 
-        but_api::legacy::forge::set_review_auto_merge(ctx.to_sync(), review_id, !off)
+        but_api::legacy::forge::set_review_auto_merge(ctx.to_sync(), review_id, !off, None)
             .await
             .map_err(|err| match off {
                 true => CliError::from(err),

@@ -38,6 +38,14 @@ pub const GQL_DISABLE_PR_AUTO_MERGE: &str = r#"
     }
     "#;
 
+pub const GQL_GET_VIEWER_DEFAULT_MERGE_METHOD: &str = r#"
+    query ViewerDefaultMergeMethod($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        viewerDefaultMergeMethod
+      }
+    }
+    "#;
+
 pub const GQL_GET_PR_NODE_ID: &str = r#"
     query PullRequestNodeId($owner: String!, $repo: String!, $number: Int!) {
       repository(owner: $owner, name: $repo) {

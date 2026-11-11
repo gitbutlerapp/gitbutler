@@ -583,6 +583,7 @@ impl AppView {
             ),
             false => ("Disable auto-merge", "Auto-merge is off"),
         };
+        let method = self.store.read(cx).picked_merge_method(&project);
         self.store.update(cx, |store, cx| {
             store.apply(
                 &project,
@@ -591,7 +592,7 @@ impl AppView {
                     auto_merges: Some((number, on)),
                     ..Overlay::default()
                 },
-                reviews::SetAutoMerge { number, on },
+                reviews::SetAutoMerge { number, on, method },
                 move |store, (), cx| store.snack(done, cx),
                 cx,
             )
@@ -769,7 +770,9 @@ pub fn mergeability(store: &Store, project: &ProjectId, review: &Review) -> Merg
 pub fn merge_method(store: &Store, project: &ProjectId) -> Option<MergeMethod> {
     let forge = store.workspace(project).and_then(|ws| ws.forge);
     (forge != Some(Forge::GitLab)).then(|| {
-        (store.prefs.merge_methods.get(project.as_ref()).copied()).unwrap_or(MergeMethod::Merge)
+        store
+            .picked_merge_method(project)
+            .unwrap_or(MergeMethod::Merge)
     })
 }
 

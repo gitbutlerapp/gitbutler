@@ -1771,12 +1771,15 @@ pub async fn merge_review(
     }
 }
 
-/// Set a review to automatically merge when all prerequisites are met.
+/// Set a review to automatically merge when all prerequisites are met. GitHub merges it by
+/// `merge_method`, or with `None` the way its merge box offers the user first. GitLab merges
+/// as the project is set up to.
 pub async fn set_review_auto_merge_state(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     review_number: usize,
     enable: bool,
+    merge_method: Option<ReviewMergeMethod>,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let crate::forge::ForgeRepoInfo {
@@ -1799,7 +1802,12 @@ pub async fn set_review_auto_merge_state(
                 owner,
                 repo,
                 pr_number,
-                state: enable.into(),
+                state: match enable {
+                    true => {
+                        but_github::AutoMergeState::Enabled(merge_method.as_ref().map(Into::into))
+                    }
+                    false => but_github::AutoMergeState::Disabled,
+                },
             };
             but_github::pr::set_auto_merge(preferred_account, params, storage).await
         }

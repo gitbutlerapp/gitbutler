@@ -11,12 +11,11 @@ mod graphql;
 pub mod pr;
 pub mod stacks;
 pub use client::{
-    AutoMergeEnableParams, AutoMergeState, CheckRun, CommentReactions, CreatePullRequestParams,
-    GitHubClient, GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser,
-    HttpStatusError, MergeMethod, MergePullRequestParams, PullRequest, PullRequestComment,
-    PullRequestMergeStatus, PullRequestReview, PullRequestReviewThread,
-    PullRequestReviewThreadComment, Reaction, SetPullRequestAutoMergeParams,
-    SetPullRequestDraftStateParams, UpdatePullRequestParams,
+    AutoMergeState, CheckRun, CommentReactions, CreatePullRequestParams, GitHubClient,
+    GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, HttpStatusError,
+    MergeMethod, MergePullRequestParams, PullRequest, PullRequestComment, PullRequestMergeStatus,
+    PullRequestReview, PullRequestReviewThread, PullRequestReviewThreadComment, Reaction,
+    SetPullRequestAutoMergeParams, SetPullRequestDraftStateParams, UpdatePullRequestParams,
 };
 mod token;
 pub use token::{GithubAccountIdentifier, get_gh_access_token};
