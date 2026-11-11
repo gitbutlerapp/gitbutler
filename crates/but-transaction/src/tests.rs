@@ -5,7 +5,7 @@ use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_testsupport::Sandbox;
 use but_workspace::{
     branch::create_reference::{Anchor, Position},
-    commit::squash_commits::MessageCombinationStrategy,
+    commit::{UncommitChangesSource, squash_commits::MessageCombinationStrategy},
 };
 use gix::{ObjectId, refs::FullName};
 
@@ -1294,6 +1294,53 @@ fn uncommit_changes_from_commit() {
     assert!(
         env.projects_root().join("file-two").exists(),
         "the uncommitted file stays in the worktree"
+    );
+    snapbox::assert_data_eq!(
+        env.invoke_git("status --porcelain"),
+        snapbox::str!["?? file-two"]
+    );
+}
+
+#[test]
+fn uncommit_changes_from_commits_reports_what_it_could_not_uncommit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let [three, two] = find_commits(&env, ["1e25c58", "9b3b3d5"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+    let mut meta = ctx.meta().unwrap();
+
+    let (failures, _workspace) = with_transaction(
+        &mut ctx,
+        &mut meta,
+        SnapshotDetails::new(OperationKind::DiscardChanges),
+        DryRun::No,
+        |mut tx| {
+            Ok(Commit(tx.uncommit_changes_from_commits([
+                UncommitChangesSource {
+                    commit_id: two,
+                    changes: vec![diff_spec_for_file("file-two")],
+                },
+                UncommitChangesSource {
+                    commit_id: three,
+                    changes: vec![diff_spec_for_file("file-missing")],
+                },
+            ])?))
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        failures
+            .iter()
+            .map(|failure| failure.commit_id)
+            .collect::<Vec<_>>(),
+        [three],
+        "only the source naming a file its commit doesn't change fails"
     );
     snapbox::assert_data_eq!(
         env.invoke_git("status --porcelain"),
