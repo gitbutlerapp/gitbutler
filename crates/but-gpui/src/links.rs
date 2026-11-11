@@ -182,11 +182,10 @@ fn selection<'a>(
 
 /// Take `app`'s window where a link points in `project`, once the store has it open: `at`, as
 /// [`read`] reads it, or where the project opens by itself if `at` names nothing it can read,
-/// which it says. `existed` says whether the project was added before the link.
+/// which it says.
 pub fn land(
     app: &mut AppView,
     project: ProjectId,
-    existed: bool,
     at: &[(String, String)],
     window: &mut Window,
     cx: &mut Context<AppView>,
@@ -220,14 +219,14 @@ pub fn land(
             None
         }
         Some(Route::Settings(page)) => {
-            store.select_opened(&project, existed, cx);
+            store.select_opened(&project, cx);
             Some(page)
         }
         None => {
             if !at.is_empty() {
                 store.snack_warning("Couldn't read where the link points", cx);
             }
-            store.select_opened(&project, existed, cx);
+            store.select_opened(&project, cx);
             None
         }
     });
