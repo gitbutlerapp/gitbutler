@@ -57,7 +57,7 @@ const SELECTION_INSET: f32 = 3.;
 /// How far the strip's ends fade while there's more past them.
 const FADE: f32 = 24.;
 /// How wide the card under a tab is, and how far it stays from the window's edges.
-const CARD_WIDTH: f32 = 340.;
+const CARD_WIDTH: f32 = 380.;
 const CARD_MARGIN: f32 = 8.;
 /// What the card's drawn in: over what `ui::fold::on_top` draws, as a tile zoomed or dragged, and
 /// under what covers the window, as a modal or a menu.
