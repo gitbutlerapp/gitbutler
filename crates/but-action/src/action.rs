@@ -36,7 +36,6 @@ pub enum Source {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ButlerAction {
-    /// UUID identifier of the action
     pub id: Uuid,
     /// The time when the action was performed.
     created_at: chrono::NaiveDateTime,
@@ -194,7 +193,6 @@ pub fn list_actions(db: &DbHandle, offset: i64, limit: i64) -> anyhow::Result<Ac
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list actions: {e}"))?;
 
-    // Filter out any entries that cannot be converted to ButlerAction
     let actions = actions
         .into_iter()
         .filter_map(|a| TryInto::try_into(a).ok())

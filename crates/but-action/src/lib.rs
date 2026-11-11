@@ -1,5 +1,3 @@
-//! This crate implements various automations that GitButler can perform.
-
 use std::fmt::{Debug, Display};
 
 use anyhow::Context as _;

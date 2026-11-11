@@ -60,7 +60,6 @@ pub fn do_install_cli_v2(
     }
 }
 
-/// Installs the CLI link with escalated privileges.
 #[cfg(any(target_os = "macos", all(test, unix)))]
 fn install_cli_link_escalated(
     cli_path: &std::path::Path,
