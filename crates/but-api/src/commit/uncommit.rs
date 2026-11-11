@@ -287,56 +287,24 @@ pub fn commit_uncommit_changes_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
-    let surfaced =
-        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
-
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let mut outcome =
-        but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
-
-    let (workspace, replaced_commits, conflicted_commits, repo, meta, db) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
-        let replaced_commits = outcome.rebase.history.commit_mappings().sole_successors();
-        let conflicted_commits = outcome.rebase.history.conflicted_commits.clone();
-        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            conflicted_commits,
-            repo,
-            meta,
-            db,
-        )
-    } else {
-        outcome.rebase.keep_worktrees_unchanged()?;
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings().sole_successors(),
-            materialized.history.conflicted_commits,
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
+    let surfaced = {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?
     };
 
+    let mut meta = ctx.meta()?;
+    let (_, workspace) =
+        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
+            tx.uncommit_changes_from_commit(commit_id, changes)?;
+            Ok(())
+        })?;
+
     if let Some(surfaced) = surfaced {
-        surfaced.assign_after(db, repo, workspace, context_lines)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        surfaced.assign_after(&mut db, &repo, &ws, context_lines)?;
     }
 
-    Ok(MoveChangesResult {
-        workspace: WorkspaceState::from_workspace_with_db(
-            workspace,
-            meta,
-            repo,
-            replaced_commits,
-            conflicted_commits,
-            db,
-        )?,
-    })
+    Ok(MoveChangesResult { workspace })
 }
 
 /// Extract `changes` from `commit_id` and record the rewrite in the oplog.
