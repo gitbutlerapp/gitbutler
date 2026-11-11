@@ -250,7 +250,6 @@ pub mod merge {
         }
     }
 
-    /// Merging - create a merge-commit along with its tree.
     impl WorkspaceCommit<'_> {
         /// Resolve workspace metadata and anonymous stacks into merge tips.
         ///
@@ -541,7 +540,6 @@ pub mod merge {
                     })
                     .context("having stacks means the loop ran once")?;
 
-                // Finally, create the merge-commit itself.
                 let mut ws_commit =
                     Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
                 ws_commit.tree = merge_tree_id;
@@ -633,7 +631,6 @@ pub mod merge {
     }
 }
 
-/// Construction
 impl<'repo> WorkspaceCommit<'repo> {
     const GITBUTLER_WORKSPACE_COMMIT_TITLE: &'static str = "GitButler Workspace Commit";
 
@@ -781,7 +778,6 @@ fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
         .unwrap_or_else(gix::date::Time::now_local_or_utc)
 }
 
-/// Query
 impl WorkspaceCommit<'_> {
     /// Return `true` if this commit is managed by GitButler.
     /// If `false`, this is the tip of the stack itself which will be put underneath a *managed* workspace commit

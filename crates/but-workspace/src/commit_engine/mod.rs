@@ -28,14 +28,12 @@ pub enum Destination {
         parent_commit_id: Option<gix::ObjectId>,
         /// The stack and reference the commit is supposed to go into. It is necessary to disambiguate the reference update.
         stack_segment: Option<StackSegmentId>,
-        /// Use `message` as a commit message for the new commit.
         message: String,
     },
     /// Amend all changes to the given commit, leaving all other aspects of the commit unchanged.
     AmendCommit {
         /// The commit to use as a base to amend to. It will be rewritten, retaining its parents.
         commit_id: gix::ObjectId,
-        /// If `Some()`, set the commit message as well.
         new_message: Option<String>,
     },
 }
@@ -53,7 +51,6 @@ pub struct StackSegmentId {
 /// to the correct commit.
 #[derive(Debug, PartialEq)]
 pub struct UpdatedReference {
-    /// The reference itself.
     // TODO: The virtual variant could contain stack-id as well, but it remains to be seen how useful this is.
     pub reference: but_core::Reference,
     /// The commit to which `reference` pointed before the update.

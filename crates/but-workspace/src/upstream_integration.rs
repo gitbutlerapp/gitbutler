@@ -1,5 +1,3 @@
-//! Integrating upstream changes
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
@@ -36,7 +34,6 @@ pub enum BottomUpdateKind {
 
 /// Describes a particular bottom node and how it should be updated.
 pub struct BottomUpdate {
-    /// Describes how the associated branch should be updated.
     pub kind: BottomUpdateKind,
     /// A pointer to one of the bottom most commits in a stack.
     pub selector: RelativeTo,
@@ -55,11 +52,8 @@ pub struct ReviewIntegrationHint {
     pub source_branch: String,
 }
 
-/// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The updated project metadata.
     pub project_meta: ProjectMeta,
-    /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
 }
 

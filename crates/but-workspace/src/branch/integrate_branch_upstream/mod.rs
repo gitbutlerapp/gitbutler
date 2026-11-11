@@ -39,22 +39,14 @@ use plan::prepare_integration_steps_for_editor;
 #[derive(Debug)]
 pub enum InteractiveIntegrationStep {
     /// Pick a commit, keeping it in the branch.
-    Pick {
-        /// The SHA of the commit being picked.
-        commit_id: gix::ObjectId,
-    },
+    Pick { commit_id: gix::ObjectId },
     /// Squash the commits into one.
     Squash {
-        /// The SHAs of the commits to squash.
         commits: Vec<gix::ObjectId>,
-        /// Optionally, the message to use for the squash commit.
         message: Option<String>,
     },
     /// Merge a commit into the previous one.
-    Merge {
-        /// The SHA of the commit to merge.
-        commit_id: gix::ObjectId,
-    },
+    Merge { commit_id: gix::ObjectId },
 }
 
 impl fmt::Display for InteractiveIntegrationStep {
@@ -255,8 +247,6 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 /// can be passed directly to integration without reordering by the caller.
 ///
 /// `ref_name` - The full reference name of the local branch to get the integration steps for.
-///
-/// `repo` - The repository handle.
 ///
 /// `workspace` - The current workspace graph projection used to construct the editor.
 ///

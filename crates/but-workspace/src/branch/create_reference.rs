@@ -53,7 +53,6 @@ pub enum Anchor<'a> {
 }
 
 impl<'a> Anchor<'a> {
-    /// Create a new instance with an object ID as anchor.
     pub fn at_id(commit_id: impl Into<gix::ObjectId>, position: Position) -> Self {
         Anchor::AtCommit {
             commit_id: commit_id.into(),
@@ -61,7 +60,6 @@ impl<'a> Anchor<'a> {
         }
     }
 
-    /// Create a new instance with a segment name as anchor.
     pub fn at_segment(ref_name: &'a gix::refs::FullNameRef, position: Position) -> Self {
         Anchor::AtSegment {
             ref_name: Cow::Borrowed(ref_name),
@@ -69,7 +67,6 @@ impl<'a> Anchor<'a> {
         }
     }
 
-    /// Create a new instance with a reference name as anchor.
     pub fn at_reference(ref_name: &'a gix::refs::FullNameRef, position: Position) -> Self {
         Anchor::AtReference {
             ref_name: Cow::Borrowed(ref_name),

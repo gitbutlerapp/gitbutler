@@ -19,7 +19,6 @@ pub struct IntegrationDivergenceCommit {
     pub change_id: Option<String>,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: i128,
-    /// The author of the commit.
     pub author: Author,
     /// Human-facing ref labels rendered inline on the commit row.
     pub refs: Vec<String>,
@@ -89,12 +88,8 @@ impl fmt::Display for IntegrationDivergenceDisplay {
 ///
 /// `repo` provides commit decoding so the commit subject can be loaded.
 ///
-/// `commit_id` is the commit that should be rendered in the divergence view.
-///
 /// `target_relation` describes how `commit_id` relates to the configured target
 /// branch.
-///
-/// Returns the populated display row with subject text and target relation.
 pub(super) fn divergence_commit(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
@@ -134,9 +129,6 @@ pub(super) fn divergence_commit(
 ///
 /// `label` is the human-facing ref label to append when the target row is
 /// found.
-///
-/// Returns `()` after applying the label in place when a matching commit row
-/// exists.
 pub(super) fn add_ref_label(
     primary: &mut [IntegrationDivergenceCommit],
     merge_base: &mut IntegrationDivergenceCommit,
@@ -161,8 +153,6 @@ pub(super) fn add_ref_label(
 ///
 /// `target_relations` is the precomputed map of commit ids to their target
 /// branch relation.
-///
-/// `commit_id` is the commit whose relation should be retrieved.
 ///
 /// Returns the stored relation for `commit_id`, or `NotIntegrated` when the
 /// commit is absent from the map.

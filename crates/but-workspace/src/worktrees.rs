@@ -210,7 +210,6 @@ impl std::error::Error for DestinationExists {}
 pub enum WorktreeBranch<'a> {
     /// Create a branch the way `git worktree add -b` does, which refuses an existing branch.
     New {
-        /// The branch to create.
         name: &'a gix::refs::FullNameRef,
         /// The commit the branch starts at.
         base: gix::ObjectId,

@@ -1,5 +1,3 @@
-//! New graphy workspace
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
@@ -12,20 +10,15 @@ use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Rendere
 
 use crate::{ref_info::Commit, ui::CommitState};
 
-/// A graph row's data
 #[expect(clippy::large_enum_variant)]
 pub enum GraphRowData {
-    /// A commit :D
     Commit {
-        /// The commit.
         commit: Commit,
         /// The commit's state (local-only / local-and-remote / integrated), as
         /// computed by the Editor's workspace projection.
         state: CommitState,
     },
-    /// A reference
     Reference {
-        /// The name of the reference
         ref_name: gix::refs::FullName,
         /// More information about the reference, computed by the Editor's
         /// workspace projection. `None` for references the projection didn't
@@ -34,9 +27,7 @@ pub enum GraphRowData {
     },
 }
 
-/// A row in the graph
 pub struct GraphRow {
-    /// Data
     pub data: GraphRowData,
 
     /// The node columns for this row.
@@ -70,9 +61,7 @@ pub struct ReferenceSegment {
     pub row_idxs: Vec<usize>,
 }
 
-/// A stack
 pub struct Stack {
-    /// The rows
     pub rows: Vec<GraphRow>,
     /// Linear runs split by references.
     pub linear_segments: Vec<LinearSegment>,
@@ -83,11 +72,9 @@ pub struct Stack {
 
 /// The Graph Workspace that has been decorated with a bunch of types
 pub struct DetailedGraphWorkspace {
-    /// The stacks
     pub stacks: Vec<Stack>,
 }
 
-/// A detailed graph workspace
 pub fn detailed_graph_workspace<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,

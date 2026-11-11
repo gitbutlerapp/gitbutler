@@ -35,7 +35,6 @@ pub(crate) enum TargetCommitRelation {
 }
 
 impl TargetCommitRelation {
-    /// Return true when this relation means the commit is already integrated.
     pub(crate) fn is_integrated(self) -> bool {
         matches!(self, Self::HistoricallyIntegrated { .. })
     }
@@ -95,8 +94,6 @@ pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
 ///
 /// `editor` provides the graph lookup used to resolve each selector to its
 /// current picked commit id.
-///
-/// `selectors` is the sequence of graph selectors to convert.
 ///
 /// Returns the commit ids for all provided selectors in iteration order.
 pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(

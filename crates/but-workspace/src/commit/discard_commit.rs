@@ -1,5 +1,3 @@
-//! Discard commits from the graph.
-
 use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, SuccessfulRebase};

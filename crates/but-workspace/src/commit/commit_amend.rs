@@ -1,5 +1,3 @@
-//! An action to amend an existing commit with selected changes.
-
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
@@ -10,7 +8,6 @@ use crate::commit_engine::{Destination, create_commit};
 
 use super::{ChangeSource, cancel_consumed_changes, consumed_changes};
 
-/// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
 pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations. This will be

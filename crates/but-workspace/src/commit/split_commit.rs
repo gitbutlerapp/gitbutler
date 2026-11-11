@@ -1,5 +1,3 @@
-//! An action to split changes off a commit into a new one.
-
 use anyhow::Result;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::{

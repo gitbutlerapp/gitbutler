@@ -176,9 +176,6 @@ pub(crate) enum EdgeSelection {
 /// `editor` is the mutable graph editor whose connectivity will be updated.
 ///
 /// `selector` is the node whose parent edges should be removed.
-///
-/// Returns `Ok(())` after all direct parent edges of `selector` have been
-/// removed from the editor graph.
 pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     selector: Selector,
@@ -260,9 +257,6 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 /// reused when available, or advanced to the next free order on collision.
 /// Parents that `delimiter.parent` kept, like the side parents of a merge, sit
 /// above order 0, so a restored first parent stays first.
-///
-/// Returns `Ok(())` after the captured child and parent edges have been
-/// reattached to the rebuilt segment.
 pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     delimiter: SegmentDelimiter<Selector, Selector>,
@@ -360,8 +354,6 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 ///
 /// `parent_step` describes the parent node to connect, either by reusing an
 /// existing pick/reference selector or by inserting a new pick step first.
-///
-/// Returns the selector of the connected parent node.
 pub(crate) fn connect_parent_step<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     child: Selector,
@@ -394,9 +386,6 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
 /// `editor` provides the parent-edge traversal used for the walk.
 ///
 /// `tip` is the starting selector whose ancestors should be collected.
-///
-/// Returns the set containing `tip` and every selector reachable from it by
-/// repeatedly following direct parent edges.
 pub(crate) fn traverse_nodes<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     tip: Selector,

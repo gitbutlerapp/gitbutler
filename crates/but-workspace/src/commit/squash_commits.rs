@@ -1,5 +1,3 @@
-//! An action to squash multiple commits into a target commit.
-
 use anyhow::{Context as _, Result};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
@@ -10,10 +8,8 @@ use but_rebase::{
     },
 };
 
-/// The result of a squash_commits operation.
 #[derive(Debug)]
 pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The successful rebase result.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Selector pointing to the squashed replacement commit.
     pub commit_selector: Selector,
@@ -94,7 +90,6 @@ but_schemars::register_sdk_type!(MessageCombinationStrategy);
 ///
 /// Subject messages are appended in the order they are provided, with at least
 /// one blank line between non-empty message blocks.
-///
 pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
     editor: Editor<'ws, 'meta, M>,
     subjects: Vec<S>,

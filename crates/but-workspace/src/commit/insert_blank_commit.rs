@@ -1,5 +1,3 @@
-//! Insertion of a blank commit
-
 use anyhow::Result;
 use but_core::RefMetadata;
 use but_rebase::{
@@ -7,7 +5,6 @@ use but_rebase::{
     graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide},
 };
 
-/// Inserts a blank commit relative to either a reference or a commit
 pub fn insert_blank_commit<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     side: InsertSide,

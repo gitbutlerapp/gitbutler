@@ -31,11 +31,9 @@ pub mod legacy;
 
 pub mod init;
 
-/// Types specifically for the user-interface.
 pub mod ui;
 
 pub mod commit_engine;
-/// Tools for manipulating trees
 pub mod tree_manipulation;
 use indexmap::IndexMap;
 pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
@@ -49,7 +47,6 @@ mod divergence;
 pub use but_core::branch::resolve_tracking_branch_ref_name;
 mod graph_manipulation;
 
-/// Utility types for the [`WorkspaceCommit`].
 pub mod commit;
 
 /// Types used only when obtaining head-information.
@@ -203,7 +200,6 @@ pub struct AncestorWorkspaceCommit {
 /// possibly in its managed form in which it merges two or more stacks together, and we can rewrite it at will.
 #[derive(Debug, Clone)]
 pub struct WorkspaceCommit<'repo> {
-    /// The id of the commit itself.
     pub id: gix::Id<'repo>,
     /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,

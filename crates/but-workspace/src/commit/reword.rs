@@ -1,5 +1,3 @@
-//! An action to perform a reword of a commit
-
 use anyhow::Result;
 use bstr::BStr;
 use but_core::RefMetadata;

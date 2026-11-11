@@ -8,9 +8,7 @@ use crate::commit_engine::RejectionReason;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RejectedChange {
-    /// The reason for the rejection.
     pub reason: RejectionReason,
-    /// The path of the rejected change.
     pub path: BStringForFrontend,
 }
 

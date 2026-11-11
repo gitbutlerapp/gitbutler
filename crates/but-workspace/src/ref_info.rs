@@ -21,22 +21,17 @@ use gix::Repository;
 /// Note that additional information can be computed and placed in the [`LocalCommit`].
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
-    /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
-    /// The hash of the tree associated with the object.
     pub tree_id: gix::ObjectId,
     /// The complete message, verbatim.
     pub message: BString,
-    /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
-    /// The signature at which the commit was committed.
     pub committer: gix::actor::Signature,
     /// The references pointing to this commit, even after dereferencing tag objects, along with workspace information.
     /// These can be names of tags and branches.
     pub refs: Vec<but_graph::RefInfo>,
-    /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
     /// Whether the commit is in a conflicted state, a GitButler concept.
     /// GitButler will perform rebasing/reordering etc. without interruptions and flag commits as conflicted if needed.
@@ -106,7 +101,6 @@ impl Commit {
         )
     }
 
-    /// A special constructor for very specific case.
     pub(crate) fn from_commit_ahead_of_workspace_commit(
         commit: but_core::Commit<'_>,
         graph_commit: &but_graph::Commit,
@@ -123,7 +117,6 @@ impl Commit {
 /// A commit that is reachable through the *local tracking branch*, with additional, computed information.
 #[derive(Clone, Eq, PartialEq)]
 pub struct LocalCommit {
-    /// The simple commit.
     pub inner: Commit,
     /// Provide additional information on how this commit relates to other points of reference, like its remote branch,
     /// or the target branch to integrate with.
@@ -157,7 +150,6 @@ impl std::fmt::Debug for LocalCommit {
 /// The state of the [local commit](LocalCommit) in relation to its remote tracking branch or its integration branch.
 #[derive(Default, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LocalCommitRelation {
-    /// The commit is only local
     #[default]
     LocalOnly,
     /// The commit is also present in the remote tracking branch.
@@ -328,14 +320,12 @@ pub struct Segment {
     pub base: Option<gix::ObjectId>,
 }
 
-/// Direct Access (without graph)
 impl Segment {
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
     }
 
-    /// Return the name of the branch at the tip of the segment, if present.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }

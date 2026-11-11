@@ -142,7 +142,6 @@ fn smart_squash_steps(
     // change ID and track them.
     let mut upstream_commits_by_target = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
     let mut matched_upstream_commits = HashSet::<gix::ObjectId>::new();
-    // Iterate over the upstream-only commits.
     for upstream_commit_id in upstream_commits.iter().rev().copied() {
         let Some(change_id) = change_ids.get(&upstream_commit_id) else {
             continue;
@@ -389,8 +388,6 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// edges.
 ///
 /// `steps` is the prepared integration plan in execution order.
-///
-/// Returns the graph steps to insert in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     steps: &[PreparedIntegrationStep],

@@ -1,5 +1,3 @@
-//! Actions to remove changes from commits.
-
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
@@ -13,10 +11,8 @@ use but_rebase::{
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
-/// The result of an uncommit_changes operation.
 #[derive(Debug)]
 pub struct UncommitChangesOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The successful rebase result
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Selector pointing to the modified commit (with changes removed)
     pub commit_selector: Selector,
