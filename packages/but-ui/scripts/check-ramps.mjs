@@ -10,7 +10,9 @@ import { readFileSync } from "node:fs";
 const generated = JSON.parse(readFileSync("tokens/ramps.json", "utf8"));
 const exported = JSON.parse(readFileSync("tokens/json/ramps.tokens.json", "utf8")).ramps ?? {};
 
-const hues = (ramps) => Object.keys(ramps).filter((key) => !key.startsWith("$"));
+function hues(ramps) {
+	return Object.keys(ramps).filter((key) => !key.startsWith("$"));
+}
 const problems = [];
 for (const hue of hues(generated))
 	if (!(hue in exported)) problems.push(`${hue}: generated, but not in Figma`);
