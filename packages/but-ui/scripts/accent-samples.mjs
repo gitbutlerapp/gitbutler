@@ -19,10 +19,10 @@ export function accentSamples(css) {
 	const custom = declarationsIn(block);
 	return SAMPLES.map((color) => {
 		const declarations = new Map([...rootDeclarations(css), ...custom, ["accent-color", color]]);
-		const hex = (value, mode) => {
+		function hex(value, mode) {
 			const { r, g, b } = resolveColor(value, mode, declarations);
 			return formatHex({ mode: "rgb", r, g, b });
-		};
+		}
 		return {
 			color,
 			tokens: Object.fromEntries(
