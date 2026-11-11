@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
-    /// The current state of the virtual branches
     pub branches: HashMap<StackId, Stack>,
     #[serde(with = "but_serde::object_id_opt", default)]
     pub last_pushed_base: Option<gix::ObjectId>,
@@ -140,9 +139,6 @@ mod stack {
                 source_refname: None,
                 upstream: None,
 
-                // Unused - everything is defined by the top-most branch name.
-                // unclear, obsolete
-
                 // For serialization backwards compatibility
                 #[expect(deprecated)]
                 notes: String::new(),
@@ -179,7 +175,6 @@ mod stack {
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
-        /// The pull request associated with the branch, or None if a pull request has not been created.
         #[serde(default)]
         pub pr_number: Option<usize>,
         /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.

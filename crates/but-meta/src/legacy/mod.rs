@@ -93,7 +93,6 @@ impl Snapshot {
     }
 }
 
-/// Legacy storage constraints applied before writing metadata.
 impl Snapshot {
     /// The fixes here aren't relevant for the ref-metadata, but important for storage.
     /// Instead of trying to maintain this, let's just fix it before writing.
@@ -110,7 +109,6 @@ impl Snapshot {
         clone.content
     }
 
-    /// Return `true` if any of the heads needs fixing because it's null.
     fn has_null_head_hash(&self) -> bool {
         let null_id = gix::hash::Kind::Sha1.null();
         self.content
@@ -272,11 +270,7 @@ pub struct VirtualBranchesTomlMetadata {
     write_on_drop: bool,
 }
 
-/// Lifecycle
 impl VirtualBranchesTomlMetadata {
-    /// Initialize a store backed by a file on disk.
-    ///
-    /// Also, set-up a thread for debounced writing.
     pub fn from_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
         Ok(Self {
             snapshot: Snapshot::from_path(path.into())?,
@@ -294,8 +288,6 @@ impl VirtualBranchesTomlMetadata {
         })
     }
 
-    /// Return the path at which the toml file is located.
-    ///
     /// We will write changes to it on drop.
     pub fn path(&self) -> &Path {
         &self.snapshot.path
@@ -351,14 +343,12 @@ impl VirtualBranchesTomlMetadata {
 
 /// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
 impl VirtualBranchesTomlMetadata {
-    /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
-    ///
     /// Consider calling [Self::set_changed_to_necessitate_write()] to have the changes written back.
     pub fn data_mut(&mut self) -> &mut VirtualBranches {
         &mut self.snapshot.content
     }
 
-    /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
+    /// Useful for working around (intended) limitations of the RefMetadata trait.
     pub fn data(&self) -> &VirtualBranches {
         &self.snapshot.content
     }
@@ -385,7 +375,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
     fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
         let data = &self.snapshot.content;
-        // Keep it simple - dump everything into a Vec, pre-allocated.
         let mut out = Vec::new();
         if data.branches.is_empty() {
             return out.into_iter();
@@ -606,7 +595,6 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 })
             });
 
-            // remove heads that aren't there anymore.
             vb_stack.heads.retain(|head| {
                 stack
                     .branches
@@ -780,7 +768,6 @@ pub struct BranchOrderMetadata {
 }
 
 impl BranchOrderMetadata {
-    /// Open metadata from a legacy TOML path and a project database directory.
     pub fn from_paths(
         toml_path: impl AsRef<Path>,
         db_dir: impl AsRef<Path>,
@@ -1067,7 +1054,6 @@ pub struct VBTomlMetadataHandle<T> {
 }
 
 impl<T> VBTomlMetadataHandle<T> {
-    /// Return the stack_id of the underlying stack if there is one.
     pub fn stack_id(&self) -> Option<StackId> {
         *self.stack_id.borrow()
     }

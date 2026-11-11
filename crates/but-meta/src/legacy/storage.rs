@@ -195,8 +195,6 @@ fn ensure_vb_storage_in_sync(
     }
 }
 
-/// Compare observed TOML metadata against DB sync metadata.
-///
 /// Returns `Ordering::Greater` when TOML is newer than what DB has last seen.
 /// Returns `Ordering::Equal` when TOML has the same mtime and sha256 as last seen.
 /// Returns `Ordering::Less` when TOML is older than DB's last-seen metadata.
