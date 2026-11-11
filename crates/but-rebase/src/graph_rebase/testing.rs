@@ -1,5 +1,3 @@
-//! Testing utilities
-
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -98,7 +96,6 @@ impl ToSymbol for Step {
     }
 }
 
-/// Format a step for display, optionally with a commit title
 fn format_step(step: &Step, title: Option<String>) -> String {
     match step {
         Step::Pick(Pick { id, .. }) => {
@@ -348,7 +345,6 @@ mod tests {
         Step::new_reference(gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap())
     }
 
-    /// Helper to build a graph and add edges with order
     fn add_edge(graph: &mut StepGraph, from: StepGraphIndex, to: StepGraphIndex, order: usize) {
         graph.add_edge(from, to, Edge { order });
     }

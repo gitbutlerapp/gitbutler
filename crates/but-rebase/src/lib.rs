@@ -10,10 +10,8 @@ use tracing::instrument;
 
 use crate::commit::DateMode;
 
-/// Tools for manipulating commits
 pub mod graph_rebase;
 
-/// Types for use with cherry-picking
 pub mod cherry_pick;
 pub use cherry_pick::cherry_pick_one;
 
@@ -21,7 +19,6 @@ use crate::cherry_pick::{EmptyCommit, PickMode};
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;
-/// Utilities around merging
 pub mod merge;
 
 /// An instruction for [`Rebase::rebase()`].
@@ -57,7 +54,6 @@ pub enum RebaseStep {
 }
 
 impl RebaseStep {
-    /// Get the commit id associated with a given step
     pub fn commit_id(&self) -> Option<&gix::oid> {
         match self {
             RebaseStep::Pick { commit_id, .. }
@@ -423,7 +419,6 @@ pub struct ReferenceSpec {
     pub previous_commit_id: gix::ObjectId,
 }
 
-/// The output of the [rebase](Rebase::rebase()) operation.
 #[derive(Debug, Clone)]
 pub struct RebaseOutput {
     /// The id of the most recently created commit in the rebase operation.

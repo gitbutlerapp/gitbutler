@@ -1,5 +1,3 @@
-//! Operations for mutating the editor
-
 use std::collections::HashSet;
 
 use anyhow::{Context as _, Result, anyhow, bail};
@@ -55,7 +53,6 @@ where
     pub parent: P,
 }
 
-/// A set of some selectors
 #[derive(Debug, Clone)]
 pub struct SomeSelectors {
     selectors: Vec<AnySelector>,
@@ -78,7 +75,6 @@ impl SomeSelectors {
         Ok(Self { selectors })
     }
 
-    /// Returns selectors as a slice.
     pub fn as_slice(&self) -> &[AnySelector] {
         &self.selectors
     }
@@ -152,9 +148,7 @@ pub enum SelectorSet {
 /// relative to.
 #[derive(Debug, Clone)]
 pub enum RelativeToRef<'a> {
-    /// Relative to a commit
     Commit(gix::ObjectId),
-    /// Relative to a reference
     Reference(&'a gix::refs::FullNameRef),
 }
 
@@ -171,9 +165,7 @@ impl ToSelector for RelativeToRef<'_> {
 /// This is the fully-owned cousin of [RelativeTo].
 #[derive(Debug, Clone)]
 pub enum RelativeTo {
-    /// Relative to a commit.
     Commit(gix::ObjectId),
-    /// Relative to a reference.
     Reference(gix::refs::FullName),
 }
 
@@ -234,9 +226,7 @@ impl ToSelector for gix::refs::FullName {
     }
 }
 
-/// Operations for mutating the commit graph
 impl<M: RefMetadata> Editor<'_, '_, M> {
-    /// Get a selector to a particular commit in the graph
     pub fn select_commit(&self, target: gix::ObjectId) -> Result<Selector> {
         match self.try_select_commit(target) {
             Some(selector) => Ok(selector),
@@ -244,7 +234,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// Get a selector to a particular reference in the graph
     pub fn select_reference(&self, target: &gix::refs::FullNameRef) -> Result<Selector> {
         match self.try_select_reference(target) {
             Some(selector) => Ok(selector),
@@ -254,7 +243,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// Get a selector to a particular commit in the graph
     pub fn try_select_commit(&self, target: gix::ObjectId) -> Option<Selector> {
         for node_idx in self.graph.node_indices() {
             if let Step::Pick(Pick { id, .. }) = self.graph[node_idx]
@@ -267,7 +255,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         None
     }
 
-    /// Get a selector to a particular reference in the graph
     pub fn try_select_reference(&self, target: &gix::refs::FullNameRef) -> Option<Selector> {
         for node_idx in self.graph.node_indices() {
             if let Step::Reference { refname, .. } = &self.graph[node_idx]
@@ -360,7 +347,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
-    /// Replaces the step with [Step::None].
     pub fn replace_with_none(&mut self, target: impl ToSelector) -> Result<Step> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
         let mut step = Step::None;
@@ -427,7 +413,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
-    /// Convenience function to amend a pick.
     pub fn amend_pick(&mut self, target: impl ToCommitSelector, id: gix::ObjectId) -> Result<()> {
         self.update_pick(target, |_editor, mut pick| {
             pick.id = id;
@@ -453,7 +438,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Returns an error when:
     /// - `parents_to_disconnect` is `SelectorSet::None` and `skip_reconnect_step` is false.
     /// - `parents_to_disconnect` contains any parent that is not a direct parent of `target.parent`.
-    /// - `children_to_disconnect` contains any child that is not a direct parent of `target.child`.
+    /// - `children_to_disconnect` contains any child that is not a direct child of `target.child`.
     pub fn disconnect_segment_from<C, P>(
         &mut self,
         target: SegmentDelimiter<C, P>,
@@ -520,7 +505,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .map(|e| (e.id(), e.weight().to_owned(), e.target()))
             .collect::<Vec<_>>();
 
-        // All available parents
         let available_parents = outgoing_edges
             .iter()
             .map(|(_, _, edge_target)| *edge_target)
@@ -577,7 +561,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 .as_ref()
                 .is_none_or(|ids| ids.contains(&edge_source));
             if should_disconnect {
-                // Remove the child edge.
                 self.graph.remove_edge(edge_id);
                 // Reconnect the child node to all the disconnected parents.
                 if !skip_reconnect_step {
@@ -701,7 +684,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// If `nodes_to_connect` is Some:
     ///     If inserted above, connect the given nodes as children. If inserted below, connect the given nodes as parents
     ///     using `parent_reparenting_order`.
-    ///
     pub fn insert_segment_into<C, P>(
         &mut self,
         target: impl ToSelector,
@@ -814,7 +796,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     } else {
                         Edge { order: 0 }
                     };
-                // Connect the target to the child-most node in the given segment.
                 self.graph.add_edge(target.id, child.id, new_weight);
             }
         }
@@ -834,7 +815,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// so the first inserted/reparented parent becomes the first-parent traversal path and existing parents
     /// remain attached after them in their previous relative order. Use [`Self::insert_segment_into`] with
     /// [`ParentReparentingOrder::Append`] when existing parents should keep the lowest parent orders instead.
-    ///
     pub fn insert_segment<C, P>(
         &mut self,
         target: impl ToSelector,

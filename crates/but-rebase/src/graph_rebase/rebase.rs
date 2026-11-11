@@ -1,5 +1,3 @@
-//! Perform the actual rebase operations
-
 use std::{collections::HashMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
@@ -15,7 +13,6 @@ use crate::graph_rebase::{
 use crate::merge::ConflictErrorContext;
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
-    /// Perform the rebase
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         let mut ref_edits = vec![];
         let steps_to_pick = order_steps_picking(&self.graph)?;
@@ -29,7 +26,6 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         let mut history = self.history;
 
         for step_idx in steps_to_pick {
-            // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
                 Step::Pick(pick) if !pick.mutable => {

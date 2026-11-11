@@ -12,35 +12,25 @@ use but_core::{
 };
 use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
 
-/// Describes the outcome of cherrypick.
 #[derive(Debug, Clone)]
 pub enum CherryPickOutcome {
-    /// Successfully cherry picked.
     Commit {
-        /// The ID of the result.
         id: gix::ObjectId,
-        /// The change ID of the result.
         change_id: ChangeId,
-        /// Whether the result is conflicted.
         conflicted: bool,
     },
     /// No cherry pick was required since all the parents remained the same.
     Identity {
-        /// The ID of the result.
         id: gix::ObjectId,
-        /// The change ID of the result.
         change_id: ChangeId,
-        /// Whether the result is conflicted.
         conflicted: bool,
     },
     /// Represents the cases where either the source or the target commits failed to
     /// merge cleanly.
     FailedToMergeBases {
-        /// Whther the merge operation performed on the list of bases failed.
         base_merge_failed: bool,
         /// The shas of the commits that we were trying to cherry pick from.
         bases: Option<Vec<gix::ObjectId>>,
-        /// Whther the merge operation performed on the list of ontos failed.
         onto_merge_failed: bool,
         /// The shas of the commits that we were trying to cherry pick onto.
         ontos: Option<Vec<gix::ObjectId>>,
@@ -56,10 +46,8 @@ pub enum CherryPickOutcome {
 /// This enum controls the merge options used for those merges.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum TreeMergeMode {
-    /// Merge with rename detection enabled (default).
     #[default]
     WithRenames,
-    /// Merge with rename detection disabled.
     /// Useful when parents are independent and renames detected across them
     /// would be false positives.
     WithoutRenames,
@@ -113,9 +101,6 @@ pub enum PickMode {
 ///
 /// `tree_merge_mode`
 /// Controls how parent trees are merged while constructing merge-commit bases and ontos.
-///
-/// `sign_commit`
-/// Controls whether the newly written commit should be signed.
 pub fn cherry_pick(
     repo: &gix::Repository,
     target: gix::ObjectId,
@@ -127,7 +112,6 @@ pub fn cherry_pick(
     let target = but_core::Commit::from_id(target.attach(repo))?;
 
     if ontos == target.parents.as_slice() && pick_mode != PickMode::Force {
-        // We don't need to rebase
         return Ok(CherryPickOutcome::Identity {
             id: target.id.detach(),
             change_id: target.change_id(),
@@ -289,9 +273,6 @@ pub fn cherry_pick(
 ///
 /// `tree_merge_mode`
 /// The merge mode requested by the caller; only `TreeMergeMode::WithRenames` is handled here.
-///
-/// `sign_commit`
-/// Controls whether the conflicted or clean merge commit written by this helper should be signed.
 fn maybe_materialize_conflicted_onto_merge(
     repo: &gix::Repository,
     target: &but_core::Commit<'_>,
@@ -513,7 +494,6 @@ fn commit_from_unconflicted_tree<'repo>(
     let mut new_commit = to_rebase.inner;
     new_commit.tree = resolved_tree_id.detach();
 
-    // Ensure the commit isn't thinking it's conflicted.
     new_commit.message = but_core::commit::strip_conflict_markers(new_commit.message.as_ref());
     if let Some(pos) = new_commit
         .extra_headers()
@@ -557,7 +537,6 @@ fn commit_from_conflicted_tree<'repo>(
         treat_as_unresolved,
     )?;
 
-    // convert files into a string and save as a blob
     let conflicted_files_string = toml::to_string(&conflicted_files)?;
     let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
 
@@ -592,7 +571,6 @@ fn commit_from_conflicted_tree<'repo>(
     to_rebase.tree = tree.write().context("failed to write tree")?.detach();
     to_rebase.parents = parents.into();
 
-    // Add conflict markers to the commit message
     to_rebase.inner.message =
         but_core::commit::add_conflict_markers(to_rebase.inner.message.as_ref());
     to_rebase.set_headers(&headers);

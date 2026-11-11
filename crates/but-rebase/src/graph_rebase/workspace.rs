@@ -301,7 +301,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         self.history.normalize_selector(selector).ok()
     }
 
-    /// The target ref.
     pub fn target_ref(&self) -> Option<&FullNameRef> {
         self.workspace
             .graph
