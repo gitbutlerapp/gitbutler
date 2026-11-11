@@ -8,8 +8,6 @@ pub struct GitLabProjectId {
     ///
     /// This should be the the namespace of the project in the git remote.
     username: String,
-    /// The name of the project
-    ///
     /// This should be the name of the project in the git remote, without the namespace.
     project_name: String,
 }

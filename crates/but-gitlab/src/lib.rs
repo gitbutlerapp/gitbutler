@@ -17,7 +17,6 @@ pub use token::GitlabAccountIdentifier;
 
 #[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
-    /// The access token.
     /// This is only shared with the FrontEnd temporarily as we undergo the migration to having all API calls
     /// made to the forges from the Rustend.
     pub access_token: Sensitive<String>,
@@ -212,8 +211,6 @@ pub async fn get_gl_user(
     }
 }
 
-/// Check if an error is a network connectivity error.
-///
 /// This includes DNS resolution failures, connection timeouts, connection
 /// refused, and connections dropped while the response body was being read.
 /// reqwest wraps both body I/O failures and malformed payloads as the same
@@ -243,7 +240,6 @@ pub enum CredentialCheckResult {
     NoCredentials,
 }
 
-/// Check the validity of the stored credentials for the given GitLab account.
 pub async fn check_credentials(
     account: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
