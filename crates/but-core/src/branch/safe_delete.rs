@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use crate::branch::SafeDelete;
 
-/// The outcome of [`SafeDelete::delete_reference()`]
 #[derive(Debug, Clone)]
 pub struct Outcome<'parent> {
     /// The paths to the worktrees that have the to-be-deleted reference checked out,

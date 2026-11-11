@@ -169,9 +169,7 @@ pub mod git {
             pub gitbutler_sign_commits: Option<bool>,
             /// If `true`, GitButler will create ChangeId trailers and will push references in the Gerrit way
             pub gitbutler_gerrit_mode: Option<bool>,
-            /// Controls where GitButler puts stack information in review descriptions.
             pub gitbutler_review_stacking_description: Option<ReviewStackingDescription>,
-            /// Controls whether GitHub pull requests are registered with the native stacks API.
             pub gitbutler_github_stacking_mode: Option<GitHubStackingMode>,
             /// The path to the review description template to be used for this repository.
             pub gitbutler_forge_review_template_path: Option<BString>,

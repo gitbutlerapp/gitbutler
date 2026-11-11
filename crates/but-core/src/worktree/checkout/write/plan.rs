@@ -55,7 +55,6 @@ pub(super) struct Plan {
     records: BTreeMap<BString, Content>,
     /// Index entries of paths `new_head` deletes.
     removals: Vec<BString>,
-    /// The stages of unresolved conflicts.
     conflicts: Vec<ConflictEntry>,
 }
 
@@ -220,7 +219,6 @@ fn deleted_by_new_head(trees: &Trees, index: &gix::index::State) -> Vec<BString>
         .collect()
 }
 
-/// The stages of the unresolved conflicts in `conflicts`.
 fn conflict_stages(conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
     conflicts
         .into_iter()

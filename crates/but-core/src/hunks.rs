@@ -361,7 +361,6 @@ impl HunkRange {
     pub fn end(&self) -> u32 {
         self.start + self.lines
     }
-    /// Calculate line number of the last line.
     pub fn last_line(&self) -> u32 {
         if self.lines == 0 {
             return self.start;

@@ -49,7 +49,6 @@ impl From<ConflictStage> for Stage {
 }
 
 impl Pending {
-    /// Whether this adds an entry at `stage`.
     fn adds_at(&self, stage: Stage) -> bool {
         match self {
             Pending::Remove => false,

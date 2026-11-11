@@ -295,14 +295,12 @@ pub trait RefMetadata {
     ) -> anyhow::Result<()>;
 }
 
-/// A decoded commit object with easy access to additional GitButler information.
 #[derive(Debug, Clone)]
 pub struct Commit<'repo> {
     pub id: gix::Id<'repo>,
     pub inner: gix::objs::Commit,
 }
 
-/// A decoded commit object with easy access to additional GitButler information, without repo reference.
 #[derive(Debug, Clone)]
 pub struct CommitOwned {
     pub id: gix::ObjectId,
@@ -340,7 +338,6 @@ pub enum UnifiedPatch {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(UnifiedPatch);
 
-/// Either git reference or a virtual reference (i.e. a reference not visible in Git).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reference {
     /// A git reference or lightweight tag.
@@ -481,7 +478,6 @@ pub struct IgnoredWorktreeChange {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(IgnoredWorktreeChange);
 
-/// The type returned by [`worktree_changes()`](diff::worktree_changes).
 #[derive(Clone)]
 pub struct WorktreeChanges {
     /// Changes that could be committed.

@@ -44,7 +44,6 @@ pub fn update_head_reference(
     )?)
 }
 
-/// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
 pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;

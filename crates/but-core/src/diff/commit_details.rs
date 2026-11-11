@@ -1,4 +1,3 @@
-/// A bundle of information about a commit.
 #[derive(Debug, Clone)]
 pub struct CommitDetails {
     pub commit: crate::CommitOwned,

@@ -54,7 +54,6 @@ use create_tree::RejectionReason;
 
 use crate::worktree::worktree_file_to_git_in_buf;
 
-/// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
@@ -172,7 +171,6 @@ fn into_err_spec(input: &mut PossibleChange, reason: RejectionReason) {
     };
 }
 
-/// A utility type to keep track of `Ok` specs to use, or `Err` specs that have been rejected.
 pub type PossibleChange = Result<DiffSpec, (RejectionReason, DiffSpec)>;
 
 /// Apply `changes` to `changes_base_tree` and return the newly written tree as `(new_tree, actual_base_tree)`.

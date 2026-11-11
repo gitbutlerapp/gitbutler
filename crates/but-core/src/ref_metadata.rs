@@ -104,8 +104,6 @@ pub struct Workspace {
 /// code does not depend on graph presentation types and only sees what it needs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectedWorkspaceStack {
-    /// Existing stable stack id from projection, if one was already known.
-    ///
     /// `Some(id)` means reconciliation may use that id to match an existing
     /// metadata stack, or preserve it when creating metadata for a projected
     /// stack that is missing from metadata.
@@ -824,7 +822,6 @@ fn remove_branch_from_stacks(
     })
 }
 
-/// Determine what kind of stack a query operation is interested in.
 #[derive(Debug, Clone, Copy)]
 pub enum StackKind {
     /// Find stacks that are meant to be applied only.
@@ -1104,8 +1101,6 @@ impl WorkspaceCommitRelation {
     }
 }
 
-/// A branch within a [`WorkspaceStack`], holding per-branch metadata that is
-/// stored alongside a stack that is available in a workspace.
 #[derive(Clone, PartialEq, Eq)]
 pub struct WorkspaceStackBranch {
     pub ref_name: gix::refs::FullName,
@@ -1169,7 +1164,6 @@ impl std::fmt::Debug for Review {
     }
 }
 
-/// Additional information about the RefMetadata value itself.
 pub trait ValueInfo {
     /// Return `true` if the value didn't exist for a given `ref_name` and thus was defaulted.
     fn is_default(&self) -> bool;

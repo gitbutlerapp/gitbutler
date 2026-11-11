@@ -60,14 +60,11 @@ impl TreeExpression {
     }
 }
 
-/// Outcome of [TreeExpression::merge].
 pub enum MergeOutcome<'repo> {
-    /// There were no merge conflicts.
     Unconflicted {
         /// The lone tree after simplifications and merges.
         tree_id: gix::ObjectId,
     },
-    /// There was at least one merge conflict.
     Conflicted {
         /// The tree as returned by the last merge (which resulted in a
         /// conflict).

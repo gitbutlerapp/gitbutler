@@ -27,7 +27,6 @@ type ChangesetID = gix::ObjectId;
 /// A hash for select data in a commit to avoid copying it.
 type CommitDataId = gix::ObjectId;
 
-/// The version number for the changeset ID
 enum ChangesetVersion {
     V1 = 1,
 }

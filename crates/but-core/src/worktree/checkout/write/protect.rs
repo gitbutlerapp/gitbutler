@@ -156,7 +156,6 @@ fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<R
     Ok(removals)
 }
 
-/// The objects to move aside.
 fn clearances(removals: Vec<Removal>) -> Vec<Clearance> {
     removals
         .into_iter()

@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use parking_lot::{ArcRwLockReadGuard, ArcRwLockWriteGuard, RawRwLock};
-/// The scope of a lock. It can be either on the entire project or on specific operations.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum LockScope {
     /// Represents a lock on the entire project, preventing other GitButler instances from operating on it.

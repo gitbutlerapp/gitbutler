@@ -14,7 +14,6 @@ use crate::{
     commit::tree_expression::TreeExpression,
 };
 
-/// A collection of all the extra information we keep in the headers of a commit.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Headers {
     /// A property we can use to determine if two different commits are
@@ -331,11 +330,8 @@ fn resolve_content_hash_change_id(
 /// conflicted information.
 #[derive(Debug, Copy, Clone)]
 pub enum TreeKind {
-    /// Our tree that caused a conflict during the merge.
     Ours,
-    /// Their tree that caused a conflict during the merge.
     Theirs,
-    /// The base of the conflicting mereg.
     Base,
     /// The tree that resulted from the merge with auto-resolution enabled.
     AutoResolution,
@@ -735,8 +731,6 @@ pub mod tree_expression;
 ///
 /// - `resolved_tree_id` - is the visible auto-resolved tree that callers want to
 ///   present as the conflicted commit's main tree.
-///
-/// - `tree_expression` - represents the trees involved in the conflict.
 ///
 /// - `conflict_entries` - lists the paths that should be recorded as conflicted in
 ///   the synthetic GitButler tree metadata.

@@ -19,7 +19,6 @@ mod commit {
 
     use crate::RefMetadata;
 
-    /// A commit representing a snapshot, along with metadata.
     #[expect(dead_code)]
     pub struct Commit<'repo> {
         /// The id of the commit that was used for accessing its metadata.
@@ -59,14 +58,12 @@ mod commit {
         }
     }
 
-    /// Metadata attached to [`Commit`]s holding snapshots.
     pub struct CommitMetadata {
         /// The name of the operation that created the commit.
         /// This is an internal string.
         pub operation: String,
         /// The title of the commit for user consumption, typically created using information from `trailers`.
         pub title: String,
-        /// Properties to be stored with the commit.
         pub trailers: Vec<CommitTrailer>,
     }
 

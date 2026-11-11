@@ -1,4 +1,3 @@
-/// The information extracted from [`resolve_tree`](function::resolve_tree()).
 #[must_use]
 pub struct Outcome<'repo> {
     /// The cherry-pick result as merge between the target worktree and the snapshot, **possibly with conflicts**.
@@ -14,19 +13,14 @@ pub struct Outcome<'repo> {
     /// Reference edits that when applied in a transaction will set the workspace back to where it was. Only available
     /// if it was part of the snapshot to begin with.
     pub workspace_references: Option<Vec<gix::refs::transaction::RefEdit>>,
-    /// The metadata to be applied to the ref-metadata store.
     pub metadata: Option<MetadataEdits>,
 }
 
-/// Edits for application to the [reference metadata store](crate::RefMetadata).
 pub struct MetadataEdits {
-    /// The workspace metadata stored in the snapshot.
     pub workspace: (gix::refs::FullName, crate::ref_metadata::Workspace),
-    /// The branch metadata stored in snapshots.
     pub branches: Vec<(gix::refs::FullName, crate::ref_metadata::Branch)>,
 }
 
-/// Options for use in [super::resolve_tree()].
 #[derive(Debug, Clone, Default)]
 pub struct Options {
     /// If set, the non-default options to use when cherry-picking the worktree changes onto the target tree.

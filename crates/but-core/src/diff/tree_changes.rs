@@ -15,7 +15,6 @@ fn id_to_tree(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<gix::
     }
 }
 
-/// A type representing one or more changes of a tree entry itself, with utility methods for convenience.
 #[derive(Debug, Clone)]
 pub struct TreeChanges(
     /// All the actual tree-changes, in their original form.
