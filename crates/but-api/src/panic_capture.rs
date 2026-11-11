@@ -35,11 +35,8 @@ thread_local! {
     static LAST_PANIC_INFO: RefCell<Option<PanicInfoSnapshot>> = const { RefCell::new(None) };
 }
 
-/// Ensures panic-hook installation happens exactly once per process.
 static INSTALL_PANIC_HOOK: Once = Once::new();
 
-/// Converts a caught panic payload into an `anyhow::Error`.
-///
 /// The error prefers metadata captured by the panic hook (panic message, location,
 /// thread info, and panic-time backtrace). If no snapshot is available, it falls
 /// back to payload-derived message plus a backtrace captured during conversion.
@@ -111,8 +108,6 @@ fn capture_panic_info(panic_info: &PanicHookInfo<'_>) {
     });
 }
 
-/// Extracts a human-readable panic payload message when the payload is string-like.
-///
 /// Returns `Some(String)` for `&'static str` and `String` payloads, otherwise `None`.
 fn panic_payload_message(payload: &(dyn Any + Send)) -> Option<String> {
     if let Some(message) = payload.downcast_ref::<&'static str>() {

@@ -23,8 +23,6 @@ struct SurfacedHunks {
 }
 
 impl SurfacedHunks {
-    /// Record the worktree's hunk assignments as they stand before the rewrite.
-    ///
     /// `None` when there is nothing to assign, and on a dry run - which reports no assignments and
     /// must persist none, so the exchange is skipped outright rather than performed and undone.
     fn record_before(

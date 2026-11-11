@@ -516,7 +516,6 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
         #[cfg(windows)]
         fn create_new_console(cmd: &mut Command) -> &mut Command {
             use std::os::windows::process::CommandExt;
-            // CREATE_NEW_CONSOLE: Creates a new console for the process (0x00000010)
             // This allows the terminal to run independently without blocking our thread
             const CREATE_NEW_CONSOLE: u32 = 0x00000010;
             cmd.creation_flags(CREATE_NEW_CONSOLE)
@@ -526,7 +525,6 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             cmd
         }
 
-        // Validate path exists and canonicalize it to proper Windows format
         let path_buf = Path::new(&path);
         if !path_buf.exists() {
             bail!("Path does not exist: {path}");

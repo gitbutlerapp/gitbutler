@@ -264,14 +264,12 @@ pub struct RemainingConflicts {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(RemainingConflicts);
 
-/// The outcome of applying per-hunk resolutions to a conflicted commit.
 #[derive(Debug, Clone)]
 pub struct HunkResolutionResult {
     /// The conflicted commit the resolutions were applied to.
     pub commit_id: gix::ObjectId,
     /// The rewritten commit. Still conflicted when `remaining` is non-empty.
     pub new_commit: gix::ObjectId,
-    /// How many conflicts were resolved.
     pub resolved: usize,
     /// Whether the fully resolved commit ended up with the same tree as its
     /// parent — the resolutions dropped all of its changes.
@@ -492,7 +490,6 @@ pub struct ResolvedFile {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ResolvedFile);
 
-/// The outcome of resolving a conflicted commit with AI.
 #[derive(Debug, Clone)]
 pub struct AiResolutionResult {
     pub commit_id: gix::ObjectId,
@@ -500,7 +497,6 @@ pub struct AiResolutionResult {
     pub new_commit: gix::ObjectId,
     /// A short model-authored markdown summary of the conflict and resolution.
     pub summary: Option<String>,
-    /// The per-file resolutions that were applied.
     pub files: Vec<ResolvedFile>,
     pub workspace: WorkspaceState,
 }

@@ -61,7 +61,6 @@ pub enum BranchLandKind {
     AlreadyIntegrated,
     /// The target advanced to `new_target_oid` (a fast-forward to the branch tip, or a merge commit).
     Updated {
-        /// The commit the target now points at.
         new_target_oid: gix::ObjectId,
         /// The commit the target pointed at before landing, for undo recipes.
         prev_target_oid: gix::ObjectId,
@@ -70,7 +69,6 @@ pub enum BranchLandKind {
 
 #[derive(Debug, Clone)]
 pub struct BranchLandResult {
-    /// What landing did to the target.
     pub landed: BranchLandKind,
     /// The landed branches whose copy on the push remote was deleted after the land (only copies
     /// fully contained in the landed target are deleted).
@@ -164,8 +162,6 @@ pub mod json {
     }
 }
 
-/// Reject target configurations that landing cannot handle.
-///
 /// A target without an upstream is landed locally, so only targets with an upstream are checked.
 /// Call this before confirmation or mutation; landing checks it again after reloading the repo.
 pub fn ensure_supported_target_upstream(

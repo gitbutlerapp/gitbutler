@@ -50,7 +50,6 @@ pub fn workspace_target_commits(
     workspace_target_commits_with_perm(ctx, from, limit, guard.read_permission())
 }
 
-/// List target commits while reusing the caller's repository access permission.
 pub(crate) fn workspace_target_commits_with_perm(
     ctx: &but_ctx::Context,
     from: Option<HexHash>,

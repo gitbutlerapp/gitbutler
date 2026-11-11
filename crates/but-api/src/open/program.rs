@@ -47,7 +47,6 @@ pub mod json {
 #[derive(Clone, Debug, PartialEq, Default)]
 pub enum ProgramCategory {
     #[default]
-    /// A text editor/IDE.
     Editor,
     /// A file manager such as Finder, Explorer or Thunar.
     FileManager,
@@ -95,13 +94,10 @@ impl ProgramSpec {
     }
 }
 
-/// An executable that can be invoked by name or path.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathExecutable {
     /// Name of the executable on the PATH, or a qualified path to it.
     pub name_or_path: String,
-    /// Whether the program requires an attached TTY or not.
-    ///
     /// If this is true, it means that this program cannot be launched reliably from a GUI client,
     /// and also needs the TUI to suspend in order for the editor to take over the terminal.
     pub requires_tty: bool,
@@ -449,7 +445,6 @@ pub(crate) static PROGRAMS: LazyLock<Vec<ProgramSpec>> = LazyLock::new(|| {
 pub enum OpenSpec {
     File(PathBuf),
     Files(NonEmpty<PathBuf>),
-    /// A single file at a specific line.
     FileAtLine(PathBuf, u32),
 }
 
@@ -636,7 +631,6 @@ pub struct UserDefinedProgramSpec {
 }
 
 impl UserDefinedProgramSpec {
-    /// Try to transform this specification into a valid [`ProgramSpec`].
     pub fn try_into_program_spec(self) -> anyhow::Result<ProgramSpec> {
         let extensions = self.extensions.map(|extensions| {
             extensions
@@ -713,8 +707,6 @@ pub enum UserDefinedExecutableProgram {
 pub struct UserDefinedPathExecutable {
     /// Name of the executable on the PATH, or a qualified path to it.
     pub name_or_path: String,
-    /// Whether the program requires an attached terminal or not.
-    ///
     /// If this is true, it means that this program cannot be launched reliably from a GUI client,
     /// and also needs the TUI to suspend in order for the editor to take over the terminal.
     pub requires_terminal: bool,
@@ -723,7 +715,6 @@ pub struct UserDefinedPathExecutable {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UserDefinedProgramCategory {
-    /// A text editor/IDE.
     Editor,
     FileManager,
     Other,

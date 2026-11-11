@@ -265,8 +265,6 @@ fn group_changes_by_target_commit(
 /// Per-file entries of `(DiffHunk, locks)` for range-based lock matching.
 type LockIndex = HashMap<String, Vec<(but_core::unified_diff::DiffHunk, Vec<HunkLock>)>>;
 
-/// Build a lookup index from hunk dependencies, grouped by file path.
-///
 /// Each entry retains the original `DiffHunk` range so that lookups can match
 /// by range overlap rather than exact header equality. This is necessary because
 /// dependency hunks are computed with 0 context lines while assignment hunks use
@@ -282,7 +280,6 @@ fn build_lock_index(dependencies: &HunkDependencies) -> LockIndex {
     index
 }
 
-/// Check whether two line ranges overlap.
 /// Ranges are `[start, start + lines)` (1-based start, length in lines).
 /// A range with 0 lines (pure insertion/deletion) is treated as a point at `start`.
 fn ranges_overlap(start_a: u32, lines_a: u32, start_b: u32, lines_b: u32) -> bool {
@@ -478,8 +475,6 @@ fn ensure_target_commit(
     );
 }
 
-/// Prepare commit absorptions with commit summaries
-///
 /// This returns a vector of absorption information, sorted and ready for processing.
 fn prepare_commit_absorptions(
     ctx: &Context,

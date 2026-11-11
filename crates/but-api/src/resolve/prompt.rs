@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 
 use super::context::{ConflictHunk, ResolutionRequest};
 
-/// The system message sent along with every conflict-resolution request.
 pub const SYSTEM_PROMPT: &str = "\
 You are an expert Git conflict resolver. Analyze conflicts that occurred while a commit was rebased and produce correct, clean resolutions.
 

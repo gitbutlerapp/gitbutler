@@ -105,7 +105,6 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
 }
 
 #[instrument(skip(perm), err(Debug))]
-/// Switch back to the workspace branch using an existing exclusive permission token.
 pub fn switch_back_to_workspace_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
@@ -153,8 +152,6 @@ pub fn update_stack_order(
     update_stack_order_with_perm(ctx, stacks, guard.write_permission())
 }
 
-/// Update stack order while reusing caller-held exclusive repository access.
-///
 /// This writes through workspace metadata directly instead of using the legacy
 /// `VirtualBranchesHandle` path in `gitbutler-branch-actions`.
 pub fn update_stack_order_with_perm(
@@ -374,8 +371,6 @@ pub fn unapply_stack_with_perm(
     unapply_stack_v3_with_perm(ctx, stack_id, perm)
 }
 
-/// Return the worktree diffspecs currently assigned to `stack_id`.
-///
 /// This reconciles persisted hunk assignments with current worktree changes,
 /// keeps only assignments owned by `stack_id`, and flattens them into the
 /// diffspec list consumed by unapply implementations.
@@ -479,8 +474,6 @@ fn unapply_stack_v3_with_perm(
     Ok(())
 }
 
-/// Return branch names for the projected workspace stack identified by `stack_id`.
-///
 /// The returned names describe the stack as it appears in the current
 /// workspace: tip-most branch first, then branches closer to the workspace base.
 fn stack_branch_names(

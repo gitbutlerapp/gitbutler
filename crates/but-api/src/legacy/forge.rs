@@ -2351,11 +2351,9 @@ fn local_branch_for_review(ctx: &Context, wanted: i64) -> Result<gix::refs::Full
 pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
     let workspace = crate::legacy::workspace::head_info(ctx)?;
 
-    // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
     let reviews = but_forge::list_cached_forge_reviews(&*ctx.db.get_cache()?)?;
 
-    // Process each branch that has a PR
     for segment in workspace.lanes().flat_map(|lane| lane.segments) {
         let Some(number) = (segment.metadata.as_ref()).and_then(|meta| meta.review.pull_request)
         else {
@@ -2374,7 +2372,6 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
             .map(|review| review.sha.as_str())
             .filter(|sha| !sha.is_empty());
 
-        // Fetch CI checks with NoCache to force refresh
         let _ = ci_checks(
             ctx,
             &name,
@@ -2386,7 +2383,6 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         current_refs.insert(name);
     }
 
-    // Clean up stale CI check entries from the database
     let db = &mut *ctx.db.get_cache_mut()?;
     let all_cached_refs = db.ci_checks().list_all_references()?;
 
