@@ -324,7 +324,6 @@ pub fn list_comments(
     })
 }
 
-/// The result of [`list_comments`].
 pub struct Listing {
     /// The re-anchored, unarchived comments.
     pub comments: Vec<DiffComment>,
@@ -362,7 +361,6 @@ fn anchor_scope_display(commit_change_id: &Option<String>, path: &str) -> String
 
 /// The anchorable diff lines of one path within a scope, or why they could not be produced.
 enum FileAnchor {
-    /// The file has a diff with anchorable lines.
     Lines(FileDiffLines),
     /// The file has no diff in this scope: anchors in it are genuinely gone.
     Gone,

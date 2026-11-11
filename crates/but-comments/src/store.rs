@@ -52,7 +52,6 @@ struct CommentsFile {
     comments: Vec<StoredComment>,
 }
 
-/// Handle on a project's comments file.
 #[derive(Debug, Clone)]
 pub struct CommentStore {
     file_path: PathBuf,
