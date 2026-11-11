@@ -1724,7 +1724,10 @@ impl Detail {
             return;
         };
         if !selection_changed && self.loading.as_ref() == Some(&key) {
-            self.reload_queued = true;
+            // Only a worktree diff can change while it loads. A reload queued for another diff
+            // would load nothing, as that diff is shown by then, and would skip the second pass
+            // that highlights the rest of its files.
+            self.reload_queued = key.source.live();
             return;
         }
         self.reload_queued = false;
