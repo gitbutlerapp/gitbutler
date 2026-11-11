@@ -1045,6 +1045,7 @@ fn merge_without_remote_lands_locally_and_is_undoable() {
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 Landed feat onto main
+Checked out other.
 
 "#]]);
 
@@ -1058,8 +1059,7 @@ Landed feat onto main
     snapbox::assert_data_eq!(
         log_after.clone(),
         str![[r#"
-* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* [..] (other) add other
+* [..] (HEAD -> other) add other
 * [..] (main) add feat
 * [..] (gitbutler/target) Initial commit
 

@@ -1525,8 +1525,8 @@ pub(super) mod tests {
 
             assert_eq!(
                 integrate("first"),
-                "refs/heads/gitbutler/workspace",
-                "second still needs the workspace"
+                "refs/heads/second",
+                "second is checked out on its own once it's the only stack"
             );
             assert_eq!(
                 integrate("second"),

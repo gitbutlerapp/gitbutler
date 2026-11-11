@@ -278,7 +278,7 @@ fn create_reference_at_commit_then_commit_and_checkout() {
             assert_eq!(
                 ref_target(&env, new_branch.as_ref()),
                 None,
-                "rollback and dry run must remove the eagerly created reference"
+                "rollback and dry run must not create the reference"
             );
             assert_eq!(
                 repo.head_name().unwrap().unwrap(),
@@ -310,12 +310,12 @@ fn create_reference_at_commit_then_commit_and_checkout() {
                 base,
                 "the new branch must start at the requested base, not the old HEAD"
             );
-            assert!(
+            assert_eq!(
                 ctx.meta()
                     .unwrap()
                     .branch_stack_order(new_branch.as_ref())
-                    .unwrap()
-                    .is_none(),
+                    .unwrap(),
+                Some(vec![new_branch.clone()]),
                 "independent creation must not record a stack relationship with the base"
             );
             assert_num_snapshots(&ctx, 1);

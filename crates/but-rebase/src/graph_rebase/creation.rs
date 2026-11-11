@@ -412,6 +412,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             .chain(head_selector.map(|selector| Checkout::Head {
                 selector,
                 merge_base_override: None,
+                placement: Default::default(),
             }))
             .collect();
 

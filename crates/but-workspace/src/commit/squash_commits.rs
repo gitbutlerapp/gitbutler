@@ -8,6 +8,8 @@ use but_rebase::{
     },
 };
 
+use crate::editor_workspace::TipCount;
+
 #[derive(Debug)]
 pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
@@ -90,6 +92,9 @@ but_schemars::register_sdk_type!(MessageCombinationStrategy);
 ///
 /// Subject messages are appended in the order they are provided, with at least
 /// one blank line between non-empty message blocks.
+///
+/// A workspace that has fewer tips for it is left if it's unnecessary, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
 pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
     editor: Editor<'ws, 'meta, M>,
     subjects: Vec<S>,
@@ -147,6 +152,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     let below = sides.next().unwrap_or_default();
     let above = sides.next().unwrap_or_default();
 
+    let tips = TipCount::of(&editor)?;
     let mut editor = editor;
     for subject in below {
         editor.move_pick(*subject, target_commit_selector, InsertSide::Below)?;
@@ -187,7 +193,7 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     editor.amend_pick(target_commit_selector, new_commit)?;
 
     Ok(SquashCommitsOutcome {
-        rebase: editor.rebase()?,
+        rebase: tips.rebase_leaving_workspace_if_fewer(editor)?,
         commit_selector: target_commit_selector,
     })
 }

@@ -15,8 +15,11 @@ pub struct Options {
 use anyhow::{Context as _, bail};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
+use but_rebase::graph_rebase::{Editor, LookupStep as _, Selector, Step, SuccessfulRebase};
 use gix::refs::transaction::PreviousValue;
 use itertools::Itertools as _;
+
+use crate::editor_workspace::{leave_unnecessary_workspace, switch_to_workspace};
 
 /// Delete `ref_name` and its local branch configuration, returning whether the ref existed.
 ///
@@ -172,4 +175,80 @@ pub fn remove_reference(
     } else {
         Ok(Some(ws))
     }
+}
+
+/// Remove the branch `ref_name` from the step graph of `editor`, keeping its commits.
+///
+/// A lane that it leaves with nothing but the target beneath is taken out of the workspace
+/// commit, and a workspace that this makes unnecessary is left, see
+/// [`leave_unnecessary_workspace()`](crate::editor_workspace::leave_unnecessary_workspace()).
+/// With a target, `HEAD` on `ref_name` alone enters the workspace where it is rather than being
+/// left detached, so it's left again for the local target or the branch below if either has the
+/// same files.
+pub fn drop_reference<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    let reference = editor.select_reference(ref_name)?;
+    let workspace_commit = workspace_commit_of_empty_lane(&editor, reference)?;
+    let head_was_on_it = editor.head() == Some(reference) && editor.target_ref().is_some();
+    editor.replace_with_none(reference)?;
+    if let Some(workspace_commit) = workspace_commit {
+        editor.remove_edges(workspace_commit, reference)?;
+    }
+    let rebase = editor.rebase()?;
+    let rebase = match head_was_on_it {
+        true => switch_to_workspace(rebase.into_editor())?.0,
+        false => rebase,
+    };
+    leave_unnecessary_workspace(rebase.into_editor())
+}
+
+/// The workspace commit that has `reference` as one of several parents, if nothing but the
+/// target is beneath `reference`.
+fn workspace_commit_of_empty_lane<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    reference: Selector,
+) -> anyhow::Result<Option<Selector>> {
+    let Some(target) = editor.target_selector() else {
+        return Ok(None);
+    };
+    let [(child, _)] = editor.direct_children(reference)?[..] else {
+        return Ok(None);
+    };
+    if !matches!(editor.lookup_step(child)?, Step::Pick(_)) {
+        return Ok(None);
+    }
+    let (_, commit) = editor.find_selectable_commit(child)?;
+    if !but_graph::workspace::commit::is_managed_workspace_by_message(commit.message.as_ref())
+        || editor.direct_parents(child)?.len() == 1
+    {
+        return Ok(None);
+    }
+
+    let mut beneath: Vec<_> = editor
+        .direct_parents(reference)?
+        .into_iter()
+        .map(|(selector, _)| selector)
+        .collect();
+    while let Some(selector) = beneath.pop() {
+        if selector == target {
+            continue;
+        }
+        let is_passthrough = match editor.lookup_step(selector)? {
+            Step::None => true,
+            Step::Reference { refname, .. } => editor.target_ref() == Some(refname.as_ref()),
+            Step::Pick(_) => false,
+        };
+        if !is_passthrough {
+            return Ok(None);
+        }
+        beneath.extend(
+            editor
+                .direct_parents(selector)?
+                .into_iter()
+                .map(|(selector, _)| selector),
+        );
+    }
+    Ok(Some(child))
 }

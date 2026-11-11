@@ -101,6 +101,26 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         bail!("HEAD has no checkout recorded in the editor")
     }
 
+    /// Like [`Self::set_head_checkout()`] for a checkout that was asked for: materializing
+    /// fails before changing anything if it would overwrite uncommitted changes, or check out
+    /// a conflicted commit.
+    pub fn switch_head(&mut self, target: impl ToSelector) -> Result<()> {
+        let target = target.to_selector(self)?;
+        for checkout in &mut self.checkouts {
+            if let super::Checkout::Head {
+                selector,
+                placement,
+                ..
+            } = checkout
+            {
+                *selector = target;
+                *placement = super::HeadPlacement::Switched;
+                return Ok(());
+            }
+        }
+        bail!("HEAD has no checkout recorded in the editor")
+    }
+
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::CommitOwned> {
         but_core::Commit::from_id(id.attach(&self.repo)).map(|c| c.detach())

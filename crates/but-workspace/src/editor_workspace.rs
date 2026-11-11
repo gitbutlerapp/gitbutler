@@ -1,4 +1,4 @@
-//! Bring the editor's `HEAD` into a workspace with a workspace commit.
+//! Bring the editor's `HEAD` into a workspace with a workspace commit, and out of it again.
 
 use anyhow::Context as _;
 use but_core::{RefMetadata, WORKSPACE_REF_NAME};
@@ -58,6 +58,42 @@ pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
     Ok((editor.rebase()?, workspace_commit))
 }
 
+/// Return the workspace commit `HEAD` is on, first switching to a workspace if it isn't on one
+/// ([switch_to_workspace]), or giving the workspace reference a workspace commit if it has
+/// none ([ensure_workspace_commit]).
+pub fn enter_workspace<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+    match editor.workspace_reference() {
+        Some(workspace_reference) => ensure_workspace_commit(editor, workspace_reference),
+        None => switch_to_workspace(editor),
+    }
+}
+
+/// Check out `branch` because that was asked for, see [Editor::switch_head()].
+///
+/// A workspace that this edit entered isn't kept, as nothing is on it then.
+pub fn switch_to_branch<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    let reference = editor.select_reference(branch)?;
+    if editor.head() == Some(reference) {
+        return editor.rebase();
+    }
+    let was_on_workspace =
+        (editor.repo().head_name()?).is_some_and(|name| name.as_bstr() == WORKSPACE_REF_NAME);
+    let entered = editor.workspace_reference().filter(|_| !was_on_workspace);
+    if let Some(workspace_reference) = entered {
+        if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
+            editor.prune(workspace_commit)?;
+        }
+        editor.replace_with_none(workspace_reference)?;
+    }
+    editor.switch_head(reference)?;
+    editor.rebase()
+}
+
 /// What the workspace `HEAD` is on merges, skipping steps removed from a lane and any lane that
 /// only reaches the target or its local branch. Empty if `HEAD` isn't on the workspace reference.
 pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Result<Vec<Selector>> {
@@ -93,6 +129,37 @@ pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Res
     Ok(tips)
 }
 
+/// How many [workspace_tips] an editor had before an operation, and whether its workspace was
+/// needed then, to tell if the operation made it unnecessary.
+pub struct TipCount {
+    tips: usize,
+    needed: bool,
+}
+
+impl TipCount {
+    /// Count the [workspace_tips] of `editor`, and see if [leave_unnecessary_workspace] would
+    /// keep its workspace.
+    pub fn of<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Result<Self> {
+        Ok(Self {
+            tips: workspace_tips(editor)?.len(),
+            needed: editor.workspace_reference().is_some() && way_out(editor)?.is_none(),
+        })
+    }
+
+    /// Rebase `editor`, and [leave_unnecessary_workspace] if it has fewer [workspace_tips] now,
+    /// or its workspace was needed before.
+    pub fn rebase_leaving_workspace_if_fewer<'ws, 'meta, M: RefMetadata>(
+        self,
+        editor: Editor<'ws, 'meta, M>,
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        if self.needed || workspace_tips(&editor)?.len() < self.tips {
+            leave_unnecessary_workspace(editor.rebase()?.into_editor())
+        } else {
+            editor.rebase()
+        }
+    }
+}
+
 /// Undo [switch_to_workspace] if `editor` has at most one [workspace_tips] left, moving `HEAD` to
 /// that branch, or to the local target if there are none.
 ///
@@ -102,10 +169,26 @@ pub fn workspace_tips<M: RefMetadata>(editor: &Editor<'_, '_, M>) -> anyhow::Res
 pub fn leave_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
 ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    let Some(workspace_reference) = editor.workspace_reference() else {
+    let Some((workspace_reference, checkout)) = way_out(&editor)? else {
         return editor.rebase();
     };
-    let (checkout, represented_by) = match workspace_tips(&editor)?.as_slice() {
+    if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
+        editor.prune(workspace_commit)?;
+    }
+    editor.replace_with_none(workspace_reference)?;
+    editor.set_head_checkout(checkout)?;
+    editor.rebase()
+}
+
+/// The workspace reference `HEAD` is on and what [leave_unnecessary_workspace] would check out
+/// instead, if the workspace is unnecessary.
+fn way_out<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+) -> anyhow::Result<Option<(Selector, Selector)>> {
+    let Some(workspace_reference) = editor.workspace_reference() else {
+        return Ok(None);
+    };
+    let (checkout, represented_by) = match workspace_tips(editor)?.as_slice() {
         [] => (
             editor
                 .target_ref()
@@ -124,20 +207,12 @@ pub fn leave_unnecessary_workspace<'ws, 'meta, M: RefMetadata>(
         _ => (None, None),
     };
     let (Some(checkout), Some(represented_by)) = (checkout, represented_by) else {
-        return editor.rebase();
+        return Ok(None);
     };
     let (_, represented) = editor.find_commit_target(represented_by)?;
     let (_, destination) = editor.find_commit_target(checkout)?;
-    if represented.inner.tree != destination.inner.tree {
-        return editor.rebase();
-    }
-
-    if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
-        editor.prune(workspace_commit)?;
-    }
-    editor.replace_with_none(workspace_reference)?;
-    editor.set_head_checkout(checkout)?;
-    editor.rebase()
+    Ok((represented.inner.tree == destination.inner.tree)
+        .then_some((workspace_reference, checkout)))
 }
 
 fn write_workspace_commit(

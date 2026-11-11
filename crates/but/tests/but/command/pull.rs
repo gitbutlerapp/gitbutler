@@ -99,7 +99,7 @@ fn pull_fast_forwards_the_local_target_branch() {
 }
 
 #[test]
-fn pull_fast_forwards_local_target_while_workspace_remains_checked_out() {
+fn pull_fast_forwards_local_target_while_work_remains() {
     let env = target_branch_pull_scenario(false);
     commit_file(&env, "remaining");
     let old_target = rev_parse(&env, "main");
@@ -115,13 +115,13 @@ fn pull_fast_forwards_local_target_while_workspace_remains_checked_out() {
     env.but("pull").assert().success();
     assert_eq!(
         env.invoke_git("symbolic-ref --short HEAD"),
-        "gitbutler/workspace",
-        "remaining work keeps the workspace checked out instead of taking the checkout-replacement path"
+        "remaining",
+        "the one stack left is checked out instead of taking the checkout-replacement path"
     );
     assert_eq!(
         rev_parse(&env, "main"),
         upstream,
-        "pull must also advance main when the workspace remains checked out"
+        "pull must also advance main when work remains"
     );
     assert_eq!(
         env.project_meta().target_commit_id.unwrap().to_string(),
@@ -1193,7 +1193,7 @@ Hint: Check the remote's URL with `git remote -v`, your network connection and y
 }
 
 #[test]
-fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
+fn pull_prunes_integrated_stack_and_checks_out_the_remaining_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-one-of-two-stacks-integrated",
     );
@@ -1221,7 +1221,7 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
+┊╭┄ g0 [B] [HEAD]
 ┊◐   lrm add B
 ├╯
 ┊
@@ -1237,24 +1237,21 @@ Hint: run `but help` for all commands
     );
     assert!(
         git_ref_exists(&env, "refs/heads/B"),
-        "the remaining stack should stay in the workspace"
-    );
-
-    let workspace_parents = rev_parse_all(&env, "gitbutler/workspace^@");
-    assert_eq!(
-        workspace_parents.len(),
-        1,
-        "the workspace should have exactly the remaining stack as parent"
+        "the remaining stack should stay"
     );
     assert_eq!(
-        workspace_parents[0],
-        rev_parse(&env, "B"),
-        "the remaining stack should remain the workspace parent"
+        env.invoke_git("symbolic-ref --short HEAD"),
+        "B",
+        "the one stack left is checked out on its own"
+    );
+    assert!(
+        !git_ref_exists(&env, "refs/heads/gitbutler/workspace"),
+        "no workspace is kept for a single stack"
     );
     assert_ne!(
-        workspace_parents[0],
+        rev_parse(&env, "B"),
         rev_parse(&env, "origin/main"),
-        "the workspace should not be reparented directly to the target while a stack remains"
+        "the remaining stack keeps its commit rather than being taken to the target"
     );
     assert_eq!(
         status_stack_count(&env),
@@ -1547,8 +1544,8 @@ fn pull_checks_out_main_after_the_last_stack_integrates() {
     env.but("pull").assert().success();
     assert_eq!(
         env.invoke_git("symbolic-ref --short HEAD"),
-        "gitbutler/workspace",
-        "B still needs the workspace after A integrated"
+        "B",
+        "B is checked out on its own once A integrated"
     );
 
     env.invoke_bash(
@@ -2860,8 +2857,7 @@ To undo this operation:
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* [..] (two) add two
+* [..] (HEAD -> two) add two
 * [..] (main) add one
 * [..] (gitbutler/target) Initial commit
 
@@ -2900,8 +2896,7 @@ fn pull_without_upstream_ignores_unrelated_remotes() {
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* [..] (two) add two
+* [..] (HEAD -> two) add two
 * [..] (main) add one
 * [..] (gitbutler/target) Initial commit
 

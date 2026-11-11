@@ -12,7 +12,8 @@ use gix::{
 };
 
 use crate::graph_rebase::{
-    Checkout, ConflictedCheckout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase,
+    Checkout, ConflictedCheckout, HeadPlacement, MaterializeOutcome, PaddedCheckout,
+    SuccessfulRebase,
 };
 
 struct LinkedCheckoutSpec {
@@ -28,6 +29,7 @@ struct HeadCheckout {
     target: gix::ObjectId,
     ref_name: Option<gix::refs::FullName>,
     merge_base_override: Option<gix::ObjectId>,
+    placement: HeadPlacement,
 }
 
 struct LinkedCheckoutRepo {
@@ -222,14 +224,15 @@ fn linked_checkout_specs(checkouts: &[PaddedCheckout<'_>]) -> Result<Vec<LinkedC
 
 /// The editor's own `HEAD` checkout, if it recorded one.
 fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout>> {
-    let Some((merge_base_override, tip)) =
+    let Some((merge_base_override, placement, tip)) =
         checkouts
             .iter()
             .find_map(|PaddedCheckout { checkout, tip }| match checkout {
                 Checkout::Head {
                     merge_base_override,
+                    placement,
                     ..
-                } => Some((*merge_base_override, tip)),
+                } => Some((*merge_base_override, *placement, tip)),
                 Checkout::Worktree { .. } => None,
             })
     else {
@@ -238,10 +241,19 @@ fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout
     let tip = tip
         .as_ref()
         .context("Checkout selector is pointing to none")?;
+    if matches!(placement, HeadPlacement::Switched) && tip.padding.is_some() {
+        return Err(
+            anyhow::anyhow!(but_error::Code::ConflictedCommitCheckout).context(format!(
+                "Refusing to check out conflicted commit {}",
+                tip.commit
+            )),
+        );
+    }
     Ok(Some(HeadCheckout {
         target: tip.target(),
         ref_name: tip.ref_name.clone(),
         merge_base_override,
+        placement,
     }))
 }
 
@@ -317,7 +329,10 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         skip_head_update: true,
                         merge_base_override: head.merge_base_override,
                         allow_conflicted_commit_checkout: false,
-                        allow_uncommitted_changes_to_conflict_with_new_head: true,
+                        allow_uncommitted_changes_to_conflict_with_new_head: matches!(
+                            head.placement,
+                            HeadPlacement::Followed
+                        ),
                     },
                 )?;
                 if outcome.conflict_occurred {

@@ -779,18 +779,17 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 905d6e5
-└── ≡📙:B on 905d6e5 {2}
-    └── 📙:B
-        └── ·c932222 (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 905d6e5
+└── ≡:B[🌳] on 905d6e5 {1}
+    └── :B[🌳]
+        └── ·c932222
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* eaf66d4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* c932222 (B) add B1
+* c932222 (HEAD -> B) add B1
 * 905d6e5 (origin/main) add A1
 * 3183e43 (main) M1
 
@@ -1338,18 +1337,17 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
     )?;
 
     // Same shape as the stale-target-parent test, except the second lane is a named empty
-    // branch B, selected for update like every named stack is by real callers. The reparent
-    // must leave the workspace commit following B — B has its own rebase onto the target —
-    // rather than treating B's edge as a stale base and stealing the workspace commit from it.
+    // branch B, selected for update like every named stack is by real callers. B has its own
+    // rebase onto the target, and as the only lane left it's what `HEAD` is on.
     assert_eq!(
         repo.rev_parse_single("B")?,
         repo.rev_parse_single("origin/main")?,
         "the selected empty branch survives and rebases onto the advanced target tip"
     );
     assert_eq!(
-        workspace_parent_ids(&repo)?,
-        vec![repo.rev_parse_single("origin/main")?.detach()],
-        "workspace commit keeps following the empty branch to the target tip"
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/B")?),
+        "the workspace is left for the empty branch, the only lane that remains"
     );
 
     Ok(())
@@ -2393,18 +2391,17 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 44c9428
-└── ≡📙:B on 44c9428 {2}
-    └── 📙:B
-        └── ·f59d71f (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 44c9428
+└── ≡:B[🌳] on 44c9428 {1}
+    └── :B[🌳]
+        └── ·f59d71f
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 55ce8ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* f59d71f (B) add B1
+* f59d71f (HEAD -> B) add B1
 * 44c9428 (origin/main) add A1
 * f1e7451 add C1
 * 3183e43 (main) M1
@@ -2597,9 +2594,9 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     )?;
 
     assert_eq!(
-        workspace_parent_ids(&repo)?,
-        vec![repo.rev_parse_single("B")?.detach()],
-        "workspace commit should stay parented only to the remaining stack"
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/B")?),
+        "the workspace is left for the remaining stack"
     );
 
     Ok(())
@@ -2630,14 +2627,14 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
     )?;
 
     assert_eq!(
-        workspace_first_parent(&repo)?,
-        repo.rev_parse_single("B")?,
-        "workspace commit should stay parented to the remaining stack"
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/B")?),
+        "the workspace is left for the remaining stack"
     );
     assert_ne!(
-        workspace_first_parent(&repo)?,
+        repo.head_id()?,
         repo.rev_parse_single("origin/main")?,
-        "target should not be added while another workspace parent remains"
+        "the remaining stack keeps its commit rather than being taken to the target"
     );
 
     Ok(())
@@ -3238,18 +3235,17 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
-└── ≡📙:B on 3183e43 {2}
-    └── 📙:B
-        └── ·b38b04b (🏘️)
+⌂:B[🌳] <> ✓refs/heads/main on 3183e43
+└── ≡:B[🌳] on 3183e43 {1}
+    └── :B[🌳]
+        └── ·b38b04b
 
 "#]]
     );
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* e4abb28 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* b38b04b (B) add B1
+* b38b04b (HEAD -> B) add B1
 | * 56057f2 (origin/main) squash A
 |/  
 * 3183e43 (main) M1
@@ -3266,9 +3262,9 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         "sibling stack should remain because it was not covered by the review hint",
     );
     assert_eq!(
-        workspace_parent_ids(&repo)?,
-        vec![repo.rev_parse_single("B")?.detach()],
-        "workspace commit should stay parented only to the remaining sibling stack",
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/B")?),
+        "the workspace is left for the remaining sibling stack",
     );
 
     Ok(())

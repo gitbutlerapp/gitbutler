@@ -232,6 +232,18 @@ impl ToSelector for Selector {
     }
 }
 
+/// How `HEAD` came to check out what it does, which decides what materializing may do there.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum HeadPlacement {
+    /// It follows the rewrite: uncommitted changes that conflict stay with markers, and a
+    /// conflicted commit is checked out.
+    #[default]
+    Followed,
+    /// It was asked for: materializing refuses to overwrite uncommitted changes, or to check
+    /// out a conflicted commit.
+    Switched,
+}
+
 /// Represents places where `safe_checkout` should be called from
 #[derive(Debug, Clone)]
 pub(crate) enum Checkout {
@@ -243,6 +255,7 @@ pub(crate) enum Checkout {
         /// 3-way snapshot merge uses this as the base so consumed hunks cancel
         /// and don't reappear as uncommitted changes.
         merge_base_override: Option<gix::ObjectId>,
+        placement: HeadPlacement,
     },
     /// A visible linked worktree whose `HEAD` should follow this edit.
     Worktree {

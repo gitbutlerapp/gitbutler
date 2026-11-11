@@ -125,3 +125,42 @@ fn switch_on_workspace_reference_fails() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn switching_to_a_branch_drops_a_workspace_entered_in_the_same_edit() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) =
+        named_writable_scenario("ws-ref-ws-commit-single-stack-double-stack")?;
+    but_testsupport::git(&repo).args(["checkout", "C"]).run();
+    but_testsupport::git(&repo)
+        .args(["update-ref", "-d", "refs/heads/gitbutler/workspace"])
+        .run();
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&repo)?,
+        &mut db,
+        Options::limited(),
+    )?;
+    let mut ws = graph.into_workspace()?;
+    let c = gix::refs::FullName::try_from("refs/heads/C")?;
+
+    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let entered = but_workspace::branch::tear_off_branch(editor, c.as_ref(), None)?;
+    but_workspace::editor_workspace::switch_to_branch(entered.into_editor(), c.as_ref())?
+        .materialize(Default::default())?;
+
+    // `C` is torn off `B` and checked out, and no workspace is left that nothing is on.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 09d8e52 (A) A
+| * c813d8d (B) B
+|/  
+| * 8e00332 (HEAD -> C) C
+|/  
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+    Ok(())
+}

@@ -968,27 +968,6 @@ pub fn branch_create_with_perm(
         unique_canned_refname(&repo)?
     };
 
-    #[cfg(feature = "legacy")]
-    if let json::BranchCreatePlacement::Independent { order } = placement {
-        let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
-            ctx,
-            perm.read_permission(),
-            false,
-        )?;
-        let mut meta = ctx.meta()?;
-        let workspace = sbm.transaction_with_workspace_setup(
-            ctx,
-            &mut meta,
-            SnapshotDetails::new(OperationKind::CreateBranch)
-                .with_trailers([Trailer::Name(new_ref.to_string())]),
-            &[new_ref.as_ref()],
-            perm,
-            true,
-            |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), order),
-        )?;
-        return Ok(BranchCreateResult { workspace, new_ref });
-    }
-
     let (anchor, order) = match placement {
         json::BranchCreatePlacement::Independent { order } => (None, order),
         json::BranchCreatePlacement::Dependent { relative_to, side } => {
@@ -1808,11 +1787,10 @@ pub fn tear_off_branch(
 ///
 /// It prepares a best-effort tear-off oplog snapshot, performs the tear-off
 /// rebase and workspace metadata update under `perm`, and commits the snapshot
-/// only if the mutation succeeds. In single-branch mode it sets up the workspace
-/// first, as there's no workspace commit to hold a second stack. The returned
-/// [`MoveBranchResult`] contains the post-operation workspace view. When
-/// `dry_run` is enabled, it returns a preview of the resulting workspace state
-/// without that setup and skips oplog persistence. For lower-level
+/// only if the mutation succeeds. In single-branch mode the workspace is entered
+/// for the new stack. The returned [`MoveBranchResult`] contains the
+/// post-operation workspace view. When `dry_run` is enabled, it returns a preview
+/// of the resulting workspace state and skips oplog persistence. For lower-level
 /// implementation details, see [`but_workspace::branch::tear_off_branch()`].
 pub fn tear_off_branch_with_perm(
     ctx: &mut but_ctx::Context,
@@ -1822,26 +1800,6 @@ pub fn tear_off_branch_with_perm(
 ) -> anyhow::Result<MoveBranchResult> {
     let mut meta = ctx.meta()?;
     let snapshot_details = SnapshotDetails::new(OperationKind::TearOffBranch);
-    let tear_off =
-        |mut tx: but_transaction::Transaction<'_, '_, _>| tx.tear_off_branch(subject_branch, None);
-    #[cfg(feature = "legacy")]
-    if matches!(dry_run, DryRun::No) {
-        let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
-            ctx,
-            perm.read_permission(),
-            false,
-        )?;
-        let workspace = sbm.transaction_with_workspace_setup(
-            ctx,
-            &mut meta,
-            snapshot_details,
-            &[],
-            perm,
-            true,
-            tear_off,
-        )?;
-        return Ok(MoveBranchResult { workspace });
-    }
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,
         &mut meta,
@@ -1849,7 +1807,7 @@ pub fn tear_off_branch_with_perm(
         snapshot_details,
         &[],
         dry_run,
-        tear_off,
+        |mut tx| tx.tear_off_branch(subject_branch, None),
     )?;
     Ok(MoveBranchResult { workspace })
 }

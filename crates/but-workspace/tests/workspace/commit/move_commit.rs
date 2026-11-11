@@ -1203,3 +1203,32 @@ fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<
     );
     Ok(())
 }
+
+#[test]
+fn moving_the_last_commit_of_an_unnamed_lane_leaves_the_workspace() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, mut db, unnamed) = super::workspace_with_an_unnamed_lane()?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    but_workspace::commit::move_commits(
+        editor,
+        [unnamed],
+        RelativeTo::Reference("refs/heads/C".try_into()?),
+        InsertSide::Below,
+    )?
+    .materialize(Default::default())?;
+
+    // One stack is left, so `HEAD` is on its branch and the workspace commit is gone.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 148f8f3 (HEAD -> C) A
+* 09bc93e C
+* c813d8d (B) B
+* 85efbe4 (origin/main, main) M
+
+"#]]
+    );
+
+    Ok(())
+}
