@@ -38,13 +38,11 @@ pub struct GitHubSettings {
 #[serde(tag = "type")]
 pub enum GitHubAccount {
     OAuth {
-        // Username associated with the OAuth account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
     },
     Pat {
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -52,7 +50,6 @@ pub enum GitHubAccount {
     Enterprise {
         // Hostname of the GitHub Enterprise instance.
         host: String,
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -94,7 +91,6 @@ pub struct GitLabSettings {
 #[serde(tag = "type")]
 pub enum GitLabAccount {
     Pat {
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -102,7 +98,6 @@ pub enum GitLabAccount {
     SelfHosted {
         // Hostname of the self-hosted GitLab instance.
         host: String,
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
