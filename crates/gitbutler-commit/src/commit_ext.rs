@@ -1,9 +1,6 @@
 use bstr::BStr;
 use but_core::{ChangeId, commit::Headers};
 
-/// Extension trait for `gix::Commit`.
-///
-/// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
     fn change_id(&self) -> Option<ChangeId>;
     fn is_conflicted(&self) -> bool;
