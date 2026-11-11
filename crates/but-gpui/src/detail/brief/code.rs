@@ -1,7 +1,7 @@
 //! Code a brief shows: what git knows about it over its lines, how sure it is to be real, and the
 //! way from it to the branch's own diff of that file.
 
-use gpui::{AnyElement, App, Context, Div, Hsla, SharedString, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, Div, SharedString, Window, div, prelude::*};
 
 use super::state::BriefFold;
 use crate::backend::LineKind;
@@ -18,14 +18,18 @@ use crate::ui::{Icon, diff, dp, h_flex, icon, v_flex};
 /// How many hunks of a file a card shows, past which Changes is the place for it.
 const MOST_WHOLE_HUNKS: usize = 30;
 
-/// A small marked word by a file's name.
-fn chip(words: &str, color: Hsla, theme: &Theme) -> Div {
+/// A small marked word by a file's name, in amber if it's a `warning`.
+fn chip(words: &str, warning: bool, theme: &Theme) -> Div {
+    let (color, edge) = match warning {
+        true => (theme.warn, theme.warn_edge),
+        false => (theme.text_3, theme.border_3),
+    };
     div()
         .flex_none()
         .px(dp(5.))
         .rounded(dp(theme.shape.control))
         .border_1()
-        .border_color(color.opacity(0.5))
+        .border_color(edge)
         .text_size(dp(11.))
         .line_height(dp(16.))
         .text_color(color)
@@ -82,22 +86,22 @@ impl Detail {
             )
             .children(
                 (code.source == CodeSource::Worktree)
-                    .then(|| chip("uncommitted when written", theme.text_3, theme)),
+                    .then(|| chip("uncommitted when written", false, theme)),
             )
             .children(
                 (code.source == CodeSource::Proposal)
-                    .then(|| chip("proposal, not written yet", theme.warn, theme)),
+                    .then(|| chip("proposal, not written yet", true, theme)),
             )
-            .children(changed_since(page, &path).then(|| chip("changed since", theme.warn, theme)))
+            .children(changed_since(page, &path).then(|| chip("changed since", true, theme)))
             .children(
                 (page.drifted.contains(&at))
-                    .then(|| chip("differs from the branch now", theme.warn, theme)),
+                    .then(|| chip("differs from the branch now", true, theme)),
             );
         v_flex()
             .rounded(dp(theme.shape.card))
             .border_1()
             .border_color(match code.source {
-                CodeSource::Proposal => theme.warn.opacity(0.6),
+                CodeSource::Proposal => theme.warn_edge,
                 _ => theme.border_3,
             })
             .overflow_hidden()
@@ -225,7 +229,7 @@ impl Detail {
             .when(goes, |el| {
                 el.role(gpui::Role::Button)
                     .aria_label(SharedString::from(format!("Show {path} in Changes")))
-                    .hover(|el| el.bg(theme.fill_gray.opacity(0.08)))
+                    .hover(|el| el.bg(theme.hover))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.brief_open_file(&clicked, line, window, cx);
                     }))

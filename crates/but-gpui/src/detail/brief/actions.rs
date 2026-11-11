@@ -13,7 +13,7 @@ use crate::clipboard;
 use crate::detail::Detail;
 use crate::state::{Axis, RowKey, Selection, Tile};
 use crate::terminal::{Terminal, TerminalId};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::{ButtonStyle, Icon, button, dp, h_flex, plural};
 
 /// How wide the tab has to be for the row of its tabs to say where the brief stands too.
@@ -220,7 +220,7 @@ impl Detail {
                 )
                 .small()
                 .style(ButtonStyle::Ghost)
-                .tint(theme.blue)
+                .tint(Hue::Blue)
                 .tooltip("Go to the next comment")
                 .on_click(cx.listener(move |this, _, _, cx| {
                     // From where the reading is, and round to the first after the last.

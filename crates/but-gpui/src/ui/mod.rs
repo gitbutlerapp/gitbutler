@@ -31,7 +31,7 @@ use gpui::{
 };
 
 use crate::state::{Area, Pane, Store};
-use crate::theme::{Theme, tokens};
+use crate::theme::{Hue, Theme, tokens};
 pub use format::*;
 use illustration::{Illustration, illustration};
 
@@ -424,7 +424,7 @@ pub fn small_icon(icon: Icon) -> Svg {
 /// Icon toggles joined in a row, as but-ui-react's `ToggleGroupStyles` of outline toggles: one
 /// border round them and a rule between.
 pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
-    let line = theme.control_border();
+    let line = theme.control_border;
     let toggles: Vec<_> = toggles.into_iter().collect();
     let last = toggles.len().saturating_sub(1);
     h_flex()
@@ -451,7 +451,7 @@ pub fn icon_toggle(
     pressed: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let hover = theme.hover();
+    let hover = theme.hover;
     div()
         .id(id)
         .role(Role::Button)
@@ -463,7 +463,7 @@ pub fn icon_toggle(
         .justify_center()
         .when(pressed, |el| el.bg(theme.bg_2))
         .when(!pressed, |el| el.hover(move |el| el.bg(hover)))
-        .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
+        .child(icon(glyph).text_color(theme.text_1).opacity(0.7))
         .tooltip(Tooltip::keyed(tip, key))
 }
 
@@ -483,7 +483,7 @@ pub fn segmented(
     theme: &Theme,
     segments: impl IntoIterator<Item = (Stateful<Div>, bool)>,
 ) -> Div {
-    let (text, hover, line) = (theme.text_1, theme.hover(), theme.control_border());
+    let (text, hover, line) = (theme.text_1, theme.hover, theme.control_border);
     let segments: Vec<_> = segments.into_iter().collect();
     let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
     h_flex()
@@ -516,11 +516,9 @@ pub fn segmented(
                         .rounded(dp(theme.shape.control))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
-                        .text_color(text.opacity(if on { 0.9 } else { 0.7 }))
+                        .text_color(if on { text } else { theme.text_2 })
                         .when(on, |el| el.bg(theme.bg_1))
-                        .when(!on, |el| {
-                            el.hover(move |el| el.bg(hover).text_color(text.opacity(0.9)))
-                        });
+                        .when(!on, |el| el.hover(move |el| el.bg(hover).text_color(text)));
                     rule.into_iter().chain([segment.into_any_element()])
                 }),
         )
@@ -670,7 +668,7 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .bottom_0()
         .left(dp(at))
         .w(fixed(1.))
-        .bg(theme.text_2.opacity(0.2))
+        .bg(theme.border_3)
 }
 
 /// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open` and
@@ -685,7 +683,7 @@ pub fn fold_glyph(id: impl Into<ElementId>, open: Option<bool>, color: Hsla) -> 
         .items_center()
         .justify_center();
     match open {
-        None => step.child(small_icon(Icon::BulletDisc).text_color(color.opacity(0.5))),
+        None => step.child(small_icon(Icon::BulletDisc).text_color(color).opacity(0.5)),
         Some(open) => step.child(fold::chevron(id, open, color)),
     }
 }
@@ -747,7 +745,7 @@ pub fn fold_button<V: 'static>(
         None => el,
         Some(_) => el
             .rounded(dp(theme.shape.xs))
-            .hover(|el| el.bg(Theme::get(cx).hover()))
+            .hover(|el| el.bg(Theme::get(cx).hover))
             .on_mouse_down(MouseButton::Left, press_in_pane(pane))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 cx.stop_propagation();
@@ -772,7 +770,7 @@ pub fn side_row(
 /// `el`, a row's secondary text, softened against a solid selection `on` it.
 pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
     el.flex_none()
-        .when(on, |el| el.text_color(theme.muted_on_solid()))
+        .when(on, |el| el.text_color(theme.muted_on_solid))
 }
 
 /// Where row `ix` of `list` was last drawn, while some of it shows: where ⇧F10 opens the menu
@@ -794,8 +792,8 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .px(dp(8.))
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
-        .when(selected, |el| el.bg(theme.selected_unfocused()))
-        .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+        .when(selected, |el| el.bg(theme.selected_unfocused))
+        .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
 }
 
 /// A selected `row` whose neighbours are selected too, `above` and `below`: a run of them
@@ -809,8 +807,8 @@ pub fn joined(
     theme: &Theme,
 ) -> Stateful<Div> {
     let line = match solid {
-        true => theme.text_inverted.opacity(0.1),
-        false => theme.bg_1.opacity(0.4),
+        true => theme.soft_on_solid(),
+        false => theme.bg_1,
     };
     row.when(above, |el| {
         el.relative().rounded_t_none().child(
@@ -831,7 +829,7 @@ pub fn joined(
 /// so a list keeps its arrows and Return doesn't press it again.
 pub fn tab_stop(el: Stateful<Div>, theme: &Theme) -> Stateful<Div> {
     // Inside its edge: a shadow spread outside it fills a control without a ground of its own.
-    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border())
+    let ring = gpui::BoxShadow::new(fixed(0.), fixed(0.), theme.focus_border)
         .spread_radius(fixed(2.))
         .inset();
     shown_when_focused(el.tab_index(0))
@@ -890,7 +888,7 @@ pub fn switch_spring(on: bool) -> gpui::SpringAnimation<bool> {
 /// A switch's ground off and on, to mix in sRGB as CSS does: mixing `Hsla` would sweep the
 /// gray's hue round to pop's and tint the middle.
 pub fn switch_grounds(theme: &Theme) -> [gpui::Rgba; 2] {
-    [theme.fill_gray.opacity(0.22).into(), theme.pop_bg.into()]
+    [theme.border_2.into(), theme.pop_bg.into()]
 }
 
 /// A [`switch`], which takes clicks as the `Stateful<Div>` it wraps does.
@@ -899,6 +897,7 @@ pub struct Switch {
     on: bool,
     el: Stateful<Div>,
     grounds: [gpui::Rgba; 2],
+    knob: Hsla,
     disabled: bool,
 }
 
@@ -910,6 +909,7 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Switch {
         id,
         on,
         grounds: switch_grounds(theme),
+        knob: theme.bg_1,
         disabled: false,
     }
 }
@@ -957,6 +957,7 @@ impl IntoElement for Switch {
     fn into_element(self) -> Self::Element {
         use gpui::AnimationExt as _;
         let [off, on] = self.grounds;
+        let knob = self.knob;
         // The spring wraps the whole switch, not a child: the track is the tab stop, whose
         // focus ring is drawn over its ground and under its children.
         self.el
@@ -967,7 +968,7 @@ impl IntoElement for Switch {
                         .ml(phase.interpolate_clamped(dp(0.), dp(12.)))
                         .size(dp(14.))
                         .rounded_full()
-                        .bg(gpui::white()),
+                        .bg(knob),
                 )
             })
     }
@@ -1017,7 +1018,7 @@ pub fn dropdown(
         .border_1()
         .border_color(theme.border_2)
         .text_size(dp(13.))
-        .hover(|el| el.bg(theme.hover()))
+        .hover(|el| el.bg(theme.hover))
         .child(div().min_w_0().truncate().child(label.into()))
         .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
 }
@@ -1037,7 +1038,7 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(if focused {
-            theme.focus_border()
+            theme.focus_border
         } else {
             theme.border_2
         })
@@ -1157,7 +1158,7 @@ pub struct Button {
     /// On an inverted ground, like a selected row.
     inverted: bool,
     /// The colour of the ground it sits on, as a banner's action takes its banner's.
-    tint: Option<Hsla>,
+    tint: Option<Hue>,
     on_click: Option<ClickHandler>,
     tooltip: Option<SharedString>,
     tooltip_key: Option<SharedString>,
@@ -1263,7 +1264,7 @@ impl Button {
         self
     }
 
-    pub fn tint(mut self, tint: Hsla) -> Self {
+    pub fn tint(mut self, tint: Hue) -> Self {
         self.tint = Some(tint);
         self
     }
@@ -1316,38 +1317,35 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = Theme::get(cx);
         let (fg, bg, border, hover): (Hsla, Option<Hsla>, Option<Hsla>, Hsla) = match self.style {
-            ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover()),
-            ButtonStyle::Outline => (
-                theme.text_1,
-                None,
-                Some(theme.control_border()),
-                theme.hover(),
-            ),
-            ButtonStyle::Gray => (
-                theme.text_1,
-                Some(theme.fill_gray.opacity(0.1)),
-                None,
-                theme.fill_gray.opacity(0.16),
-            ),
-            ButtonStyle::Pop => (
-                theme.on_pop,
-                Some(theme.pop_button),
-                None,
-                theme.pop_button.opacity(0.9),
-            ),
+            ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover),
+            ButtonStyle::Outline => (theme.text_1, None, Some(theme.control_border), theme.hover),
+            ButtonStyle::Gray => (theme.text_1, Some(theme.muted), None, theme.muted_hover),
+            ButtonStyle::Pop => (theme.on_pop, Some(theme.pop_button), None, theme.pop_hover),
             ButtonStyle::Danger => (
                 theme.danger,
-                Some(theme.danger.opacity(0.1)),
+                Some(theme.danger_soft),
                 None,
-                theme.danger.opacity(0.16),
+                theme.danger_soft_hover,
             ),
         };
+        // A filled button keeps its fill under the pointer, a step stronger; one without
+        // takes the fill there.
         let (fg, bg, hover) = match self.tint {
-            Some(tint) => (tint, bg.map(|_| tint.opacity(0.12)), tint.opacity(0.16)),
+            Some(tint) => (
+                theme.hue(tint),
+                bg.map(|_| theme.soft(tint)),
+                match bg {
+                    Some(_) => theme.soft_hover(tint),
+                    None => theme.soft(tint),
+                },
+            ),
             None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.text_inverted,
-                bg.map(|_| theme.text_inverted.opacity(0.14)),
-                theme.text_inverted.opacity(0.22),
+                bg.map(|_| theme.soft_on_solid()),
+                match bg {
+                    Some(_) => theme.soft_on_solid_hover(),
+                    None => theme.hover_on_solid,
+                },
             ),
             None => (fg, bg, hover),
         };
@@ -1390,7 +1388,7 @@ impl RenderOnce for Button {
                 None => el.rounded(dp(theme.shape.control)),
                 Some(Half::Action) => el.rounded_l(dp(theme.shape.control)).border_r_0(),
                 Some(Half::Menu) => (el.rounded_r(dp(theme.shape.control)).border_l_1())
-                    .border_color(border.unwrap_or(fg.opacity(0.3))),
+                    .border_color(border.unwrap_or(theme.bg_1)),
             })
             .when(self.disabled.is_none(), |el| {
                 // A round picture in a square of hover would show the square's corners.
@@ -1401,7 +1399,7 @@ impl RenderOnce for Button {
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child(icon(kind).size(icon_size).text_color(fg.opacity(opacity)))
+                el.child((icon(kind).size(icon_size).text_color(fg)).opacity(opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
@@ -1680,7 +1678,7 @@ pub fn keys_text(text: &str) -> String {
 /// Keys as but-ui-react's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
 /// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
-    keycaps(text, 16., 11., theme.text_1.opacity(0.6), theme)
+    keycaps(text, 16., 11., theme.text_2, theme)
 }
 
 /// `keycap` for a table of keys, where they're what's being read.
@@ -1717,9 +1715,9 @@ fn keycaps(text: &str, height: f32, size: f32, color: Hsla, theme: &Theme) -> Di
                 .items_center()
                 .justify_center()
                 .rounded(dp(theme.shape.xs))
-                .bg(theme.fill_gray.opacity(0.05))
+                .bg(theme.hover)
                 .border_1()
-                .border_color(theme.text_1.opacity(0.16))
+                .border_color(theme.border_3)
                 .text_size(dp(size))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(color)
@@ -1880,7 +1878,7 @@ pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
         .with_animation(
             id,
             Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
-            move |el, delta| el.bg(wash.opacity(0.08 * (1. - delta))),
+            move |el, delta| el.bg(wash).opacity(0.08 * (1. - delta)),
         )
 }
 
@@ -1897,7 +1895,7 @@ pub fn blink_once(id: impl Into<ElementId>, shape: Div, wash: Hsla) -> impl Into
     shape.with_animation(
         id,
         Animation::new(BLINK).with_easing(gpui::quadratic),
-        move |el, delta| el.bg(wash.opacity(0.5 * (1. - delta))),
+        move |el, delta| el.bg(wash).opacity(0.5 * (1. - delta)),
     )
 }
 
@@ -1960,7 +1958,7 @@ pub fn count_badge(count: usize, theme: &Theme) -> Div {
         .items_center()
         .justify_center()
         .rounded_full()
-        .bg(theme.fill_gray.opacity(0.15))
+        .bg(theme.muted)
         .text_size(dp(11.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)

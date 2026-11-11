@@ -101,10 +101,8 @@ pub(super) fn picks_slot(
     column
         .when(!joined(slot - 1), |el| el.rounded_l(dp(theme.shape.xs)))
         .when(!joined(slot + 1), |el| el.rounded_r(dp(theme.shape.xs)))
-        .when(picked.contains(&slot), |el| {
-            el.bg(theme.selected_unfocused())
-        })
-        .hover(|el| el.bg(theme.hover()))
+        .when(picked.contains(&slot), |el| el.bg(theme.selected_unfocused))
+        .hover(|el| el.bg(theme.hover))
         .on_mouse_down(
             MouseButton::Left,
             cx.listener(move |this, event: &MouseDownEvent, _, cx| {

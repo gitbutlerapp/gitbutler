@@ -1964,7 +1964,7 @@ impl NavigatorTabs {
             .overflow_hidden()
             .bg(match solid {
                 true => theme.fill_gray,
-                false => theme.selected_unfocused(),
+                false => theme.selected_unfocused,
             })
             .child(
                 div()
@@ -2083,7 +2083,7 @@ impl Render for NavigatorTabs {
                 .left(dp(left))
                 .w(dp(width))
                 .rounded(dp(theme.shape.popup))
-                .bg(theme.hover())
+                .bg(theme.hover)
                 .opacity(opened.share);
             match is_held(Some(&opened.id)) {
                 true => outlines.1.push(outline),
@@ -2227,6 +2227,10 @@ impl Render for NavigatorTabs {
         let more_after = laid.end + 2. * OUTLINE - offset - viewport > 0.5;
         self.overflows = more_before || more_after;
         let fade = |angle: f32| {
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "the clear end of a fade to the ground"
+            )]
             let (ground, clear) = (theme.bg_2, theme.bg_2.opacity(0.));
             div()
                 .absolute()

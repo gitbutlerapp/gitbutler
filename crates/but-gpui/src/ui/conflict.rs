@@ -15,7 +15,7 @@ use super::{
     v_flex,
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
 /// One of a conflict's rows.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -254,9 +254,9 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
     match side {
         Side::NewBase => look(LineKind::Added, plain, theme),
         Side::Commit => Look {
-            bg: (!plain).then_some(theme.blue.opacity(0.1)),
+            bg: (!plain).then_some(theme.blue_soft),
             number: theme.blue,
-            emph: theme.blue.opacity(0.2),
+            emph: theme.highlight(Highlight::Incoming),
             bar: Some(theme.blue.into()),
         },
         Side::Ancestor => look(LineKind::Context, plain, theme),
@@ -295,16 +295,21 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         row.kept,
         Some(Kept::Pick(_) | Kept::Text { writing: false, .. })
     );
-    let (mark, color, ground) = match handled {
-        true => (Icon::Tick, theme.safe, theme.text_1.opacity(0.04)),
-        false => (Icon::Warning, theme.warn, theme.warn.opacity(0.06)),
+    let (mark, color, ground, current) = match handled {
+        true => (Icon::Tick, theme.safe, theme.hover, theme.secondary),
+        false => (
+            Icon::Warning,
+            theme.warn,
+            theme.warn_soft,
+            theme.warn_soft_hover,
+        ),
     };
     card(h_flex(), row.layout.flat, theme)
         .h(dp(36.))
         .px(dp(8.))
         .gap(dp(6.))
         .bg(ground)
-        .when(row.current, |el| el.bg(ground.opacity(ground.a * 2.)))
+        .when(row.current, |el| el.bg(current))
         .text_size(dp(12.))
         .child(small_icon(mark).text_color(color))
         .child(

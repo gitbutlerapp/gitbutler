@@ -123,7 +123,7 @@ impl RenderOnce for Figure {
                 )
                 .child(edge)
                 .into_any_element(),
-            None => (place.bg(theme.fill_gray.opacity(0.06)).child(edge)).into_any_element(),
+            None => (place.bg(theme.secondary).child(edge)).into_any_element(),
             Some(None) => words(&id, &image, theme),
         }
     }

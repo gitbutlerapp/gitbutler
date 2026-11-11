@@ -11,7 +11,7 @@ use super::{Detail, PageFold};
 use crate::backend::reviews::Verdict;
 use crate::backend::{Forge, Note, Remark, Review, Thread};
 use crate::state::ProjectId;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::diff::{excerpt, split_path};
 use crate::ui::fold;
 use crate::ui::markdown;
@@ -201,7 +201,7 @@ impl Detail {
             .py(dp(7.))
             .gap(dp(6.))
             .text_size(dp(12.))
-            .hover(|el| el.bg(theme.hover()))
+            .hover(|el| el.bg(theme.hover))
             .child(fold::chevron("fold", open, theme.text_3))
             .child(
                 h_flex()
@@ -223,7 +223,7 @@ impl Detail {
                             .child(format!("{name}{lines}")),
                     ),
             )
-            .children(state.map(|label| tag(theme.text_2, theme).child(label)))
+            .children(state.map(|label| tag(Hue::Gray, theme).child(label)))
             .when(!open, |el| {
                 el.child(
                     div()
@@ -303,19 +303,19 @@ fn header(note: &Note, verdict: Option<Verdict>, compact: bool, theme: &Theme) -
             )
     });
     let verdict = verdict.map(|verdict| match verdict {
-        Verdict::Approved => ("Approved", theme.safe),
-        Verdict::ChangesRequested => ("Changes requested", theme.danger),
-        Verdict::Commented => ("Reviewed", theme.text_2),
-        Verdict::Dismissed => ("Review dismissed", theme.text_2),
+        Verdict::Approved => ("Approved", Hue::Safe),
+        Verdict::ChangesRequested => ("Changes requested", Hue::Danger),
+        Verdict::Commented => ("Reviewed", Hue::Gray),
+        Verdict::Dismissed => ("Review dismissed", Hue::Gray),
     });
     h_flex()
         .min_h(dp(20.))
         .gap(dp(6.))
         .children(author)
         .when(note.bot, |el| {
-            el.child(tag(theme.text_2, theme).child("Agent"))
+            el.child(tag(Hue::Gray, theme).child("Agent"))
         })
-        .children(verdict.map(|(label, color)| tag(color, theme).child(label)))
+        .children(verdict.map(|(label, hue)| tag(hue, theme).child(label)))
         .child(div().flex_grow(1.))
         .children(note.at.map(|at| opens(note, at, compact, theme)))
 }

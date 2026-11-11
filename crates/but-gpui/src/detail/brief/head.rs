@@ -250,7 +250,7 @@ impl Detail {
                         .gap(dp(8.))
                         .px(dp(10.))
                         .py(dp(7.))
-                        .bg(theme.warn.opacity(0.1))
+                        .bg(theme.warn_soft)
                         .children(alerts),
                 )
             })
@@ -259,7 +259,7 @@ impl Detail {
                     .gap(dp(3.))
                     .px(dp(10.))
                     .py(dp(7.))
-                    .bg(theme.fill_gray.opacity(0.04))
+                    .bg(theme.hover)
                     .children(ask)
                     .children(options.into_iter().map(|option| fact(div().child(option))))
                     .children(current)
@@ -343,7 +343,7 @@ impl Detail {
             v_flex()
                 .id("brief-test-off")
                 .gap(dp(2.))
-                .hover(|el| el.bg(theme.warn.opacity(0.06)))
+                .hover(|el| el.bg(theme.warn_soft))
                 .role(gpui::Role::Button)
                 .aria_label(SharedString::from(format!("Show the line in {name}")))
                 .on_click(cx.listener(move |this, _, window, cx| {

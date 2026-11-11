@@ -37,10 +37,37 @@ pub struct Theme {
     /// The solid gray of a focused selection; hover and unfocused selection are tints of it.
     pub fill_gray: Hsla,
     pub text_inverted: Hsla,
+    /// What the pointer is over, as but-ui's `--but-hover`.
+    pub hover: Hsla,
+    /// Selection ground while the list does not have focus, as `--but-selected-inactive`.
+    pub selected_unfocused: Hsla,
+    /// The ring of a focused field, as `--but-ring`.
+    pub focus_border: Hsla,
+    /// The border of a control, as `--but-input`.
+    pub control_border: Hsla,
+    /// A faint gray well, as code blocks and table heads sit in: `--but-secondary`.
+    pub secondary: Hsla,
+    /// A gray control's ground and that under the pointer, as but-ui-react's Gray button and
+    /// inline code: `--but-muted`, and halfway to `--but-muted-nested`.
+    pub muted: Hsla,
+    pub muted_hover: Hsla,
+    /// Secondary text and icons on a solid selection, as `text_2` is on open ground.
+    pub muted_on_solid: Hsla,
+    /// What the pointer is over on a solid selection, as `--but-inverse-ghost-hover`.
+    pub hover_on_solid: Hsla,
+    /// A scrollbar's thumb, and while it's held or pointed at.
+    pub scrollbar: Hsla,
+    pub scrollbar_hover: Hsla,
+    /// What dims the window behind a modal.
+    pub overlay: Hsla,
+    /// What a floating window casts.
+    pub shadow: Hsla,
     pub pop: Hsla,
     pub pop_bg: Hsla,
-    /// A Pop button's ground, darker than `pop_bg` so its white label reads at 4.5:1.
+    /// A Pop button's ground, darker than `pop_bg` so its white label reads at 4.5:1, and
+    /// under the pointer.
     pub pop_button: Hsla,
+    pub pop_hover: Hsla,
     /// Labels, ticks and dashes on `pop_button` and `pop_bg`.
     pub on_pop: Hsla,
     pub blue: Hsla,
@@ -48,6 +75,25 @@ pub struct Theme {
     pub warn: Hsla,
     pub danger: Hsla,
     pub purple: Hsla,
+    /// Each hue's soft ground, which its own colour reads on as text, and that under the
+    /// pointer, as but-ui-react's Badge and soft buttons draw them: `--but-*-soft(-hover)`.
+    /// [`Theme::soft`] picks one by [`Hue`].
+    pub pop_soft: Hsla,
+    pub pop_soft_hover: Hsla,
+    pub blue_soft: Hsla,
+    pub blue_soft_hover: Hsla,
+    pub safe_soft: Hsla,
+    pub safe_soft_hover: Hsla,
+    pub warn_soft: Hsla,
+    pub warn_soft_hover: Hsla,
+    pub danger_soft: Hsla,
+    pub danger_soft_hover: Hsla,
+    pub purple_soft: Hsla,
+    pub purple_soft_hover: Hsla,
+    /// The edge of something marked as a warning or as not sent yet: amber's and blue's
+    /// border step.
+    pub warn_edge: Hsla,
+    pub blue_edge: Hsla,
     /// `safe` and `danger` on a solid selection: each stepped toward `text_inverted` until it
     /// reads on `fill_gray`, so it keeps what hue it can.
     pub safe_on_solid: Hsla,
@@ -120,6 +166,51 @@ pub struct Theme {
 }
 
 impl Global for Theme {}
+
+/// A colour something is tinted in by what it is: a move's mark, a pull request's state, a
+/// button's tint. [`Theme`] gives each as text, as a soft ground and as a wash over rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hue {
+    Pop,
+    Blue,
+    Safe,
+    Warn,
+    Danger,
+    Purple,
+    /// Secondary text, on gray.
+    Gray,
+}
+
+/// What's marked over text or rows, which must let what's under it show: a diff's green and
+/// red lines, a search's tint under a selection. Each is a token's colour at a set strength.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Highlight {
+    /// Selected text in a field with the keys, and in one without.
+    Selected,
+    SelectedUnfocused,
+    /// Selected words in a diff's line, or a line being edited there, as the diff selects.
+    Words,
+    /// A link's underline.
+    Link,
+    /// A search's matches, and the one it's on.
+    Found,
+    FoundHere,
+    /// What's new since it was last read.
+    Fresh,
+    /// What a comment is about, and while that comment is pointed at or written.
+    Said,
+    Saying,
+    /// What a comment not sent yet is about, and while it's pointed at or written.
+    Draft,
+    SayingDraft,
+    /// What blinks over a diff's rows and headers as they're copied: a light wash of pop,
+    /// which shows on green and red lines without drowning them out.
+    Copy,
+    /// A diff's line number picked for a selection.
+    Picked,
+    /// The words that changed on a commit's side of a conflict.
+    Incoming,
+}
 
 /// How large code shows in diffs.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -452,6 +543,15 @@ impl Theme {
         if let Some(text) = token("primary-text") {
             self.pop = text;
         }
+        if let Some(hover) = token("primary-hover") {
+            self.pop_hover = hover;
+        }
+        if let Some(soft) = token("primary-soft") {
+            self.pop_soft = soft;
+        }
+        if let Some(soft) = token("primary-soft-hover") {
+            self.pop_soft_hover = soft;
+        }
         self
     }
 
@@ -587,6 +687,11 @@ impl Theme {
         let token = |[light, dark_value]: [u32; 2]| -> Hsla {
             rgba(if dark { dark_value } else { light }).into()
         };
+        // Halfway from one opaque but-ui token to another, as CSS's `color-mix` at 50%.
+        let halfway = |a: [u32; 2], b: [u32; 2]| -> Hsla {
+            let pick = |[light, dark_value]: [u32; 2]| (if dark { dark_value } else { light }) >> 8;
+            color(mix(pick(a), pick(b), 0.5))
+        };
         let (code_text, code_line) = code.metrics();
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
@@ -620,17 +725,46 @@ impl Theme {
             border_3: token(on_ground!(BORDER_SUBTLE)),
             fill_gray,
             text_inverted,
+            hover: token(on_ground!(HOVER)),
+            selected_unfocused: token(on_ground!(SELECTED_INACTIVE)),
+            focus_border: token(on_ground!(RING)),
+            control_border: token(on_ground!(INPUT)),
+            secondary: token(on_ground!(SECONDARY)),
+            muted: token(on_ground!(MUTED)),
+            muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
+            muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
+            hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            scrollbar: token(on_ground!(SCROLLBAR_THUMB)),
+            scrollbar_hover: token(on_ground!(SCROLLBAR_THUMB_HOVER)),
+            overlay: token(on_ground!(OVERLAY)),
+            shadow: token(on_ground!(SHADOW)),
             // The accent as text, and as the ground its label and tick read on at 4.5:1, in
             // both themes.
             pop: token(on_ground!(PRIMARY_TEXT)),
             pop_bg: token(on_ground!(PRIMARY)),
             pop_button: token(on_ground!(PRIMARY)),
+            pop_hover: token(on_ground!(PRIMARY_HOVER)),
             on_pop: token(on_ground!(PRIMARY_FOREGROUND)),
             blue: token(on_ground!(INFO_TEXT)),
             safe,
             warn: token(on_ground!(WARNING_TEXT)),
             danger,
             purple: token([done_light, done_dark]),
+            pop_soft: token(on_ground!(PRIMARY_SOFT)),
+            pop_soft_hover: token(on_ground!(PRIMARY_SOFT_HOVER)),
+            blue_soft: token(on_ground!(INFO_SOFT)),
+            blue_soft_hover: token(on_ground!(INFO_SOFT_HOVER)),
+            safe_soft: token(on_ground!(SUCCESS_SOFT)),
+            safe_soft_hover: token(on_ground!(SUCCESS_SOFT_HOVER)),
+            warn_soft: token(on_ground!(WARNING_SOFT)),
+            warn_soft_hover: token(on_ground!(WARNING_SOFT_HOVER)),
+            danger_soft: token(on_ground!(DANGER_SOFT)),
+            danger_soft_hover: token(on_ground!(DANGER_SOFT_HOVER)),
+            purple_soft: token(on_ground!(DONE_SOFT)),
+            purple_soft_hover: token(on_ground!(DONE_SOFT_HOVER)),
+            // Amber's and blue's step 7, the scales' border.
+            warn_edge: token(on_ground!(AMBER_7)),
+            blue_edge: token(on_ground!(BLUE_7)),
             safe_on_solid: on_solid(safe),
             danger_on_solid: on_solid(danger),
             purple_on_solid: token([done_dark, done_light]),
@@ -725,8 +859,8 @@ impl Theme {
 
     /// This theme in `palette`'s colours, its sizes and fonts kept, or as it is when the
     /// palette has no background or foreground. Text steps toward the foreground until it reads
-    /// on both grounds: secondary text and colours used as text at 4.5:1, faint text and
-    /// marks at 3:1.
+    /// on both grounds and on a gray control's: secondary text and colours used as text at
+    /// 4.5:1, faint text and marks at 3:1.
     fn painted(self, palette: Colors) -> Self {
         let (Some(bg), Some(fg)) = (palette.background, palette.foreground) else {
             return self;
@@ -741,13 +875,25 @@ impl Theme {
                 .unwrap_or(fg)
         };
         let bg_2 = mix(bg, 0x000000, if dark { 0.25 } else { 0.05 });
-        let grounds = [bg, bg_2];
+        // A step of the foreground into the ground, as but-ui's opaque grays: muted, and
+        // halfway on to muted-nested.
+        let gray = |share: f32| mix(bg, fg, share);
+        let muted = gray(if dark { 0.09 } else { 0.06 });
+        let muted_hover = gray(if dark { 0.105 } else { 0.077 });
+        let grounds = [bg, bg_2, muted, muted_hover];
         let ink = if dark { 0xffffff } else { 0x000000 };
-        let text = |from: u32, ratio: f32| {
+        // An ANSI colour's soft ground and that under the pointer, a step further toward it.
+        let soft = |index: u8| mix(bg, ansi(index), if dark { 0.18 } else { 0.12 });
+        let soft_hover = |index: u8| mix(bg, ansi(index), if dark { 0.22 } else { 0.17 });
+        let text_on = |from: u32, ratio: f32, also: &[u32]| {
+            let grounds: Vec<u32> = grounds.iter().chain(also).copied().collect();
             (reaching(from, fg, &grounds, ratio))
                 .or_else(|| reaching(fg, ink, &grounds, ratio))
                 .unwrap_or(ink)
         };
+        let text = |from: u32, ratio: f32| text_on(from, ratio, &[]);
+        // An ANSI colour as text, which reads on its soft grounds too.
+        let hue_text = |index: u8| text_on(ansi(index), 4.5, &[soft(index), soft_hover(index)]);
         // A snackbar's ground is the foreground, so its glyph steps toward whichever of black
         // and white reads there.
         let snackbar_ink = match contrast(fg, 0xffffff) > contrast(fg, 0x000000) {
@@ -760,9 +906,10 @@ impl Theme {
             .find(|&ink| contrast(ink, pop) >= 4.5)
             .unwrap_or(0x000000);
         let text_3 = text(mix(bg, fg, 0.45), 3.);
-        let [safe, blue, danger, purple] = [2, 4, 1, 5].map(|index| text(ansi(index), 4.5));
+        let [safe, blue, danger, purple] = [2, 4, 1, 5].map(hue_text);
         let [added, removed] = [2, 1].map(|index| text(ansi(index), 3.));
-        let ground = |index: u8| mix(bg, ansi(index), if dark { 0.18 } else { 0.12 });
+        // `fg` laid over the ground at `share`, as but-ui's grays are the foreground's.
+        let veil = |share: f32| color(fg).opacity(share);
         Theme {
             bg_1: color(bg),
             bg_2: color(bg_2),
@@ -774,15 +921,46 @@ impl Theme {
             border_3: color(mix(bg, fg, 0.18)),
             fill_gray: color(fg),
             text_inverted: color(bg),
-            pop: color(text(pop, 4.5)),
+            hover: veil(0.05),
+            selected_unfocused: veil(0.1),
+            focus_border: veil(0.7),
+            control_border: veil(0.26),
+            secondary: veil(0.08),
+            muted: color(muted),
+            muted_hover: color(muted_hover),
+            muted_on_solid: color(bg).opacity(0.6),
+            hover_on_solid: color(bg).opacity(0.05),
+            scrollbar: veil(0.15),
+            scrollbar_hover: veil(0.25),
+            overlay: match dark {
+                true => color(0x000000).opacity(0.5),
+                false => color(gray(0.15)).opacity(0.45),
+            },
+            shadow: color(0x000000).opacity(if dark { 0.5 } else { 0.1 }),
+            pop: color(hue_text(6)),
             pop_bg: color(pop),
             pop_button: color(pop),
+            pop_hover: color(mix(pop, 0x000000, 0.08)),
             on_pop: color(on_pop),
             blue: color(blue),
             safe: color(safe),
-            warn: color(text(ansi(3), 4.5)),
+            warn: color(hue_text(3)),
             danger: color(danger),
             purple: color(purple),
+            pop_soft: color(soft(6)),
+            pop_soft_hover: color(soft_hover(6)),
+            blue_soft: color(soft(4)),
+            blue_soft_hover: color(soft_hover(4)),
+            safe_soft: color(soft(2)),
+            safe_soft_hover: color(soft_hover(2)),
+            warn_soft: color(soft(3)),
+            warn_soft_hover: color(soft_hover(3)),
+            danger_soft: color(soft(1)),
+            danger_soft_hover: color(soft_hover(1)),
+            purple_soft: color(soft(5)),
+            purple_soft_hover: color(soft_hover(5)),
+            warn_edge: color(mix(bg, ansi(3), 0.5)),
+            blue_edge: color(mix(bg, ansi(4), 0.5)),
             safe_on_solid: color(readable_on(safe, bg, fg)),
             danger_on_solid: color(readable_on(danger, bg, fg)),
             purple_on_solid: color(readable_on(purple, bg, fg)),
@@ -796,8 +974,8 @@ impl Theme {
             snackbar_hover: color(bg).opacity(0.05),
             diff_added: color(added),
             diff_removed: color(removed),
-            diff_added_bg: color(ground(2)),
-            diff_removed_bg: color(ground(1)),
+            diff_added_bg: color(soft(2)),
+            diff_removed_bg: color(soft(1)),
             diff_added_emph: color(added).opacity(if dark { 0.2 } else { 0.15 }),
             diff_removed_emph: color(removed).opacity(if dark { 0.2 } else { 0.15 }),
             diff_muted: color(text_3),
@@ -832,35 +1010,105 @@ impl Theme {
         }
     }
 
-    pub fn hover(&self) -> Hsla {
-        self.fill_gray.opacity(0.05)
-    }
-
-    /// The ring of a focused field, as but-ui's `--but-ring`.
-    pub fn focus_border(&self) -> Hsla {
-        self.fill_gray.opacity(0.7)
-    }
-
     /// The edge of the card with the keys, the tile's or the navigator's: a focused field's
     /// ring, as it reads on the field's ground, the cards'. Opaque, so it's the same gray drawn
     /// over a card's own edge as in its place, or twice over.
     pub fn focus_edge(&self) -> Hsla {
-        self.bg_1.blend(self.focus_border())
+        self.bg_1.blend(self.focus_border)
     }
 
-    /// The border of a control, as but-ui's `--but-input`.
-    pub fn control_border(&self) -> Hsla {
-        self.fill_gray.opacity(0.26)
+    /// The unfocused selection as it shows on a card, opaque, for what's drawn over the
+    /// card's content, as a sticky header.
+    pub fn selected_on_card(&self) -> Hsla {
+        self.bg_1.blend(self.selected_unfocused)
     }
 
-    /// Selection ground while the list does not have focus.
-    pub fn selected_unfocused(&self) -> Hsla {
-        self.fill_gray.opacity(0.1)
+    /// Halfway from the page to the first gray step: a passage set off from the page, not a
+    /// panel.
+    pub fn passage(&self) -> Hsla {
+        self.bg_1.blend(self.bg_2.opacity(0.5))
     }
 
-    /// Secondary text and icons on a solid selection, as `text_2` is on open ground.
-    pub fn muted_on_solid(&self) -> Hsla {
-        self.text_inverted.opacity(0.7)
+    /// A faint ground, rule or track on a solid selection, as `border_3` and `secondary` are on
+    /// open ground.
+    pub fn soft_on_solid(&self) -> Hsla {
+        self.text_inverted.opacity(0.15)
+    }
+
+    /// [`Theme::soft_on_solid`] under the pointer.
+    pub fn soft_on_solid_hover(&self) -> Hsla {
+        self.text_inverted.opacity(0.22)
+    }
+
+    /// `hue` as text and marks.
+    pub fn hue(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop,
+            Hue::Blue => self.blue,
+            Hue::Safe => self.safe,
+            Hue::Warn => self.warn,
+            Hue::Danger => self.danger,
+            Hue::Purple => self.purple,
+            Hue::Gray => self.text_2,
+        }
+    }
+
+    /// `hue`'s soft ground, which it reads on as text.
+    pub fn soft(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_soft,
+            Hue::Blue => self.blue_soft,
+            Hue::Safe => self.safe_soft,
+            Hue::Warn => self.warn_soft,
+            Hue::Danger => self.danger_soft,
+            Hue::Purple => self.purple_soft,
+            Hue::Gray => self.muted,
+        }
+    }
+
+    /// `hue`'s soft ground under the pointer.
+    pub fn soft_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_soft_hover,
+            Hue::Blue => self.blue_soft_hover,
+            Hue::Safe => self.safe_soft_hover,
+            Hue::Warn => self.warn_soft_hover,
+            Hue::Danger => self.danger_soft_hover,
+            Hue::Purple => self.purple_soft_hover,
+            Hue::Gray => self.muted_hover,
+        }
+    }
+
+    /// `hue` washed over rows, which still show through: a move's mark, a drop target, a mark
+    /// under the pointer.
+    pub fn wash(&self, hue: Hue) -> Hsla {
+        self.hue(hue).opacity(0.14)
+    }
+
+    /// A [`Theme::wash`] twice as strong, for the one the pointer is over.
+    pub fn wash_lifted(&self, hue: Hue) -> Hsla {
+        self.hue(hue).opacity(0.28)
+    }
+
+    /// What marks `highlight`, over what's under it.
+    pub fn highlight(&self, highlight: Highlight) -> Hsla {
+        let (color, share) = match highlight {
+            Highlight::Selected => (self.pop, 0.25),
+            Highlight::SelectedUnfocused => (self.pop, 0.12),
+            Highlight::Words => (self.blue, 0.3),
+            Highlight::Link => (self.blue, 0.4),
+            Highlight::Found => (self.warn, 0.28),
+            Highlight::FoundHere => (self.warn, 0.6),
+            Highlight::Fresh => (self.pop, 0.2),
+            Highlight::Said => (self.warn, 0.14),
+            Highlight::Saying => (self.warn, 0.34),
+            Highlight::Draft => (self.blue, 0.12),
+            Highlight::SayingDraft => (self.blue, 0.24),
+            Highlight::Copy => (self.pop, 0.4),
+            Highlight::Picked => (self.pop, 0.16),
+            Highlight::Incoming => (self.blue, 0.2),
+        };
+        color.opacity(share)
     }
 }
 
@@ -1028,8 +1276,8 @@ mod tests {
     use gpui::{FontWeight, WindowAppearance};
 
     use super::{
-        Appearance, CodeSize, ColorScheme, Theme, channels, contrast, custom_accent, parse_hex,
-        rgb_hex,
+        Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, channels, contrast, custom_accent,
+        parse_hex, rgb_hex,
     };
 
     fn rgb(hex: u32) -> RgbColor {
@@ -1164,6 +1412,57 @@ mod tests {
                 glyph >= 3.,
                 "{appearance:?}: a warning snackbar's glyph reads at {glyph}, under 3:1"
             );
+        }
+    }
+
+    #[test]
+    fn each_hue_reads_on_its_soft_ground() {
+        let catppuccin = palette(
+            0x1e1e2e,
+            0xcdd6f4,
+            [
+                0x45475a, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0x89b4fa, 0xf5c2e7, 0x94e2d5, 0xbac2de,
+            ],
+        );
+        let solarized = palette(
+            0xfdf6e3,
+            0x657b83,
+            [
+                0x073642, 0xdc322f, 0x859900, 0xb58900, 0x268bd2, 0xd33682, 0x2aa198, 0xeee8d5,
+            ],
+        );
+        let themes = [
+            ("gitbutler light", Theme::gitbutler(false, CodeSize::Medium)),
+            ("gitbutler dark", Theme::gitbutler(true, CodeSize::Medium)),
+            (
+                "gitbutler purple",
+                Theme::gitbutler(true, CodeSize::Medium).with_accent(Accent::Purple, ""),
+            ),
+            ("catppuccin", ghostty_theme(catppuccin, Appearance::Dark)),
+            ("solarized", ghostty_theme(solarized, Appearance::Light)),
+        ];
+        for (name, theme) in themes {
+            for hue in [
+                Hue::Pop,
+                Hue::Blue,
+                Hue::Safe,
+                Hue::Warn,
+                Hue::Danger,
+                Hue::Purple,
+                Hue::Gray,
+            ] {
+                let ink = rgb_hex(theme.hue(hue));
+                for (what, ground) in [
+                    ("soft", theme.soft(hue)),
+                    ("soft under the pointer", theme.soft_hover(hue)),
+                ] {
+                    let reads = contrast(ink, rgb_hex(ground));
+                    assert!(
+                        reads >= 4.5,
+                        "{name}: {hue:?} reads at {reads} on its {what} ground"
+                    );
+                }
+            }
         }
     }
 

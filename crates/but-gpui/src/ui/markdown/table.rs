@@ -52,7 +52,7 @@ pub(super) fn draw(
         let mut line = (h_flex().items_stretch().border_t_1())
             .border_color(theme.border_3)
             // On the grey code sits on.
-            .when(head, |el| el.bg(theme.fill_gray.opacity(0.08)));
+            .when(head, |el| el.bg(theme.secondary));
         for (column, share) in shares.iter().enumerate() {
             let blocks = (row.iter().enumerate())
                 .filter(|(_, block)| block.cell.is_some_and(|cell| cell.column == column));

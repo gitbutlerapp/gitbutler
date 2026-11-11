@@ -844,6 +844,11 @@ fn paint_rows(
             let style = &run.style;
             let mut color = hsla(style.fg);
             if style.faint {
+                // Faint as the terminal says, in the program's own colour.
+                #[expect(
+                    clippy::disallowed_methods,
+                    reason = "a program's colour, not the app's"
+                )]
                 color.fade_out(0.4);
             }
             let text_run = TextRun {

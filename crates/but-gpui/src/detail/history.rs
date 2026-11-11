@@ -941,7 +941,7 @@ impl Detail {
                             let selected = history.selected == Some(operation.id);
                             let on = selected && has_keys(&this.side_focus, window, cx);
                             let quiet = |color: gpui::Hsla| match on {
-                                true => theme.muted_on_solid(),
+                                true => theme.muted_on_solid,
                                 false => color,
                             };
                             let id = operation.id;

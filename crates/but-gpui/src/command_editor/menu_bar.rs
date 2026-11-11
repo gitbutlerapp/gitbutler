@@ -445,7 +445,7 @@ impl MenuBarEditor {
                     .gap(dp(6.))
                     .px(dp(4.))
                     .rounded(dp(theme.shape.control))
-                    .hover(|el| el.bg(theme.hover()))
+                    .hover(|el| el.bg(theme.hover))
                     .tooltip(Tooltip::text("Rename"))
                     .on_click(
                         cx.listener(move |this, _, window, cx| this.start_renaming(ix, window, cx)),
@@ -542,7 +542,7 @@ impl MenuBarEditor {
                     None => theme.text_1,
                 };
                 row.h(dp(ITEM_HEIGHT))
-                    .hover(|el| el.bg(theme.hover()))
+                    .hover(|el| el.bg(theme.hover))
                     .when_some(shown.left_out, |el, why| el.tooltip(Tooltip::text(why)))
                     .child(
                         div()

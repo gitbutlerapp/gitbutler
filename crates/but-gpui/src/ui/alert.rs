@@ -94,7 +94,7 @@ impl Render for Alert {
                 }))
                 .size_full()
                 .occlude()
-                .bg(gpui::black().opacity(0.25))
+                .bg(theme.overlay)
                 .flex()
                 .justify_center()
                 .items_start()

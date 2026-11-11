@@ -685,7 +685,7 @@ fn clickable(id: &'static str, label: &str, theme: &Theme) -> Stateful<Div> {
         .px(dp(6.))
         .h(dp(22.))
         .rounded(dp(theme.shape.control))
-        .hover(|el| el.bg(theme.hover()))
+        .hover(|el| el.bg(theme.hover))
 }
 
 /// An operation's label, which names it as a command ("Push main"), as what's under way

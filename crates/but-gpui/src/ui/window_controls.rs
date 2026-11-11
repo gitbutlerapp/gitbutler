@@ -30,6 +30,10 @@ pub const WINDOW_CONTROLS_WIDTH: f32 = match LINUX {
 };
 
 /// The buttons, top right, above whatever the window shows, a modal too.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Windows' own close button, which isn't the app's colour"
+)]
 pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
     let theme = Theme::get(cx);
     let glyph = theme.text_1;
@@ -49,7 +53,7 @@ pub fn window_controls(window: &Window, cx: &App) -> impl IntoElement {
     let cross = icon(Icon::Cross).size(fixed(14.)).text_color(glyph);
     let hover = match gnome() {
         true => theme.border_2,
-        false => theme.hover(),
+        false => theme.hover,
     };
     h_flex()
         .absolute()
@@ -130,7 +134,7 @@ fn caption_button(
             true => el
                 .size(fixed(ROUND))
                 .rounded_full()
-                .bg(theme.hover())
+                .bg(theme.hover)
                 .on_click(move |_, window, cx| match area {
                     WindowControlArea::Min => window.minimize_window(),
                     WindowControlArea::Max => window.zoom_window(),

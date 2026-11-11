@@ -1746,7 +1746,7 @@ impl Detail {
             .px(dp(8.))
             .gap(dp(4.))
             .rounded(dp(theme.shape.control))
-            .bg(theme.fill_gray.opacity(0.08))
+            .bg(theme.muted)
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
             .child(
@@ -1758,7 +1758,7 @@ impl Detail {
             )
             .child(div().min_w_0().truncate().child(label))
             .when(pickable && !self.checks_worktree.is_linked(), |el| {
-                el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
+                el.hover(|el| el.bg(theme.muted_hover))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
                     .tooltip(Tooltip::keyed("Pick the branch to commit to", key))
                     .on_click(

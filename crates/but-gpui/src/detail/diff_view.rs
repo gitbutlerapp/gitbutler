@@ -1393,7 +1393,7 @@ impl Detail {
                         .truncate()
                         .text_size(dp(11.))
                         .text_color(match on {
-                            true => theme.muted_on_solid(),
+                            true => theme.muted_on_solid,
                             false => theme.text_3,
                         })
                         .child(label)
@@ -2049,7 +2049,7 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .w(dp(4.))
         .bg(match solid {
             true => theme.fill_gray,
-            false => theme.fill_gray.opacity(0.25),
+            false => theme.border_2,
         });
     let tint = div()
         .absolute()
@@ -2057,7 +2057,7 @@ fn hunk_marks(solid: bool, last: bool, theme: &Theme) -> impl Iterator<Item = gp
         .bottom_0()
         .left(dp(12.))
         .right(dp(12.))
-        .bg(theme.fill_gray.opacity(0.1))
+        .bg(theme.selected_unfocused)
         .when(last, |el| el.rounded_b(dp(theme.shape.card)));
     solid.then_some(tint).into_iter().chain([tab])
 }
@@ -2302,7 +2302,7 @@ pub(super) fn files_toggle(
         .px(dp(6.))
         .gap(dp(6.))
         .rounded(dp(theme.shape.control))
-        .hover(|el| el.bg(theme.hover()))
+        .hover(|el| el.bg(theme.hover))
         .child(icon(glyph).text_color(theme.text_2))
         .when_some(counts, |el, (n, added, removed)| {
             el.child(count_badge(n, theme))

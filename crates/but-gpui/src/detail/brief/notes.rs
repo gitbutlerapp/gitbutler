@@ -14,7 +14,7 @@ use super::{Row, block_place, briefs};
 use crate::backend::briefs::{BriefBlock, BriefBody, BriefPage, CommentTo, Note, Thread};
 use crate::detail::Detail;
 use crate::detail::pull_request::{card, tag};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::person::person_avatar;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, Tooltip, button, dp, h_flex, icon_button, markdown, v_flex};
@@ -413,7 +413,7 @@ impl Detail {
             .and_then(|writing| self.talk_composer(writing, true, cx));
         // What's next for it, in the corner: that it's done with, or the way to answer.
         let end = match (resolved, &replying) {
-            (true, _) => Some(tag(theme.safe, theme).child("Resolved").into_any_element()),
+            (true, _) => Some(tag(Hue::Safe, theme).child("Resolved").into_any_element()),
             (false, Some(_)) => None,
             (false, None) => {
                 let parent = thread.id.clone();
@@ -508,9 +508,9 @@ impl Detail {
                 false => el
                     .rounded(dp(theme.shape.card))
                     .border_1()
-                    .border_color(theme.blue.opacity(0.35))
-                    .bg(theme.blue.opacity(0.05))
-                    .hover(|el| el.bg(theme.blue.opacity(0.1))),
+                    .border_color(theme.blue_edge)
+                    .bg(theme.blue_soft)
+                    .hover(|el| el.bg(theme.blue_soft_hover)),
             })
             .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
                 this.hover_said(quote.clone(), *hovering, cx)
@@ -536,7 +536,7 @@ impl Detail {
                             .flex_none()
                             .ml_auto()
                             .gap(dp(6.))
-                            .child(tag(theme.blue, theme).child("Not sent"))
+                            .child(tag(Hue::Blue, theme).child("Not sent"))
                             .child(
                                 icon_button(("brief-note-drop", id as u64), Icon::Cross)
                                     .small()

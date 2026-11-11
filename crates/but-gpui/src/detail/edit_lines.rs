@@ -1761,7 +1761,7 @@ impl Detail {
         let theme = Theme::get(cx);
         if !edit.changed_on_disk {
             let color = match on {
-                true => theme.muted_on_solid(),
+                true => theme.muted_on_solid,
                 false => theme.text_2,
             };
             let editing = h_flex()

@@ -1130,7 +1130,7 @@ impl AppView {
             .justify_center()
             .size(dp(32.))
             .rounded(dp(theme.shape.popup))
-            .bg(theme.pop.opacity(0.12))
+            .bg(theme.pop_soft)
             .child(icon(Icon::ArrowInBox).text_color(theme.pop));
         Some(
             popover(theme)
@@ -1205,7 +1205,7 @@ pub(crate) fn backdrop(
         .id(id)
         .absolute()
         .inset_0()
-        .bg(gpui::black().opacity(0.25))
+        .bg(Theme::get(cx).overlay)
         .occlude()
         .flex()
         .justify_center()

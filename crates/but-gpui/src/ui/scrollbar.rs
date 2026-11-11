@@ -191,7 +191,7 @@ fn bar(
     if max <= Pixels::ZERO {
         return None;
     }
-    let (rest, active) = (theme.text_3.opacity(0.5), theme.text_3.opacity(0.8));
+    let (rest, active) = (theme.scrollbar, theme.scrollbar_hover);
     let gap = match shows {
         Shows::WhileScrolling { middle } => Some(middle),
         Shows::OnHover | Shows::Always => None,
@@ -274,6 +274,7 @@ fn bar(
                 };
                 let thumb_bounds = Bounds::new(point(x, top), size(width, thumb));
                 let color = if wide { active } else { rest };
+                #[expect(clippy::disallowed_methods, reason = "fades a Theme colour as it goes")]
                 let color = color.opacity(color.a * showing.unwrap_or(1.));
                 window.paint_quad(fill(thumb_bounds, color).corner_radii(width / 2.));
             }

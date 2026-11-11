@@ -16,7 +16,7 @@ use crate::state::{
     Label, NewAt, Overlay, ProjectCheckout, ProjectId, Selection, Side, Store, branch_moved,
 };
 use crate::terminal::TerminalId;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::diff::split_path;
 use crate::ui::file_icons::{file_icon, folder_icon};
 use crate::ui::{Icon, commit_title, count_badge, dp, h_flex, popover, small_icon};
@@ -128,11 +128,16 @@ impl Op {
 
     /// The colour it marks rows in: what it's of, and where it goes.
     pub fn colour(self, theme: &Theme) -> Hsla {
+        theme.hue(self.hue())
+    }
+
+    /// The hue it marks rows in, as [`Op::colour`] and the washes over them.
+    pub fn hue(self) -> Hue {
         match self {
-            Op::Move => theme.pop,
-            Op::Squash(_) => theme.blue,
-            Op::Commit => theme.purple,
-            Op::CherryPick => theme.safe,
+            Op::Move => Hue::Pop,
+            Op::Squash(_) => Hue::Blue,
+            Op::Commit => Hue::Purple,
+            Op::CherryPick => Hue::Safe,
         }
     }
 }

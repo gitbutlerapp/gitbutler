@@ -2100,6 +2100,10 @@ impl Paint {
         }
     }
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "paints Theme colours at the strength their motion has reached"
+    )]
     fn paint_edges(&self, bounds: Bounds<Pixels>, window: &mut Window) {
         let theme = &self.theme;
         let scene = &self.scene;
@@ -2208,6 +2212,10 @@ impl Paint {
         }
     }
 
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "paints Theme colours at the strength their motion has reached"
+    )]
     fn paint_nodes(&self, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
         let theme = &self.theme;
         let sizes = Sizes::at(self.k);
@@ -2512,6 +2520,10 @@ impl Paint {
 
     /// A short arc going round a faint ring under the oldest commits, while it reads further
     /// back, below them however far it's zoomed out.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "paints Theme colours at the strength their motion has reached"
+    )]
     fn paint_spinner(&self, bounds: Bounds<Pixels>, window: &mut Window) {
         let Some(turn) = self.spinner else {
             return;
@@ -2560,6 +2572,10 @@ impl Paint {
     }
 
     /// The branches, worktrees and target beside the commits they name, readable from far.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "paints Theme colours at the strength their motion has reached"
+    )]
     fn paint_labels(&self, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
         let theme = &self.theme;
         let mut tags = self.tags.borrow_mut();

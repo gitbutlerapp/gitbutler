@@ -35,7 +35,7 @@ use crate::state::{
     WatchedOrder,
 };
 use crate::terminal::TerminalId;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{
     Changes, Dragged, Move, Op, PageDrag, ProjectDrag, Stop, TerminalDrag, drag_preview,
     page_preview, row_preview,
@@ -169,7 +169,7 @@ pub(crate) struct RowStyle<'a> {
     solid: bool,
     taken: bool,
     held: bool,
-    mark: Hsla,
+    mark: Hue,
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
@@ -264,7 +264,7 @@ pub(super) fn card_bar(
     theme: &Theme,
 ) -> Stateful<Div> {
     let (ink, muted) = match solid {
-        true => (theme.text_inverted, theme.muted_on_solid()),
+        true => (theme.text_inverted, theme.muted_on_solid),
         false => (theme.text_3, theme.text_3),
     };
     let fold = h_flex()
@@ -291,13 +291,13 @@ pub(super) fn card_bar(
         .pl(dp(10.))
         .pr(dp(6.))
         .gap(dp(2.))
-        .when(selected, |el| el.bg(theme.selected_unfocused()))
+        .when(selected, |el| el.bg(theme.selected_unfocused))
         .when(solid, |el| el.bg(theme.fill_gray))
         .child(fold)
         .when_some(open, |el, open| {
             el.aria_expanded(open)
                 .cursor_pointer()
-                .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
+                .when(!selected, |el| el.hover(|el| el.bg(theme.hover)))
         })
 }
 
@@ -374,7 +374,7 @@ impl<'a> RowStyle<'a> {
             solid: false,
             taken: false,
             held: false,
-            mark: theme.pop,
+            mark: Hue::Pop,
             inset,
             joined: (false, false),
             outlined_with: (false, false),
@@ -391,12 +391,12 @@ impl<'a> RowStyle<'a> {
             .when_some(self.blink, |el, n| {
                 let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
                 el.relative()
-                    .child(blink_once(("blink", n), shape, self.mark))
+                    .child(blink_once(("blink", n), shape, theme.hue(self.mark)))
             })
             // A pop wash, as a commit that just showed up glows: quieter than a drop's outline.
             .when(self.goes_here, |el| {
                 let wash = div().absolute().inset_0().rounded(dp(theme.shape.control));
-                el.relative().child(wash.bg(theme.pop.opacity(0.1)))
+                el.relative().child(wash.bg(theme.wash(Hue::Pop)))
             })
             .mx(dp(3.))
             .pl(dp(8. + indent + self.inset))
@@ -404,13 +404,13 @@ impl<'a> RowStyle<'a> {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
             .when(self.taken, |el| {
-                (el.opacity(0.5).border_1().border_dashed()).border_color(self.mark)
+                (el.opacity(0.5).border_1().border_dashed()).border_color(theme.hue(self.mark))
             })
             // As the copies of what's moving are drawn where it would land.
             .when(self.held, |el| {
-                el.bg(self.mark.opacity(0.14))
+                el.bg(theme.wash(self.mark))
                     .border_1()
-                    .border_color(self.mark)
+                    .border_color(theme.hue(self.mark))
             })
             .map(|el| {
                 let (above, below) = self.outlined_with;
@@ -422,7 +422,7 @@ impl<'a> RowStyle<'a> {
 
     fn muted(&self) -> Hsla {
         if self.solid {
-            self.theme.muted_on_solid()
+            self.theme.muted_on_solid
         } else {
             self.theme.text_2
         }
@@ -446,6 +446,14 @@ impl<'a> RowStyle<'a> {
     fn files(&self, n: usize) -> Option<Stateful<Div>> {
         let color = self.meta(self.theme.warn);
         meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
+    }
+
+    /// What a mark on the row that can be pressed draws under the pointer.
+    fn press_hover(&self) -> Hsla {
+        match self.solid {
+            true => self.theme.hover_on_solid,
+            false => self.theme.hover,
+        }
     }
 
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
@@ -2443,7 +2451,7 @@ impl Navigator {
             }
             Some(Row::Between(_)) => div().into_any_element(),
             Some(Row::GhostBranch(project, at)) => {
-                let mark = moving::mark_of(self.store.read(cx), project, theme);
+                let mark = theme.hue(moving::mark_of(self.store.read(cx), project));
                 moving::ghost_branch_row(at, inset, mark, self.blinking(Blink::Move), theme)
             }
             Some(Row::NewCommit(project)) => {
@@ -2779,8 +2787,8 @@ impl Navigator {
             held,
             // In the colour of what's being done with it, as the TUI's modes have their own.
             mark: match marked {
-                Some(Mark::Taken(op) | Mark::Copied(op) | Mark::Held(op)) => op.colour(theme),
-                None => theme.pop,
+                Some(Mark::Taken(op) | Mark::Copied(op) | Mark::Held(op)) => op.hue(),
+                None => Hue::Pop,
             },
             inset,
             joined,
@@ -2836,9 +2844,8 @@ impl Navigator {
         match outlined {
             Some(outline) => {
                 let blink = self.blinking(Blink::Move);
-                let colour = moving::mark_of(store, item.project(), theme);
-                let outline =
-                    moving::squash_outline(outline.edges(slid), blink, colour, theme.shape);
+                let hue = moving::mark_of(store, item.project());
+                let outline = moving::squash_outline(outline.edges(slid), blink, hue, theme);
                 let outline = self.over_rows(outline, 2);
                 div().relative().child(el).child(outline).into_any_element()
             }
@@ -2881,10 +2888,8 @@ impl Navigator {
                 .w(dp((area.width * TILE_MAP.0 - TILE_MAP_GAP).max(1.)))
                 .h(dp((area.height * TILE_MAP.1 - TILE_MAP_GAP).max(1.)))
                 .rounded(dp(1.5))
-                .bg(match tile {
-                    Tile::Home => ink,
-                    Tile::Pinned(_) => ink.opacity(0.4),
-                })
+                .bg(ink)
+                .when(matches!(tile, Tile::Pinned(_)), |el| el.opacity(0.4))
         });
         let names = (tiles.iter()).filter_map(|(tile, _)| match tile {
             Tile::Home => None,
@@ -2900,10 +2905,10 @@ impl Navigator {
             .rounded(dp(theme.shape.control))
             .map(|el| match (selected, solid) {
                 (true, true) => el.bg(theme.fill_gray),
-                (true, false) => el.bg(theme.selected_unfocused()),
+                (true, false) => el.bg(theme.selected_unfocused),
                 (false, _) => el
-                    .bg(theme.hover())
-                    .hover(|el| el.bg(theme.selected_unfocused())),
+                    .bg(theme.hover)
+                    .hover(|el| el.bg(theme.selected_unfocused)),
             })
             .children(mark)
             .when(mapped, |el| {
@@ -3442,7 +3447,7 @@ impl Navigator {
             )
             .when(!moving, |el| {
                 let id = id.clone();
-                el.hover(|el| el.bg(theme.hover()))
+                el.hover(|el| el.bg(theme.hover))
                     // A button, which leaves the keys where they were.
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -3846,7 +3851,7 @@ impl Navigator {
             .gap(dp(6.))
             .tooltip(stack_tooltip(self.store.clone(), item.clone()))
             .child(count_badge(branches.len(), theme).when(style.solid, |el| {
-                el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
+                el.bg(theme.soft_on_solid()).text_color(quiet)
             }))
             .child(div().flex_none().text_color(word).child("Stack"))
             .children(branches.first().filter(|_| !open).map(|top| {
@@ -4008,7 +4013,7 @@ impl Navigator {
                         el.child(pressable(
                             theme.shape,
                             mark,
-                            color,
+                            style.press_hover(),
                             moving,
                             cx.listener(move |this, _, window, cx| {
                                 this.select(shown.clone(), window, cx);
@@ -4039,7 +4044,7 @@ impl Navigator {
                         el.child(pressable(
                             theme.shape,
                             mark,
-                            color,
+                            style.press_hover(),
                             moving,
                             cx.listener(move |this, _, window, cx| {
                                 this.select(shown.clone(), window, cx);
@@ -4067,7 +4072,7 @@ impl Navigator {
                                     app.resolve_commit(project, commit, window, cx)
                                 })
                             });
-                            pressable(theme.shape, count, warn, moving, resolve)
+                            pressable(theme.shape, count, style.press_hover(), moving, resolve)
                         }),
                     }
                 })
@@ -4138,7 +4143,10 @@ impl Navigator {
             });
         });
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(Theme::get(cx).shape, count, color, moving, push).into_any_element())
+        Some(
+            pressable(style.theme.shape, count, style.press_hover(), moving, push)
+                .into_any_element(),
+        )
     }
 
     /// How many of `n` commits only `ref_name`'s remote has, pressed to pull them when it can,
@@ -4171,7 +4179,13 @@ impl Navigator {
             })
         });
         let moving = self.store.read(cx).moving.is_some();
-        Some(pressable(Theme::get(cx).shape, count, warn, moving, pull))
+        Some(pressable(
+            style.theme.shape,
+            count,
+            style.press_hover(),
+            moving,
+            pull,
+        ))
     }
 
     fn commit_row(
@@ -4821,14 +4835,14 @@ pub(crate) fn status_mark(status: &Status, seen: bool, style: RowStyle) -> Optio
     Some(mark)
 }
 
-/// `mark` as a button, its tooltip read as its name: padded with `MARK_PAD` and tinted `color`
+/// `mark` as a button, its tooltip read as its name: padded with `MARK_PAD` and `hover`
 /// under the pointer. Pressing it does `press` and leaves its row as it was, unselected and
 /// unfolded. While something is `moving` it's only part of its row, which a press puts the move
 /// at, so it does nothing of its own then.
 fn pressable(
     shape: crate::theme::Shape,
     mark: Stateful<Div>,
-    color: Hsla,
+    hover: Hsla,
     moving: bool,
     press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<Div> {
@@ -4837,7 +4851,7 @@ fn pressable(
         return mark;
     }
     mark.role(Role::Button)
-        .hover(move |el| el.bg(color.opacity(0.16)))
+        .hover(move |el| el.bg(hover))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(move |event, window, cx| {
             cx.stop_propagation();

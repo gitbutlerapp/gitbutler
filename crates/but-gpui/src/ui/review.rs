@@ -5,14 +5,25 @@ use gpui::Hsla;
 
 use super::Icon;
 use crate::backend::{Checks, ReviewState};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 
 pub fn state_glyph(state: ReviewState, theme: &Theme) -> (Icon, Hsla) {
+    let glyph = match state {
+        ReviewState::Open => Icon::Pr,
+        ReviewState::Draft => Icon::PrDraft,
+        ReviewState::Merged => Icon::BranchMerge,
+        ReviewState::Closed => Icon::PrClose,
+    };
+    (glyph, theme.hue(state_hue(state)))
+}
+
+/// The colour a pull request's state is tinted in.
+pub fn state_hue(state: ReviewState) -> Hue {
     match state {
-        ReviewState::Open => (Icon::Pr, theme.safe),
-        ReviewState::Draft => (Icon::PrDraft, theme.text_2),
-        ReviewState::Merged => (Icon::BranchMerge, theme.purple),
-        ReviewState::Closed => (Icon::PrClose, theme.danger),
+        ReviewState::Open => Hue::Safe,
+        ReviewState::Draft => Hue::Gray,
+        ReviewState::Merged => Hue::Purple,
+        ReviewState::Closed => Hue::Danger,
     }
 }
 

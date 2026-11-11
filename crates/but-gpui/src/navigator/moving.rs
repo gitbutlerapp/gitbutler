@@ -21,7 +21,7 @@ use crate::backend::{
 };
 use crate::state::{Overlay, ProjectCheckout, ProjectId, Section, Selection, Store, snack};
 use crate::terminal::TerminalId;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{
     Changes, Move, Moving, Op, Slot, Stop, Target, Transfer, group_slots, slots,
 };
@@ -115,9 +115,9 @@ pub(super) fn mark(store: &Store, item: &Selection) -> Option<Mark> {
     })
 }
 
-/// The colour the move shown in `project` marks rows in, as [`Op::colour`] says.
-pub(super) fn mark_of(store: &Store, project: &ProjectId, theme: &Theme) -> Hsla {
-    shown(store, project).map_or(theme.pop, |moving| moving.op.colour(theme))
+/// The hue the move shown in `project` marks rows in, as [`Op::hue`] says.
+pub(super) fn mark_of(store: &Store, project: &ProjectId) -> Hue {
+    shown(store, project).map_or(Hue::Pop, |moving| moving.op.hue())
 }
 
 /// Whether `item` is a commit of the branch `moving` moves or squashes.
@@ -1774,7 +1774,7 @@ pub(super) fn ghost_row(
     // In the colour of what's being done with it, as what it's of is marked.
     let style = RowStyle {
         held: true,
-        mark: mark_of(store, item.project(), theme),
+        mark: mark_of(store, item.project()),
         outlined_with,
         blink,
         ..RowStyle::plain(theme, inset)
@@ -1813,7 +1813,7 @@ pub(super) fn new_commit_row(
 ) -> AnyElement {
     let style = RowStyle {
         held: true,
-        mark: Op::Commit.colour(theme),
+        mark: Op::Commit.hue(),
         blink,
         ..RowStyle::plain(theme, inset)
     };
@@ -1837,10 +1837,11 @@ pub(super) fn new_commit_row(
 pub(super) fn squash_outline(
     edges: (f32, f32),
     blink: Option<usize>,
-    colour: Hsla,
-    shape: crate::theme::Shape,
+    hue: Hue,
+    theme: &Theme,
 ) -> Div {
     let (top, bottom) = edges;
+    let (shape, colour) = (theme.shape, theme.hue(hue));
     div()
         .absolute()
         .top(dp(top))
@@ -1850,7 +1851,7 @@ pub(super) fn squash_outline(
         .rounded(dp(shape.control))
         .border_1()
         .border_color(colour)
-        .bg(colour.opacity(0.14))
+        .bg(theme.wash(hue))
         .when_some(blink, |el, n| {
             let shape = div().absolute().inset_0().rounded(dp(shape.control));
             el.child(blink_once(("blink", n), shape, colour))
@@ -1889,7 +1890,7 @@ pub(super) fn stand_in(
     } = stand_in;
     let style = RowStyle {
         taken: true,
-        mark: op.colour(theme),
+        mark: op.hue(),
         outlined_with: *outlined_with,
         ..RowStyle::plain(theme, *inset)
     };
