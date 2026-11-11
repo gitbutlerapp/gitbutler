@@ -118,7 +118,6 @@ fn ci_checks_for_ref(
                 .as_ref()
                 .and_then(|user| user.github().cloned());
 
-            // Clone owned data for thread
             let owner = owner.clone();
             let repo = repo.clone();
             let storage = storage.clone();
@@ -155,7 +154,6 @@ fn ci_checks_for_ref(
                 .as_ref()
                 .and_then(|user| user.gitlab().cloned());
 
-            // Clone owned data for thread
             let project_id = but_gitlab::GitLabProjectId::new(owner, repo);
             let storage = storage.clone();
             let reference = reference.to_string();
@@ -189,7 +187,6 @@ fn ci_checks_for_ref(
                 .as_ref()
                 .and_then(|user| user.bitbucket().cloned());
 
-            // Clone owned data for thread
             let workspace = owner.clone();
             let repo_slug = repo.clone();
             let storage = storage.clone();

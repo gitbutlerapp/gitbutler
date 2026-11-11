@@ -47,8 +47,6 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
     }
 }
 
-/// Derive the forge repository information from a remote URL.
-///
 /// The forge type is resolved by `resolve_forge_name`: the URL host first,
 /// then a match against configured accounts' custom hosts, and finally the
 /// project's `override_forge` (from its stored `forge_override`) as a last
@@ -115,8 +113,6 @@ fn resolve_forge_name(
         .or(override_forge)
 }
 
-/// Look for the best matching account by comparing the repository host to the
-/// account custom host string.
 fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Option<ForgeName> {
     accounts.iter().find_map(|account| {
         let custom_host = account.custom_host()?;
@@ -124,8 +120,6 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
     })
 }
 
-/// Compare a repository host to an account custom-host string.
-///
 /// Motivation:
 /// account custom hosts may be stored as full API endpoints (for example
 /// `https://api.repository.com/v1/api`), while repository remotes usually
@@ -285,7 +279,6 @@ pub(crate) fn resolve_account(
     })
 }
 
-/// Get all known forge accounts
 pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;

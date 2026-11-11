@@ -59,8 +59,6 @@ pub struct ForgeCapabilities {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeCapabilities);
 
-/// Build the per-project ForgeInfo from the project's remote URL.
-///
 /// `accounts` are the known forge accounts; when one is configured for the
 /// remote's host, its custom host supplies the web scheme and port that an
 /// SSH remote cannot.
