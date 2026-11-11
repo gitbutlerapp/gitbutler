@@ -136,7 +136,6 @@ mod tests {
     use super::OpenLink;
     use crate::AppChannel;
 
-    /// `pairs` as a link's place.
     fn at(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         (pairs.iter())
             .map(|(key, value)| (key.to_string(), value.to_string()))

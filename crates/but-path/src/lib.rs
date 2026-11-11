@@ -124,10 +124,6 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
 /// When the `E2E_TEST_APP_DATA_DIR` environment variable is set, returns
 /// `{E2E_TEST_APP_DATA_DIR}/cache` to isolate test environments. This override ignores
 /// the compile-time or explicit channel.
-///
-/// # Errors
-///
-/// Returns an error if the platform's cache directory cannot be determined.
 pub fn app_cache_dir() -> anyhow::Result<PathBuf> {
     app_cache_dir_for_channel(AppChannel::new())
 }
@@ -158,7 +154,6 @@ pub const fn identifier_for_channel(channel: AppChannel) -> &'static str {
     }
 }
 
-/// A way to learn about the currently configured compile-time app-channel.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppChannel {
     Nightly,
