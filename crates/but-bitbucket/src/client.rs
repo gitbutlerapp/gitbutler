@@ -792,7 +792,6 @@ impl From<BitbucketApiUser> for BitbucketUser {
     }
 }
 
-/// Generic wrapper around Bitbucket's paginated list responses.
 #[derive(Debug, Deserialize)]
 struct Paginated<T> {
     #[serde(default = "Vec::new")]
