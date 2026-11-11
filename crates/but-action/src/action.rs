@@ -32,18 +32,15 @@ pub enum Source {
     Unknown,
 }
 
-/// Represents a snapshot of an automatic action taken by a GitButler automation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ButlerAction {
     pub id: Uuid,
-    /// The time when the action was performed.
     created_at: chrono::NaiveDateTime,
     /// The prompt that was used to generate the changes that were made, if applicable
     external_prompt: Option<String>,
     /// A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller.
     pub external_summary: String,
-    /// The handler / implementation that performed the action.
     handler: ActionHandler,
     /// A GitBulter Oplog snapshot ID before the action was performed.
     #[serde(serialize_with = "but_serde::object_id::serialize")]
