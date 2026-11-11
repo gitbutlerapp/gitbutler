@@ -1,4 +1,3 @@
-/// Check if the default remote of the repository is using Gerrit.
 pub fn is_used_by_default_remote(repo: &gix::Repository) -> anyhow::Result<bool> {
     use gix::{bstr::ByteSlice, remote::Direction};
 
