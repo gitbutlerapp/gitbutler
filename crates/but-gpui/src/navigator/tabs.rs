@@ -2422,9 +2422,7 @@ impl Navigator {
         if found.is_none() {
             rows.push(Row::Note("Loading…".into(), false));
         }
-        if matches!(rows.rows.last(), Some(Row::WorktreeDivider)) {
-            rows.truncate(rows.rows.len() - 1);
-        }
+        rows.unrule_end();
         if rows.rows.is_empty() {
             rows.push(Row::Note("Nothing here yet".into(), false));
         }

@@ -2398,24 +2398,18 @@ impl Navigator {
             None | Some(Row::Gap) => return div().h(dp(CARD_GAP)).into_any_element(),
             _ if hidden => div().into_any_element(),
             Some(Row::Item(_)) => self.render_item(&self.rows, ix, inset, window, theme, cx),
-            // A dashed line, as but-ui-react's WorktreeDivider. Last in its card, the card's edge
-            // rules it off, so it keeps only its room, which a worktree dragged counts.
-            Some(Row::WorktreeDivider) => {
-                let (_, last) = card_ends(&self.rows, ix);
-                h_flex()
-                    .h(dp(12.))
-                    .px(dp(12.))
-                    .when(!last, |el| {
-                        el.child(
-                            div()
-                                .flex_1()
-                                .border_t_1()
-                                .border_dashed()
-                                .border_color(theme.border_3),
-                        )
-                    })
-                    .into_any_element()
-            }
+            // A dashed line, as but-ui-react's WorktreeDivider.
+            Some(Row::WorktreeDivider) => h_flex()
+                .h(dp(12.))
+                .px(dp(12.))
+                .child(
+                    div()
+                        .flex_1()
+                        .border_t_1()
+                        .border_dashed()
+                        .border_color(theme.border_3),
+                )
+                .into_any_element(),
             Some(Row::Note(text, is_error)) => note_row(text, *is_error, theme),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
