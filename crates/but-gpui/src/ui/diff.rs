@@ -717,7 +717,7 @@ pub fn file_header(
                     .h(dp(20.))
                     .mx(dp(2.))
                     .bg(match on {
-                        true => theme.soft_on_solid(),
+                        true => theme.inverse_soft,
                         false => theme.border_3,
                     }),
             )
@@ -1101,10 +1101,19 @@ pub(super) fn line_text(
     }
     let mut runs = Vec::new();
     let mut start = 0;
+    let here = theme.highlight(Highlight::FoundHere);
     for run in grounds.chunk_by(|a, b| a == b) {
         let end = start + run.len();
         if let Some(Some(color)) = run.first() {
-            runs.push((start..end, ground(*color)));
+            // The match the keys are on is solid, its words in the ink that reads there.
+            let style = match *color == here {
+                true => HighlightStyle {
+                    color: Some(theme.on_warn),
+                    ..ground(*color)
+                },
+                false => ground(*color),
+            };
+            runs.push((start..end, style));
         }
         start = end;
     }

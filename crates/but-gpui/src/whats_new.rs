@@ -361,7 +361,7 @@ impl WhatsNew {
                     .rounded(dp(theme.shape.control))
                     // On a solid selection, in its own muted colour, as the row's other text.
                     .bg(match selected {
-                        true => theme.soft_on_solid(),
+                        true => theme.inverse_soft,
                         false => theme.pop_soft,
                     })
                     .text_color(match selected {

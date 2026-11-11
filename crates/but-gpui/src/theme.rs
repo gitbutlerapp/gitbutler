@@ -55,6 +55,10 @@ pub struct Theme {
     pub muted_on_solid: Hsla,
     /// What the pointer is over on a solid selection, as `--but-inverse-ghost-hover`.
     pub hover_on_solid: Hsla,
+    /// A faint ground, rule or track on a solid selection, as `secondary` and `border_3` are on
+    /// open ground, and that under the pointer: `--but-inverse-soft(-hover)`.
+    pub inverse_soft: Hsla,
+    pub inverse_soft_hover: Hsla,
     /// A scrollbar's thumb, and while it's held or pointed at.
     pub scrollbar: Hsla,
     pub scrollbar_hover: Hsla,
@@ -90,6 +94,24 @@ pub struct Theme {
     pub danger_soft_hover: Hsla,
     pub purple_soft: Hsla,
     pub purple_soft_hover: Hsla,
+    /// Each hue laid over what must still show through it, and stronger for what's matched,
+    /// selected or being written now: `--but-*-wash(-strong)`. [`Theme::wash`] picks one by
+    /// [`Hue`], [`Theme::highlight`] by what it marks.
+    pub pop_wash: Hsla,
+    pub pop_wash_strong: Hsla,
+    pub blue_wash: Hsla,
+    pub blue_wash_strong: Hsla,
+    pub safe_wash: Hsla,
+    pub safe_wash_strong: Hsla,
+    pub warn_wash: Hsla,
+    pub warn_wash_strong: Hsla,
+    pub danger_wash: Hsla,
+    pub danger_wash_strong: Hsla,
+    pub purple_wash: Hsla,
+    pub purple_wash_strong: Hsla,
+    /// Warning as a solid fill, and the text on it: the search match the keys are on.
+    pub warn_bg: Hsla,
+    pub on_warn: Hsla,
     /// The edge of something marked as a warning or as not sent yet: amber's and blue's
     /// border step.
     pub warn_edge: Hsla,
@@ -190,8 +212,6 @@ pub enum Highlight {
     SelectedUnfocused,
     /// Selected words in a diff's line, or a line being edited there, as the diff selects.
     Words,
-    /// A link's underline.
-    Link,
     /// A search's matches, and the one it's on.
     Found,
     FoundHere,
@@ -539,6 +559,10 @@ impl Theme {
         };
         if let Some(primary) = token("primary") {
             (self.pop_bg, self.pop_button) = (primary, primary);
+            // The washes are the accent's primary at but-ui's strengths, as CSS mixes them.
+            let [wash, strong] = WASHES;
+            (self.pop_wash, self.pop_wash_strong) =
+                (primary.opacity(wash), primary.opacity(strong));
         }
         if let Some(text) = token("primary-text") {
             self.pop = text;
@@ -734,6 +758,8 @@ impl Theme {
             muted_hover: halfway(on_ground!(MUTED), on_ground!(MUTED_NESTED)),
             muted_on_solid: token(on_ground!(INVERSE_MUTED_FOREGROUND)),
             hover_on_solid: token(on_ground!(INVERSE_GHOST_HOVER)),
+            inverse_soft: token(on_ground!(INVERSE_SOFT)),
+            inverse_soft_hover: token(on_ground!(INVERSE_SOFT_HOVER)),
             scrollbar: token(on_ground!(SCROLLBAR_THUMB)),
             scrollbar_hover: token(on_ground!(SCROLLBAR_THUMB_HOVER)),
             overlay: token(on_ground!(OVERLAY)),
@@ -762,6 +788,20 @@ impl Theme {
             danger_soft_hover: token(on_ground!(DANGER_SOFT_HOVER)),
             purple_soft: token(on_ground!(DONE_SOFT)),
             purple_soft_hover: token(on_ground!(DONE_SOFT_HOVER)),
+            pop_wash: token(on_ground!(PRIMARY_WASH)),
+            pop_wash_strong: token(on_ground!(PRIMARY_WASH_STRONG)),
+            blue_wash: token(on_ground!(INFO_WASH)),
+            blue_wash_strong: token(on_ground!(INFO_WASH_STRONG)),
+            safe_wash: token(on_ground!(SUCCESS_WASH)),
+            safe_wash_strong: token(on_ground!(SUCCESS_WASH_STRONG)),
+            warn_wash: token(on_ground!(WARNING_WASH)),
+            warn_wash_strong: token(on_ground!(WARNING_WASH_STRONG)),
+            danger_wash: token(on_ground!(DANGER_WASH)),
+            danger_wash_strong: token(on_ground!(DANGER_WASH_STRONG)),
+            purple_wash: token(on_ground!(DONE_WASH)),
+            purple_wash_strong: token(on_ground!(DONE_WASH_STRONG)),
+            warn_bg: token(on_ground!(WARNING)),
+            on_warn: token(on_ground!(WARNING_FOREGROUND)),
             // Amber's and blue's step 7, the scales' border.
             warn_edge: token(on_ground!(AMBER_7)),
             blue_edge: token(on_ground!(BLUE_7)),
@@ -901,10 +941,19 @@ impl Theme {
             false => 0x000000,
         };
         let pop = ansi(6);
-        let on_pop = [0xffffff, bg, 0x000000]
-            .into_iter()
-            .find(|&ink| contrast(ink, pop) >= 4.5)
-            .unwrap_or(0x000000);
+        // What reads at 4.5:1 on a solid fill of `fill`: white, the ground, or black.
+        let ink_on = |fill: u32| {
+            [0xffffff, bg, 0x000000]
+                .into_iter()
+                .find(|&ink| contrast(ink, fill) >= 4.5)
+                .unwrap_or(0x000000)
+        };
+        let (on_pop, on_warn) = (ink_on(pop), ink_on(ansi(3)));
+        // An ANSI colour laid over what shows through, at but-ui's wash strengths.
+        let washed = |index: u8, strength: usize| {
+            let share = WASHES.get(strength).copied().unwrap_or(0.);
+            color(ansi(index)).opacity(share)
+        };
         let text_3 = text(mix(bg, fg, 0.45), 3.);
         let [safe, blue, danger, purple] = [2, 4, 1, 5].map(hue_text);
         let [added, removed] = [2, 1].map(|index| text(ansi(index), 3.));
@@ -930,6 +979,8 @@ impl Theme {
             muted_hover: color(muted_hover),
             muted_on_solid: color(bg).opacity(0.6),
             hover_on_solid: color(bg).opacity(0.05),
+            inverse_soft: color(bg).opacity(0.15),
+            inverse_soft_hover: color(bg).opacity(0.22),
             scrollbar: veil(0.15),
             scrollbar_hover: veil(0.25),
             overlay: match dark {
@@ -959,6 +1010,20 @@ impl Theme {
             danger_soft_hover: color(soft_hover(1)),
             purple_soft: color(soft(5)),
             purple_soft_hover: color(soft_hover(5)),
+            pop_wash: washed(6, 0),
+            pop_wash_strong: washed(6, 1),
+            blue_wash: washed(4, 0),
+            blue_wash_strong: washed(4, 1),
+            safe_wash: washed(2, 0),
+            safe_wash_strong: washed(2, 1),
+            warn_wash: washed(3, 0),
+            warn_wash_strong: washed(3, 1),
+            danger_wash: washed(1, 0),
+            danger_wash_strong: washed(1, 1),
+            purple_wash: washed(5, 0),
+            purple_wash_strong: washed(5, 1),
+            warn_bg: color(ansi(3)),
+            on_warn: color(on_warn),
             warn_edge: color(mix(bg, ansi(3), 0.5)),
             blue_edge: color(mix(bg, ansi(4), 0.5)),
             safe_on_solid: color(readable_on(safe, bg, fg)),
@@ -1029,17 +1094,6 @@ impl Theme {
         self.bg_1.blend(self.bg_2.opacity(0.5))
     }
 
-    /// A faint ground, rule or track on a solid selection, as `border_3` and `secondary` are on
-    /// open ground.
-    pub fn soft_on_solid(&self) -> Hsla {
-        self.text_inverted.opacity(0.15)
-    }
-
-    /// [`Theme::soft_on_solid`] under the pointer.
-    pub fn soft_on_solid_hover(&self) -> Hsla {
-        self.text_inverted.opacity(0.22)
-    }
-
     /// `hue` as text and marks.
     pub fn hue(&self, hue: Hue) -> Hsla {
         match hue {
@@ -1082,34 +1136,57 @@ impl Theme {
     /// `hue` washed over rows, which still show through: a move's mark, a drop target, a mark
     /// under the pointer.
     pub fn wash(&self, hue: Hue) -> Hsla {
-        self.hue(hue).opacity(0.14)
+        match hue {
+            Hue::Pop => self.pop_wash,
+            Hue::Blue => self.blue_wash,
+            Hue::Safe => self.safe_wash,
+            Hue::Warn => self.warn_wash,
+            Hue::Danger => self.danger_wash,
+            Hue::Purple => self.purple_wash,
+            Hue::Gray => self.hover,
+        }
     }
 
-    /// A [`Theme::wash`] twice as strong, for the one the pointer is over.
-    pub fn wash_lifted(&self, hue: Hue) -> Hsla {
-        self.hue(hue).opacity(0.28)
+    /// A stronger [`Theme::wash`], for the one the pointer is over.
+    pub fn wash_strong(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_wash_strong,
+            Hue::Blue => self.blue_wash_strong,
+            Hue::Safe => self.safe_wash_strong,
+            Hue::Warn => self.warn_wash_strong,
+            Hue::Danger => self.danger_wash_strong,
+            Hue::Purple => self.purple_wash_strong,
+            Hue::Gray => self.selected_unfocused,
+        }
     }
 
-    /// What marks `highlight`, over what's under it.
+    /// What marks `highlight`, over what's under it. The search match the keys are on is solid,
+    /// with [`Theme::on_warn`] as its text.
     pub fn highlight(&self, highlight: Highlight) -> Hsla {
-        let (color, share) = match highlight {
-            Highlight::Selected => (self.pop, 0.25),
-            Highlight::SelectedUnfocused => (self.pop, 0.12),
-            Highlight::Words => (self.blue, 0.3),
-            Highlight::Link => (self.blue, 0.4),
-            Highlight::Found => (self.warn, 0.28),
-            Highlight::FoundHere => (self.warn, 0.6),
-            Highlight::Fresh => (self.pop, 0.2),
-            Highlight::Said => (self.warn, 0.14),
-            Highlight::Saying => (self.warn, 0.34),
-            Highlight::Draft => (self.blue, 0.12),
-            Highlight::SayingDraft => (self.blue, 0.24),
-            Highlight::Copy => (self.pop, 0.4),
-            Highlight::Picked => (self.pop, 0.16),
-            Highlight::Incoming => (self.blue, 0.2),
-        };
-        color.opacity(share)
+        match highlight {
+            Highlight::Selected | Highlight::Fresh | Highlight::Copy => self.pop_wash_strong,
+            Highlight::SelectedUnfocused | Highlight::Picked => self.pop_wash,
+            Highlight::Words | Highlight::SayingDraft | Highlight::Incoming => {
+                self.blue_wash_strong
+            }
+            Highlight::Draft => self.blue_wash,
+            Highlight::Found | Highlight::Saying => self.warn_wash_strong,
+            Highlight::Said => self.warn_wash,
+            Highlight::FoundHere => self.warn_bg,
+        }
     }
+}
+
+/// but-ui's wash strengths, `--but-opacity-wash(-strong)`, read from the alpha of its primary
+/// washes, for what mixes them itself: another accent, a colour scheme.
+const WASHES: [f32; 2] = [
+    alpha(tokens::PRIMARY_WASH),
+    alpha(tokens::PRIMARY_WASH_STRONG),
+];
+
+/// The alpha of a `[light, dark]` token, as a share, from its light value.
+const fn alpha([light, _]: [u32; 2]) -> f32 {
+    (light & 0xff) as f32 / 255.
 }
 
 /// Ghostty's own 16 colours, for the ones a theme leaves unset.
@@ -1276,8 +1353,8 @@ mod tests {
     use gpui::{FontWeight, WindowAppearance};
 
     use super::{
-        Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, channels, contrast, custom_accent,
-        parse_hex, rgb_hex,
+        Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, WASHES, channels, contrast,
+        custom_accent, parse_hex, rgb_hex,
     };
 
     fn rgb(hex: u32) -> RgbColor {
@@ -1464,6 +1541,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn an_accents_washes_follow_it() {
+        let teal = Theme::gitbutler(false, CodeSize::Medium);
+        let purple = teal.clone().with_accent(Accent::Purple, "");
+        for (what, wash, strong) in [
+            ("teal", teal.pop_wash, teal.pop_wash_strong),
+            ("purple", purple.pop_wash, purple.pop_wash_strong),
+        ] {
+            let ground = if what == "teal" {
+                teal.pop_bg
+            } else {
+                purple.pop_bg
+            };
+            for (name, wash, share) in [("wash", wash, WASHES[0]), ("strong", strong, WASHES[1])] {
+                assert_eq!(
+                    (wash.h, wash.s, wash.l),
+                    (ground.h, ground.s, ground.l),
+                    "{what}: its {name} is its primary"
+                );
+                assert!(
+                    (wash.a - share).abs() < 0.01,
+                    "{what}: its {name} is at but-ui's strength, {} not {share}",
+                    wash.a
+                );
+            }
+        }
+        assert_ne!(
+            teal.pop_wash, purple.pop_wash,
+            "another accent washes in its own colour"
+        );
     }
 
     #[test]

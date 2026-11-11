@@ -807,7 +807,7 @@ pub fn joined(
     theme: &Theme,
 ) -> Stateful<Div> {
     let line = match solid {
-        true => theme.soft_on_solid(),
+        true => theme.inverse_soft,
         false => theme.bg_1,
     };
     row.when(above, |el| {
@@ -1341,9 +1341,9 @@ impl RenderOnce for Button {
             ),
             None if self.inverted && self.style != ButtonStyle::Pop => (
                 theme.text_inverted,
-                bg.map(|_| theme.soft_on_solid()),
+                bg.map(|_| theme.inverse_soft),
                 match bg {
-                    Some(_) => theme.soft_on_solid_hover(),
+                    Some(_) => theme.inverse_soft_hover,
                     None => theme.hover_on_solid,
                 },
             ),

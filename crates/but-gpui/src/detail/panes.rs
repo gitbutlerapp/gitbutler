@@ -2261,7 +2261,7 @@ pub(super) fn share_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, fill) = match on {
-        true => (theme.soft_on_solid(), theme.muted_on_solid),
+        true => (theme.inverse_soft, theme.muted_on_solid),
         false => (theme.border_3, theme.pop_bg),
     };
     let share = n as f32 / most.max(1) as f32;
@@ -2412,7 +2412,7 @@ fn person_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, bar) = match on {
-        true => (theme.soft_on_solid(), theme.muted_on_solid),
+        true => (theme.inverse_soft, theme.muted_on_solid),
         false => (theme.border_3, theme.text_3),
     };
     side_row(id, picked, solid, theme)

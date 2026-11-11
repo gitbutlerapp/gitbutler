@@ -3082,7 +3082,7 @@ impl AppView {
         let boxes = drag.zones.iter().filter_map(|zone| {
             let ix = layout(zone.landing.as_ref()?)?;
             Some(placed(zone).bg(match Some(ix) == over {
-                true => theme.wash_lifted(hue(ix)),
+                true => theme.wash_strong(hue(ix)),
                 false => theme.wash(hue(ix)),
             }))
         });
@@ -3134,7 +3134,7 @@ impl AppView {
             };
             let color = theme.hue(hue);
             let wash = match drag.over.is_some_and(|(over, _)| over == side) {
-                true => theme.wash_lifted(hue),
+                true => theme.wash_strong(hue),
                 false => theme.wash(hue),
             };
             let label = div()

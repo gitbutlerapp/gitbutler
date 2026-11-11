@@ -3851,7 +3851,7 @@ impl Navigator {
             .gap(dp(6.))
             .tooltip(stack_tooltip(self.store.clone(), item.clone()))
             .child(count_badge(branches.len(), theme).when(style.solid, |el| {
-                el.bg(theme.soft_on_solid()).text_color(quiet)
+                el.bg(theme.inverse_soft).text_color(quiet)
             }))
             .child(div().flex_none().text_color(word).child("Stack"))
             .children(branches.first().filter(|_| !open).map(|top| {

@@ -1343,6 +1343,7 @@ fn text(
                     code: all.code || style.code,
                     tint: all.tint.max(style.tint),
                 });
+            let picked = selected.as_ref().is_some_and(|range| range.contains(&at));
             let link = (block.links.iter()).find(|(range, _)| range.contains(&at));
             let linked = link.is_some();
             let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
@@ -1357,15 +1358,15 @@ fn text(
                     weight,
                     ..font(style.code)
                 },
+                // The search match the keys are on is solid, its words in the ink that reads there.
                 color: match linked && !to_code {
+                    _ if style.tint == Some(Tint::FoundHere) && !picked => theme.on_warn,
                     true => theme.blue,
                     false => color,
                 },
                 // The selection blue like the diff's, over a search's tint and code's grey.
                 background_color: match style.tint {
-                    _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
-                        Some(theme.highlight(Highlight::Words))
-                    }
+                    _ if picked => Some(theme.highlight(Highlight::Words)),
                     Some(tint) => Some(tint.ground(theme)),
                     None if style.code => Some(theme.muted),
                     None => None,
@@ -1374,7 +1375,7 @@ fn text(
                     thickness: fixed(1.),
                     color: Some(match to_code {
                         true => theme.text_3,
-                        false => theme.highlight(Highlight::Link),
+                        false => theme.blue_edge,
                     }),
                     wavy: false,
                 }),
