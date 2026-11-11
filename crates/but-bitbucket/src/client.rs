@@ -1058,7 +1058,6 @@ pub struct MergePullRequestParams<'a> {
     pub strategy: MergeStrategy,
 }
 
-/// Bitbucket Cloud merge strategies.
 #[derive(Debug, Clone, Copy)]
 pub enum MergeStrategy {
     MergeCommit,
