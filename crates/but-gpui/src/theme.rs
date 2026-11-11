@@ -841,11 +841,11 @@ impl Theme {
         self.fill_gray.opacity(0.7)
     }
 
-    /// The edge of the card with the keys, the tile's or the navigator's: quieter than a
-    /// focused field's ring, as a card's a larger thing to edge. Opaque, on the cards' ground,
-    /// so it's the same gray drawn over a card's own edge as in its place, or twice over.
+    /// The edge of the card with the keys, the tile's or the navigator's: a focused field's
+    /// ring, as it reads on the field's ground, the cards'. Opaque, so it's the same gray drawn
+    /// over a card's own edge as in its place, or twice over.
     pub fn focus_edge(&self) -> Hsla {
-        self.bg_1.blend(self.fill_gray.opacity(0.4))
+        self.bg_1.blend(self.focus_border())
     }
 
     /// The border of a control, as but-ui's `--but-input`.
