@@ -61,7 +61,6 @@ pub mod customization {
         }
     }
 
-    /// Tell the UI that the 'but' binary is packaged.
     pub fn packaged_but_binary() -> serde_json::Value {
         json!({
             "ui": {
@@ -70,7 +69,6 @@ pub mod customization {
         })
     }
 
-    /// Tell the UI that no auto-update checks should be performed.
     pub fn disable_auto_update_checks() -> serde_json::Value {
         json!({
             "ui": {

@@ -89,7 +89,6 @@ impl AppSettingsWithDiskSync {
         })
     }
 
-    /// Return a reference to the most recently loaded [`AppSettings`].
     pub fn get(&self) -> Result<RwLockReadGuard<'_, AppSettings>> {
         self.snapshot
             .read()
@@ -109,12 +108,10 @@ impl AppSettingsWithDiskSync {
             .map_err(|e| anyhow::anyhow!("Could not write settings: {e:?}"))
     }
 
-    /// The path from which application settings will be read from disk.
     pub fn config_path(&self) -> &Path {
         &self.config_path
     }
 
-    /// Start watching [`Self::config_path()`] for changes and inform
     pub fn watch_in_background(
         &mut self,
         send_event: impl Fn(AppSettings) -> Result<()> + Send + Sync + 'static,
@@ -172,9 +169,7 @@ impl AppSettingsWithDiskSync {
                         break;
                     }
 
-                    _ => {
-                        // Noop
-                    }
+                    _ => {}
                 }
             }
             Ok(())

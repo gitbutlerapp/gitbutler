@@ -43,7 +43,6 @@ pub fn merge_json_value(source: serde_json::Value, target: &mut serde_json::Valu
         for (key, value) in source_object {
             if let Some(target) = target_object.get_mut(&key) {
                 if value.is_null() {
-                    // Remove the key if the source value is null
                     target_object.remove(&key);
                 } else {
                     merge_json_value(value, target);
