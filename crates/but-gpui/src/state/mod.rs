@@ -1058,8 +1058,9 @@ impl Store {
         if self.selection == selection {
             return;
         }
-        if let Some(selection) = &selection {
-            self.count_view(selection);
+        match &selection {
+            Some(selection) => self.count_view(selection),
+            None => backend::metrics::shown(None),
         }
         // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
         // one only its branch's remote had.
@@ -1132,6 +1133,7 @@ impl Store {
             Selection::Section(..) => "section",
             Selection::Terminal(..) => "terminal",
         };
+        backend::metrics::shown(Some(view));
         self.count_view_named(view, selection.project());
     }
 
@@ -1143,10 +1145,13 @@ impl Store {
             ProjectTab::History => "history",
             ProjectTab::Graph => "graph",
         };
+        backend::metrics::shown(Some(view));
         self.count_view_named(view, project);
     }
 
-    fn count_view_named(&self, view: &'static str, project: &ProjectId) {
+    /// For the metrics: the user opened `view` of something in `project`. A page's own tab is
+    /// counted, but its time goes to the page.
+    pub fn count_view_named(&self, view: &'static str, project: &ProjectId) {
         // Selecting what's left as it changes, while the user is away, isn't use, nor is the
         // launch putting back what was selected, before the workspace has loaded.
         let workspace = self.workspace(project);

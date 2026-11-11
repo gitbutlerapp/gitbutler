@@ -11,6 +11,7 @@
 //! off, as the CLI's are, in Settings › General › Metrics or the desktop app's Telemetry page.
 //! Development builds log them at debug instead.
 
+mod active;
 mod crashes;
 
 use std::collections::{HashMap, HashSet};
@@ -71,16 +72,8 @@ type Early = (Kind, String, Props, DateTime<Utc>);
 static STARTED: Mutex<Option<mpsc::Receiver<()>>> = Mutex::new(None);
 /// When each kind of failure last went out, and how many were held back since.
 static LIMITS: Mutex<Option<HashMap<String, (Instant, u64)>>> = Mutex::new(None);
-/// When `app_active` last went out, and the views opened since, by kind.
-static ACTIVE: Mutex<Active> = Mutex::new(Active {
-    last: None,
-    views: Vec::new(),
-});
-
-struct Active {
-    last: Option<Instant>,
-    views: Vec<(&'static str, u64)>,
-}
+/// What was looked at since `app_active` last went out.
+static ACTIVE: Mutex<active::Active> = Mutex::new(active::Active::new());
 
 /// What `app_active` says about the app as it is: its settings, how many projects there are,
 /// and the workspace being looked at.
@@ -134,8 +127,9 @@ pub fn start(version: Option<String>) {
     }
 }
 
-/// Before the app ends: say the run ended cleanly, and send what's queued, waiting at most
-/// [`SHUTDOWN`]. It runs on the UI thread, which then has nothing left to draw.
+/// Before the app ends: say the run ended cleanly, send what was looked at since `app_active`
+/// last said, and send what's queued, waiting at most [`SHUTDOWN`]. It runs on the UI thread,
+/// which then has nothing left to draw.
 pub fn quit() {
     let deadline = Instant::now() + SHUTDOWN;
     if let Some(started) = STARTED.lock().take() {
@@ -145,6 +139,8 @@ pub fn quit() {
         return;
     };
     crashes::ended_cleanly();
+    let looked = ACTIVE.lock().take(Instant::now());
+    metrics.send(Kind::Usage, "app_closed", looked, None);
     if let Some(client) = &metrics.client {
         let left = deadline.saturating_duration_since(Instant::now());
         super::runtime()
@@ -188,11 +184,31 @@ pub fn input(via: Via) {
         return;
     }
     *INPUT.lock() = via;
+    ACTIVE.lock().pressed(Instant::now());
 }
 
-/// How the user started what starts now, for [`operation`].
-pub fn via() -> Via {
-    *INPUT.lock()
+/// The window came in front of other apps', or went behind them. Only time in front counts as
+/// looking at what it shows.
+pub fn in_front(front: bool) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    ACTIVE.lock().in_front(front, Instant::now());
+}
+
+/// `view`, as `commit` or `history`, is on screen now, opened by the user or by the app, as at
+/// launch, or with `None` nothing is. It gets the time from now, and what starts now is started
+/// from it.
+pub fn shown(view: Option<&'static str>) {
+    if matches!(METRICS.get(), Some(None)) {
+        return;
+    }
+    ACTIVE.lock().show(view, Instant::now());
+}
+
+/// How the user started what starts now, and from which view, for [`operation`].
+pub fn via() -> (Via, Option<&'static str>) {
+    (*INPUT.lock(), ACTIVE.lock().shown())
 }
 
 /// Notes each press of the pointer, wherever in the window and over whatever it lands on, which
@@ -213,13 +229,13 @@ pub fn pointer_listener() -> impl gpui::IntoElement {
     .inset_0()
 }
 
-/// An operation the user started, named `name`, the way `via` says, finished after `took`,
-/// failing with `failure` if it did, on `workspace` as it was shown. An operation that handles
-/// its own failure, as a fetch does, finishes without one, and its error card reports it
-/// instead.
+/// An operation the user started, named `name`, the way and from the view [`via`] said as it
+/// started, finished after `took`, failing with `failure` if it did, on `workspace` as it was
+/// shown. An operation that handles its own failure, as a fetch does, finishes without one, and
+/// its error card reports it instead.
 pub fn operation(
     name: &'static str,
-    via: Via,
+    (via, view): (Via, Option<&'static str>),
     took: Duration,
     failure: Option<&anyhow::Error>,
     workspace: Option<&Workspace>,
@@ -233,6 +249,9 @@ pub fn operation(
     props.insert("via".into(), via.name().into());
     props.insert("durationMs".into(), (took.as_millis() as u64).into());
     props.insert("failure".into(), failure.is_some().into());
+    if let Some(view) = view {
+        props.insert("view".into(), view.into());
+    }
     if let Some(workspace) = workspace {
         shape(workspace, &mut props);
     }
@@ -278,32 +297,27 @@ pub fn failure_shown<'a>(
 }
 
 /// The user opened `view` in the window, as `commit` or `history`: count it, and once an hour
-/// say the app is in use, with the app as `state` gives it and the views counted since. So
+/// say the app is in use, with the app as `state` gives it and what was looked at since. So
 /// it's seen in use on days nothing is changed with it, as when reading what agents did.
 pub fn viewed<'a>(view: &'static str, state: impl FnOnce() -> State<'a>) {
     if matches!(METRICS.get(), Some(None)) {
         return;
     }
     let now = Instant::now();
-    let views = {
+    let looked = {
         let mut active = ACTIVE.lock();
-        match active.views.iter_mut().find(|(kind, _)| *kind == view) {
-            Some((_, count)) => *count += 1,
-            None => active.views.push((view, 1)),
-        }
+        active.opened(view);
         if (active.last).is_some_and(|last| now.duration_since(last) < ACTIVE_EVERY) {
             return;
         }
         active.last = Some(now);
-        std::mem::take(&mut active.views)
+        active.take(now)
     };
     let state = state();
     let mut props = settings(&state);
     props.insert("projectCount".into(), state.projects.into());
     shape(state.workspace, &mut props);
-    for (kind, count) in views {
-        props.insert(format!("{kind}Views"), count.into());
-    }
+    props.extend(looked);
     queue(Kind::Usage, "app_active", props);
 }
 
@@ -517,6 +531,10 @@ fn set(kind: Kind, on: bool) -> Result<()> {
             Kind::Errors => &metrics.errors,
         }
         .store(on, Ordering::Relaxed);
+    }
+    // What was looked at before it was turned off, or while it was, isn't sent.
+    if matches!(kind, Kind::Usage) {
+        ACTIVE.lock().take(Instant::now());
     }
     Ok(())
 }
