@@ -21,7 +21,6 @@ where
 }
 
 impl<T> OnDemand<T> {
-    /// Create a new instance that can instantiate its value via `init` when needed.
     pub fn new(init: impl Fn() -> anyhow::Result<T> + Send + Sync + 'static) -> Self {
         OnDemand {
             init: Arc::new(init),
@@ -29,7 +28,6 @@ impl<T> OnDemand<T> {
         }
     }
 
-    /// Get a shared reference to the cached value or fallibly initialize it.
     pub fn get(&self) -> anyhow::Result<cell::Ref<'_, T>> {
         if let Ok(cached) = cell::Ref::filter_map(self.value.try_borrow()?, |opt| opt.as_ref()) {
             return Ok(cached);
@@ -44,7 +42,6 @@ impl<T> OnDemand<T> {
         )
     }
 
-    /// Get an exclusive reference to the cached value or fallibly initialize it.
     pub fn get_mut(&mut self) -> anyhow::Result<cell::RefMut<'_, T>> {
         if let Ok(cached) =
             cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut())
@@ -66,7 +63,6 @@ impl<T> OnDemand<T> {
         self.value.borrow()
     }
 
-    /// Take the existing value out of the cache if there is one.
     pub fn take(&mut self) -> Option<T> {
         self.value.borrow_mut().take()
     }
