@@ -1,16 +1,18 @@
 .snackbar {
 	display: inline-flex;
-	column-gap: 8px;
+	column-gap: var(--but-gap-snackbar);
 	align-items: center;
 	max-width: 100%;
 
 	/* Every snackbar is 32px tall, with a close button or without: the floor is the height the
 	   button's 20px row gives, so a run of snackbars lines up whichever of them can be dismissed.
 	   Boxes here are border-box, so the floor includes the padding and the border. */
-	min-height: 32px;
+	min-height: var(--but-size-snackbar);
 	/* More room after the sentence than before the glyph, so a snackbar with nothing to close
-	   doesn't end hard against its edge. */
-	padding: 5px 13px 5px 9px;
+	   doesn't end hard against its edge. The tokens measure from the outside edge, so each side
+	   gives a pixel to the border. */
+	padding: calc(var(--but-padding-snackbar-block) - 1px) calc(var(--but-padding-snackbar-end) - 1px)
+		calc(var(--but-padding-snackbar-block) - 1px) calc(var(--but-padding-snackbar-start) - 1px);
 	/* --but-snackbar is inverted in light, so a snackbar reads as a passing note over the page
 	   rather than a piece of it, and in dark a step above the popover's ground with its border. */
 	border: 1px solid var(--but-snackbar-border);
@@ -82,13 +84,13 @@
 	background-color: var(--but-snackbar-divider);
 }
 
-/* A button, Undo or close, spills 8px into the snackbar's wider end padding: it sits 6px from the
-   end, as from the top and bottom, and a close button's cross 10px from it, as the glyph does at
+/* A button, Undo or close, spills into the snackbar's wider end padding: it sits as far from the
+   end as from the top and bottom, and a close button's cross 10px from it, as the glyph does at
    the other end. */
 .action {
 	/* The ghost button's colours on whichever ground the snackbar has. */
 	--button-fg: var(--but-snackbar-foreground);
 	--button-hover-bg: var(--but-snackbar-hover);
 
-	margin-inline-end: -8px;
+	margin-inline-end: calc(var(--but-padding-snackbar-block) - var(--but-padding-snackbar-end));
 }

@@ -136,7 +136,7 @@
           "value": 36,
           "unit": "px"
         },
-        "$description": "Height of a bar inside a popup: its search row or footer. Also a snackbar.",
+        "$description": "Height of a bar inside a popup: its search row or footer.",
         "$extensions": {
           "mode": {}
         }
@@ -225,6 +225,28 @@
           "unit": "px"
         },
         "$description": "Height of a one-line row in a table or a description list, and of a location bar: a line of text with room above and below it. Taller than size/bar, as a row holds content rather than a popup's search or footer.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "snackbar": {
+        "$type": "dimension",
+        "$value": {
+          "value": 32,
+          "unit": "px"
+        },
+        "$description": "Height of a snackbar, with a button or without, so a run of them lines up.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "tooltip-max": {
+        "$type": "dimension",
+        "$value": {
+          "value": 240,
+          "unit": "px"
+        },
+        "$description": "The widest a tooltip gets before its text wraps.",
         "$extensions": {
           "mode": {}
         }
@@ -398,6 +420,28 @@
         "$extensions": {
           "mode": {}
         }
+      },
+      "snackbar": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Between a snackbar's glyph, words, divider and button.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "tooltip": {
+        "$type": "dimension",
+        "$value": {
+          "value": 7,
+          "unit": "px"
+        },
+        "$description": "Between a tooltip's text and its shortcut.",
+        "$extensions": {
+          "mode": {}
+        }
       }
     },
     "padding": {
@@ -445,6 +489,61 @@
         "$type": "dimension",
         "$value": "{core.space.2xl}",
         "$description": "At the sides of a row inside a card, between the card edge and the row content: DescriptionList and Table rows.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "snackbar-start": {
+        "$type": "dimension",
+        "$value": {
+          "value": 10,
+          "unit": "px"
+        },
+        "$description": "Before a snackbar's glyph, inside its border.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "snackbar-end": {
+        "$type": "dimension",
+        "$value": {
+          "value": 14,
+          "unit": "px"
+        },
+        "$description": "After a snackbar's words when it has no button, and before them when it has no glyph, inside its border.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "snackbar-block": {
+        "$type": "dimension",
+        "$value": {
+          "value": 6,
+          "unit": "px"
+        },
+        "$description": "Above and below a snackbar's line, and after its button, so the button sits as far from the end as from the top.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "tooltip-inline": {
+        "$type": "dimension",
+        "$value": {
+          "value": 8,
+          "unit": "px"
+        },
+        "$description": "Before and after a tooltip's text.",
+        "$extensions": {
+          "mode": {}
+        }
+      },
+      "tooltip-block": {
+        "$type": "dimension",
+        "$value": {
+          "value": 6,
+          "unit": "px"
+        },
+        "$description": "Above and below a tooltip's text, and after its shortcut.",
         "$extensions": {
           "mode": {}
         }
@@ -653,7 +752,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-10T13:57:06.538Z"
+        "createdAt": "2026-11-11T12:30:20.299Z"
       }
     }
   }

@@ -18,7 +18,7 @@ use crate::backend::Token;
     dead_code,
     reason = "every token is here, and the theme reads only the ones it draws with"
 )]
-mod tokens {
+pub(crate) mod tokens {
     include!(concat!(env!("OUT_DIR"), "/color_tokens.rs"));
 }
 
