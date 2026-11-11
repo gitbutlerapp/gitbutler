@@ -74,13 +74,9 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 #[derive(Debug, Clone)]
 pub struct Tip {
     pub id: gix::ObjectId,
-    /// The ref name to assign to the tip segment, if it should be named.
     pub ref_name: Option<gix::refs::FullName>,
     pub role: TipRole,
-    /// Metadata to attach to the initial segment.
     pub metadata: Option<SegmentMetadata>,
-    /// Whether this tip is the user-facing traversal entrypoint.
-    ///
     /// There may only be *one such tip*.
     /// Other tips try to connect to any commit reachable from this one.
     pub is_entrypoint: bool,
@@ -171,7 +167,6 @@ impl Tip {
         self.with_is_entrypoint(true)
     }
 
-    /// Mark this entrypoint as detached for segment presentation.
     pub fn with_detached_entrypoint(mut self) -> Self {
         self = self.with_is_entrypoint(true).with_is_detached(true);
         self
@@ -306,7 +301,6 @@ pub enum TipRole {
 }
 
 impl TipRole {
-    /// Whether this role represents integrated history.
     pub fn is_integrated(&self) -> bool {
         matches!(self, TipRole::TargetRemote)
     }
@@ -373,12 +367,9 @@ struct InitialTips {
     target_local_links: TargetLocalLinks,
 }
 
-/// Bidirectional lookup between target remote refs and their local tracking refs.
 #[derive(Default)]
 struct TargetLocalLinks {
-    /// Local tracking ref by target remote ref.
     local_by_target: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
-    /// Target remote ref by local tracking ref.
     target_by_local: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
 }
 
@@ -390,7 +381,6 @@ struct TargetLocalLinks {
 /// sibling relationship and goal.
 struct PendingIntegratedTip {
     id: gix::ObjectId,
-    /// Segment created for the integrated target before it is queued.
     segment: SegmentIndex,
     /// Whether to insert the target before existing initial queue work once it
     /// is released.
@@ -419,12 +409,8 @@ pub struct Overlay {
 
 pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
 
-/// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// Associate tag references with commits.
-    ///
-    /// If `false`, tags are not collected.
     pub collect_tags: bool,
     /// The (soft) maximum number of commits we should traverse.
     /// Workspaces with a target branch automatically have unlimited traversals as they rely on the target

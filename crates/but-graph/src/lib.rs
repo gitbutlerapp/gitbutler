@@ -198,7 +198,6 @@
 #![forbid(unsafe_code)]
 
 mod segment;
-/// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
 pub use segment::{
     Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,
@@ -224,13 +223,10 @@ mod debug;
 /// That way we can tell where a segment branches off, despite the graph only connecting segments, and not commits.
 pub type CommitIndex = usize;
 
-/// A graph of connected segments that represent a section of the actual commit-graph.
 #[derive(Default, Debug, Clone)]
 #[must_use]
 pub struct Graph {
     inner: init::PetGraph,
-    /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
-    ///
     /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before
     /// the first segment is inserted. Graphs returned by the traversal constructors are expected to have an
     /// entrypoint, even for unborn refs; in that case the segment is present and the commit is
@@ -264,7 +260,6 @@ pub struct Graph {
     ad_hoc_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     /// The persisted local branch orders of linked worktrees, each from the checked-out branch down.
     worktree_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
-    /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
@@ -292,7 +287,6 @@ pub struct Graph {
     /// itself has checked out, and the entrypoint ref - as well as refs the
     /// traversal could not place.
     pub worktree_tips: Vec<init::WorktreeTip>,
-    /// Project-wide metadata used for target ref, target commit, and push remote resolution.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// Configured target upstream, derived during traversal even if its ref or segment is absent.
     /// Refreshed when traversal is redone; projection must not infer it from segment links.
@@ -306,8 +300,6 @@ pub struct Graph {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum EntryPointCommit {
-    /// The traversal tip is known.
-    ///
     /// This is an object id rather than a synthetic index because an empty entrypoint segment has no commit slot
     /// to index into, nor is it reliably reachable by traversing the graph. If the commit is present in the
     /// entrypoint segment, its [`CommitIndex`] can be derived from the segment and this id.
@@ -317,7 +309,6 @@ pub(crate) enum EntryPointCommit {
     /// already a graph, and one that isn't representable even with symbolic refs as the workspace ref segment
     /// can easily point to multiple refs at the same time.
     AtCommit(gix::ObjectId),
-    /// The traversal started from an unborn ref and has no tip commit.
     Unborn,
 }
 
@@ -351,14 +342,9 @@ impl Graph {
     }
 }
 
-/// A resolved entry point into the graph for easy access to the entrypoint segment and,
-/// if present, the commit that started traversal along with the segment that owns it.
 #[derive(Debug, Copy, Clone)]
 pub struct EntryPoint<'graph> {
-    /// The segment that served starting point for the traversal into this graph.
     pub segment: &'graph Segment,
-    /// If present, the commit that started traversal and the segment that owns it.
-    ///
     /// This can differ from [`Self::segment`] when post-processing moved the entrypoint to an
     /// empty synthetic segment, such as a virtual workspace tip segment.
     ///
@@ -375,7 +361,6 @@ impl<'graph> EntryPoint<'graph> {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SegmentRelation {
-    /// Both segment indices point to the same segment.
     Identity,
     /// The first segment is an ancestor of the second segment.
     Ancestor,

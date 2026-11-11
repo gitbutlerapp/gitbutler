@@ -21,15 +21,12 @@ pub(crate) struct SeenTable {
 }
 
 impl SeenTable {
-    /// Create a table with space for `num_segments` segment indices.
     fn new(num_segments: usize) -> Self {
         SeenTable {
             values: vec![false; num_segments],
         }
     }
 
-    /// Insert `sidx` into the seen set if it wasn't present yet.
-    ///
     /// Returns `true` if `sidx` was unseen before this call.
     pub(crate) fn insert_unseen(&mut self, sidx: SegmentIndex) -> bool {
         let value = &mut self.values[sidx.index()];
@@ -90,8 +87,6 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
         &mut self.values[index]
     }
 
-    /// Set `sidx` to `value`.
-    ///
     /// Use this when the caller already knows the slot is empty or doesn't need
     /// to know whether it changed.
     pub(crate) fn set(&mut self, sidx: SegmentIndex, value: T) {
@@ -102,8 +97,6 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
         self.values[index] = value;
     }
 
-    /// Set `sidx` to `value` only if it is still `empty`.
-    ///
     /// Returns `true` if the slot changed. This is useful for visited sets.
     pub(crate) fn set_if_empty(&mut self, sidx: SegmentIndex, value: T) -> bool {
         let index = sidx.index();
@@ -153,7 +146,6 @@ impl<T: Copy + PartialEq> GrowingSegmentTable<T> {
         self.inner.set_if_empty(sidx, value)
     }
 
-    /// Ensure `sidx` is addressable by the wrapped table.
     fn ensure_index(&mut self, sidx: SegmentIndex) {
         let index = sidx.index();
         if index >= self.inner.values.len() {
@@ -250,7 +242,6 @@ impl SegmentVisitScratch {
         self.seen.clear();
     }
 
-    /// Mark `sidx` if it hasn't been seen in the current walk.
     fn mark(&mut self, sidx: SegmentIndex) -> bool {
         self.seen.set_if_empty(sidx, true)
     }

@@ -50,8 +50,6 @@ impl Workspace {
 }
 
 impl Workspace {
-    /// Return `true` if the workspace has workspace metadata associated with it.
-    /// This is relevant when creating references for example.
     pub fn has_metadata(&self) -> bool {
         self.metadata.is_some()
     }
@@ -229,7 +227,6 @@ impl Workspace {
             .chain(self.worktrees.iter().map(Lane::Worktree))
     }
 
-    /// Every segment of every lane.
     pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
         self.lanes().flat_map(|lane| lane.segments())
     }
@@ -239,7 +236,6 @@ impl Workspace {
         self.segments().flat_map(|segment| segment.commits.iter())
     }
 
-    /// Find the commit with `oid` in any lane.
     pub fn find_commit(&self, oid: impl Into<gix::ObjectId>) -> Option<&StackCommit> {
         let oid = oid.into();
         self.commits().find(|commit| commit.id == oid)
@@ -339,7 +335,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find `name` in any named [`StackSegment`] and return it along with the lane containing it.
     pub fn find_segment_and_lane_by_refname(
         &self,
         name: &gix::refs::FullNameRef,
@@ -352,7 +347,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find the [`StackSegment`] owning the commit `oid` and return it along with the lane containing it.
     pub fn find_segment_and_lane_by_commit_id(
         &self,
         oid: impl Into<gix::ObjectId>,
@@ -366,7 +360,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,
         name: &gix::refs::FullNameRef,

@@ -4,7 +4,6 @@ use but_core::ref_metadata::MaybeDebug;
 
 use crate::{CommitIndex, Graph, SegmentIndex};
 
-/// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     pub id: gix::ObjectId,
@@ -26,7 +25,6 @@ impl Commit {
     }
 }
 
-/// A structure to inform about a reference which was present at a commit.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RefInfo {
     pub ref_name: gix::refs::FullName,
@@ -47,7 +45,6 @@ pub struct RefInfo {
     pub worktree: Option<Worktree>,
 }
 
-/// Describes which kind of worktree is checked out by a [Ref](RefInfo).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum WorktreeKind {
     /// The main worktree, i.e. the primary workspace associated with this repository, is checked out.
@@ -59,12 +56,9 @@ pub enum WorktreeKind {
     LinkedId(BString),
 }
 
-/// Describes which worktree is checked out and how it relates to the repository that produced the graph.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Worktree {
     pub kind: WorktreeKind,
-    /// The repository that produced the graph is using this worktree.
-    ///
     /// Only one worktree in a graph should have this flag set.
     pub owned_by_repo: bool,
 }
@@ -155,7 +149,6 @@ bitflags! {
         /// Traversal reached the first commit in history, which has no parents, and is an orphan.
         /// There can be more than one in one graph if unrelated histories were merged.
         const FirstCommit = 1 << 1;
-        /// Traversal reached a Git shallow boundary, as is created with the shallow clone feature.
         const ShallowBoundary = 1 << 2;
     }
 }
@@ -205,8 +198,6 @@ bitflags! {
 }
 
 bitflags! {
-    /// Provide more information about a commit, as gathered during traversal.
-    ///
     /// Note that unknown bits beyond this list are used to track individual goals that we want to discover.
     /// This is useful for when they are ahead of the tip that looks for them.
     /// If they are below, the goal will be propagated downward automatically.
@@ -241,7 +232,6 @@ impl CommitFlags {
             (Self::all().bits().leading_zeros() - goals.leading_zeros()) as usize
         }
     }
-    /// Return a less verbose debug string.
     pub fn debug_string(&self) -> String {
         if self.is_empty() {
             "".into()
@@ -309,7 +299,6 @@ pub struct Segment {
     pub metadata: Option<SegmentMetadata>,
 }
 
-/// Metadata for segments, which are either dedicated branches or represent workspaces.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SegmentMetadata {
     /// [Segments](Segment) with this data are considered a branch in the workspace.

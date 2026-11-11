@@ -323,8 +323,9 @@ impl Goals {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Instruction {
-    /// Contains the segment into which to place this commit.
-    CollectCommit { into: SegmentIndex },
+    CollectCommit {
+        into: SegmentIndex,
+    },
     /// This is the first commit in a new segment which is below `parent_above` and which should be placed
     /// at the last commit (at the time) via `at_commit`.
     ConnectNewSegment {
@@ -343,7 +344,6 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    /// Returns any segment index we may be referring to.
     pub fn segment_idx(&self) -> SegmentIndex {
         match self {
             Instruction::CollectCommit { into } => *into,

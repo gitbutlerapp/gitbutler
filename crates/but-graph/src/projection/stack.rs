@@ -7,7 +7,6 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{CommitFlags, Graph, SegmentIndex};
 
-/// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
 pub struct Stack {
     /// If the stack belongs to a managed workspace, the `id` will be set and persist.
@@ -110,7 +109,6 @@ impl std::fmt::Debug for Stack {
     }
 }
 
-/// What a linked worktree's own commits are resting on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorktreeBase {
     /// The base commit is owned by a workspace stack, or by a worktree listed earlier in
@@ -122,7 +120,6 @@ pub enum WorktreeBase {
 }
 
 impl WorktreeBase {
-    /// The commit the worktree's own commits are resting on.
     pub fn commit_id(&self) -> gix::ObjectId {
         match self {
             WorktreeBase::InWorkspace(id) | WorktreeBase::Outside(id) => *id,
@@ -179,9 +176,7 @@ impl std::fmt::Debug for WorktreeStack {
 /// A [`Stack`] or a [`WorktreeStack`], seen as the tip-to-base list of segments either one is.
 #[derive(Debug, Clone, Copy)]
 pub enum Lane<'a> {
-    /// A stack of the workspace.
     Stack(&'a Stack),
-    /// The history a linked worktree owns.
     Worktree(&'a WorktreeStack),
 }
 
@@ -252,7 +247,6 @@ pub struct StackSegment {
     /// Further, despite being in a simple list, their order is based on a simple topological walk, so
     /// this form doesn't imply a linear history.
     pub commits_on_remote: Vec<StackCommit>,
-    /// Read-only branch metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
 }
 
@@ -439,7 +433,6 @@ impl std::fmt::Debug for StackCommit {
 }
 
 bitflags! {
-    /// Define how to debug-print the commit.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct StackCommitDebugFlags: u8 {
         /// Is a designated remote commit, i.e. available only from a remote tracking branch.
@@ -451,7 +444,6 @@ bitflags! {
 }
 
 bitflags! {
-    /// Provide more information about a commit, as gathered during traversal and as member of the stack.
     #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
     pub struct StackCommitFlags: u8 {
         /// This commit was pushed to a remote and thus could have been observed by others.
@@ -492,8 +484,6 @@ bitflags! {
 }
 
 impl StackCommitFlags {
-    /// Return a less verbose debug string.
-    ///
     /// Note that this only displays flags that are not used when displaying [the whole commit](StackCommit::debug_string()).
     pub fn debug_string(&self) -> String {
         let flags = *self & (Self::InWorkspace | Self::Integrated | Self::ShallowBoundary);

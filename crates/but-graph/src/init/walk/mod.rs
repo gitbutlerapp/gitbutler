@@ -411,7 +411,6 @@ pub fn queue_parents(
     if is_shallow_boundary {
         return Ok(false);
     }
-    // Don't enqueue new parents if we don't have space anymore.
     if next.is_exhausted() {
         return Ok(next.hard_limit_hit());
     }
@@ -577,7 +576,6 @@ fn extract_local_branch_metadata<T: RefMetadata>(
 pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
     commit: Option<Commit>,
-    /// A means of sorting the entry on the queue.
     pub(crate) gen_then_time: GenThenTime,
 }
 
@@ -622,8 +620,6 @@ impl Ord for GenThenTime {
 }
 
 impl TraverseInfo {
-    /// Convert this traversal item into a graph [`Commit`].
-    ///
     /// `flags` are the graph-specific classifications collected for this
     /// commit during traversal. `refs` are the fully-qualified ref names that
     /// peel to this commit and should be attached to the resulting commit.
@@ -874,7 +870,6 @@ pub fn propagate_flags_downward(
 }
 
 pub(crate) struct RemoteQueueOutcome {
-    /// The new tips to queue officially later.
     pub items_to_queue_later: Vec<QueueItem>,
     /// A way for the remote to find the local tracking branch.
     pub maybe_make_id_a_goal_so_remote_can_find_local: CommitFlags,

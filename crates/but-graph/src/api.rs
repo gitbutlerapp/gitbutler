@@ -83,8 +83,6 @@ impl Graph {
 }
 
 impl Graph {
-    /// Determine the ancestry relationship of `a` relative to `b`.
-    ///
     /// `Ancestor` means `a` is reachable from `b` when walking towards history,
     /// `Descendant` means the inverse, and `Diverged` means they share history
     /// but neither is ancestor of the other.
@@ -298,8 +296,6 @@ impl Graph {
         *sequence += 1;
     }
 
-    /// Return the parent segments that should be traversed from `segment_id`.
-    ///
     /// In all-parent mode this returns every outgoing segment edge. In first-parent mode it
     /// returns only edges whose destination is the source commit's first parent.
     fn parent_segments_for_reachable_difference(
@@ -569,7 +565,6 @@ impl Graph {
 
         let mut walk_start: Vec<(SegmentIndex, usize)> = Vec::with_capacity(segments.len());
 
-        // Mark all input segments with RESULT and collect their parents for walking
         for (sidx, _) in segments {
             flags.get_mut(*sidx).insert(SegmentFlags::RESULT);
 
@@ -678,9 +673,6 @@ impl Graph {
         Ok(is_managed_workspace_by_message(message).then_some(ec))
     }
 
-    /// Return the entry-point of the graph as configured during traversal.
-    /// It's useful for when one wants to know which commit was used to discover the entire graph.
-    ///
     /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
     pub fn entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
         let (segment_index, commit) = self

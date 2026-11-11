@@ -73,7 +73,6 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
-        // Make sure edge order matches the git commit graph when traversed.
         self.rebuild_edges_in_parent_order();
 
         // Keep the original traversal tip available even if post-processing moves the
@@ -1006,7 +1005,6 @@ impl Graph {
                 .remove_edge(eid)
                 .expect("we found the edge before")
                 .with_workspace_parent_order(workspace_parent_order as u32)?;
-            // Reconnect according to the new order.
             self.inner.add_edge(ws_sidx, target_sidx, weight);
         }
 
@@ -1952,7 +1950,6 @@ impl Graph {
         })
     }
 
-    /// The commits from `start` along first parents.
     fn first_parent_commits(&self, start: ObjectId) -> BTreeSet<ObjectId> {
         let first_parent_by_id: BTreeMap<_, _> = self
             .inner
@@ -2691,8 +2688,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
         );
         above_idx = new_segment;
         if is_first {
-            // connect incoming edges (and disconnect from source)
-            // Connect to the commit if we have one.
             let edges = collect_edges_at_commit_in_traversal_order(
                 &graph.inner,
                 (commit_parent_below, commit_idx),
@@ -2727,7 +2722,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             }
         }
         if is_last {
-            // connect outgoing edges (and disconnect them)
             if let Some((commit, commit_idx)) = commit.zip(commit_idx) {
                 let commit_id = commit.id;
                 graph[new_segment].commits.push(commit);
