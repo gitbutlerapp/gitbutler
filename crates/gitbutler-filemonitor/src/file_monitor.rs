@@ -65,7 +65,6 @@ impl FileMonitorHandle {
 
 const ENV_WATCH_MODE: &str = "GITBUTLER_WATCH_MODE";
 
-/// Control how the filesystem watch should be established.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WatchMode {
     /// Recursively watch the worktree (and an extra git-dir if the repo uses
@@ -158,7 +157,6 @@ fn setup_watch_plan(
     git_dir: &Path,
     linked_git_dirs: &[&Path],
 ) -> Result<()> {
-    // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         let mut paths = debouncer.watcher().paths_mut();
         let mut add_error: Option<(std::path::PathBuf, notify::Error)> = None;
@@ -213,7 +211,6 @@ fn setup_legacy_watch(
         }
     };
 
-    // Start the watcher, but retry if there are transient errors.
     backoff::retry(watch_backoff_policy(), || {
         debouncer
             .watcher()
