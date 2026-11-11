@@ -395,6 +395,29 @@ where
         })
     }
 
+    pub fn uncommit_changes_from_commit(
+        &mut self,
+        source: gix::ObjectId,
+        changes: Vec<DiffSpec>,
+    ) -> anyhow::Result<CommitIdentifiers> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, commit_mappings| {
+            let but_workspace::commit::UncommitChangesOutcome {
+                mut rebase,
+                commit_selector,
+            } = but_workspace::commit::uncommit_changes(
+                editor,
+                commit_mappings.current(source)?,
+                changes,
+                context_lines,
+            )?;
+            rebase.keep_worktrees_unchanged()?;
+
+            let new_commit = rebase.lookup_commit(commit_selector)?;
+            Ok((new_commit, rebase))
+        })
+    }
+
     /// Check out `branch` when the transaction commits.
     ///
     /// The checkout is deferred until all in-memory commits and reference changes have been
