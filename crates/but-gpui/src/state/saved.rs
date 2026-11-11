@@ -310,7 +310,8 @@ impl Pane {
 
     pub(crate) fn limits(self) -> (f32, f32) {
         match self {
-            Pane::Navigator => (220., 640.),
+            // As wide as the window leaves it beside a readable diff: see `fitted_width`.
+            Pane::Navigator => (220., 2000.),
             // Wide enough for the composer's Cancel and Commit.
             Pane::Files => (240., 560.),
             Pane::BesideFiles => (200., 560.),
