@@ -894,13 +894,16 @@ impl Navigator {
 
     /// A row's `icon`, which turns into its fold's chevron, as [`fold_button`], while the
     /// pointer is over the row, as Notion's sidebar does, so rows that fold and rows that
-    /// don't line up. With nothing to fold (`None`), or while the filter lists what it finds,
-    /// which folds don't hide, it stays the icon.
+    /// don't line up. A `selected` row shows the chevron too, so the keys can see what folds.
+    /// With nothing to fold (`None`), or while the filter lists what it finds, which folds
+    /// don't hide, it stays the icon.
+    #[expect(clippy::too_many_arguments)]
     fn fold(
         &self,
         id: impl Into<ElementId>,
         icon: impl IntoElement,
         open: Option<bool>,
+        selected: bool,
         color: Hsla,
         cx: &Context<Self>,
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
@@ -914,16 +917,17 @@ impl Navigator {
             .flex()
             .items_center()
             .justify_center()
-            .opacity(0.)
-            .group_hover(ROW_GROUP, |el| el.opacity(1.));
+            .when(!selected, |el| {
+                el.opacity(0.).group_hover(ROW_GROUP, |el| el.opacity(1.))
+            });
+        let icon = div().child(icon).map(|el| match selected {
+            true => el.opacity(0.),
+            false => el.group_hover(ROW_GROUP, |el| el.opacity(0.)),
+        });
         div()
             .relative()
             .flex_none()
-            .child(
-                div()
-                    .group_hover(ROW_GROUP, |el| el.opacity(0.))
-                    .child(icon),
-            )
+            .child(icon)
             .child(chevron)
             .into_any_element()
     }
@@ -3412,6 +3416,7 @@ impl Navigator {
             ElementId::Name(format!("fold-project-{id}").into()),
             glyph,
             expanded.then_some(!card_folded),
+            style.selected,
             style.quiet(),
             cx,
             {
@@ -3657,6 +3662,7 @@ impl Navigator {
             ("worktree-fold", ix),
             worktree_icon(checkout.is_linked(), !uncommitted.is_empty(), style),
             folds.then_some(open),
+            style.selected,
             style.quiet(),
             cx,
             toggle.clone(),
@@ -3834,6 +3840,7 @@ impl Navigator {
             ("stack-fold", ix),
             icon(Icon::Stack).text_color(quiet),
             Some(open),
+            style.selected,
             style.quiet(),
             cx,
             toggle.clone(),
@@ -3967,6 +3974,7 @@ impl Navigator {
             ElementId::Name(format!("fold-{id}-{row_id}").into()),
             glyph,
             folds.then_some(open),
+            style.selected,
             style.quiet(),
             cx,
             toggle.clone(),
@@ -4267,7 +4275,7 @@ impl Navigator {
                     || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
                         if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
                 let fold = ElementId::Name(format!("merge-fold-{}", commit_id.0).into());
-                self.fold(fold, arrow, Some(open), warn, cx, toggle)
+                self.fold(fold, arrow, Some(open), style.selected, warn, cx, toggle)
             }
         };
         Some(
@@ -4506,6 +4514,7 @@ impl Navigator {
                 ("section-fold", ix),
                 glyph,
                 Some(open),
+                style.selected,
                 quiet,
                 cx,
                 toggle.clone(),
