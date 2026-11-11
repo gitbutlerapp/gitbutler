@@ -966,7 +966,6 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     }
 }
 
-/// The width of a digit of code.
 pub fn digit_width(theme: &Theme) -> f32 {
     theme.code_text * theme.diff_digit
 }

@@ -229,7 +229,6 @@ macro_rules! icons {
         }
 
         impl Icon {
-            /// Every icon, for the stories' grid.
             #[cfg(feature = "stories")]
             pub const ALL: &[Icon] = &[$(Icon::$variant,)* $(Icon::$own,)*];
 
@@ -654,7 +653,6 @@ pub fn selected_part(
     (from < to && fits).then_some(from..to)
 }
 
-/// The heading over a group of rows.
 pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
     faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
 }
@@ -1393,7 +1391,6 @@ impl RenderOnce for Button {
             .when(self.disabled.is_none(), |el| {
                 // A round picture in a square of hover would show the square's corners.
                 el.when(!pictured, |el| el.hover(move |el| el.bg(hover)))
-                    // Gives under the pointer while pressed.
                     .active(|el| el.opacity(0.8))
             })
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
@@ -1478,7 +1475,6 @@ pub struct Covered {
 impl gpui::Global for Covered {}
 
 impl Covered {
-    /// Note whether something covers the window now.
     pub fn note(covered: bool, window: &Window, cx: &mut App) {
         let state = cx.default_global::<Covered>();
         match (covered, state.at) {
@@ -1493,7 +1489,6 @@ impl Covered {
 }
 
 impl Tooltip {
-    /// A tooltip of `text` with the shortcut `key`, for an element's `tooltip`.
     pub fn keyed(
         text: impl Into<SharedString>,
         key: Option<SharedString>,
@@ -1510,7 +1505,6 @@ impl Tooltip {
         }
     }
 
-    /// A tooltip of just `text`, for an element's `tooltip`.
     pub fn text(
         text: impl Into<SharedString>,
     ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
@@ -1800,7 +1794,6 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
-/// How long each step of [`spinning`] shows.
 const SPIN_STEP: std::time::Duration = std::time::Duration::from_millis(100);
 /// The dots each step of [`spinning`] shows, as braille's: the low three bits are the left
 /// column's, top down, the next three the right's. The terminal's dots spinner, ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏.
@@ -1882,7 +1875,6 @@ pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
         )
 }
 
-/// How long a row blinks once: see [`blink_once`].
 pub const BLINK: std::time::Duration = std::time::Duration::from_millis(300);
 
 /// A `wash` over what y copied that holds a moment and goes, as the TUI highlights it, or over

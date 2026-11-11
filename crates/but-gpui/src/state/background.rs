@@ -144,7 +144,6 @@ impl Store {
         })
     }
 
-    /// When the app last fetched `id`.
     pub fn fetched_at(&self, id: &ProjectId) -> Option<SystemTime> {
         self.fetched.get(id).copied()
     }

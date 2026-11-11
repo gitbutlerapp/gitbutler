@@ -13,7 +13,6 @@ use super::intent::Run;
 use super::ops::rewritten;
 use super::{Checkout, CommitId, Intent, OpKind, Rewritten, checkout, markers};
 
-/// What a conflict keeps.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Keep {
     NewBase,
@@ -21,7 +20,6 @@ pub enum Keep {
     Text(BString),
 }
 
-/// What resolving left.
 pub struct Resolved {
     pub resolved: usize,
     /// Conflicts still to resolve, lines and whole files.

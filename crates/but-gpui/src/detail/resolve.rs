@@ -102,7 +102,6 @@ impl Detail {
             .then(|| (diff.key.project.clone(), conflicted))
     }
 
-    /// The conflicted commit shown, and its project.
     pub(super) fn conflicted_commit(&self) -> Option<(ProjectId, CommitId)> {
         match self.conflicted()? {
             (project, Conflicted::Commit(id)) => Some((project, id)),
@@ -110,7 +109,6 @@ impl Detail {
         }
     }
 
-    /// Whether the diff shown has conflicts to pick.
     pub fn shows_conflicts(&self) -> bool {
         self.conflicts().next().is_some()
     }
@@ -291,7 +289,6 @@ impl Detail {
             .map(|(ix, _, c)| (ix, c))
     }
 
-    /// The row showing `part` of conflict `key`.
     fn conflict_row_ix(&self, key: &Key, part: Part) -> Option<usize> {
         let (file, found) = self.find_conflict(key)?;
         let row = DiffRow::Conflict {

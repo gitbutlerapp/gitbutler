@@ -104,7 +104,6 @@ pub struct Move {
 /// it, or on a row, which an outline goes over.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
-    /// Moves it to where it's at.
     Move,
     /// Squashes it into what it's at, an [`Stop::Into`], keeping these messages.
     Squash(Messages),
@@ -356,7 +355,6 @@ pub enum Target {
 }
 
 impl Target {
-    /// The target `item`'s row is, if it's one.
     pub fn of(item: &Selection) -> Option<Target> {
         Some(match item {
             Selection::Commit(_, id) => Target::Commit(*id),
@@ -374,7 +372,6 @@ impl Target {
         })
     }
 
-    /// Its row in `project`.
     pub fn row(&self, project: &ProjectId) -> Selection {
         match self {
             Target::Commit(id) => Selection::Commit(project.clone(), *id),
@@ -391,15 +388,18 @@ impl Target {
 /// the terminals of a worktree. What's squashed goes into a row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stop {
-    /// Squashed into it.
     Into(Target),
     /// In a branch: at its top, or right below one of its commits.
     In(Destination),
     /// In a new branch right above `beside` in its stack, or right below it with `below`.
-    NewBranch { beside: FullName, below: bool },
+    NewBranch {
+        beside: FullName,
+        below: bool,
+    },
     /// In a new branch in a stack of its own, after the others, or before them with `first`.
-    NewStack { first: bool },
-    /// Among the watched projects' cards.
+    NewStack {
+        first: bool,
+    },
     Card(CardSlot),
     /// Among the linked worktrees listed with the one moving.
     Worktree(Slot<bstr::BString>),
@@ -418,7 +418,6 @@ pub enum Slot<T> {
     End,
 }
 
-/// Where a watched project's card goes.
 pub type CardSlot = Slot<ProjectId>;
 
 impl<T: Clone + PartialEq> Slot<T> {
@@ -498,7 +497,6 @@ impl Move {
         store.move_dragged || (store.moving.is_none() && store.landing_dropped())
     }
 
-    /// Whether `item` is what's moving, as [`Moving::holds`] says.
     pub fn holds(&self, item: &Selection) -> bool {
         self.what.holds(&self.project, item)
     }
@@ -521,7 +519,6 @@ impl Move {
         Some(slot.place(order, name))
     }
 
-    /// Whether it's terminal `id` that's moving.
     pub fn of_terminal(&self, id: TerminalId) -> bool {
         matches!(self.what, Moving::Terminal { id: moving, .. } if moving == id)
     }
@@ -749,7 +746,6 @@ impl Move {
         self.commit_in(store.workspace(&self.project)?)
     }
 
-    /// [`Self::commit_to`] in `workspace`.
     fn commit_in(&self, workspace: &Workspace) -> Option<CommitTo> {
         let (Op::Commit, Moving::Files(Changes { worktree, .. })) = (self.op, &self.what) else {
             return None;
@@ -877,7 +873,6 @@ impl Move {
             Stop::NewStack { first: false } => "to a new stack".into(),
             Stop::NewStack { first: true } => "to a new stack at the top".into(),
             Stop::Card(Slot::Before(before)) => format!("above {}", project_name(store, before)),
-            // Below the last of the others.
             Stop::Card(Slot::End) => {
                 let last = match &self.what {
                     Moving::Project(order) => order.iter().rev().find(|id| **id != self.project),
@@ -889,7 +884,6 @@ impl Move {
                 )
             }
             Stop::Worktree(Slot::Before(before)) => format!("above {before}"),
-            // Below the last of the others.
             Stop::Worktree(Slot::End) => {
                 let last = match &self.what {
                     Moving::Worktree { name, order } => order.iter().rev().find(|n| *n != name),
@@ -1761,7 +1755,6 @@ pub struct TerminalPreview {
     id: TerminalId,
     /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
     offset: Point<Pixels>,
-    /// Whether it's dragged by its tile's bar, not its row.
     from_tile: bool,
 }
 

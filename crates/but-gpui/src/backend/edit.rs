@@ -9,7 +9,6 @@ use gitbutler_operating_modes::OperatingMode;
 use super::intent::Run;
 use super::{CommitId, Intent, OpKind, title};
 
-/// The commit being edited.
 #[derive(Debug, Clone)]
 pub struct Editing {
     /// What it's shown by: see [`super::short_reference`].
@@ -17,7 +16,6 @@ pub struct Editing {
     pub title: String,
 }
 
-/// The commit `ctx` is editing, if it's in edit mode.
 pub(super) fn editing(ctx: &Context) -> Result<Option<Editing>> {
     let OperatingMode::Edit(meta) = modes::operating_mode(ctx)?.operating_mode else {
         return Ok(None);

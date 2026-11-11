@@ -206,7 +206,6 @@ impl Detail {
         self.brief_list_changed(cx);
     }
 
-    /// What's being written, if anything is.
     pub(super) fn brief_writing(&self) -> Option<&Writing> {
         self.brief.input.as_ref().map(|input| &input.writing)
     }
@@ -276,7 +275,6 @@ impl Detail {
         self.finish_writing(body, window, cx);
     }
 
-    /// Add `said` to what's being written.
     pub(super) fn add_to_writing(
         &mut self,
         said: &str,

@@ -2167,7 +2167,6 @@ impl AppView {
         self.open_settings_at(Page::App(AppPage::Integrations), window, cx);
     }
 
-    /// Settings, at Project, for `project`.
     pub fn open_project_settings(
         &mut self,
         project: ProjectId,
@@ -2284,14 +2283,14 @@ fn read_failed(
     Row::new(title, error_summary(err), again)
 }
 
-/// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
-/// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
-/// app.
 /// Draw the app in the look just picked, once the update picking it is over.
 fn app_look(app: &AppHandle, window: &mut Window, cx: &mut App) {
     app.update_later(window, cx, |app, window, cx| app.apply_look(window, cx));
 }
 
+/// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
+/// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
+/// app.
 fn segmented<T: Copy + PartialEq + 'static>(
     id: &str,
     choices: impl IntoIterator<Item = (T, &'static str)>,

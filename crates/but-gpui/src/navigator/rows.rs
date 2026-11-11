@@ -112,7 +112,6 @@ pub(super) enum RowKey {
     After(Box<RowKey>),
 }
 
-/// Each of `rows`' keys, as [`RowKey`] says.
 pub(super) fn row_keys(rows: &[Row], store: &Store) -> Vec<Option<RowKey>> {
     let commits: HashMap<CommitId, &str> = (store.projects.iter())
         .filter_map(|entry| entry.workspace.as_ref())

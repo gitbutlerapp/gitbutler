@@ -164,7 +164,6 @@ impl Detail {
         self.ask_briefs(cx);
     }
 
-    /// Whether the tabs have the keys.
     pub(crate) fn tabs_focused(&self, window: &Window) -> bool {
         self.tabs_focus.is_focused(window)
     }
@@ -1192,7 +1191,6 @@ fn byline(review: &Review, theme: &Theme) -> Option<Div> {
     Some(row)
 }
 
-/// The id the description of `review` is drawn with.
 fn description_id(review: &Review) -> String {
     format!("review-{}", review.number)
 }

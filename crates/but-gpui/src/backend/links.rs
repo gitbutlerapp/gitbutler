@@ -20,7 +20,6 @@ use unix as platform;
 #[cfg(windows)]
 use self::windows as platform;
 
-/// What reaches the app from outside.
 #[derive(Debug, PartialEq)]
 pub enum Incoming {
     Link(String),

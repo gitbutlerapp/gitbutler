@@ -1219,7 +1219,6 @@ impl CommandEditor {
     }
 }
 
-/// The cap of keys being recorded, with those pressed so far.
 /// Have `take` get every key pressed in `window`, and nothing else, while what's returned lasts.
 fn intercept_keys(
     take: fn(&mut CommandEditor, gpui::Keystroke, &mut Context<CommandEditor>),
@@ -1237,6 +1236,7 @@ fn intercept_keys(
     })
 }
 
+/// The cap of keys being recorded, with those pressed so far.
 fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use<> {
     let keys: Vec<String> = (recording.strokes.iter())
         .map(|stroke| edit::written(stroke, None, std::env::consts::OS))

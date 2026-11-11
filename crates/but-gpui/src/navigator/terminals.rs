@@ -66,7 +66,6 @@ enum Group {
     NeedsYou,
 }
 
-/// A row of the overview.
 #[derive(Debug, Clone, PartialEq)]
 enum Item {
     /// A heading, with how many terminals are under it.
@@ -276,7 +275,6 @@ impl TerminalOverview {
             .collect()
     }
 
-    /// Whether the card is folded to its bar.
     pub fn is_shut(&self) -> bool {
         self.shut
     }
@@ -416,7 +414,6 @@ impl TerminalOverview {
         cx.notify();
     }
 
-    /// Fold the card to its bar, or open it.
     fn toggle_card(&mut self, cx: &mut Context<Self>) {
         self.shut ^= true;
         cx.notify();

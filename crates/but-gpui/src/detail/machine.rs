@@ -34,7 +34,6 @@ const SHOWN: usize = 8;
 pub(super) enum Fetch {
     /// Waiting its turn, or under way.
     Running,
-    /// Fetched, and what it fetched.
     Done(CommitId),
     Failed(SharedString),
 }

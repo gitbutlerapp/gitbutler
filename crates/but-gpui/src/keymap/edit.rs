@@ -16,14 +16,12 @@ struct Pair {
     key: Range<usize>,
     /// Where its value ends.
     end: usize,
-    /// The comma after it, when there is one.
     comma: Option<usize>,
 }
 
 /// A section, as the text has it.
 struct SectionText {
     object: Range<usize>,
-    /// The comma after it, when there is one.
     comma: Option<usize>,
     /// Between the braces of its `bindings`.
     inside: Range<usize>,
@@ -202,7 +200,6 @@ fn replaced(text: &str, mut edits: Vec<(Range<usize>, String)>) -> String {
     text
 }
 
-/// Where the line with `at` in it starts.
 fn line_start(text: &str, at: usize) -> usize {
     let before = text.get(..at).unwrap_or_default();
     before.rfind('\n').map_or(0, |newline| newline + 1)

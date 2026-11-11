@@ -84,7 +84,6 @@ impl BriefInput {
     }
 }
 
-/// What's being written on a Brief tab.
 #[derive(Clone, PartialEq, Eq)]
 pub(in crate::detail) enum Writing {
     /// A note, kept until it's sent.
@@ -173,7 +172,6 @@ impl BriefState {
         self.open.contains(&fold)
     }
 
-    /// Open `fold`, or shut it if it was open.
     pub(in crate::detail) fn toggle(&mut self, fold: BriefFold) {
         if !self.open.remove(&fold) {
             self.open.insert(fold);

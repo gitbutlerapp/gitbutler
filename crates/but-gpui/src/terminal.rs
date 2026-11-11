@@ -40,7 +40,6 @@ pub enum TerminalEvent {
     Retitled(SharedString),
     /// The program running is at this now.
     Restatused(Status),
-    /// The shell exited.
     Exited,
 }
 

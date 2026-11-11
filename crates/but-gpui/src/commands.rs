@@ -451,7 +451,6 @@ fn selected_branch<'a>(app: &AppView, cx: &'a App) -> Option<(&'a Workspace, Ful
     Some((app.store.read(cx).workspace(&project)?, ref_name?))
 }
 
-/// The workspace of the selected project.
 fn selected_workspace<'a>(app: &AppView, cx: &'a App) -> Option<&'a Workspace> {
     let store = app.store.read(cx);
     store.workspace(store.selection.as_ref()?.project())

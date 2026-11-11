@@ -148,7 +148,6 @@ pub fn github_signed_in(device_code: &str) -> Result<Option<String>> {
     }
 }
 
-/// Who is signed in to GitButler.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GitButlerUser {
     /// Their name, else their login, else their email.

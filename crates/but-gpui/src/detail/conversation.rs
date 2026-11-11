@@ -81,7 +81,6 @@ impl Detail {
         )
     }
 
-    /// How many remarks the conversation on pull request `number` of `project` shows.
     pub(super) fn remarks_shown(&self, project: &ProjectId, number: u64, cx: &App) -> usize {
         let store = self.store.read(cx);
         let github = store.workspace(project).and_then(|ws| ws.forge) == Some(Forge::GitHub);
@@ -91,7 +90,6 @@ impl Detail {
         }
     }
 
-    /// The `ix`th remark of the conversation on pull request `number` of `project`.
     pub(super) fn remark_at(
         &self,
         project: &ProjectId,

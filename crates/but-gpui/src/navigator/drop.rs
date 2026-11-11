@@ -20,7 +20,6 @@ use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
 use crate::ui::{Icon, dp, h_flex, small_icon};
 
 impl Navigator {
-    /// Let a row offer its right-click menu.
     pub(super) fn row_menu(
         &self,
         el: AnyElement,

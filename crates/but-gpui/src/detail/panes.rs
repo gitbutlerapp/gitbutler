@@ -1444,8 +1444,6 @@ impl From<Selection> for CrumbTo {
 /// How tall a commit's header across the page is with its message closed, until it's drawn.
 pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 
-/// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
-/// rather than hiding its end.
 /// What a commit only a remote has shows of itself, whether listed or brought in by a merge,
 /// and the remote that has it, if it has a name.
 struct RemoteMessage<'a> {
@@ -1458,6 +1456,8 @@ struct RemoteMessage<'a> {
     remote: Option<&'a str>,
 }
 
+/// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
+/// rather than hiding its end.
 pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
     h_flex().min_w_0().items_start().gap(dp(8.)).child(
         div()
@@ -1549,7 +1549,6 @@ pub(super) struct Lane {
     pub(super) branches: String,
     /// When its commits were made, in seconds since the epoch.
     pub(super) commits: Vec<i64>,
-    /// When it last changed.
     pub(super) changed: Option<i64>,
 }
 
@@ -2349,7 +2348,6 @@ pub(super) fn and_more(rest: usize, theme: &Theme) -> Option<Div> {
     })
 }
 
-/// How many commits are conflicted, when any are.
 /// A commit message's body, set as written: wrapped where its author wrapped it, and at most a
 /// reading line wide.
 pub(super) fn message_body(body: impl IntoElement, theme: &Theme) -> Div {

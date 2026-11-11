@@ -1845,7 +1845,6 @@ impl Store {
         self.running.iter().filter(move |r| r.project == *project)
     }
 
-    /// Whether `project` has an operation running.
     pub(super) fn busy_in(&self, project: &ProjectId) -> bool {
         self.running_in(project).next().is_some()
     }

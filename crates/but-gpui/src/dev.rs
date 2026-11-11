@@ -140,7 +140,6 @@ thread_local! {
     static ACTIVE: Cell<Option<AnyWindowHandle>> = const { Cell::new(None) };
 }
 
-/// Whether the script counts `window` as the active one.
 pub fn is_active(window: &Window) -> bool {
     ACTIVE.get() == Some(window.window_handle())
 }
@@ -1168,7 +1167,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
             });
         }
-        // A part Settings › Appearance would show or hide, without opening it.
         // Where Settings › Appearance would put the navigator, without opening it.
         "navigator" => {
             let place = match rest.trim() {
@@ -1183,6 +1181,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 })
             });
         }
+        // A part Settings › Appearance would show or hide, without opening it.
         "pref" => {
             let (part, state) = rest.split_once(' ').unwrap_or((rest, ""));
             let on = match state.trim() {
@@ -1262,7 +1261,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let by = Duration::try_from_secs_f32(by / 1e3).context("tick takes milliseconds")?;
             anyhow::ensure!(clock::tick(by), "the clock runs: `clock stop` first");
         }
-        // The key contexts from the window down to what's focused, by their names.
         "activate" => activate(window),
         "close" => {
             let closes = match window.root::<AppView>().flatten() {
@@ -1278,6 +1276,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             LINUX_CONTROLS.store(true, Ordering::Relaxed);
             cx.refresh_windows();
         }
+        // The key contexts from the window down to what's focused, by their names.
         "keys" => {
             let contexts: Vec<String> = (window.context_stack().iter())
                 .filter_map(|context| Some(context.primary()?.key.to_string()))

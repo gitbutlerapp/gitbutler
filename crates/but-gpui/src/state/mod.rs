@@ -462,7 +462,6 @@ pub struct Store {
     /// Whether Briefs is asked about the projects' branches.
     pub briefs: bool,
     pub toasts: Vec<Toast>,
-    /// Who is signed in to GitButler.
     pub account: account::Account,
     /// Where a terminal finds `but`, if it does; `None` until looked for, which only macOS
     /// does.
@@ -756,7 +755,6 @@ impl Store {
         self.project(id)?.workspace.as_ref()
     }
 
-    /// `project`'s commit `id`, and the branch holding it.
     pub fn find_commit(&self, project: &str, id: CommitId) -> Option<(&Branch, &Commit)> {
         self.workspace(project)?.find_commit(id)
     }

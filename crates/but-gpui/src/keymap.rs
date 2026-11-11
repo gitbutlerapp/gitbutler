@@ -49,7 +49,6 @@ pub enum KeymapFile {
 
 impl KeymapFile {
     pub const ALL: [KeymapFile; 3] = [KeymapFile::Standard, KeymapFile::Base, KeymapFile::Menus];
-    /// The files of keys.
     const KEYS: [KeymapFile; 2] = [KeymapFile::Standard, KeymapFile::Base];
 
     fn name(self) -> &'static str {
@@ -379,7 +378,6 @@ fn bind_keys(keymap: Keymap, cx: &mut App) {
     }
 }
 
-/// A file's sections, in its order.
 pub(crate) fn sections(json: &str) -> Result<Vec<Section>> {
     serde_json_lenient::from_str(json).context("not a keymap")
 }

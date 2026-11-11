@@ -17,7 +17,6 @@ use super::{
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::{Highlight, Theme};
 
-/// One of a conflict's rows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
     /// What to keep, above the conflict.
@@ -151,7 +150,6 @@ pub fn rows(rows: &mut Vec<DiffRow>, file: usize, conflict: &Conflict, view: Vie
     }
 }
 
-/// The row `part` of a conflict.
 pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
     let id = |name: &'static str, ix: usize| -> ElementId {
         (name, row.conflict.at as usize * 4096 + ix).into()

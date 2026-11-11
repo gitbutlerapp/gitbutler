@@ -310,7 +310,6 @@ impl Detail {
         }
     }
 
-    /// What's said about `spot`, and what's being written about it.
     fn talk_at<'a>(&'a self, spot: &Spot<'_>, state: &'a BriefState) -> Talk<'a> {
         let version = state.page().map_or(0, |page| page.version);
         Talk {

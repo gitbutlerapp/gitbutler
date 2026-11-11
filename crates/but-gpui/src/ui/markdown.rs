@@ -299,7 +299,6 @@ fn push_decoded(text: &mut String, html: &str) {
     text.push_str(rest);
 }
 
-/// A piece of HTML.
 #[derive(Debug, PartialEq)]
 enum Html {
     Text(String),
@@ -422,7 +421,6 @@ fn collapse_spaces(text: &str) -> String {
     out
 }
 
-/// `markdown` as blocks to draw.
 pub fn parse(markdown: &str) -> Vec<Block> {
     parse_links(markdown, false)
 }
@@ -459,7 +457,6 @@ fn parse_links(markdown: &str, anchors: bool) -> Vec<Block> {
     let mut html_gap = false;
     // In a table row: whether it's the header, and how many of its cells came before.
     let (mut in_head, mut cells) = (false, 0);
-    // How many images are drawn so far.
     let mut drawn = 0;
     // In a table that lays out its cells; the tables so far, and the rows read of this one.
     let (mut grid, mut tables, mut rows) = (false, 0, 0);
@@ -1476,7 +1473,6 @@ mod tests {
             .collect()
     }
 
-    /// Where `block`'s links go.
     fn urls(block: &Block) -> Vec<&str> {
         block.links.iter().map(|(_, url)| url.as_str()).collect()
     }

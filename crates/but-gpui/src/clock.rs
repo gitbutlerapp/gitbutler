@@ -55,7 +55,6 @@ pub fn run() {
     }
 }
 
-/// Whether the clock is stopped.
 #[cfg(feature = "dev-script")]
 pub fn stopped() -> bool {
     CLOCK.lock().stopped.is_some()

@@ -190,7 +190,6 @@ pub struct BriefCode {
 /// Where code a brief shows comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CodeSource {
-    /// A commit.
     Committed,
     /// Uncommitted work as the brief was written.
     Worktree,

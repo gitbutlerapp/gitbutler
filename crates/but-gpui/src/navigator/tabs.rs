@@ -95,7 +95,6 @@ pub(super) enum TabKey {
 }
 
 impl TabKey {
-    /// The project the tab's in, if it's one's.
     fn project(&self) -> Option<&ProjectId> {
         match self {
             TabKey::Project(id) | TabKey::Checkout(id, _) => Some(id),
@@ -566,12 +565,10 @@ impl NavigatorTabs {
         }
     }
 
-    /// The tab the selection is in.
     pub(super) fn active_tab(store: &Store) -> Option<TabKey> {
         Some(Self::tab_of(store, store.selection.as_ref()?))
     }
 
-    /// The tab `selection` is in.
     fn tab_of(store: &Store, selection: &Selection) -> TabKey {
         let project = selection.project().clone();
         if store.project(&project).is_some_and(|entry| !entry.expanded) {
@@ -620,7 +617,6 @@ impl NavigatorTabs {
             && !matches!(&self.moved_tab, Some(TabKey::Project(moved)) if moved == id)
     }
 
-    /// How much of `id`'s worktrees show at `now`.
     fn share(&self, id: &ProjectId, now: Instant) -> f32 {
         let open = self.opens(id);
         match self.opening.get(id) {
@@ -857,7 +853,6 @@ impl NavigatorTabs {
         (self.marks).retain(|_, mark| mark.shown || mark.slide.openness(now).is_some());
     }
 
-    /// How much of `key`'s mark shows at `now`.
     fn mark_share(&self, key: &TabKey, now: Instant) -> f32 {
         (self.marks.get(key)).map_or(0., |mark| mark.slide.share(mark.shown, now))
     }
@@ -1010,7 +1005,6 @@ impl NavigatorTabs {
         self.scroll_rest.unwrap_or(offset).min(most)
     }
 
-    /// What takes the keys here.
     pub(crate) fn focus_handle(&self) -> &FocusHandle {
         &self.focus
     }
@@ -1258,7 +1252,6 @@ impl NavigatorTabs {
         }
     }
 
-    /// The pointer came onto a tab or left one.
     fn tab_hovered(
         &mut self,
         key: &TabKey,

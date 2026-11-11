@@ -194,7 +194,6 @@ impl Checks {
     }
 }
 
-/// The hunks of `path` among `files`.
 fn file_hunks<'a>(files: &'a [FileDiff], path: &str) -> &'a [Hunk] {
     (files.iter().find(|f| f.file.path == path)).map_or(&[], FileDiff::hunks)
 }

@@ -225,9 +225,7 @@ impl BranchEdits {
 pub struct CommitEdits {
     /// It's below the top of a named branch, so a new branch can end at it.
     pub new_branch_here: bool,
-    /// Its message has body lines to rewrap.
     pub rewrap: bool,
-    /// It has a change ID to copy.
     pub change_id: bool,
 }
 
@@ -414,7 +412,6 @@ impl AppView {
         );
     }
 
-    /// The selected commit, and the project it's in.
     fn selected_commit<'a>(&self, cx: &'a App) -> Option<(ProjectId, &'a Commit)> {
         let store = self.store.read(cx);
         let Some(Selection::Commit(project, id)) = &store.selection else {

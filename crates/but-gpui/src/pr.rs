@@ -32,7 +32,6 @@ actions!(
 pub struct ReviewView {
     store: Entity<Store>,
     project: ProjectId,
-    /// The branch, by full ref.
     branch: FullName,
     title: Entity<TextInput>,
     body: Entity<TextInput>,

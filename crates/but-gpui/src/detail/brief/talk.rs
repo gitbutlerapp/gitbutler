@@ -151,7 +151,6 @@ impl Detail {
         .detach();
     }
 
-    /// Send what's written.
     /// A failure says so and keeps what wasn't sent.
     pub(super) fn send_brief_talk(&mut self, cx: &mut Context<Self>) {
         let Some((id, version)) = self.shown_version() else {

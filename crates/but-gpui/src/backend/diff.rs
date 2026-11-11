@@ -63,7 +63,6 @@ pub fn blame_lines(
         .collect())
 }
 
-/// What a diff is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffSource {
     Worktree,

@@ -205,7 +205,6 @@ fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
     })
 }
 
-/// How `check` stands.
 fn check_state(check: &but_forge::CiCheck) -> CheckState {
     use but_forge::{CiConclusion as C, CiStatus as S};
     match &check.status {
@@ -220,7 +219,6 @@ fn check_state(check: &but_forge::CiCheck) -> CheckState {
     }
 }
 
-/// What [`refresh_reviews`] found.
 pub struct RefreshedReviews {
     /// A fingerprint of the pull requests the cache now knows, as
     /// [`Workspace::reviews`](super::Workspace::reviews).

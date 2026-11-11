@@ -325,7 +325,6 @@ impl Workspace {
         (self.worktrees.iter()).find(|worktree| worktree.branch.as_ref() == Some(ref_name))
     }
 
-    /// The uncommitted files of `checkout`.
     pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
         match checkout {
             Checkout::Main => Some(&self.uncommitted),
@@ -1396,7 +1395,6 @@ pub struct Selected {
 }
 
 impl Selected {
-    /// All of `file`.
     pub fn whole(file: &FileChange) -> Self {
         Self {
             file: file.clone(),

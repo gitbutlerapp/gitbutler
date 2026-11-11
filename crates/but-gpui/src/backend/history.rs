@@ -17,7 +17,6 @@ use super::intent::Run;
 use super::{CommitId, Intent, OpKind, SnapshotId, open, short_ref, short_text};
 use but_core::WORKSPACE_REF_NAME;
 
-/// One operation in the log.
 #[derive(Debug, Clone)]
 pub struct Operation {
     /// The snapshot taken just before it.
@@ -397,7 +396,6 @@ fn checkout_branches(
     Some(branches)
 }
 
-/// Commit `commit` from its own `data`.
 fn recorded(repo: &gix::Repository, commit: gix::ObjectId, data: &[u8]) -> Option<Recorded> {
     let parsed = gix::objs::CommitRef::from_bytes(data, repo.object_hash())
         .ok()?
@@ -670,7 +668,6 @@ impl Intent for Redo {
     }
 }
 
-/// The newest entry in the project's operation log.
 pub fn oplog_head(ctx: &but_ctx::Context) -> Option<SnapshotId> {
     let newest = oplog::list_snapshots(ctx, 1, None, None, None).ok()?;
     newest
@@ -697,7 +694,6 @@ pub fn newest_entries(ctx: &but_ctx::Context) -> Vec<(SnapshotId, bool)> {
         .collect()
 }
 
-/// What undoing an operation came to.
 pub enum Undone {
     /// It was undone: what it was.
     Done(&'static str),

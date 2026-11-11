@@ -17,9 +17,7 @@ use crate::ui::{Icon, dp, v_flex};
 enum Left {
     /// Commits no remote has, and how many.
     Unpushed(usize),
-    /// Its branch merged.
     Merged,
-    /// Commits, every one pushed.
     Pushed,
     /// No commits of its own.
     Nothing,
