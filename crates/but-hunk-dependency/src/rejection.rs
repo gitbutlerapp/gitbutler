@@ -15,8 +15,6 @@ use crate::ui::{
     HunkDependencies, HunkLockTarget, hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
 
-/// A single rejected change, with the workspace dependencies that explain why
-/// it could not be applied.
 #[derive(Debug, Clone)]
 pub struct RejectedChange {
     /// The worktree-relative path of the rejected change.

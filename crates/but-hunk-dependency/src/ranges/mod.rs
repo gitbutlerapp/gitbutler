@@ -14,11 +14,9 @@ pub use hunk::HunkRange;
 mod paths;
 use paths::PathRanges;
 
-/// All hunk-dependencies for the entire workspace.
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<BString, Vec<HunkRange>>,
-    /// Errors that occurred while computing the fields in this instance.
     pub errors: Vec<CalculationError>,
 }
 
@@ -209,7 +207,6 @@ impl WorkspaceRanges {
         None
     }
 
-    /// Return a reference to the internal mapping that is used for [`Self::intersection()`]
     pub fn ranges_by_path_map(&self) -> &HashMap<BString, Vec<HunkRange>> {
         &self.paths
     }
@@ -307,7 +304,6 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
 
         hunk_indexes[next_index] += 1;
 
-        // Increment shift for all stacks except the one this hunk belongs to.
         for (i, shift) in line_shifts.iter_mut().enumerate() {
             if i != next_index {
                 *shift += hunk_dep.line_shift;

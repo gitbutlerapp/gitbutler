@@ -7,7 +7,6 @@ use crate::{ui::HunkLockTarget, utils::PaniclessSubtraction};
 /// new changes come in from other commits and/or stacks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HunkRange {
-    /// The kind of change that was performed on the path of the parent-diff.
     pub change_type: TreeStatusKind,
     pub target: HunkLockTarget,
     pub commit_id: gix::ObjectId,
@@ -59,9 +58,7 @@ impl HunkRange {
         let self_lines = self.lines;
         let self_line_shift = self.line_shift;
 
-        // Calculate if part or all of self will remain above incoming
         let mut above = if incoming_top <= self_top {
-            // There will be no self above incoming.
             None
         } else if incoming_top < self_bottom {
             // There will be a trimmed self above incoming.
@@ -73,9 +70,7 @@ impl HunkRange {
             Some(self.clone())
         };
 
-        // Calculate if part or all of self will remain below incoming
         let mut below = if incoming_bottom >= self_bottom {
-            // There will be no self below incoming.
             None
         } else if incoming_bottom > self_top {
             // There will be a trimmed self below incoming.
@@ -133,7 +128,6 @@ impl HunkRange {
 
     pub(crate) fn intersects(&self, start: u32, lines: u32) -> Result<bool> {
         if self.change_type == TreeStatusKind::Deletion {
-            // Special case when file is deleted.
             return Ok(true);
         }
 

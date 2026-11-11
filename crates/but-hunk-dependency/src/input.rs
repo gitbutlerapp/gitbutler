@@ -4,13 +4,10 @@ use gix::bstr::BString;
 
 use crate::ui::HunkLockTarget;
 
-/// A whole stack for the purpose of generating hunk locking information from it, for use in [`WorkspaceRanges::try_from_stacks()`](crate::WorkspaceRanges::try_from_stacks()) .
 #[derive(Debug, Clone)]
 pub struct InputStack {
     pub target: HunkLockTarget,
-    /// **The commits are ordered from the base to the tip of the stack (application order)**.
-    ///
-    /// TODO: Why? This is inconsistent with the rest of the codebase.
+    /// TODO: Why base to tip? This is inconsistent with the rest of the codebase.
     pub commits_from_base_to_tip: Vec<InputCommit>,
 }
 
