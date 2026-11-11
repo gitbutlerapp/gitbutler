@@ -35,8 +35,6 @@ pub trait GitContextExt {
     /// Fetch from the given remote using its configured fetch refspecs.
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
 
-    /// Push the given commit to the provided remote branch.
-    ///
     /// Returns the stderr output of the Git executable if used.
     fn push<B>(
         &self,
@@ -280,8 +278,6 @@ fn needs_authorization_message(prompt: &str) -> &'static str {
     }
 }
 
-/// Push the given commit to the provided remote branch.
-///
 /// Returns the stderr output of the Git executable if used.
 #[allow(clippy::too_many_arguments)]
 pub fn push_with_askpass<B>(

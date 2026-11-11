@@ -44,7 +44,6 @@ impl Socket for BufStream<UnixStream> {
     }
 }
 
-/// A tokio-based askpass server implementation.
 pub struct TokioAskpassServer {
     // Always Some until dropped.
     server: Option<UnixListener>,

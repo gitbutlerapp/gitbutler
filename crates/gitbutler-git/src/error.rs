@@ -7,7 +7,6 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
     /// executing the operation itself.
     #[error("backend error: {0}")]
     Backend(#[from] BE),
-    /// The given refspec was not found.
     /// Usually returned by a push or fetch operation.
     #[error("a ref-spec was not found: {0}")]
     RefNotFound(String),

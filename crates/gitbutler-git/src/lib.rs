@@ -11,7 +11,6 @@
 #[cfg(feature = "tokio")]
 mod context;
 mod error;
-/// utilities to execute a command
 pub mod executor;
 mod refspec;
 mod repository;

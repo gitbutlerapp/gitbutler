@@ -57,21 +57,15 @@ pub enum RepositoryError<
     AskpassExecutableMismatch,
     #[error("Run `{prefix}cargo build -p gitbutler-git` to get the askpass binary at '{path}'")]
     AskpassExecutableNotFound { path: String, prefix: String },
-    /// The remote configuration could not be read.
     #[error("failed to read configuration for remote `{remote}`: {source}")]
     RemoteConfiguration {
-        /// The remote whose configuration could not be read.
         remote: String,
-        /// The configuration lookup error.
         #[source]
         source: gix::Error,
     },
-    /// The repository could not be opened.
     #[error("failed to open repository at `{}`: {source}", path.display())]
     RepositoryOpen {
-        /// The repository path that could not be opened.
         path: PathBuf,
-        /// The repository open error.
         #[source]
         source: gix::Error,
     },
@@ -276,7 +270,6 @@ where
             res = sock_server.accept().fuse() => {
                 let mut sock = res.map_err(Error::<E>::AskpassServer)?;
 
-                // get the PID of the peer
                 let peer_pid = sock.pid().map_err(Error::<E>::NoPid)?;
 
                 // get the full image path of the peer id; this is pretty expensive at the moment.
@@ -296,7 +289,6 @@ where
                     .and_then(|p| p.exe().map(|exe| exe.to_string_lossy().into_owned()))
                     .ok_or(Error::<E>::NoSuchPid(peer_pid))?;
 
-                // stat the askpass executable that is being invoked
                 let peer_stat = executor.stat(&peer_path).await.map_err(Error::<E>::Exec)?;
 
                 let valid_executable = if peer_stat.ino == askpath_stat.ino {
@@ -313,18 +305,14 @@ where
                     Err(Error::<E>::AskpassExecutableMismatch)?;
                 }
 
-                // await for peer to send secret
                 let peer_secret = sock.read_line().await.map_err(Error::<E>::AskpassIo)?;
 
-                // check the secret
                 if peer_secret.trim() != secret {
                     Err(Error::<E>::AskpassSecretMismatch)?;
                 }
 
-                // get the prompt
                 let prompt = sock.read_line().await.map_err(Error::<E>::AskpassIo)?;
 
-                // call the prompt handler
                 let response = on_prompt(prompt.clone()).await;
                 if let Some(response) = response {
                     sock.write_line(&response).await.map_err(Error::<E>::AskpassIo)?;
@@ -484,7 +472,6 @@ where
     if status == 0 {
         Ok(())
     } else {
-        // Was the ref not found?
         if let Some(refname) = stderr
             .lines()
             .find(|line| line.to_lowercase().contains("couldn't find remote ref"))
@@ -554,8 +541,6 @@ fn fetch_refspecs(repo: &gix::Repository, remote: &str) -> gix::Result<Vec<Strin
     })
 }
 
-/// Pushes a refspec to the given remote in the repository at the given path.
-///
 /// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
 /// ferry prompts and responses between the SSH process and this process. This should be used
 /// carefully as it will unceremoniously override any askpass configuration the user might have,
@@ -622,7 +607,6 @@ where
         return Err(crate::Error::ForcePushProtection(base_error));
     }
 
-    // Check for specific error patterns in stderr
     if let Some(refname) = stderr
         .lines()
         .find(|line| line.to_lowercase().contains("does not match any"))
@@ -652,8 +636,6 @@ where
     Err(base_error.into())
 }
 
-/// Clones the given repository URL to the target directory.
-///
 /// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
 /// ferry prompts and responses between the SSH process and this process. This should be used
 /// carefully as it will unceremoniously override any askpass configuration the user might have,

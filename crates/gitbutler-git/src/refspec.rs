@@ -13,14 +13,11 @@ pub enum Error {
 pub struct RefSpec {
     /// If `true`, will update the ref upon a fetch or push even if it is not a fast-forward.
     pub update_non_fastforward: bool,
-    /// The source refspec.
     pub source: Option<String>,
-    /// The destination refspec.
     pub destination: Option<String>,
 }
 
 impl RefSpec {
-    /// Parses a refspec from a string.
     pub fn parse<S: AsRef<str>>(refspec: S) -> Result<Self, Error> {
         let s = refspec.as_ref();
         let mut refspec = Self::default();
