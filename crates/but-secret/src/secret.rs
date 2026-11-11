@@ -136,7 +136,6 @@ mod tests {
     }
 }
 
-/// Delete the secret at `handle` permanently from `namespace`.
 pub fn delete(handle: &str, namespace: Namespace) -> Result<()> {
     match entry_for(handle, namespace)
         .map_err(annotate_keychain_error)?
