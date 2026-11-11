@@ -852,8 +852,8 @@ fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<
     })
 }
 
-/// Discover the Git repository containing `directory`, resolving a linked worktree to the repository
-/// of its main worktree so that callers see the same workspace no matter which checkout they run in.
+/// A linked worktree resolves to the repository of its main worktree so that callers see the
+/// same workspace no matter which checkout they run in.
 pub fn discover_main_repo(directory: impl AsRef<Path>) -> anyhow::Result<gix::Repository> {
     let repo = gix::discover(directory)?;
     if repo.git_dir() == repo.common_dir() {
