@@ -9,16 +9,13 @@ use crate::{ui::HunkLockTarget, utils::PaniclessSubtraction};
 pub struct HunkRange {
     /// The kind of change that was performed on the path of the parent-diff.
     pub change_type: TreeStatusKind,
-    /// The stack that owns `commit_id`.
     pub target: HunkLockTarget,
-    /// The commit in the `stack_id`.
     pub commit_id: gix::ObjectId,
     /// The first line (1-based) at which this hunk is present. If `lines == 0`,
     /// represents the space immediately after the given line, like in unified
     /// diff format (0 is the start of the file, 1 is immediately after line 1
     /// and before line 2, and so on).
     pub start: u32,
-    /// The amount of lines the hunk is spanning.
     pub lines: u32,
     /// How many lines up or down this hunk moved when tracking it through the commits.
     pub line_shift: i32,
@@ -107,7 +104,6 @@ impl HunkRange {
             };
             let lines_to_deduct = i32::try_from(lines_to_deduct)?;
 
-            // Deduct and add.
             if let (Some(above), Some(below)) = (&mut above, &mut below) {
                 // self has split in two (possible if incoming's top is below
                 // self's top and incoming's bottom is above self's bottom).
@@ -135,7 +131,6 @@ impl HunkRange {
         })
     }
 
-    /// See if this range intersects with the hunk identified with `start` and `lines`.
     pub(crate) fn intersects(&self, start: u32, lines: u32) -> Result<bool> {
         if self.change_type == TreeStatusKind::Deletion {
             // Special case when file is deleted.

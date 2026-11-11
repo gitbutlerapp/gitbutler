@@ -7,37 +7,27 @@ use crate::ui::HunkLockTarget;
 /// A whole stack for the purpose of generating hunk locking information from it, for use in [`WorkspaceRanges::try_from_stacks()`](crate::WorkspaceRanges::try_from_stacks()) .
 #[derive(Debug, Clone)]
 pub struct InputStack {
-    /// The stack that contains [commits](InputStack::commits_from_base_to_tip).
     pub target: HunkLockTarget,
-    /// The commits in the stack.
-    ///
     /// **The commits are ordered from the base to the tip of the stack (application order)**.
     ///
     /// TODO: Why? This is inconsistent with the rest of the codebase.
     pub commits_from_base_to_tip: Vec<InputCommit>,
 }
 
-/// A commit along with the files that it changes, used in [`InputStack`].
 #[derive(Debug, Clone)]
 pub struct InputCommit {
-    /// The id of the commit this instance refers to.
     pub commit_id: gix::ObjectId,
-    /// The files were changed by this commit.
     pub files: Vec<InputFile>,
 }
 
-/// A single file changed in an [`InputCommit`].
 #[derive(Debug, Clone)]
 pub struct InputFile {
     /// The worktree-relative path to the file.
     pub path: BString,
-    /// The hunks that changed in this file.
     pub hunks: Vec<InputDiffHunk>,
-    /// The kind of change of the parent file.
     pub change_type: TreeStatusKind,
 }
 
-/// A
 #[derive(Debug, Clone, Copy)]
 pub struct InputDiffHunk {
     /// The 1-based line number at which the previous version of the file started.
@@ -51,7 +41,6 @@ pub struct InputDiffHunk {
 }
 
 impl InputDiffHunk {
-    /// Compute the amount of lines that are left when subtracting old-lines from new-lines.
     pub fn net_lines(&self) -> anyhow::Result<i32> {
         // TODO: use `checked_signed_diff` instead when stable.
         (self.new_lines as i64)
@@ -62,7 +51,6 @@ impl InputDiffHunk {
 }
 
 impl InputDiffHunk {
-    /// Create a new instance from unified `diff`.
     pub fn from_unified_diff(
         but_core::unified_diff::DiffHunk {
             old_start,

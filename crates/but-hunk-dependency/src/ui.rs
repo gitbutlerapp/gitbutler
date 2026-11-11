@@ -3,21 +3,17 @@ use std::fmt::Display;
 use but_core::{RepositoryExt, UnifiedPatch, ref_metadata::StackId, unified_diff::DiffHunk};
 use serde::{Deserialize, Serialize};
 
-/// Compute the hunk dependencies of a set of tree changes.
 fn hunk_dependencies_for_changes(
     repo: &gix::Repository,
     workspace: &but_graph::Workspace,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
-    // accelerate tree-tree-diffs
     let repo = repo.clone().for_tree_diffing()?.with_object_memory();
     let input_stacks = crate::new_stacks_to_input_stacks(&repo, workspace)?;
     let ranges = crate::WorkspaceRanges::try_from_stacks(input_stacks)?;
     HunkDependencies::try_from_workspace_ranges(&repo, ranges, changes)
 }
 
-/// Compute hunk-dependencies for the UI knowing the `worktree_dir` for changes
-/// and `gitbutler_dir` for obtaining stack information.
 pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
     repo: &gix::Repository,
     workspace: &but_graph::Workspace,
@@ -46,7 +42,6 @@ pub struct HunkDependencies {
 but_schemars::register_sdk_type!(HunkDependencies);
 
 impl HunkDependencies {
-    /// Calculate all hunk dependencies using a preparepd [`crate::WorkspaceRanges`].
     pub fn try_from_workspace_ranges(
         repo: &gix::Repository,
         ranges: crate::WorkspaceRanges,

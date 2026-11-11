@@ -21,7 +21,6 @@ use crate::ui::{
 pub struct RejectedChange {
     /// The worktree-relative path of the rejected change.
     pub path: BString,
-    /// The coarse reason the change was rejected.
     pub reason: RejectionReason,
     /// The hunks of this change that depend on a commit in the workspace,
     /// together with the commits they depend on.
@@ -50,24 +49,18 @@ impl RejectedChange {
     }
 }
 
-/// A hunk that depends on one or more commits in the workspace.
 #[derive(Debug, Clone)]
 pub struct HunkDependency {
     /// The dependent hunk, in worktree coordinates.
     pub hunk: HunkHeader,
     /// The dependent hunk as a unified diff without context lines, its `@@` header first.
     pub diff: BString,
-    /// The commits (and their branches, when known) this hunk depends on.
     pub commits: Vec<DependencyCommit>,
 }
 
-/// A commit a hunk depends on.
 #[derive(Debug, Clone)]
 pub struct DependencyCommit {
-    /// The commit in the workspace the hunk depends on.
     pub commit_id: gix::ObjectId,
-    /// The branch owning [`Self::commit_id`], if it could be resolved from the
-    /// workspace.
     pub branch: Option<gix::refs::FullName>,
 }
 
@@ -297,8 +290,6 @@ fn position_of(ws: &Workspace, branch: &gix::refs::FullNameRef) -> Option<(usize
     })
 }
 
-/// Find the hunks of `dependencies` that belong to `spec`.
-///
 /// Matching is by path, then by hunk overlap: a rejected spec covering specific
 /// hunks only reports the dependent hunks that overlap them, while a whole-file
 /// spec (no hunks) reports every dependent hunk for the path. Overlap is used
@@ -345,7 +336,6 @@ fn dependencies_for_spec(
     result
 }
 
-/// The stack a lock points at, if it is identifiable.
 fn stack_of(target: HunkLockTarget) -> Option<StackId> {
     match target {
         HunkLockTarget::Stack(id) => Some(id),
