@@ -1,7 +1,7 @@
 //! What the app can do, as ⌘K and the right-click menus offer it: each command's one title,
 //! whether it throws work away, how a menu words it for the selection, and when it's offered.
 
-use gpui::{Action, App};
+use gpui::{Action, App, Window};
 
 use crate::app::{
     ActualSize, AddProject, AppView, ChangeTheme, CheckForUpdates, CopySelection, Fetch,
@@ -53,7 +53,7 @@ pub(crate) trait Command: Action {
     /// How a right-click menu says it for the selection, with what it acts on in the sentence:
     /// "Pull 3 commits from the remote" for Pull from the remote. It keeps the title's verb, so
     /// what a menu says is what ⌘K finds. The title when `None`.
-    fn phrase(&self, _app: &AppView, _cx: &App) -> Option<String> {
+    fn phrase(&self, _app: &AppView, _window: &Window, _cx: &App) -> Option<String> {
         None
     }
 
@@ -71,7 +71,8 @@ pub(crate) trait Command: Action {
 }
 
 /// Gives each action its title, `risky` after the ones that throw work away, and between braces
-/// the functions of the app that word it for a menu (`phrase`) and say whether it's offered
+/// the functions of the app that word it for a menu (`phrase`, or `phrase_at` where that
+/// depends on what has the keys) and say whether it's offered
 /// (`listed`), and the other names it's found by (`aliases`), and lists them as [`COMMANDS`], in
 /// that order.
 macro_rules! commands {
@@ -99,9 +100,16 @@ macro_rules! commands {
         $title
     };
     (@option phrase $method:expr) => {
-        fn phrase(&self, app: &AppView, cx: &App) -> Option<String> {
+        fn phrase(&self, app: &AppView, _window: &Window, cx: &App) -> Option<String> {
             let phrase: fn(&AppView, &App) -> Option<String> = $method;
             phrase(app, cx)
+        }
+    };
+    // A phrase that depends on where the keys are.
+    (@option phrase_at $method:expr) => {
+        fn phrase(&self, app: &AppView, window: &Window, cx: &App) -> Option<String> {
+            let phrase: fn(&AppView, &Window, &App) -> Option<String> = $method;
+            phrase(app, window, cx)
         }
     };
     (@option listed $method:expr) => {
@@ -227,7 +235,7 @@ commands! {
         phrase: |app, cx| picks(app, cx).map(|n| format!("Move {n} commits")),
     },
     crate::app::SquashSelection => "Squash" {
-        phrase: squash_phrase,
+        phrase_at: squash_phrase,
         // What's uncommitted is amended instead.
         listed: |app, cx| !matches!(app.store.read(cx).selection, Some(Selection::Uncommitted(..))),
     },
@@ -516,8 +524,12 @@ fn pull_phrase(app: &AppView, cx: &App) -> Option<String> {
     Some(format!("Pull {commits} from the remote"))
 }
 
-/// What squashing with the keys starts with: the commits picked or a branch.
-fn squash_phrase(app: &AppView, cx: &App) -> Option<String> {
+/// What the navigator squashes, the row selected. With the keys in a diff it's the changes
+/// they're on there, whatever the row, which the title alone says.
+fn squash_phrase(app: &AppView, window: &Window, cx: &App) -> Option<String> {
+    if app.detail_with_keys(window, cx).is_some() {
+        return None;
+    }
     if let Some(n) = picks(app, cx) {
         return Some(format!("Squash {n} commits"));
     }

@@ -1001,8 +1001,10 @@ pub struct FileDiff {
     pub scope_lines: Option<usize>,
     /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
     pub drawing: Option<Drawing>,
-    /// Which of several commits shown one after another it's from, as for commits picked
-    /// with others between them.
+    /// The commit that made it, in a diff of several commits: of commits shown one after
+    /// another, as for commits picked with others between them, the one it's shown under; of
+    /// a range, as a branch's, the only one that changed the file, and `None` where several
+    /// did. A range's file is taken from that commit.
     pub commit: Option<CommitId>,
 }
 
