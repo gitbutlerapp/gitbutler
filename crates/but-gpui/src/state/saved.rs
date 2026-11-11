@@ -514,6 +514,9 @@ pub struct Prefs {
     /// Commit and branch pages list the messages first among their files, in place of their
     /// headers, and the uncommitted changes go without theirs.
     pub messages_in_diff: bool,
+    /// Commit pages start with their whole message open under the title, rather than only
+    /// the title, which a button opens.
+    pub full_messages: bool,
     /// The bar over the diff and the file headers' counts and buttons are left out, as keys
     /// and menus have what they do.
     pub hide_diff_controls: bool,

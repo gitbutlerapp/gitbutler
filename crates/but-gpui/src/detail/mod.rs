@@ -1486,15 +1486,22 @@ impl Detail {
 
     /// Show or hide what's past the title of the message.
     fn toggle_message(&mut self, cx: &mut Context<Self>) {
+        let open = self.message_open(cx);
         if let Some(files) = self.page.files_mut() {
-            files.message_open = !files.message_open;
+            files.message_open = Some(!open);
         }
         cx.notify();
     }
 
+    /// Whether the message of what the page shows is open past its title.
+    fn message_open(&self, cx: &App) -> bool {
+        (self.page).message_open(self.store.read(cx).prefs.full_messages)
+    }
+
+    /// Have the message of what's shown next start as Settings has messages start.
     fn close_message(&mut self) {
         if let Some(files) = self.page.files_mut() {
-            files.message_open = false;
+            files.message_open = None;
         }
     }
 
