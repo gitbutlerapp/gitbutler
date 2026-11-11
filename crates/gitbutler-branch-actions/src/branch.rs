@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::gravatar::gravatar_url_from_email;
 
-/// Returns a list of branches associated with this project.
 pub fn list_branches(
     ctx: &Context,
     filter: Option<BranchListingFilter>,
@@ -119,32 +118,26 @@ pub fn list_branches(
         upstream_target.as_ref().map(AsRef::as_ref),
     )?;
 
-    // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
 
     // Filter out virtual branches which have no local or remote branches
     branches.retain(|branch| {
-        // If there is no virtual branch, keep the grouping
         let Some(virtual_branch) = &branch.stack else {
             return true;
         };
 
-        // If the virtual branch is applied, keep the grouping
         if virtual_branch.in_workspace {
             return true;
         }
 
-        // If the virtual branch has a local branch, keep the grouping
         if branch.has_local {
             return true;
         };
 
-        // If the virtual branch has remotes, keep the grouping
         if !branch.remotes.is_empty() {
             return true;
         };
 
-        // Otherwise, drop the grouping
         false
     });
 
@@ -223,7 +216,6 @@ fn combine_branches(
     let packed = repo.refs.cached_packed_buffer()?;
     let target_branch_identity = local_target.shorten().try_into()?;
 
-    // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
         // Exclude the configured upstream, which need not share the local target's name.
@@ -268,7 +260,6 @@ fn combine_branches(
         .collect())
 }
 
-/// Converts a group of branches with the same identity into a single branch entry
 fn branch_group_to_branch(
     identity: &BranchIdentity,
     group_branches: Vec<GroupBranch>,
@@ -308,7 +299,6 @@ fn branch_group_to_branch(
         return Ok(None);
     }
 
-    // Virtual branch associated with this branch
     let virtual_branch_reference = virtual_branch.map(|stack| {
         let unarchived_branches = stack.unarchived_segments.iter();
         StackReference {
@@ -380,7 +370,6 @@ enum GroupBranch<'a> {
 #[derive(Debug, Clone)]
 struct GitButlerStack {
     id: StackId,
-    /// `true` if the stack is applied to the workspace.
     in_workspace: bool,
     /// The short name of the top-most segment.
     name: String,
@@ -399,7 +388,6 @@ struct GitButlerStack {
 struct GitbutlerStackSegment {
     /// The name of the segment, without support for these to be anonymous (which is a problem).
     tip: gix::refs::FullName,
-    /// The PR or MR associated with it.
     pr_or_mr: Option<usize>,
 }
 
@@ -532,7 +520,6 @@ impl GroupBranch<'_> {
         }
     }
 
-    /// Determines if the branch is a remote branch by ref name
     fn is_remote_branch(&self, ref_name: &gix::refs::FullNameRef) -> bool {
         if let GroupBranch::Remote(branch) = self {
             ref_name == branch.name()
@@ -542,7 +529,6 @@ impl GroupBranch<'_> {
     }
 }
 
-/// Determines if a branch should be listed in the UI.
 /// This excludes the target branch as well as gitbutler specific branches.
 fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)

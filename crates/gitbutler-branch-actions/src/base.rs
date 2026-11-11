@@ -191,7 +191,6 @@ pub(crate) fn set_base_branch(
         return go_back_to_integration(ctx, perm);
     }
 
-    // lookup a branch by name
     let mut target_branch = repo
         .try_find_reference(target_branch_ref.to_string().as_str())?
         .ok_or(anyhow!("remote branch '{target_branch_ref}' not found"))?;
@@ -406,7 +405,6 @@ pub(crate) fn target_to_base_branch(
         None => (false, Vec::new()),
     };
 
-    // get some recent commits
     let recent_commits = first_parent_commit_ids_with_limit(repo, target_sha, 20)
         .context("failed to get recent commits")?
         .iter()
