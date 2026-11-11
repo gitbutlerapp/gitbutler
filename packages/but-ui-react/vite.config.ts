@@ -22,7 +22,15 @@ const groups = [
 	"Icons",
 ];
 
-const designFolders = ["getting-started", "foundations", "content", "components", "patterns"];
+/** Where each heading's design notes are: the rules for every platform are but-ui's; only how to
+ * build with this library is here. */
+const designFolders = [
+	["design", "getting-started"],
+	["../but-ui/design", "foundations"],
+	["../but-ui/design", "content"],
+	["../but-ui/design", "components"],
+	["../but-ui/design", "patterns"],
+] as const;
 
 const capitalise = (words: string) =>
 	words.charAt(0).toUpperCase() + words.slice(1).replaceAll("-", " ");
@@ -43,14 +51,14 @@ const docsPages = (): Plugin => ({
 		const heading = (source: string) => /^# (.+)$/m.exec(source)?.[1] ?? "";
 
 		const design = [
-			{ id: "design-overview", title: "Design/Overview", file: "DESIGN.md" },
-			...designFolders.flatMap((folder) =>
-				readdirSync(`design/${folder}`)
+			{ id: "design-overview", title: "Design/Overview", file: "../but-ui/DESIGN.md" },
+			...designFolders.flatMap(([dir, folder]) =>
+				readdirSync(`${dir}/${folder}`)
 					.filter((file) => file.endsWith(".md"))
 					.map((file) => ({
 						id: `design-${folder}-${file.replace(/\.md$/, "")}`,
-						title: `Design/${capitalise(folder)}/${heading(read(`design/${folder}/${file}`))}`,
-						file: `design/${folder}/${file}`,
+						title: `Design/${capitalise(folder)}/${heading(read(`${dir}/${folder}/${file}`))}`,
+						file: `${dir}/${folder}/${file}`,
 					})),
 			),
 		];

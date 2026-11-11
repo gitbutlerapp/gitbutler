@@ -29,10 +29,13 @@ const componentSources = import.meta.glob<string>(["../src/*.tsx", "!../src/*.st
 	query: "?raw",
 	import: "default",
 });
-const markdown = import.meta.glob<string>(["../DESIGN.md", "../design/*/*.md"], {
-	query: "?raw",
-	import: "default",
-});
+const markdown = import.meta.glob<string>(
+	["../design/*/*.md", "../../but-ui/DESIGN.md", "../../but-ui/design/*/*.md"],
+	{
+		query: "?raw",
+		import: "default",
+	},
+);
 
 export type StoryEntry = {
 	id: string;
