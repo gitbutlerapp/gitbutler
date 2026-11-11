@@ -383,7 +383,7 @@ impl FromStr for Version {
     }
 }
 
-/// Represents a key value pair stored in a snapshot, like `key: value\n`
+/// A key value pair stored in a snapshot, like `key: value\n`
 /// Using the git trailer format (<https://git-scm.com/docs/git-interpret-trailers>)
 #[derive(Debug, PartialEq, Clone, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(strum::EnumIter))]

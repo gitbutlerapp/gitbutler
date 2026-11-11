@@ -1875,7 +1875,6 @@ impl Iterator for SnapshotIter {
                     continue;
                 }
             } else if self.include_kind.is_some() {
-                // If we require specific kinds but have no details, skip
                 continue;
             }
 
