@@ -364,7 +364,6 @@ impl PartialEq for HunkAssignment {
 }
 
 impl HunkAssignment {
-    /// Whether there is overlap between the two hunks.
     fn intersects(&self, other: HunkAssignment) -> bool {
         if self == &other {
             return true;
