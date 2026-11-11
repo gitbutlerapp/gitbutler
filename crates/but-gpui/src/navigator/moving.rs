@@ -1976,7 +1976,7 @@ pub(super) fn ghost_branch_row(
     h_flex()
         .min_h(dp(theme.sizes.control))
         .mx(dp(3.))
-        .pl(dp(8. + inset))
+        .pl(dp(8. + GHOST_INDENT + inset))
         .pr(dp(12.))
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
@@ -1988,10 +1988,14 @@ pub(super) fn ghost_branch_row(
             let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
             el.relative().child(blink_once(("blink", n), shape, mark))
         })
-        .child(small_icon(Icon::Branch).text_color(mark))
+        .child(icon(Icon::Branch).text_color(mark))
         .child(div().min_w_0().truncate().child(said))
         .into_any_element()
 }
+
+/// How far in a ghost branch or stack row's icon sits, as a real branch or stack row's does
+/// (`RowStyle::row` with its indent of 6), so the preview lines up with what it becomes.
+const GHOST_INDENT: f32 = 6.;
 
 /// The caption a new branch landing beside a branch alone in its lane would give the two, as
 /// the stack they'd make, set in by `inset` and marked in `mark`, as [`ghost_branch_row`] is.
@@ -2004,7 +2008,7 @@ pub(super) fn ghost_stack_row(
     h_flex()
         .min_h(dp(theme.sizes.control))
         .mx(dp(3.))
-        .pl(dp(8. + inset))
+        .pl(dp(8. + GHOST_INDENT + inset))
         .pr(dp(12.))
         .gap(dp(8.))
         .rounded(dp(theme.shape.control))
@@ -2016,9 +2020,13 @@ pub(super) fn ghost_stack_row(
             let shape = div().absolute().inset_0().rounded(dp(theme.shape.control));
             el.relative().child(blink_once(("blink", n), shape, mark))
         })
-        .child(small_icon(Icon::Stack).text_color(mark))
-        .child(count_badge(2, theme))
-        .child(div().flex_none().child("Stack"))
+        .child(icon(Icon::Stack).text_color(mark))
+        .child(
+            h_flex()
+                .gap(dp(6.))
+                .child(count_badge(2, theme))
+                .child(div().flex_none().child("Stack")),
+        )
         .into_any_element()
 }
 
