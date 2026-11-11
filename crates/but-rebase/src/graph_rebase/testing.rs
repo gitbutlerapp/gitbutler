@@ -36,7 +36,6 @@ impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
 }
 /// An extension trait that adds debugging output for graphs
 pub trait TestingDot {
-    /// Creates a dot graph with labels
     fn steps_dot(&self) -> String;
 }
 
@@ -130,7 +129,6 @@ fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
         .collect()
 }
 
-/// Get parents sorted by edge order
 fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
     let mut parents: Vec<_> = graph
         .edges(node)

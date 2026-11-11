@@ -59,8 +59,6 @@ pub struct SomeSelectors {
 }
 
 impl SomeSelectors {
-    /// Creates a set of selectors from different selector input types.
-    ///
     /// Errors out if the selectors iterator is empty.
     pub fn new<T>(selectors: impl IntoIterator<Item = T>) -> Result<Self>
     where
@@ -80,7 +78,6 @@ impl SomeSelectors {
     }
 }
 
-/// A heterogeneous selector input.
 #[derive(Debug, Clone)]
 pub enum AnySelector {
     /// A selector that already points into the current graph revision.
@@ -135,17 +132,12 @@ where
 /// Currently, this is used in the disconnect functionality.
 #[derive(Debug, Clone, Default)]
 pub enum SelectorSet {
-    /// Select all of the children or parents.
     #[default]
     All,
-    /// No children or parents should be selected.
     None,
-    /// A subset of children or parents should be selected.
     Some(SomeSelectors),
 }
 
-/// An enum that is helpful for describing where something should be inserted
-/// relative to.
 #[derive(Debug, Clone)]
 pub enum RelativeToRef<'a> {
     Commit(gix::ObjectId),
@@ -161,7 +153,6 @@ impl ToSelector for RelativeToRef<'_> {
     }
 }
 
-/// Specifies a location relative to which a commit operation should occur.
 /// This is the fully-owned cousin of [RelativeTo].
 #[derive(Debug, Clone)]
 pub enum RelativeTo {
@@ -842,15 +833,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(self.new_selector(new_idx))
     }
 
-    /// Inserts a new node relative to a selector
-    ///
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead, and so does a checkout of the
     /// selector. When inserting below, any nodes
     /// that the selector points to will now be pointed to by the inserted node
     /// instead.
-    ///
-    /// Returns a selector to the inserted step
     pub fn insert(
         &mut self,
         target: impl ToSelector,
@@ -958,8 +945,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// Add an edge to the graph with a desired order.
-    ///
     /// Bails if there is already an edge from the child to the parent with the
     /// same order.
     pub fn add_edge(

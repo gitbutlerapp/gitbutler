@@ -21,7 +21,6 @@ use crate::graph_rebase::{
 /// parents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlannedCommitChange {
-    /// The selected commit whose change range should be merged.
     pub commit_id: gix::ObjectId,
     /// The tree that acts as the base for `commit_id`'s contribution.
     pub base_tree_id: gix::ObjectId,
@@ -41,7 +40,6 @@ pub struct MergeCommitChangesOutcome {
 /// merged change-range result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MergeCommitChangesConflict {
-    /// The tree expression for the conflicted merge step.
     pub tree_expression: TreeExpression,
     /// The paths that remained conflicted after auto-resolution.
     pub conflict_entries: but_core::commit::ConflictEntries,
@@ -344,8 +342,6 @@ fn get_first_parent_metadata<M: RefMetadata>(
     }))
 }
 
-/// Get the base tree ID to use for the merger of the given commit.
-///
 /// The base tree ID is obtained by following the first parent link until a
 /// non-selected commit or a target ancestor is encountered; the base tree ID is
 /// thus the tree of that commit.

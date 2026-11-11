@@ -28,7 +28,6 @@ pub enum RebaseStep {
     Pick {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
         new_message: Option<BString>,
         // TODO: add `base: Option<ObjectId>` to allow restarting the sequence at a new base
         //       for multi-branch rebasing. It would keep the previous cursor, to allow the last
@@ -44,7 +43,6 @@ pub enum RebaseStep {
     SquashIntoPreceding {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
         new_message: Option<BString>,
     },
     /// Create a new reference pointing to the commit that precedes this step.
@@ -115,7 +113,6 @@ impl<'repo> Rebase<'repo> {
         Ok(self)
     }
 
-    /// Configures whether the noop steps should be rebased regardless.
     /// If set to true, commits that dont really change will have their timestamps and ids updated.
     /// Default is `true`
     pub fn rebase_noops(&mut self, value: bool) -> &mut Self {
@@ -389,7 +386,6 @@ fn reword_commit(
     )?)
 }
 
-/// Replaces the tree of a commit for use in the rebase engine.
 pub fn replace_commit_tree(
     repo: &gix::Repository,
     oid: gix::ObjectId,

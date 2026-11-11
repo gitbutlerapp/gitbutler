@@ -53,7 +53,6 @@ pub enum TreeMergeMode {
     WithoutRenames,
 }
 
-/// Controls when a commit is cherry-picked during a rebase.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PickMode {
     /// Cherry-picks the commit only if it's necessary because of changes to the commit or its
@@ -86,9 +85,6 @@ pub enum PickMode {
 /// empty tree, and exactly two new parents whose trees conflict with each
 /// other, we materialize that conflict as a GitButler conflicted merge commit
 /// instead of returning [`CherryPickOutcome::FailedToMergeBases`].
-///
-/// `repo`
-/// The repository that owns `target`, `ontos`, and any newly written commit or tree objects.
 ///
 /// `target`
 /// The commit to cherry-pick, possibly including conflicted-tree metadata or a synthetic merge template.
@@ -256,9 +252,6 @@ pub fn cherry_pick(
 /// enabled. In that situation we can treat the conflicting `onto` merge itself
 /// as the desired result and wrap it in GitButler's conflicted-commit format.
 ///
-/// `repo`
-/// The repository that owns all commits and trees involved in the merge attempt.
-///
 /// `target`
 /// The synthetic merge template commit that is being replayed onto `ontos`.
 ///
@@ -343,7 +336,6 @@ enum MergeOutcome {
     Success(gix::ObjectId),
     NoCommit,
     Conflict {
-        /// The commits that we were trying to merge together
         commits: Vec<gix::ObjectId>,
         /// The paths of the unresolved conflicts of the merge that stopped.
         paths: Vec<BString>,

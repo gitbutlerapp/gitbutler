@@ -43,7 +43,6 @@ pub use workspace::{GraphWorkspace, Subgraph};
 
 pub mod testing;
 
-/// Represents a commit to be cherry-picked in a rebase operation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pick {
     pub id: gix::ObjectId,
@@ -69,8 +68,6 @@ pub struct Pick {
     /// conflicted commit — this check happens afterwards in [`Editor::rebase`].
     pub conflictable: bool,
     pub tree_merge_mode: TreeMergeMode,
-    /// Whether the editor may rewrite this commit.
-    ///
     /// The editor contains every commit in the workspace graph, but only those
     /// reachable from a mutable entrypoint (e.g. `HEAD`) should be rewritten.
     /// When `false`, the rebase copies the pick verbatim instead of
@@ -116,16 +113,12 @@ impl Pick {
     }
 }
 
-/// Describes what action the engine should take
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
-    /// Cherry picks the given commit into the new location in the graph
     Pick(Pick),
-    /// Represents applying a reference to the commit found at it's first parent
+    /// Points at the commit found at its first parent
     Reference {
         refname: gix::refs::FullName,
-        /// Whether the editor may move or delete this reference.
-        ///
         /// Only references reachable from a mutable entrypoint (e.g. `HEAD`)
         /// are updated during materialization. When `false`, the reference is
         /// kept in the graph for traversal but never written.
@@ -161,7 +154,6 @@ impl Step {
     }
 }
 
-/// Used to represent a connection between a given commit.
 #[derive(Debug, Clone)]
 pub(crate) struct Edge {
     /// Represents in which order the `parent` fields should be written out
@@ -174,27 +166,23 @@ pub(crate) struct Edge {
 type StepGraphIndex = petgraph::stable_graph::NodeIndex;
 type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
-/// Convert a structure to a selector for a particular editor.
-///
 /// `ToSelector` does _not_ normalize a selector.
 pub trait ToSelector {
-    /// Converts a given object into a selector. Calling `to_selector` on an
+    /// Calling `to_selector` on an
     /// object asserts that the reciever was a object that is selectable in the
     /// graph.
     fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
 
-/// Convert a type to a selector, and ensures that it is type commit.
 pub trait ToCommitSelector {
-    /// Converts a given object into a selector. Calling `to_commit_selector` on
+    /// Calling `to_commit_selector` on
     /// an object asserts that the reciever has a selectable pick step in the
     /// graph.
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
 
-/// Convert a type to a selector, and ensures that it is type reference.
 pub trait ToReferenceSelector {
-    /// Converts a given object into a selector. Calling `to_reference_selector` on
+    /// Calling `to_reference_selector` on
     /// an object asserts that the reciever has a selectable reference step in
     /// the graph.
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
@@ -273,11 +261,10 @@ pub(crate) enum Checkout {
     },
 }
 
-/// Used to manipulate a set of picks.
 #[derive(Debug)]
 pub struct Editor<'ws, 'meta, M: RefMetadata> {
     graph: StepGraph,
-    /// Initial references. This is used to track any references that might need
+    /// Used to track any references that might need
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
@@ -298,8 +285,6 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
 pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
-    /// Any reference edits that need to be committed as a result of the history
-    /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
     pub(crate) graph: StepGraph,
     pub(crate) checkouts: Vec<Checkout>,
@@ -691,16 +676,13 @@ pub enum ConflictedCheckout {
     Worktree {
         /// The directory name under `$GIT_COMMON_DIR/worktrees/`.
         name: gix::bstr::BString,
-        /// The worktree checkout directory.
         path: std::path::PathBuf,
     },
 }
 
-/// Provides lookup for different steps that a selector might point to.
 pub trait LookupStep {
     fn lookup_step(&self, selector: Selector) -> Result<Step>;
 
-    /// Look up the step a given selector and assert it's a pick.
     fn lookup_pick(&self, selector: Selector) -> Result<gix::ObjectId> {
         match self.lookup_step(selector)? {
             Step::Pick(Pick { id, .. }) => Ok(id),
@@ -764,7 +746,6 @@ impl CommitMappings {
         self.0.iter().copied()
     }
 
-    /// Whether no commit was rewritten.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -803,7 +784,6 @@ impl CommitMappings {
     }
 }
 
-/// Provides data about how the editor instance was transformed.
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
@@ -847,7 +827,6 @@ impl RevisionHistory {
         };
     }
 
-    /// Provides a mapping between commits that were rewritten as part of the transformation.
     pub fn commit_mappings(&self) -> CommitMappings {
         self.commit_mappings
             .iter()
