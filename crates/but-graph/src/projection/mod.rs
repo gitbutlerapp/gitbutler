@@ -18,7 +18,6 @@ pub use stack::{
 pub(crate) mod workspace;
 pub use workspace::{TargetCommit, TargetRef, WorkspaceKind};
 
-/// utilities for workspace-related commits.
 pub mod commit {
     use bstr::{BStr, ByteSlice};
 

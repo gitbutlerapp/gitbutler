@@ -51,7 +51,6 @@ pub(super) struct Context<'a> {
     pub worktree_by_branch: WorktreeByBranch,
 }
 
-/// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
@@ -242,7 +241,7 @@ impl Graph {
                 .remove(ref_idx);
             if s.ref_info.is_some() {
                 // ref-name is known to not be the desired one, and the first commit of this segment has the name
-                // we seek. For that, we now create a new
+                // we seek, so it becomes a new segment of its own.
                 let new_ep_sidx_first_commit_idx = s.commits.first().map(|_| 0);
                 let mut entrypoint_segment = branch_segment_from_name_and_meta(
                     Some((desired_ref_name.ref_name, None)),
@@ -2514,7 +2513,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         ?sidx,
         "Deleting seemingly isolated and now completely unused segment"
     );
-    // Reconnect
     let new_target = first_outgoing.target();
     let incoming: Vec<_> = graph
         .inner

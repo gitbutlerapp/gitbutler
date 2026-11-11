@@ -5,7 +5,6 @@ use crate::{
 };
 
 impl Graph {
-    /// Return the number segments whose commits are all exclusively in a remote.
     pub fn statistics(&self) -> Statistics {
         let mut out = Statistics::default();
         let Statistics {
@@ -143,7 +142,6 @@ impl Graph {
 /// than the total of segments.
 #[derive(Default, Debug, Clone)]
 pub struct Statistics {
-    /// The number of segments in the graph.
     pub segments: usize,
     /// Segments where all commits are integrated.
     pub segments_integrated: usize,
@@ -151,7 +149,6 @@ pub struct Statistics {
     pub segments_remote: usize,
     /// Segments where the remote tracking branch is set
     pub segments_with_remote_tracking_branch: usize,
-    /// Segments that are empty.
     pub segments_empty: usize,
     /// Segments that are anonymous.
     pub segments_unnamed: usize,
@@ -171,7 +168,6 @@ pub struct Statistics {
     pub segments_behind_of_entrypoint: usize,
     /// Segments, excluding the entrypoint, that can be reached upwards through the entrypoint.
     pub segments_ahead_of_entrypoint: usize,
-    /// The entrypoint of the graph traversal.
     pub entrypoint: (SegmentIndex, Option<CommitIndex>),
     /// The number of incoming connections into the entrypoint segment.
     pub segment_entrypoint_incoming: usize,

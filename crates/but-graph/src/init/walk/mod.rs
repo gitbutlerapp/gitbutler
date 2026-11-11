@@ -1,4 +1,3 @@
-//! Utilities for graph-walking specifically.
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -577,7 +576,6 @@ fn extract_local_branch_metadata<T: RefMetadata>(
 #[derive(Debug, Clone)]
 pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
-    /// The pre-parsed commit if available.
     commit: Option<Commit>,
     /// A means of sorting the entry on the queue.
     pub(crate) gen_then_time: GenThenTime,
@@ -824,23 +822,19 @@ pub fn propagate_flags_downward(
     let mut stack = vec![(dst_sidx, dst_commit)];
 
     while let Some((segment, first_commit_index)) = stack.pop() {
-        // Select the range of commits to process in this segment
         let commit_range = if let Some(start_commit_idx) = first_commit_index {
             let segment_ref = &graph[segment];
             start_commit_idx..segment_ref.commits.len()
         } else {
-            // Empty segment, no commits to process
             0..0
         };
 
-        // Mark all commits in range with flags
         if !commit_range.is_empty() {
             for commit in &mut graph[segment].commits[commit_range.clone()] {
                 commit.flags |= flags_to_add;
             }
         }
 
-        // Process outgoing edges
         let mut neighbors = graph
             .neighbors_directed(segment, petgraph::Direction::Outgoing)
             .detach();

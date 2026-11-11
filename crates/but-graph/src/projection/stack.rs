@@ -18,7 +18,6 @@ pub struct Stack {
     pub segments: Vec<StackSegment>,
 }
 
-/// Query
 impl Stack {
     /// Return the first commit of the first segment, or `None` this stack is completely empty, or has only empty segments.
     pub fn tip(&self) -> Option<gix::ObjectId> {
@@ -27,7 +26,6 @@ impl Stack {
             .and_then(|s| s.commits.first().map(|c| c.id))
     }
 
-    /// Return the name of the first segment of the stack.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.segments.first().and_then(|s| s.ref_name())
     }
@@ -150,7 +148,6 @@ pub struct WorktreeStack {
     pub segments: Vec<StackSegment>,
 }
 
-/// Query
 impl WorktreeStack {
     /// The commits this worktree owns, from `head` down.
     pub fn commits(&self) -> impl Iterator<Item = &StackCommit> {
@@ -259,14 +256,12 @@ pub struct StackSegment {
     pub metadata: Option<ref_metadata::Branch>,
 }
 
-/// Access
 impl StackSegment {
     /// Return the top-most commit id, or `None` if this segment is empty.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|c| c.id)
     }
 
-    /// Return the name of the stack segment, if present.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
@@ -347,18 +342,15 @@ impl StackSegment {
 /// The same as [Commits](crate::Commit), but with [StackCommitFlags].
 #[derive(Clone, Eq, PartialEq)]
 pub struct StackCommit {
-    /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
-    /// Additional properties to help classify this commit.
     pub flags: StackCommitFlags,
     /// The references pointing to this commit, even after dereferencing tag objects, along with their worktree information.
     /// These can be names of tags and branches.
     pub refs: Vec<crate::RefInfo>,
 }
 
-/// Utilities
 impl StackCommit {
     /// Attach this commit to `repo` for more detailed access of the commit itself
     /// via [`but_core::Commit`].
@@ -374,12 +366,10 @@ impl StackCommit {
         but_core::Commit::from_id(self.id.attach(repo))
     }
 
-    /// Return an iterator over all reference names that point to this commit.
     pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
         self.refs.iter().map(|ri| ri.ref_name.as_ref())
     }
 
-    /// Collect additional information on `commit` using `repo`.
     pub fn from_graph_commit(commit: &crate::Commit) -> Self {
         StackCommit {
             id: commit.id,

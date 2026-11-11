@@ -17,7 +17,6 @@ pub struct Limit {
     goal: CommitFlags,
 }
 
-/// Lifecycle and builders
 impl Limit {
     pub fn new(value: Option<usize>) -> Self {
         Limit {
@@ -68,7 +67,6 @@ impl Limit {
     }
 }
 
-/// Limit-check
 impl Limit {
     /// Return `true` if this limit is depleted, or decrement it by one otherwise.
     ///
@@ -102,7 +100,6 @@ impl Limit {
     }
 }
 
-/// Other access and mutation
 impl Limit {
     /// Out-of-band way to use commit-flags differently - they never set the earlier flags, so we
     /// can use them.
@@ -163,7 +160,6 @@ impl Limit {
     }
 }
 
-/// Lifecycle
 impl Queue {
     pub fn new_with_limit(limit: Option<usize>) -> Self {
         Queue {
@@ -181,7 +177,6 @@ impl Queue {
 #[derive(Debug)]
 pub struct Queue {
     pub inner: VecDeque<QueueItem>,
-    /// The current number of queued items.
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
     max: Option<usize>,
@@ -193,7 +188,6 @@ pub struct Queue {
     sorted: bool,
 }
 
-/// Counted queuing
 impl Queue {
     /// Sort the queue items so that young commits come first. This way, the traversal goes
     /// back in time continuously, which helps to avoid having too many graph traversals
@@ -286,7 +280,6 @@ impl Queue {
     }
 }
 
-/// Various other - good to know what we need though.
 impl Queue {
     pub fn pop_front(&mut self) -> Option<QueueItem> {
         self.inner.pop_front()
@@ -407,13 +400,11 @@ impl From<EdgeReference<'_, Edge>> for EdgeOwned {
 /// as it should. So at some point, this code might be removed once it's clear we won't need it anymore.
 /// TODO: one fine day remove this in favor of `petgraph::visit::Topo`.
 pub struct TopoWalk {
-    /// The segment we
     next: VecDeque<(SegmentIndex, Option<CommitIndex>)>,
     /// Commits we have already yielded.
     seen: gix::hashtable::HashSet,
     /// If segments have no commits we can't identify them unless we track them separately.
     seen_empty_segments: BTreeSet<SegmentIndex>,
-    /// In which direction to traverse.
     direction: Direction,
     /// If `true`, don't return the first segment which is always the starting point.
     skip_tip: Option<()>,
@@ -422,7 +413,6 @@ pub struct TopoWalk {
     pub leafs: Option<Vec<SegmentIndex>>,
 }
 
-/// Lifecycle
 impl TopoWalk {
     /// Start a walk at `segment`, possibly only from `commit`.
     pub fn start_from(
@@ -445,16 +435,13 @@ impl TopoWalk {
     }
 }
 
-/// Builder
 impl TopoWalk {
-    /// Call to not return the tip as part of the iteration.
     pub fn skip_tip_segment(mut self) -> Self {
         self.skip_tip = Some(());
         self
     }
 }
 
-/// Iteration
 impl TopoWalk {
     /// Obtain the next segment and unseen commit range in the topo-walk.
     /// Note that the returned range may yield an empty slice, or a sub-slice

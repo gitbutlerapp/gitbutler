@@ -76,7 +76,6 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
         }
     }
 
-    /// Return the value stored for `sidx`.
     pub(crate) fn get(&self, sidx: SegmentIndex) -> T {
         self.values[sidx.index()]
     }

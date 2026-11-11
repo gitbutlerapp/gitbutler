@@ -7,7 +7,6 @@ use anyhow::Context;
 
 use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
-/// # Points of Interest
 impl Workspace {
     /// Return the `commit` at the tip of the workspace, or that the tip reference
     /// was pointing to in Git.
@@ -46,7 +45,6 @@ impl Workspace {
     }
 }
 
-/// # Refs of Interest
 impl Workspace {
     /// Return the configured target reference name if the workspace target was
     /// resolved to a branch during graph traversal.
@@ -59,7 +57,6 @@ impl Workspace {
     }
 }
 
-/// # Sets of Interest
 impl Workspace {
     /// Return upstream commits ahead of the workspace base, or an empty list without an upstream.
     ///
@@ -97,7 +94,6 @@ impl Workspace {
     }
 }
 
-/// # Bases of Interest
 impl Workspace {
     /// Return the child-most commit any stack rests on, which is where a new
     /// independent branch belongs.

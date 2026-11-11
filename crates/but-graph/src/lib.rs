@@ -207,7 +207,6 @@ pub use segment::{
 
 mod api;
 pub use api::FirstParent;
-/// Produce a graph from a Git repository.
 pub mod init;
 
 #[path = "projection/mod.rs"]
@@ -369,13 +368,11 @@ pub struct EntryPoint<'graph> {
 }
 
 impl<'graph> EntryPoint<'graph> {
-    /// The commit that started traversal, if the entrypoint is not unborn.
     pub fn commit(&self) -> Option<&'graph Commit> {
         self.commit_and_owner.map(|(c, _)| c)
     }
 }
 
-/// Relationship of one segment to another in terms of graph ancestry.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum SegmentRelation {
     /// Both segment indices point to the same segment.
@@ -413,10 +410,6 @@ pub struct Edge {
     ///
     /// This limit would only be reached if there is a merge with 4.3 billion commits.
     pub(crate) parent_order: u32,
-    /// The position of the stack this edge leads to among the stacks of its workspace,
-    /// in the order the workspace metadata lists them.
-    ///
-    /// This is `None` unless the edge leaves a workspace segment that has metadata.
     pub(crate) workspace_parent_order: Option<u32>,
 }
 
@@ -472,5 +465,4 @@ impl Edge {
         self
     }
 }
-/// An index into the [`Graph`].
 pub type SegmentIndex = petgraph::graph::NodeIndex;

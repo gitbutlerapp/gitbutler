@@ -9,11 +9,9 @@ pub(crate) mod init;
 /// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
 #[derive(Clone)]
 pub struct Workspace {
-    /// The underlying graph for providing simplified access to data.
     pub graph: Graph,
     /// An ID which uniquely identifies the [graph segment](crate::Segment) that represents the tip of the workspace.
     pub id: SegmentIndex,
-    /// Specify what kind of workspace this is.
     pub kind: WorkspaceKind,
     /// One or more stacks that live in the workspace, in order of parents of the workspace commit if there are more than one.
     pub stacks: Vec<Stack>,
@@ -116,7 +114,6 @@ impl WorkspaceKind {
         }
     }
 
-    /// Return `true` if this workspace is adhoc.
     pub fn has_adhoc_ref(&self) -> bool {
         match self {
             WorkspaceKind::Managed { .. } | WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {

@@ -9,7 +9,6 @@ use crate::{
     CommitFlags, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
 };
 
-/// Debugging
 impl Graph {
     /// Assure that no PII is left in the graph, by deterministically anonymizing branch names.
     ///

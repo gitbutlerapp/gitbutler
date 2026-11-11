@@ -20,7 +20,6 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 mod queries;
 
-/// Lifecycle
 impl Workspace {
     /// Redo the graph traversal with the same settings as before, but use the latest
     /// data from `repo`, `meta`, `project_meta` and `db` to do it.
@@ -50,7 +49,6 @@ impl Workspace {
     }
 }
 
-/// Query
 impl Workspace {
     /// Return `true` if the workspace has workspace metadata associated with it.
     /// This is relevant when creating references for example.
@@ -71,7 +69,6 @@ impl Workspace {
     }
 }
 
-/// Utilities
 impl Workspace {
     /// Reconcile workspace metadata with the stacks in this projection using
     /// [`metadata.reconcile_projected_stacks()`](but_core::ref_metadata::Workspace::reconcile_projected_stacks).
@@ -275,14 +272,12 @@ impl Workspace {
             .is_some_and(|upstream| upstream.as_ref() == name))
     }
 
-    /// Find a stack with the given `id` or error.
     pub fn try_find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> anyhow::Result<&Stack> {
         let id = id.into();
         self.find_stack_by_id(id)
             .with_context(|| format!("Couldn't find stack with id {id:?} in workspace"))
     }
 
-    /// Find a stack with the given `id`.
     pub fn find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> Option<&Stack> {
         let id = id.into();
         self.stacks.iter().find(|s| s.id == id)
@@ -386,7 +381,6 @@ impl Workspace {
     }
 }
 
-/// Debugging
 impl Workspace {
     /// Produce a distinct and compressed debug string to show at a glance what the workspace is about.
     pub fn debug_string(&self) -> String {
@@ -444,7 +438,6 @@ impl Workspace {
     }
 }
 
-/// Utilities
 impl TargetRef {
     /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
     /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way
