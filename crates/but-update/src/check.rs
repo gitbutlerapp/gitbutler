@@ -9,17 +9,11 @@ const UPDATES_CHECK_URL: &str = "https://app.gitbutler.com/updates";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Identifies which GitButler application variant to check for updates.
-///
-/// Different application variants may have different release schedules and update channels.
 #[derive(Debug, Serialize)]
 pub enum AppName {
     /// The Tauri-based desktop GUI application.
-    ///
-    /// This is the main GitButler desktop application with a graphical user interface.
     Tauri,
     /// The command-line interface tool (`but`).
-    ///
-    /// This is the CLI tool for interacting with GitButler from the terminal.
     Cli,
 }
 
@@ -32,8 +26,6 @@ impl std::fmt::Display for AppName {
     }
 }
 
-/// Checks if a newer version of the specified GitButler application is available.
-///
 /// Performs a synchronous HTTP request to the GitButler update server with a 30-second timeout.
 /// Returns information about the latest available version, including download URLs and release notes.
 ///
@@ -137,7 +129,6 @@ pub fn check_status_with_url(
     .join()
     .map_err(|_| anyhow::anyhow!("Update check thread panicked"))?;
 
-    // Save to cache (convert to but_db types)
     if let Ok(status) = &result {
         let now = chrono::Utc::now();
 
@@ -186,9 +177,7 @@ pub fn check_status_with_url(
 struct CheckUpdatesRequest {
     /// The release channel (e.g., "nightly", "release").
     channel: String,
-    /// Operating system to check for.
     os: String,
-    /// Architecture to check for.
     arch: String,
     /// The current version of the application.
     version: String,
@@ -197,7 +186,6 @@ struct CheckUpdatesRequest {
     /// The PostHog distinct ID for telemetry (if enabled).
     #[serde(skip_serializing_if = "Option::is_none")]
     posthog_id: Option<String>,
-    /// Optional installation info.
     #[serde(skip_serializing_if = "Option::is_none")]
     install: Option<String>,
 }
@@ -206,22 +194,12 @@ struct CheckUpdatesRequest {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CheckUpdateStatus {
     /// `true` if the current version matches the latest available version, `false` otherwise.
-    ///
-    /// When this is `false`, you should prompt the user to update or automatically download
-    /// the update based on your application's update policy.
     pub up_to_date: bool,
 
     /// The version string of the latest available release (e.g., "0.18.3").
-    ///
-    /// This field is always present and can be compared with the current application version
-    /// to determine if an update is available.
     pub latest_version: String,
 
     /// Markdown-formatted release notes describing changes in the latest version.
-    ///
-    /// This field is `None` if the server doesn't provide release notes.
-    /// When present, this should be displayed to the user to inform them about
-    /// what's new in the update.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release_notes: Option<String>,
 
@@ -234,10 +212,6 @@ pub struct CheckUpdateStatus {
     pub url: Option<String>,
 
     /// Cryptographic signature for verifying the authenticity of the downloaded update.
-    ///
-    /// This field is `None` if no signature is available. When present, this should be used
-    /// to verify the integrity and authenticity of the downloaded update package before
-    /// installation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
 }

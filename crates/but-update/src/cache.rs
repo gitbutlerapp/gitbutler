@@ -10,27 +10,14 @@
 use chrono::{DateTime, Utc};
 
 /// Returns the timestamp of the last successful update check, if available.
-///
-/// This function reads from the cache and returns when the most recent
-/// update check was performed. This can be used to:
-/// - Determine if enough time has passed to trigger another check
-/// - Display information to the user about update check freshness
-///
-/// # Returns
-///
-/// * `Ok(Some(timestamp))` - The UTC timestamp of the last update check
-/// * `Ok(None)` - No cached update check exists or the cache is invalid
-/// * `Err(_)` - Failed to access the cache
 pub fn last_checked(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option<DateTime<Utc>>> {
     Ok(cache.update_check().last_checked())
 }
 
-/// Information about an available application update.
 #[derive(Debug, Clone)]
 pub struct AvailableUpdate {
     /// The current version of the application.
     pub current_version: String,
-    /// The latest available version.
     pub available_version: String,
     /// Markdown-formatted release notes for the new version.
     pub release_notes: Option<String>,
@@ -46,12 +33,6 @@ pub struct AvailableUpdate {
 /// - The cached status indicates an update is available (`up_to_date == false`)
 /// - The cached check is valid for the current version of the app
 /// - The update is not currently suppressed
-///
-/// # Returns
-///
-/// * `Ok(Some(AvailableUpdate))` - An update is available and not suppressed
-/// * `Ok(None)` - No update is available, no cache exists, cache is invalid, cache is stale or update is suppressed
-/// * `Err(_)` - Failed to access the cache
 pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option<AvailableUpdate>> {
     let cached = match cache.update_check().get() {
         Some(cached) => cached,
@@ -68,20 +49,17 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
         return Ok(None);
     }
 
-    // Check if suppression is active
     if let (Some(suppressed_at), Some(duration_hours)) =
         (cached.suppressed_at, cached.suppress_duration_hours)
     {
         let now = Utc::now();
         let suppress_until = suppressed_at + chrono::Duration::hours(duration_hours as i64);
 
-        // If suppression is still active, return None
         if now <= suppress_until {
             return Ok(None);
         }
     }
 
-    // Update is available and not suppressed
     let update = AvailableUpdate {
         current_version,
         available_version: cached.status.latest_version,
@@ -92,24 +70,8 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
     Ok(Some(update))
 }
 
-/// Suppress an available update for a specified duration.
-///
 /// This function sets the suppression fields in the cache to temporarily hide an available update.
 /// The suppression will automatically expire after the specified number of hours.
-///
-/// # Arguments
-///
-/// * `cache` - The application cache handle
-/// * `hours` - The number of hours to suppress the update (must be between 1 and 720)
-///
-/// # Returns
-///
-/// * `Ok(())` - Suppression was successfully set
-/// * `Err(_)` - An error occurred:
-///   - Invalid hours value (must be 1-720)
-///   - No cached update check exists
-///   - The cached status shows the app is already up to date
-///   - Failed to write the updated cache
 ///
 /// # Errors
 ///
@@ -119,7 +81,6 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
 /// - The current version is already up to date (nothing to suppress)
 /// - The cache cannot be written
 pub fn suppress_update(cache: &mut but_db::AppCacheHandle, hours: u32) -> anyhow::Result<()> {
-    // Validate input
     const MAX_SUPPRESSION_HOURS: u32 = 720; // 30 days
 
     if hours == 0 {
