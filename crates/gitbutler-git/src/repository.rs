@@ -657,7 +657,6 @@ where
 {
     let target_dir = target_dir.as_ref();
 
-    // For clone, we run from the parent directory of the target
     let work_dir = target_dir.parent().unwrap_or(Path::new("."));
 
     let target_dir_str = target_dir.to_string_lossy();

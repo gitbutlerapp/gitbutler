@@ -34,11 +34,7 @@ pub mod tokio;
 /// up to the implementer to ensure that the invariants are upheld.
 #[expect(unsafe_code)]
 pub unsafe trait GitExecutor {
-    /// The error type returned by this executor,
-    /// specifically in cases where the execution fails.
-    ///
-    /// Otherwise, `Ok` is returned in call cases, even when
-    /// the exit code is non-zero.
+    /// `Ok` is returned even when the exit code is non-zero.
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     type ServerHandle: AskpassServer + Send + Sync + 'static;
@@ -149,9 +145,7 @@ pub struct FileStat {
     ///
     /// On Windows, this is (probably) always 0.
     pub dev: u64,
-    /// The inode number of the file.
     pub ino: u64,
-    /// If the file is a regular file (not a symlink).
     pub is_regular_file: bool,
 }
 
@@ -166,7 +160,6 @@ pub struct FileStat {
 pub trait AskpassServer: core::fmt::Display {
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
-    /// The type of the socket yielded by the incoming iterator.
     type SocketHandle: Socket + Send + Sync + 'static;
 
     /// Waits for a connection to the server to be established.
@@ -182,10 +175,8 @@ type PidInner = i32;
 #[cfg(windows)]
 type PidInner = u32;
 
-/// The type of a process ID (platforms-specific)
 pub type Pid = PidInner;
 
-/// The type of a user ID (unix-specific).
 #[cfg(unix)]
 pub type Uid = u32;
 
@@ -194,7 +185,6 @@ pub type Uid = u32;
 /// provided to [`GitExecutor::create_askpass_server`] when a connection
 /// is established.
 pub trait Socket {
-    /// The error type returned by I/O operations on this socket.
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The process ID of the connecting client.

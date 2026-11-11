@@ -7,7 +7,6 @@ use but_ctx::Context;
 use but_error::Code;
 use serde::Serialize;
 
-/// Summary information about branches pushed to a remote.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushResult {

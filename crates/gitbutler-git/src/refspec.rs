@@ -3,7 +3,6 @@ use core::fmt;
 /// An error that can occur while parsing a refspec from a string.
 #[derive(Debug, PartialEq, Eq, Clone, thiserror::Error)]
 pub enum Error {
-    /// Encountered an unexpected character when parsing a [`RefSpec`] from a string.
     #[error("unexpected character {0:?} (offset {1})")]
     UnexpectedChar(char, usize),
 }
@@ -11,7 +10,6 @@ pub enum Error {
 /// A Git [refspec](https://git-scm.com/book/en/v2/Git-Internals-The-Refspec).
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct RefSpec {
-    /// If `true`, will update the ref upon a fetch or push even if it is not a fast-forward.
     pub update_non_fastforward: bool,
     pub source: Option<String>,
     pub destination: Option<String>,

@@ -18,19 +18,14 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
     /// more context.
     #[error("authorization failed: {0}")]
     AuthorizationFailed(BE),
-    /// An operation interacting with a remote by name failed to find
-    /// the remote.
     #[error("no such remote: {0}")]
     NoSuchRemote(String, #[source] BE),
     /// An operation interacting with a Gerrit remote found that there
     /// were no new changes to process.
     #[error("no new changes: {0}")]
     GerritNoNewChanges(BE),
-    /// An operation that expected a remote not to exist found that
-    /// the remote already existed.
     #[error("remote already exists: {0}")]
     RemoteExists(String, #[source] BE),
-    /// A force push was rejected due to force push protection.
     #[error(
         "the force push was blocked because the remote branch contains commits that would be overwritten"
     )]
