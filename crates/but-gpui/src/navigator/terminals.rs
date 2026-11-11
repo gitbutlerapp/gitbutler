@@ -14,13 +14,14 @@ use gpui::{
 use super::rows::ROW_LEFT;
 use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, STEP, card_bar, status_mark};
 use crate::app::{
-    AppHandle, AppView, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow, SplitRight,
+    AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
+    SplitRight,
 };
 use crate::backend::Checkout;
 use crate::edits::{Discard, RenameTerminal};
 use crate::overlays::{MenuItem, has_keys};
 use crate::palette::StatusGroup;
-use crate::state::{Axis, Store};
+use crate::state::{Axis, NavigatorPlace, Store};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::fold::{Folds, Place, clipped};
@@ -185,11 +186,23 @@ impl TerminalOverview {
         self.shut
     }
 
+    /// Whether it's in the card under its tab, with the navigator across the top, which has
+    /// edges of its own and drops it open.
+    fn in_tab(&self, cx: &App) -> bool {
+        self.store.read(cx).prefs.navigator_place == NavigatorPlace::Top
+    }
+
+    /// Whether it shows only its bar: folded to it, and not in the card under its tab.
+    fn folded_away(&self, cx: &App) -> bool {
+        self.shut && !self.in_tab(cx)
+    }
+
     /// How tall it is with every row showing, as far as a fold moving shows them, in design
     /// pixels, or folded, its bar's.
     pub fn height(&self, cx: &App) -> f32 {
-        let bar = 2. + CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET;
-        if self.shut {
+        let edges = if self.in_tab(cx) { 0. } else { 2. };
+        let bar = edges + CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET;
+        if self.folded_away(cx) {
             return bar;
         }
         let row = Theme::get(cx).sizes.control;
@@ -253,7 +266,7 @@ impl TerminalOverview {
     /// do: onto a terminal, showing it, or onto a status's heading, which shows nothing. From
     /// none selected, forward starts at the top and back at the bottom.
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.shut {
+        if self.folded_away(cx) {
             return;
         }
         let shown = self.store.read(cx).terminal_shown();
@@ -557,9 +570,14 @@ impl TerminalOverview {
                     .child(place),
             )
             .on_click(cx.listener(move |this, _, window, cx| {
-                window.focus(&this.focus, cx);
+                // In the card under its tab, which goes as the pointer does, into the terminal,
+                // as a row clicked in another tab's card hands the keys on.
+                let enter = this.in_tab(cx);
+                if !enter {
+                    window.focus(&this.focus, cx);
+                }
                 this.on_heading = None;
-                this.show(id, false, window, cx);
+                this.show(id, enter, window, cx);
             }))
             // As a click selects it, then its menu.
             .on_mouse_down(
@@ -599,12 +617,14 @@ impl TerminalOverview {
     }
 
     /// The card's bar, as the projects' drawer's: its chevron, which folds it as a click on it
-    /// does, its name, how many are open, and a way to open another.
+    /// does, its name, how many are open, and a way to open another. In the card under its tab,
+    /// it doesn't fold.
     fn render_bar(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let count = self.store.read(cx).terminals.count();
         let app = self.app.clone();
-        let open = Some(!self.shut);
+        let in_tab = self.in_tab(cx);
+        let open = (!in_tab).then_some(!self.shut);
         card_bar(
             "overview-bar",
             "Terminals",
@@ -624,7 +644,9 @@ impl TerminalOverview {
                     })
                 }),
         )
-        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+        .when(!in_tab, |el| {
+            el.on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.toggle_card(cx)))
+        })
     }
 }
 
@@ -634,7 +656,8 @@ impl Render for TerminalOverview {
         let landed = self.folds.frame();
         // With no rows drawn there's nothing under the pointer to hold, and nothing to say it
         // left, so what opens meanwhile is listed at once.
-        if self.shut || self.items.is_empty() {
+        let folded_away = self.folded_away(cx);
+        if folded_away || self.items.is_empty() {
             self.hovered = false;
         }
         self.sort_out(landed || self.folds.any(), cx);
@@ -643,14 +666,17 @@ impl Render for TerminalOverview {
         }
         let theme = Theme::get(cx);
         let focused = has_keys(&self.focus, window, cx);
-        let rows = (!self.shut).then(|| {
+        let in_tab = self.in_tab(cx);
+        let rows = (!folded_away).then(|| {
             let rows = match self.items.is_empty() {
                 true => div()
                     .h(dp(theme.sizes.control))
                     .flex()
                     .items_center()
-                    // Under the bar's name, past its chevron and the gap after it.
-                    .pl(dp(CARD_BAR_INSET + 10. + 12. + 6.))
+                    // Under the bar's name, past its chevron and the gap after it, if it has one.
+                    .pl(dp(CARD_BAR_INSET
+                        + 10.
+                        + if in_tab { 0. } else { 12. + 6. }))
                     .child(faint("No terminals open", theme))
                     .into_any_element(),
                 false => list(
@@ -678,13 +704,22 @@ impl Render for TerminalOverview {
             .id("terminal-overview")
             .role(Role::List)
             .aria_label("Terminals")
-            .aria_expanded(!self.shut)
+            .aria_expanded(!folded_away)
             .key_context("TerminalOverview")
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &SelectNext, window, cx| this.step(1, window, cx)))
             .on_action(
                 cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
             )
+            // In the card under its tab, Escape hands the keys to the page, as on the tabs.
+            .on_action(cx.listener(|this, _: &Cancel, window, cx| {
+                if !this.in_tab(cx) || this.store.read(cx).moving.is_some() {
+                    return cx.propagate();
+                }
+                (this.app).update_later(window, cx, |app, window, cx| {
+                    app.focus_page_files(window, cx)
+                });
+            }))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| {
                 if let Some(group) = this.on_heading {
                     return this.toggle_fold(group, cx);
@@ -710,13 +745,16 @@ impl Render for TerminalOverview {
                 }
             }))
             .size_full()
-            .bg(theme.bg_1)
-            .border_1()
-            .border_color(match focused {
-                true => theme.focus_edge(),
-                false => theme.border_3,
+            // The card under its tab is its edges.
+            .when(!in_tab, |el| {
+                el.bg(theme.bg_1)
+                    .border_1()
+                    .border_color(match focused {
+                        true => theme.focus_edge(),
+                        false => theme.border_3,
+                    })
+                    .rounded(dp(theme.shape.card))
             })
-            .rounded(dp(theme.shape.card))
             .overflow_hidden()
             .child(self.render_bar(cx))
             .children(rows)

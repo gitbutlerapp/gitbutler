@@ -671,6 +671,12 @@ fn worktree_slot(
     row: f32,
 ) -> Option<Slot<BString>> {
     let (card, _) = card_at(rows, project, depth, row)?;
+    // The last one in the card has no divider below it, as the card's edge rules it off, so it
+    // counts one, as below another, and where it's shown changes no place. Under the filter
+    // none has one.
+    let ruled = card
+        .clone()
+        .any(|ix| matches!(rows.get(ix), Some(Row::WorktreeDivider)));
     // Each one listed with it as shown, by its name, how far down its heading is, and how tall
     // it is, down through the divider below it.
     let shown: Vec<(&BString, f32, f32)> = card
@@ -679,10 +685,15 @@ fn worktree_slot(
                 if p == project && order.contains(n) =>
             {
                 let end = worktree_end(rows, ix);
+                let divider = match end.checked_sub(1).and_then(|last| rows.get(last)) {
+                    Some(Row::WorktreeDivider) => 0.,
+                    _ if ruled => Row::WorktreeDivider.height(row),
+                    _ => 0.,
+                };
                 Some((
                     n,
                     span_height(rows, 0..ix, row),
-                    span_height(rows, ix..end, row),
+                    span_height(rows, ix..end, row) + divider,
                 ))
             }
             _ => None,
@@ -800,8 +811,8 @@ mod tests {
     use crate::ui::{ROW_HEIGHT, fixed};
 
     /// Project `p`'s card with linked worktrees `a`, `b` and `c` listed in `order`, each its
-    /// heading, `b` open on two more rows, and a divider below; and its rows, with how far down
-    /// each worktree's heading is.
+    /// heading, `b` open on two more rows, and a divider below but for the last, which the
+    /// card's edge rules off; and its rows, with how far down each worktree's heading is.
     fn worktrees(order: [&str; 3]) -> (ProjectId, Vec<Row>, Vec<(BString, f32)>) {
         let p = ProjectId::from("p");
         let mut rows = vec![
@@ -825,6 +836,7 @@ mod tests {
             }
             rows.push(Row::WorktreeDivider);
         }
+        rows.pop();
         (p, rows, tops)
     }
 

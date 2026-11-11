@@ -361,6 +361,14 @@ impl Rows {
         }
     }
 
+    /// Take back a line ruling off the last rows, which end a card whose edge does that, so the
+    /// last row sits as far in from the bottom edge as from the sides.
+    pub(super) fn unrule_end(&mut self) {
+        if matches!(self.rows.last(), Some(Row::WorktreeDivider)) {
+            self.truncate(self.rows.len() - 1);
+        }
+    }
+
     /// Push `item`, the filter's first hit if it's `hit` and none came before it.
     pub(super) fn push_found(&mut self, item: Selection, hit: bool) {
         if hit && self.first_hit.is_none() {
@@ -528,6 +536,7 @@ impl Navigator {
         }
         // Its checkouts on the user's other machines, as worktrees: none while signed out.
         self.mesh_rows(store, id, rows);
+        rows.unrule_end();
     }
 
     /// What the main worktree's heading folds away: its uncommitted changes, its terminals and

@@ -1150,19 +1150,25 @@ impl Detail {
             (true, false) => Icon::FilesSidebar,
         };
         let counts = hidden.then_some((diff.files.len(), added, removed));
+        // Hidden, the list opens on hover, which says more than a tooltip would, unless it
+        // would be empty.
+        let lists = hidden && !diff.files.is_empty();
+        let tip = match hidden {
+            true => "Show the files",
+            false => "Hide the files",
+        };
         let toggle = files_toggle("diff-files", glyph, counts, theme)
             .on_hover(
                 cx.listener(|this, hovered: &bool, _, cx| this.hover_files_button(*hovered, cx)),
             )
-            // Hidden, the list opens on hover, which says more than a tooltip would.
-            .when(toggles && !hidden, |el| {
-                el.tooltip(Tooltip::keyed("Hide the files", files_key))
+            .when(toggles && !lists, |el| {
+                el.tooltip(Tooltip::keyed(tip, files_key))
             })
             .when(toggles, |el| el.on_click(act(&ToggleFiles)));
         // Under the button, with a strip of its own above it that keeps it open on the way
         // from the button to it.
         let rested = (self.files_hover.0).is_some_and(|at| at.elapsed() >= FILES_POPOVER_DELAY);
-        let open = hidden && (rested || self.files_hover.1);
+        let open = lists && (rested || self.files_hover.1);
         self.files_popover_shown.set(open);
         let list = open.then(|| {
             div().absolute().top(dp(28.)).left_0().child(

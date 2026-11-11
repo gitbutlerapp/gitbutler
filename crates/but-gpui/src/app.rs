@@ -255,6 +255,9 @@ pub struct AppView {
         Subscription,
         Option<FocusHandle>,
     )>,
+    /// The page Settings showed as it closed, and how far its cards were scrolled, which it
+    /// opens to again.
+    pub(crate) settings_left: Option<(crate::settings::Page, gpui::Point<gpui::Pixels>)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     /// The build under way or last ended, and what shows it when it fails out of sight.
@@ -475,7 +478,9 @@ impl AppView {
         let navigator =
             cx.new(|cx| Navigator::new(app.clone(), store.clone(), detail.clone(), window, cx));
         let terminals = cx.new(|cx| TerminalOverview::new(app.clone(), store.clone(), cx));
-        let tabs = cx.new(|cx| NavigatorTabs::new(app, store.clone(), navigator.clone(), cx));
+        let tabs = cx.new(|cx| {
+            NavigatorTabs::new(app, store.clone(), navigator.clone(), terminals.clone(), cx)
+        });
         let strip_keys = tabs.read(cx).focus_handle().clone();
         navigator.update(cx, |navigator, _| navigator.set_strip_keys(strip_keys));
         // Where it was left, it's there from the first frame rather than sliding there.
@@ -704,6 +709,7 @@ impl AppView {
             palette: None,
             previewed_scheme: None,
             modal: None,
+            settings_left: None,
             recent_commands: Vec::new(),
             building: None,
             fps: cx.new(|_| crate::fps::Fps::default()),
@@ -1486,18 +1492,19 @@ impl AppView {
         });
     }
 
-    /// Whether the terminal overview is drawn under the navigator beside the panes.
+    /// Whether the terminal overview is drawn under the navigator beside the panes, or across the
+    /// top, has a tab, whose card it's drawn in once the keys are there.
     fn terminals_shown(&self, cx: &App) -> bool {
-        self.navigator_shown()
-            && !self.peek.open
+        let beside = self.navigator_shown() && !self.peek.open;
+        (beside || self.strip_is_navigator())
             && self.store.read(cx).prefs.shows(Part::TerminalOverview)
     }
 
     /// Give the terminal overview the keys, bringing the navigator it's under back beside the
-    /// panes and the overview into it, as Settings would.
+    /// panes and the overview into it, as Settings would. Across the top, the card under its tab
+    /// comes down with them.
     fn focus_terminals(&mut self, _: &FocusTerminals, window: &mut Window, cx: &mut Context<Self>) {
-        // Across the top, there's no column for it.
-        if self.covered() || self.navigator_on_top {
+        if self.covered() {
             return;
         }
         if !self.store.read(cx).prefs.shows(Part::TerminalOverview) {
@@ -1505,7 +1512,7 @@ impl AppView {
                 store.set_prefs(|prefs| prefs.hide_terminal_overview = false, cx)
             });
         }
-        if !self.navigator_open {
+        if !self.navigator_open && !self.navigator_on_top {
             self.set_navigator(true, window, cx);
         }
         let focus = self.terminals.focus_handle(cx);
@@ -1589,7 +1596,7 @@ impl AppView {
             return;
         }
         let from = self.place_with_keys(window, cx);
-        if self.step_strip(&from, by, cx)
+        if self.step_strip(&from, by, window, cx)
             || self.step_project(&from, by, window, cx)
             || !self.detail_open
         {
@@ -1635,9 +1642,17 @@ impl AppView {
     }
 
     /// Along the navigator's tabs, in `from`: h and l the tab beside it, ⇧⌘H and ⇧⌘L the project.
-    /// Says whether `by` was that, there being one or not.
-    fn step_strip(&mut self, from: &KeyPlace, by: KeyMove, cx: &mut Context<Self>) -> bool {
-        if *from != KeyPlace::Navigator || !self.strip_is_navigator() {
+    /// The terminal overview is in the card under its tab, so it steps along them too. Says
+    /// whether `by` was that, there being one or not.
+    fn step_strip(
+        &mut self,
+        from: &KeyPlace,
+        by: KeyMove,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let on_strip = matches!(from, KeyPlace::Navigator | KeyPlace::Terminals);
+        if !on_strip || !self.strip_is_navigator() {
             return false;
         }
         let (side, projects_only) = match by {
@@ -1651,7 +1666,7 @@ impl AppView {
             Side::Top => return true,
             Side::Bottom => return false,
         };
-        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, projects_only, cx));
+        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, projects_only, window, cx));
         true
     }
 
@@ -1856,7 +1871,7 @@ impl AppView {
             self.place_with_keys(window, cx),
             KeyPlace::Tile(Tile::Home, _)
         );
-        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, false, cx));
+        (self.tabs).update(cx, |tabs, cx| tabs.step(forward, false, window, cx));
         if home {
             self.focus_cover(window, cx);
         }
@@ -4891,8 +4906,8 @@ fn stop_beside(
 }
 
 /// As [`stop_beside`], with the navigator's tabs across the top: above the tiles, and so only up
-/// reaches them. Down from the tabs, the tile `came_from` if it's along the top, else the first
-/// that is.
+/// reaches them. Down from the tabs, or from the terminal overview in the card under its tab, the
+/// tile `came_from` if it's along the top, else the first that is.
 fn stop_beside_strip(
     from: &KeyStop,
     side: Side,
@@ -4900,12 +4915,11 @@ fn stop_beside_strip(
     came_from: Option<&Tile>,
 ) -> Option<KeyStop> {
     match from {
-        KeyStop::Navigator if side == Side::Bottom => {
+        KeyStop::Navigator | KeyStop::Terminals if side == Side::Bottom => {
             let along = along_edge(tiles, Side::Top);
             let back = (along.iter()).find(|tile| Some(**tile) == came_from);
             (back.or(along.first())).map(|tile| KeyStop::Tile((*tile).clone()))
         }
-        // Never there across the top.
         KeyStop::Navigator | KeyStop::Terminals => None,
         KeyStop::Tile(tile) => match tile_beside(tiles, tile, side, came_from) {
             Some(beside) => Some(KeyStop::Tile(beside)),
@@ -6049,6 +6063,20 @@ mod tests {
             ),
             Some(at(pinned())),
             "else the one the keys left"
+        );
+    }
+
+    #[test]
+    fn down_from_the_terminal_overview_under_its_tab_goes_to_the_tiles() {
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Terminals, Side::Bottom, &side_by_side(), None),
+            Some(at(Tile::Home)),
+            "the overview is in the card under the tabs, so down from it is as down from them"
+        );
+        assert_eq!(
+            stop_beside_strip(&KeyStop::Terminals, Side::Top, &side_by_side(), None),
+            None,
+            "and nothing is above it"
         );
     }
 
