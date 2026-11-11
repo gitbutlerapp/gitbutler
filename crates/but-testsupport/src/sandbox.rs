@@ -24,7 +24,6 @@ pub struct Sandbox {
     /// The more optional this is, the more testable the application.
     #[cfg(feature = "sandbox-but-api")]
     app_root: Option<tempfile::TempDir>,
-    /// The settings that are used for the application, if they are set.
     #[cfg(feature = "sandbox-but-api")]
     app_settings: Option<AppSettings>,
 }
@@ -48,7 +47,6 @@ enum InitMetadata {
     Disallow,
 }
 
-/// Lifecycle
 impl Sandbox {
     /// Create a new instance with empty everything, except for basic application settings that prevent the app to break out.
     ///
@@ -162,7 +160,6 @@ impl Sandbox {
     }
 }
 
-/// Utilities
 impl Sandbox {
     /// Create an assert with custom redactions. Adapt as needed.
     pub fn assert_with_oplog_redactions(&self) -> Assert {
@@ -231,7 +228,6 @@ impl Sandbox {
         gix::open_opts(self.projects_root(), gix::open::Options::isolated()).unwrap()
     }
 
-    /// Create a metadata instance on the project.
     pub fn meta(&self) -> impl but_core::RefMetadata {
         VirtualBranchesTomlMetadata::from_path(
             self.open_repo()
@@ -242,7 +238,6 @@ impl Sandbox {
         .unwrap()
     }
 
-    /// Read project-scoped metadata.
     pub fn project_meta(&self) -> ProjectMeta {
         ProjectMeta::resolve(&self.open_repo()).unwrap()
     }
@@ -298,13 +293,11 @@ impl Sandbox {
         visualize_commit_graph_all_from_dir(self.projects_root()).unwrap()
     }
 
-    /// Show the `git status` as string.
     pub fn git_status(&self) -> String {
         let repo = self.open_repo();
         git_status(&repo).unwrap()
     }
 
-    /// Return app settings if these were initialized.
     #[cfg(feature = "sandbox-but-api")]
     pub fn try_app_settings(&self) -> Option<&AppSettings> {
         self.app_settings.as_ref()
@@ -397,14 +390,12 @@ impl Sandbox {
         self.project_root.as_ref().unwrap().path()
     }
 
-    /// A place for the application to store
     #[cfg(feature = "sandbox-but-api")]
     pub fn app_data_dir(&self) -> &Path {
         self.app_root.as_ref().unwrap().path()
     }
 }
 
-/// Invocations
 impl Sandbox {
     /// Invoke an isolated `git` with the given `args`, which will be split automatically.
     /// Return its trimmed `stdout` for consumption.
@@ -446,7 +437,6 @@ impl Sandbox {
         String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
 
-    /// Invoke the given `script` in `bash` in this sandbox
     pub fn invoke_bash(&self, script: impl AsRef<str>) -> &Self {
         invoke_bash_at_dir(script.as_ref(), self.projects_root());
         self
@@ -473,8 +463,6 @@ impl Sandbox {
         out
     }
 
-    /// Set target sha to a given refspec
-    ///
     /// Returns the target sha we ended up setting.
     pub fn set_target_sha(&self, spec: &str) -> gix::ObjectId {
         let repo = self.open_repo();

@@ -12,13 +12,10 @@ use gix::refs::{Category, FullName, PartialName};
 /// A trivial in-memory implementation of the ref-metadata trait, and one that ideally works correctly.
 #[derive(Debug, Default)]
 pub struct InMemoryRefMetadata {
-    /// All the workspaces that should be available. Manipulate directly.
     pub workspaces: Vec<(gix::refs::FullName, Workspace)>,
-    /// All the branches that should be available. Manipulate directly.
     pub branches: Vec<(gix::refs::FullName, Branch)>,
 }
 
-/// The handle used in the [InMemoryRefMetadata] implementation.
 pub struct InMemoryRefMetadataHandle<T> {
     is_default: bool,
     ref_name: gix::refs::FullName,
@@ -199,13 +196,11 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
 
 /// A more descriptive way of showing if the stack is included in the workspace or not.
 pub enum StackState {
-    /// The stack is suppsoed to be in the workspace, and applied.
     InWorkspace,
     /// The stack is supposed to be outside the workspace, and unapplied.
     Inactive,
 }
 
-/// Utilities
 impl InMemoryRefMetadata {
     /// For now, we work like `vb.toml` which creates branches for each stack segment,
     /// along with a workspace that represents the branches.

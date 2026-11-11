@@ -1,5 +1,3 @@
-//! Utilities for testing.
-
 use std::{collections::HashMap, io::Write, path::Path};
 
 use gix::{
@@ -682,7 +680,6 @@ pub fn id_at<'repo>(
     (id, rn.inner.name)
 }
 
-/// Return the commit by the given `revspec`.
 pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
     repo.rev_parse_single(revspec)
         .expect("well-known revspec when testing")
