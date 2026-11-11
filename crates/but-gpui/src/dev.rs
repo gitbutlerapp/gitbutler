@@ -1195,11 +1195,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let (flag, hides): (fn(&mut Prefs) -> &mut bool, bool) = match part {
                 "status-bar" => (|p| &mut p.hide_status_bar, true),
                 "headers" => (|p| &mut p.messages_in_diff, true),
+                "full-messages" => (|p| &mut p.full_messages, false),
                 "diff-controls" => (|p| &mut p.hide_diff_controls, true),
                 "menu-bar" => (|p| &mut p.menu_bar_everywhere, false),
                 "terminal-overview" => (|p| &mut p.hide_terminal_overview, true),
                 _ => bail!(
-                    "pref takes status-bar, headers, diff-controls, menu-bar or terminal-overview"
+                    "pref takes status-bar, headers, full-messages, diff-controls, menu-bar or \
+                     terminal-overview"
                 ),
             };
             let set = on != hides;

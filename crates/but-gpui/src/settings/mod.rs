@@ -1352,7 +1352,7 @@ impl SettingsView {
     }
 
     /// Where the messages go and which controls the diff draws.
-    fn diff_layout_rows(&self, cx: &Context<Self>) -> [Row; 2] {
+    fn diff_layout_rows(&self, cx: &Context<Self>) -> [Row; 3] {
         let prefs = &self.store.read(cx).prefs;
         [
             Row::new(
@@ -1367,6 +1367,18 @@ impl SettingsView {
                 ),
             )
             .with_keywords("minimal compact header"),
+            Row::new(
+                "Show full commit messages",
+                "Commit pages start with the whole message open under its title. Off, they show \
+                 the title, and the button beside it opens the rest.",
+                self.pref_switch(
+                    "full-messages",
+                    prefs.full_messages,
+                    |p| p.full_messages ^= true,
+                    cx,
+                ),
+            )
+            .with_keywords("body description expand"),
             Row::new(
                 "Show diff controls",
                 "The bar over the diff, and the line counts and buttons in file headers. Off, \

@@ -552,7 +552,7 @@ impl Detail {
             Some((_, input, _)) => reword_editor(input, false, theme),
             // A click on its title starts editing the message, and so does a double-click on
             // its body.
-            None => (self.message(title, body, theme))
+            None => (self.message(title, body, theme, cx))
                 .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                     if event.click_count() == 2 {
                         this.start_reword(window, cx)
@@ -981,7 +981,7 @@ impl Detail {
 
     /// A commit's `title`, with a button that shows the rest of its message, `body`, if any.
     fn message_title(&self, title: impl IntoElement, body: &str, cx: &Context<Self>) -> Div {
-        let open = self.page.message_open();
+        let open = self.message_open(cx);
         let toggle = (!body.is_empty()).then(|| {
             icon_button("full-message", Icon::TextBlock)
                 .small()
@@ -1001,20 +1001,26 @@ impl Detail {
     /// A commit's `title` and, once its button shows it, the rest of its message, `body`, under
     /// it, scrolling past a dozen lines: an agent's message can run to thousands of characters
     /// on one line, and the files and diff under the header stay in reach.
-    fn message(&self, title: impl IntoElement, body: String, theme: &Theme) -> Stateful<Div> {
+    fn message(
+        &self,
+        title: impl IntoElement,
+        body: String,
+        theme: &Theme,
+        cx: &App,
+    ) -> Stateful<Div> {
         (v_flex()
             .id("message")
             .gap(dp(10.))
             .max_h(dp(260.))
             .overflow_y_scroll())
         .child(title)
-        .children(self.full_message(body, theme))
+        .children(self.full_message(body, theme, cx))
     }
 
     /// The rest of a commit's message under its title, once its button shows it.
-    fn full_message(&self, body: String, theme: &Theme) -> Option<Div> {
+    fn full_message(&self, body: String, theme: &Theme, cx: &App) -> Option<Div> {
         // Further off the lines around it than they stand from each other.
-        (self.page.message_open() && !body.is_empty()).then(|| {
+        (self.message_open(cx) && !body.is_empty()).then(|| {
             div()
                 .mt(dp(2.))
                 .mb(dp(6.))
@@ -1134,7 +1140,7 @@ impl Detail {
         let title =
             page_title(Icon::ArrowDown, theme).child(self.message_title(name, commit.body, cx));
         let meta = self.remote_meta(id, &commit, theme);
-        let message = self.message(title, commit.body.to_owned(), theme);
+        let message = self.message(title, commit.body.to_owned(), theme, cx);
         let target = Selection::Upstream(project.clone(), ref_name.clone(), id);
         let tabs = self.page_tabs(theme, window, cx);
         self.page_header(message, meta, target, None, tabs, theme)

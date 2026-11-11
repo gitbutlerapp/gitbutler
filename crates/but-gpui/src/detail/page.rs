@@ -44,8 +44,9 @@ pub(super) struct FilesState {
     pub(super) filter: Option<String>,
     /// What the find bar was finding as the page was left, and which match it was on.
     pub(super) find: Option<(String, usize)>,
-    /// What it shows has its message open past the title.
-    pub(super) message_open: bool,
+    /// What it shows has its message open past the title, or closed, as its button set it;
+    /// `None` until then, and it's as Settings has commit messages start.
+    pub(super) message_open: Option<bool>,
     /// What was written of the commit's message being edited as the page's detail went.
     pub(super) reworded: Option<String>,
     /// The pane the keys last left, which they go back to where several are on that side.
@@ -76,7 +77,7 @@ impl Default for FilesState {
             svg_text: HashSet::new(),
             filter: None,
             find: None,
-            message_open: false,
+            message_open: None,
             reworded: None,
             last_pane: None,
             cursor_dir: None,
@@ -643,9 +644,10 @@ impl PageState {
             .is_some_and(|review| review.tab == PageTab::Brief)
     }
 
-    /// Whether the message of what it shows is open, on a page with files.
-    pub(super) fn message_open(&self) -> bool {
-        self.files().is_some_and(|files| files.message_open)
+    /// Whether the message of what it shows is open, on a page with files, where messages
+    /// start open if `full_messages`.
+    pub(super) fn message_open(&self, full_messages: bool) -> bool {
+        (self.files()).is_some_and(|files| files.message_open.unwrap_or(full_messages))
     }
 
     /// The lines picked, on a page with files and while some are.

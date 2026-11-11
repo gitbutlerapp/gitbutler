@@ -753,7 +753,7 @@ impl Detail {
         const LINE: f32 = 20.;
         let shown = target_text(commit);
         let title = label(commit).to_string();
-        let open = self.page.message_open();
+        let open = self.message_open(cx);
         let toggle = (!shown.is_empty()).then(|| {
             let label = match open {
                 true => "Hide message",
