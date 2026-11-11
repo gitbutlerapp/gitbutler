@@ -25,7 +25,6 @@ mod legacy {
 
     #[derive(Debug, Clone)]
     pub struct Storage {
-        /// The directory into which all of or files will be written or read-from.
         local_data_dir: PathBuf,
     }
 

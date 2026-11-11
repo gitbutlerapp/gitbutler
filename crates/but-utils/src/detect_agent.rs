@@ -158,7 +158,6 @@ impl std::fmt::Display for Agent {
     }
 }
 
-/// Error returned when parsing a string that does not name a known agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseAgentError;
 

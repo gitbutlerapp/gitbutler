@@ -1,7 +1,5 @@
 use std::{cell, cell::RefCell, sync::Arc};
 
-/// A utility to keep a cached value and initialize it on demand.
-///
 /// Note that despite interior mutability, the structure is made to *not bypass* Rust's borrow-checker.
 pub struct OnDemand<T> {
     init: Arc<dyn Fn() -> anyhow::Result<T> + Send + Sync + 'static>,
