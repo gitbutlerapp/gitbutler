@@ -25,7 +25,6 @@ pub struct FileInfo {
     pub mime_type: Option<String>,
 }
 
-/// Lifecycle
 impl FileInfo {
     pub fn deleted() -> Self {
         Self::default()
@@ -108,7 +107,6 @@ impl FileInfo {
     }
 }
 
-/// Utilities
 impl FileInfo {
     /// Returns true when a file is represented as UTF-8 text content.
     ///

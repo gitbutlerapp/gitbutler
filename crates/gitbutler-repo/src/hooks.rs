@@ -23,7 +23,6 @@ pub struct ErrorData {
     pub error: String,
 }
 
-/// Hook result indicating either success or failure.
 #[derive(Serialize, PartialEq, Debug, Clone)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum HookResult {
