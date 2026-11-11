@@ -170,11 +170,12 @@
 	opacity: 0.4;
 }
 
-/* A small button squared up to 24px, taking a 20px slot in the row: it spills 4px up and out, so
-   it sits the same 13px from the card's top and right edges without pushing the row taller. */
+/* A small button squared up to 24px at Balanced, control-sm and 4px as a small segment is, taking
+   a 20px slot in the row: it spills 4px up and out, so it sits the same 13px from the card's top
+   and right edges without pushing the row taller. */
 .dismiss {
-	--button-width: 24px;
-	--button-height: 24px;
+	--button-width: calc(var(--but-size-control-sm) + 4px);
+	--button-height: calc(var(--but-size-control-sm) + 4px);
 	--button-padding-inline: 5px;
 	flex: none;
 	margin-inline-end: -4px;
