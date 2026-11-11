@@ -109,7 +109,7 @@ The build works the settings out once, writes this file, and writes the `:root[d
 
 ### Tokens as data
 
-The tokens themselves are in [`tokens/tokens.json`](./tokens/tokens.json), for the same readers. `colors` has what each colour token comes to in light and in dark, as sRGB hex with its alpha last when it has one, and `lengths` has each length in px, both named as in `tokens.css` without `--but-`. These are Figma's values, so a client applies what a setting changes, from `settings.json`, on top. Fonts, shadows, easings and opacities stay in `tokens.css` alone, as they're written for CSS.
+The tokens themselves are in [`tokens/tokens.json`](./tokens/tokens.json), for the same readers. `colors` has what each colour token comes to in light and in dark, as sRGB hex with its alpha last when it has one, `lengths` has each length in px, and `durations` each duration in ms, all named as in `tokens.css` without `--but-`. These are Figma's values, so a client applies what a setting changes, from `settings.json`, on top. Fonts, shadows, easings and opacities stay in `tokens.css` alone, as they're written for CSS.
 
 The GPUI client compiles the colours in as constants (`crates/but-gpui/build.rs`), so its theme draws in the colours the web does, and a token it reads that goes fails its build. It compiles the accents in from `settings.json` too, and draws the any-colour one with the same formula; [`tokens/accent-samples.json`](./tokens/accent-samples.json) holds what 25 picks come to in a browser, which its test checks it against.
 
