@@ -10,7 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use super::{Seen, Selection, Store};
 use crate::backend::saved::Database;
+use crate::clock;
 use crate::theme::Appearance;
+use crate::ui::fold::Glide;
+
+/// How long a pane takes to slide back to its default width.
+const PUT_BACK: Duration = Duration::from_millis(110);
 
 impl Store {
     /// Write the saved state shortly, so a burst of changes writes once. A steady stream
@@ -217,7 +222,33 @@ impl Store {
 
     pub fn width(&self, pane: Pane) -> f32 {
         let (min, max) = pane.limits();
-        (self.widths.get(&pane)).map_or(pane.default_width(), |width| width.clamp(min, max))
+        let width =
+            (self.widths.get(&pane)).map_or(pane.default_width(), |width| width.clamp(min, max));
+        match self.width_glide(pane) {
+            Some(glide) => glide.at(width, clock::now()),
+            None => width,
+        }
+    }
+
+    /// How `pane` slides back to its default width, while it does.
+    pub fn width_glide(&self, pane: Pane) -> Option<Glide> {
+        (self.width_glide)
+            .filter(|(gliding, glide)| *gliding == pane && glide.moving(clock::now()))
+            .map(|(_, glide)| glide)
+    }
+
+    /// Whether a pane is sliding back to its default width.
+    pub fn widths_gliding(&self) -> bool {
+        (self.width_glide).is_some_and(|(_, glide)| glide.moving(clock::now()))
+    }
+
+    /// Put `pane` back to its default width, sliding there from `from`, as wide as it shows
+    /// now, as the lines between tiles do.
+    pub fn put_back_width(&mut self, pane: Pane, from: f32, cx: &mut Context<Self>) {
+        let mut glide = Glide::lasting(PUT_BACK);
+        glide.start(from, cx);
+        self.set_width(pane, None, cx);
+        self.width_glide = Some((pane, glide));
     }
 
     /// Remember where `window` is, for the next launch.
@@ -277,6 +308,7 @@ impl Store {
             Some(width) => self.widths.insert(pane, width.clamp(min, max)),
             None => self.widths.remove(&pane),
         };
+        self.width_glide = None;
         self.save_soon(cx);
         cx.notify();
     }
