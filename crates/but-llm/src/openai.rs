@@ -27,9 +27,9 @@ pub enum CredentialsKind {
 
 #[derive(Debug, Clone)]
 pub struct OpenAiProvider {
-    /// The API endpoint to use, if any. As configured in the git global config
+    /// As configured in the git global config.
     custom_endpoint: Option<String>,
-    /// The preferred model to use, as configured in the git global config
+    /// As configured in the git global config.
     model: Option<String>,
     credentials: (CredentialsKind, Sensitive<String>),
 }

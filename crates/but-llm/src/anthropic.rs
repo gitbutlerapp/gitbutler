@@ -19,7 +19,6 @@ const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
 
-/// Result of a tool calling loop with streaming
 pub struct ConversationResult {
     pub final_response: String,
     pub message_history: Vec<ChatMessage>,
@@ -48,7 +47,6 @@ impl AnthropicClient {
         Ok(Self { api_base, client })
     }
 
-    /// Send a message request to the Anthropic Messages API
     async fn message(&self, request: &AnthropicRequest) -> Result<AnthropicResponse> {
         let response = self.message_raw(request).await?;
         let anthropic_response: AnthropicResponse = response.json().await?;
@@ -233,7 +231,6 @@ impl LLMClient for AnthropicProvider {
     }
 }
 
-// Anthropic API types
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct AnthropicMessage {
     role: String,
