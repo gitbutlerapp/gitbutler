@@ -927,8 +927,8 @@ pub fn branch_canned_name(ctx: &Context) -> anyhow::Result<String> {
 /// This acquires exclusive worktree access from `ctx`, creates the branch,
 /// records an oplog snapshot on success, and in ad-hoc/single-branch mode
 /// checks out the new branch when it was created directly above the currently
-/// checked-out local branch. With legacy workspace setup enabled, independent
-/// branches use the same single-branch transaction as the CLI and GPUI.
+/// checked-out local branch. Independent branches are placed as the CLI and
+/// GPUI place them.
 /// For lower-level implementation details, see
 /// [`but_workspace::branch::create_reference()`].
 #[but_api(try_from = json::BranchCreateResult)]

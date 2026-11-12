@@ -155,8 +155,7 @@ where
 {
     let started = StartingCheckout::read(ctx, perm.read_permission())?;
     let in_single_branch_mode = started.in_single_branch_mode;
-    let dry_run_only: bool = dry_run.into();
-    let may_need_checkpoint = !dry_run_only && started.can_checkpoint();
+    let may_need_checkpoint = dry_run == DryRun::No && started.can_checkpoint();
     let snapshot = if may_need_checkpoint && in_single_branch_mode {
         Some(but_oplog::UnmaterializedOplogSnapshot::prepare_checkpoint(
             ctx,
@@ -736,28 +735,10 @@ where
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
             Ok((outcome.unreachable_stack, outcome.rebase))
         })?;
-        if let Some(unreachable_stack) = unreachable_stack
-            && self.new_stack_enters_workspace()?
-        {
-            self.inner.pending_new_stacks.push(unreachable_stack);
+        if self.inner.started.new_stack_enters_workspace() {
+            self.inner.pending_new_stacks.extend(unreachable_stack);
         }
         Ok(())
-    }
-
-    /// Whether a new stack makes the transaction enter GitButler's workspace when it ends: `HEAD`
-    /// is on a branch of its own, and there is a target other than that branch.
-    fn new_stack_enters_workspace(&self) -> anyhow::Result<bool> {
-        let workspace = (self.inner.rebase.as_ref())
-            .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
-        let target = workspace.graph.project_meta.target_ref.as_ref();
-        let beside_target = workspace.ref_name().is_some_and(|head| {
-            target.is_some_and(|target| target.as_local_full_name_ref() != head)
-        });
-        let in_single_branch_mode =
-            matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc);
-        Ok(in_single_branch_mode && beside_target)
     }
 
     /// Create a new local branch at a commit already present in the editor.
@@ -826,7 +807,7 @@ where
     ) -> anyhow::Result<()> {
         let anchor = anchor.into();
         let order = order.into();
-        let enters_workspace = self.new_stack_enters_workspace()?;
+        let enters_workspace = self.inner.started.new_stack_enters_workspace();
         let unreachable_stack = self.rebase(|editor, commit_mappings| {
             let anchor = anchor
                 .map(|anchor| {

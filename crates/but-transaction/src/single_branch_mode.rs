@@ -32,8 +32,8 @@ pub(crate) struct StartingCheckout {
     pub(crate) in_single_branch_mode: bool,
     /// The branch checked out, if one was rather than a detached `HEAD`.
     pub(crate) head_reference: Option<FullName>,
-    /// The project has a target, which the oplog snapshots against.
-    has_target: bool,
+    /// The local branch of the project's target, which the oplog snapshots against.
+    target_ref: Option<FullName>,
 }
 
 impl StartingCheckout {
@@ -44,18 +44,33 @@ impl StartingCheckout {
         let head_reference = (repo.head()?.referent_name())
             .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
             .map(ToOwned::to_owned);
-        let has_target = ProjectMeta::resolve(&repo)?.target_ref.is_some();
+        let target_ref = (ProjectMeta::resolve(&repo)?.target_ref)
+            .map(|target| target.as_local_full_name_ref().to_owned());
         Ok(Self {
             in_single_branch_mode,
             head_reference,
-            has_target,
+            target_ref,
         })
     }
 
     /// Whether a checkpoint can be taken: the oplog snapshots against a target, and restores
     /// the branch checked out.
     pub(crate) fn can_checkpoint(&self) -> bool {
-        self.has_target && self.head_reference.is_some()
+        self.target_ref.is_some() && self.head_reference.is_some()
+    }
+
+    /// Whether the target's branch was checked out.
+    fn target_checked_out(&self) -> bool {
+        self.target_ref.is_some() && self.head_reference == self.target_ref
+    }
+
+    /// Whether a stack of its own beside what's checked out needs GitButler's workspace: in
+    /// single-branch mode, with a branch checked out and a target other than that branch.
+    pub(crate) fn new_stack_enters_workspace(&self) -> bool {
+        self.in_single_branch_mode
+            && self.head_reference.is_some()
+            && self.target_ref.is_some()
+            && !self.target_checked_out()
     }
 }
 
@@ -67,19 +82,14 @@ struct Target {
 }
 
 impl Target {
-    /// Read the target from `repo`, with `head_reference` checked out, or `None` without one.
-    fn read(
-        repo: &gix::Repository,
-        head_reference: Option<&FullName>,
-    ) -> anyhow::Result<Option<Self>> {
-        let project_meta = ProjectMeta::resolve(repo)?;
-        let Some(ref_name) = &project_meta.target_ref else {
+    /// Read the target from `repo` with `started` checked out, or `None` without one.
+    fn read(repo: &gix::Repository, started: &StartingCheckout) -> anyhow::Result<Option<Self>> {
+        if started.target_ref.is_none() {
             return Ok(None);
-        };
-        let commit_id = project_meta.resolve_target_commit(repo)?;
-        let target_ref = ref_name.as_local_full_name_ref();
+        }
+        let commit_id = ProjectMeta::resolve(repo)?.resolve_target_commit(repo)?;
         Ok(Some(Target {
-            checked_out: head_reference.is_some_and(|head| head.as_ref() == target_ref),
+            checked_out: started.target_checked_out(),
             head_at_commit: repo.head_id()?.detach() == commit_id,
             commit_id,
         }))
@@ -122,7 +132,7 @@ impl<M: RefMetadata> Transaction<'_, '_, M> {
         let started = &self.inner.started;
         let in_single_branch_mode = started.in_single_branch_mode;
         let head_reference = started.head_reference.clone();
-        let target = Target::read(self.repo(), head_reference.as_ref())?;
+        let target = Target::read(self.repo(), started)?;
         let above_head = (head_reference.as_ref()).map(|head| Anchor::AtReference {
             ref_name: Cow::Borrowed(head.as_ref()),
             position: Position::Above,
