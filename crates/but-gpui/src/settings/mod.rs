@@ -283,6 +283,7 @@ pub struct SettingsView {
     error_reporting: Option<bool>,
     accounts: accounts::Accounts,
     ai: ai::Ai,
+    keyboard: keyboard::Keyboard,
     /// How the last signing test went, while it applies to the project shown.
     signing: Option<Result<(), SharedString>>,
     /// How fetching and then pushing went in the last credentials test of the project shown,
@@ -420,6 +421,7 @@ impl SettingsView {
             error_reporting: None,
             accounts: Default::default(),
             ai,
+            keyboard: Default::default(),
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
@@ -1958,7 +1960,13 @@ impl Render for SettingsView {
         let theme = Theme::get(cx).clone();
         let query = self.search.read(cx).text().trim().to_lowercase();
         let searching = !query.is_empty();
-        let cards = self.cards(&query, window, cx);
+        // Keyboard's commands as a list, as laying out each of its rows takes too long.
+        let keyboard = (!searching && self.page == Page::App(AppPage::Keyboard))
+            .then(|| self.keyboard_list(cx).size_full());
+        let cards = match keyboard {
+            Some(_) => Vec::new(),
+            None => self.cards(&query, window, cx),
+        };
         let search_focused = self.search.focus_handle(cx).is_focused(window);
         let listed = self.listed_projects(cx);
         for project in listed.iter() {
@@ -2033,7 +2041,7 @@ impl Render for SettingsView {
                 .children(moving)
                 .children(more)
         });
-        let empty = cards.is_empty();
+        let empty = cards.is_empty() && keyboard.is_none();
         let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
         let links = v_flex()
             .id("settings-pages")
@@ -2058,7 +2066,7 @@ impl Render for SettingsView {
             )
             .child(v_flex().px(dp(12.)).children(app_links))
             .children(projects);
-        let content = v_flex()
+        let cards = v_flex()
             .id("settings-cards")
             .size_full()
             .overflow_y_scroll()
@@ -2083,6 +2091,16 @@ impl Render for SettingsView {
                             .map(|card| Self::render_card(card, &theme)),
                     ),
             );
+        let (content, scroll) = match keyboard {
+            Some(list) => (
+                list.into_any_element(),
+                Scroll::List(self.keyboard.list.clone()),
+            ),
+            None => (
+                cards.into_any_element(),
+                Scroll::Div(self.cards_scroll.clone()),
+            ),
+        };
         modal(ModalSize::Large, &theme)
             .id("settings")
             .key_context("Settings")
@@ -2129,7 +2147,7 @@ impl Render for SettingsView {
                     .child(scrolled(
                         content,
                         "settings-cards-scrollbar",
-                        Scroll::Div(self.cards_scroll.clone()),
+                        scroll,
                         &theme,
                     )),
             )
