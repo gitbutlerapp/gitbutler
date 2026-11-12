@@ -1071,8 +1071,8 @@ pub fn branch_name_segment_with_perm(
 /// workspace view.
 ///
 /// This acquires exclusive worktree access from `ctx` and records an oplog snapshot that brings
-/// the branch back. It refuses GitButler's technical branches and a branch a linked worktree has
-/// checked out. Everything else, including where its commits and `HEAD` go, is
+/// the branch back. It refuses a branch a linked worktree has checked out. Everything else,
+/// including where its commits and `HEAD` go, is
 /// [`but_transaction::Transaction::remove_reference()`]'s.
 #[but_api(try_from = json::BranchRemoveResult, refreshes)]
 #[instrument(err(Debug))]
@@ -1090,18 +1090,6 @@ pub fn branch_remove_with_perm(
     ref_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchRemoveResult> {
-    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
-        bail!(
-            "Can only delete local branches under refs/heads, got '{}'",
-            ref_name.as_bstr()
-        );
-    }
-    if but_core::branch::is_technical_branch_name(ref_name.shorten()) {
-        bail!(
-            "Cannot delete GitButler technical branch '{}'",
-            ref_name.shorten()
-        );
-    }
     refuse_checked_out_in_linked_worktree(&*ctx.repo.get()?, ref_name.as_ref())?;
 
     let mut meta = ctx.meta()?;
