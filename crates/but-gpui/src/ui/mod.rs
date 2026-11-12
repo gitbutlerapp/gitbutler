@@ -998,7 +998,12 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         })
 }
 
-pub fn dropdown(
+/// One choice from a short list, closed, as but-ui-react's `Select` trigger: a field, as [`field`]
+/// is, holding the choice in regular weight with a chevron after it. It wears the field's ground,
+/// edge and padding, and under the pointer its edge darkens rather than its ground filling. The
+/// list it opens is the caller's. It is as wide as its choice, where `Select` takes its field's
+/// width.
+pub fn select(
     id: impl Into<ElementId>,
     label: impl Into<SharedString>,
     theme: &Theme,
@@ -1007,16 +1012,21 @@ pub fn dropdown(
         .role(Role::ComboBox)
         .flex_none()
         .h(dp(theme.sizes.control))
-        .pl(dp(10. + theme.sizes.padding))
-        .pr(dp(6. + theme.sizes.padding))
-        .gap(dp(6.))
+        .px(dp(8. + theme.sizes.padding))
+        .gap(dp(8.))
         .rounded(dp(theme.shape.control))
         .border_1()
         .border_color(theme.border_2)
+        .bg(theme.bg_1)
         .text_size(dp(13.))
-        .hover(|el| el.bg(theme.hover))
+        .text_color(theme.text_1)
+        .hover(|el| el.border_color(theme.border_1))
         .child(div().min_w_0().truncate().child(label.into()))
-        .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
+        .child(
+            icon(Icon::ChevronDown)
+                .text_color(theme.text_1)
+                .opacity(0.7),
+        )
 }
 
 /// The box around a text field, ringed while it has focus.
@@ -1143,7 +1153,8 @@ pub struct Button {
     id: ElementId,
     label: Option<SharedString>,
     icon: Option<Icon>,
-    /// Sized by the caller, as a person's picture, in place of an icon. It shows no hover.
+    /// Sized by the caller, as a person's picture, in place of an icon: then it is the control
+    /// itself, round, and dims under the pointer.
     picture: Option<AnyElement>,
     style: ButtonStyle,
     /// Why it can't be pressed now, shown in place of its tooltip.
@@ -1204,7 +1215,9 @@ pub fn icon_button(id: impl Into<ElementId>, icon: Icon) -> Button {
     }
 }
 
-/// A button showing `picture` alone. As with an icon, its tooltip names it.
+/// A picture as the control itself, as the account's avatar is: round, with no button around
+/// it, dimming under the pointer, its focus ring circling it. As with an icon, its tooltip
+/// names it.
 pub fn picture_button(id: impl Into<ElementId>, picture: impl IntoElement) -> Button {
     Button {
         label: None,
@@ -1345,12 +1358,26 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        // As but-ui-react's: small is control-sm tall with a 14 icon, an icon alone 2px wider;
-        // regular is control, square alone. Density moves both, and the padding beside a label.
+        // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`), as
+        // but-ui-react reads them. The heights are `size-control(-sm)`, which `theme.sizes` moves
+        // with density, as it does the padding beside a label. An icon alone is 2px wider than
+        // tall when small, and square otherwise.
         let sizes = theme.sizes;
-        let (height, width, icon_size) = match self.small {
-            true => (dp(sizes.control_sm), dp(sizes.control_sm + 2.), dp(14.)),
-            false => (dp(sizes.control), dp(sizes.control), dp(16.)),
+        let (height, width, gap, padding, icon_size) = match self.small {
+            true => (
+                sizes.control_sm,
+                sizes.control_sm + 2.,
+                tokens::BUTTON_SMALL_GAP,
+                tokens::BUTTON_SMALL_PADDING_INLINE,
+                tokens::BUTTON_SMALL_ICON_SIZE,
+            ),
+            false => (
+                sizes.control,
+                sizes.control,
+                tokens::BUTTON_REGULAR_GAP,
+                tokens::BUTTON_REGULAR_PADDING_INLINE,
+                tokens::BUTTON_REGULAR_ICON_SIZE,
+            ),
         };
         let has_label = self.label.is_some();
         let pictured = self.picture.is_some();
@@ -1365,12 +1392,16 @@ impl RenderOnce for Button {
                 true => el.min_w_0(),
                 false => el.flex_none(),
             })
-            .h(height)
-            .gap(dp(if self.small { 4. } else { 6. }))
-            .when(has_label, |el| {
-                el.px(dp(if self.small { 6. } else { 10. } + sizes.padding))
+            // A picture is the control itself, with room around it for the focus ring.
+            .map(|el| match pictured {
+                true => el.p(dp(2.)),
+                false => el.h(dp(height)),
             })
-            .when(!has_label, |el| el.w(width).justify_center())
+            .gap(dp(gap))
+            .when(has_label, |el| el.px(dp(padding + sizes.padding)))
+            .when(!has_label && !pictured, |el| {
+                el.w(dp(width)).justify_center()
+            })
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -1381,20 +1412,24 @@ impl RenderOnce for Button {
             // The halves meet square, split by a seam: an outline's border, or a faint rule
             // across a fill.
             .map(|el| match self.half {
+                None if pictured => el.rounded_full(),
                 None => el.rounded(dp(theme.shape.control)),
                 Some(Half::Action) => el.rounded_l(dp(theme.shape.control)).border_r_0(),
                 Some(Half::Menu) => (el.rounded_r(dp(theme.shape.control)).border_l_1())
                     .border_color(border.unwrap_or(theme.bg_1)),
             })
             .when(self.disabled.is_none(), |el| {
-                // A round picture in a square of hover would show the square's corners.
-                el.when(!pictured, |el| el.hover(move |el| el.bg(hover)))
-                    .active(|el| el.opacity(0.8))
+                // A picture dims under the pointer rather than sitting in a ground.
+                el.map(|el| match pictured {
+                    true => el.hover(|el| el.opacity(0.85)),
+                    false => el.hover(move |el| el.bg(hover)),
+                })
+                .active(|el| el.opacity(0.8))
             })
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon(kind).size(icon_size).text_color(fg)).opacity(opacity))
+                el.child((icon(kind).size(dp(icon_size)).text_color(fg)).opacity(opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
@@ -2113,6 +2148,25 @@ pub fn resize_pane(
 #[cfg(test)]
 mod tests {
     use super::tab_after;
+
+    #[test]
+    fn button_heights_are_the_control_heights_density_moves() {
+        // `Button` draws its heights from `theme.sizes`, which density moves, so they must stay
+        // the size tokens but-ui's button tokens name.
+        let tokens: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../packages/but-ui/tokens/tokens.json"
+        ))
+        .unwrap();
+        for (token, size) in [
+            ("button-small-height", "size-control-sm"),
+            ("button-regular-height", "size-control"),
+        ] {
+            assert_eq!(
+                tokens["aliases"][token], size,
+                "{token} is {size}, which Button reads from theme.sizes"
+            );
+        }
+    }
 
     #[test]
     fn the_next_tab_is_the_one_after() {

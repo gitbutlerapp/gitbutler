@@ -20,7 +20,7 @@ use crate::commands::Command;
 use crate::edits::Discard;
 use crate::help::{DOWNLOADS, OpenReleaseNotes};
 use crate::state::{Notice, Overlay, ProjectId, Selection, Store};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, FocusedAt, Icon, ShowFocused, button, dp, error_summary, field, fixed, h_flex,
@@ -1129,7 +1129,7 @@ impl AppView {
             .justify_center()
             .size(dp(32.))
             .rounded(dp(theme.shape.popup))
-            .bg(theme.pop_soft)
+            .bg(theme.surface(Hue::Pop))
             .child(icon(Icon::ArrowInBox).text_color(theme.pop));
         Some(
             popover(theme)

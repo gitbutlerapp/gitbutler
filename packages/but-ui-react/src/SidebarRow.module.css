@@ -53,7 +53,7 @@
 	.title {
 		color-scheme: dark;
 
-		@media (prefers-color-scheme: dark) {
+		@container style(--scheme-dark: true) {
 			color-scheme: light;
 		}
 	}

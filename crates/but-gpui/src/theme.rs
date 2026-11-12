@@ -81,7 +81,8 @@ pub struct Theme {
     pub purple: Hsla,
     /// Each hue's soft ground, which its own colour reads on as text, and that under the
     /// pointer, as but-ui-react's Badge and soft buttons draw them: `--but-*-soft(-hover)`.
-    /// [`Theme::soft`] picks one by [`Hue`].
+    /// See-through, for a mark or a control sitting on a ground. [`Theme::soft`] picks one by
+    /// [`Hue`].
     pub pop_soft: Hsla,
     pub pop_soft_hover: Hsla,
     pub blue_soft: Hsla,
@@ -94,6 +95,21 @@ pub struct Theme {
     pub danger_soft_hover: Hsla,
     pub purple_soft: Hsla,
     pub purple_soft_hover: Hsla,
+    /// Each hue's soft ground as an area, opaque, so a banner, a callout or a tile stays clean
+    /// on any ground, and that under the pointer: `--but-*-surface(-hover)`.
+    /// [`Theme::surface`] picks one by [`Hue`].
+    pub pop_surface: Hsla,
+    pub pop_surface_hover: Hsla,
+    pub blue_surface: Hsla,
+    pub blue_surface_hover: Hsla,
+    pub safe_surface: Hsla,
+    pub safe_surface_hover: Hsla,
+    pub warn_surface: Hsla,
+    pub warn_surface_hover: Hsla,
+    pub danger_surface: Hsla,
+    pub danger_surface_hover: Hsla,
+    pub purple_surface: Hsla,
+    pub purple_surface_hover: Hsla,
     /// Each hue laid over what must still show through it, and stronger for what's matched,
     /// selected or being written now: `--but-*-wash(-strong)`. [`Theme::wash`] picks one by
     /// [`Hue`], [`Theme::highlight`] by what it marks.
@@ -277,7 +293,7 @@ impl Default for Shape {
 /// density moves their side padding: nothing at Balanced, Figma's.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sizes {
-    /// A button, a dropdown, a segmented control or a toggle group.
+    /// A button, a select, a segmented control or a toggle group.
     pub control: f32,
     /// A small one; a small button or segment is 4px taller than this, for its line.
     pub control_sm: f32,
@@ -541,18 +557,17 @@ impl Theme {
             Accent::Custom => custom_accent(custom, dark),
             named => (tokens::ACCENTS.iter())
                 .find(|(name, _)| *name == named.name())
-                .map(|(_, family)| {
-                    (family.iter()).map(|(token, modes)| (*token, pick(*modes) >> 8))
-                })
+                .map(|(_, family)| (family.iter()).map(|(token, modes)| (*token, pick(*modes))))
                 .into_iter()
                 .flatten()
                 .collect(),
         };
+        // As `0xRRGGBBAA`: the soft fills are see-through.
         let token = |name: &str| {
             family
                 .iter()
                 .find(|(token, _)| *token == name)
-                .map(|&(_, c)| color(c))
+                .map(|&(_, c)| Hsla::from(rgba(c)))
         };
         if let Some(primary) = token("primary") {
             (self.pop_bg, self.pop_button) = (primary, primary);
@@ -572,6 +587,12 @@ impl Theme {
         }
         if let Some(soft) = token("primary-soft-hover") {
             self.pop_soft_hover = soft;
+        }
+        if let Some(surface) = token("primary-surface") {
+            self.pop_surface = surface;
+        }
+        if let Some(surface) = token("primary-surface-hover") {
+            self.pop_surface_hover = surface;
         }
         self
     }
@@ -782,6 +803,18 @@ impl Theme {
             danger_soft_hover: token(on_ground!(DANGER_SOFT_HOVER)),
             purple_soft: token(on_ground!(DONE_SOFT)),
             purple_soft_hover: token(on_ground!(DONE_SOFT_HOVER)),
+            pop_surface: token(on_ground!(PRIMARY_SURFACE)),
+            pop_surface_hover: token(on_ground!(PRIMARY_SURFACE_HOVER)),
+            blue_surface: token(on_ground!(INFO_SURFACE)),
+            blue_surface_hover: token(on_ground!(INFO_SURFACE_HOVER)),
+            safe_surface: token(on_ground!(SUCCESS_SURFACE)),
+            safe_surface_hover: token(on_ground!(SUCCESS_SURFACE_HOVER)),
+            warn_surface: token(on_ground!(WARNING_SURFACE)),
+            warn_surface_hover: token(on_ground!(WARNING_SURFACE_HOVER)),
+            danger_surface: token(on_ground!(DANGER_SURFACE)),
+            danger_surface_hover: token(on_ground!(DANGER_SURFACE_HOVER)),
+            purple_surface: token(on_ground!(DONE_SURFACE)),
+            purple_surface_hover: token(on_ground!(DONE_SURFACE_HOVER)),
             pop_wash: token(on_ground!(PRIMARY_WASH)),
             pop_wash_strong: token(on_ground!(PRIMARY_WASH_STRONG)),
             blue_wash: token(on_ground!(INFO_WASH)),
@@ -1004,6 +1037,19 @@ impl Theme {
             danger_soft_hover: color(soft_hover(1)),
             purple_soft: color(soft(5)),
             purple_soft_hover: color(soft_hover(5)),
+            // A scheme's soft grounds are opaque already, so they serve as its areas too.
+            pop_surface: color(soft(6)),
+            pop_surface_hover: color(soft_hover(6)),
+            blue_surface: color(soft(4)),
+            blue_surface_hover: color(soft_hover(4)),
+            safe_surface: color(soft(2)),
+            safe_surface_hover: color(soft_hover(2)),
+            warn_surface: color(soft(3)),
+            warn_surface_hover: color(soft_hover(3)),
+            danger_surface: color(soft(1)),
+            danger_surface_hover: color(soft_hover(1)),
+            purple_surface: color(soft(5)),
+            purple_surface_hover: color(soft_hover(5)),
             pop_wash: washed(6, 0),
             pop_wash_strong: washed(6, 1),
             blue_wash: washed(4, 0),
@@ -1127,6 +1173,32 @@ impl Theme {
         }
     }
 
+    /// `hue`'s ground as an area, opaque: a banner, a callout, a tile.
+    pub fn surface(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface,
+            Hue::Blue => self.blue_surface,
+            Hue::Safe => self.safe_surface,
+            Hue::Warn => self.warn_surface,
+            Hue::Danger => self.danger_surface,
+            Hue::Purple => self.purple_surface,
+            Hue::Gray => self.muted,
+        }
+    }
+
+    /// `hue`'s area under the pointer.
+    pub fn surface_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface_hover,
+            Hue::Blue => self.blue_surface_hover,
+            Hue::Safe => self.safe_surface_hover,
+            Hue::Warn => self.warn_surface_hover,
+            Hue::Danger => self.danger_surface_hover,
+            Hue::Purple => self.purple_surface_hover,
+            Hue::Gray => self.muted_hover,
+        }
+    }
+
     /// `hue` washed over rows, which still show through: a move's mark, a drop target, a mark
     /// under the pointer.
     pub fn wash(&self, hue: Hue) -> Hsla {
@@ -1191,7 +1263,8 @@ const GHOSTTY_ANSI: [u32; 16] = [
 
 /// The custom accent's family drawn from `pick`, `#rrggbb` or `#rgb`, as but-ui's tokens.css draws
 /// it: each token is the pick's hue, its chroma capped and taken at a share, at a lightness, in
-/// OKLCH, then clipped into sRGB as a browser does. A pick that isn't a colour draws as teal.
+/// OKLCH, then clipped into sRGB as a browser does, and see-through where the step is, as
+/// `0xRRGGBBAA`. A pick that isn't a colour draws as teal.
 fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
     let [light, dark_value] = tokens::CUSTOM_ACCENT_FALLBACK;
     let fallback = if dark { dark_value } else { light } >> 8;
@@ -1199,8 +1272,17 @@ fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
     let chroma = chroma.min(tokens::CUSTOM_ACCENT_CHROMA_CAP);
     (tokens::CUSTOM_ACCENT.iter())
         .map(|&(token, [light, dark_modes])| {
-            let (lightness, share) = if dark { dark_modes } else { light };
-            (token, from_oklch(lightness, chroma * share, hue))
+            let (lightness, share, alpha) = if dark { dark_modes } else { light };
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "clamped to 0–255 first"
+            )]
+            let alpha = (alpha.clamp(0., 1.) * 255.).round() as u32;
+            (
+                token,
+                from_oklch(lightness, chroma * share, hue) << 8 | alpha,
+            )
         })
         .collect()
 }
@@ -1348,7 +1430,7 @@ mod tests {
 
     use super::{
         Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, WASHES, channels, contrast,
-        custom_accent, parse_hex, rgb_hex,
+        custom_accent, rgb_hex,
     };
 
     fn rgb(hex: u32) -> RgbColor {
@@ -1451,12 +1533,21 @@ mod tests {
             let pick = sample["color"].as_str().unwrap();
             for (mode, dark) in [("light", false), ("dark", true)] {
                 for (token, drawn) in custom_accent(pick, dark) {
-                    let web = parse_hex(sample["tokens"][token][mode].as_str().unwrap()).unwrap();
-                    let apart = (channels(drawn).into_iter().zip(channels(web)))
+                    // `#rrggbb`, or `#rrggbbaa` for a see-through step.
+                    let web = sample["tokens"][token][mode].as_str().unwrap();
+                    let digits = web.trim_start_matches('#');
+                    let web = u32::from_str_radix(digits, 16).unwrap();
+                    let web = if digits.len() == 6 {
+                        web << 8 | 0xff
+                    } else {
+                        web
+                    };
+                    let alpha = |c: u32| (c & 0xff) as f32;
+                    let apart = (channels(drawn >> 8).into_iter().zip(channels(web >> 8)))
                         .map(|(a, b)| (a - b).abs())
-                        .fold(0., f32::max);
+                        .fold((alpha(drawn) - alpha(web)).abs(), f32::max);
                     if apart > 1. {
-                        off.push(format!("{pick} {mode} {token}: {drawn:06x}, web {web:06x}"));
+                        off.push(format!("{pick} {mode} {token}: {drawn:08x}, web {web:08x}"));
                     }
                 }
             }
@@ -1523,15 +1614,30 @@ mod tests {
                 Hue::Gray,
             ] {
                 let ink = rgb_hex(theme.hue(hue));
-                for (what, ground) in [
-                    ("soft", theme.soft(hue)),
-                    ("soft under the pointer", theme.soft_hover(hue)),
+                // The soft fills are see-through, so each is laid on what it sits on: the
+                // content, and for the fill at rest the recessed ground too, as but-ui checks.
+                for (what, ground, unders) in [
+                    ("soft", theme.soft(hue), vec![theme.bg_1, theme.bg_2]),
+                    (
+                        "soft under the pointer",
+                        theme.soft_hover(hue),
+                        vec![theme.bg_1],
+                    ),
+                    // Opaque, so the ground under it doesn't change it.
+                    ("surface", theme.surface(hue), vec![theme.bg_1]),
+                    (
+                        "surface under the pointer",
+                        theme.surface_hover(hue),
+                        vec![theme.bg_1],
+                    ),
                 ] {
-                    let reads = contrast(ink, rgb_hex(ground));
-                    assert!(
-                        reads >= 4.5,
-                        "{name}: {hue:?} reads at {reads} on its {what} ground"
-                    );
+                    for under in unders {
+                        let reads = contrast(ink, rgb_hex(under.blend(ground)));
+                        assert!(
+                            reads >= 4.5,
+                            "{name}: {hue:?} reads at {reads} on its {what} ground"
+                        );
+                    }
                 }
             }
         }

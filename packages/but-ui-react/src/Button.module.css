@@ -55,28 +55,34 @@
 	width: var(--button-width);
 }
 
+/* Sizes come from but-ui's component tokens (packages/but-ui/components/button.tokens.json),
+   which the GPUI app reads too: change a value there, not here. */
 :where(.small) {
-	--button-gap: 4px;
-	--button-height: var(--but-size-control-sm);
-	--button-padding-inline: calc(6px + var(--but-density-padding));
-	--icon-size: 14px;
+	--button-gap: var(--but-button-small-gap);
+	--button-height: var(--but-button-small-height);
+	--button-padding-inline: calc(
+		var(--but-button-small-padding-inline) + var(--but-density-padding)
+	);
+	--icon-size: var(--but-button-small-icon-size);
 
 	/* 2px wider than tall, at any density. */
 	&:where(.iconOnly) {
-		--button-width: calc(var(--but-size-control-sm) + 2px);
-		--button-padding-inline: 3px;
+		--button-width: calc(var(--but-button-small-height) + 2px);
+		--button-padding-inline: var(--but-button-small-icon-only-padding-inline);
 	}
 }
 
 :where(.regular) {
-	--button-gap: 6px;
-	--button-height: var(--but-size-control);
-	--button-padding-inline: calc(10px + var(--but-density-padding));
-	--icon-size: 16px;
+	--button-gap: var(--but-button-regular-gap);
+	--button-height: var(--but-button-regular-height);
+	--button-padding-inline: calc(
+		var(--but-button-regular-padding-inline) + var(--but-density-padding)
+	);
+	--icon-size: var(--but-button-regular-icon-size);
 
 	&:where(.iconOnly) {
-		--button-width: var(--but-size-control);
-		--button-padding-inline: 8px;
+		--button-width: var(--but-button-regular-height);
+		--button-padding-inline: var(--but-button-regular-icon-only-padding-inline);
 	}
 }
 

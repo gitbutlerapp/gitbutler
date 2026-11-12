@@ -230,6 +230,10 @@ and the feature may go, so it stays separate.
   are. It is in rems, and the window's rem follows the interface scale (⌘+ and ⌘−), so the
   whole app zooms as a browser does. Clippy refuses plain `gpui::px`; `ui::fixed` is for what
   must stay put, as a hairline, the room for the traffic lights, the scrollbar or window bounds.
+- A control with component tokens in but-ui (`packages/but-ui/components`) takes its sizes
+  from them, as `tokens::BUTTON_REGULAR_GAP`, never its own numbers, so it draws as
+  but-ui-react's does. A height that names a size token comes from `theme.sizes`, which density
+  moves; a test holds the alias.
 - Sizes the app keeps for layout, as pane widths and measured header heights, are in design
   pixels too. Divide what GPUI measures by `Theme::scale` before keeping it, as `measured` and
   `resize_pane` do, or `dp` scales it twice. Where code needs real `Pixels`, as for scrolling,
@@ -277,7 +281,7 @@ and tests it.
 - Screen readers see the app only once Settings › General turns on Screen reader support,
   read as the app starts: with it on, closing a window crashes on a Mac with a Touch Bar
   (zed-industries/zed#64819). Turn it on and relaunch to check what VoiceOver reads.
-- Build controls from `ui`'s helpers (`button`, `switch`, `dropdown`, `segmented`, `list_row`,
+- Build controls from `ui`'s helpers (`button`, `switch`, `select`, `segmented`, `list_row`,
   `checkbox`). Each gives VoiceOver a role and a name, and the first four are tab stops. GPUI
   reports only elements with both an id and a `role`, so a hand-built clickable `div` needs
   `.role()` and `.aria_label()`, and `ui::tab_stop` when it's a control in a dialog.

@@ -6,18 +6,15 @@
 	width: fit-content;
 	min-width: 16px;
 	border-radius: var(--but-radius-full);
-	--badge-bg-opacity: 20%;
 
 	/* Selected rows set --selection-inverted; flipping to the opposite color
 	   scheme makes every light-dark() token inside the badge resolve to its
 	   inverted value, matching the row's inverted selection background. */
 	@container style(--selection-inverted: true) {
-		--badge-bg-opacity: 40%;
 		color-scheme: dark;
 
-		@media (prefers-color-scheme: dark) {
+		@container style(--scheme-dark: true) {
 			color-scheme: light;
-			--badge-bg-opacity: 20%;
 		}
 	}
 }
@@ -45,14 +42,10 @@
 	color: var(--but-inverse-foreground);
 }
 
-/* Gray tints with the text's own colour, lighter than the shared opacity, so
-   it reads as the quietest. Its share tracks the opacity, so an inverted ground
-   lifts it. */
+/* The neutral soft fill. On a selected row the flipped scheme makes it the
+   other mode's, as it does the colours'. */
 .lightGray {
-	background-color: light-dark(
-		color-mix(in srgb, currentColor calc(var(--badge-bg-opacity) * 0.5), transparent),
-		color-mix(in srgb, var(--but-inverse) calc(var(--badge-bg-opacity) * 0.8), transparent)
-	);
+	background-color: var(--but-neutral-soft);
 	color: var(--but-foreground);
 }
 

@@ -68,7 +68,7 @@ export function cssVarName(path) {
 }
 
 export function stripCollectionPrefix(id) {
-	const collections = ["core", "semantic", "ramps"];
+	const collections = ["core", "semantic", "ramps", "components"];
 	for (const collection of collections) {
 		if (id.startsWith(collection + ".")) {
 			return cssVarName(id.slice(collection.length + 1));

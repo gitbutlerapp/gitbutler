@@ -34,8 +34,8 @@ use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Switch, button, dp, dropdown, error_summary, field, h_flex, icon,
-    muted, side_row, switch, v_flex,
+    self, ButtonStyle, Icon, Switch, button, dp, error_summary, field, h_flex, icon, muted, select,
+    side_row, switch, v_flex,
 };
 
 pub use cli::welcome_card;
@@ -514,7 +514,7 @@ impl SettingsView {
         (self.app).open_menu(&cx.entity().downgrade(), event.position(), items, cx);
     }
 
-    /// A dropdown showing `label`, whose menu sets one of `options` through `set` and ticks
+    /// A select showing `label`, whose menu sets one of `options` through `set` and ticks
     /// the one `label` names.
     fn choice<T: Clone + 'static>(
         &self,
@@ -537,7 +537,7 @@ impl SettingsView {
                 .ticked(ticked)
             })
             .collect();
-        dropdown(id, label, Theme::get(cx))
+        select(id, label, Theme::get(cx))
             .on_click(move |event, _, cx| {
                 let items = items.clone();
                 (this.update(cx, |this, cx| this.open_menu(event, move |_, _| items, cx))).ok();
@@ -887,12 +887,13 @@ impl SettingsView {
             appearance,
         );
         let app = self.app.clone();
-        let scheme = dropdown("color-scheme", prefs.color_scheme.label().to_owned(), theme)
-            .on_click(move |_, window, cx| {
+        let scheme = select("color-scheme", prefs.color_scheme.label().to_owned(), theme).on_click(
+            move |_, window, cx| {
                 app.update_later(window, cx, |app, window, cx| {
                     app.pick_color_scheme(window, cx)
                 })
-            });
+            },
+        );
         let scheme = Row::new(
             "Colour scheme",
             "GitButler's colours, or a Ghostty theme for the app and its terminals alike.",
@@ -918,7 +919,7 @@ impl SettingsView {
         );
         let app = self.app.clone();
         let diff_font = (prefs.diff_font.clone()).unwrap_or_else(|| theme.mono_font.to_string());
-        let diff_font = dropdown("diff-font", diff_font, theme).on_click(move |_, window, cx| {
+        let diff_font = select("diff-font", diff_font, theme).on_click(move |_, window, cx| {
             app.update_later(window, cx, |app, window, cx| app.pick_diff_font(window, cx))
         });
         let status_bar = self.status_bar_row(cx);
@@ -1101,7 +1102,7 @@ impl SettingsView {
         let app = self.app.clone();
         let terminal_font = (prefs.terminal_font.clone()).unwrap_or_else(|| "As Ghostty's".into());
         let terminal_font =
-            dropdown("terminal-font", terminal_font, theme).on_click(move |_, window, cx| {
+            select("terminal-font", terminal_font, theme).on_click(move |_, window, cx| {
                 app.update_later(window, cx, |app, window, cx| {
                     app.pick_terminal_font(window, cx)
                 })
@@ -2326,7 +2327,7 @@ fn app_look(app: &AppHandle, window: &mut Window, cx: &mut App) {
     app.update_later(window, cx, |app, window, cx| app.apply_look(window, cx));
 }
 
-/// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
+/// A segmented control for a setting with a few values, `current` picked. Unlike a select's
 /// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
 /// app.
 fn segmented<T: Copy + PartialEq + 'static>(

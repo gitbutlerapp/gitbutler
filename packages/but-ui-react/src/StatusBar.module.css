@@ -59,21 +59,22 @@
 	}
 }
 
+/* The colour's soft fill, as a badge or a banner has, a step stronger under the pointer. */
 .warning {
-	background-color: color-mix(in srgb, var(--but-warning) 10%, transparent);
-	color: var(--but-warning-text);
+	background-color: var(--but-warning-soft);
+	color: var(--but-warning-soft-foreground);
 
 	&:hover {
-		background-color: color-mix(in srgb, var(--but-warning) 18%, transparent);
+		background-color: var(--but-warning-soft-hover);
 	}
 }
 
 .danger {
-	background-color: color-mix(in srgb, var(--but-danger) 10%, transparent);
-	color: var(--but-danger-text);
+	background-color: var(--but-danger-soft);
+	color: var(--but-danger-soft-foreground);
 
 	&:hover {
-		background-color: color-mix(in srgb, var(--but-danger) 18%, transparent);
+		background-color: var(--but-danger-soft-hover);
 	}
 }
 

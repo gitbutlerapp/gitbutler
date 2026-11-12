@@ -13,7 +13,7 @@ use gpui::{
 use crate::app::AppView;
 use crate::backend::{self, settings::Published};
 use crate::help::OpenReleaseNotes;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::fold::Folds;
 use crate::ui::markdown::{self, Block, Kind, Style};
 use crate::ui::modal::{ModalSize, modal};
@@ -411,7 +411,7 @@ impl WhatsNew {
                     .px(dp(12.))
                     .py(dp(8.))
                     .rounded(dp(theme.shape.card))
-                    .bg(theme.pop_soft)
+                    .bg(theme.surface(Hue::Pop))
                     .text_size(dp(13.))
                     .child("Not in your version yet")
                     .into_any_element(),

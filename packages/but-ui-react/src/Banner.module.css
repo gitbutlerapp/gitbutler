@@ -59,23 +59,25 @@
 	);
 }
 
+/* A banner is an area, so it takes its colour's opaque surface: the see-through soft a badge
+   takes would let the ground under the banner show through it. */
 .warn {
-	--banner-bg: var(--but-warning-soft);
+	--banner-bg: var(--but-warning-surface);
 	--banner-fg: var(--but-warning-soft-foreground);
 }
 
 .danger {
-	--banner-bg: var(--but-danger-soft);
+	--banner-bg: var(--but-danger-surface);
 	--banner-fg: var(--but-danger-soft-foreground);
 }
 
 .pop {
-	--banner-bg: var(--but-primary-soft);
+	--banner-bg: var(--but-primary-surface);
 	--banner-fg: var(--but-primary-soft-foreground);
 }
 
 .safe {
-	--banner-bg: var(--but-success-soft);
+	--banner-bg: var(--but-success-surface);
 	--banner-fg: var(--but-success-soft-foreground);
 }
 

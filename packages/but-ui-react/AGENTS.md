@@ -52,6 +52,11 @@ cursor rules; every host imports it right after but-ui. A variable nothing decla
 property quietly falls back, so a new shared variable goes in `base.css`, not
 in a host's stylesheet.
 
+A component's own values that the GPUI app draws too (sizes, gaps, padding) are
+but-ui component tokens, in `packages/but-ui/components/<component>.tokens.json`
+(`--but-button-regular-gap`). Its CSS reads those, so change a value there, not
+in the module. Button has them so far.
+
 ### Icons
 
 Icons are SVGs in `src/icons/`, inlined into the bundle as raw strings; the

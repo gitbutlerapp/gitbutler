@@ -7,25 +7,31 @@
 			"teal": {
 				"primary": "teal-9",
 				"primary-hover": "teal-10",
-				"primary-soft": "teal-3",
+				"primary-soft": "teal-a3",
 				"primary-soft-foreground": "teal-11",
-				"primary-soft-hover": "teal-4",
+				"primary-soft-hover": "teal-a4",
+				"primary-surface": "teal-3",
+				"primary-surface-hover": "teal-4",
 				"primary-text": "teal-11"
 			},
 			"blue": {
 				"primary": "blue-9",
 				"primary-hover": "blue-10",
-				"primary-soft": "blue-3",
+				"primary-soft": "blue-a3",
 				"primary-soft-foreground": "blue-11",
-				"primary-soft-hover": "blue-4",
+				"primary-soft-hover": "blue-a4",
+				"primary-surface": "blue-3",
+				"primary-surface-hover": "blue-4",
 				"primary-text": "blue-11"
 			},
 			"purple": {
 				"primary": "purple-9",
 				"primary-hover": "purple-10",
-				"primary-soft": "purple-3",
+				"primary-soft": "purple-a3",
 				"primary-soft-foreground": "purple-11",
-				"primary-soft-hover": "purple-4",
+				"primary-soft-hover": "purple-a4",
+				"primary-surface": "purple-3",
+				"primary-surface-hover": "purple-4",
 				"primary-text": "purple-11"
 			}
 		},
@@ -56,6 +62,40 @@
 				},
 				"primary-soft": {
 					"light": {
+						"lightness": 0.766,
+						"chroma": 1.4,
+						"alpha": 0.15
+					},
+					"dark": {
+						"lightness": 0.905,
+						"chroma": 1.639,
+						"alpha": 0.13
+					}
+				},
+				"primary-soft-foreground": {
+					"light": {
+						"lightness": 0.452,
+						"chroma": 0.889
+					},
+					"dark": {
+						"lightness": 0.827,
+						"chroma": 1.31
+					}
+				},
+				"primary-soft-hover": {
+					"light": {
+						"lightness": 0.73,
+						"chroma": 1.326,
+						"alpha": 0.25
+					},
+					"dark": {
+						"lightness": 0.905,
+						"chroma": 1.639,
+						"alpha": 0.19
+					}
+				},
+				"primary-surface": {
+					"light": {
 						"lightness": 0.955,
 						"chroma": 0.319
 					},
@@ -64,17 +104,7 @@
 						"chroma": 0.394
 					}
 				},
-				"primary-soft-foreground": {
-					"light": {
-						"lightness": 0.46,
-						"chroma": 0.903
-					},
-					"dark": {
-						"lightness": 0.827,
-						"chroma": 1.31
-					}
-				},
-				"primary-soft-hover": {
+				"primary-surface-hover": {
 					"light": {
 						"lightness": 0.928,
 						"chroma": 0.52
@@ -86,8 +116,8 @@
 				},
 				"primary-text": {
 					"light": {
-						"lightness": 0.46,
-						"chroma": 0.903
+						"lightness": 0.452,
+						"chroma": 0.889
 					},
 					"dark": {
 						"lightness": 0.827,

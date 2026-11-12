@@ -15,7 +15,7 @@ use super::{
     v_flex,
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
-use crate::theme::{Highlight, Theme};
+use crate::theme::{Highlight, Hue, Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
@@ -248,7 +248,7 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
     match side {
         Side::NewBase => look(LineKind::Added, plain, theme),
         Side::Commit => Look {
-            bg: (!plain).then_some(theme.blue_soft),
+            bg: (!plain).then_some(theme.surface(Hue::Blue)),
             number: theme.blue,
             emph: theme.highlight(Highlight::Incoming),
             bar: Some(theme.blue.into()),
@@ -294,8 +294,8 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         false => (
             Icon::Warning,
             theme.warn,
-            theme.warn_soft,
-            theme.warn_soft_hover,
+            theme.surface(Hue::Warn),
+            theme.surface_hover(Hue::Warn),
         ),
     };
     card(h_flex(), row.layout.flat, theme)

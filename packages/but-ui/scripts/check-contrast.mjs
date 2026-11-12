@@ -59,7 +59,8 @@ function contrast(a, b) {
 }
 
 // The pairs, as [what's read, what it's read on, floor]. A translucent ground sits on
-// background, as a tint or a hover does in a card; translucent text sits on its ground.
+// background, as a tint or a hover does in a card; translucent text sits on its ground. A soft
+// fill sits on canvas too, the darkest ground it meets; its hover there, for a moment, is let off.
 const GROUNDS = ["background", "canvas", "muted"];
 const STATUSES = ["primary", "danger", "warning", "success", "info", "done"];
 const pairs = [
@@ -75,15 +76,21 @@ const pairs = [
 	["inverse-foreground", "inverse-hover", TEXT],
 	["inverse-muted-foreground", "inverse", TEXT],
 	["inverse-subtle-foreground", "inverse", MARK],
-	// Each colour's two weights: -text and soft-foreground on soft, and foreground on the solid.
+	// Each colour's weights: -text and soft-foreground on soft and on surface, its opaque twin for
+	// areas, and foreground on the solid.
 	...STATUSES.flatMap((status) => [
-		...[...GROUNDS, `${status}-soft`, `${status}-soft-hover`].map((ground) => [
-			`${status}-text`,
-			ground,
+		...[
+			...GROUNDS,
+			`${status}-soft`,
+			`${status}-soft-hover`,
+			`${status}-surface`,
+			`${status}-surface-hover`,
+		].map((ground) => [`${status}-text`, ground, TEXT]),
+		...[`soft`, `soft-hover`, `surface`, `surface-hover`].map((ground) => [
+			`${status}-soft-foreground`,
+			`${status}-${ground}`,
 			TEXT,
 		]),
-		[`${status}-soft-foreground`, `${status}-soft`, TEXT],
-		[`${status}-soft-foreground`, `${status}-soft-hover`, TEXT],
 		[`${status}-foreground`, status, TEXT],
 		[`${status}-foreground`, `${status}-hover`, TEXT],
 	]),
@@ -106,14 +113,20 @@ for (const [groundName, groundOverrides] of grounds)
 	for (const [accent, overrides] of accents) {
 		declarations = new Map([...defaults, ...groundOverrides, ...overrides]);
 		for (const mode of ["light", "dark"]) {
-			const background = resolve("var(--but-background)", mode);
 			for (const [text, ground, floor] of pairs) {
-				const on = over(resolve(`var(--but-${ground})`, mode), background);
-				const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
-				if (ratio < floor)
-					failures.push(
-						`${groundName.padEnd(5)} ${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
+				const unders = ground.endsWith("-soft") ? ["background", "canvas"] : ["background"];
+				for (const under of unders) {
+					const on = over(
+						resolve(`var(--but-${ground})`, mode),
+						resolve(`var(--but-${under})`, mode),
 					);
+					const ratio = contrast(over(resolve(`var(--but-${text})`, mode), on), on);
+					const where = under === "background" ? "" : ` over --but-${under}`;
+					if (ratio < floor)
+						failures.push(
+							`${groundName.padEnd(5)} ${accent.padEnd(7)} ${mode.padEnd(5)}  --but-${text} on --but-${ground}${where}: ${ratio.toFixed(2)}:1, needs ${floor}:1`,
+						);
+				}
 			}
 		}
 	}

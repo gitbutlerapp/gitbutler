@@ -29,7 +29,7 @@ use crate::clipboard;
 use crate::edits::CherryPick;
 use crate::overlays::{MenuItem, has_keys};
 use crate::state::{Pane, Part, ProjectId, ProjectTab, Selection};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::Moving;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::fold::inert;
@@ -1878,7 +1878,7 @@ impl Detail {
             }),
             missing.then(|| {
                 let remove = project.clone();
-                callout(theme.danger_soft)
+                callout(theme.surface(Hue::Danger))
                     .child(div().text_color(theme.danger).children(entry.error.clone()))
                     .child(
                         crate::ui::button("forget", "Remove")
@@ -1893,7 +1893,7 @@ impl Detail {
             }),
             entry.commits_above.map(|above| {
                 let project = project.clone();
-                callout(theme.danger_soft)
+                callout(theme.surface(Hue::Danger))
                     .child(div().text_color(theme.danger).children(entry.error.clone()))
                     .child(
                         crate::ui::button("uncommit-above", "Uncommit, keep the changes")

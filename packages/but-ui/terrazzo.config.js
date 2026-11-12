@@ -9,6 +9,8 @@ export default defineConfig({
 		"./.terrazzo/core.tokens.json",
 		"./.terrazzo/semantic.tokens.json",
 		"./.terrazzo/ramps.tokens.json",
+		// Written by hand, not exported from Figma: what each component's own values are.
+		"./components/button.tokens.json",
 	],
 	outDir: "./tokens",
 	plugins: [

@@ -8,10 +8,11 @@
 //! as a module here and to [`Gallery::new`].
 
 mod activity;
+mod avatar;
 mod button;
 mod checkbox;
 mod counts;
-mod dropdown;
+mod dropdown_button;
 mod empty_state;
 mod icons;
 mod keycap;
@@ -19,6 +20,7 @@ mod popover;
 mod review;
 mod rows;
 mod segmented;
+mod select;
 mod snackbar;
 mod switch;
 mod toggle_group;
@@ -33,7 +35,7 @@ use crate::backend::{
     self,
     rebuild::{Printed, Rebuild},
 };
-use crate::theme::{CodeSize, Theme, UiScale};
+use crate::theme::{CodeSize, Density, Theme, UiScale};
 use crate::ui::{
     self, ButtonStyle, button, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex,
 };
@@ -110,6 +112,7 @@ struct Gallery {
     shown: usize,
     dark: bool,
     scale: UiScale,
+    density: Density,
     build: Build,
 }
 
@@ -139,10 +142,11 @@ impl Gallery {
         }
         let stories = vec![
             story("Activity", activity::ActivityStory::default(), cx),
+            story("Avatar", avatar::AvatarStory, cx),
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
-            story("Dropdown", dropdown::DropdownStory, cx),
+            story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
             story("Icons", icons::IconsStory, cx),
             story("Keycap", keycap::KeycapStory, cx),
@@ -150,6 +154,7 @@ impl Gallery {
             story("Popover and modal", popover::PopoverStory, cx),
             story("Pull request state", review::ReviewStory, cx),
             story("Segmented", segmented::SegmentedStory::default(), cx),
+            story("Select", select::SelectStory, cx),
             story("Snackbar", snackbar::SnackbarStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
             story(
@@ -181,6 +186,7 @@ impl Gallery {
             shown,
             dark,
             scale: UiScale::default(),
+            density: Density::default(),
         };
         gallery.set_theme(cx);
         gallery
@@ -258,7 +264,11 @@ impl Gallery {
     }
 
     fn set_theme(&self, cx: &mut App) {
-        cx.set_global(Theme::gitbutler(self.dark, CodeSize::default()).with_scale(self.scale));
+        cx.set_global(
+            (Theme::gitbutler(self.dark, CodeSize::default()))
+                .with_density(self.density)
+                .with_scale(self.scale),
+        );
     }
 
     fn sidebar(&self, theme: &Theme, cx: &mut Context<Self>) -> Div {
@@ -315,6 +325,21 @@ impl Gallery {
                 }));
                 (segment, self.scale == scale)
             });
+        // As the docs site's Density: how tall controls are.
+        let densities = [
+            ("Compact", Density::Compact),
+            ("Balanced", Density::Balanced),
+            ("Spacious", Density::Spacious),
+        ]
+        .map(|(label, density)| {
+            let segment =
+                (div().id(label).child(label)).on_click(cx.listener(move |this, _, _, cx| {
+                    this.density = density;
+                    this.set_theme(cx);
+                    cx.notify();
+                }));
+            (segment, self.density == density)
+        });
         h_flex()
             .flex_none()
             .h(dp(48.))
@@ -330,6 +355,7 @@ impl Gallery {
                     .child(name),
             )
             .children(rebuild)
+            .child(segmented(true, theme, densities))
             .child(segmented(true, theme, scales))
             .child(segmented(true, theme, appearance))
     }

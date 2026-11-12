@@ -57,10 +57,10 @@ export function resolveColor(value, mode, declarations) {
 	if (lightDark) return resolveColor(lightDark[mode === "light" ? 0 : 1], mode, declarations);
 	// What generate-accents.mjs writes for any colour: its hue and capped chroma at a lightness.
 	const relative = value.match(
-		/^oklch\(from var\(--but-([\w-]+)(?:, [^)]*\))?\) ([\d.]+) (?:calc\()?min\(c, ([\d.]+)\)(?: \* ([\d.]+)\))? h\)$/,
+		/^oklch\(from var\(--but-([\w-]+)(?:, [^)]*\))?\) ([\d.]+) (?:calc\()?min\(c, ([\d.]+)\)(?: \* ([\d.]+)\))? h(?: \/ ([\d.]+))?\)$/,
 	);
 	if (relative) {
-		const [, ref, l, cap, share = "1"] = relative;
+		const [, ref, l, cap, share = "1", alpha = "1"] = relative;
 		const from = toOklch(parse(declarations.get(ref)));
 		const c = Math.min(from.c, parseFloat(cap)) * parseFloat(share);
 		// Out of sRGB the browser clips each channel.
@@ -68,7 +68,7 @@ export function resolveColor(value, mode, declarations) {
 		function clip(v) {
 			return Math.min(1, Math.max(0, v));
 		}
-		return { r: clip(r), g: clip(g), b: clip(b), alpha: 1 };
+		return { r: clip(r), g: clip(g), b: clip(b), alpha: parseFloat(alpha) };
 	}
 	const mix = call(value, "color-mix");
 	if (mix) {

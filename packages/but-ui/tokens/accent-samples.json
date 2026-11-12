@@ -6,10 +6,12 @@
 			"tokens": {
 				"primary": { "light": "#ac3b2f", "dark": "#ac3b2f" },
 				"primary-hover": { "light": "#9e352a", "dark": "#9e352a" },
-				"primary-soft": { "light": "#ffe5de", "dark": "#401b16" },
-				"primary-soft-foreground": { "light": "#953227", "dark": "#ff8d78" },
-				"primary-soft-hover": { "light": "#ffd4c9", "dark": "#551e18" },
-				"primary-text": { "light": "#953227", "dark": "#ff8d78" }
+				"primary-soft": { "light": "#ff725f26", "dark": "#ff917921" },
+				"primary-soft-foreground": { "light": "#913026", "dark": "#ff8d78" },
+				"primary-soft-hover": { "light": "#ff6b5940", "dark": "#ff917930" },
+				"primary-surface": { "light": "#ffe5de", "dark": "#401b16" },
+				"primary-surface-hover": { "light": "#ffd4c9", "dark": "#551e18" },
+				"primary-text": { "light": "#913026", "dark": "#ff8d78" }
 			}
 		},
 		{
@@ -17,10 +19,12 @@
 			"tokens": {
 				"primary": { "light": "#ab3d23", "dark": "#ab3d23" },
 				"primary-hover": { "light": "#9e371f", "dark": "#9e371f" },
-				"primary-soft": { "light": "#ffe6db", "dark": "#401b13" },
-				"primary-soft-foreground": { "light": "#94331c", "dark": "#ff8f6a" },
-				"primary-soft-hover": { "light": "#ffd5c5", "dark": "#541f13" },
-				"primary-text": { "light": "#94331c", "dark": "#ff8f6a" }
+				"primary-soft": { "light": "#ff754d26", "dark": "#ff956421" },
+				"primary-soft-foreground": { "light": "#91321b", "dark": "#ff8f6a" },
+				"primary-soft-hover": { "light": "#ff6e4940", "dark": "#ff956430" },
+				"primary-surface": { "light": "#ffe6db", "dark": "#401b13" },
+				"primary-surface-hover": { "light": "#ffd5c5", "dark": "#541f13" },
+				"primary-text": { "light": "#91321b", "dark": "#ff8f6a" }
 			}
 		},
 		{
@@ -28,10 +32,12 @@
 			"tokens": {
 				"primary": { "light": "#a54700", "dark": "#a54700" },
 				"primary-hover": { "light": "#984000", "dark": "#984000" },
-				"primary-soft": { "light": "#ffe8d3", "dark": "#3d1e07" },
-				"primary-soft-foreground": { "light": "#8f3c00", "dark": "#ff9c2c" },
-				"primary-soft-hover": { "light": "#ffdab7", "dark": "#512300" },
-				"primary-text": { "light": "#8f3c00", "dark": "#ff9c2c" }
+				"primary-soft": { "light": "#ff830026", "dark": "#ffa60021" },
+				"primary-soft-foreground": { "light": "#8c3a00", "dark": "#ff9c2c" },
+				"primary-soft-hover": { "light": "#ff7b0040", "dark": "#ffa60030" },
+				"primary-surface": { "light": "#ffe8d3", "dark": "#3d1e07" },
+				"primary-surface-hover": { "light": "#ffdab7", "dark": "#512300" },
+				"primary-text": { "light": "#8c3a00", "dark": "#ff9c2c" }
 			}
 		},
 		{
@@ -39,10 +45,12 @@
 			"tokens": {
 				"primary": { "light": "#8e5b00", "dark": "#8e5b00" },
 				"primary-hover": { "light": "#835300", "dark": "#835300" },
-				"primary-soft": { "light": "#ffeecc", "dark": "#352400" },
-				"primary-soft-foreground": { "light": "#7b4e00", "dark": "#ffb800" },
-				"primary-soft-hover": { "light": "#ffe4ac", "dark": "#462d00" },
-				"primary-text": { "light": "#7b4e00", "dark": "#ffb800" }
+				"primary-soft": { "light": "#f0a20026", "dark": "#ffcc0021" },
+				"primary-soft-foreground": { "light": "#784c00", "dark": "#ffb800" },
+				"primary-soft-hover": { "light": "#e1980040", "dark": "#ffcc0030" },
+				"primary-surface": { "light": "#ffeecc", "dark": "#352400" },
+				"primary-surface-hover": { "light": "#ffe4ac", "dark": "#462d00" },
+				"primary-text": { "light": "#784c00", "dark": "#ffb800" }
 			}
 		},
 		{
@@ -50,10 +58,12 @@
 			"tokens": {
 				"primary": { "light": "#6e6c00", "dark": "#6e6c00" },
 				"primary-hover": { "light": "#646300", "dark": "#646300" },
-				"primary-soft": { "light": "#f2f4cf", "dark": "#292a01" },
-				"primary-soft-foreground": { "light": "#5e5d00", "dark": "#d0cf00" },
-				"primary-soft-hover": { "light": "#eaecb0", "dark": "#353500" },
-				"primary-text": { "light": "#5e5d00", "dark": "#d0cf00" }
+				"primary-soft": { "light": "#bebb0026", "dark": "#edea0021" },
+				"primary-soft-foreground": { "light": "#5c5a00", "dark": "#d0cf00" },
+				"primary-soft-hover": { "light": "#b2b00040", "dark": "#edea0030" },
+				"primary-surface": { "light": "#f2f4cf", "dark": "#292a01" },
+				"primary-surface-hover": { "light": "#eaecb0", "dark": "#353500" },
+				"primary-text": { "light": "#5c5a00", "dark": "#d0cf00" }
 			}
 		},
 		{
@@ -61,10 +71,12 @@
 			"tokens": {
 				"primary": { "light": "#517400", "dark": "#517400" },
 				"primary-hover": { "light": "#4a6a00", "dark": "#4a6a00" },
-				"primary-soft": { "light": "#e8f7d4", "dark": "#202c08" },
-				"primary-soft-foreground": { "light": "#456400", "dark": "#a7dc2e" },
-				"primary-soft-hover": { "light": "#daf1b9", "dark": "#283900" },
-				"primary-text": { "light": "#456400", "dark": "#a7dc2e" }
+				"primary-soft": { "light": "#92c80026", "dark": "#b8fa0021" },
+				"primary-soft-foreground": { "light": "#436100", "dark": "#a7dc2e" },
+				"primary-soft-hover": { "light": "#89bc0040", "dark": "#b8fa0030" },
+				"primary-surface": { "light": "#e8f7d4", "dark": "#202c08" },
+				"primary-surface-hover": { "light": "#daf1b9", "dark": "#283900" },
+				"primary-text": { "light": "#436100", "dark": "#a7dc2e" }
 			}
 		},
 		{
@@ -72,10 +84,12 @@
 			"tokens": {
 				"primary": { "light": "#3a7804", "dark": "#3a7804" },
 				"primary-hover": { "light": "#346e03", "dark": "#346e03" },
-				"primary-soft": { "light": "#e2f8d8", "dark": "#192e0e" },
-				"primary-soft-foreground": { "light": "#316802", "dark": "#88e254" },
-				"primary-soft-hover": { "light": "#d0f4c0", "dark": "#1d3b0a" },
-				"primary-text": { "light": "#316802", "dark": "#88e254" }
+				"primary-soft": { "light": "#6fcf2d26", "dark": "#8dff3e21" },
+				"primary-soft-foreground": { "light": "#2f6501", "dark": "#88e254" },
+				"primary-soft-hover": { "light": "#68c22b40", "dark": "#8dff3e30" },
+				"primary-surface": { "light": "#e2f8d8", "dark": "#192e0e" },
+				"primary-surface-hover": { "light": "#d0f4c0", "dark": "#1d3b0a" },
+				"primary-text": { "light": "#2f6501", "dark": "#88e254" }
 			}
 		},
 		{
@@ -83,10 +97,12 @@
 			"tokens": {
 				"primary": { "light": "#2a7a1b", "dark": "#2a7a1b" },
 				"primary-hover": { "light": "#257018", "dark": "#257018" },
-				"primary-soft": { "light": "#dff9db", "dark": "#162e12" },
-				"primary-soft-foreground": { "light": "#226916", "dark": "#76e564" },
-				"primary-soft-hover": { "light": "#cbf5c4", "dark": "#163c10" },
-				"primary-text": { "light": "#226916", "dark": "#76e564" }
+				"primary-soft": { "light": "#59d24426", "dark": "#72ff5921" },
+				"primary-soft-foreground": { "light": "#216715", "dark": "#76e564" },
+				"primary-soft-hover": { "light": "#54c54140", "dark": "#72ff5930" },
+				"primary-surface": { "light": "#dff9db", "dark": "#162e12" },
+				"primary-surface-hover": { "light": "#cbf5c4", "dark": "#163c10" },
+				"primary-text": { "light": "#216715", "dark": "#76e564" }
 			}
 		},
 		{
@@ -94,10 +110,12 @@
 			"tokens": {
 				"primary": { "light": "#247b20", "dark": "#247b20" },
 				"primary-hover": { "light": "#20711c", "dark": "#20711c" },
-				"primary-soft": { "light": "#def9dc", "dark": "#142f12" },
-				"primary-soft-foreground": { "light": "#1d6a1a", "dark": "#70e568" },
-				"primary-soft-hover": { "light": "#caf5c5", "dark": "#143c12" },
-				"primary-text": { "light": "#1d6a1a", "dark": "#70e568" }
+				"primary-soft": { "light": "#51d34a26", "dark": "#69ff6121" },
+				"primary-soft-foreground": { "light": "#1c6719", "dark": "#70e568" },
+				"primary-soft-hover": { "light": "#4cc54640", "dark": "#69ff6130" },
+				"primary-surface": { "light": "#def9dc", "dark": "#142f12" },
+				"primary-surface-hover": { "light": "#caf5c5", "dark": "#143c12" },
+				"primary-text": { "light": "#1c6719", "dark": "#70e568" }
 			}
 		},
 		{
@@ -105,10 +123,12 @@
 			"tokens": {
 				"primary": { "light": "#1b7b25", "dark": "#1b7b25" },
 				"primary-hover": { "light": "#177121", "dark": "#177121" },
-				"primary-soft": { "light": "#ddf9dd", "dark": "#132f14" },
-				"primary-soft-foreground": { "light": "#156a1e", "dark": "#68e66e" },
-				"primary-soft-hover": { "light": "#c8f6c7", "dark": "#113c14" },
-				"primary-text": { "light": "#156a1e", "dark": "#68e66e" }
+				"primary-soft": { "light": "#46d45126", "dark": "#5bff6921" },
+				"primary-soft-foreground": { "light": "#14681d", "dark": "#68e66e" },
+				"primary-soft-hover": { "light": "#42c64d40", "dark": "#5bff6930" },
+				"primary-surface": { "light": "#ddf9dd", "dark": "#132f14" },
+				"primary-surface-hover": { "light": "#c8f6c7", "dark": "#113c14" },
+				"primary-text": { "light": "#14681d", "dark": "#68e66e" }
 			}
 		},
 		{
@@ -116,10 +136,12 @@
 			"tokens": {
 				"primary": { "light": "#007d35", "dark": "#007d35" },
 				"primary-hover": { "light": "#007330", "dark": "#007330" },
-				"primary-soft": { "light": "#dafae0", "dark": "#0c2f18" },
-				"primary-soft-foreground": { "light": "#006c2d", "dark": "#46e981" },
-				"primary-soft-hover": { "light": "#c2f7cd", "dark": "#033d1b" },
-				"primary-text": { "light": "#006c2d", "dark": "#46e981" }
+				"primary-soft": { "light": "#00d66826", "dark": "#00ff8521" },
+				"primary-soft-foreground": { "light": "#00692b", "dark": "#46e981" },
+				"primary-soft-hover": { "light": "#00c96240", "dark": "#00ff8530" },
+				"primary-surface": { "light": "#dafae0", "dark": "#0c2f18" },
+				"primary-surface-hover": { "light": "#c2f7cd", "dark": "#033d1b" },
+				"primary-text": { "light": "#00692b", "dark": "#46e981" }
 			}
 		},
 		{
@@ -127,10 +149,12 @@
 			"tokens": {
 				"primary": { "light": "#008053", "dark": "#008053" },
 				"primary-hover": { "light": "#00754c", "dark": "#00754c" },
-				"primary-soft": { "light": "#d3fbe9", "dark": "#003021" },
-				"primary-soft-foreground": { "light": "#006e47", "dark": "#00edaa" },
-				"primary-soft-hover": { "light": "#b5f9dc", "dark": "#003f29" },
-				"primary-text": { "light": "#006e47", "dark": "#00edaa" }
+				"primary-soft": { "light": "#00db9526", "dark": "#00ffbb21" },
+				"primary-soft-foreground": { "light": "#006c45", "dark": "#00edaa" },
+				"primary-soft-hover": { "light": "#00cd8b40", "dark": "#00ffbb30" },
+				"primary-surface": { "light": "#d3fbe9", "dark": "#003021" },
+				"primary-surface-hover": { "light": "#b5f9dc", "dark": "#003f29" },
+				"primary-text": { "light": "#006c45", "dark": "#00edaa" }
 			}
 		},
 		{
@@ -138,10 +162,12 @@
 			"tokens": {
 				"primary": { "light": "#007f81", "dark": "#007f81" },
 				"primary-hover": { "light": "#007476", "dark": "#007476" },
-				"primary-soft": { "light": "#ccfbfa", "dark": "#003030" },
-				"primary-soft-foreground": { "light": "#006d6f", "dark": "#00ebed" },
-				"primary-soft-hover": { "light": "#a8f8f7", "dark": "#003e3f" },
-				"primary-text": { "light": "#006d6f", "dark": "#00ebed" }
+				"primary-soft": { "light": "#00d9db26", "dark": "#00ffff21" },
+				"primary-soft-foreground": { "light": "#006a6c", "dark": "#00ebed" },
+				"primary-soft-hover": { "light": "#00cbce40", "dark": "#00ffff30" },
+				"primary-surface": { "light": "#ccfbfa", "dark": "#003030" },
+				"primary-surface-hover": { "light": "#a8f8f7", "dark": "#003e3f" },
+				"primary-text": { "light": "#006a6c", "dark": "#00ebed" }
 			}
 		},
 		{
@@ -149,10 +175,12 @@
 			"tokens": {
 				"primary": { "light": "#0072ac", "dark": "#0072ac" },
 				"primary-hover": { "light": "#00689f", "dark": "#00689f" },
-				"primary-soft": { "light": "#d1f7ff", "dark": "#002c3f" },
-				"primary-soft-foreground": { "light": "#006295", "dark": "#00d9ff" },
-				"primary-soft-hover": { "light": "#b2f1ff", "dark": "#003854" },
-				"primary-text": { "light": "#006295", "dark": "#00d9ff" }
+				"primary-soft": { "light": "#00c5ff26", "dark": "#00f6ff21" },
+				"primary-soft-foreground": { "light": "#005f92", "dark": "#00d9ff" },
+				"primary-soft-hover": { "light": "#00b9ff40", "dark": "#00f6ff30" },
+				"primary-surface": { "light": "#d1f7ff", "dark": "#002c3f" },
+				"primary-surface-hover": { "light": "#b2f1ff", "dark": "#003854" },
+				"primary-text": { "light": "#005f92", "dark": "#00d9ff" }
 			}
 		},
 		{
@@ -160,10 +188,12 @@
 			"tokens": {
 				"primary": { "light": "#2065ba", "dark": "#2065ba" },
 				"primary-hover": { "light": "#1c5cab", "dark": "#1c5cab" },
-				"primary-soft": { "light": "#dcf2ff", "dark": "#122844" },
-				"primary-soft-foreground": { "light": "#1a57a1", "dark": "#68c7ff" },
-				"primary-soft-hover": { "light": "#c6eaff", "dark": "#12325b" },
-				"primary-text": { "light": "#1a57a1", "dark": "#68c7ff" }
+				"primary-soft": { "light": "#4bb2ff26", "dark": "#61deff21" },
+				"primary-soft-foreground": { "light": "#19549e", "dark": "#68c7ff" },
+				"primary-soft-hover": { "light": "#46a7ff40", "dark": "#61deff30" },
+				"primary-surface": { "light": "#dcf2ff", "dark": "#122844" },
+				"primary-surface-hover": { "light": "#c6eaff", "dark": "#12325b" },
+				"primary-text": { "light": "#19549e", "dark": "#68c7ff" }
 			}
 		},
 		{
@@ -171,10 +201,12 @@
 			"tokens": {
 				"primary": { "light": "#3861bb", "dark": "#3861bb" },
 				"primary-hover": { "light": "#3358ad", "dark": "#3358ad" },
-				"primary-soft": { "light": "#e0f1ff", "dark": "#182644" },
-				"primary-soft-foreground": { "light": "#2f53a3", "dark": "#83c1ff" },
-				"primary-soft-hover": { "light": "#cde8ff", "dark": "#1c305c" },
-				"primary-text": { "light": "#2f53a3", "dark": "#83c1ff" }
+				"primary-soft": { "light": "#6cabff26", "dark": "#89d6ff21" },
+				"primary-soft-foreground": { "light": "#2e519f", "dark": "#83c1ff" },
+				"primary-soft-hover": { "light": "#65a0ff40", "dark": "#89d6ff30" },
+				"primary-surface": { "light": "#e0f1ff", "dark": "#182644" },
+				"primary-surface-hover": { "light": "#cde8ff", "dark": "#1c305c" },
+				"primary-text": { "light": "#2e519f", "dark": "#83c1ff" }
 			}
 		},
 		{
@@ -182,10 +214,12 @@
 			"tokens": {
 				"primary": { "light": "#3961bc", "dark": "#3961bc" },
 				"primary-hover": { "light": "#3358ad", "dark": "#3358ad" },
-				"primary-soft": { "light": "#e0f1ff", "dark": "#182644" },
-				"primary-soft-foreground": { "light": "#3053a3", "dark": "#84c0ff" },
-				"primary-soft-hover": { "light": "#cde8ff", "dark": "#1c305c" },
-				"primary-text": { "light": "#3053a3", "dark": "#84c0ff" }
+				"primary-soft": { "light": "#6dabff26", "dark": "#8ad6ff21" },
+				"primary-soft-foreground": { "light": "#2e519f", "dark": "#84c0ff" },
+				"primary-soft-hover": { "light": "#66a0ff40", "dark": "#8ad6ff30" },
+				"primary-surface": { "light": "#e0f1ff", "dark": "#182644" },
+				"primary-surface-hover": { "light": "#cde8ff", "dark": "#1c305c" },
+				"primary-text": { "light": "#2e519f", "dark": "#84c0ff" }
 			}
 		},
 		{
@@ -193,10 +227,12 @@
 			"tokens": {
 				"primary": { "light": "#4e5bbb", "dark": "#4e5bbb" },
 				"primary-hover": { "light": "#4753ac", "dark": "#4753ac" },
-				"primary-soft": { "light": "#e6efff", "dark": "#1f2444" },
-				"primary-soft-foreground": { "light": "#424ea2", "dark": "#a0b9ff" },
-				"primary-soft-hover": { "light": "#d6e4ff", "dark": "#262d5b" },
-				"primary-text": { "light": "#424ea2", "dark": "#a0b9ff" }
+				"primary-soft": { "light": "#8ca2ff26", "dark": "#b0ccff21" },
+				"primary-soft-foreground": { "light": "#404c9f", "dark": "#a0b9ff" },
+				"primary-soft-hover": { "light": "#8398ff40", "dark": "#b0ccff30" },
+				"primary-surface": { "light": "#e6efff", "dark": "#1f2444" },
+				"primary-surface-hover": { "light": "#d6e4ff", "dark": "#262d5b" },
+				"primary-text": { "light": "#404c9f", "dark": "#a0b9ff" }
 			}
 		},
 		{
@@ -204,10 +240,12 @@
 			"tokens": {
 				"primary": { "light": "#6d50b3", "dark": "#6d50b3" },
 				"primary-hover": { "light": "#6449a5", "dark": "#6449a5" },
-				"primary-soft": { "light": "#f1ebff", "dark": "#292141" },
-				"primary-soft-foreground": { "light": "#5e449b", "dark": "#cfa9ff" },
-				"primary-soft-hover": { "light": "#e9deff", "dark": "#352857" },
-				"primary-text": { "light": "#5e449b", "dark": "#cfa9ff" }
+				"primary-soft": { "light": "#bd92ff26", "dark": "#ecb8ff21" },
+				"primary-soft-foreground": { "light": "#5c4397", "dark": "#cfa9ff" },
+				"primary-soft-hover": { "light": "#b189ff40", "dark": "#ecb8ff30" },
+				"primary-surface": { "light": "#f1ebff", "dark": "#292141" },
+				"primary-surface-hover": { "light": "#e9deff", "dark": "#352857" },
+				"primary-text": { "light": "#5c4397", "dark": "#cfa9ff" }
 			}
 		},
 		{
@@ -215,10 +253,12 @@
 			"tokens": {
 				"primary": { "light": "#8447a3", "dark": "#8447a3" },
 				"primary-hover": { "light": "#794196", "dark": "#794196" },
-				"primary-soft": { "light": "#fce7ff", "dark": "#311e3c" },
-				"primary-soft-foreground": { "light": "#723c8d", "dark": "#f29cff" },
-				"primary-soft-hover": { "light": "#fad9ff", "dark": "#402350" },
-				"primary-text": { "light": "#723c8d", "dark": "#f29cff" }
+				"primary-soft": { "light": "#e184ff26", "dark": "#ffa6ff21" },
+				"primary-soft-foreground": { "light": "#6f3b8a", "dark": "#f29cff" },
+				"primary-soft-hover": { "light": "#d27cff40", "dark": "#ffa6ff30" },
+				"primary-surface": { "light": "#fce7ff", "dark": "#311e3c" },
+				"primary-surface-hover": { "light": "#fad9ff", "dark": "#402350" },
+				"primary-text": { "light": "#6f3b8a", "dark": "#f29cff" }
 			}
 		},
 		{
@@ -226,10 +266,12 @@
 			"tokens": {
 				"primary": { "light": "#934191", "dark": "#934191" },
 				"primary-hover": { "light": "#873b85", "dark": "#873b85" },
-				"primary-soft": { "light": "#ffe5ff", "dark": "#371c36" },
-				"primary-soft-foreground": { "light": "#7f377d", "dark": "#ff93ff" },
-				"primary-soft-hover": { "light": "#ffd5ff", "dark": "#482047" },
-				"primary-text": { "light": "#7f377d", "dark": "#ff93ff" }
+				"primary-soft": { "light": "#f87af526", "dark": "#ff9bff21" },
+				"primary-soft-foreground": { "light": "#7c357a", "dark": "#ff93ff" },
+				"primary-soft-hover": { "light": "#e873e540", "dark": "#ff9bff30" },
+				"primary-surface": { "light": "#ffe5ff", "dark": "#371c36" },
+				"primary-surface-hover": { "light": "#ffd5ff", "dark": "#482047" },
+				"primary-text": { "light": "#7c357a", "dark": "#ff93ff" }
 			}
 		},
 		{
@@ -237,10 +279,12 @@
 			"tokens": {
 				"primary": { "light": "#9e3c7c", "dark": "#9e3c7c" },
 				"primary-hover": { "light": "#913671", "dark": "#913671" },
-				"primary-soft": { "light": "#ffe4f8", "dark": "#3b1a2f" },
-				"primary-soft-foreground": { "light": "#89326b", "dark": "#ff8ce6" },
-				"primary-soft-hover": { "light": "#ffd3f4", "dark": "#4e1e3c" },
-				"primary-text": { "light": "#89326b", "dark": "#ff8ce6" }
+				"primary-soft": { "light": "#ff72d426", "dark": "#ff91ff21" },
+				"primary-soft-foreground": { "light": "#863168", "dark": "#ff8ce6" },
+				"primary-soft-hover": { "light": "#f96bc640", "dark": "#ff91ff30" },
+				"primary-surface": { "light": "#ffe4f8", "dark": "#3b1a2f" },
+				"primary-surface-hover": { "light": "#ffd3f4", "dark": "#4e1e3c" },
+				"primary-text": { "light": "#863168", "dark": "#ff8ce6" }
 			}
 		},
 		{
@@ -248,10 +292,12 @@
 			"tokens": {
 				"primary": { "light": "#a8385f", "dark": "#a8385f" },
 				"primary-hover": { "light": "#9a3257", "dark": "#9a3257" },
-				"primary-soft": { "light": "#ffe3ed", "dark": "#3e1a25" },
-				"primary-soft-foreground": { "light": "#912f51", "dark": "#ff88bb" },
-				"primary-soft-hover": { "light": "#ffd2e3", "dark": "#521d2e" },
-				"primary-text": { "light": "#912f51", "dark": "#ff88bb" }
+				"primary-soft": { "light": "#ff6da726", "dark": "#ff8bd121" },
+				"primary-soft-foreground": { "light": "#8e2d4f", "dark": "#ff88bb" },
+				"primary-soft-hover": { "light": "#ff679d40", "dark": "#ff8bd130" },
+				"primary-surface": { "light": "#ffe3ed", "dark": "#3e1a25" },
+				"primary-surface-hover": { "light": "#ffd2e3", "dark": "#521d2e" },
+				"primary-text": { "light": "#8e2d4f", "dark": "#ff88bb" }
 			}
 		},
 		{
@@ -259,10 +305,12 @@
 			"tokens": {
 				"primary": { "light": "#ac3940", "dark": "#ac3940" },
 				"primary-hover": { "light": "#9e333a", "dark": "#9e333a" },
-				"primary-soft": { "light": "#ffe4e2", "dark": "#401a1b" },
-				"primary-soft-foreground": { "light": "#953036", "dark": "#ff8a8e" },
-				"primary-soft-hover": { "light": "#ffd3d1", "dark": "#551d1f" },
-				"primary-text": { "light": "#953036", "dark": "#ff8a8e" }
+				"primary-soft": { "light": "#ff6f7726", "dark": "#ff8d9721" },
+				"primary-soft-foreground": { "light": "#912e34", "dark": "#ff8a8e" },
+				"primary-soft-hover": { "light": "#ff687040", "dark": "#ff8d9730" },
+				"primary-surface": { "light": "#ffe4e2", "dark": "#401a1b" },
+				"primary-surface-hover": { "light": "#ffd3d1", "dark": "#551d1f" },
+				"primary-text": { "light": "#912e34", "dark": "#ff8a8e" }
 			}
 		},
 		{
@@ -270,10 +318,12 @@
 			"tokens": {
 				"primary": { "light": "#666666", "dark": "#666666" },
 				"primary-hover": { "light": "#5e5e5e", "dark": "#5e5e5e" },
-				"primary-soft": { "light": "#f0f0f0", "dark": "#272727" },
-				"primary-soft-foreground": { "light": "#585858", "dark": "#c6c6c6" },
-				"primary-soft-hover": { "light": "#e7e7e7", "dark": "#323232" },
-				"primary-text": { "light": "#585858", "dark": "#c6c6c6" }
+				"primary-soft": { "light": "#b3b3b326", "dark": "#dfdfdf21" },
+				"primary-soft-foreground": { "light": "#565656", "dark": "#c6c6c6" },
+				"primary-soft-hover": { "light": "#a8a8a840", "dark": "#dfdfdf30" },
+				"primary-surface": { "light": "#f0f0f0", "dark": "#272727" },
+				"primary-surface-hover": { "light": "#e7e7e7", "dark": "#323232" },
+				"primary-text": { "light": "#565656", "dark": "#c6c6c6" }
 			}
 		}
 	]

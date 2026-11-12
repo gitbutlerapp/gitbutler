@@ -1,17 +1,23 @@
-/* An outline button that reads rather than acts: the choice sits at the start in regular weight,
-   the chevron closes the row, and the whole thing takes the field's width. While the list is up
-   the trigger keeps the hover tint, so it reads pressed the way the commit target's trigger
-   does. The mark sits at the list row's gap from the text rather than the button's, so the text
-   lands the same 2px in whether the choice has a mark or not (see `.popup`). */
+/* A field, as a text field is (Field.tsx), built on the button: it holds a value, so it wears the
+   field's ground, edge and padding rather than an outline button's, and under the pointer its
+   edge darkens instead of its ground filling. The choice sits at the start in regular weight, the
+   chevron closes the row, and the whole thing takes the field's width. While the list is up the
+   edge stays dark, so it reads held. The mark sits at the list row's gap from the text rather
+   than the button's, so the text lands the same 2px in whether the choice has a mark or not (see
+   `.popup`). */
 .trigger {
 	--button-gap: 8px;
+	--button-padding-inline: calc(8px + var(--but-density-padding));
+	--button-border: 1px solid var(--but-border);
+	--button-bg: var(--but-background);
+	--button-hover-bg: var(--but-background);
 
 	justify-content: flex-start;
 	width: 100%;
 	font-weight: var(--but-font-weight-regular);
 
-	&:not(:disabled, [data-disabled])[data-popup-open] {
-		background-color: var(--button-hover-bg);
+	&:not(:disabled, [data-disabled]):is(:hover, [data-popup-open]) {
+		border-color: var(--but-border-hover);
 	}
 }
 
@@ -31,11 +37,11 @@
 }
 
 /* Opens over the trigger and covers it. Base UI shifts the list so the rows' text lines up with
-   the trigger's, and a row's text sits 2px further in than the trigger's (border, list inset and
-   row inset against border and button inset), so the list lands 2px to the left of the trigger.
-   The same 2px on each side puts the trigger's edges under the list rather than peeking out. */
+   the trigger's, and a row's text sits 4px further in than the trigger's (border, list inset and
+   row inset against border and field padding), so the list lands 4px to the left of the trigger.
+   The same 4px on each side puts the trigger's edges under the list rather than peeking out. */
 .popup {
-	min-width: calc(var(--anchor-width) + 4px);
+	min-width: calc(var(--anchor-width) + 8px);
 	max-height: var(--available-height);
 }
 
