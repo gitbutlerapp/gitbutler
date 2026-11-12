@@ -23,6 +23,21 @@ pub const RESOLVE_SYSTEM: &str = "You resolve merge conflicts in code. Return on
 replace the conflict, exactly as they belong in the file: no Markdown, no code fence, no \
 commentary.";
 
+/// No AI provider is set up. Signed in to GitButler, one gets picked in Settings → AI;
+/// signed out, signing in gives GitButler's key.
+#[derive(Debug)]
+pub struct NotSetUp {
+    pub signed_in: bool,
+}
+
+impl std::fmt::Display for NotSetUp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AI isn't set up.")
+    }
+}
+
+impl std::error::Error for NotSetUp {}
+
 /// How much diff or history goes to the model.
 const CONTEXT_LIMIT: usize = 5_000;
 
@@ -107,14 +122,8 @@ fn stream(
 ) -> Result<String> {
     let config = gix::config(None, &gix::open::Options::default())?;
     let Some(provider) = LLMProvider::from_git_config(&config) else {
-        let how = match super::accounts::gitbutler_user() {
-            Some(_) => "Choose a provider in Settings → AI.",
-            None => {
-                "Sign in to GitButler to use its key, or choose a provider and key in \
-                 Settings → AI."
-            }
-        };
-        but_error::bail_precondition!("AI isn't set up. {how}");
+        let signed_in = super::accounts::gitbutler_user().is_some();
+        return Err(NotSetUp { signed_in }.into());
     };
     let model = provider.model_or_default();
     provider

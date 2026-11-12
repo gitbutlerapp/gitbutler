@@ -759,6 +759,8 @@ impl Detail {
                 StoreEvent::CodeAsked(row, place) => this.code_asked(row, place, cx),
                 // The app view asks for it, and gives a terminal opened the keys.
                 StoreEvent::AuthorMissing(_)
+                | StoreEvent::RepositoriesInside(..)
+                | StoreEvent::AiNotSetUp { .. }
                 | StoreEvent::TerminalOpened
                 | StoreEvent::TilePinned(_)
                 | StoreEvent::TileClosed { .. }

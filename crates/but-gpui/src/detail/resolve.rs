@@ -481,7 +481,7 @@ impl Detail {
                             );
                         }
                         Err(err) => this.store.update(cx, |store, cx| {
-                            store.failed("Couldn't suggest a merge", &err, cx)
+                            store.ai_failed("Couldn't suggest a merge", &err, cx)
                         }),
                     }
                     this.rebuild_rows(cx);

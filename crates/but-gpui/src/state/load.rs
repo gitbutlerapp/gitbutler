@@ -355,8 +355,15 @@ impl Store {
                         }
                     }
                 }
-                Err(err) if err.is::<backend::NotARepository>() => store.offer_init(folder, cx),
-                Err(err) => store.failed("Couldn't add the project", &err, cx),
+                Err(err) => match err.downcast::<backend::NotARepository>() {
+                    Ok(backend::NotARepository(inside)) if inside.is_empty() => {
+                        store.offer_init(folder, cx)
+                    }
+                    Ok(backend::NotARepository(inside)) => {
+                        cx.emit(StoreEvent::RepositoriesInside(folder, inside))
+                    }
+                    Err(err) => store.failed("Couldn't add the project", &err, cx),
+                },
             })
             .ok();
         })

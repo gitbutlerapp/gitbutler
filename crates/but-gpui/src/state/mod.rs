@@ -269,6 +269,13 @@ pub enum StoreEvent {
     /// Git has no author to record commits with in a project: ask for the user's name and
     /// email.
     AuthorMissing(ProjectId),
+    /// The folder given to add isn't a repository but holds these: ask which to add.
+    RepositoriesInside(PathBuf, Vec<PathBuf>),
+    /// AI was asked to write with no provider set up: sign in to GitButler for its key, or
+    /// once `signed_in`, pick one in Settings.
+    AiNotSetUp {
+        signed_in: bool,
+    },
     /// A terminal was opened and selected, to type in.
     TerminalOpened,
     /// A tile was pinned beside the selected page, to use.
@@ -1428,6 +1435,18 @@ impl Store {
                 .filter_map(|project| project.workspace.as_ref()),
         );
         self.error(title, backend::failure_detail(err), cx)
+    }
+
+    /// [`Store::failed`] for AI writing, except that with no provider set up the window
+    /// goes to setting one up ([`StoreEvent::AiNotSetUp`]) rather than showing a card.
+    #[track_caller]
+    pub fn ai_failed(&mut self, title: &'static str, err: &anyhow::Error, cx: &mut Context<Self>) {
+        match err.downcast_ref::<backend::ai::NotSetUp>() {
+            Some(&backend::ai::NotSetUp { signed_in }) => {
+                cx.emit(StoreEvent::AiNotSetUp { signed_in })
+            }
+            None => self.failed(title, err, cx),
+        }
     }
 
     /// `title` for a card or the status bar about `project`, naming it when the selection is
