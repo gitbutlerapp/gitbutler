@@ -637,7 +637,10 @@ where
             .as_ref()
             .expect("rebase is always Some(_)");
         if rebase.reference_target(ref_name).is_err() {
-            refuse_checked_out_in_linked_worktree(rebase.repo(), ref_name)?;
+            but_workspace::worktrees::refuse_checked_out_in_linked_worktree(
+                rebase.repo(),
+                ref_name,
+            )?;
         } else {
             let placement = Placement::read(rebase, ref_name)?;
             let checked_out = self
@@ -1369,28 +1372,6 @@ fn settle_removals<M: RefMetadata>(
         }
         but_error::bail_precondition!(
             "Refusing to delete last named segment '{name}' as it would leave an anonymous segment"
-        );
-    }
-    Ok(())
-}
-
-/// Refuse `ref_name` while a checkout that still exists has it, forgetting the ones that are gone.
-fn refuse_checked_out_in_linked_worktree(
-    repo: &gix::Repository,
-    ref_name: &FullNameRef,
-) -> anyhow::Result<()> {
-    but_workspace::worktrees::prune_gone(repo, ref_name)?;
-    let Some(reference) = repo.try_find_reference(ref_name)? else {
-        return Ok(());
-    };
-    let worktrees = but_core::branch::SafeDelete::new(repo)?;
-    if let Some(dirs) = worktrees.worktree_dirs_with_ref(&reference) {
-        but_error::bail_precondition!(
-            "Refusing to delete a branch that is checked out. Worktrees are: {}",
-            dirs.iter()
-                .map(|dir| dir.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ")
         );
     }
     Ok(())

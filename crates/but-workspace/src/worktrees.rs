@@ -192,6 +192,33 @@ pub fn prune_gone(repo: &gix::Repository, branch: &gix::refs::FullNameRef) -> an
     Ok(())
 }
 
+/// Refuse to delete `branch` while a linked worktree has it checked out, after forgetting the
+/// checkouts that are gone as [`prune_gone()`] does. The main worktree's `HEAD` doesn't count.
+pub fn refuse_checked_out_in_linked_worktree(
+    repo: &gix::Repository,
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    prune_gone(repo, branch)?;
+    let Some(reference) = repo.try_find_reference(branch)? else {
+        return Ok(());
+    };
+    let worktrees = but_core::branch::SafeDelete::new(repo)?;
+    let dirs = worktrees
+        .worktree_dirs_with_ref(&reference)
+        .unwrap_or_default();
+    let linked: Vec<_> = (dirs.iter())
+        .filter(|dir| Some(dir.as_path()) != repo.workdir())
+        .map(|dir| dir.display().to_string())
+        .collect();
+    if !linked.is_empty() {
+        but_error::bail_precondition!(
+            "Refusing to delete a branch that is checked out. Worktrees are: {}",
+            linked.join(", ")
+        );
+    }
+    Ok(())
+}
+
 /// The destination was occupied before worktree creation made any changes.
 /// Callers may safely retry creation at a different path.
 #[derive(Debug)]
