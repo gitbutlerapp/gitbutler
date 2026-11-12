@@ -1,7 +1,7 @@
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_transaction::with_transaction_with_perm_only;
+use but_transaction::with_transaction_with_perm;
 use tracing::instrument;
 
 use crate::commit::types::{CommitDiscardResult, MoveChangesResult};
@@ -18,49 +18,6 @@ fn unique_subject_commit_ids(
         anyhow::bail!("no commit IDs provided for discard");
     }
     Ok(subject_commit_ids)
-}
-
-/// Discard `subject_commit_ids`, removing them from branch history.
-///
-/// Unlike [`super::uncommit::commit_uncommit()`], the commits' changes are **not**
-/// reassigned to the workspace — they are permanently removed from their branches.
-///
-/// When `dry_run` is enabled, the returned workspace previews the discard
-/// without materializing the rebase.
-/// See [`commit_discard_only_with_perm()`] for details.
-#[but_api(try_from = crate::commit::json::CommitDiscardResult)]
-pub fn commit_discard_only(
-    ctx: &mut but_ctx::Context,
-    subject_commit_ids: Vec<gix::ObjectId>,
-    dry_run: DryRun,
-) -> anyhow::Result<CommitDiscardResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    commit_discard_only_with_perm(ctx, subject_commit_ids, dry_run, guard.write_permission())
-}
-
-/// Discard `subject_commit_ids` under caller-held exclusive repository access.
-///
-/// The commits are removed from branch history and their changes are **lost**
-/// (not reassigned to the workspace). This variant does not create an oplog
-/// entry. When `dry_run` is enabled, it returns the projected workspace state
-/// without materializing the rebase.
-pub fn commit_discard_only_with_perm(
-    ctx: &mut but_ctx::Context,
-    subject_commit_ids: Vec<gix::ObjectId>,
-    dry_run: DryRun,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<CommitDiscardResult> {
-    let subject_commit_ids = unique_subject_commit_ids(subject_commit_ids)?;
-    let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.discard_commits(subject_commit_ids.iter().copied())
-        })?;
-
-    Ok(CommitDiscardResult {
-        discarded_commits: subject_commit_ids,
-        workspace,
-    })
 }
 
 /// Discard `subject_commit_ids`, removing them from branch history.
@@ -98,69 +55,16 @@ pub fn commit_discard_with_perm(
     let details = SnapshotDetails::new(OperationKind::DiscardCommit)
         .with_count(subject_commit_ids.len())
         .with_trailers(subject_commit_ids.iter().copied().map(Trailer::Sha));
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        details,
-        perm.read_permission(),
-        dry_run,
-    );
-
-    let res = commit_discard_only_with_perm(ctx, subject_commit_ids, dry_run, perm);
-    if let Some(snapshot) = maybe_oplog_entry
-        && res.is_ok()
-    {
-        snapshot.commit(ctx, perm).ok();
-    }
-    res
-}
-
-/// Discard specific changes from `commit_id`, removing them from the commit
-/// and the workspace.
-///
-/// Unlike [`super::uncommit::commit_uncommit_changes()`], the selected changes
-/// are not surfaced as uncommitted workspace modifications. When `dry_run` is
-/// enabled, the returned workspace previews the discard without materializing
-/// the rebase. See [`commit_discard_changes_only_with_perm()`] for details.
-#[but_api(try_from = crate::commit::json::MoveChangesResult)]
-#[instrument(err(Debug))]
-pub fn commit_discard_changes_only(
-    ctx: &mut but_ctx::Context,
-    commit_id: gix::ObjectId,
-    changes: Vec<DiffSpec>,
-    dry_run: DryRun,
-) -> anyhow::Result<MoveChangesResult> {
-    let mut guard = ctx.exclusive_worktree_access();
-    commit_discard_changes_only_with_perm(
-        ctx,
-        commit_id,
-        changes,
-        dry_run,
-        guard.write_permission(),
-    )
-}
-
-/// Discard specific changes from `commit_id` under caller-held exclusive
-/// repository access.
-///
-/// The selected changes are removed from the commit tree and, when
-/// materialized, from the worktree. This variant does not create an oplog
-/// entry. When `dry_run` is enabled, it returns the projected workspace state
-/// without materializing the rebase.
-pub fn commit_discard_changes_only_with_perm(
-    ctx: &mut but_ctx::Context,
-    commit_id: gix::ObjectId,
-    changes: Vec<DiffSpec>,
-    dry_run: DryRun,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<MoveChangesResult> {
     let mut meta = ctx.meta()?;
-    let (_, workspace) =
-        with_transaction_with_perm_only(ctx, &mut meta, perm, dry_run, |mut tx| {
-            tx.discard_changes_from_commit(commit_id, changes)?;
-            Ok(())
+    let workspace =
+        with_transaction_with_perm(ctx, &mut meta, perm, details, &[], dry_run, |mut tx| {
+            tx.discard_commits(subject_commit_ids.iter().copied())
         })?;
 
-    Ok(MoveChangesResult { workspace })
+    Ok(CommitDiscardResult {
+        discarded_commits: subject_commit_ids,
+        workspace,
+    })
 }
 
 /// Discard specific changes from `commit_id`, removing them from the commit
@@ -186,10 +90,10 @@ pub fn commit_discard_changes(
 /// repository access and record an oplog snapshot on success.
 ///
 /// The selected changes are removed from the commit tree and, when
-/// materialized, from the worktree. This prepares a best-effort
-/// `DiscardChanges` oplog snapshot and commits it only if the operation
-/// succeeds. When `dry_run` is enabled, it returns a preview of the resulting
-/// workspace state and skips oplog persistence.
+/// materialized, from the worktree. This records a best-effort
+/// `DiscardChanges` oplog snapshot when the rewrite is materialized. When
+/// `dry_run` is enabled, it returns a preview of the resulting workspace state
+/// and skips oplog persistence.
 pub fn commit_discard_changes_with_perm(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
@@ -199,18 +103,12 @@ pub fn commit_discard_changes_with_perm(
 ) -> anyhow::Result<MoveChangesResult> {
     let details = SnapshotDetails::new(OperationKind::DiscardChanges)
         .with_trailers([Trailer::Sha(commit_id)]);
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        details,
-        perm.read_permission(),
-        dry_run,
-    );
+    let mut meta = ctx.meta()?;
+    let workspace =
+        with_transaction_with_perm(ctx, &mut meta, perm, details, &[], dry_run, |mut tx| {
+            tx.discard_changes_from_commit(commit_id, changes)?;
+            Ok(())
+        })?;
 
-    let res = commit_discard_changes_only_with_perm(ctx, commit_id, changes, dry_run, perm);
-    if let Some(snapshot) = maybe_oplog_entry
-        && res.is_ok()
-    {
-        snapshot.commit(ctx, perm).ok();
-    }
-    res
+    Ok(MoveChangesResult { workspace })
 }
