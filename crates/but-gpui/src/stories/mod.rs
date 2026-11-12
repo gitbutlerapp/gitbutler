@@ -8,10 +8,11 @@
 //! as a module here and to [`Gallery::new`].
 
 mod activity;
+mod avatar;
 mod button;
 mod checkbox;
 mod counts;
-mod dropdown;
+mod dropdown_button;
 mod empty_state;
 mod icons;
 mod keycap;
@@ -19,6 +20,7 @@ mod popover;
 mod review;
 mod rows;
 mod segmented;
+mod select;
 mod snackbar;
 mod switch;
 mod toggle_group;
@@ -140,10 +142,11 @@ impl Gallery {
         }
         let stories = vec![
             story("Activity", activity::ActivityStory::default(), cx),
+            story("Avatar", avatar::AvatarStory, cx),
             story("Button", button::ButtonStory, cx),
             story("Checkbox", checkbox::CheckboxStory::default(), cx),
             story("Counts and marks", counts::CountsStory, cx),
-            story("Dropdown", dropdown::DropdownStory, cx),
+            story("Dropdown button", dropdown_button::DropdownButtonStory, cx),
             story("Empty state", empty_state::EmptyStateStory, cx),
             story("Icons", icons::IconsStory, cx),
             story("Keycap", keycap::KeycapStory, cx),
@@ -151,6 +154,7 @@ impl Gallery {
             story("Popover and modal", popover::PopoverStory, cx),
             story("Pull request state", review::ReviewStory, cx),
             story("Segmented", segmented::SegmentedStory::default(), cx),
+            story("Select", select::SelectStory, cx),
             story("Snackbar", snackbar::SnackbarStory, cx),
             story("Switch", switch::SwitchStory::default(), cx),
             story(

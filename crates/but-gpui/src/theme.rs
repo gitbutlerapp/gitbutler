@@ -277,7 +277,7 @@ impl Default for Shape {
 /// density moves their side padding: nothing at Balanced, Figma's.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sizes {
-    /// A button, a dropdown, a segmented control or a toggle group.
+    /// A button, a select, a segmented control or a toggle group.
     pub control: f32,
     /// A small one; a small button or segment is 4px taller than this, for its line.
     pub control_sm: f32,

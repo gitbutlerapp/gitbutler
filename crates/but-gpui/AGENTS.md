@@ -281,7 +281,7 @@ and tests it.
 - Screen readers see the app only once Settings › General turns on Screen reader support,
   read as the app starts: with it on, closing a window crashes on a Mac with a Touch Bar
   (zed-industries/zed#64819). Turn it on and relaunch to check what VoiceOver reads.
-- Build controls from `ui`'s helpers (`button`, `switch`, `dropdown`, `segmented`, `list_row`,
+- Build controls from `ui`'s helpers (`button`, `switch`, `select`, `segmented`, `list_row`,
   `checkbox`). Each gives VoiceOver a role and a name, and the first four are tab stops. GPUI
   reports only elements with both an id and a `role`, so a hand-built clickable `div` needs
   `.role()` and `.aria_label()`, and `ui::tab_stop` when it's a control in a dialog.

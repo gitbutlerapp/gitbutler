@@ -2,10 +2,7 @@ use gpui::{Context, Window, div, prelude::*};
 
 use super::{page, section, variant};
 use crate::theme::Theme;
-use crate::ui::person::person_avatar;
-use crate::ui::{
-    Button, ButtonStyle, Icon, button, dp, dropdown_button, h_flex, icon_button, picture_button,
-};
+use crate::ui::{Button, ButtonStyle, Icon, button, dp, h_flex, icon_button};
 
 const STYLES: [(&str, ButtonStyle); 5] = [
     ("Ghost", ButtonStyle::Ghost),
@@ -89,37 +86,6 @@ impl Render for ButtonStory {
                         "Small",
                         theme,
                         (icon_button("only-small", Icon::Settings).tooltip("Settings")).small(),
-                    ),
-                    variant(
-                        "Picture",
-                        theme,
-                        picture_button("only-picture", person_avatar("Ada", 18., theme))
-                            .small()
-                            .tooltip("Settings"),
-                    ),
-                ],
-            ),
-            section(
-                "Split",
-                theme,
-                [
-                    variant(
-                        "Outline",
-                        theme,
-                        dropdown_button(
-                            button("split-outline", "Fetch"),
-                            "Fetch options",
-                            |_, _, _| {},
-                        ),
-                    ),
-                    variant(
-                        "Pop",
-                        theme,
-                        dropdown_button(
-                            button("split-pop", "Push").style(ButtonStyle::Pop),
-                            "Push options",
-                            |_, _, _| {},
-                        ),
                     ),
                 ],
             ),
