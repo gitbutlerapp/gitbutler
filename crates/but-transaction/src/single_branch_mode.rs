@@ -30,7 +30,7 @@ pub(crate) struct StartingCheckout {
     pub(crate) in_single_branch_mode: bool,
     pub(crate) head_reference: Option<FullName>,
     /// The local branch, as `HEAD` names it, not the remote one the project stores.
-    target_ref: Option<FullName>,
+    pub(crate) target_ref: Option<FullName>,
 }
 
 impl StartingCheckout {
