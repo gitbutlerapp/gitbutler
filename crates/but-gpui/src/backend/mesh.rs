@@ -469,7 +469,7 @@ pub fn set_project_icon(id: &str, icon: &str) -> Result<()> {
         "{}/api/projects/{id}/icon",
         server.trim().trim_end_matches('/')
     );
-    let client = reqwest::Client::builder()
+    let client = but_http::client_builder()?
         // The token is for the server alone, which never redirects.
         .redirect(reqwest::redirect::Policy::none())
         .timeout(READ_TIMEOUT)

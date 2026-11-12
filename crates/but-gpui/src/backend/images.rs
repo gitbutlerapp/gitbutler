@@ -92,7 +92,11 @@ fn fetch(url: &str, token: Option<&str>) -> Result<Vec<u8>> {
                 false => attempt.stop(),
             }
         });
-        reqwest::Client::builder().redirect(redirects).build().ok()
+        but_http::client_builder()
+            .ok()?
+            .redirect(redirects)
+            .build()
+            .ok()
     });
     let client = CLIENT.as_ref().context("Couldn't set up fetching images")?;
     runtime().handle().block_on(async {

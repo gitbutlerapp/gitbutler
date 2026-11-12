@@ -11,6 +11,7 @@ description = "A crate with functionality for updating of the application itself
 doctest = true
 
 [dependencies]
+but-http.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true
 but-db.workspace = true

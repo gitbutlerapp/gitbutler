@@ -17,6 +17,7 @@ export-schema = ["dep:schemars", "dep:but-schemars"]
 doctest = false
 
 [dependencies]
+but-http.workspace = true
 but-secret.workspace = true
 but-forge-storage.workspace = true
 but-error.workspace = true
@@ -32,8 +33,11 @@ but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 keyring.workspace = true
+rcgen = { version = "0.14.9", default-features = false, features = ["aws_lc_rs", "pem"] }
 reqwest = { workspace = true, features = ["blocking"] }
+rustls = { workspace = true, features = ["aws_lc_rs"] }
 tempfile.workspace = true
+time = "0.3"
 tokio = { workspace = true, features = ["rt"] }
 
 [lints]
