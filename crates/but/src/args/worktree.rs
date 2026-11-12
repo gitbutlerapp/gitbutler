@@ -59,6 +59,16 @@ pub enum Subcommands {
         )]
         branch: Option<BranchArg>,
     },
+    /// Reuse an archived worktree on a new branch at the target's tip, or create one there.
+    ///
+    /// Picks the most recently updated archived worktree whose branch is already in the
+    /// target, isn't in the workspace, and that has no uncommitted changes and no Git
+    /// operation in progress. It is shown in the workspace again on a new branch with a
+    /// generated name, so the files Git doesn't track, such as build output and installed
+    /// dependencies, are kept. Its old branch stays as it was, with its upstream. Without
+    /// such a worktree, creates a new one at the target's tip, like `but worktree new`.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Recycle,
     /// Hide a worktree from the workspace until `but` runs inside it again.
     Archive {
         /// The worktree, by CLI ID (see `but wt list`), name, or path.

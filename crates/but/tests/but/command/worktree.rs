@@ -2074,3 +2074,158 @@ wt wt-inside - [..]/worktrees/wt-inside
 
 "#]]);
 }
+
+/// A sandbox on `two-stacks` whose target, `origin/main`, has a commit adding `new` that
+/// `main` doesn't, as when a teammate pushed. Worktrees added before the first read start out
+/// archived.
+fn sandbox_behind_the_target() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.invoke_bash(
+        r#"
+blob=$(echo new | git hash-object -w --stdin)
+export GIT_INDEX_FILE=.git/teammate-index
+git read-tree main
+git update-index --add --cacheinfo 100644,$blob,new
+tree=$(git write-tree)
+rm .git/teammate-index
+git update-ref refs/remotes/origin/main $(git commit-tree $tree -p main -m teammate)
+"#,
+    );
+    env
+}
+
+#[test]
+fn recycle_reuses_the_newest_clean_archived_worktree_on_a_new_branch_at_the_target() {
+    let env = sandbox_behind_the_target();
+    add_worktree_at(
+        &env,
+        "older",
+        "-b older",
+        "main",
+        "2000-01-03 00:00:00 +0000",
+    );
+    add_worktree_at(
+        &env,
+        "newer",
+        "-b newer",
+        "main",
+        "2000-01-04 00:00:00 +0000",
+    );
+    env.invoke_git("config branch.newer.remote origin");
+    env.invoke_git("config branch.newer.merge refs/heads/newer");
+    let newer_was = env.invoke_git("rev-parse newer");
+
+    env.but("worktree recycle")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Recycled worktree newer on 'a-branch-1' from 693ec71 at [..]/worktrees/newer
+
+"#]]);
+
+    let checkout = env.app_data_dir().join("worktrees/newer");
+    assert_eq!(
+        env.invoke_git(&format!("-C {} rev-parse HEAD", checkout.display())),
+        env.invoke_git("rev-parse origin/main"),
+        "the recycled worktree is at the target's tip"
+    );
+    assert!(
+        checkout.join("new").is_file(),
+        "with the tip's files checked out"
+    );
+    assert!(
+        env.invoke_git(&format!("-C {} status --porcelain", checkout.display()))
+            .is_empty(),
+        "and nothing left uncommitted"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse newer"),
+        newer_was,
+        "its old branch stays where it was"
+    );
+    assert_eq!(
+        env.invoke_git("config branch.newer.merge"),
+        "refs/heads/newer",
+        "with its upstream"
+    );
+    // The newest is active again on its new branch, the older one stays archived.
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+br newer (refs/heads/a-branch-1) - [..]/worktrees/newer
+
+Archived worktrees
+older - [..]/worktrees/older
+
+"#]]);
+}
+
+#[test]
+fn recycle_creates_a_worktree_at_the_target_when_none_is_clean_and_behind() {
+    let env = sandbox_behind_the_target();
+    add_worktree_at(
+        &env,
+        "ahead",
+        "-b ahead",
+        "main",
+        "2000-01-03 00:00:00 +0000",
+    );
+    add_worktree_at(
+        &env,
+        "dirty",
+        "-b dirty",
+        "main",
+        "2000-01-04 00:00:00 +0000",
+    );
+    add_worktree_at(
+        &env,
+        "detached",
+        "--detach",
+        "main",
+        "2000-01-05 00:00:00 +0000",
+    );
+    let at = |name: &str| env.app_data_dir().join("worktrees").join(name);
+    env.invoke_git(&format!(
+        "-C {} commit -q --allow-empty -m own",
+        at("ahead").display()
+    ));
+    std::fs::write(at("dirty").join("M"), "changed\n").unwrap();
+
+    // `ahead` has a commit the target doesn't, `dirty` an uncommitted change, and `detached`
+    // no branch, so a new worktree is made at the target's tip instead, leaving them archived.
+    env.but("--json worktree recycle")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(
+            snapbox::str![[r#"
+{
+  "kind": "created",
+  "name": "a-branch-1",
+  "path": "[..]/home/.gitbutler-worktrees/[..]/a-branch-1",
+  "refName": "refs/heads/a-branch-1",
+  "base": "693ec717bbaadb9ae14bea7469d29a709328dace"
+}
+"#]]
+            .is_json(),
+        );
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+br a-branch-1 - [..]/home/.gitbutler-worktrees/[..]/a-branch-1
+
+Archived worktrees
+detached (detached) - [..]/worktrees/detached
+dirty - [..]/worktrees/dirty
+ahead - [..]/worktrees/ahead
+
+"#]]);
+}

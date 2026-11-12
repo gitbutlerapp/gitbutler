@@ -46,6 +46,7 @@ pub enum CommandName {
     WorktreeUnarchive,
     WorktreeRemove,
     WorktreeNew,
+    WorktreeRecycle,
     Switch,
     Config,
     ForgeAuth,

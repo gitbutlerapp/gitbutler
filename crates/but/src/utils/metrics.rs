@@ -103,6 +103,7 @@ impl Subcommands {
                 Some(worktree::Subcommands::Unarchive { .. }) => WorktreeUnarchive,
                 Some(worktree::Subcommands::Remove { .. }) => WorktreeRemove,
                 Some(worktree::Subcommands::New { .. }) => WorktreeNew,
+                Some(worktree::Subcommands::Recycle) => WorktreeRecycle,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Unapply { .. } => BranchUnapply,

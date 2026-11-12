@@ -399,6 +399,121 @@ pub fn worktree_new_on_branch_with_perm(
     })
 }
 
+/// The worktree [`worktree_recycle_with_perm()`] showed again or made.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RecycledWorktree {
+    /// An archived worktree, shown again on its new branch.
+    Unarchived(NewWorktree),
+    /// A new worktree, made as there was none to show again.
+    Created(NewWorktree),
+}
+
+/// Show an archived worktree again in place of making a new one, keeping what its folder holds
+/// that Git doesn't, as built dependencies: the most recently used one on a branch outside the
+/// workspace that the target's tip has, with nothing uncommitted and no Git command partway
+/// through. It goes onto a new branch at that tip with a canned name, as a new worktree's, and
+/// its own branch stays as it was, with its upstream. Without one, make a new worktree there,
+/// or at the workspace's base without a target tip.
+pub fn worktree_recycle_with_perm(
+    ctx: &but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> Result<RecycledWorktree> {
+    let Some(tip) = target_tip(ctx, perm.read_permission())? else {
+        return worktree_new_with_perm(ctx, None, perm).map(RecycledWorktree::Created);
+    };
+    let Some((listed, checkout)) = recyclable(ctx, perm.read_permission(), tip)? else {
+        return worktree_new_at_base_with_perm(ctx, None, tip, perm).map(RecycledWorktree::Created);
+    };
+    // The files first, so a checkout that refuses leaves the branches as they were.
+    let files_only = but_core::worktree::checkout::Options {
+        skip_head_update: true,
+        ..Default::default()
+    };
+    but_core::worktree::safe_checkout_from_head(tip, &checkout, files_only)?;
+    let ref_name = unique_canned_refname(&checkout)?;
+    checkout.reference(
+        ref_name.as_ref(),
+        tip,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "branch: Created for recycled worktree",
+    )?;
+    checkout.edit_reference(gix::refs::transaction::RefEdit::update(
+        "HEAD".try_into()?,
+        gix::refs::Target::Symbolic(ref_name.clone()),
+        gix::refs::transaction::PreviousValue::Any,
+        "recycled worktree",
+    ))?;
+    worktree_set_archived_with_perm(ctx, listed.name.as_ref(), false, perm.read_permission())?;
+    Ok(RecycledWorktree::Unarchived(NewWorktree {
+        name: listed.name,
+        path: listed.path,
+        ref_name,
+        base: tip,
+    }))
+}
+
+/// The tip of where the target's new commits come from: its upstream, or with none configured,
+/// the local target branch.
+fn target_tip(ctx: &but_ctx::Context, perm: &RepoShared) -> Result<Option<gix::ObjectId>> {
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    let meta = &ws.graph.project_meta;
+    let source = match meta.remote_target_ref(&repo)? {
+        Some(upstream) => upstream,
+        None => match meta.target_ref.as_ref() {
+            Some(target) => target.as_local_full_name_ref().to_owned(),
+            None => return Ok(None),
+        },
+    };
+    Ok(ref_tip(&repo, source.as_ref()))
+}
+
+/// The archived worktree [`worktree_recycle_with_perm()`] shows again at `tip`, with its
+/// checkout, if there's one.
+fn recyclable(
+    ctx: &but_ctx::Context,
+    perm: &RepoShared,
+    tip: gix::ObjectId,
+) -> Result<Option<(ListedWorktree, gix::Repository)>> {
+    // Listing reconciles the archived state, so it goes before the workspace is borrowed.
+    let listing = worktrees_list_with_perm(ctx, perm)?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    for listed in listing.archived {
+        let Some(branch) = listed.ref_name.as_ref() else {
+            continue;
+        };
+        let behind = ref_tip(&repo, branch.as_ref()).is_some_and(|at| {
+            repo.merge_base(at, tip)
+                .is_ok_and(|base| base.is_some_and(|base| base == at))
+        });
+        if !behind || ws.refname_is_segment(branch.as_ref()) {
+            continue;
+        }
+        let Ok(checkout) = open_worktree_repo(&repo, listed.name.as_ref()) else {
+            continue;
+        };
+        if is_clean(&checkout) {
+            return Ok(Some((listed, checkout)));
+        }
+    }
+    Ok(None)
+}
+
+/// Whether `checkout` has nothing uncommitted, conflicts included, and no Git command partway
+/// through. One that can't be read isn't.
+fn is_clean(checkout: &gix::Repository) -> bool {
+    let idle = checkout
+        .state()
+        .is_none_or(|state| state == gix::state::InProgress::Bisect);
+    idle && but_core::diff::worktree_changes(checkout)
+        .is_ok_and(|changes| changes.changes.is_empty() && changes.index_conflicts.is_empty())
+}
+
+/// The commit `name` points at, if it's there.
+fn ref_tip(repo: &gix::Repository, name: &gix::refs::FullNameRef) -> Option<gix::ObjectId> {
+    Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
+}
+
 fn add_worktree(
     ctx: &but_ctx::Context,
     branch: WorktreeBranch<'_>,

@@ -6,7 +6,6 @@ use std::path::Path;
 
 use anyhow::Result;
 use bstr::{BStr, BString, ByteSlice as _};
-use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 
 use super::intent::Run;
@@ -266,99 +265,19 @@ impl Intent for CreateWorktree {
     }
 }
 
-/// Show an archived worktree again in place of making a new one, keeping what its folder holds
-/// that Git doesn't, as built dependencies: the most recently used one on a branch outside the
-/// workspace that the target's tip has, with nothing uncommitted and no Git command partway
-/// through. It goes onto a new branch at that tip with a made-up name, as a new worktree's, and
-/// its own branch stays as it was, with its upstream. Without one, make a new worktree there.
+/// Show an archived worktree again in place of making a new one, as
+/// [`but_api::worktrees::worktree_recycle_with_perm`] says, else make a new one.
 pub struct RecycleWorktree;
 
-/// The worktree [`RecycleWorktree`] showed again or made, by name.
-pub enum Recycled {
-    Unarchived(BString),
-    Created(BString),
-}
+/// The worktree [`RecycleWorktree`] showed again or made.
+pub use but_api::worktrees::RecycledWorktree;
 
 impl Intent for RecycleWorktree {
-    type Done = Recycled;
+    type Done = RecycledWorktree;
 
-    fn apply(self, run: &mut Run) -> Result<Recycled> {
-        run.locked(|ctx, perm| {
-            // Without a tip to start from, the workspace's base is as good as it gets.
-            let Some(tip) = target_tip(ctx, perm)? else {
-                let created = but_api::worktrees::worktree_new_with_perm(ctx, None, perm)?;
-                return Ok(Recycled::Created(created.name));
-            };
-            let Some((name, checkout)) = recyclable(ctx, perm, tip)? else {
-                let created =
-                    but_api::worktrees::worktree_new_at_base_with_perm(ctx, None, tip, perm)?;
-                return Ok(Recycled::Created(created.name));
-            };
-            // The files first, so a checkout that refuses leaves the branches as they were.
-            let files_only = but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            };
-            but_core::worktree::safe_checkout_from_head(tip, &checkout, files_only)?;
-            let new = but_core::branch::unique_canned_refname(&checkout)?;
-            checkout.reference(
-                new.as_ref(),
-                tip,
-                gix::refs::transaction::PreviousValue::MustNotExist,
-                "branch: Created for recycled worktree",
-            )?;
-            checkout.edit_reference(gix::refs::transaction::RefEdit::update(
-                "HEAD".try_into()?,
-                gix::refs::Target::Symbolic(new),
-                gix::refs::transaction::PreviousValue::Any,
-                "recycled worktree",
-            ))?;
-            but_api::worktrees::worktree_set_archived_with_perm(
-                ctx,
-                name.as_ref(),
-                false,
-                perm.read_permission(),
-            )?;
-            Ok(Recycled::Unarchived(name))
-        })
+    fn apply(self, run: &mut Run) -> Result<Self::Done> {
+        run.locked(|ctx, perm| but_api::worktrees::worktree_recycle_with_perm(ctx, perm))
     }
-}
-
-/// Where the target's new commits come from, as [`super::target_source`] says, at its tip.
-fn target_tip(ctx: &Context, perm: &RepoExclusive) -> Result<Option<gix::ObjectId>> {
-    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-    Ok((super::target_source(&repo, &ws.graph.project_meta))
-        .and_then(|source| super::ref_tip(&repo, source.as_ref())))
-}
-
-/// The archived worktree [`RecycleWorktree`] shows again at `tip`, with its checkout, if there's
-/// one.
-fn recyclable(
-    ctx: &Context,
-    perm: &RepoExclusive,
-    tip: gix::ObjectId,
-) -> Result<Option<(BString, gix::Repository)>> {
-    // Listing reconciles the archived state, so it goes before the workspace is borrowed.
-    let listing = but_api::worktrees::worktrees_list_with_perm(ctx, perm.read_permission())?;
-    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
-    for listed in listing.archived {
-        let Some(branch) = listed.ref_name else {
-            continue;
-        };
-        let behind = (super::ref_tip(&repo, branch.as_ref()))
-            .is_some_and(|at| super::is_ancestor(&repo, at, tip).unwrap_or(false));
-        if !behind || ws.refname_is_segment(branch.as_ref()) {
-            continue;
-        }
-        let Some(checkout) = opened(ctx, listed.name.as_ref()) else {
-            continue;
-        };
-        let clean = worktree_files(&checkout, &[]).is_ok_and(|files| files.is_empty());
-        if clean && git_operation(&checkout).is_none() {
-            return Ok(Some((listed.name, checkout)));
-        }
-    }
-    Ok(None)
 }
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
@@ -703,16 +622,6 @@ mod tests {
         names
     }
 
-    /// The archived worktree a recycle would show again, by name.
-    fn recyclable(path: &std::path::Path) -> Option<String> {
-        let mut ctx = crate::backend::open(path).unwrap();
-        let mut guard = ctx.exclusive_worktree_access();
-        let perm = guard.write_permission();
-        let tip = super::target_tip(&ctx, perm).unwrap().unwrap();
-        let found = super::recyclable(&ctx, perm, tip).unwrap();
-        found.map(|(name, _)| name.to_string())
-    }
-
     #[test]
     fn recycling_shows_a_clean_archived_worktree_again_on_a_new_branch_at_the_targets_tip() {
         but_testsupport::isolated_app_data_dir(|| {
@@ -726,10 +635,10 @@ mod tests {
             let recycled = crate::backend::apply(path, super::RecycleWorktree)
                 .unwrap()
                 .0;
-            let super::Recycled::Unarchived(name) = recycled else {
+            let super::RecycledWorktree::Unarchived(recycled) = recycled else {
                 panic!("a new worktree was made");
             };
-            assert_eq!(name, "agent");
+            assert_eq!(recycled.name, "agent");
             assert!(archived(path).is_empty(), "it's shown again");
             let branch = git(&linked, &["branch", "--show-current"]);
             let branch = branch.trim();
@@ -756,35 +665,6 @@ mod tests {
             assert!(
                 git(&linked, &["status", "--porcelain"]).is_empty(),
                 "leaving nothing uncommitted"
-            );
-        });
-    }
-
-    #[test]
-    fn recycling_passes_over_worktrees_that_cant_be_fast_forwarded_cleanly() {
-        but_testsupport::isolated_app_data_dir(|| {
-            let (dir, outside) = behind_the_target(&["ahead", "busy", "dirty"]);
-            let path = dir.path();
-            let at = |name: &str| outside.path().join(name);
-            git(
-                &at("ahead"),
-                &["commit", "-q", "--allow-empty", "-m", "own"],
-            );
-            std::fs::write(at("dirty").join("file"), "two\n").unwrap();
-            git(&at("busy"), &["checkout", "-q", "--detach"]);
-
-            assert_eq!(
-                recyclable(path),
-                None,
-                "ahead has a commit the target doesn't, dirty an uncommitted change, and busy \
-                 no branch to fast-forward"
-            );
-
-            git(&at("busy"), &["checkout", "-q", "busy"]);
-            assert_eq!(
-                recyclable(path).as_deref(),
-                Some("busy"),
-                "back on its branch, busy can be"
             );
         });
     }

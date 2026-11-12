@@ -13,6 +13,7 @@ use crate::{
 pub mod archive;
 pub mod list;
 pub mod new;
+pub mod recycle;
 pub mod remove;
 
 /// The refusal `E` from gix, if that is what stopped the operation behind `err`.
