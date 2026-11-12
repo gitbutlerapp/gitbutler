@@ -1,4 +1,6 @@
 .row {
+	--guide-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+
 	display: flex;
 	position: relative;
 	column-gap: var(--but-gap-icon-text);
@@ -33,6 +35,7 @@
 :where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 	.row[data-selected] {
 	--selection-inverted: true;
+	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);
@@ -113,7 +116,7 @@
 	position: absolute;
 	width: 1px;
 	inset-block: 0 -1px;
-	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	background-color: var(--guide-color);
 	content: "";
 }
 
@@ -125,7 +128,7 @@
 	inset-inline: calc(50% - 0.5px) -1px;
 	border-inline-start: 1px solid;
 	border-block-end: 1px solid;
-	border-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	border-color: var(--guide-color);
 	border-end-start-radius: 5px;
 	background-color: transparent;
 }
@@ -142,7 +145,7 @@
 	height: 1px;
 	inset-block-start: calc(50% - 0.5px);
 	inset-inline-start: calc(50% + 0.5px);
-	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	background-color: var(--guide-color);
 	content: "";
 }
 
