@@ -350,7 +350,7 @@ fn click_opens(
         }
         let held = event.modifiers();
         let store = this.store.read(cx);
-        let on = store.prefs.open_branch_on_click && store.moving.is_none();
+        let on = !store.prefs.click_only_selects_branch && store.moving.is_none();
         if on && event.click_count() == 1 && !held.secondary() && !held.shift && !this.filtering(cx)
         {
             this.click_just_opened = !this.is_open(&branch);

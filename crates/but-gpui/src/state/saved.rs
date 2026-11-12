@@ -614,9 +614,10 @@ pub struct Prefs {
     /// The navigator's open branches list all their commits, rather than the first few and
     /// how many more.
     pub all_branch_commits: bool,
-    /// A click on a navigator branch lists its commits too, folding the ones a click listed
-    /// before. Off unless picked, as with several branches it keeps moving the rows.
-    pub open_branch_on_click: bool,
+    /// A click on a navigator branch only selects it, rather than listing its commits too and
+    /// folding the ones a click listed before, which with several branches keeps moving the
+    /// rows. Off unless picked.
+    pub click_only_selects_branch: bool,
     /// The commit composer opens with every file left out, for what goes in to be checked,
     /// rather than with them all in.
     pub composer_starts_unchecked: bool,
