@@ -855,14 +855,14 @@ fn dry_run_uncommit(
     let but_api::commit::types::UncommitResult {
         workspace,
         uncommitted_ids: _,
-    } = but_api::commit::uncommit::commit_uncommit_only_with_perm(
+    } = but_api::commit::uncommit::commit_uncommit_with_perm(
         ctx,
         commits,
         None,
         DryRun::Yes,
         perm,
     )?;
-    // The implementation of `commit_uncommit_only_with_perm` requires a write lock on
+    // The implementation of `commit_uncommit_with_perm` requires a write lock on
     // the workspace even in dry run mode. Ideally, we should change that function
     // (or better, check for conflicts another way). For now, invalidate the workspace cache
     // to enable future code to once again take locks.
@@ -1787,7 +1787,7 @@ pub fn run(
         ExecutableSquashOperation::UncommitHunks { source, changes } => {
             {
                 let but_api::commit::types::MoveChangesResult { workspace } =
-                    but_api::commit::uncommit::commit_uncommit_changes_only_with_perm(
+                    but_api::commit::uncommit::commit_uncommit_changes_with_perm(
                         ctx,
                         source.commit_id,
                         changes.clone(),
@@ -1795,7 +1795,7 @@ pub fn run(
                         DryRun::Yes,
                         perm,
                     )?;
-                // The implementation of `commit_uncommit_changes_only_with_perm` requires a write lock on
+                // The implementation of `commit_uncommit_changes_with_perm` requires a write lock on
                 // the workspace even in dry run mode. Ideally, we should change that function
                 // (or better, remove this whole `if` block and instead check for conflicts another
                 // way). For now, invalidate the workspace cache to enable future code to once
