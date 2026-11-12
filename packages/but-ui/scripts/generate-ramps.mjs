@@ -2,7 +2,8 @@
 // dark, on Radix Colors' curves through dittoTones, then nudged until the pairs the semantic
 // names make from them read. Steps keep Radix's jobs: 1–2 grounds, 3–5 tints (3 soft, 4 its
 // hover), 6–8 lines, 9 the solid fill and 10 its hover, 11 text, 12 strong text. Each colour
-// (not gray or a ground) also has a3 and a4: steps 3 and 4 see-through, for the soft fills.
+// (not gray or a ground) also has a3 and a4, see-through, for the soft fills: half a step past
+// steps 3 and 4.
 //
 //   node scripts/generate-ramps.mjs          writes tokens/ramps.json and prints the report
 //   node scripts/generate-ramps.mjs --check  fails if tokens/ramps.json is out of date
@@ -107,6 +108,8 @@ function tint(hex, ground, share) {
 // The page isn't pure white, so a step can be lighter than it in a channel, which no tint can
 // make: the colour lands within NEAR of the step in OKLab, half the least difference anyone sees.
 const NEAR = 0.01;
+// How far past its step a soft fill comes, toward the next: 0 is the step, 1 the next one.
+const SOFT_STEP = 0.5;
 const distance = differenceEuclidean("oklab");
 function seeThrough(hex, ground) {
 	const [want, under] = [rgb(hex), rgb(ground)];
@@ -203,10 +206,16 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		// The status's -muted tint, its fill at 14% on the background, is a ground its text sits
 		// on too: a banner, a highlighted row. Settled after the fill, which the tint is made of.
 		grounds.push(tint(s[8], gray ? gray["1"] : s[0], 0.14));
-		// The soft fill and its hover, a3 and a4: steps 3 and 4 made see-through over the page,
-		// gray 1, where they come to steps 3 and 4. Its text reads on the fill over canvas, gray 3,
-		// the darkest ground it sits on; a hover there, for a moment, is let off.
-		const alphas = gray ? { a3: seeThrough(s[2], gray["1"]), a4: seeThrough(s[3], gray["1"]) } : {};
+		// The soft fill and its hover, a3 and a4: made see-through over the page, gray 1, where they
+		// come half a step past steps 3 and 4, toward 4 and 5. At step 3 itself a fill barely
+		// showed on a row's hover or a card. Its text reads on the fill over canvas, gray 3, the
+		// darkest ground it sits on; a hover there, for a moment, is let off.
+		const alphas = gray
+			? {
+					a3: seeThrough(tint(s[3], s[2], SOFT_STEP), gray["1"]),
+					a4: seeThrough(tint(s[4], s[3], SOFT_STEP), gray["1"]),
+				}
+			: {};
 		if (gray) grounds.push(over(alphas.a3, gray["3"]));
 		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
 		ramps[hue][mode] = { ...Object.fromEntries(s.map((c, i) => [String(i + 1), c])), ...alphas };

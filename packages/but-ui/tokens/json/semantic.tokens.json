@@ -1831,6 +1831,28 @@
         }
       }
     },
+    "neutral": {
+      "soft": {
+        "$type": "color",
+        "$value": {
+          "components": "{semantic.foreground}",
+          "alpha": "10%"
+        },
+        "$description": "The neutral tinted fill: foreground at 10% in light and 14% in dark, so it stands with the coloured soft fills on the page, a row or a selected row. A gray badge. Text on it: foreground.",
+        "$extensions": {
+          "mode": {
+            "light": {
+              "components": "{semantic.foreground}",
+              "alpha": "10%"
+            },
+            "dark": {
+              "components": "{semantic.foreground}",
+              "alpha": "14%"
+            }
+          }
+        }
+      }
+    },
     "$extensions": {
       "tokens-bruecke-meta": {
         "useDTCG": true,
@@ -1841,7 +1863,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-12T23:07:52.798Z"
+        "createdAt": "2026-11-12T23:38:55.288Z"
       }
     }
   }
