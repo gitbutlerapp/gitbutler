@@ -1154,23 +1154,24 @@ impl Intent for Update {
 impl Update {
     fn rebase(self, run: &mut Run) -> Result<UpdateOutcome> {
         run.locked(|ctx, perm| {
+            // The engine updates nothing without HEAD's commit.
+            super::ops::refuse_unborn(ctx)?;
             let info = but_api::legacy::workspace::head_info(ctx)?;
-            let (behind, measured) = {
+            let (behind, tip, base) = {
                 let repo = ctx.repo.get()?;
                 let meta = ctx.project_meta()?;
-                match super::target_source(&repo, &meta)
+                // The engine reads the same ref, so without it the update could only fail.
+                let Some(tip) = super::target_source(&repo, &meta)
                     .and_then(|source| super::ref_tip(&repo, source.as_ref()))
-                {
-                    Some(tip) => {
-                        let base = meta.resolve_target_commit(&repo)?;
-                        let behind = but_api::workspace::is_behind_target(
-                            &repo, &info, self.scope, tip, base,
-                        )?;
-                        (behind, Some((tip, base)))
-                    }
-                    // Without a target to read, the update says what's wrong.
-                    None => (true, None),
-                }
+                else {
+                    but_error::bail_precondition!(
+                        "There's no target branch to update from: the project's page says what to do"
+                    );
+                };
+                let base = meta.resolve_target_commit(&repo)?;
+                let behind =
+                    but_api::workspace::is_behind_target(&repo, &info, self.scope, tip, base)?;
+                (behind, tip, base)
             };
             if !behind {
                 return Ok(UpdateOutcome::UpToDate);
@@ -1187,12 +1188,9 @@ impl Update {
             // where the workspace stood, and that one; and where each worktree was.
             let (main_line, heads) = {
                 let repo = ctx.repo.get()?;
-                let mut main_line = HashSet::new();
-                if let Some((tip, base)) = measured {
-                    let past = super::commits_past(&repo, tip, base);
-                    main_line = super::first_parent_line(&repo, tip, &past);
-                    main_line.insert(super::CommitId(base));
-                }
+                let past = super::commits_past(&repo, tip, base);
+                let mut main_line = super::first_parent_line(&repo, tip, &past);
+                main_line.insert(super::CommitId(base));
                 (main_line, super::worktrees::heads(&repo))
             };
             let preview = but_api::workspace::workspace_integrate_upstream_scoped_with_perm(
@@ -1636,6 +1634,46 @@ pub(super) mod tests {
                 Some(but_error::Code::PreconditionFailed),
                 "the user is the one to check out a branch, so it isn't reported as a bug"
             );
+        })
+    }
+
+    #[test]
+    fn an_update_without_a_commit_or_a_target_to_read_is_refused() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let lost = repo_with("one\n");
+            target_origin_main(lost.path());
+            git(
+                lost.path(),
+                &["update-ref", "-d", "refs/remotes/origin/main"],
+            );
+            let orphan = repo_with("one\n");
+            target_origin_main(orphan.path());
+            new_on_target(orphan.path(), "new on target");
+            git(orphan.path(), &["switch", "-q", "--orphan", "fresh"]);
+            let unborn = tempfile::tempdir().unwrap();
+            git(unborn.path(), &["init", "-q", "-b", "main"]);
+            let untargeted = repo_with("one\n");
+            for (path, says) in [
+                (lost.path(), "no target branch"),
+                (orphan.path(), "no commits yet"),
+                (unborn.path(), "no commits yet"),
+                (untargeted.path(), "no target branch"),
+            ] {
+                let update = Update {
+                    scope: UpdateScope::All,
+                    accepted: None,
+                };
+                let refused = crate::backend::apply(path, update).unwrap_err();
+                assert!(
+                    format!("{refused:#}").contains(says),
+                    "says what's missing, not the engine's own words: {refused:#}"
+                );
+                assert_eq!(
+                    (refused.downcast_ref::<but_error::Context>()).map(|said| said.code),
+                    Some(but_error::Code::PreconditionFailed),
+                    "the menu's Fetch and update reaches it, and it isn't a bug"
+                );
+            }
         })
     }
 

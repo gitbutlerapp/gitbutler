@@ -300,7 +300,7 @@ fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
 
 /// GitButler's branches build on a commit; core's own error for a repository without one
 /// names its internals.
-fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
+pub(super) fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
     if ctx.repo.get()?.head()?.is_unborn() {
         but_error::bail_precondition!(
             "The repository has no commits yet. Make the first one, then try again."
