@@ -908,6 +908,49 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn single_branch_unstack_checked_out_branch_enters_workspace() {
+    let env = Sandbox::open_with_default_settings("single-branch-three-dependent-branches");
+    env.but("move C --unstack").assert().success();
+    // C and the branches it leaves behind are stacks of their own in the workspace.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   myy add B
+┊│
+┊├┄ h0 [A]
+┊●   nmq add A
+├╯
+┊
+┊╭┄ i0 [C]
+┊●   vuw add C
+├╯
+┊
+┴ 3712f84 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+*   1321ad6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * eea8652 (C) add C
+* | e06c9f0 (B) add B
+* | 549c6bf (A) add A
+|/  
+* 3712f84 (origin/main, origin/HEAD, main, gitbutler/target) add M
+* e31e6ca add init
+
+"#]]
+    );
+}
+
+#[test]
 fn single_branch_unstack_empty_branch_and_switch() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("branch new bottom").assert().success();
