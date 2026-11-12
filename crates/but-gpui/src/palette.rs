@@ -241,7 +241,7 @@ impl StatusGroup {
             StatusGroup::Blocked => "Blocked",
             StatusGroup::Failed => "Failed",
             StatusGroup::Done => "Done",
-            StatusGroup::Working => "Working",
+            StatusGroup::Working => "Cooking",
             StatusGroup::Idle => "Idle",
         }
     }
