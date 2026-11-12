@@ -268,16 +268,16 @@ Aliases stay aliases: a variable that points at another in Figma comes out as `v
 
 ### Token files
 
-| File                               | Source                                                                         | Consumed by                                      |
-| ---------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion               | Terrazzo                                         |
-| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes | Terrazzo                                         |
-| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, with `light`/`dark` modes  | Terrazzo                                         |
-| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                              | `generate-shadow-vars.mjs`                       |
-| `components/*.tokens.json`         | Written by hand — each component's own values                                  | Terrazzo                                         |
-| `tokens/settings.json`             | The build — every accent, corner and density setting, as data                  | Clients that can't read CSS                      |
-| `tokens/tokens.json`               | The build — each colour for light and dark, each length in px                  | The GPUI client, and clients that can't read CSS |
-| `tokens/accent-samples.json`       | The build — the any-colour accent for 25 picks, as a browser draws it          | GPUI's accent test                               |
+| File                               | Source                                                                                               | Consumed by                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `tokens/json/core.tokens.json`     | `core` variable collection — sizes, spacing, radii, type, motion                                     | Terrazzo                                         |
+| `tokens/json/semantic.tokens.json` | `semantic` variable collection — aliases onto ramps, with `light`/`dark` modes                       | Terrazzo                                         |
+| `tokens/json/ramps.tokens.json`    | `ramps` variable collection — twelve steps per hue, and a3/a4 see-through, with `light`/`dark` modes | Terrazzo                                         |
+| `tokens/json/fx.tokens.json`       | Figma **effect styles** — shadows                                                                    | `generate-shadow-vars.mjs`                       |
+| `components/*.tokens.json`         | Written by hand — each component's own values                                                        | Terrazzo                                         |
+| `tokens/settings.json`             | The build — every accent, corner and density setting, as data                                        | Clients that can't read CSS                      |
+| `tokens/tokens.json`               | The build — each colour for light and dark, each length in px                                        | The GPUI client, and clients that can't read CSS |
+| `tokens/accent-samples.json`       | The build — the any-colour accent for 25 picks, as a browser draws it                                | GPUI's accent test                               |
 
 ### Pulling tokens from Figma
 
@@ -344,7 +344,7 @@ ranges like `^11.3.0` keep resolving.
 
 ## Colour ramps
 
-Each hue is a ramp of twelve steps, in light and dark, made by [`scripts/generate-ramps.mjs`](./scripts/generate-ramps.mjs) on Radix Colors' curves (through dittoTones) and nudged until text and labels read. It writes `tokens/ramps.json`, which goes into 🍑 But UI's `ramps` collection; Figma stays the source the tokens are exported from. `pnpm check` fails when `ramps.json` is older than the script, and [`scripts/check-ramps.mjs`](./scripts/check-ramps.mjs) fails when Figma's exported ramps and `ramps.json` disagree on any step, or one has a ramp the other hasn't, so an edit in Figma can't drift from the generator.
+Each hue is a ramp of twelve steps, in light and dark, made by [`scripts/generate-ramps.mjs`](./scripts/generate-ramps.mjs) on Radix Colors' curves (through dittoTones) and nudged until text and labels read. Each colour (not gray or a ground) also has `a3` and `a4`: steps 3 and 4 made see-through, as Radix's alpha steps are, so they come to steps 3 and 4 on the page (within half the least difference anyone sees) and blend with a card or bar under them. Every soft fill (`--but-*-soft` and its hover) is one of these, so a badge, a banner, a soft button and a status note all draw the same tint, and the build checks their text over canvas, the darkest ground they meet. It writes `tokens/ramps.json`, which goes into 🍑 But UI's `ramps` collection; Figma stays the source the tokens are exported from. `pnpm check` fails when `ramps.json` is older than the script, and [`scripts/check-ramps.mjs`](./scripts/check-ramps.mjs) fails when Figma's exported ramps and `ramps.json` disagree on any step, or one has a ramp the other hasn't, so an edit in Figma can't drift from the generator.
 
 ### How the grounds are made
 

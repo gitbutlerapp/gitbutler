@@ -222,10 +222,13 @@ fn accents(tokens: &serde_json::Value) -> String {
                     (modes[mode][key].as_f64())
                         .unwrap_or_else(|| panic!("{token} has a {mode} {key}"))
                 };
+                // A see-through step, as the soft fills are, has an alpha; the rest are opaque.
+                let alpha = modes[mode]["alpha"].as_f64().unwrap_or(1.);
                 format!(
-                    "({:?}, {:?})",
+                    "({:?}, {:?}, {:?})",
                     number("lightness") as f32,
-                    number("chroma") as f32
+                    number("chroma") as f32,
+                    alpha as f32
                 )
             });
             format!("(\"{token}\", [{light}, {dark}]), ")
@@ -241,7 +244,9 @@ fn accents(tokens: &serde_json::Value) -> String {
         "/// An accent's primary family: each token as `[light, dark]`.\n\
          pub type Family = &'static [(&'static str, [u32; 2])];\n\
          pub const ACCENTS: &[(&str, Family)] = &[\n{named}];\n\
-         pub const CUSTOM_ACCENT: &[(&str, [(f32, f32); 2])] = &[{drawn}];\n\
+         /// How the custom accent draws a token: its lightness, its share of the chroma, its alpha.\n\
+         pub type Drawn = (f32, f32, f32);\n\
+         pub const CUSTOM_ACCENT: &[(&str, [Drawn; 2])] = &[{drawn}];\n\
          pub const CUSTOM_ACCENT_FALLBACK: [u32; 2] = {};\n\
          pub const CUSTOM_ACCENT_CHROMA_CAP: f32 = {cap:?};\n",
         color(fallback)

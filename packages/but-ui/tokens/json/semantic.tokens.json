@@ -127,12 +127,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.teal.3}",
-          "$description": "The accent colour's tinted fill: badges, banners, tiles and soft controls. Text on it: primary/soft/foreground.",
+          "$value": "{ramps.teal.a3}",
+          "$description": "The accent colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: primary/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.teal.3}",
-              "dark": "{ramps.teal.3}"
+              "light": "{ramps.teal.a3}",
+              "dark": "{ramps.teal.a3}"
             }
           }
         },
@@ -149,12 +149,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.teal.4}",
+          "$value": "{ramps.teal.a4}",
           "$description": "primary/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.teal.4}",
-              "dark": "{ramps.teal.4}"
+              "light": "{ramps.teal.a4}",
+              "dark": "{ramps.teal.a4}"
             }
           }
         }
@@ -248,12 +248,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.red.3}",
-          "$description": "The danger colour's tinted fill: badges, banners, tiles and soft controls. Text on it: danger/soft/foreground.",
+          "$value": "{ramps.red.a3}",
+          "$description": "The danger colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: danger/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.red.3}",
-              "dark": "{ramps.red.3}"
+              "light": "{ramps.red.a3}",
+              "dark": "{ramps.red.a3}"
             }
           }
         },
@@ -270,12 +270,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.red.4}",
+          "$value": "{ramps.red.a4}",
           "$description": "danger/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.red.4}",
-              "dark": "{ramps.red.4}"
+              "light": "{ramps.red.a4}",
+              "dark": "{ramps.red.a4}"
             }
           }
         }
@@ -506,12 +506,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.amber.3}",
-          "$description": "The warning colour's tinted fill: badges, banners, tiles and soft controls. Text on it: warning/soft/foreground.",
+          "$value": "{ramps.amber.a3}",
+          "$description": "The warning colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: warning/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.amber.3}",
-              "dark": "{ramps.amber.3}"
+              "light": "{ramps.amber.a3}",
+              "dark": "{ramps.amber.a3}"
             }
           }
         },
@@ -528,12 +528,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.amber.4}",
+          "$value": "{ramps.amber.a4}",
           "$description": "warning/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.amber.4}",
-              "dark": "{ramps.amber.4}"
+              "light": "{ramps.amber.a4}",
+              "dark": "{ramps.amber.a4}"
             }
           }
         }
@@ -627,12 +627,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.green.3}",
-          "$description": "The success colour's tinted fill: badges, banners, tiles and soft controls. Text on it: success/soft/foreground.",
+          "$value": "{ramps.green.a3}",
+          "$description": "The success colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: success/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.green.3}",
-              "dark": "{ramps.green.3}"
+              "light": "{ramps.green.a3}",
+              "dark": "{ramps.green.a3}"
             }
           }
         },
@@ -649,12 +649,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.green.4}",
+          "$value": "{ramps.green.a4}",
           "$description": "success/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.green.4}",
-              "dark": "{ramps.green.4}"
+              "light": "{ramps.green.a4}",
+              "dark": "{ramps.green.a4}"
             }
           }
         }
@@ -748,12 +748,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.purple.3}",
-          "$description": "The done colour's tinted fill: badges, banners, tiles and soft controls. Text on it: done/soft/foreground.",
+          "$value": "{ramps.purple.a3}",
+          "$description": "The done colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: done/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.purple.3}",
-              "dark": "{ramps.purple.3}"
+              "light": "{ramps.purple.a3}",
+              "dark": "{ramps.purple.a3}"
             }
           }
         },
@@ -770,12 +770,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.purple.4}",
+          "$value": "{ramps.purple.a4}",
           "$description": "done/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.purple.4}",
-              "dark": "{ramps.purple.4}"
+              "light": "{ramps.purple.a4}",
+              "dark": "{ramps.purple.a4}"
             }
           }
         }
@@ -891,12 +891,12 @@
       "soft": {
         "$root": {
           "$type": "color",
-          "$value": "{ramps.blue.3}",
-          "$description": "The info colour's tinted fill: badges, banners, tiles and soft controls. Text on it: info/soft/foreground.",
+          "$value": "{ramps.blue.a3}",
+          "$description": "The info colour's tinted fill, see-through so it reads as one tint on the page, a card or a bar: badges, banners, tiles and soft controls. Text on it: info/soft/foreground.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.blue.3}",
-              "dark": "{ramps.blue.3}"
+              "light": "{ramps.blue.a3}",
+              "dark": "{ramps.blue.a3}"
             }
           }
         },
@@ -913,12 +913,12 @@
         },
         "hover": {
           "$type": "color",
-          "$value": "{ramps.blue.4}",
+          "$value": "{ramps.blue.a4}",
           "$description": "info/soft under the pointer.",
           "$extensions": {
             "mode": {
-              "light": "{ramps.blue.4}",
-              "dark": "{ramps.blue.4}"
+              "light": "{ramps.blue.a4}",
+              "dark": "{ramps.blue.a4}"
             }
           }
         }
@@ -1697,7 +1697,7 @@
           "semantic",
           "ramps"
         ],
-        "createdAt": "2026-11-11T21:30:21.898Z"
+        "createdAt": "2026-11-12T21:11:46.069Z"
       }
     }
   }

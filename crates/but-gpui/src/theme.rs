@@ -541,18 +541,17 @@ impl Theme {
             Accent::Custom => custom_accent(custom, dark),
             named => (tokens::ACCENTS.iter())
                 .find(|(name, _)| *name == named.name())
-                .map(|(_, family)| {
-                    (family.iter()).map(|(token, modes)| (*token, pick(*modes) >> 8))
-                })
+                .map(|(_, family)| (family.iter()).map(|(token, modes)| (*token, pick(*modes))))
                 .into_iter()
                 .flatten()
                 .collect(),
         };
+        // As `0xRRGGBBAA`: the soft fills are see-through.
         let token = |name: &str| {
             family
                 .iter()
                 .find(|(token, _)| *token == name)
-                .map(|&(_, c)| color(c))
+                .map(|&(_, c)| Hsla::from(rgba(c)))
         };
         if let Some(primary) = token("primary") {
             (self.pop_bg, self.pop_button) = (primary, primary);
@@ -1191,7 +1190,8 @@ const GHOSTTY_ANSI: [u32; 16] = [
 
 /// The custom accent's family drawn from `pick`, `#rrggbb` or `#rgb`, as but-ui's tokens.css draws
 /// it: each token is the pick's hue, its chroma capped and taken at a share, at a lightness, in
-/// OKLCH, then clipped into sRGB as a browser does. A pick that isn't a colour draws as teal.
+/// OKLCH, then clipped into sRGB as a browser does, and see-through where the step is, as
+/// `0xRRGGBBAA`. A pick that isn't a colour draws as teal.
 fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
     let [light, dark_value] = tokens::CUSTOM_ACCENT_FALLBACK;
     let fallback = if dark { dark_value } else { light } >> 8;
@@ -1199,8 +1199,17 @@ fn custom_accent(pick: &str, dark: bool) -> Vec<(&'static str, u32)> {
     let chroma = chroma.min(tokens::CUSTOM_ACCENT_CHROMA_CAP);
     (tokens::CUSTOM_ACCENT.iter())
         .map(|&(token, [light, dark_modes])| {
-            let (lightness, share) = if dark { dark_modes } else { light };
-            (token, from_oklch(lightness, chroma * share, hue))
+            let (lightness, share, alpha) = if dark { dark_modes } else { light };
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "clamped to 0–255 first"
+            )]
+            let alpha = (alpha.clamp(0., 1.) * 255.).round() as u32;
+            (
+                token,
+                from_oklch(lightness, chroma * share, hue) << 8 | alpha,
+            )
         })
         .collect()
 }
@@ -1348,7 +1357,7 @@ mod tests {
 
     use super::{
         Accent, Appearance, CodeSize, ColorScheme, Hue, Theme, WASHES, channels, contrast,
-        custom_accent, parse_hex, rgb_hex,
+        custom_accent, rgb_hex,
     };
 
     fn rgb(hex: u32) -> RgbColor {
@@ -1451,12 +1460,21 @@ mod tests {
             let pick = sample["color"].as_str().unwrap();
             for (mode, dark) in [("light", false), ("dark", true)] {
                 for (token, drawn) in custom_accent(pick, dark) {
-                    let web = parse_hex(sample["tokens"][token][mode].as_str().unwrap()).unwrap();
-                    let apart = (channels(drawn).into_iter().zip(channels(web)))
+                    // `#rrggbb`, or `#rrggbbaa` for a see-through step.
+                    let web = sample["tokens"][token][mode].as_str().unwrap();
+                    let digits = web.trim_start_matches('#');
+                    let web = u32::from_str_radix(digits, 16).unwrap();
+                    let web = if digits.len() == 6 {
+                        web << 8 | 0xff
+                    } else {
+                        web
+                    };
+                    let alpha = |c: u32| (c & 0xff) as f32;
+                    let apart = (channels(drawn >> 8).into_iter().zip(channels(web >> 8)))
                         .map(|(a, b)| (a - b).abs())
-                        .fold(0., f32::max);
+                        .fold((alpha(drawn) - alpha(web)).abs(), f32::max);
                     if apart > 1. {
-                        off.push(format!("{pick} {mode} {token}: {drawn:06x}, web {web:06x}"));
+                        off.push(format!("{pick} {mode} {token}: {drawn:08x}, web {web:08x}"));
                     }
                 }
             }
@@ -1523,15 +1541,23 @@ mod tests {
                 Hue::Gray,
             ] {
                 let ink = rgb_hex(theme.hue(hue));
-                for (what, ground) in [
-                    ("soft", theme.soft(hue)),
-                    ("soft under the pointer", theme.soft_hover(hue)),
+                // The soft fills are see-through, so each is laid on what it sits on: the
+                // content, and for the fill at rest the recessed ground too, as but-ui checks.
+                for (what, ground, unders) in [
+                    ("soft", theme.soft(hue), vec![theme.bg_1, theme.bg_2]),
+                    (
+                        "soft under the pointer",
+                        theme.soft_hover(hue),
+                        vec![theme.bg_1],
+                    ),
                 ] {
-                    let reads = contrast(ink, rgb_hex(ground));
-                    assert!(
-                        reads >= 4.5,
-                        "{name}: {hue:?} reads at {reads} on its {what} ground"
-                    );
+                    for under in unders {
+                        let reads = contrast(ink, rgb_hex(under.blend(ground)));
+                        assert!(
+                            reads >= 4.5,
+                            "{name}: {hue:?} reads at {reads} on its {what} ground"
+                        );
+                    }
                 }
             }
         }

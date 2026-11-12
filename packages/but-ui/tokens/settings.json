@@ -7,25 +7,25 @@
 			"teal": {
 				"primary": "teal-9",
 				"primary-hover": "teal-10",
-				"primary-soft": "teal-3",
+				"primary-soft": "teal-a3",
 				"primary-soft-foreground": "teal-11",
-				"primary-soft-hover": "teal-4",
+				"primary-soft-hover": "teal-a4",
 				"primary-text": "teal-11"
 			},
 			"blue": {
 				"primary": "blue-9",
 				"primary-hover": "blue-10",
-				"primary-soft": "blue-3",
+				"primary-soft": "blue-a3",
 				"primary-soft-foreground": "blue-11",
-				"primary-soft-hover": "blue-4",
+				"primary-soft-hover": "blue-a4",
 				"primary-text": "blue-11"
 			},
 			"purple": {
 				"primary": "purple-9",
 				"primary-hover": "purple-10",
-				"primary-soft": "purple-3",
+				"primary-soft": "purple-a3",
 				"primary-soft-foreground": "purple-11",
-				"primary-soft-hover": "purple-4",
+				"primary-soft-hover": "purple-a4",
 				"primary-text": "purple-11"
 			}
 		},
@@ -56,12 +56,14 @@
 				},
 				"primary-soft": {
 					"light": {
-						"lightness": 0.955,
-						"chroma": 0.319
+						"lightness": 0.762,
+						"chroma": 1.38,
+						"alpha": 0.1
 					},
 					"dark": {
-						"lightness": 0.274,
-						"chroma": 0.394
+						"lightness": 0.905,
+						"chroma": 1.639,
+						"alpha": 0.1
 					}
 				},
 				"primary-soft-foreground": {
@@ -76,12 +78,14 @@
 				},
 				"primary-soft-hover": {
 					"light": {
-						"lightness": 0.928,
-						"chroma": 0.52
+						"lightness": 0.758,
+						"chroma": 1.378,
+						"alpha": 0.2
 					},
 					"dark": {
-						"lightness": 0.317,
-						"chroma": 0.551
+						"lightness": 0.905,
+						"chroma": 1.639,
+						"alpha": 0.16
 					}
 				},
 				"primary-text": {

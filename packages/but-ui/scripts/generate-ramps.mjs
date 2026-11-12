@@ -1,7 +1,8 @@
 // Generates the colour ramps 🍑 But UI's primitives hold: twelve steps per hue, in light and
 // dark, on Radix Colors' curves through dittoTones, then nudged until the pairs the semantic
 // names make from them read. Steps keep Radix's jobs: 1–2 grounds, 3–5 tints (3 soft, 4 its
-// hover), 6–8 lines, 9 the solid fill and 10 its hover, 11 text, 12 strong text.
+// hover), 6–8 lines, 9 the solid fill and 10 its hover, 11 text, 12 strong text. Each colour
+// (not gray or a ground) also has a3 and a4: steps 3 and 4 see-through, for the soft fills.
 //
 //   node scripts/generate-ramps.mjs          writes tokens/ramps.json and prints the report
 //   node scripts/generate-ramps.mjs --check  fails if tokens/ramps.json is out of date
@@ -10,7 +11,7 @@
 // tokens are exported from.
 
 import * as radix from "@radix-ui/colors";
-import { clampChroma, formatHex, oklch, parse } from "culori";
+import { clampChroma, differenceEuclidean, formatHex, oklch, parse } from "culori";
 import { DittoTones } from "dittotones";
 import { radixRamps } from "dittotones/ramps/radix";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -101,6 +102,30 @@ function tint(hex, ground, share) {
 		)
 		.join("")}`;
 }
+// `hex` as the most see-through colour that comes to it laid over `ground`, as Radix makes its
+// alpha steps: a soft fill so made reads as its step on the page and blends on a card or a bar.
+// The page isn't pure white, so a step can be lighter than it in a channel, which no tint can
+// make: the colour lands within NEAR of the step in OKLab, half the least difference anyone sees.
+const NEAR = 0.01;
+const distance = differenceEuclidean("oklab");
+function seeThrough(hex, ground) {
+	const [want, under] = [rgb(hex), rgb(ground)];
+	// In whole percents, as the Figma export writes an opacity.
+	for (let percent = 1; percent <= 100; percent++) {
+		const alpha = Math.round(percent * 2.55);
+		const a = alpha / 255;
+		const colour = want.map((v, i) =>
+			Math.min(255, Math.max(0, Math.round((v - (1 - a) * under[i]) / a))),
+		);
+		const hex8 = `#${[...colour, alpha].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+		if (distance(parse(over(hex8, ground)), parse(hex)) <= NEAR) return hex8;
+	}
+	throw new Error(`no see-through colour comes to ${hex} over ${ground}`);
+}
+// `hex8`, a colour with its alpha last, laid over `ground`.
+function over(hex8, ground) {
+	return tint(hex8.slice(0, 7), ground, parseInt(hex8.slice(7, 9), 16) / 255);
+}
 // The first colour from `hex`, stepping its lightness by `dl`, for which `ok` holds.
 function until(hex, dl, ok) {
 	for (let i = 0; i <= 100; i++) {
@@ -178,8 +203,13 @@ for (const [hue, { seed, label, ground }] of Object.entries(HUES)) {
 		// The status's -muted tint, its fill at 14% on the background, is a ground its text sits
 		// on too: a banner, a highlighted row. Settled after the fill, which the tint is made of.
 		grounds.push(tint(s[8], gray ? gray["1"] : s[0], 0.14));
+		// The soft fill and its hover, a3 and a4: steps 3 and 4 made see-through over the page,
+		// gray 1, where they come to steps 3 and 4. Its text reads on the fill over canvas, gray 3,
+		// the darkest ground it sits on; a hover there, for a moment, is let off.
+		const alphas = gray ? { a3: seeThrough(s[2], gray["1"]), a4: seeThrough(s[3], gray["1"]) } : {};
+		if (gray) grounds.push(over(alphas.a3, gray["3"]));
 		s[10] = until(s[10], away, (c) => grounds.every((g) => wcag(c, g) >= TEXT));
-		ramps[hue][mode] = Object.fromEntries(s.map((c, i) => [String(i + 1), c]));
+		ramps[hue][mode] = { ...Object.fromEntries(s.map((c, i) => [String(i + 1), c])), ...alphas };
 		report.push({ hue, mode, moved9: before[9] !== s[8], moved11: before[11] !== s[10], s });
 	}
 }

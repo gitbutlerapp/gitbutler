@@ -3,7 +3,7 @@
 // tokens/accent-samples.json holds them.
 
 import { declarationsIn, resolveColor, rootDeclarations } from "./resolve-color.mjs";
-import { formatHex } from "culori";
+import { formatHex, formatHex8 } from "culori";
 
 /** Any colour, as the full-strength hue every 15°, the purest a person can type, and a gray. */
 export const SAMPLES = [
@@ -20,8 +20,9 @@ export function accentSamples(css) {
 	return SAMPLES.map((color) => {
 		const declarations = new Map([...rootDeclarations(css), ...custom, ["accent-color", color]]);
 		function hex(value, mode) {
-			const { r, g, b } = resolveColor(value, mode, declarations);
-			return formatHex({ mode: "rgb", r, g, b });
+			const { r, g, b, alpha } = resolveColor(value, mode, declarations);
+			const colour = { mode: "rgb", r, g, b, alpha };
+			return alpha < 1 ? formatHex8(colour) : formatHex(colour);
 		}
 		return {
 			color,

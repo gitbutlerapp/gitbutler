@@ -28,14 +28,14 @@ function round(n) {
  * The accent as data. `values` has, for each named accent, the ramp step every token of the
  * primary family points at. `custom` is any colour: each token is that colour's hue, with its
  * chroma capped at `chromaCap` and taken at the `chroma` share, at the `lightness` given, in
- * OKLCH, for light and for dark.
+ * OKLCH, for light and for dark, and at `alpha` for a see-through step (the soft fills).
  */
 export function accentSetting(css) {
 	// The family as Figma points it: each token at a step of teal.
 	const family = [...css.matchAll(/^\s*--but-(primary[\w-]*):\s*(.+?);\s*$/gm)]
 		.filter(([, , value]) => value.includes(`--but-${FIGMA}-`))
 		.map(([, token, value]) => {
-			const step = value.match(new RegExp(`^var\\(--but-${FIGMA}-(\\d+)\\)$`))?.[1];
+			const step = value.match(new RegExp(`^var\\(--but-${FIGMA}-(a?\\d+)\\)$`))?.[1];
 			if (step === undefined) throw new Error(`--but-${token} isn't one step of ${FIGMA}.`);
 			return [token, step];
 		});
@@ -67,6 +67,7 @@ export function accentSetting(css) {
 						return {
 							lightness: round(colour.l + away * LIGHTNESS_MARGIN),
 							chroma: round(colour.c / primary.c),
+							...(colour.alpha < 1 && { alpha: round(colour.alpha) }),
 						};
 					});
 					return [token, { light, dark }];
@@ -80,9 +81,10 @@ export function accentSetting(css) {
  * then the one that draws the family from any colour. */
 export function accentCss(setting) {
 	const { color, fallback, chromaCap, tokens } = setting.custom;
-	function drawn({ lightness, chroma }) {
+	function drawn({ lightness, chroma, alpha }) {
 		const c = chroma === 1 ? `min(c, ${chromaCap})` : `calc(min(c, ${chromaCap}) * ${chroma})`;
-		return `oklch(from var(--but-${color}, var(--but-${fallback})) ${lightness} ${c} h)`;
+		const a = alpha === undefined ? "" : ` / ${alpha}`;
+		return `oklch(from var(--but-${color}, var(--but-${fallback})) ${lightness} ${c} h${a})`;
 	}
 	const lines = Object.entries(tokens).map(([token, modes]) => {
 		const [light, dark] = [drawn(modes.light), drawn(modes.dark)];
