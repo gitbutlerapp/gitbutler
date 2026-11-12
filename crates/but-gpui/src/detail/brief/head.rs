@@ -13,7 +13,7 @@ use crate::backend::{CheckState, FileDiff};
 use crate::detail::Detail;
 use crate::detail::page::PageTab;
 use crate::state::Selection;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::person::person_avatar;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, diff, dp, h_flex, icon, icon_button, plural, v_flex,
@@ -250,7 +250,7 @@ impl Detail {
                         .gap(dp(8.))
                         .px(dp(10.))
                         .py(dp(7.))
-                        .bg(theme.warn_soft)
+                        .bg(theme.surface(Hue::Warn))
                         .children(alerts),
                 )
             })
@@ -342,7 +342,7 @@ impl Detail {
             v_flex()
                 .id("brief-test-off")
                 .gap(dp(2.))
-                .hover(|el| el.bg(theme.warn_soft))
+                .hover(|el| el.bg(theme.surface(Hue::Warn)))
                 .role(gpui::Role::Button)
                 .aria_label(SharedString::from(format!("Show the line in {name}")))
                 .on_click(cx.listener(move |this, _, window, cx| {

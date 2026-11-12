@@ -507,8 +507,8 @@ impl Detail {
                     .rounded(dp(theme.shape.card))
                     .border_1()
                     .border_color(theme.blue_edge)
-                    .bg(theme.blue_soft)
-                    .hover(|el| el.bg(theme.blue_soft_hover)),
+                    .bg(theme.surface(Hue::Blue))
+                    .hover(|el| el.bg(theme.surface_hover(Hue::Blue))),
             })
             .on_hover(cx.listener(move |this, hovering: &bool, _, cx| {
                 this.hover_said(quote.clone(), *hovering, cx)

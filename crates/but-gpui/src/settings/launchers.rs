@@ -10,7 +10,7 @@ use crate::ui::fold::{Reorder, reordered};
 
 use super::{Row, SettingsView};
 use crate::state::Store;
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{drag_pill, pill_label};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, button, dp, field, h_flex, icon_button, small_icon, v_flex};
@@ -304,7 +304,9 @@ impl SettingsView {
                     .font_family(theme.mono_font.clone())
                     // Outlined where letting go puts it, as the navigator's rows are while they
                     // move.
-                    .when(held, |el| el.border_color(theme.pop).bg(theme.pop_soft)),
+                    .when(held, |el| {
+                        el.border_color(theme.pop).bg(theme.surface(Hue::Pop))
+                    }),
             )
             .child(
                 icon_button("remove", Icon::Minus)

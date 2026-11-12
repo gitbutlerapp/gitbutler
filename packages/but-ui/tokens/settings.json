@@ -10,6 +10,8 @@
 				"primary-soft": "teal-a3",
 				"primary-soft-foreground": "teal-11",
 				"primary-soft-hover": "teal-a4",
+				"primary-surface": "teal-3",
+				"primary-surface-hover": "teal-4",
 				"primary-text": "teal-11"
 			},
 			"blue": {
@@ -18,6 +20,8 @@
 				"primary-soft": "blue-a3",
 				"primary-soft-foreground": "blue-11",
 				"primary-soft-hover": "blue-a4",
+				"primary-surface": "blue-3",
+				"primary-surface-hover": "blue-4",
 				"primary-text": "blue-11"
 			},
 			"purple": {
@@ -26,6 +30,8 @@
 				"primary-soft": "purple-a3",
 				"primary-soft-foreground": "purple-11",
 				"primary-soft-hover": "purple-a4",
+				"primary-surface": "purple-3",
+				"primary-surface-hover": "purple-4",
 				"primary-text": "purple-11"
 			}
 		},
@@ -86,6 +92,26 @@
 						"lightness": 0.905,
 						"chroma": 1.639,
 						"alpha": 0.16
+					}
+				},
+				"primary-surface": {
+					"light": {
+						"lightness": 0.955,
+						"chroma": 0.319
+					},
+					"dark": {
+						"lightness": 0.274,
+						"chroma": 0.394
+					}
+				},
+				"primary-surface-hover": {
+					"light": {
+						"lightness": 0.928,
+						"chroma": 0.52
+					},
+					"dark": {
+						"lightness": 0.317,
+						"chroma": 0.551
 					}
 				},
 				"primary-text": {

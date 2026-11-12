@@ -25,10 +25,17 @@ pop. Danger takes pop's place rather than standing beside it, so a surface
 still has one coloured button.
 
 **Two weights of a colour.** Every colour has the same two: soft, a pale tint
-(step 3) with coloured text (step 11), for badges, banners, tiles and the soft
-`danger` button; and solid (step 9, with its `foreground`) for checked
-controls, pop and `danger-solid`. A badge labels and a button acts, so a pop
-badge is soft while the pop button is solid.
+(step 3) with coloured text (step 11); and solid (step 9, with its
+`foreground`) for checked controls, pop and `danger-solid`. A badge labels and
+a button acts, so a pop badge is soft while the pop button is solid.
+
+**Soft comes two ways, by size.** A mark or a control that sits on a ground (a
+badge, a status note, a count's hover, the soft `danger` button) takes
+`--but-*-soft`, which is see-through: it comes to step 3 on the page and blends
+with a card or a bar under it, so it reads as one tint wherever it sits. An
+area (a banner, a callout, a tile) is a ground itself and takes
+`--but-*-surface`, step 3 opaque, so a whole strip of it stays clean on any
+ground. Both carry `--but-*-soft-foreground`.
 
 **Mixing the quiet two.** Ghost and outline side by side tell kinds of control
 apart, never rank them; whichever is rarer in the group reads as distinct. In

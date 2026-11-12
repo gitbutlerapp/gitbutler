@@ -81,7 +81,8 @@ pub struct Theme {
     pub purple: Hsla,
     /// Each hue's soft ground, which its own colour reads on as text, and that under the
     /// pointer, as but-ui-react's Badge and soft buttons draw them: `--but-*-soft(-hover)`.
-    /// [`Theme::soft`] picks one by [`Hue`].
+    /// See-through, for a mark or a control sitting on a ground. [`Theme::soft`] picks one by
+    /// [`Hue`].
     pub pop_soft: Hsla,
     pub pop_soft_hover: Hsla,
     pub blue_soft: Hsla,
@@ -94,6 +95,21 @@ pub struct Theme {
     pub danger_soft_hover: Hsla,
     pub purple_soft: Hsla,
     pub purple_soft_hover: Hsla,
+    /// Each hue's soft ground as an area, opaque, so a banner, a callout or a tile stays clean
+    /// on any ground, and that under the pointer: `--but-*-surface(-hover)`.
+    /// [`Theme::surface`] picks one by [`Hue`].
+    pub pop_surface: Hsla,
+    pub pop_surface_hover: Hsla,
+    pub blue_surface: Hsla,
+    pub blue_surface_hover: Hsla,
+    pub safe_surface: Hsla,
+    pub safe_surface_hover: Hsla,
+    pub warn_surface: Hsla,
+    pub warn_surface_hover: Hsla,
+    pub danger_surface: Hsla,
+    pub danger_surface_hover: Hsla,
+    pub purple_surface: Hsla,
+    pub purple_surface_hover: Hsla,
     /// Each hue laid over what must still show through it, and stronger for what's matched,
     /// selected or being written now: `--but-*-wash(-strong)`. [`Theme::wash`] picks one by
     /// [`Hue`], [`Theme::highlight`] by what it marks.
@@ -572,6 +588,12 @@ impl Theme {
         if let Some(soft) = token("primary-soft-hover") {
             self.pop_soft_hover = soft;
         }
+        if let Some(surface) = token("primary-surface") {
+            self.pop_surface = surface;
+        }
+        if let Some(surface) = token("primary-surface-hover") {
+            self.pop_surface_hover = surface;
+        }
         self
     }
 
@@ -781,6 +803,18 @@ impl Theme {
             danger_soft_hover: token(on_ground!(DANGER_SOFT_HOVER)),
             purple_soft: token(on_ground!(DONE_SOFT)),
             purple_soft_hover: token(on_ground!(DONE_SOFT_HOVER)),
+            pop_surface: token(on_ground!(PRIMARY_SURFACE)),
+            pop_surface_hover: token(on_ground!(PRIMARY_SURFACE_HOVER)),
+            blue_surface: token(on_ground!(INFO_SURFACE)),
+            blue_surface_hover: token(on_ground!(INFO_SURFACE_HOVER)),
+            safe_surface: token(on_ground!(SUCCESS_SURFACE)),
+            safe_surface_hover: token(on_ground!(SUCCESS_SURFACE_HOVER)),
+            warn_surface: token(on_ground!(WARNING_SURFACE)),
+            warn_surface_hover: token(on_ground!(WARNING_SURFACE_HOVER)),
+            danger_surface: token(on_ground!(DANGER_SURFACE)),
+            danger_surface_hover: token(on_ground!(DANGER_SURFACE_HOVER)),
+            purple_surface: token(on_ground!(DONE_SURFACE)),
+            purple_surface_hover: token(on_ground!(DONE_SURFACE_HOVER)),
             pop_wash: token(on_ground!(PRIMARY_WASH)),
             pop_wash_strong: token(on_ground!(PRIMARY_WASH_STRONG)),
             blue_wash: token(on_ground!(INFO_WASH)),
@@ -1003,6 +1037,19 @@ impl Theme {
             danger_soft_hover: color(soft_hover(1)),
             purple_soft: color(soft(5)),
             purple_soft_hover: color(soft_hover(5)),
+            // A scheme's soft grounds are opaque already, so they serve as its areas too.
+            pop_surface: color(soft(6)),
+            pop_surface_hover: color(soft_hover(6)),
+            blue_surface: color(soft(4)),
+            blue_surface_hover: color(soft_hover(4)),
+            safe_surface: color(soft(2)),
+            safe_surface_hover: color(soft_hover(2)),
+            warn_surface: color(soft(3)),
+            warn_surface_hover: color(soft_hover(3)),
+            danger_surface: color(soft(1)),
+            danger_surface_hover: color(soft_hover(1)),
+            purple_surface: color(soft(5)),
+            purple_surface_hover: color(soft_hover(5)),
             pop_wash: washed(6, 0),
             pop_wash_strong: washed(6, 1),
             blue_wash: washed(4, 0),
@@ -1122,6 +1169,32 @@ impl Theme {
             Hue::Warn => self.warn_soft_hover,
             Hue::Danger => self.danger_soft_hover,
             Hue::Purple => self.purple_soft_hover,
+            Hue::Gray => self.muted_hover,
+        }
+    }
+
+    /// `hue`'s ground as an area, opaque: a banner, a callout, a tile.
+    pub fn surface(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface,
+            Hue::Blue => self.blue_surface,
+            Hue::Safe => self.safe_surface,
+            Hue::Warn => self.warn_surface,
+            Hue::Danger => self.danger_surface,
+            Hue::Purple => self.purple_surface,
+            Hue::Gray => self.muted,
+        }
+    }
+
+    /// `hue`'s area under the pointer.
+    pub fn surface_hover(&self, hue: Hue) -> Hsla {
+        match hue {
+            Hue::Pop => self.pop_surface_hover,
+            Hue::Blue => self.blue_surface_hover,
+            Hue::Safe => self.safe_surface_hover,
+            Hue::Warn => self.warn_surface_hover,
+            Hue::Danger => self.danger_surface_hover,
+            Hue::Purple => self.purple_surface_hover,
             Hue::Gray => self.muted_hover,
         }
     }
@@ -1548,6 +1621,13 @@ mod tests {
                     (
                         "soft under the pointer",
                         theme.soft_hover(hue),
+                        vec![theme.bg_1],
+                    ),
+                    // Opaque, so the ground under it doesn't change it.
+                    ("surface", theme.surface(hue), vec![theme.bg_1]),
+                    (
+                        "surface under the pointer",
+                        theme.surface_hover(hue),
                         vec![theme.bg_1],
                     ),
                 ] {

@@ -965,7 +965,7 @@ pub(super) fn warn_banner(
         .pr(dp(8.))
         .py(dp(6.))
         .rounded(dp(theme.shape.card))
-        .bg(theme.warn_soft)
+        .bg(theme.surface(Hue::Warn))
         .text_color(theme.warn)
         .tooltip(Tooltip::text(detail))
         .child(small_icon(Icon::Warning).text_color(theme.warn))

@@ -76,15 +76,21 @@ const pairs = [
 	["inverse-foreground", "inverse-hover", TEXT],
 	["inverse-muted-foreground", "inverse", TEXT],
 	["inverse-subtle-foreground", "inverse", MARK],
-	// Each colour's two weights: -text and soft-foreground on soft, and foreground on the solid.
+	// Each colour's weights: -text and soft-foreground on soft and on surface, its opaque twin for
+	// areas, and foreground on the solid.
 	...STATUSES.flatMap((status) => [
-		...[...GROUNDS, `${status}-soft`, `${status}-soft-hover`].map((ground) => [
-			`${status}-text`,
-			ground,
+		...[
+			...GROUNDS,
+			`${status}-soft`,
+			`${status}-soft-hover`,
+			`${status}-surface`,
+			`${status}-surface-hover`,
+		].map((ground) => [`${status}-text`, ground, TEXT]),
+		...[`soft`, `soft-hover`, `surface`, `surface-hover`].map((ground) => [
+			`${status}-soft-foreground`,
+			`${status}-${ground}`,
 			TEXT,
 		]),
-		[`${status}-soft-foreground`, `${status}-soft`, TEXT],
-		[`${status}-soft-foreground`, `${status}-soft-hover`, TEXT],
 		[`${status}-foreground`, status, TEXT],
 		[`${status}-foreground`, `${status}-hover`, TEXT],
 	]),
