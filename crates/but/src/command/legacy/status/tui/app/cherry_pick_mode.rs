@@ -276,7 +276,6 @@ impl App {
                                 name,
                                 side: InsertSide::Above.into(),
                                 new_branch_name: None,
-                                switch: false,
                             },
                         }),
                         order_commits_by_parentage: true,
