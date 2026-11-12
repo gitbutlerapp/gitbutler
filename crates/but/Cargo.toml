@@ -25,7 +25,6 @@ packaged-but-distribution = []
 legacy = [
     "but-workspace/legacy",
     "but-api/legacy",
-    "but-transaction/legacy",
     "but-ctx/legacy",
     "dep:but-action",
     "dep:but-hunk-dependency",

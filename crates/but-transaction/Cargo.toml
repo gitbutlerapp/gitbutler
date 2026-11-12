@@ -15,8 +15,6 @@ graph-workspace = [
     # Keep the test API's serialization shape aligned with transaction results.
     "but-api/graph-workspace",
 ]
-## Running transactions in single-branch mode.
-legacy = []
 
 [dependencies]
 but-ctx.workspace = true
