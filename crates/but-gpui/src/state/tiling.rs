@@ -40,7 +40,6 @@ pub enum Axis {
     Down,
 }
 
-/// What a tile shows.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Tile {
     /// The page of the row the tiling is for, which follows the navigator. It closes only as a
@@ -272,7 +271,6 @@ impl Default for TileDragFeel {
 /// The selected row's tiling as it's drawn in a frame while its tiles move.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Drawn {
-    /// Each tile and where it's drawn.
     pub areas: Vec<(Tile, Area)>,
     /// The lines between them, as they're drawn.
     pub dividers: Vec<Divider>,
@@ -385,7 +383,6 @@ impl Side {
 }
 
 impl Area {
-    /// All the room there is.
     pub const WHOLE: Area = Area {
         left: 0.,
         top: 0.,
@@ -622,7 +619,6 @@ impl Tiling {
         })
     }
 
-    /// Each tile and where it goes.
     pub fn areas(&self) -> Vec<(Tile, Area)> {
         let mut areas = Vec::new();
         self.lay_out(Area::WHOLE, &mut areas);
@@ -755,17 +751,14 @@ impl Tiling {
         }
     }
 
-    /// Whether `tile` is one of its tiles.
     pub fn has(&self, tile: &Tile) -> bool {
         self.areas().iter().any(|(other, _)| other == tile)
     }
 
-    /// Where the home tile goes, if it's there.
     pub fn home(&self) -> Option<Area> {
         self.area_of(&Tile::Home)
     }
 
-    /// Where `tile` goes, if it's there.
     pub fn area_of(&self, tile: &Tile) -> Option<Area> {
         (self.areas().into_iter())
             .find(|(other, _)| other == tile)
@@ -1355,7 +1348,6 @@ impl Tiling {
         }
     }
 
-    /// Put `new` along `side` of the whole room, with `share` of it.
     /// Put `new` along `side` of the whole room, with `share` of the part at that end of it, as
     /// [`Self::end`] finds it, which keeps the rest, or of all of it.
     fn put_along(&mut self, side: Side, new: Tiling, share: f32) {
@@ -1492,7 +1484,6 @@ impl Store {
         }
     }
 
-    /// Whether `row`'s tiling has `tile`.
     pub fn has_tile(&self, row: &RowKey, tile: &Tile) -> bool {
         (self.tilings.get(row)).is_some_and(|tiling| tiling.has(tile))
     }
@@ -1557,7 +1548,6 @@ impl Store {
         }
     }
 
-    /// Whether a tile is zoomed over the others.
     pub fn tile_zoomed(&self) -> bool {
         self.drawn.as_ref().is_some_and(|drawn| drawn.zoomed)
     }

@@ -114,7 +114,6 @@ impl<K: Eq + Hash> Folds<K> {
         open || self.closing(key)
     }
 
-    /// Whether any fold moves.
     pub fn any(&self) -> bool {
         !self.moving.is_empty()
     }
@@ -273,7 +272,6 @@ impl Default for Slide {
 }
 
 impl Slide {
-    /// One that takes `lasting` to open or shut.
     pub fn lasting(lasting: Duration) -> Self {
         Self {
             sliding: None,
@@ -338,7 +336,6 @@ impl Default for Glide {
 }
 
 impl Glide {
-    /// One that takes `lasting` to get there.
     pub fn lasting(lasting: Duration) -> Self {
         Self {
             set_out: None,
@@ -346,12 +343,10 @@ impl Glide {
         }
     }
 
-    /// It sets out now, from `from`.
     pub fn start(&mut self, from: f32, cx: &App) {
         self.set_out = (!cx.reduce_motion()).then(|| (from, clock::now()));
     }
 
-    /// Where it is at `now`, on its way to `to`.
     pub fn at(&self, to: f32, now: Instant) -> f32 {
         match self.set_out {
             Some((from, since)) => {
@@ -361,7 +356,6 @@ impl Glide {
         }
     }
 
-    /// Whether it's still on its way at `now`.
     pub fn moving(&self, now: Instant) -> bool {
         (self.set_out).is_some_and(|(_, since)| now.saturating_duration_since(since) < self.lasting)
     }
@@ -744,7 +738,6 @@ impl<K> Default for Reorder<K> {
 }
 
 impl<K> Reorder<K> {
-    /// One whose rows take `lasting` to get there.
     pub fn lasting(lasting: Duration) -> Self {
         let now = clock::now();
         Self {
@@ -790,7 +783,6 @@ impl<K: Eq + Hash + Clone> Reorder<K> {
         self.from.get(key).map_or(0., |by| by * left)
     }
 
-    /// Whether any row slides.
     pub fn any(&self) -> bool {
         !self.from.is_empty()
     }

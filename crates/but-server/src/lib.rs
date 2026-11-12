@@ -109,7 +109,6 @@ async fn pick_directory(_params: serde_json::Value) -> anyhow::Result<serde_json
     }
 }
 
-/// Shell out to a platform-native directory picker.
 fn native_pick_directory() -> anyhow::Result<Option<String>> {
     #[cfg(target_os = "macos")]
     {
@@ -236,8 +235,6 @@ fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json
     }
 }
 
-/// Check if an origin byte string is from localhost.
-///
 /// Matches `http(s)://localhost`, `http(s)://127.0.0.1`, and
 /// `http(s)://[::1]`, each optionally followed by `:<port>`.
 pub(crate) fn is_localhost_origin(origin: &[u8]) -> bool {
@@ -258,8 +255,6 @@ pub(crate) fn is_localhost_origin(origin: &[u8]) -> bool {
     false
 }
 
-/// Check if a `Host` header value is a localhost address.
-///
 /// Matches `localhost`, `127.0.0.1`, and `[::1]`, each optionally followed
 /// by `:<port>`. Used to defend against DNS rebinding: browsers always set
 /// `Host` to the *domain name* being requested (not the resolved IP), so a
@@ -283,9 +278,9 @@ fn is_localhost_host(host: &[u8]) -> bool {
 /// Configuration for the but-server, populated from CLI args.
 #[derive(Debug, Default)]
 pub struct Config {
-    /// Port to listen on. `but-server` defaults to 6978.
+    /// `but-server` defaults to 6978.
     pub port: Option<u16>,
-    /// Address to bind to. Defaults to 127.0.0.1. Override with --bind-addr if needed
+    /// Defaults to 127.0.0.1. Override with --bind-addr if needed
     /// (e.g. 0.0.0.0 in a container environment).
     pub bind_addr: Option<String>,
     /// Prefix all API routes with this path (e.g. `/api`).
@@ -380,7 +375,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
         .expect("failed to create app settings");
 
-    // If a project path was provided, auto-activate that project.
     if let Some(ref project_path) = config.project_path {
         match but_ctx::Context::discover(project_path) {
             Ok(mut ctx) => {

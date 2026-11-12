@@ -107,7 +107,6 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     let hours = days * 24;
     let t = theme::get();
 
-    // Call the suppress_update function
     let mut cache = but_ctx::Context::app_cache();
     but_update::suppress_update(&mut cache, hours)?;
 
@@ -143,13 +142,10 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
         );
     }
 
-    // Parse target to determine what to install
     let version_request = match target.as_deref() {
         Some("nightly") => VersionRequest::Nightly,
         Some("release") => VersionRequest::Release,
         Some(version_str) => {
-            // Specific version - validate and create
-            // Wrap validation errors with CLI-specific context
             VersionRequest::from_string(Some(version_str.to_string())).map_err(|e| {
                 anyhow::anyhow!(
                     "Invalid version '{version_str}': {e}\n\nValid targets:\n  nightly          Install latest nightly build\n  release          Install latest stable release\n  <version>        Install specific version (e.g., 0.18.7)"
@@ -171,7 +167,6 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Don't print usage info since user is already using the CLI
     but_installer::run_installation_with_version(version_request, false)?;
 
-    // Show change log link
     if let Some(writer) = out.for_human() {
         let t = theme::get();
         writeln!(

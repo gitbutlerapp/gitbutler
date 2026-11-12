@@ -114,7 +114,6 @@ impl WorkspaceDisposition {
 /// Options for [branch::unapply()](function::unapply()).
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// How to represent the workspace after the stack has been removed.
     pub workspace_disposition: WorkspaceDisposition,
 }
 

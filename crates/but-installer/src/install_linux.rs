@@ -54,7 +54,6 @@ pub(crate) fn download_and_install_app(
     })?;
     verify_signature(&tmp_filepath, &signature_b64, temp_dir.path())?;
 
-    // Install the app bundle
     install_app(&tmp_filepath, &config.home_dir, channel)?;
 
     Ok(())

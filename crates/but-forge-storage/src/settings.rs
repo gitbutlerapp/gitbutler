@@ -17,12 +17,9 @@ pub struct CachedProfile {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ForgeSettings {
-    /// GitHub-specific settings.
     pub github: GitHubSettings,
-    /// GitLab-specific settings.
     #[serde(default)]
     pub gitlab: GitLabSettings,
-    /// Bitbucket-specific settings.
     #[serde(default)]
     pub bitbucket: BitbucketSettings,
     /// Cached user profiles, keyed by account `access_token_key`.
@@ -33,7 +30,6 @@ pub struct ForgeSettings {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitHubSettings {
-    /// GitHub-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitHubAccount>,
 }
@@ -42,13 +38,11 @@ pub struct GitHubSettings {
 #[serde(tag = "type")]
 pub enum GitHubAccount {
     OAuth {
-        // Username associated with the OAuth account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
     },
     Pat {
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -56,7 +50,6 @@ pub enum GitHubAccount {
     Enterprise {
         // Hostname of the GitHub Enterprise instance.
         host: String,
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -90,7 +83,6 @@ impl GitHubAccount {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitLabSettings {
-    /// GitLab-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitLabAccount>,
 }
@@ -99,7 +91,6 @@ pub struct GitLabSettings {
 #[serde(tag = "type")]
 pub enum GitLabAccount {
     Pat {
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -107,7 +98,6 @@ pub enum GitLabAccount {
     SelfHosted {
         // Hostname of the self-hosted GitLab instance.
         host: String,
-        // Username associated with the PAT account.
         username: String,
         // Key to retrieve the access token from secure storage.
         access_token_key: String,
@@ -137,7 +127,6 @@ impl GitLabAccount {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BitbucketSettings {
-    /// Bitbucket-specific settings.
     #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<BitbucketAccount>,
 }

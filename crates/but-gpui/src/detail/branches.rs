@@ -86,7 +86,6 @@ pub(super) struct Branches {
 }
 
 impl Branches {
-    /// Branch `ref_name`, while it's listed.
     fn branch(&self, ref_name: &FullName) -> Option<&OtherBranch> {
         self.list.iter().find(|b| b.ref_name == *ref_name)
     }
@@ -348,12 +347,10 @@ impl Detail {
         )
     }
 
-    /// `project`'s branches, once read.
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
         self.branches.get(project).filter(|b| b.failed.is_none())
     }
 
-    /// The branches of the Branches page selected.
     /// Whether a commit of the Branches page's branch is what's picked, rather than all of it.
     pub(super) fn branch_commit_picked(&self) -> bool {
         (self.page_branches()).is_some_and(|branches| branches.commit.is_some())
@@ -756,7 +753,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// List the branches changed as recently as `recency` says.
     fn filter_recency(&mut self, recency: Recency, cx: &mut Context<Self>) {
         if let Some(branches) = self.page_branches_mut() {
             branches.recency = recency;

@@ -40,17 +40,11 @@ pub(crate) enum TargetRequirement {
     OptionalIfUnborn,
 }
 
-/// Options for initializing the context via [`init_ctx`].
 #[derive(Default)]
 pub(crate) struct InitCtxOptions {
-    /// Controls whether to perform automatic background synchronization.
-    /// Defaults to `BackgroundSync::Disabled`.
     pub background_sync: BackgroundSync,
-    /// Controls whether to check for workspace commit integrity.
-    /// Defaults to `WorkspaceCheck::Enabled`.
     pub workspace_check: WorkspaceCheck,
     /// Controls whether single-branch initialization must lazily infer a target.
-    /// Defaults to `TargetRequirement::Required`.
     pub target_requirement: TargetRequirement,
 }
 
@@ -89,24 +83,6 @@ fn discovery_failure(dir: &Path, err: &anyhow::Error) -> BadInput {
 /// directory is in, and optionally triggers a background sync if the configured interval has
 /// elapsed.
 ///
-/// # Arguments
-///
-/// * `args` - Command-line arguments containing the current directory
-/// * `options` - Configuration options for context initialization:
-///   - `background_sync` - Controls automatic background synchronization:
-///     - `BackgroundSync::Enabled` - Enable background sync (fetch, PR data, CI status)
-///     - `BackgroundSync::Disabled` - Disable background sync completely
-///   - `workspace_check` - Controls workspace commit integrity checking:
-///     - `WorkspaceCheck::Enabled` - Check for non-workspace commits on gitbutler/workspace
-///     - `WorkspaceCheck::Disabled` - Skip workspace commit checking
-///   - `target_requirement` - Controls target initialization in single-branch mode:
-///     - `TargetRequirement::Required` - Infer and persist a missing target
-///     - `TargetRequirement::Optional` - Return a context without requiring a target
-///
-/// # Returns
-///
-/// Returns a `Context` containing the repository and project information.
-///
 /// # Errors
 ///
 /// Returns an error if:
@@ -138,12 +114,9 @@ pub fn init_ctx(
     out: &mut OutputChannel,
 ) -> CliResult<Context> {
     let app_settings = crate::app_settings()?;
-    // lets try to get the repo from the current directory
     let repo = but_ctx::discover_main_repo(&args.current_dir)
         .map_err(|err| discovery_failure(&args.current_dir, &err))?;
 
-    // Check if we're on gitbutler/workspace with non-workspace commits on top
-    // before creating the context
     if matches!(options.workspace_check, WorkspaceCheck::Enabled) {
         check_workspace_commits_before_init(&repo)?;
     }
@@ -214,7 +187,6 @@ pub fn init_ctx(
             return Ok(ctx);
         }
         BackgroundSync::Enabled { silent } => {
-            // Check if background tasks are disabled via environment variable
             if std::env::var("NO_BG_TASKS").is_ok() {
                 return Ok(ctx);
             }
@@ -225,11 +197,9 @@ pub fn init_ctx(
                 return Ok(ctx);
             }
 
-            // Determine what needs to be synced based on intervals and lock availability
             let sync_operations =
                 determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
-            // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
                 let silent = silent || !out.format().allows_human_ui();
                 spawn_background_sync(args, out, last_fetch, sync_operations, silent);
@@ -293,7 +263,6 @@ fn infer_target(ctx: &mut Context) -> CliResult<()> {
     Ok(())
 }
 
-/// Tracks which background sync operations should be performed.
 #[derive(Debug)]
 struct SyncOperations {
     fetch: bool,
@@ -308,13 +277,11 @@ impl SyncOperations {
     }
 }
 
-/// Determines which sync operations should be performed based on intervals and lock availability.
 fn determine_sync_operations(
     ctx: &Context,
     fetch_interval_minutes: isize,
     last_fetch: Option<std::time::SystemTime>,
 ) -> SyncOperations {
-    // Check if fetch/pr/ci should run based on fetch interval
     let should_sync_remote_data = if fetch_interval_minutes > 0 {
         if let Some(last_fetch) = last_fetch {
             match std::time::SystemTime::now().duration_since(last_fetch) {
@@ -339,19 +306,15 @@ fn determine_sync_operations(
         None
     };
 
-    // Determine if updates should be checked based on configured interval
     let update_check_interval_sec = ctx.settings.app_updates_check_interval_sec;
     let should_check_updates = if update_check_interval_sec == 0 {
-        // Update checks disabled
         None
     } else {
-        // Try to access cache to determine last check time
         let cache = Context::app_cache();
         let should_check = but_update::last_checked(&cache)
             .ok()
             .flatten()
             .map(|last_check| {
-                // Cache exists, check if interval has elapsed
                 let now = chrono::Utc::now();
                 let elapsed = now.signed_duration_since(last_check);
                 elapsed.num_seconds() >= update_check_interval_sec as i64
@@ -367,7 +330,6 @@ fn determine_sync_operations(
         false
     };
 
-    // Check if we successfully acquired the locks
     let can_sync_remote_data = remote_data_lock.is_some();
 
     // Locks are dropped here, allowing the spawned child process to acquire them
@@ -379,7 +341,6 @@ fn determine_sync_operations(
     }
 }
 
-/// Spawns a background process to perform the specified sync operations.
 fn spawn_background_sync(
     args: &Args,
     out: &mut OutputChannel,
@@ -421,7 +382,6 @@ fn spawn_background_sync(
         .kill_on_drop(false);
 
     if cmd.spawn().is_ok() && !silent {
-        // Show user feedback about what's happening
         // Only show "last fetch" message if we're actually fetching
         let msg = if operations.fetch {
             last_fetch
@@ -467,12 +427,10 @@ fn check_workspace_commits_before_init(repo: &gix::Repository) -> CliResult<()> 
         .map(|n| n.shorten().to_string())
         .unwrap_or_default();
 
-    // Only check if we're on gitbutler/workspace
     if head_name != "gitbutler/workspace" {
         return Ok(());
     }
 
-    // Check the HEAD commit message
     let mut workspace_ref = repo.find_reference(WORKSPACE_REF_NAME)?;
     let workspace_commit = workspace_ref.peel_to_commit()?;
     let message = workspace_commit.message_raw()?;

@@ -1,11 +1,3 @@
-//! CLI ID generation and mapping for GitButler entities.
-//!
-//! This module provides a system for generating short, human-friendly IDs for various GitButler
-//! entities including branches, commits, and files. These IDs are used in the CLI to make commands
-//! more convenient and readable than using full SHA-1 hashes or long branch names.
-
-#![forbid(missing_docs)]
-
 use std::collections::{BTreeMap, HashMap};
 use std::str::{self, FromStr as _};
 
@@ -47,7 +39,6 @@ pub(crate) enum SourceScope {
     UncommittedOnly,
 }
 
-/// A helper to indicate that this is a short-id as a user would see.
 pub(crate) type ShortId = String;
 
 pub(crate) const UNCOMMITTED: &str = "@";
@@ -64,9 +55,7 @@ const INDEX_SEPARATOR: char = '#';
 /// The ID of a hunk, without its namespace (file).
 #[derive(Debug, Clone, Default)]
 struct UnqualifiedHunkId {
-    /// The ID of the hunk.
     id: String,
-    /// The smallest amount of prefix characters necessary to form a distinct ID.
     min_short_id_chars: usize,
     /// The collision index if there are other hunks with the exact same ID. Otherwise this is
     /// empty.
@@ -313,7 +302,6 @@ trait Node<'a>: std::fmt::Debug {
 /// without exposing it outside this module.
 #[derive(Debug)]
 struct CommittedFile {
-    /// The committed file identifier.
     committed_file: CommittedFileId,
     /// The short CLI ID for this file (typically 2 characters)
     short_id: ShortId,
@@ -384,7 +372,6 @@ impl<'a> Node<'a> for CommittedFile {
     }
 }
 
-/// Identify hunks for a single changed file (committed or uncommitted).
 pub fn identify_hunks(
     tree_change: &TreeChangeWithId,
     patch: UnifiedPatch,
@@ -437,18 +424,13 @@ impl<'a> Node<'a> for Leaf {
 /// A change in a workspace commit.
 #[derive(Debug, Clone)]
 pub struct TreeChangeWithId {
-    /// The short ID.
     pub short_id: ShortId,
-    /// The tree change.
     pub inner: but_core::TreeChange,
 }
 
-/// A change ID with an accompanying distinct short ID
 #[derive(Debug, Clone)]
 pub struct ChangeIdWithShortId {
-    /// The full change ID
     pub change_id: ChangeId,
-    /// The shortened version of [`Self::change_id`]
     pub short_id: ShortId,
 }
 
@@ -479,40 +461,30 @@ impl From<ChangeId> for ChangeIdWithShortId {
 
 /// A commit that can be resolved in the [`IdMap`]
 pub enum CommitWithId<'a> {
-    /// A local commit.
     Local(&'a WorkspaceCommitWithId),
-    /// A remote commit.
     Remote(&'a RemoteCommitWithId),
 }
 
-/// A workspace commit with its short ID.
 #[derive(Debug, Clone)]
 pub struct WorkspaceCommitWithId {
-    /// The short ID.
     pub short_id: ShortId,
-    /// The change ID
     pub change_id: Option<ChangeIdWithShortId>,
-    /// The original workspace commit.
     pub inner: StackCommit,
 }
 
 impl WorkspaceCommitWithId {
-    /// The object ID of the commit.
     pub fn commit_id(&self) -> gix::ObjectId {
         self.inner.id
     }
-    /// The ID of the first parent if the commit has parents.
     pub fn first_parent_id(&self) -> Option<gix::ObjectId> {
         self.inner.parent_ids.first().cloned()
     }
-    /// The composite ID of the commit.
     pub fn id(&self) -> CommitId {
         CommitId {
             commit_id: self.inner.id,
             change_id: self.change_id.clone().map(|cid| cid.change_id),
         }
     }
-    /// The ID naming this commit.
     pub fn cli_id(&self) -> CliId {
         CliId::Commit {
             commit: CommitId {
@@ -523,7 +495,6 @@ impl WorkspaceCommitWithId {
         }
     }
 }
-/// Methods to calculate the short IDs of committed files.
 impl WorkspaceCommitWithId {
     /// Calculate the short IDs of all changes in this commit.
     pub fn tree_changes(
@@ -552,8 +523,6 @@ impl WorkspaceCommitWithId {
             })
             .collect())
     }
-    /// Convenience for [WorkspaceCommitWithId::tree_changes] if a
-    /// [gix::Repository] is available.
     pub fn tree_changes_using_repo(
         &self,
         repo: &gix::Repository,
@@ -608,20 +577,15 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
     }
 }
 
-/// A remote commit with its short ID.
 #[derive(Debug, Clone)]
 pub struct RemoteCommitWithId {
-    /// The short ID.
     pub short_id: ShortId,
-    /// The original remote commit.
     pub inner: StackCommit,
 }
 impl RemoteCommitWithId {
-    /// The object ID of the commit.
     pub fn commit_id(&self) -> gix::ObjectId {
         self.inner.id
     }
-    /// The ID naming this commit.
     pub fn cli_id(&self) -> CliId {
         CliId::Commit {
             commit: CommitId {
@@ -647,10 +611,8 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
     }
 }
 
-/// A segment with its short ID and commit IDs.
 #[derive(Debug, Clone)]
 pub struct SegmentWithId {
-    /// The short ID.
     pub short_id: ShortId,
     /// The original segment except that `commits` and `commits_on_remote` are
     /// blank to save memory.
@@ -665,14 +627,12 @@ pub struct SegmentWithId {
     pub lane: LaneId,
 }
 impl SegmentWithId {
-    /// Returns the branch name.
     pub fn branch_name(&self) -> Option<&BStr> {
         self.inner
             .ref_info
             .as_ref()
             .map(|ref_info| ref_info.ref_name.shorten())
     }
-    /// The ID naming this segment.
     pub fn cli_id(&self) -> CliId {
         match self.branch_name() {
             Some(name) => CliId::Branch(BranchId {
@@ -725,10 +685,8 @@ impl<'a> Node<'a> for &'a SegmentWithId {
     }
 }
 
-/// A lane with segment and commit IDs.
 #[derive(Debug, Clone)]
 pub struct LaneWithId {
-    /// The lane these segments belong to.
     pub lane: LaneId,
     /// Parallel to the original [Stack::segments].
     pub segments: Vec<SegmentWithId>,
@@ -765,7 +723,6 @@ impl<'a> Node<'a> for &'a LaneWithId {
         id_map: &'a IdMap,
         _changes_in_commit: &dyn ChangesInCommit,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        // Parse known suffixes.
         if element.ends_with('/') {
             return Ok(id_map.parse_uncommitted_path_prefix(element, &ChangeSourceId::Head));
         }
@@ -795,7 +752,6 @@ pub struct IdMap {
 
     /// Maps full reverse hex IDs to uncommitted files.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
-    /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
 }
 
@@ -803,10 +759,7 @@ fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
     a.iter().zip(b.iter()).take_while(|(a, b)| a == b).count()
 }
 
-/// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
-    /// Initializes CLI IDs for branches, commits, and uncommitted
-    /// files/hunks.
     pub fn new(
         stacks: Vec<Stack>,
         sources: Vec<SourceChanges>,
@@ -1070,8 +1023,6 @@ impl IdMap {
         Self::new_from_context(ctx, guard.read_permission(), None)
     }
 
-    ///
-    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
     /// `perm` is needed to obtain a read-only workspace, and bare paths name files in the
     /// checkout `invoked_from`, or nothing without one.
     ///
@@ -1171,8 +1122,6 @@ pub(crate) fn without_padding_commits(
     (stacks, worktrees)
 }
 
-/// Private methods to individually parse what can appear on both side of a
-/// colon. (Some of them can also appear alone.)
 impl IdMap {
     /// The uncommitted files named `element` in the checkout `source`.
     fn parse_uncommitted_filename<'a>(
@@ -1340,7 +1289,6 @@ impl IdMap {
             )
         }
 
-        // Parse known suffixes.
         if let Some(prefix) = element.strip_suffix("@{stack}") {
             let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
             for stack_with_id in self.lanes.iter() {
@@ -1391,7 +1339,6 @@ impl IdMap {
             matches.push(Box::new(Unstaged {}));
         }
 
-        // The following match only if there have been no matches so far.
         if !matches.is_empty() {
             return Ok(matches);
         }
@@ -1441,7 +1388,6 @@ impl IdMap {
             }
         }
 
-        // Match against commits
         let maybe_element_hex_prefix = if element
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
@@ -1526,7 +1472,6 @@ impl<'a> Node<'a> for Unstaged {
     }
 }
 
-/// Methods for parsing and generating CLI IDs.
 impl IdMap {
     /// Parses a user-provided `entity` name into matching CLI IDs, with each ID matching a single entity.
     /// Multiple IDs may be returned if the entity matches multiple items.
@@ -1627,7 +1572,6 @@ impl IdMap {
 
         Ok(deduped)
     }
-    /// Parse IDs using a [gix::Repository] to inspect committed changes.
     pub fn parse_using_repo<'a>(
         &'a self,
         entity: &str,
@@ -1638,13 +1582,11 @@ impl IdMap {
         self.parse(entity, &changes_in_commit)
     }
 
-    /// Convenience for [IdMap::parse_using_repo] if a [Context] is available.
     pub fn parse_using_context(&self, entity: &str, ctx: &Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
         self.parse_using_repo(entity, repo)
     }
 
-    /// Parse uncommitted IDs using a [gix::Repository].
     pub fn parse_uncommitted_using_repo<'a>(
         &'a self,
         entity: &str,
@@ -1656,7 +1598,6 @@ impl IdMap {
         self.parse_uncommitted(entity, &changes_in_commit)
     }
 
-    /// Convenience for [IdMap::parse_uncommitted_using_repo] if a [Context] is available.
     pub fn parse_uncommitted_using_context(
         &self,
         entity: &str,
@@ -1666,14 +1607,12 @@ impl IdMap {
         self.parse_uncommitted_using_repo(entity, repo)
     }
 
-    /// Returns the lane of the stack with `stack_id`, if it exists.
     pub fn stack(&self, stack_id: StackId) -> Option<&LaneWithId> {
         self.stacks()
             .iter()
             .find(|lane| lane.lane.stack_id() == Some(stack_id))
     }
 
-    /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
     pub fn resolve_stack(&self, stack_id: StackId) -> Option<CliId> {
         self.stack(stack_id)?.stack_cli_id()
     }
@@ -1699,7 +1638,6 @@ impl IdMap {
         CliId::head_uncommitted_area()
     }
 
-    /// Returns all known stacks.
     pub fn stacks(&self) -> &[LaneWithId] {
         let lanes = &self.lanes;
         &lanes[..lanes.partition_point(|lane| matches!(lane.lane, LaneId::Stack(_)))]
@@ -1712,14 +1650,11 @@ impl IdMap {
             .filter(|lane| matches!(lane.lane, LaneId::Worktree(_)))
     }
 
-    /// The lane of the linked worktree called `name`, if it has one.
     pub fn worktree_lane(&self, name: &BStr) -> Option<&LaneWithId> {
         self.worktree_lanes()
             .find(|lane| lane.lane.worktree_name() == Some(name))
     }
 
-    /// Get a distinct commit by ID.
-    ///
     /// Errors if the commit cannot be found or if there are multiple matches.
     pub fn get_commit_by_id(&self, commit_id: gix::ObjectId) -> anyhow::Result<CommitWithId<'_>> {
         let mut matches = self
@@ -1823,9 +1758,7 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
 pub struct IdAndHunk {
     /// The full CLI selector, including both the file and hunk IDs.
     pub id: ShortId,
-    /// The worktree hunk identified by `id`.
     pub hunk: but_core::SingleHunk,
-    /// The tree status of the related tree change.
     pub tree_status: TreeStatusKind,
 }
 
@@ -1840,12 +1773,10 @@ impl PartialEq for IdAndHunk {
     }
 }
 
-/// An uncommitted file or hunk in the worktree.
 #[derive(Debug, Clone)]
 pub struct UncommittedHunkOrFile {
     /// The short CLI ID for this file (typically 2 characters)
     pub id: ShortId,
-    /// The hunks
     pub hunks: NonEmpty<IdAndHunk>,
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
@@ -1855,15 +1786,10 @@ pub struct UncommittedHunkOrFile {
 }
 
 #[derive(Debug, Clone)]
-/// A committed hunk.
 pub struct CommittedHunk {
-    /// The committed file to which the hunk belongs.
     pub committed_file: CommittedFileId,
-    /// The short ID of this hunk.
     pub id: ShortId,
-    /// The hunk itself.
     pub hunk: but_core::SingleHunk,
-    /// The tree status of the related tree change.
     pub tree_status: TreeStatusKind,
 }
 
@@ -1893,7 +1819,6 @@ impl PartialEq for UncommittedHunkOrFile {
 }
 
 impl UncommittedHunkOrFile {
-    /// Describes self.
     pub fn describe(&self) -> String {
         let hunk_cardinality = if self.is_entire_file {
             if self.hunks.len() == 1 {
@@ -1912,44 +1837,30 @@ impl UncommittedHunkOrFile {
     }
 }
 
-/// A user-friendly CLI ID that identifies a GitButler entity,
-/// with each identified by a variant.
-///
-/// This enum represents the various types of entities that can be identified
-/// by short CLI IDs. Each variant contains the necessary information to
-/// uniquely identify the entity along with its short ID that one could use
-/// to find it.
 #[derive(Debug, Clone)]
 pub enum CliId {
-    /// An uncommitted file or hunk in the worktree.
     UncommittedHunkOrFile(UncommittedHunkOrFile),
     /// A path prefix, representing several uncommitted hunks.
     PathPrefix {
         /// The prefix, from the root of the checkout
         id: ShortId,
-        /// The hunk assignments with their associated short IDs
         hunks: NonEmpty<IdAndHunk>,
         /// The checkout these hunks were read from: a prefix spanning several
         /// checkouts could never be committed in one go, so it only ever matches
         /// in one.
         source: ChangeSourceId,
     },
-    /// A file that exists in a commit.
     CommittedFile {
-        /// The committed file identifier.
         committed_file: CommittedFileId,
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
     },
-    /// A committed hunk
     CommittedHunk(CommittedHunk),
-    /// A branch.
     Branch(BranchId),
     /// A segment in workspace metadata without a corresponding branch reference.
     AnonymousSegment(AnonymousSegmentId),
     /// A commit in the workspace identified by its SHA.
     Commit {
-        /// The commit identifier.
         commit: CommitId,
         /// The short CLI ID, a prefix of the object ID. This prefix is unique
         /// among all commits in all stacks (but not necessarily among all
@@ -1965,11 +1876,9 @@ pub enum CliId {
         /// The checkout whose uncommitted changes this names.
         source: ChangeSourceId,
     },
-    /// A stack in the workspace.
     Stack {
         /// The short CLI ID for this stack (typically 2 characters)
         id: ShortId,
-        /// The stack ID.
         stack_id: StackId,
     },
 }
@@ -2051,9 +1960,7 @@ impl PartialEq for CliId {
 
 impl Eq for CliId {}
 
-/// Methods for accessing `CliId` information.
 impl CliId {
-    /// Returns a human-readable description of the entity type.
     pub fn kind_for_humans(&self) -> &'static str {
         match self {
             CliId::UncommittedHunkOrFile { .. } => "an uncommitted file or hunk",
@@ -2100,12 +2007,10 @@ impl CliId {
         }
     }
 
-    /// Returns the short ID string for display to users.
     pub fn to_short_string(&self) -> ShortId {
         self.short_string().to_string()
     }
 
-    /// Borrows the short ID string for display to users.
     pub fn short_string(&self) -> &str {
         match self {
             CliId::UncommittedHunkOrFile(UncommittedHunkOrFile { id, .. })
@@ -2135,7 +2040,6 @@ impl CliId {
         }
     }
 
-    /// Get the stack id, if any.
     pub fn stack_id(&self) -> Option<StackId> {
         match self {
             CliId::Branch(BranchId { lane, .. })
@@ -2150,7 +2054,6 @@ impl CliId {
         }
     }
 
-    /// Try to convert the id into a hunk.
     pub fn as_uncommitted_hunk_or_file(&self) -> Option<&UncommittedHunkOrFile> {
         if let Self::UncommittedHunkOrFile(hunk) = self {
             Some(hunk)
@@ -2160,14 +2063,12 @@ impl CliId {
     }
 }
 
-/// Internal representation of an uncommitted file.
 #[derive(Debug, Clone)]
 pub struct UncommittedFile {
     /// The shortest ID that can be used to unambiguously refer to this file.
     pub short_id: ShortId,
     /// The checkout this file was read from.
     pub source: ChangeSourceId,
-    /// The associated tree change
     tree_status: TreeStatusKind,
     /// Every element has the same [`but_core::SingleHunk::path`] so the first hunk can be used
     /// to obtain it.
@@ -2175,12 +2076,10 @@ pub struct UncommittedFile {
 }
 
 impl UncommittedFile {
-    /// The path of the uncommitted file.
     pub fn path(&self) -> &BStr {
         self.hunks().first().1.path.as_ref()
     }
 
-    /// Turn this instance into a [CliId].
     pub fn to_id(&self) -> CliId {
         CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
             hunks: self.hunks().map(|(hunk_id, hunk)| IdAndHunk {
@@ -2258,14 +2157,11 @@ impl<'a> Node<'a> for &'a UncommittedFile {
     }
 }
 
-/// An uncommitted hunk.
 #[derive(Debug)]
 pub struct UncommittedHunk {
-    /// The hunk assignment.
     pub hunk: but_core::SingleHunk,
     /// The checkout this hunk was read from.
     pub source: ChangeSourceId,
-    /// The status of the associated tree change.
     pub tree_status: TreeStatusKind,
 }
 
@@ -2337,7 +2233,6 @@ impl PartialEq for CommittedFileIdRef<'_> {
     }
 }
 
-/// The lane a segment belongs to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LaneId {
     /// A workspace stack, with its metadata ID when it has one.
@@ -2347,7 +2242,6 @@ pub enum LaneId {
 }
 
 impl LaneId {
-    /// The stack's metadata ID, if this is a stack that has one.
     pub fn stack_id(&self) -> Option<StackId> {
         match self {
             LaneId::Stack(stack_id) => *stack_id,
@@ -2355,7 +2249,6 @@ impl LaneId {
         }
     }
 
-    /// The linked worktree's stable name, if this is a worktree lane.
     pub fn worktree_name(&self) -> Option<&BStr> {
         match self {
             LaneId::Stack(_) => None,
@@ -2369,7 +2262,6 @@ impl LaneId {
 pub struct AnonymousSegmentId {
     /// Short CLI ID displayed by status.
     pub id: ShortId,
-    /// The lane containing this segment.
     pub lane: LaneId,
     /// Top commit where a branch can be created to name this segment.
     pub anchor_commit_id: Option<gix::ObjectId>,
@@ -2392,7 +2284,6 @@ pub struct BranchId {
     pub name: String,
     /// The short CLI ID for this branch (typically 2 characters)
     pub id: ShortId,
-    /// The lane containing this branch.
     pub lane: LaneId,
 }
 
@@ -2438,7 +2329,6 @@ impl PartialEq for BranchIdRef<'_> {
 
 #[derive(Debug, Clone, Eq)]
 pub struct CommitId {
-    /// The object ID of the commit.
     pub commit_id: gix::ObjectId,
     /// The stable change ID from the commit headers, if present.
     ///
@@ -2503,7 +2393,6 @@ impl From<but_core::commit::CommitIdentifiers> for CommitId {
 
 #[derive(Debug, Clone, Copy, Eq)]
 pub struct CommitIdRef<'a> {
-    /// The object ID of the commit.
     pub commit_id: gix::ObjectId,
     /// The stable change ID from the commit headers, if present.
     pub change_id: Option<&'a but_core::ChangeId>,

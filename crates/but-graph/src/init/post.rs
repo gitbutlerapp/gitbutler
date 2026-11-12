@@ -51,7 +51,6 @@ pub(super) struct Context<'a> {
     pub worktree_by_branch: WorktreeByBranch,
 }
 
-/// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
@@ -74,7 +73,6 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
-        // Make sure edge order matches the git commit graph when traversed.
         self.rebuild_edges_in_parent_order();
 
         // Keep the original traversal tip available even if post-processing moves the
@@ -242,7 +240,7 @@ impl Graph {
                 .remove(ref_idx);
             if s.ref_info.is_some() {
                 // ref-name is known to not be the desired one, and the first commit of this segment has the name
-                // we seek. For that, we now create a new
+                // we seek, so it becomes a new segment of its own.
                 let new_ep_sidx_first_commit_idx = s.commits.first().map(|_| 0);
                 let mut entrypoint_segment = branch_segment_from_name_and_meta(
                     Some((desired_ref_name.ref_name, None)),
@@ -1007,7 +1005,6 @@ impl Graph {
                 .remove_edge(eid)
                 .expect("we found the edge before")
                 .with_workspace_parent_order(workspace_parent_order as u32)?;
-            // Reconnect according to the new order.
             self.inner.add_edge(ws_sidx, target_sidx, weight);
         }
 
@@ -1953,7 +1950,6 @@ impl Graph {
         })
     }
 
-    /// The commits from `start` along first parents.
     fn first_parent_commits(&self, start: ObjectId) -> BTreeSet<ObjectId> {
         let first_parent_by_id: BTreeMap<_, _> = self
             .inner
@@ -2514,7 +2510,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         ?sidx,
         "Deleting seemingly isolated and now completely unused segment"
     );
-    // Reconnect
     let new_target = first_outgoing.target();
     let incoming: Vec<_> = graph
         .inner
@@ -2693,8 +2688,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
         );
         above_idx = new_segment;
         if is_first {
-            // connect incoming edges (and disconnect from source)
-            // Connect to the commit if we have one.
             let edges = collect_edges_at_commit_in_traversal_order(
                 &graph.inner,
                 (commit_parent_below, commit_idx),
@@ -2729,7 +2722,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             }
         }
         if is_last {
-            // connect outgoing edges (and disconnect them)
             if let Some((commit, commit_idx)) = commit.zip(commit_idx) {
                 let commit_id = commit.id;
                 graph[new_segment].commits.push(commit);

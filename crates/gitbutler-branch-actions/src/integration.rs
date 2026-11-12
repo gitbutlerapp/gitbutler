@@ -65,7 +65,6 @@ pub(crate) fn update_workspace_commit_from_workspace(
     let repo = &*ctx.git2_repo.get()?;
     let gix_repo = ctx.repo.get()?.clone();
 
-    // get current repo head for reference
     let head_ref = repo.head()?;
     let workspace_filepath = repo.path().join("workspace");
     let mut prev_branch = read_workspace_file(&workspace_filepath)?;
@@ -172,7 +171,6 @@ pub(crate) fn update_workspace_commit_from_workspace(
         None
     };
 
-    // Create or replace the workspace branch reference, then set as HEAD.
     repo.reference(
         &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
         final_commit.to_git2(),

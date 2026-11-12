@@ -4,14 +4,11 @@ use but_core::ref_metadata::MaybeDebug;
 
 use crate::{CommitIndex, Graph, SegmentIndex};
 
-/// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
-    /// The hash of the commit.
     pub id: gix::ObjectId,
     /// The IDs of the parent commits, but may be empty if this is the first commit.
     pub parent_ids: Vec<gix::ObjectId>,
-    /// Additional properties to help classify this commit.
     pub flags: CommitFlags,
     /// The references pointing to this commit, even after dereferencing tag objects.
     /// These can be names of tags and branches.
@@ -19,21 +16,17 @@ pub struct Commit {
 }
 
 impl Commit {
-    /// Return an iterator over all reference names that point to this commit.
     pub fn ref_name_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
         self.refs.iter().map(|ri| &ri.ref_name)
     }
 
-    /// Return information about the reference that matches `name`.
     pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
         self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
     }
 }
 
-/// A structure to inform about a reference which was present at a commit.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RefInfo {
-    /// The name of the reference.
     pub ref_name: gix::refs::FullName,
     /// The peeled commit id the reference pointed to when the graph was built.
     ///
@@ -52,7 +45,6 @@ pub struct RefInfo {
     pub worktree: Option<Worktree>,
 }
 
-/// Describes which kind of worktree is checked out by a [Ref](RefInfo).
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum WorktreeKind {
     /// The main worktree, i.e. the primary workspace associated with this repository, is checked out.
@@ -64,13 +56,9 @@ pub enum WorktreeKind {
     LinkedId(BString),
 }
 
-/// Describes which worktree is checked out and how it relates to the repository that produced the graph.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Worktree {
-    /// The kind of worktree that checks out the reference.
     pub kind: WorktreeKind,
-    /// The repository that produced the graph is using this worktree.
-    ///
     /// Only one worktree in a graph should have this flag set.
     pub owned_by_repo: bool,
 }
@@ -120,7 +108,6 @@ impl WorktreeKind {
 }
 
 impl RefInfo {
-    /// Produce a string that identifies this instance concisely, and visually distinguishable.
     pub fn debug_string(&self) -> String {
         let ws = self
             .worktree
@@ -162,13 +149,11 @@ bitflags! {
         /// Traversal reached the first commit in history, which has no parents, and is an orphan.
         /// There can be more than one in one graph if unrelated histories were merged.
         const FirstCommit = 1 << 1;
-        /// Traversal reached a Git shallow boundary, as is created with the shallow clone feature.
         const ShallowBoundary = 1 << 2;
     }
 }
 
 impl StopCondition {
-    /// Return a concise symbolic representation of this stop condition for debug output.
     pub fn debug_string(&self, hard_limit: bool) -> String {
         let mut out = String::new();
         if self.contains(StopCondition::Limit) {
@@ -183,7 +168,6 @@ impl StopCondition {
         out
     }
 
-    /// Return `true` if traversal stopped because the configured traversal limit was reached.
     pub fn at_limit(&self) -> bool {
         self.contains(StopCondition::Limit)
     }
@@ -214,8 +198,6 @@ bitflags! {
 }
 
 bitflags! {
-    /// Provide more information about a commit, as gathered during traversal.
-    ///
     /// Note that unknown bits beyond this list are used to track individual goals that we want to discover.
     /// This is useful for when they are ahead of the tip that looks for them.
     /// If they are below, the goal will be propagated downward automatically.
@@ -250,7 +232,6 @@ impl CommitFlags {
             (Self::all().bits().leading_zeros() - goals.leading_zeros()) as usize
         }
     }
-    /// Return a less verbose debug string.
     pub fn debug_string(&self) -> String {
         if self.is_empty() {
             "".into()
@@ -299,7 +280,7 @@ pub struct Segment {
     /// named segment.
     pub ref_info: Option<RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means that a remote is configured and that the stack content
+    /// Its presence means that a remote is configured.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
     /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
     /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
@@ -315,11 +296,9 @@ pub struct Segment {
     ///
     /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
     pub commits: Vec<Commit>,
-    /// Read-only metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<SegmentMetadata>,
 }
 
-/// Metadata for segments, which are either dedicated branches or represent workspaces.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SegmentMetadata {
     /// [Segments](Segment) with this data are considered a branch in the workspace.
@@ -328,7 +307,6 @@ pub enum SegmentMetadata {
     Workspace(but_core::ref_metadata::Workspace),
 }
 
-/// Direct Access (without graph)
 impl Segment {
     /// Return the name of the reference that points to the first commit reachable through this segment.
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
@@ -351,17 +329,14 @@ impl Segment {
         graph.inner.node_weight(self.sibling_segment_id?)
     }
 
-    /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
     }
 
-    /// Return the index of the last (present) commit, or `None` if there is no commit stored in this segment.
     pub fn last_commit_index(&self) -> Option<usize> {
         self.commits.len().checked_sub(1)
     }
 
-    /// Try to find the index of `id` in our list of local commits.
     pub fn commit_index_of(&self, id: gix::ObjectId) -> Option<usize> {
         self.commits
             .iter()
@@ -369,12 +344,10 @@ impl Segment {
             .find_map(|(cidx, c)| (c.id == id).then_some(cidx))
     }
 
-    /// Find the commit associated with the given `commit_index`, which for convenience is optional.
     pub fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
         self.commits.get(idx?).map(|c| c.id)
     }
 
-    /// Find the commit with the given `id` in the commits of this segment.
     pub fn commit_by_id(&self, id: gix::ObjectId) -> Option<&Commit> {
         self.commits.iter().find(|c| c.id == id)
     }

@@ -125,7 +125,6 @@ fn places<'a>(wanted: &HashSet<&'a str>, files: &[FileDiff]) -> HashMap<&'a str,
     found
 }
 
-/// The lines around line `at` of `lines`.
 fn around(lines: &[DiffLine], at: usize) -> Arc<[DiffLine]> {
     let start = at.saturating_sub(PEEK_ABOVE);
     let end = (start + PEEK_LINES).min(lines.len());
@@ -150,7 +149,6 @@ fn code_spans(block: &Block) -> Vec<(std::ops::Range<usize>, &str, bool)> {
         .collect()
 }
 
-/// Every text block of `page`.
 fn text_blocks(page: &mut BriefPage) -> impl Iterator<Item = &mut Block> {
     page.blocks
         .iter_mut()

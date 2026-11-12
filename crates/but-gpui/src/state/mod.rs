@@ -242,7 +242,6 @@ pub enum CodePlace {
 
 #[derive(Debug)]
 pub enum StoreEvent {
-    /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
     /// The selected page was asked for again, as by the crumb naming it, to go back to how it
@@ -451,7 +450,6 @@ pub struct Store {
     /// Counts projects added and removed, as each starts and lands, so a listing begun
     /// before one doesn't put back what it removed or drop what it added.
     project_edits: u64,
-    /// Where the saved state goes.
     saved_db: Arc<backend::saved::Database>,
     /// How many times the saved state has been taken to write, numbering each.
     saves: u64,
@@ -462,12 +460,10 @@ pub struct Store {
     /// Whether Briefs is asked about the projects' branches.
     pub briefs: bool,
     pub toasts: Vec<Toast>,
-    /// Who is signed in to GitButler.
     pub account: account::Account,
     /// Where a terminal finds `but`, if it does; `None` until looked for, which only macOS
     /// does.
     pub cli: Option<Option<PathBuf>>,
-    /// While this app's `but` installs.
     pub installing_cli: bool,
     /// The version the desktop app's update feed offers, newer than this build, when the
     /// desktop app's binary started this client.
@@ -591,7 +587,6 @@ pub struct Store {
     /// Minute forge polls skipped while hidden since the forge was last asked: see
     /// [`Store::poll_forge`].
     forge_skipped: u32,
-    /// The project whose forge refresh is under way.
     forge_checking: Option<ProjectId>,
     /// When each project's forge refresh last worked, in seconds since the epoch. A refresh
     /// that changes nothing reloads nothing, so the cache's own time on screen falls behind.
@@ -756,7 +751,6 @@ impl Store {
         self.project(id)?.workspace.as_ref()
     }
 
-    /// `project`'s commit `id`, and the branch holding it.
     pub fn find_commit(&self, project: &str, id: CommitId) -> Option<(&Branch, &Commit)> {
         self.workspace(project)?.find_commit(id)
     }

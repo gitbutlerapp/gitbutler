@@ -159,7 +159,6 @@ enum Stop {
 }
 
 impl Cursor {
-    /// On file `file`'s header.
     fn on_file(file: usize) -> Self {
         Cursor {
             file,
@@ -167,7 +166,6 @@ impl Cursor {
         }
     }
 
-    /// On hunk `hunk` of file `file`.
     fn on_hunk(file: usize, hunk: usize) -> Self {
         Cursor {
             file,
@@ -175,7 +173,6 @@ impl Cursor {
         }
     }
 
-    /// On the commit's message.
     fn on_message() -> Self {
         Cursor {
             file: 0,
@@ -520,7 +517,6 @@ pub struct Detail {
     cursor: Cursor,
     /// How many times what y copied here has blinked, and what it last was and when.
     blinked: (usize, Option<(Copied, Instant)>),
-    /// What that overview reads beyond the workspace.
     now: worktree::Now,
     /// The place to put the cursor on once the diff loading now lands, as when following the
     /// file being read into the commit an agent made of it.
@@ -532,7 +528,6 @@ pub struct Detail {
     review_list: ListState,
     /// The project whose Branches page lists only the branches a brief is known of.
     branches_with_brief: Option<ProjectId>,
-    /// What the Brief tab holds.
     brief: brief::BriefView,
     /// The pull request's side panel, which scrolls apart from its description beside it.
     review_side_scroll: ScrollHandle,
@@ -2213,7 +2208,6 @@ impl Detail {
         files.into_iter().filter(Selected::movable).collect()
     }
 
-    /// Focus the diff.
     pub fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
         cx.notify();
@@ -2256,7 +2250,6 @@ impl Detail {
         .contains(&handle)
     }
 
-    /// Whether the file list holds the focus.
     pub fn files_focused(&self, window: &Window) -> bool {
         self.files_focus.is_focused(window)
     }
@@ -2316,7 +2309,6 @@ impl Detail {
         }
     }
 
-    /// The entry of the row at the diff's top.
     fn top_entry(&self) -> Option<Entry> {
         let top = self.list.logical_scroll_top().item_ix;
         let rows = self.diff.as_ref()?.rows.get(top..)?;
@@ -2520,17 +2512,14 @@ impl Detail {
         }
     }
 
-    /// Whether the diff of `key` lists the messages first.
     fn lists_message(&self, key: &DiffKey, cx: &App) -> bool {
         self.listed_messages(key, cx).is_some()
     }
 
-    /// Whose messages the loaded diff lists first.
     fn loaded_messages(&self, cx: &App) -> Option<Messages> {
         self.listed_messages(&self.diff.as_ref()?.key, cx)
     }
 
-    /// Whether the loaded diff lists the messages first.
     pub(super) fn message_listed(&self, cx: &App) -> bool {
         self.loaded_messages(cx).is_some()
     }
@@ -2731,7 +2720,6 @@ impl Detail {
         (self.waiting_since).is_some_and(|since| since.elapsed() >= SHOW_LOADING)
     }
 
-    /// Scroll the diff by most of a screen, keeping a few lines in view for context.
     /// Scroll the diff `by` its height, down or, negative, up. Down from its end, the app goes
     /// on to the next unread commit, so Space reads a run of commits from the first to the last.
     /// A file at a time, it stops at the file's end: the next commit would skip the other files,
@@ -2874,7 +2862,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// Show code in diffs at `size`.
     pub fn set_code_size(&mut self, size: crate::theme::CodeSize, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.code_size = size, cx)
@@ -3223,8 +3210,6 @@ impl Detail {
         }
     }
 
-    /// The loaded diff when it's of a checkout's uncommitted changes, the ones the composer
-    /// commits: the project's own or a linked worktree's.
     /// The order the diff has its files in, as the list shows them: in the order picked, and in
     /// a tree, folder by folder.
     fn diff_file_order(
@@ -3309,7 +3294,6 @@ impl Detail {
             })
     }
 
-    /// The commit composer is open.
     pub fn composing(&self) -> bool {
         self.composing
     }
@@ -3339,8 +3323,6 @@ impl Detail {
             .is_some_and(|diff| diff.rows.iter().any(|r| matches!(r, DiffRow::File(_))))
     }
 
-    /// Commit what the open composer has once its message is written; until then, go to
-    /// the message box.
     /// The box the composer's message is written in.
     pub(crate) fn message_editor(&self) -> Entity<MessageEditor> {
         self.message.clone()
@@ -3376,7 +3358,6 @@ impl Detail {
         })
     }
 
-    /// The column's width while nothing slides.
     fn column_at_rest(&self, window: &Window, cx: &App) -> f32 {
         let window = self.laid_out_width(window, cx);
         let navigator = self.navigator_shown.get();
@@ -4120,7 +4101,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Whether the page shows the project's Graph.
     fn showing_graph(&self) -> bool {
         self.on_tab(ProjectTab::Graph).is_some()
     }

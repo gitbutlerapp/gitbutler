@@ -468,7 +468,6 @@ pub struct HeaderDecor {
     /// The diff has the keys, so they act on the current one: it's marked solid, and faint
     /// while they're elsewhere, as a list's selection is.
     pub solid: bool,
-    /// The file shows only its header.
     pub folded: bool,
     /// The file is folding, its lines going up into its header.
     pub closing: bool,
@@ -494,7 +493,6 @@ pub struct LineDecor {
     pub toggle: Option<OnToggle>,
     /// Lets the pointer select the line's text.
     pub select: Option<LineSelect>,
-    /// The part of the line's text that's selected.
     pub selected: Option<Range<usize>>,
     /// What Find matched in the line's text, each with whether it's the current match.
     pub found: Vec<(Range<usize>, bool)>,
@@ -526,7 +524,6 @@ const LINE_GROUP: &str = "diff-line";
 /// How the rows of a file lay out, the same for each of them.
 #[derive(Default)]
 pub struct Layout {
-    /// A long line wraps onto more rows instead of running off the edge.
     pub wrap: bool,
     /// Changed lines on the card's ground, without their green and red.
     pub plain: bool,
@@ -966,7 +963,6 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
     }
 }
 
-/// The width of a digit of code.
 pub fn digit_width(theme: &Theme) -> f32 {
     theme.code_text * theme.diff_digit
 }

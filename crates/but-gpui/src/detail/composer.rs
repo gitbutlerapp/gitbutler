@@ -194,7 +194,6 @@ impl Checks {
     }
 }
 
-/// The hunks of `path` among `files`.
 fn file_hunks<'a>(files: &'a [FileDiff], path: &str) -> &'a [Hunk] {
     (files.iter().find(|f| f.file.path == path)).map_or(&[], FileDiff::hunks)
 }
@@ -411,7 +410,6 @@ impl Detail {
         })
     }
 
-    /// The hunks of `path` in the loaded worktree diff.
     pub(super) fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
         self.loaded_file(path).map_or(&[], FileDiff::hunks)
     }
@@ -1100,7 +1098,6 @@ impl Detail {
         true
     }
 
-    /// The editor of the selected commit's message, while it's being edited.
     pub fn rewording_selected(&self, cx: &App) -> Option<Entity<MessageEditor>> {
         let Some(Selection::Commit(project, id)) = self.selection() else {
             return None;
@@ -1407,7 +1404,6 @@ impl Detail {
         });
     }
 
-    /// Whether the box no longer holds the message of the commit being amended.
     fn amend_message_rewritten(&self, cx: &App) -> bool {
         let written = self.message.read(cx).text(cx);
         (self.amend_message.as_ref()).is_some_and(|shown| shown.loaded != written)
@@ -1872,7 +1868,6 @@ fn amends(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bo
     moving.amending() && changes_of(moving, project, worktree)
 }
 
-/// Whether `moving` is of `project`'s checkout `worktree`'s changes.
 fn changes_of(moving: &Move, project: Option<&ProjectId>, worktree: &Checkout) -> bool {
     Some(&moving.project) == project
         && matches!(&moving.what, Moving::Files(Changes { worktree: of, .. }) if of == worktree)

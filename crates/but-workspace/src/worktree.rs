@@ -1,5 +1,3 @@
-//! Utilities for reasoning about the repository worktree.
-
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result};

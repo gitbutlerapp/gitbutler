@@ -1,4 +1,3 @@
-//! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
@@ -173,7 +172,6 @@ fn open_linked_checkout_repos(
         .collect()
 }
 
-/// Options for [SuccessfulRebase::materialize].
 #[derive(Default)]
 pub struct MaterializeOptions {
     /// Materializes a rebase without checking out the editor's own worktree.
@@ -358,8 +356,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         })
     }
 
-    /// Convenience for [Self::materialize] with
-    /// [MaterializeOptions::without_checkout] set.
     pub fn materialize_without_checkout(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         self.materialize(MaterializeOptions {
             without_checkout: true,

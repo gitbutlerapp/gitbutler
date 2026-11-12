@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Application update checking and management for GitButler.
 //!
 //! This crate provides functionality to check for new versions of GitButler applications
@@ -58,12 +57,10 @@
 //! # }
 //! ```
 
-/// Module with functionality around checking the app updateability status.
 mod check;
 
 pub use check::{AppName, CheckUpdateStatus, check_status};
 
-/// Module with functionality for caching update check results.
 pub mod cache;
 pub use cache::{AvailableUpdate, available_update, last_checked, suppress_update};
 

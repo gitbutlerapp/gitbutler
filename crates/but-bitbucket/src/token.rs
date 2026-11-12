@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::BitbucketClient;
 
-/// Persist Bitbucket account access tokens securely.
 pub fn persist_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     access_token: &Sensitive<String>,
@@ -16,7 +15,6 @@ pub fn persist_bb_access_token(
     persist_bitbucket_account(&account, storage)
 }
 
-/// Delete a Bitbucket account access token for a given account.
 pub fn delete_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -33,7 +31,6 @@ pub fn delete_bb_access_token(
     secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
-/// Retrieve a Bitbucket account access token for a given account.
 pub fn get_bb_access_token(
     account_id: &BitbucketAccountIdentifier,
     storage: &but_forge_storage::Controller,

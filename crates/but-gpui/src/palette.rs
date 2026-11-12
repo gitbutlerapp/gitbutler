@@ -310,7 +310,6 @@ pub struct Palette {
     wide: bool,
     /// It offers only files, so lists some before anything's typed.
     files_only: bool,
-    /// The files it offers are still being read.
     reading_files: bool,
     /// The terminal picker's: what was selected and whether the details showed when it
     /// opened. The row it selects shows behind it until Esc puts these back.

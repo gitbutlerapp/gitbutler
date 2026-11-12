@@ -1,5 +1,4 @@
 pub(crate) trait PaniclessSubtraction<T> {
-    /// Subtract on T from another or fail if there is an overflow.
     fn sub_or_err(&self, b: T) -> anyhow::Result<u32>;
 }
 

@@ -41,18 +41,14 @@ mod tests;
 #[cfg(feature = "legacy")]
 pub mod single_branch_mode;
 
-/// Functions for workspace state.
 pub mod workspace_state;
 
-/// Represents the workspace for the frontend
-///
 /// This describes the post-operation workspace view that mutations should
 /// return regardless of whether they executed for real or as a dry-run.
 #[derive(Debug, Clone)]
 pub struct WorkspaceState {
     /// Commits that were replaced by the operation. Maps `old_id -> new_id`.
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
-    /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
     /// The workspace presented for the frontend. See [`RefInfo`] for more
     /// detail.
@@ -68,8 +64,6 @@ pub struct WorkspaceState {
     pub conflicted_checkouts: Vec<but_rebase::graph_rebase::ConflictedCheckout>,
 }
 
-/// Run a workspace transaction.
-///
 /// This allows chaining multiple operations and having them all succeed or fail together.
 ///
 /// Note this isn't fully ACID compliant database transactions but rather a "best effort" version
@@ -1309,8 +1303,7 @@ fn checkout_reference(repo: &gix::Repository, reference_name: &FullNameRef) -> a
 /// It is intermediate in the sense that the commit hasn't been materialized yet and only exists
 /// in-memory.
 pub struct IntermediateCommitCreateResult {
-    /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
+    /// This should only be none if all the DiffSpecs were rejected.
     pub new_commit: Option<CommitIdentifiers>,
-    /// Any specs that failed to be committed.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
 }

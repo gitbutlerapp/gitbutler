@@ -468,7 +468,6 @@ impl ScopeLines {
     }
 }
 
-/// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub(super) struct Saved {
@@ -508,7 +507,6 @@ pub struct Prefs {
     pub accent_color: String,
     /// The gray GitButler's own colours are built on.
     pub ground: crate::theme::Ground,
-    /// How round corners are.
     pub corners: crate::theme::Corners,
     /// How tall controls are.
     pub density: crate::theme::Density,
@@ -516,9 +514,7 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
-    /// How file lists show their files.
     pub file_view: FileView,
-    /// The order file lists show files in.
     pub file_sort: FileSort,
     /// A file tree's folders always show the lines their files add and remove, rather than
     /// only under the pointer.
@@ -539,7 +535,6 @@ pub struct Prefs {
     pub terminal_text: Option<u8>,
     /// The family the app's own terminals show in, or `None` for Ghostty's.
     pub terminal_font: Option<String>,
-    /// What the app's own terminals start.
     pub terminal_runs: TerminalRuns,
     /// The command they run with [`TerminalRuns::Command`], kept while the login shell is
     /// picked.
@@ -551,7 +546,6 @@ pub struct Prefs {
     pub confirm_terminal_close: bool,
     /// How large the whole interface draws, as ⌘+ and ⌘− set it.
     pub ui_scale: crate::theme::UiScale,
-    /// Where the navigator goes.
     pub navigator_place: NavigatorPlace,
     /// The bar along the window's bottom is left out.
     pub hide_status_bar: bool,
@@ -603,11 +597,8 @@ pub struct Prefs {
     /// Watched projects, by id, whose inactive worktrees show under their heading; it starts
     /// folded.
     pub shown_inactive: HashSet<String>,
-    /// How long a linked worktree with nothing uncommitted stays active after it last moved.
     pub inactive_after: crate::backend::InactiveAfter,
-    /// What happens to a linked worktree once an update finds its branch merged.
     pub merged_worktrees: crate::backend::MergedWorktrees,
-    /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
     /// Each project's linked worktrees by name, archived ones too, by project id, in the
     /// order the navigator lists them: as the user moved them, with new ones last.
@@ -616,7 +607,6 @@ pub struct Prefs {
     pub branches_local_only: bool,
     /// The common notes a click leaves on a brief, the stock ones if never changed.
     pub brief_shortcuts: Option<Vec<String>>,
-    /// Which branches the Branches page lists by their pull request.
     pub branches_status: BranchStatus,
     /// The navigator's branches start with their commits listed, rather than folded to a
     /// row each.
@@ -671,7 +661,6 @@ pub enum Part {
 }
 
 impl Prefs {
-    /// Whether `part` of the window draws.
     pub fn shows(&self, part: Part) -> bool {
         match part {
             Part::StatusBar => !self.hide_status_bar,

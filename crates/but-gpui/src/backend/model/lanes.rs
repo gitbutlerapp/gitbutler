@@ -72,7 +72,6 @@ impl<'a> Link<'a> {
 }
 
 impl Workspace {
-    /// The lane of the linked worktree `name`.
     pub fn worktree_lane(&self, name: &bstr::BStr) -> Option<&Lane> {
         (self.lanes.iter())
             .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if linked == name))
@@ -181,7 +180,6 @@ impl Workspace {
             .collect()
     }
 
-    /// The lanes worked on in `checkout`.
     pub fn lanes_in(&self, checkout: &Checkout) -> impl Iterator<Item = &Lane> + Clone + use<'_> {
         let checkout = checkout.clone();
         (self.lanes.iter()).filter(move |lane| lane.checkout == checkout)

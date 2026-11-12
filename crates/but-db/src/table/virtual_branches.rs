@@ -72,7 +72,6 @@ pub struct VbState {
     pub initialized: bool,
     /// Last observed mtime (ns since unix epoch) for `virtual_branches.toml`.
     pub toml_last_seen_mtime_ns: Option<i64>,
-    /// Last observed SHA-256 for `virtual_branches.toml`.
     pub toml_last_seen_sha256: Option<String>,
 }
 
@@ -114,23 +113,18 @@ pub struct VbStack {
 /// A stack head ("series") row from `vb_stack_heads`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VbStackHead {
-    /// Parent stack id this head belongs to.
     pub stack_id: String,
     /// Zero-based ordering position within the parent stack.
     pub position: i64,
-    /// Name of the virtual head/series.
     pub name: String,
     /// Object id (hex) this head currently points to.
     pub head_sha: String,
-    /// Optional pull request number associated with this head.
     pub pr_number: Option<i64>,
     /// Whether this head is archived/integrated.
     pub archived: bool,
-    /// Optional review identifier associated with this head.
     pub review_id: Option<String>,
 }
 
-/// Canonical normalized VB payload read from / written to the database.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VirtualBranchesSnapshot {
     /// Global singleton VB state row.
@@ -142,13 +136,10 @@ pub struct VirtualBranchesSnapshot {
 }
 
 impl DbHandle {
-    /// Return a read-only handle for virtual-branches tables on this database connection.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: &self.conn }
     }
 
-    /// Return a mutating handle for virtual-branches tables backed by a savepoint.
-    ///
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
@@ -158,13 +149,10 @@ impl DbHandle {
 }
 
 impl<'conn> Transaction<'conn> {
-    /// Return a read-only handle for virtual-branches tables scoped to this transaction.
     pub fn virtual_branches(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: self.inner() }
     }
 
-    /// Return a mutating handle for virtual-branches tables scoped to this transaction.
-    ///
     /// Mutating methods on [`VirtualBranchesHandleMut`] consume the handle and commit automatically.
     pub fn virtual_branches_mut(&mut self) -> rusqlite::Result<VirtualBranchesHandleMut<'_>> {
         Ok(VirtualBranchesHandleMut {
@@ -173,8 +161,6 @@ impl<'conn> Transaction<'conn> {
     }
 }
 
-/// Read-only accessor for virtual-branches tables.
-///
 /// Created from [`DbHandle::virtual_branches`] or [`Transaction::virtual_branches`].
 pub struct VirtualBranchesHandle<'conn> {
     conn: &'conn rusqlite::Connection,
@@ -189,8 +175,6 @@ pub struct VirtualBranchesHandleMut<'conn> {
 }
 
 impl VirtualBranchesHandle<'_> {
-    /// Read the complete normalized VB snapshot from the database.
-    ///
     /// Returns `Ok(None)` if the singleton `vb_state` row does not exist yet.
     pub fn get_snapshot(&self) -> rusqlite::Result<Option<VirtualBranchesSnapshot>> {
         // In autocommit mode, each SELECT would otherwise get its own snapshot.
@@ -308,7 +292,6 @@ impl VirtualBranchesHandle<'_> {
 }
 
 impl VirtualBranchesHandleMut<'_> {
-    /// Convert this mutating handle into a read-only view on the same savepoint.
     pub fn to_ref(&self) -> VirtualBranchesHandle<'_> {
         VirtualBranchesHandle { conn: &self.sp }
     }

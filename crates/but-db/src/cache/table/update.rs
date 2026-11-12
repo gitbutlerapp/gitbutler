@@ -28,23 +28,19 @@ pub(crate) const M: &[M<'static>] = &[
 // This table currently only has a single row representing the latest update check.
 const SINGLETON_RECORD_ID: u8 = 1;
 
-/// A utility for accessing the update checks.
 pub struct UpdateCheckHandle<'conn> {
     conn: &'conn rusqlite::Connection,
 }
 
-/// A utility for mutating the update checks.
 pub struct UpdateCheckHandleMut<'conn> {
     sp: rusqlite::Savepoint<'conn>,
 }
 
 impl AppCacheHandle {
-    /// Return a handle for read-only update checks.
     pub fn update_check(&self) -> UpdateCheckHandle<'_> {
         UpdateCheckHandle { conn: &self.conn }
     }
 
-    /// Return a handle for mutating update checks.
     pub fn update_check_mut(&mut self) -> rusqlite::Result<UpdateCheckHandleMut<'_>> {
         Ok(UpdateCheckHandleMut {
             sp: self.conn.savepoint()?,
@@ -53,12 +49,10 @@ impl AppCacheHandle {
 }
 
 impl Transaction<'_> {
-    /// Return a handle for read-only update checks.
     pub fn update_check(&self) -> UpdateCheckHandle<'_> {
         UpdateCheckHandle { conn: self.inner() }
     }
 
-    /// Return a handle for mutating update checks.
     pub fn update_check_mut(&mut self) -> rusqlite::Result<UpdateCheckHandleMut<'_>> {
         Ok(UpdateCheckHandleMut {
             sp: self.inner_mut().savepoint()?,
@@ -66,29 +60,19 @@ impl Transaction<'_> {
     }
 }
 
-/// A cached update check result with timestamp.
-///
-/// This struct wraps the update check status with metadata about when the check occurred.
 /// It's persisted to disk in the database to avoid redundant network requests.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CachedCheckResult {
-    /// When this update check was performed (UTC timestamp).
     pub checked_at: DateTime<Utc>,
-    /// The update status information from the server.
     pub status: CheckUpdateStatus,
-    /// When the update notification was suppressed (UTC timestamp).
     /// This allows users to temporarily hide update notifications.
     pub suppressed_at: Option<DateTime<Utc>>,
-    /// The number of hours to suppress update notifications.
     /// After this duration expires from `suppressed_at`, notifications will resume.
     pub suppress_duration_hours: Option<u32>,
 }
 
-/// Information about the latest available version and whether an update is needed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckUpdateStatus {
-    /// The version of the app for which this update check is valid.
-    ///
     /// This is used to check for cache staleness. As the version comparison is done server side,
     /// the value of [`Self::up_to_date`] is only valid if the current version of the app matches
     /// the version running at the time of the update check.
@@ -99,16 +83,9 @@ pub struct CheckUpdateStatus {
     /// longer be able to write to the table.
     pub valid_for_version: Option<String>,
 
-    /// `true` if the current version matches the latest available version, `false` otherwise.
-    ///
-    /// When this is `false`, you should prompt the user to update or automatically download
-    /// the update based on your application's update policy.
     pub up_to_date: bool,
 
     /// The version string of the latest available release (e.g., "0.18.3").
-    ///
-    /// This field is always present and can be compared with the current application version
-    /// to determine if an update is available.
     pub latest_version: String,
 
     /// Markdown-formatted release notes describing changes in the latest version.
@@ -118,8 +95,6 @@ pub struct CheckUpdateStatus {
     /// what's new in the update.
     pub release_notes: Option<String>,
 
-    /// Direct download URL for the update package.
-    ///
     /// This field is `None` if no update is needed (`up_to_date == true`) or if the server
     /// doesn't provide a direct download link. The URL points to a platform-specific installer
     /// or update package.
@@ -134,14 +109,11 @@ pub struct CheckUpdateStatus {
 }
 
 impl UpdateCheckHandle<'_> {
-    /// Retrieves the cached update check result if available.
-    ///
     /// Returns `None` if no update check has been cached yet, or if there was an error.
     pub fn get(&self) -> Option<CachedCheckResult> {
         self.try_get().ok().flatten()
     }
 
-    /// Like [`Self::get`], but fallible.
     pub fn try_get(&self) -> rusqlite::Result<Option<CachedCheckResult>> {
         let mut stmt = self.conn.prepare(
             "SELECT checked_at, up_to_date, latest_version, release_notes, url, signature, valid_for_version,
@@ -178,22 +150,17 @@ impl UpdateCheckHandle<'_> {
         }
     }
 
-    /// Returns the timestamp of the last update check if available.
     pub fn last_checked(&self) -> Option<DateTime<Utc>> {
         self.get().map(|cached| cached.checked_at)
     }
 }
 
 impl UpdateCheckHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> UpdateCheckHandle<'_> {
         UpdateCheckHandle { conn: &self.sp }
     }
 
-    /// Saves an update check result to the cache, without performing any checks.
-    ///
-    /// This replaces any existing cached result. Preserves suppression settings
-    /// if they are still valid.
+    /// This replaces any existing cached result.
     pub fn save(self, result: &CachedCheckResult) -> rusqlite::Result<()> {
         let sp = self.sp;
 
@@ -236,15 +203,10 @@ impl UpdateCheckHandleMut<'_> {
         Ok(())
     }
 
-    /// Suppresses update notifications for a specified duration in `hours`.
-    ///
-    /// Updates the existing cache record with suppression settings.
-    ///
-    /// If no update check record exists yet, the function returns an errors.
+    /// If no update check record exists yet, the function returns an error.
     pub fn suppress(self, hours: u32) -> rusqlite::Result<()> {
         let sp = self.sp;
 
-        // Check if a record exists
         let exists: bool = sp.query_row(
             "SELECT EXISTS(SELECT 1 FROM `update-check` WHERE id = 1)",
             [],
@@ -259,7 +221,6 @@ impl UpdateCheckHandleMut<'_> {
             )));
         }
 
-        // Update suppression fields
         sp.execute(
             "UPDATE `update-check`
              SET suppressed_at = ?1, suppress_duration_hours = ?2
@@ -271,7 +232,6 @@ impl UpdateCheckHandleMut<'_> {
         Ok(())
     }
 
-    /// Clears suppression settings from the cache.
     pub fn clear_suppression(self) -> rusqlite::Result<()> {
         let sp = self.sp;
 

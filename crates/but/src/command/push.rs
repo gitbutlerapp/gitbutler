@@ -4,11 +4,9 @@ pub mod help {
     use crate::utils::OutputChannel;
 
     fn is_gerrit_enabled() -> bool {
-        // Parse the -C flag from command line arguments
         let args: Vec<String> = std::env::args().collect();
         let mut current_dir = std::path::Path::new(".");
 
-        // Look for -C flag
         for (i, arg) in args.iter().enumerate() {
             if arg == "-C" && i + 1 < args.len() {
                 current_dir = std::path::Path::new(&args[i + 1]);
@@ -63,7 +61,6 @@ pub mod help {
             "      --no-hooks, --no-verify       Bypass pre-push hooks"
         )?;
 
-        // Check if gerrit mode is enabled and show gerrit options
         if is_gerrit_enabled() {
             writeln!(out,)?;
             writeln!(out, "Gerrit Options:")?;

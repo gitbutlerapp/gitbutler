@@ -27,7 +27,6 @@ use crate::state::Store;
 /// The platforms a section can name, as `std::env::consts::OS` names them.
 pub const PLATFORMS: [&str; 3] = ["macos", "windows", "linux"];
 
-/// What people call the platform `os`.
 pub fn platform_name(os: &str) -> &str {
     match os {
         "macos" => "macOS",
@@ -43,13 +42,11 @@ pub enum KeymapFile {
     Standard,
     /// The keys every keymap shares.
     Base,
-    /// The menu bar.
     Menus,
 }
 
 impl KeymapFile {
     pub const ALL: [KeymapFile; 3] = [KeymapFile::Standard, KeymapFile::Base, KeymapFile::Menus];
-    /// The files of keys.
     const KEYS: [KeymapFile; 2] = [KeymapFile::Standard, KeymapFile::Base];
 
     fn name(self) -> &'static str {
@@ -98,7 +95,6 @@ impl Keymap {
         [self.own_file(), KeymapFile::Base]
     }
 
-    /// The file of the keys only it binds.
     pub fn own_file(self) -> KeymapFile {
         match self {
             Keymap::Standard => KeymapFile::Standard,
@@ -247,7 +243,6 @@ pub struct Binding {
 }
 
 impl Binding {
-    /// Whether it binds on the platform `os`.
     pub fn binds_on(&self, os: &str) -> bool {
         (self.os.as_ref()).is_none_or(|names| names.iter().any(|name| name == os))
     }
@@ -379,7 +374,6 @@ fn bind_keys(keymap: Keymap, cx: &mut App) {
     }
 }
 
-/// A file's sections, in its order.
 pub(crate) fn sections(json: &str) -> Result<Vec<Section>> {
     serde_json_lenient::from_str(json).context("not a keymap")
 }
@@ -568,7 +562,6 @@ mod tests {
         assert_eq!(prefs, Some((Keymap::Standard, 1)));
     }
 
-    /// The keys `keymap` binds to Discard on `os`.
     fn discard_keys(keymap: Keymap, os: &str) -> Vec<String> {
         (bound(keymap, os).into_iter())
             .filter(|entry| entry.action == "edits::Discard")

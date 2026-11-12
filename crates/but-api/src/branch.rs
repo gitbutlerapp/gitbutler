@@ -26,50 +26,35 @@ use but_workspace::branch::{
 };
 use tracing::instrument;
 
-/// Outcome after moving a branch.
 pub struct MoveBranchResult {
-    /// Workspace state after moving or tearing off a branch.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after creating a branch.
 pub struct BranchCreateResult {
-    /// Workspace state after creating the branch.
     pub workspace: WorkspaceState,
-    /// The name of the crated reference
     pub new_ref: gix::refs::FullName,
 }
 
-/// Outcome after removing a branch.
 #[derive(Debug)]
 pub struct BranchRemoveResult {
-    /// Workspace state after removing the branch.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after renaming a branch.
 #[derive(Debug)]
 pub struct BranchRenameResult {
-    /// Workspace state after renaming the branch.
     pub workspace: WorkspaceState,
-    /// The full name of the renamed reference.
     pub new_ref: gix::refs::FullName,
 }
 
-/// Outcome after integrating a branch with an interactive integration plan.
 pub struct IntegrateBranchResult {
-    /// Workspace state after applying or previewing the integration.
     pub workspace: WorkspaceState,
 }
 
-/// Outcome after checking out a branch.
 #[derive(Debug)]
 pub struct BranchCheckoutResult {
-    /// Workspace state after checking out the branch.
     pub workspace: WorkspaceState,
 }
 
-/// JSON transport types for branch APIs.
 pub mod json {
     use bstr::ByteSlice;
     use but_workspace::{branch::apply::OutcomeStatus, ui::ref_info::BranchReference};
@@ -1460,7 +1445,6 @@ pub fn branch_checkout(
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
 }
 
-/// Checks out the GitButler workspace reference under caller-held exclusive repository access.
 pub fn workspace_checkout_with_perm_only(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
@@ -1469,8 +1453,6 @@ pub fn workspace_checkout_with_perm_only(
     branch_checkout_with_perm_only(ctx, workspace_ref, perm)
 }
 
-/// Checks out a branch under caller-held exclusive repository access.
-///
 /// See [`branch_checkout()`] for the accepted branch names.
 pub fn branch_checkout_with_perm(
     ctx: &mut but_ctx::Context,
@@ -1652,7 +1634,6 @@ pub fn branch_list_with_perm(
 /// A listed stack enriched with cached forge review data.
 #[derive(Debug)]
 pub struct ListedStack {
-    /// How the stack relates to the workspace.
     pub status: but_branches::ListedStackStatus,
     /// The branches in the stack, from tip to base.
     pub branches: Vec<ListedBranch>,
@@ -1663,9 +1644,7 @@ pub struct ListedStack {
 /// A listed branch and its cached forge review, if present.
 #[derive(Debug)]
 pub struct ListedBranch {
-    /// The branch listing data.
     pub branch: but_branches::ListedBranch,
-    /// The cached review associated with the branch.
     pub review: Option<but_forge::ForgeReview>,
 }
 
@@ -1684,8 +1663,6 @@ pub fn get_initial_branch_integration(
     get_initial_branch_integration_with_perm(ctx, branch, strategy, guard.read_permission())
 }
 
-/// Get the initial upstream integration script for `branch` under caller-held repository access.
-///
 /// See [`get_initial_branch_integration()`] for behavior.
 pub fn get_initial_branch_integration_with_perm(
     ctx: &Context,

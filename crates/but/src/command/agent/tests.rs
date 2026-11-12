@@ -425,7 +425,6 @@ fn skill_installs_expand_both_scopes() {
     }));
 }
 
-/// Count the number of line-anchored block start markers.
 fn anchored_start_count(text: &str) -> usize {
     let mut count = 0;
     let mut pos = 0;

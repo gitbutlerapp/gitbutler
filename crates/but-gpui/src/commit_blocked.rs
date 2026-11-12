@@ -49,7 +49,6 @@ struct Offer {
     label: SharedString,
     to: CommitTo,
     leave_out: bool,
-    /// Branches to stack first.
     restack: Option<Stacking>,
     primary: bool,
     /// It names a branch, so a long name cuts it short rather than push the row past the
@@ -325,7 +324,6 @@ fn capitalized(text: &str) -> String {
     }
 }
 
-/// The modal asking where a blocked commit goes instead.
 pub struct CommitBlocked {
     store: Entity<Store>,
     /// Until it's acted on.

@@ -28,7 +28,6 @@ pub struct Input {
     pub leans_right: bool,
 }
 
-/// Where a line goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Side {
     /// In the middle, as the target's.
@@ -324,7 +323,6 @@ pub fn reach(commits: &[Input], from: Vec<usize>, stop: &[bool]) -> Vec<bool> {
     reached
 }
 
-/// How wide a line is at its widest.
 fn widest(needs: &[(u32, f32)]) -> f32 {
     needs.iter().map(|(_, width)| *width).fold(0., f32::max)
 }

@@ -21,7 +21,6 @@ use crate::backend::{CommitId, FileDiff, FullName, HunkKey};
 use crate::state::{Picks, ProjectId, ProjectTab, RowKey, Section, Selection, Store, Tile};
 use crate::ui::diff::DiffRow;
 
-/// How a page's files are being looked at.
 pub(super) struct FilesState {
     /// The file list beside the diff is hidden, for more room.
     pub(super) files_hidden: bool,
@@ -99,7 +98,6 @@ impl FilePlace {
         }
     }
 
-    /// Where it is in `files`.
     fn find<'a>(&self, files: &'a [FileDiff]) -> Option<(usize, &'a FileDiff)> {
         (files.iter().enumerate()).find(|(_, file)| file.file.path == self.path)
     }
@@ -525,7 +523,6 @@ impl PageState {
         }
     }
 
-    /// As [`PageState::review`], to change it.
     pub(super) fn review_mut(&mut self) -> Option<&mut ReviewState> {
         match self {
             PageState::Diff { review, .. } => review.as_mut(),
@@ -543,7 +540,6 @@ impl PageState {
         Some(&self.review()?.brief)
     }
 
-    /// As [`PageState::brief`], to change it.
     pub(super) fn brief_mut(&mut self) -> Option<&mut BriefState> {
         Some(&mut self.review_mut()?.brief)
     }
@@ -562,7 +558,6 @@ impl PageState {
         }
     }
 
-    /// As [`PageState::side`], to change it.
     pub(super) fn side_mut(&mut self) -> Option<&mut SideState> {
         match self {
             PageState::Branches { side, .. }
@@ -590,7 +585,6 @@ impl PageState {
         }
     }
 
-    /// As [`PageState::overview`], to change it.
     pub(super) fn overview_mut(&mut self) -> Option<&mut CheckoutState> {
         match self {
             PageState::Overview(overview) => Some(overview),
@@ -655,13 +649,12 @@ impl PageState {
         self.files()?.line_picks.as_ref()
     }
 
-    /// Whether files are picked, on a page with files.
     pub(super) fn has_file_picks(&self) -> bool {
         self.files()
             .is_some_and(|files| !files.file_picks.is_empty())
     }
 
-    /// As [`PageState::files`], to change it. On the page rather than the detail, so holding
+    /// On the page rather than the detail, so holding
     /// it leaves the detail's other fields free.
     pub(super) fn files_mut(&mut self) -> Option<&mut FilesState> {
         match self {

@@ -3,8 +3,6 @@ use std::{collections::HashMap, path::Path};
 #[cfg(any(test, feature = "tokio"))]
 pub mod tokio;
 
-/// Provides a means for executing Git CLI commands.
-///
 /// There is no `arg0` passed; it's up to the implementation
 /// to decide how to execute the command. For example,
 /// `git status` would be passed as `["status"]`.
@@ -36,17 +34,11 @@ pub mod tokio;
 /// up to the implementer to ensure that the invariants are upheld.
 #[expect(unsafe_code)]
 pub unsafe trait GitExecutor {
-    /// The error type returned by this executor,
-    /// specifically in cases where the execution fails.
-    ///
-    /// Otherwise, `Ok` is returned in call cases, even when
-    /// the exit code is non-zero.
+    /// `Ok` is returned even when the exit code is non-zero.
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
-    /// The type of the handle returned by [`GitExecutor::create_askpass_server`].
     type ServerHandle: AskpassServer + Send + Sync + 'static;
 
-    /// Executes the given Git command with the given arguments.
     /// `git` is never passed as the first argument (arg 0).
     ///
     /// Returns a tuple of `(exit_code, stdout, stderr)`.
@@ -134,8 +126,6 @@ pub unsafe trait GitExecutor {
     /// please open an issue on the repository to discuss this issue.
     async unsafe fn create_askpass_server(&self) -> Result<Self::ServerHandle, Self::Error>;
 
-    /// Gets some basic information about a file on the filesystem.
-    ///
     /// This is used to perform some basic security checks
     /// during askpass authentication.
     ///
@@ -143,8 +133,6 @@ pub unsafe trait GitExecutor {
     async fn stat<P: AsRef<Path>>(&self, path: P) -> Result<FileStat, Self::Error>;
 }
 
-/// Stats for a file on the filesystem.
-///
 /// This is returned by [`GitExecutor::stat`],
 /// and is just a small subset of the information
 /// typically returned by `stat(2)` and the like,
@@ -157,9 +145,7 @@ pub struct FileStat {
     ///
     /// On Windows, this is (probably) always 0.
     pub dev: u64,
-    /// The inode number of the file.
     pub ino: u64,
-    /// If the file is a regular file (not a symlink).
     pub is_regular_file: bool,
 }
 
@@ -172,10 +158,8 @@ pub struct FileStat {
 ///
 /// Upon dropping the handle, the server should be closed.
 pub trait AskpassServer: core::fmt::Display {
-    /// The type of error that is returned by [`AskpassServer::accept`].
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
-    /// The type of the socket yielded by the incoming iterator.
     type SocketHandle: Socket + Send + Sync + 'static;
 
     /// Waits for a connection to the server to be established.
@@ -191,10 +175,8 @@ type PidInner = i32;
 #[cfg(windows)]
 type PidInner = u32;
 
-/// The type of a process ID (platforms-specific)
 pub type Pid = PidInner;
 
-/// The type of a user ID (unix-specific).
 #[cfg(unix)]
 pub type Uid = u32;
 
@@ -203,7 +185,6 @@ pub type Uid = u32;
 /// provided to [`GitExecutor::create_askpass_server`] when a connection
 /// is established.
 pub trait Socket {
-    /// The error type returned by I/O operations on this socket.
     type Error: std::error::Error + core::fmt::Debug + Send + Sync + 'static;
 
     /// The process ID of the connecting client.
@@ -213,8 +194,6 @@ pub trait Socket {
     #[cfg(unix)]
     fn uid(&self) -> Result<Uid, Self::Error>;
 
-    /// Reads a line from the socket. Must not include the newline.
-    ///
     /// The returned line must not include a newline, and any
     /// trailing carriage return (`\r`) must be stripped.
     ///

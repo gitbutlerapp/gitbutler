@@ -11,7 +11,6 @@ use but_oxidize::{ObjectIdExt, OidExt};
 pub struct WorkspaceState {
     /// The heads of the stacks in the workspace.
     heads: Vec<gix::ObjectId>,
-    /// The base of the workspace.
     base: gix::ObjectId,
 }
 

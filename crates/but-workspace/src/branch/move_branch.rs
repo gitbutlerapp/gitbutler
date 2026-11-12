@@ -24,14 +24,10 @@ pub(super) mod function {
     /// `workspace` - Used for getting the surrounding context of the branch being torn off.
     ///     In the future, we should not rely on the projection and do it fully on the graph.
     ///
-    /// `subject_branch_name` - The branch to take out of a stack.
-    ///
     /// `order` - Where the new stack goes among the others: it becomes a parent of the workspace
     ///     commit at `order`, or its last parent if `order` is `None`, as
     ///     [`create_reference()`](crate::branch::create_reference()) places an independent branch.
     ///     Without a workspace commit there's no order to keep, and it's ignored.
-    ///
-    /// Returns the in memory rebase that can then used for materialisation.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
@@ -135,8 +131,6 @@ pub(super) mod function {
     ///
     /// `editor` is assumed to have been generated from the workspace the branch lives in.
     ///
-    /// `subject_branch_name` is the full reference name of the branch to move.
-    ///
     /// `relative_to` and `side` name where it goes, as they do for commits:
     /// - above a reference, the branch sits directly on top of that branch.
     /// - below a reference, it takes over the commits of that branch, which stays as empty
@@ -171,8 +165,6 @@ pub(super) mod function {
     /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
     /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
     /// what to cut (e.g. letting the clients decide what to cut).
-    ///
-    /// Returns the in memory rebase for potential materialisation.
     pub fn move_branch<'ws, 'meta, M: RefMetadata>(
         editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,

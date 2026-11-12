@@ -1165,9 +1165,6 @@ fn source_project_differs_from_target(
     source_project_id != target_project_id
 }
 
-/// Marks credential lookups that came up empty, so consumers can tell "the
-/// user is not authenticated" apart from a failing forge and e.g. keep
-/// serving cached data instead of surfacing an error.
 /// `message` as an error, marked as GitLab turning the request down when `status` says the
 /// merge request or project doesn't allow it, rather than that it couldn't read a request of
 /// ours, as a 400 or 404 would.

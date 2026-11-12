@@ -11,8 +11,6 @@ use crate::graphql::{
 
 const GITHUB_API_BASE_URL: &str = "https://api.github.com";
 
-/// An HTTP error with a status code, returned when the API responds with a non-success status.
-///
 /// This can be downcasted from `anyhow::Error` to distinguish auth failures (401/403) from other errors.
 #[derive(Debug, thiserror::Error)]
 #[error("HTTP {status}")]
@@ -60,7 +58,6 @@ pub struct GitHubClient {
 }
 
 impl GitHubClient {
-    /// Create a new instance of the GitHub client
     pub fn new(access_token: &Sensitive<String>) -> Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -90,7 +87,6 @@ impl GitHubClient {
         })
     }
 
-    /// Create a new instance of a GitHub client out of the stored accounts information.
     pub fn from_storage(
         storage: &but_forge_storage::Controller,
         preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -106,8 +102,6 @@ impl GitHubClient {
         }
     }
 
-    /// Create a new instance of a GitHub client, with a custom base URL.
-    ///
     /// This is used to create the GitHub client for Enterprise users.
     pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
         let mut headers = HeaderMap::new();
@@ -138,9 +132,6 @@ impl GitHubClient {
         })
     }
 
-    /// Get the authenticated user.
-    ///
-    /// This is used to verify that the client has been correctly created and it holds the right authentication.
     pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
         #[derive(Deserialize)]
         struct User {
@@ -281,7 +272,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// The actual REST API call to fetch a page of the checks.
     async fn fetch_check_runs(&self, url: &str, page: usize) -> Result<reqwest::Response> {
         let response = self
             .client
@@ -333,7 +323,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// List pull requests associated with a commit on the repository.
     pub async fn list_pulls_for_commit(
         &self,
         owner: &str,
@@ -359,7 +348,6 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// Create a PR.
     pub async fn create_pull_request(
         &self,
         params: &CreatePullRequestParams<'_>,
@@ -471,7 +459,6 @@ impl GitHubClient {
         })
     }
 
-    /// Fetch the information of a given PR.
     pub async fn get_pull_request(
         &self,
         owner: &str,
@@ -797,9 +784,6 @@ impl GitHubClient {
         Ok(comment.into())
     }
 
-    /// Update the information of a given PR.
-    ///
-    /// This is used e.g. to update the description footers for stacked reviews.
     pub async fn update_pull_request(
         &self,
         params: &UpdatePullRequestParams<'_>,
@@ -833,8 +817,6 @@ impl GitHubClient {
         Ok(pr.into())
     }
 
-    /// Merge a PR.
-    ///
     /// GitHub refuses to merge a stacked PR here and points to its asynchronous merge, so a
     /// stacked PR is merged that way instead.
     pub async fn merge_pull_request(&self, params: &MergePullRequestParams<'_>) -> Result<()> {
@@ -955,7 +937,6 @@ impl GitHubClient {
         bail!("GitHub is still merging the pull request after five minutes; check it on GitHub")
     }
 
-    /// Set the draftiness of a PR.
     pub async fn set_pull_request_draft_state(
         &self,
         params: &SetPullRequestDraftStateParams<'_>,
@@ -1311,8 +1292,6 @@ impl GitHubClient {
     }
 }
 
-/// Decode a GraphQL response body into `T`.
-///
 /// `data` is typed only once `errors` has been ruled out. GitHub reports a
 /// refused mutation as a null field *inside* `data` alongside `errors`, so
 /// typing the two together fails on that null and loses the message saying
@@ -1731,7 +1710,6 @@ pub struct CommentReactions {
     pub eyes: i64,
 }
 
-/// A submitted review on a pull request, with the reactions left on it.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReview {
     pub id: i64,
@@ -1865,7 +1843,6 @@ pub struct PullRequestReviewThread {
     pub comments: Vec<PullRequestReviewThreadComment>,
 }
 
-/// One comment inside a review thread.
 #[derive(Debug, Serialize)]
 pub struct PullRequestReviewThreadComment {
     pub id: i64,

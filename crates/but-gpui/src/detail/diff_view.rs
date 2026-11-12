@@ -300,12 +300,10 @@ impl Detail {
         text.or_else(|| hunk().flatten())
     }
 
-    /// The diff line at `row`, if that row is one.
     fn line_at(&self, row: usize) -> Option<&DiffLine> {
         self.line_of(*self.diff.as_ref()?.rows.get(row)?)
     }
 
-    /// The diff line `row` shows, if it shows one.
     pub(super) fn line_of(&self, row: DiffRow) -> Option<&DiffLine> {
         let diff = self.diff.as_ref()?;
         match row {
@@ -393,7 +391,6 @@ impl Detail {
         (start != end).then_some((start, end))
     }
 
-    /// The selected part of the line at `row`.
     fn selected_in_row(&self, row: usize) -> Option<Range<usize>> {
         selected_part(&self.line_at(row)?.text, row, self.text_range()?)
     }

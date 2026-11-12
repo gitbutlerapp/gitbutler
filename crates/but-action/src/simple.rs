@@ -58,10 +58,8 @@ pub(crate) fn handle_changes(
         });
     }
 
-    // Get the current stacks in the workspace, creating one if none exists.
     let stacks = stacks_creating_if_none(repo, ws, meta, db, perm)?;
 
-    // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
         stacks.iter().map(|s| (s.id, vec![])).collect();
     let default_stack_id = stacks
@@ -83,7 +81,6 @@ pub(crate) fn handle_changes(
                 .push(assignment.into());
         }
     }
-    // Go over the stack_assignments and flatten the diff specs for each stack.
     for specs in stack_assignments.values_mut() {
         *specs = but_workspace::flatten_diff_specs(specs.clone());
     }

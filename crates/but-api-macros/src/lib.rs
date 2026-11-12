@@ -8,8 +8,6 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///
 /// # Parameters
 ///
-/// This paragraph explains how the proc-macro can be called.
-///
 /// * `JSONReturnType`
 ///     - Use it like `but_api(JSONReturnType)` where `JSONReturnType::from(actual_return_type)` is implemented.
 ///     - `Result<Vec<T>>` converts each `T` into `JSONReturnType`.
@@ -43,8 +41,6 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 /// These can be combined with commas, e.g. `#[but_api(try_from = json::CommitDetails, refreshes)]`.
 ///
 /// # Generated Functions
-///
-/// This paragraph explains what it generates.
 ///
 /// * `func` - the original item, unchanged
 /// * `func_json` for calls from the frontend, taking `(#(json_params*),)` and returning `Result<JsonRVal, json::Error>`
@@ -132,13 +128,10 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }}
     };
 
-    // Struct name: <FunctionName>Params (PascalCase)
     let param_struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
 
-    // Cmd function name: <function_name>_cmd
     let fn_cmd_name = format_ident!("{}_cmd", fn_name);
 
-    // Cmd function name: <function_name>_json
     let fn_json_name = format_ident!("{}_json", fn_name);
 
     // Module name for tauri-renames, to keep the original function names.

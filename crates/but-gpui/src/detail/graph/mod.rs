@@ -334,7 +334,6 @@ struct TagSlides {
 }
 
 impl TagSlides {
-    /// Start a frame drawn at `now`.
     fn begin(&mut self, now: Instant) {
         self.was = std::mem::take(&mut self.drawn);
         if self.landed {
@@ -359,7 +358,6 @@ impl TagSlides {
         shown
     }
 
-    /// End a frame.
     fn end(&mut self) {
         self.landed = false;
     }
@@ -565,7 +563,6 @@ impl GraphView {
         self.tell_pinned(false, cx);
     }
 
-    /// The graph of the project selected, or with `pinned`, of that one, for a pinned tile.
     pub fn new(store: Entity<Store>, cx: &mut Context<Self>) -> Self {
         let subscriptions = Vec::from([cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::SelectionChanged | StoreEvent::Loaded(_) => this.follow(cx),
@@ -2037,7 +2034,6 @@ impl Paint {
         )
     }
 
-    /// How thick edges draw.
     fn edge_width(&self) -> f32 {
         (2. * self.k).clamp(1., 2.5) * self.scale.max(1.)
     }

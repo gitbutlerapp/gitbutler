@@ -158,7 +158,6 @@ impl Upstream {
         Some(&self.view.days.slots).filter(|days| !days.is_empty())
     }
 
-    /// The person picked, if any.
     fn picked_person(&self) -> Option<&Person> {
         let email = self.view.person.as_ref()?;
         let summary = self.summary.as_ref()?;
@@ -1761,7 +1760,6 @@ impl Detail {
         self.project_page_header(title, meta, project, tabs, theme)
     }
 
-    /// Whether the tabs to the project's pages have the keys.
     pub(crate) fn project_tabs_focused(&self, window: &Window) -> bool {
         self.project_tabs_focus.is_focused(window)
     }

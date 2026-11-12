@@ -17,7 +17,6 @@ use crate::theme::Theme;
 /// The width of the strip that takes the pointer.
 const TRACK: Pixels = fixed(14.);
 
-/// The scroll state a scrollbar reads and moves.
 #[derive(Clone)]
 pub enum Scroll {
     List(ListState),

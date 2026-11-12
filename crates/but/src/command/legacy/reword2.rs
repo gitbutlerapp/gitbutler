@@ -395,8 +395,6 @@ impl BranchNameSource {
 }
 
 impl CommitMessageSource {
-    /// Check if this message source will open an editor.
-    ///
     /// Used by the TUI to suspend itself.
     pub fn will_open_editor(&self) -> bool {
         match self {

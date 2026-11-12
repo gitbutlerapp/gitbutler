@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! One graph based engine to rule them all,
 //! one vector based to find them,
 //! one mess of git2 code to bring them all,
@@ -42,13 +41,10 @@ pub(crate) mod util;
 pub mod workspace;
 pub use workspace::{GraphWorkspace, Subgraph};
 
-/// Utilities for testing
 pub mod testing;
 
-/// Represents a commit to be cherry-picked in a rebase operation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pick {
-    /// The ID of the commit getting picked
     pub id: gix::ObjectId,
     /// If we are dealing with a sub-graph with an incomplete history, we
     /// need to represent the bottom most commits in a way that we preserve
@@ -57,10 +53,7 @@ pub struct Pick {
     /// If this is Some, the commit WILL NOT be picked onto the parents the
     /// graph implies but instead on to the parents listed here.
     pub preserved_parents: Option<Vec<gix::ObjectId>>,
-    /// Controls under what circumstances the commit is cherry-picked.
     pub pick_mode: PickMode,
-    /// Controls whether the resulting commit is signed.
-    ///
     /// Note that signing a parent commit only causes descendants to be signed if those descendants
     /// are also picked with a `sign_commit` value that enables signing (e.g. [`SignCommit::Yes`]
     /// or [`SignCommit::IfSignCommitsEnabled`] with config enabled).
@@ -74,11 +67,7 @@ pub struct Pick {
     /// conflicted state. The cherry-pick still runs and creates the
     /// conflicted commit — this check happens afterwards in [`Editor::rebase`].
     pub conflictable: bool,
-    /// Controls how parent trees are merged during cherry-pick.
-    /// See [`TreeMergeMode`] for details.
     pub tree_merge_mode: TreeMergeMode,
-    /// Whether the editor may rewrite this commit.
-    ///
     /// The editor contains every commit in the workspace graph, but only those
     /// reachable from a mutable entrypoint (e.g. `HEAD`) should be rewritten.
     /// When `false`, the rebase copies the pick verbatim instead of
@@ -87,7 +76,6 @@ pub struct Pick {
 }
 
 impl Pick {
-    /// Creates a pick with the expected defaults
     pub fn new_pick(id: gix::ObjectId) -> Self {
         Self {
             id,
@@ -111,7 +99,6 @@ impl Pick {
         pick
     }
 
-    /// Creates a pick with the defaults set for a workspace commit
     pub fn new_workspace_pick(id: gix::ObjectId) -> Self {
         Self {
             id,
@@ -126,17 +113,12 @@ impl Pick {
     }
 }
 
-/// Describes what action the engine should take
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
-    /// Cherry picks the given commit into the new location in the graph
     Pick(Pick),
-    /// Represents applying a reference to the commit found at it's first parent
+    /// Points at the commit found at its first parent
     Reference {
-        /// The refname
         refname: gix::refs::FullName,
-        /// Whether the editor may move or delete this reference.
-        ///
         /// Only references reachable from a mutable entrypoint (e.g. `HEAD`)
         /// are updated during materialization. When `false`, the reference is
         /// kept in the graph for traversal but never written.
@@ -147,7 +129,6 @@ pub enum Step {
 }
 
 impl Step {
-    /// Creates a pick with the expected defaults
     pub fn new_pick(id: gix::ObjectId) -> Self {
         Self::Pick(Pick::new_pick(id))
     }
@@ -173,7 +154,6 @@ impl Step {
     }
 }
 
-/// Used to represent a connection between a given commit.
 #[derive(Debug, Clone)]
 pub(crate) struct Edge {
     /// Represents in which order the `parent` fields should be written out
@@ -186,27 +166,23 @@ pub(crate) struct Edge {
 type StepGraphIndex = petgraph::stable_graph::NodeIndex;
 type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
-/// Convert a structure to a selector for a particular editor.
-///
 /// `ToSelector` does _not_ normalize a selector.
 pub trait ToSelector {
-    /// Converts a given object into a selector. Calling `to_selector` on an
+    /// Calling `to_selector` on an
     /// object asserts that the reciever was a object that is selectable in the
     /// graph.
     fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
 
-/// Convert a type to a selector, and ensures that it is type commit.
 pub trait ToCommitSelector {
-    /// Converts a given object into a selector. Calling `to_commit_selector` on
+    /// Calling `to_commit_selector` on
     /// an object asserts that the reciever has a selectable pick step in the
     /// graph.
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
 
-/// Convert a type to a selector, and ensures that it is type reference.
 pub trait ToReferenceSelector {
-    /// Converts a given object into a selector. Calling `to_reference_selector` on
+    /// Calling `to_reference_selector` on
     /// an object asserts that the reciever has a selectable reference step in
     /// the graph.
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
@@ -285,23 +261,18 @@ pub(crate) enum Checkout {
     },
 }
 
-/// Used to manipulate a set of picks.
 #[derive(Debug)]
 pub struct Editor<'ws, 'meta, M: RefMetadata> {
-    /// The internal graph of steps
     graph: StepGraph,
-    /// Initial references. This is used to track any references that might need
+    /// Used to track any references that might need
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
     checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
     repo: gix::Repository,
-    /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
     /// A handle to the project database, shared with the resulting
     /// [`SuccessfulRebase`]. It re-uses the `'meta` lifetime to avoid growing
@@ -314,17 +285,11 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
 pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
-    /// Any reference edits that need to be committed as a result of the history
-    /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
-    /// The new step graph
     pub(crate) graph: StepGraph,
     pub(crate) checkouts: Vec<Checkout>,
-    /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
     /// The database handle inherited from the [`Editor`], so [`Self::into_editor`]
     /// can hand it back.
@@ -349,7 +314,6 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         (&self.repo, self.meta)
     }
 
-    /// Returns the database handle the editor was created with.
     pub fn db(&self) -> &but_db::DbHandle {
         self.db
     }
@@ -692,17 +656,12 @@ impl PaddedTip {
     }
 }
 
-/// The outcome of a materialize
 #[derive(Debug)]
 pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub(crate) graph: StepGraph,
-    /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
     pub workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
-    /// The database handle the editor was created with.
     pub db: &'meta mut but_db::DbHandle,
     /// The checkouts whose uncommitted changes now carry conflict markers.
     pub conflicted_checkouts: Vec<ConflictedCheckout>,
@@ -717,17 +676,13 @@ pub enum ConflictedCheckout {
     Worktree {
         /// The directory name under `$GIT_COMMON_DIR/worktrees/`.
         name: gix::bstr::BString,
-        /// The worktree checkout directory.
         path: std::path::PathBuf,
     },
 }
 
-/// Provides lookup for different steps that a selector might point to.
 pub trait LookupStep {
-    /// Look up the step that a given selector corresponds to.
     fn lookup_step(&self, selector: Selector) -> Result<Step>;
 
-    /// Look up the step a given selector and assert it's a pick.
     fn lookup_pick(&self, selector: Selector) -> Result<gix::ObjectId> {
         match self.lookup_step(selector)? {
             Step::Pick(Pick { id, .. }) => Ok(id),
@@ -735,7 +690,6 @@ pub trait LookupStep {
         }
     }
 
-    /// Look up the step a given selector and assert it's a pick.
     fn lookup_reference(&self, selector: Selector) -> Result<gix::refs::FullName> {
         match self.lookup_step(selector)? {
             Step::Reference { refname, .. } => Ok(refname),
@@ -792,7 +746,6 @@ impl CommitMappings {
         self.0.iter().copied()
     }
 
-    /// Whether no commit was rewritten.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -831,7 +784,6 @@ impl CommitMappings {
     }
 }
 
-/// Provides data about how the editor instance was transformed.
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
@@ -841,7 +793,6 @@ pub struct RevisionHistory {
     /// Unintuatively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
-    /// Conflicted commits that were created.
     pub conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
 }
 
@@ -876,7 +827,6 @@ impl RevisionHistory {
         };
     }
 
-    /// Provides a mapping between commits that were rewritten as part of the transformation.
     pub fn commit_mappings(&self) -> CommitMappings {
         self.commit_mappings
             .iter()

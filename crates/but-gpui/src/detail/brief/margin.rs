@@ -310,7 +310,6 @@ impl Detail {
         }
     }
 
-    /// What's said about `spot`, and what's being written about it.
     fn talk_at<'a>(&'a self, spot: &Spot<'_>, state: &'a BriefState) -> Talk<'a> {
         let version = state.page().map_or(0, |page| page.version);
         Talk {
@@ -715,7 +714,6 @@ impl Detail {
         }
     }
 
-    /// The row a note on `to` shows in.
     pub(super) fn row_of_note(&self, to: &CommentTo) -> Option<usize> {
         let page = self.page.brief()?.page()?;
         (self.brief_rows().iter())

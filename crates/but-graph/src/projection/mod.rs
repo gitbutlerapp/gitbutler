@@ -5,8 +5,6 @@
 //!
 //! These types are not for direct consumption, but should be processed further for consumption by the user.
 
-/// Types related to the stack representation for graphs.
-///
 /// Note that these are always a simplification, degenerating information, while maintaining a link back to the graph.
 mod stack;
 pub use stack::{
@@ -18,7 +16,6 @@ pub use stack::{
 pub(crate) mod workspace;
 pub use workspace::{TargetCommit, TargetRef, WorkspaceKind};
 
-/// utilities for workspace-related commits.
 pub mod commit {
     use bstr::{BStr, ByteSlice};
 

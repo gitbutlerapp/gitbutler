@@ -42,7 +42,6 @@ pub(crate) fn parse_sources(
     id_map: &IdMap,
     source: &str,
 ) -> CliResult<Vec<CliId>> {
-    // Check if it's a list (contains ',')
     if source.contains(',') {
         return parse_list(ctx, id_map, source);
     }
@@ -99,7 +98,6 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> CliResult<Vec<
         result.push(matches[0].clone());
     }
 
-    // If all parts were empty, return an error
     if result.is_empty() {
         return Err(bad_input(format!("Source list '{source}' contains no valid items")).into());
     }

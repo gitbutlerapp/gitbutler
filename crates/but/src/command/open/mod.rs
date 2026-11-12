@@ -30,15 +30,10 @@ pub(crate) mod gui;
 
 #[derive(Debug)]
 pub(crate) struct Hunk {
-    /// The line numbers that were added in this hunk.
     pub line_nums_added: Vec<u32>,
-    /// The line numbers that were removed in this hunk.
     pub line_nums_removed: Vec<u32>,
-    /// The start position of the hunk in the old version.
     pub old_start: u32,
-    /// The start position of the hunk in the new version.
     pub new_start: u32,
-    /// Path to the file containing the hunk.
     pub path: PathBuf,
 }
 
@@ -50,7 +45,6 @@ pub(crate) enum Openable {
 }
 
 impl Openable {
-    /// Try to create an [`Openable`] from an [`UncommittedHunkOrFile`].
     pub fn try_from_uncommitted(
         repo: &gix::Repository,
         uncommitted: &UncommittedHunkOrFile,
@@ -62,7 +56,6 @@ impl Openable {
         )
     }
 
-    /// Try to create an [`Openable`] from a hunk.
     fn try_from_hunk(
         repo: &gix::Repository,
         hunk: &SingleHunk,
@@ -95,8 +88,6 @@ impl Openable {
         Ok(openable)
     }
 
-    /// Try to create an [`Openable`] from a repository-relative path.
-    ///
     /// Does NOT validate the path exists in the repository.
     pub fn try_from_relpath(repo: &gix::Repository, relpath: &BStr) -> anyhow::Result<Self> {
         repo.workdir_path(relpath)
@@ -104,8 +95,6 @@ impl Openable {
             .context("Failed to resolve path")
     }
 
-    /// Try to create an [`Openable`] from a list of repository-relative path.
-    ///
     /// Does NOT validate the paths exist in the repository.
     pub fn try_from_relpaths(
         repo: &gix::Repository,

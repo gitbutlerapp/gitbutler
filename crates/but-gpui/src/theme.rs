@@ -165,7 +165,6 @@ pub struct Theme {
     /// What terminals show in: Geist Mono with Nerd Font icons and box drawing, for TUIs, unless
     /// another was picked or Ghostty has one.
     pub terminal_font: Font,
-    /// How heavy terminals draw bold text in `terminal_font`.
     pub terminal_bold: FontWeight,
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
@@ -399,7 +398,6 @@ pub fn presets() -> impl Iterator<Item = (&'static str, Corners, Density)> {
     })
 }
 
-/// Which colours the app draws in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ColorScheme {
     /// GitButler's own, in light or dark as `Appearance` says.
@@ -484,7 +482,6 @@ impl CodeSize {
 }
 
 impl Theme {
-    /// This theme with code in diffs at `size`.
     pub fn with_code(mut self, size: CodeSize) -> Self {
         (self.code_text, self.code_line) = size.metrics();
         self
@@ -592,7 +589,6 @@ impl Theme {
         }
     }
 
-    /// This theme with corners as `corners` has them.
     pub fn with_corners(mut self, corners: Corners) -> Self {
         if let Some((_, [xs, control, card, popup])) =
             (tokens::CORNERS.iter()).find(|(name, _)| *name == corners.name())
@@ -607,7 +603,6 @@ impl Theme {
         self
     }
 
-    /// This theme with controls as tall as `density` has them.
     pub fn with_density(mut self, density: Density) -> Self {
         if let Some((_, [control, control_sm, bar, padding])) =
             (tokens::DENSITIES.iter()).find(|(name, _)| *name == density.name())
@@ -622,7 +617,6 @@ impl Theme {
         self
     }
 
-    /// This theme at interface scale `scale`.
     pub fn with_scale(mut self, scale: UiScale) -> Self {
         self.scale = scale.factor();
         self

@@ -28,14 +28,12 @@ pub enum Destination {
         parent_commit_id: Option<gix::ObjectId>,
         /// The stack and reference the commit is supposed to go into. It is necessary to disambiguate the reference update.
         stack_segment: Option<StackSegmentId>,
-        /// Use `message` as a commit message for the new commit.
         message: String,
     },
     /// Amend all changes to the given commit, leaving all other aspects of the commit unchanged.
     AmendCommit {
         /// The commit to use as a base to amend to. It will be rewritten, retaining its parents.
         commit_id: gix::ObjectId,
-        /// If `Some()`, set the commit message as well.
         new_message: Option<String>,
     },
 }
@@ -53,12 +51,9 @@ pub struct StackSegmentId {
 /// to the correct commit.
 #[derive(Debug, PartialEq)]
 pub struct UpdatedReference {
-    /// The reference itself.
     // TODO: The virtual variant could contain stack-id as well, but it remains to be seen how useful this is.
     pub reference: but_core::Reference,
-    /// The commit to which `reference` pointed before the update.
     pub old_commit_id: gix::ObjectId,
-    /// The commit to which `reference` points now.
     pub new_commit_id: gix::ObjectId,
 }
 
@@ -75,8 +70,6 @@ pub struct CreateCommitOutcome {
     /// If the applied changes were from the worktree, it's `HEAD^{tree}` + changes.
     /// Otherwise, it's `<commit>^{tree}` + changes.
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
-    /// The rewritten references `(old, new, reference)`, along with their `old` and `new` commit location, along
-    /// with the reference itself.
     /// If `new_commit` is `None`, this array will be an empty.
     pub references: Vec<UpdatedReference>,
     /// `Some(_)` if a rebase was performed.

@@ -114,7 +114,6 @@ impl Store {
         }
     }
 
-    /// What's known of `branch` of `project`.
     pub fn brief_at(&self, project: &ProjectId, branch: &str) -> Option<&Anchored> {
         self.brief_answers.known.get(project)?.get(branch)
     }

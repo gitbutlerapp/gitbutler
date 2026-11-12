@@ -105,7 +105,6 @@ impl Target {
     }
 }
 
-/// Keys [`bind_keys`] binds.
 pub struct BoundKey {
     /// What they do, as `Move` and `Delete` run keys for many targets.
     pub title: String,
@@ -1589,7 +1588,6 @@ fn raw_for(text: &str, shown: usize) -> usize {
     text.len()
 }
 
-/// How many tabs `text` has before byte `at`.
 fn tabs_before(text: &str, at: usize) -> usize {
     (text.char_indices())
         .take_while(|(ix, _)| *ix < at)

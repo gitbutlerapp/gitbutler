@@ -158,7 +158,6 @@ impl std::fmt::Display for Agent {
     }
 }
 
-/// Error returned when parsing a string that does not name a known agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseAgentError;
 
@@ -346,8 +345,6 @@ pub fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     None
 }
 
-/// Parse the generic `AI_AGENT` env var into an agent detection.
-///
 /// A non-empty value we don't recognize still resolves to `Agent::Unknown`:
 /// setting `AI_AGENT` is an explicit "an agent is driving this" signal, so we
 /// keep it even when we can't name the agent.
@@ -391,7 +388,6 @@ fn parse_agent_var(lookup: &impl Fn(&str) -> Option<OsString>) -> Option<Agent> 
     }
 }
 
-/// Map a recognized agent identifier to an [`Agent`], or `None` if unknown.
 fn match_agent_name(val: &str) -> Option<Agent> {
     Some(match val {
         "claude" | "claude-code" => Agent::ClaudeCode,

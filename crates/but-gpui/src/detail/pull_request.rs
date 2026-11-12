@@ -110,8 +110,6 @@ impl Detail {
         }
     }
 
-    /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
-    /// beside its pull request, takes them back from the diff.
     /// The next of the page's tabs, or `forward` false the one before, going round. Says whether
     /// it had another, as a key with nothing to do here goes on to its next binding.
     pub(crate) fn switch_tab(
@@ -164,7 +162,6 @@ impl Detail {
         self.ask_briefs(cx);
     }
 
-    /// Whether the tabs have the keys.
     pub(crate) fn tabs_focused(&self, window: &Window) -> bool {
         self.tabs_focus.is_focused(window)
     }
@@ -1192,7 +1189,6 @@ fn byline(review: &Review, theme: &Theme) -> Option<Div> {
     Some(row)
 }
 
-/// The id the description of `review` is drawn with.
 fn description_id(review: &Review) -> String {
     format!("review-{}", review.number)
 }

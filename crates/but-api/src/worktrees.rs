@@ -336,7 +336,6 @@ pub fn worktree_new_with_perm(
     worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
 }
 
-/// Create a worktree on a new branch at a given base.
 pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,

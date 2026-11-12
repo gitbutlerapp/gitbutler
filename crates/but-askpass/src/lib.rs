@@ -35,7 +35,6 @@ pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static
     try_init(submit_prompt).unwrap_or_else(|_| panic!("broker already configured"));
 }
 
-/// The askpass broker has already been explicitly initialized or disabled.
 #[derive(Debug, Clone, Copy)]
 pub struct BrokerAlreadyConfigured;
 
@@ -94,7 +93,6 @@ struct AskpassRequest {
     sender: oneshot::Sender<Option<String>>,
 }
 
-/// An ID for an askpass request.
 pub type AskpassRequestId = but_core::Id<'A'>;
 
 /// Additional context sent alongside a credential prompt.
@@ -117,10 +115,7 @@ pub enum Context {
         branch_id: Option<StackId>,
     },
     /// A prompt encountered while cloning.
-    Clone {
-        /// The URL being cloned.
-        url: String,
-    },
+    Clone { url: String },
 }
 
 /// A process-global broker for pending askpass requests.
@@ -139,7 +134,6 @@ pub struct PromptEvent<C: Serialize + Clone> {
 }
 
 impl AskpassBroker {
-    /// Create a new broker with the given event sink.
     pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) -> Self {
         Self {
             pending_requests: Arc::new(Mutex::new(HashMap::new())),

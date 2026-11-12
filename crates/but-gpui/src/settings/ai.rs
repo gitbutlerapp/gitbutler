@@ -122,7 +122,6 @@ impl SettingsView {
         self.ai.failed = None;
     }
 
-    /// Read the AI settings the first time they're needed.
     pub(super) fn ensure_ai(&mut self, cx: &mut Context<Self>) {
         if self.ai.config.is_some() || self.ai.loading || self.ai.failed.is_some() {
             return;

@@ -1,5 +1,3 @@
-//! Shared helpers for editing Git configuration files.
-
 use anyhow::{Context as _, Result};
 use but_core::git_config::{edit_config, edit_repo_config};
 

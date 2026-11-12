@@ -109,7 +109,6 @@ impl AppView {
         self.open_with("Couldn't open the terminal", open, cx);
     }
 
-    /// The selected project in the terminal.
     pub fn open_selected_in_terminal(
         &mut self,
         _: &OpenInTerminal,

@@ -1,7 +1,6 @@
 //! Legacy types that won't be needed anymore once the toml is removed.
 //!
 //! The types here are the only ones to implement `serde`.
-#![allow(missing_docs)]
 use std::collections::HashMap;
 
 use but_core::ref_metadata::StackId;
@@ -10,7 +9,6 @@ use serde::{Deserialize, Serialize};
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
-    /// The current state of the virtual branches
     pub branches: HashMap<StackId, Stack>,
     #[serde(with = "but_serde::object_id_opt", default)]
     pub last_pushed_base: Option<gix::ObjectId>,
@@ -24,10 +22,6 @@ mod stack {
     use gitbutler_reference::{Refname, RemoteRefname};
     use serde::{Deserialize, Serialize, Serializer};
 
-    // this is the struct for the virtual branch data that is stored in our data
-    // store. it is more or less equivalent to a git branch reference, but it is not
-    // stored or accessible from the git repository itself. it is stored in our
-    // session storage under the branches/ directory.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Stack {
         pub id: StackId,
@@ -43,7 +37,6 @@ mod stack {
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
         pub in_workspace: bool,
-        /// Represents the Stack state of pseudo-references ("heads").
         #[serde(default)]
         pub heads: Vec<StackBranch>,
 
@@ -141,9 +134,6 @@ mod stack {
                 source_refname: None,
                 upstream: None,
 
-                // Unused - everything is defined by the top-most branch name.
-                // unclear, obsolete
-
                 // For serialization backwards compatibility
                 #[expect(deprecated)]
                 notes: String::new(),
@@ -173,14 +163,12 @@ mod stack {
     /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct StackBranch {
-        /// The target of the reference - this can be a commit or a change that points to a commit.
         #[serde(alias = "target")]
         #[serde(with = "commit_id_serde")]
         pub head: gix::ObjectId,
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
-        /// The pull request associated with the branch, or None if a pull request has not been created.
         #[serde(default)]
         pub pr_number: Option<usize>,
         /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
@@ -260,7 +248,6 @@ mod stack {
     #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
     #[deprecated(note = "Use gix::ObjectId directly instead")]
     pub enum CommitOrChangeId {
-        /// A reference that points directly to a commit.
         CommitId(String),
     }
 

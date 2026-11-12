@@ -175,7 +175,6 @@ impl Client {
     }
 }
 
-/// A branch to ask about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BranchAsk {
     pub branch: String,
@@ -282,7 +281,6 @@ pub struct Author {
     pub name: String,
 }
 
-/// The version of a brief that matched.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Match {
@@ -341,7 +339,6 @@ pub struct Review {
     pub blocks: Vec<Block>,
 }
 
-/// What a version of a brief compares.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Comparison {
     /// The commit its code was committed up to, when that's known.
@@ -387,7 +384,6 @@ pub enum Concern {
     Other,
 }
 
-/// What made a brief.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Generator {
     /// The agent that wrote it, in its own words.
@@ -472,7 +468,6 @@ pub struct BlockComparison {
     pub head: Option<String>,
 }
 
-/// A file's lines added and removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 pub struct LineStats {
     #[serde(default)]
@@ -481,7 +476,6 @@ pub struct LineStats {
     pub deletions: u32,
 }
 
-/// A file of a comparison.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ChangedFile {
     #[serde(default)]

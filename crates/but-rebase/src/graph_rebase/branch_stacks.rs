@@ -34,7 +34,6 @@ pub struct BranchStacks {
     /// The stack `HEAD` is on if it isn't on the workspace reference, followed by one
     /// stack per linked worktree.
     pub ad_hoc: Vec<Vec<FullName>>,
-    /// Removed references
     pub removed_references: Vec<FullName>,
 }
 
@@ -135,7 +134,6 @@ fn find_reference(graph: &StepGraph, name: &gix::refs::FullNameRef) -> Option<St
 }
 
 impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
-    /// The stacks of local branches this rewrite results in.
     pub fn branch_stacks(&self) -> Result<BranchStacks> {
         let graph = &self.graph;
         let project_meta = &self.workspace.graph.project_meta;

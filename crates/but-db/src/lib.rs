@@ -54,7 +54,6 @@
 //! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
-#![deny(missing_docs)]
 use but_utils::OnDemand;
 use rusqlite::ErrorCode;
 use std::path::PathBuf;
@@ -63,9 +62,7 @@ mod handle;
 mod table;
 mod transaction;
 
-/// Cache database helpers and typed accessors.
 pub mod cache;
-/// Migration helpers for applying and configuring database schema updates.
 pub mod migration;
 pub mod worktrees;
 
@@ -85,7 +82,6 @@ pub use table::{
     worktree_meta::{WorktreeMeta, WorktreeMetaHandle, WorktreeMetaHandleMut},
 };
 
-/// The *retryable* error type used by [`backoff()`] for SQLite operations.
 pub type Error = ::backoff::Error<rusqlite::Error>;
 
 /// Retry a short SQLite operation that was intentionally configured to fail fast on lock contention.
@@ -145,13 +141,10 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::obs_markers::M,
 ];
 
-/// A migration and all the necessary data associated with it to perform it once.
-///
 /// Note that it's `diesel_migrations` compatible as it uses its database and schema
 /// for historical reasons.
 #[derive(Copy, Clone, Debug)]
 pub struct M<'a> {
-    /// The SQL statement to execute for this migration.
     up: &'a str,
     /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
     up_created_at: u64,
@@ -186,24 +179,16 @@ pub enum SchemaVersion {
     One = 1,
 }
 
-/// A structure to receive an application-wide cache.
 pub struct AppCacheHandle {
-    /// The open connection to the cache.
     conn: rusqlite::Connection,
-    /// The path to the application cache.
     path: PathBuf,
 }
 
-/// A structure to receive a project-local cache.
 pub struct CacheHandle {
-    /// The open connection to the cache.
     conn: rusqlite::Connection,
-    /// The path to the project-local cache.
     path: PathBuf,
 }
 
-/// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
-///
 /// The underlying sqlite database is set up to use Rusts borrow-checker,
 /// so a mutable borrow is required to start transactions or to make changes to any data.
 pub struct DbHandle {
@@ -211,15 +196,12 @@ pub struct DbHandle {
     conn: rusqlite::Connection,
     /// The path at which the connection was opened, mainly for debugging.
     path: PathBuf,
-    /// A lazily opened project-local cache. It is in-memory of the parent instance is in-memory,
+    /// A lazily opened project-local cache. It is in-memory if the parent instance is in-memory,
     /// or in the same directory as the parent instance.
     pub cache: OnDemand<CacheHandle>,
 }
 
-/// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
-/// and make sure multiple dependent calls to the ORM can be consistent.
 pub struct Transaction<'conn> {
-    /// The actual transaction as holder of the database connection.
     /// It's always set.
     inner: Option<rusqlite::Transaction<'conn>>,
     /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection

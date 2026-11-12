@@ -39,22 +39,13 @@ use plan::prepare_integration_steps_for_editor;
 #[derive(Debug)]
 pub enum InteractiveIntegrationStep {
     /// Pick a commit, keeping it in the branch.
-    Pick {
-        /// The SHA of the commit being picked.
-        commit_id: gix::ObjectId,
-    },
-    /// Squash the commits into one.
+    Pick { commit_id: gix::ObjectId },
     Squash {
-        /// The SHAs of the commits to squash.
         commits: Vec<gix::ObjectId>,
-        /// Optionally, the message to use for the squash commit.
         message: Option<String>,
     },
     /// Merge a commit into the previous one.
-    Merge {
-        /// The SHA of the commit to merge.
-        commit_id: gix::ObjectId,
-    },
+    Merge { commit_id: gix::ObjectId },
 }
 
 impl fmt::Display for InteractiveIntegrationStep {
@@ -76,10 +67,8 @@ impl fmt::Display for InteractiveIntegrationStep {
     }
 }
 
-/// The necessary information about the integration to be performed.
 #[derive(Debug)]
 pub struct InteractiveIntegration {
-    /// The list of steps to follow in order to integrate the upstream changes into the local.
     pub steps: Vec<InteractiveIntegrationStep>,
     /// Merge base between the upstream and the local reference.
     pub merge_base: gix::ObjectId,
@@ -253,16 +242,6 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 ///
 /// The returned steps are ordered for application from parent to child so they
 /// can be passed directly to integration without reordering by the caller.
-///
-/// `ref_name` - The full reference name of the local branch to get the integration steps for.
-///
-/// `repo` - The repository handle.
-///
-/// `workspace` - The current workspace graph projection used to construct the editor.
-///
-/// `meta` - Reference metadata used while constructing the editor.
-///
-/// Returns the initial integration script and current divergence display state.
 pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,

@@ -48,7 +48,6 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
     let repo = &*ctx.repo.get()?;
     let commit = Commit::from_id(commit_id.attach(repo))?;
 
-    // Checkout the commit as unstaged changes
     if let Some((base, ours, theirs)) = commit.conflicted_tree_ids()? {
         let repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
@@ -144,7 +143,6 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let git2_repo = &*ctx.git2_repo.get()?;
     let commit = commit_id.attach(repo).object()?.try_into_commit()?;
 
-    // Checkout commits's parent
     let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
     let base_commit = base_commit_id.attach(repo).object()?.try_into_commit()?;
     let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
@@ -299,7 +297,6 @@ pub(crate) fn abort_and_return_to_workspace(
     #[expect(deprecated, reason = "checkout/materialization boundary")]
     let repo = &*ctx.git2_repo.get()?;
 
-    // Checkout gitbutler workspace branch
     repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
@@ -395,7 +392,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     drop(db);
     ctx.invalidate_workspace_cache()?;
 
-    // Switch branch to gitbutler/workspace
     git2_repo
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
@@ -419,7 +415,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
     index.write()?;
 
-    // Write the commit evolution.
     let session = git_meta_lib::Session::open(repo.path())?;
     session
         .target(&git_meta_lib::Target::commit(

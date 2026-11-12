@@ -16,27 +16,22 @@ const SINGLETON_RECORD_ID: u8 = 1;
 /// The most recent agent skill notice shown by the CLI.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentSkillNotice {
-    /// When the notice was shown.
     pub shown_at: DateTime<Utc>,
 }
 
-/// A utility for accessing the agent skill notice debounce cache.
 pub struct AgentSkillNoticeHandle<'conn> {
     conn: &'conn rusqlite::Connection,
 }
 
-/// A utility for mutating the agent skill notice debounce cache.
 pub struct AgentSkillNoticeHandleMut<'conn> {
     sp: rusqlite::Savepoint<'conn>,
 }
 
 impl AppCacheHandle {
-    /// Return a handle for read-only agent skill notice debounce data.
     pub fn agent_skill_notice(&self) -> AgentSkillNoticeHandle<'_> {
         AgentSkillNoticeHandle { conn: &self.conn }
     }
 
-    /// Return a handle for mutating agent skill notice debounce data.
     pub fn agent_skill_notice_mut(&mut self) -> rusqlite::Result<AgentSkillNoticeHandleMut<'_>> {
         Ok(AgentSkillNoticeHandleMut {
             sp: self.conn.savepoint()?,
@@ -45,12 +40,10 @@ impl AppCacheHandle {
 }
 
 impl Transaction<'_> {
-    /// Return a handle for read-only agent skill notice debounce data.
     pub fn agent_skill_notice(&self) -> AgentSkillNoticeHandle<'_> {
         AgentSkillNoticeHandle { conn: self.inner() }
     }
 
-    /// Return a handle for mutating agent skill notice debounce data.
     pub fn agent_skill_notice_mut(&mut self) -> rusqlite::Result<AgentSkillNoticeHandleMut<'_>> {
         Ok(AgentSkillNoticeHandleMut {
             sp: self.inner_mut().savepoint()?,
@@ -59,12 +52,10 @@ impl Transaction<'_> {
 }
 
 impl AgentSkillNoticeHandle<'_> {
-    /// Retrieves the cached agent skill notice debounce data if available.
     pub fn get(&self) -> Option<AgentSkillNotice> {
         self.try_get().ok().flatten()
     }
 
-    /// Like [`Self::get`], but fallible.
     pub fn try_get(&self) -> rusqlite::Result<Option<AgentSkillNotice>> {
         let mut stmt = self
             .conn
@@ -84,7 +75,6 @@ impl AgentSkillNoticeHandle<'_> {
 }
 
 impl AgentSkillNoticeHandleMut<'_> {
-    /// Saves the latest shown agent skill notice debounce data.
     pub fn save(self, notice: &AgentSkillNotice) -> rusqlite::Result<()> {
         let sp = self.sp;
 

@@ -1749,10 +1749,6 @@ fn branch_stops(
     Some((stops, start))
 }
 
-/// A copy of `item` being moved, a commit or a branch, where landing would put it, drawn as
-/// its own row is while the move is at where it is, set in by `inset` as an item row is, and
-/// outlined with the copies `outlined_with` says are above and below it. A branch's copy is its
-/// row alone, folded, which heads its commits wherever it goes.
 /// The title of commit `id` that the cherry-pick shown in `project` copies from outside the
 /// workspace, if it's one of those.
 fn copied_title(store: &Store, project: &ProjectId, id: CommitId) -> Option<SharedString> {

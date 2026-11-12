@@ -13,7 +13,6 @@ pub(crate) fn read_commit_message(
     Ok(normalize_commit_message(&file.read(current_dir)?).to_owned())
 }
 
-/// Returns `true` if `current_message` and `new_message` differ after normalization.
 pub(crate) fn should_update_commit_message(current_message: &str, new_message: &str) -> bool {
     normalize_commit_message(current_message) != normalize_commit_message(new_message)
 }

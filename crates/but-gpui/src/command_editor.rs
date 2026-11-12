@@ -56,7 +56,6 @@ const KEYS_MIN_WIDTH: f32 = 190.;
 /// The table's small text: what's mono, and the notes beside a key.
 const SMALL_TEXT: f32 = 13.;
 
-/// The window, once it's been opened.
 struct EditorWindow(WindowHandle<CommandEditor>);
 
 impl gpui::Global for EditorWindow {}
@@ -153,7 +152,6 @@ fn between(anchor: usize, head: usize) -> Range<usize> {
     anchor.min(head)..anchor.max(head)
 }
 
-/// What the window shows.
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Keys,
@@ -1219,7 +1217,6 @@ impl CommandEditor {
     }
 }
 
-/// The cap of keys being recorded, with those pressed so far.
 /// Have `take` get every key pressed in `window`, and nothing else, while what's returned lasts.
 fn intercept_keys(
     take: fn(&mut CommandEditor, gpui::Keystroke, &mut Context<CommandEditor>),
@@ -1237,6 +1234,7 @@ fn intercept_keys(
     })
 }
 
+/// The cap of keys being recorded, with those pressed so far.
 fn recording_cap(recording: &Recording, theme: &Theme) -> impl IntoElement + use<> {
     let keys: Vec<String> = (recording.strokes.iter())
         .map(|stroke| edit::written(stroke, None, std::env::consts::OS))

@@ -28,15 +28,11 @@ where
     }
 }
 
-/// Lifecycle
 impl<T> OnDemandCache<T> {
-    /// Create a new instance that can instantiate its value via `init` when needed.
     pub fn new(init: impl Fn() -> T + 'static) -> Self {
         Self::new_fallible(move || Ok(init()))
     }
 
-    /// Create a new instance that can instantiate its value via `init` when needed,
-    /// allowing initialization to fail.
     pub fn new_fallible(init: impl Fn() -> anyhow::Result<T> + 'static) -> Self {
         OnDemandCache {
             init: Rc::new(init),
@@ -45,9 +41,7 @@ impl<T> OnDemandCache<T> {
     }
 }
 
-/// Access
 impl<T> OnDemandCache<T> {
-    /// Get a shared reference to the cached value or initialise it.
     pub fn get_cache(&self) -> anyhow::Result<cell::Ref<'_, T>> {
         if let Ok(cached) = cell::Ref::filter_map(self.value.try_borrow()?, |opt| opt.as_ref()) {
             return Ok(cached);
@@ -62,7 +56,6 @@ impl<T> OnDemandCache<T> {
         )
     }
 
-    /// Get an exclusive references to the cached value or fallibly initialise it.
     pub fn get_cache_mut(&self) -> anyhow::Result<cell::RefMut<'_, T>> {
         if let Ok(cached) =
             cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut())

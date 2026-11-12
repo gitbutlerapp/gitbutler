@@ -16,7 +16,6 @@ boolean_enums::gen_boolean_enum!(pub serde ComputeLineStats);
 
 use but_core::diff::CommitDetails;
 
-/// JSON types
 // TODO: add schemars
 pub mod json {
     use but_core::diff::LineStats;

@@ -98,7 +98,6 @@ impl Workspace {
         }
     }
 
-    /// What pushing `ref_name` is called.
     pub fn push_label(&self, ref_name: &super::FullName) -> &'static str {
         match self.needs_force(ref_name) {
             true => "Force push",

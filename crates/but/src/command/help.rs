@@ -224,7 +224,6 @@ fn print_grouped_with_truncation(
     let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
     let groups = grouped_subcommands(&cmd);
 
-    // Define command groupings and their order (excluding MISC)
     let t = theme::get();
 
     writeln!(
@@ -257,7 +256,6 @@ fn print_grouped_with_truncation(
     const LONGEST_COMMAND_LEN: usize = 13;
     const LONGEST_COMMAND_LEN_AND_ELLIPSIS: usize = LONGEST_COMMAND_LEN + 3;
 
-    // Print grouped commands
     for (group, clap_subcommands) in &groups {
         if clap_subcommands.is_empty() {
             continue;
@@ -266,7 +264,6 @@ fn print_grouped_with_truncation(
         writeln!(out, "{}:", t.important.paint(group.to_string()))?;
         for clap_subcommand in clap_subcommands {
             let about = clap_subcommand.get_about().unwrap_or_default().to_string();
-            // Calculate available width: terminal_width - indent (2) - command column (10) - buffer (1)
             let available_width = terminal_width.saturating_sub(LONGEST_COMMAND_LEN_AND_ELLIPSIS);
             let truncated_about = truncate_text(&about, available_width);
             writeln!(
@@ -275,7 +272,6 @@ fn print_grouped_with_truncation(
                 t.success.paint(clap_subcommand.get_name()),
                 truncated_about,
             )?;
-            // printed_commands.insert(cmd_name.to_string());
         }
         writeln!(out)?;
     }
@@ -307,7 +303,6 @@ fn print_grouped_with_truncation(
         writeln!(out)?;
     }
 
-    // Add command completion instructions
     writeln!(
         out,
         "To add command completion, add this to your shell rc: (for example ~/.zshrc)"
@@ -326,7 +321,6 @@ fn print_grouped_with_truncation(
     writeln!(out)?;
 
     writeln!(out, "{}:", t.important.paint("Options"))?;
-    // Truncate long option descriptions if needed
     let option_descriptions = [
         (
             "  -C, --current-dir <PATH>",

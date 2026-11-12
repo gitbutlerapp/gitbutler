@@ -274,7 +274,6 @@ impl UnifiedPatch {
 /// Detect the encoding of the given byte content and convert it to UTF-8, after attempting to guess its encoding.
 /// Even if decoding failed, we always return the original `content` in the wirst case.
 fn detect_and_convert_to_utf8(content: BString) -> BString {
-    // Use chardet to detect the encoding
     let mut detect = chardetng::EncodingDetector::new();
     detect.feed(&content, true);
     let (encoding, high_confidence) = detect.guess_assess(None, true);
@@ -282,7 +281,6 @@ fn detect_and_convert_to_utf8(content: BString) -> BString {
         return content;
     }
 
-    // Convert to UTF-8
     let (decoded, _actual_encoding, _used_replacement_chars) = encoding.decode(&content);
     decoded.into_owned().into()
 }

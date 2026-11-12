@@ -54,7 +54,6 @@ pub(crate) fn mark_used() {
     USED.store(true, Ordering::Relaxed);
 }
 
-/// Whether the current invocation used retired syntax.
 pub(crate) fn was_used() -> bool {
     USED.load(Ordering::Relaxed)
 }
@@ -84,7 +83,6 @@ pub(crate) fn removed_command_hint(command_name: &std::ffi::OsStr, agent: bool) 
     })
 }
 
-/// The outcome of attempting to translate a command line.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Translation {
     /// No retired-only token was found; this is not a retired invocation.

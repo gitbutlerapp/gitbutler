@@ -5,7 +5,6 @@ use gitbutler_operating_modes::OperatingMode;
 
 /// An event telling the receiver something about the state of the application which just changed.
 #[derive(Debug, Clone)]
-#[expect(missing_docs)]
 pub enum Change {
     /// Emitted when a fetch updates the repository's fetched state.
     GitFetch(ProjectHandleOrLegacyProjectId),

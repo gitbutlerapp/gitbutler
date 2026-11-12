@@ -131,9 +131,7 @@ pub fn list_branches(
     empty: bool,
 ) -> Result<(), anyhow::Error> {
     let ahead = !no_ahead;
-    // Invert the flag
     let check = !no_check;
-    // Invert the flag
     list::list(
         ctx, local, remote, all, ahead, review, filter, out, check, empty,
     )?;

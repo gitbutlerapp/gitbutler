@@ -108,17 +108,13 @@ pub(crate) fn handle(
         Some(Subcommands::Finish) => finish_resolution(ctx, out),
         Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
         None => {
-            // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
                 enter_resolution(ctx, out, &commit_id_str)
             } else {
-                // Check if we're already in edit mode
                 let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
-                    // If in edit mode, show status instead of help
                     show_status(ctx, out)
                 } else {
-                    // Not in edit mode and no commit specified - check for conflicted commits
                     Ok(check_and_prompt_for_conflicts(ctx, out)?)
                 }
             }
@@ -126,7 +122,6 @@ pub(crate) fn handle(
     }
 }
 
-/// The worktree-relative paths of uncommitted files with an unresolved index conflict.
 /// The paths of submodules (gitlinks) whose index entries are still conflicted, and of
 /// those resolved to a single entry. Unlike files, a submodule has no conflict markers,
 /// so only the index tells whether its conflict was resolved, which Git requires to commit.
@@ -207,10 +202,8 @@ fn mark_worktree_conflicts_resolved(
 /// Resolve a user-provided commit identifier (CLI ID or partial SHA) to an
 /// object id, along with its display ref rendered from the same map.
 fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::ObjectId, String)> {
-    // Create an IdMap to resolve commit IDs (supports both CLI IDs and partial SHAs)
     let id_map = IdMap::legacy_new_from_context(ctx)?;
 
-    // Resolve the commit ID using the IdMap
     let matches = id_map.parse_using_context(commit_id_str, ctx)?;
 
     if matches.is_empty() {
@@ -225,7 +218,6 @@ fn parse_commit_id(ctx: &mut Context, commit_id_str: &str) -> Result<(gix::Objec
         );
     }
 
-    // Extract the commit OID from the matched CliId
     match &matches[0] {
         CliId::Commit {
             commit: CommitId { commit_id, .. },
@@ -258,7 +250,6 @@ fn enter_resolution(
 
     let (commit_gix_oid, commit_ref) = parse_commit_id(ctx, commit_id_str)?;
 
-    // Get the commit and check if it's conflicted
     let repo = ctx.repo.get()?;
     let commit = repo
         .find_commit(commit_gix_oid)
@@ -270,15 +261,12 @@ fn enter_resolution(
         ).into());
     }
 
-    // Find which stack this commit belongs to
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     let mut found_stack_id = None;
     'outer: for stack in &stacks {
-        // Check if this commit is in any of the stack's heads
         // TODO(ctx): use `ws` for that.
         // TODO(perf): This is likely to walk the whole graph.
         for head in &stack.branches {
-            // Walk the commit history to see if our commit is in this stack
             let traversal = head
                 .tip
                 .attach(&repo)
@@ -309,10 +297,8 @@ fn enter_resolution(
     drop(commit);
     drop(repo);
 
-    // Enter edit mode
     enter_edit_mode(ctx, commit_gix_oid, stack_id).context("Failed to enter edit mode")?;
 
-    // Show checkout message
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -322,7 +308,6 @@ fn enter_resolution(
         )?;
     }
 
-    // Now show the same status as `but resolve status` would show
     show_status(ctx, out)
 }
 
@@ -330,7 +315,7 @@ fn show_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, true)
 }
 
-/// Public function to show resolve status without prompting (for use by `but status`)
+/// Show resolve status without prompting, for use by `but status`.
 pub(crate) fn show_resolve_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     show_status_impl(ctx, out, false)
 }
@@ -341,10 +326,8 @@ fn show_status_impl(
     prompt_to_finalize: bool,
 ) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -363,7 +346,6 @@ fn show_status_impl(
 
     let all_resolved = show_conflicted_files(ctx, out)?;
 
-    // If all conflicts are resolved and we're in human mode, offer to finalize
     if all_resolved && prompt_to_finalize {
         if let Some(human_out) = out.for_human() {
             writeln!(human_out)?;
@@ -410,7 +392,6 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
         .collect();
     let (mut unresolved_gitlinks, resolved_gitlinks) = gitlink_conflict_state(ctx)?;
 
-    // Check which files still have conflict markers
     let repo = ctx.repo.get()?;
     let repo_path = repo.workdir().context("No workdir")?;
     let mut still_conflicted = Vec::new();
@@ -513,7 +494,6 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     Ok(all_resolved)
 }
 
-/// Check if a file contains git conflict markers
 /// Matches the logic from the GUI's looksConflicted() function
 fn has_conflict_markers(content: &str) -> bool {
     content.lines().any(|line| line.starts_with("<<<<<<<"))
@@ -574,10 +554,8 @@ fn write_conflict_regions<W: std::fmt::Write + ?Sized>(
 
 fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -605,7 +583,6 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()
     // than refusing to finalize.
     let files_with_markers = files_with_conflict_markers(ctx, guard.read_permission())?;
 
-    // Save and return to workspace, capturing the rebase output
     gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())
         .context("Failed to save resolution and return to workspace")?;
     drop(guard);
@@ -697,10 +674,8 @@ fn uncommitted_worktree_paths(ctx: &mut Context) -> Result<Vec<String>> {
 
 fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> CliResult<()> {
     let t = theme::get();
-    // Check if we're in edit mode
     let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
-        // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
     }
 
@@ -713,7 +688,6 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
         ).into());
     }
 
-    // Abort and return to workspace
     abort_edit_and_return_to_workspace(ctx, force)
         .context("Failed to cancel resolution and return to workspace")?;
 
@@ -793,7 +767,6 @@ enum CommitOrBranch {
     Branch(String),
 }
 
-/// Resolve a user-provided identifier to a commit or a branch.
 fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBranch> {
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     let matches = id_map.parse_using_context(target, ctx)?;
@@ -949,8 +922,6 @@ fn list_conflicts(
     Ok(())
 }
 
-/// Apply resolutions to one conflict (`<path>:<N>`) or to every conflict of a
-/// file, without entering resolution mode.
 /// How `but resolve apply` was asked to resolve, straight from the CLI flags.
 struct ResolutionFlags {
     ours: bool,
@@ -1398,8 +1369,6 @@ fn resolve_one_with_ai(
     Ok(result)
 }
 
-/// Strip control characters (including ANSI escape sequences) from
-/// model-authored text before printing it to the terminal.
 /// Strip control characters (keeping newlines and tabs) from text that will
 /// be written to the terminal but originates outside this program - model
 /// output or repository file content.
@@ -1409,7 +1378,6 @@ fn sanitize_terminal_text(text: &str) -> String {
         .collect()
 }
 
-/// Structure to hold information about a conflicted commit
 #[derive(Clone, Debug)]
 pub(crate) struct ConflictedCommit {
     pub(crate) commit_oid: gix::ObjectId,
@@ -1430,7 +1398,6 @@ fn report_conflicts_after_rebase(
     conflicts_before: BTreeMap<String, Vec<ConflictedCommit>>,
 ) -> Result<()> {
     let t = theme::get();
-    // Get the current list of conflicted commits after the rebase
     let conflicts_after = find_conflicted_commits(ctx)?;
 
     let mut change_ids_before = HashMap::new();
@@ -1613,9 +1580,7 @@ pub(crate) fn find_conflicted_commits(
     // Each branch with its commits, oldest first, and the worktree lane they are on.
     let mut branches: Vec<(String, Vec<gix::ObjectId>, Option<usize>)> = Vec::new();
     for stack in &stacks {
-        // Check commits in each head of the stack
         for head in &stack.branches {
-            // Walk the commit history to find conflicted commits
             // We use BreadthFirst (topological) and then reverse the results
             let traversal = head
                 .tip
@@ -1624,7 +1589,6 @@ pub(crate) fn find_conflicted_commits(
                 .sorting(Sorting::BreadthFirst)
                 .all()?;
 
-            // Collect commits first, then reverse for REVERSE sorting behavior
             let mut commit_ids: Vec<gix::ObjectId> = traversal
                 .filter_map(Result::ok)
                 .map(|info| info.id)
@@ -1690,14 +1654,11 @@ pub(crate) fn find_conflicted_commits(
     Ok(conflicts_by_branch)
 }
 
-/// Check for conflicted commits and prompt user to resolve them
 fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
     let t = theme::get();
-    // Find all conflicted commits
     let conflicts_by_branch = find_conflicted_commits(ctx)?;
 
     if conflicts_by_branch.is_empty() {
-        // No conflicts found, show the normal help text
         return show_workflow_help(out);
     }
 
@@ -1790,7 +1751,6 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     };
 
     if let Some(commit_id_to_resolve) = commit_id_to_resolve {
-        // Enter resolution mode for the selected commit
         let mut progress = out.progress_channel();
         writeln!(progress)?;
         return enter_resolution(ctx, out, &commit_id_to_resolve);

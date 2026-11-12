@@ -41,9 +41,7 @@ pub(crate) mod workspace_target;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ShowDiffInEditor {
-    /// The user requested we always show the diff.
     Always,
-    /// The user requested we never show the diff.
     Never,
     /// The user didn't specify a preference.
     Unspecified,
@@ -59,8 +57,6 @@ impl ShowDiffInEditor {
         }
     }
 
-    /// Decide whether the diff should be shown in the editor.
-    ///
     /// For `Always`/`Never` the answer is immediate. For `Unspecified`, the provided
     /// `estimate_blob_size` closure is called to compute the total blob size and compare
     /// it against `MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED`.
@@ -143,7 +139,6 @@ pub(crate) struct FileChange {
     deletions: usize,
 }
 
-/// Convert a tree change into the legacy file summary shape.
 pub(crate) fn file_change_from_tree_change(
     repo: &gix::Repository,
     change: but_core::TreeChange,

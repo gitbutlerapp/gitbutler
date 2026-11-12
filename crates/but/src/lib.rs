@@ -18,7 +18,6 @@
 //! #### Non-Legacy builds
 //!
 //! Tests aren't available in this mode yet, but one can compile it with `cargo check -p but --no-default-features`.
-//!
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
@@ -60,7 +59,6 @@ pub use utils::change_source::ChangeSourceId;
 pub use utils::binary_path::is_executed_as_but;
 
 mod alias;
-/// A place for all command implementations.
 pub(crate) mod command;
 #[cfg(feature = "legacy")]
 pub use command::legacy::status::{FilesStatusFlag, StatusFlags, json as status, workspace_status};
@@ -220,7 +218,6 @@ pub(crate) fn app_settings() -> Result<&'static AppSettings> {
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let mut args: Vec<_> = args.collect();
 
-    // Check if version is requested
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         let version = option_env!("VERSION").unwrap_or("dev");
         println!("but {version}");
@@ -438,8 +435,6 @@ fn expand_watwat(args: &mut [OsString]) -> bool {
     true
 }
 
-/// Expand aliases in the argument list.
-///
 /// The parser treats aliases in the same way as external subcommands, so they end up inside of
 /// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
 /// first word in the command string as an alias.
@@ -1461,32 +1456,29 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Oplog(args::oplog::Platform { cmd }) => {
-            match cmd {
-                Some(args::oplog::Subcommands::List { since, snapshot }) => {
-                    let filter = if snapshot {
-                        Some(command::legacy::oplog::OplogFilter::Snapshot)
-                    } else {
-                        None
-                    };
-                    command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+        Subcommands::Oplog(args::oplog::Platform { cmd }) => match cmd {
+            Some(args::oplog::Subcommands::List { since, snapshot }) => {
+                let filter = if snapshot {
+                    Some(command::legacy::oplog::OplogFilter::Snapshot)
+                } else {
                     None
-                }
-                Some(args::oplog::Subcommands::Snapshot { message }) => {
-                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
-                    None
-                }
-                Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
-                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
-                    None
-                }
-                None => {
-                    // Default to list when no subcommand is provided
-                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
-                    None
-                }
+                };
+                command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)?;
+                None
             }
-        }
+            Some(args::oplog::Subcommands::Snapshot { message }) => {
+                command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())?;
+                None
+            }
+            Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
+                command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)?;
+                None
+            }
+            None => {
+                command::legacy::oplog::show_oplog(&mut ctx, out, None, None)?;
+                None
+            }
+        },
         #[cfg(feature = "legacy")]
         Subcommands::Undo(undo_args) => {
             use crate::utils::IntermediateChannel;
@@ -1590,7 +1582,6 @@ async fn dispatch_subcommand(
                     draft,
                 }) => {
                     let draft = top_level_draft || draft;
-                    // Read message content from file or inline
                     let message_content = match &file {
                         Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
@@ -1609,7 +1600,6 @@ async fn dispatch_subcommand(
                         ),
                         None => None,
                     };
-                    // Check for non-interactive environment
                     if !out.can_prompt() {
                         if branch.is_none() {
                             return Err(bad_input(
@@ -1667,7 +1657,6 @@ async fn dispatch_subcommand(
                     None
                 }
                 None => {
-                    // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(
                         &mut ctx,
                         &args.current_dir,

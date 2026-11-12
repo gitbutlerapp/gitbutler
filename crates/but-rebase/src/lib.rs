@@ -1,7 +1,6 @@
 //! An API for an interactive rebases, suitable for interactive, UI driven, and programmatic use.
 //!
 //! It will only affect the commit-graph, and never the alter the worktree in any way.
-#![deny(missing_docs)]
 
 use anyhow::{Context as _, Ok, Result, anyhow, bail};
 use bstr::BString;
@@ -11,10 +10,8 @@ use tracing::instrument;
 
 use crate::commit::DateMode;
 
-/// Tools for manipulating commits
 pub mod graph_rebase;
 
-/// Types for use with cherry-picking
 pub mod cherry_pick;
 pub use cherry_pick::cherry_pick_one;
 
@@ -22,7 +19,6 @@ use crate::cherry_pick::{EmptyCommit, PickMode};
 
 /// Utilities to create commits (and deal with signing)
 pub mod commit;
-/// Utilities around merging
 pub mod merge;
 
 /// An instruction for [`Rebase::rebase()`].
@@ -32,7 +28,6 @@ pub enum RebaseStep {
     Pick {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
         new_message: Option<BString>,
         // TODO: add `base: Option<ObjectId>` to allow restarting the sequence at a new base
         //       for multi-branch rebasing. It would keep the previous cursor, to allow the last
@@ -48,7 +43,6 @@ pub enum RebaseStep {
     SquashIntoPreceding {
         /// Id of an already existing commit
         commit_id: gix::ObjectId,
-        /// Optional message to use for newly produced commit
         new_message: Option<BString>,
     },
     /// Create a new reference pointing to the commit that precedes this step.
@@ -58,7 +52,6 @@ pub enum RebaseStep {
 }
 
 impl RebaseStep {
-    /// Get the commit id associated with a given step
     pub fn commit_id(&self) -> Option<&gix::oid> {
         match self {
             RebaseStep::Pick { commit_id, .. }
@@ -120,7 +113,6 @@ impl<'repo> Rebase<'repo> {
         Ok(self)
     }
 
-    /// Configures whether the noop steps should be rebased regardless.
     /// If set to true, commits that dont really change will have their timestamps and ids updated.
     /// Default is `true`
     pub fn rebase_noops(&mut self, value: bool) -> &mut Self {
@@ -394,7 +386,6 @@ fn reword_commit(
     )?)
 }
 
-/// Replaces the tree of a commit for use in the rebase engine.
 pub fn replace_commit_tree(
     repo: &gix::Repository,
     oid: gix::ObjectId,
@@ -424,7 +415,6 @@ pub struct ReferenceSpec {
     pub previous_commit_id: gix::ObjectId,
 }
 
-/// The output of the [rebase](Rebase::rebase()) operation.
 #[derive(Debug, Clone)]
 pub struct RebaseOutput {
     /// The id of the most recently created commit in the rebase operation.

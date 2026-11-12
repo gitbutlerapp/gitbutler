@@ -2,7 +2,6 @@ use gix::url::Scheme;
 
 use crate::ForgeName;
 
-/// Parsed parts of a remote URL needed to identify a forge repository.
 pub(crate) struct RemoteUrl {
     pub(crate) protocol: String,
     pub(crate) host: String,

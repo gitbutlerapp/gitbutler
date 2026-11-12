@@ -1,6 +1,3 @@
-#![deny(missing_docs)]
-//! Testing utilities
-
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -39,7 +36,6 @@ impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
 }
 /// An extension trait that adds debugging output for graphs
 pub trait TestingDot {
-    /// Creates a dot graph with labels
     fn steps_dot(&self) -> String;
 }
 
@@ -99,7 +95,6 @@ impl ToSymbol for Step {
     }
 }
 
-/// Format a step for display, optionally with a commit title
 fn format_step(step: &Step, title: Option<String>) -> String {
     match step {
         Step::Pick(Pick { id, .. }) => {
@@ -134,7 +129,6 @@ fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
         .collect()
 }
 
-/// Get parents sorted by edge order
 fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
     let mut parents: Vec<_> = graph
         .edges(node)
@@ -349,7 +343,6 @@ mod tests {
         Step::new_reference(gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap())
     }
 
-    /// Helper to build a graph and add edges with order
     fn add_edge(graph: &mut StepGraph, from: StepGraphIndex, to: StepGraphIndex, order: usize) {
         graph.add_edge(from, to, Edge { order });
     }

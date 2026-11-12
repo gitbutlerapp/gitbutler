@@ -5,7 +5,6 @@ use crate::InputDiffHunk;
 mod path;
 mod workspace;
 
-/// Create a new object id by repeating the given `hex_char`.
 fn id_from_hex_char(hex_char: char) -> gix::ObjectId {
     gix::ObjectId::from_hex(String::from_iter(std::iter::repeat_n(hex_char, 40)).as_bytes())
         .expect("input char is hex-only")

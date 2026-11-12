@@ -76,7 +76,6 @@ impl JumpMode {
     }
 }
 
-/// Where a jump query matched within a status line.
 #[derive(Debug)]
 pub struct JumpMatch {
     part: JumpPart,

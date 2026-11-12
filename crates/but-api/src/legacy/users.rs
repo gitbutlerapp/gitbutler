@@ -17,8 +17,6 @@ mod json {
         pub locale: Option<String>,
         pub created_at: String,
         pub updated_at: String,
-        /// GitButler access token.
-        ///
         /// SECURITY: This is a secret credential. Do **not** log it, include it in telemetry,
         /// or expose it outside of a trusted/local API boundary. This struct is intended to be
         /// serialized only for trusted clients that need to perform authenticated GitButler

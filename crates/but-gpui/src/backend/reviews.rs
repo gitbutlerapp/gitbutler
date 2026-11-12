@@ -47,7 +47,6 @@ pub(super) fn detected_and_saved_forge(ctx: &Context) -> (Option<Forge>, Option<
     )
 }
 
-/// `name` as the app names forges.
 pub(super) fn app_forge(name: ForgeName) -> Forge {
     match name {
         ForgeName::GitHub => Forge::GitHub,
@@ -205,7 +204,6 @@ fn summarize_checks(checks: &[but_forge::CiCheck]) -> Checks {
     })
 }
 
-/// How `check` stands.
 fn check_state(check: &but_forge::CiCheck) -> CheckState {
     use but_forge::{CiConclusion as C, CiStatus as S};
     match &check.status {
@@ -220,7 +218,6 @@ fn check_state(check: &but_forge::CiCheck) -> CheckState {
     }
 }
 
-/// What [`refresh_reviews`] found.
 pub struct RefreshedReviews {
     /// A fingerprint of the pull requests the cache now knows, as
     /// [`Workspace::reviews`](super::Workspace::reviews).
@@ -414,7 +411,6 @@ fn tracked_name(ctx: &Context, branch: &super::FullName) -> Result<Option<String
     Ok(tracked)
 }
 
-/// Ways to merge a pull request, as the forge offers them.
 pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 /// Merge pull request `number`, then fetch so the target has the merge and the workspace can
@@ -455,7 +451,6 @@ impl Intent for Merge {
     }
 }
 
-/// What the forge says about whether a pull request can merge now.
 pub use but_forge::ReviewMergeStatus as MergeStatus;
 
 /// Ask the forge whether pull request `number` can merge now. GitHub works it out when asked,
@@ -574,7 +569,6 @@ impl Intent for EditReview {
     }
 }
 
-/// A review's verdict, as the forge gives it.
 pub use but_forge::ForgeReviewSubmissionState as Verdict;
 
 /// How many of the diff's lines a thread quotes at least, as GitHub does.

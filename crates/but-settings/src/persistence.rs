@@ -64,7 +64,6 @@ impl AppSettings {
     /// Use `customization` to alter any of the built-in defaults based on other requirements that are application or distribution defined.
     /// This is the only way to alter the defaults without writing these customizations back to disk.
     pub fn load(config_path: &Path, customization: Option<serde_json::Value>) -> Result<Self> {
-        // If the file on config_path does not exist, create it empty
         if !config_path.exists() {
             but_utils::create_dirs_then_write(config_path, "{}\n")?;
         }
@@ -92,7 +91,6 @@ impl AppSettings {
             merge_json_value(extra, &mut settings);
         }
 
-        // Migrate legacy settings from Tauri store (only if not already migrated)
         if let Some(legacy_overrides) = maybe_migrate_legacy_settings(config_path, &settings) {
             // At this point, `maybe_migrate_legacy_settings` has attempted to write the `customizations`
             // as freshly read from `config_path` back to `config_path`, after merging them with the legacy settings.
@@ -103,37 +101,30 @@ impl AppSettings {
         Ok(serde_json::from_value(settings)?)
     }
 
-    /// Load the default settings, and creating the directory if needed.
     pub fn load_from_default_path_creating_without_customization() -> Result<Self> {
         let config_dir = but_path::app_config_dir()?;
         AppSettings::load(&Self::default_settings_path(&config_dir), None)
     }
 
-    /// Return where the settings file would be placed in `config_dir`.
     pub fn default_settings_path(config_dir: &Path) -> PathBuf {
         config_dir.join(SETTINGS_FILE)
     }
 
     /// Save all value in this instance to the custom configuration file *if they differ* from the defaults.
     pub fn save(&self, config_path: &Path, customization: Option<serde_json::Value>) -> Result<()> {
-        // Load the current settings
         let current = serde_json::to_value(AppSettings::load(config_path, customization)?)?;
 
-        // Derive changed values only compared to the current settings
         let update = serde_json::to_value(self)?;
         let diff = json_difference(current, &update);
 
-        // Load the existing customizations only
         let mut customizations =
             serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
         let removed_deprecated_settings = remove_deprecated_settings(&mut customizations);
 
-        // If there are no changes and no deprecated settings to clean up, do nothing
         if diff == json!({}) && !removed_deprecated_settings {
             return Ok(());
         }
 
-        // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
         merge_json_value(diff, &mut customizations);
         but_utils::write(config_path, to_string_pretty(&customizations)?)?;
@@ -196,7 +187,6 @@ mod tests {
         // Load settings - migration should be skipped because flag is true
         let settings = AppSettings::load(&config_path, None).unwrap();
 
-        // Verify the flag is set to true
         assert!(
             settings.telemetry.migrated_from_legacy,
             "Migration flag should be true after migration"

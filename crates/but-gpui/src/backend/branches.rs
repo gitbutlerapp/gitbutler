@@ -48,7 +48,6 @@ pub struct OtherBranch {
     pub description: Option<String>,
 }
 
-/// One of a branch's own commits.
 #[derive(Debug, Clone)]
 pub struct OwnCommit {
     /// The day it was written, as [`super::upstream::day_of`] numbers days: a rebase leaves

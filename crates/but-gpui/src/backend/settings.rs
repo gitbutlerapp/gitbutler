@@ -166,7 +166,6 @@ pub fn set_forge_override(id: &str, forge: Option<Forge>) -> Result<()> {
     projects::update_project(request).map(|_| ())
 }
 
-/// Change the project's name.
 pub fn rename_project(id: &str, name: String) -> Result<()> {
     projects::update_project_settings(
         id.parse().context("Invalid project id")?,

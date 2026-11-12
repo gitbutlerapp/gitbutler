@@ -7,8 +7,6 @@ use but_rebase::graph_rebase::{
     mutate::{InsertSide, RelativeTo},
 };
 
-/// Move multiple commits.
-///
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
 ///

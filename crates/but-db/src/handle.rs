@@ -14,10 +14,8 @@ impl std::fmt::Debug for DbHandle {
     }
 }
 
-/// Lifecycle
 impl DbHandle {
-    /// Create a new instance connecting to a file-based database contained in `db_dir`.
-    /// It will be created or updated automatically.
+    /// The database is created or updated automatically.
     pub fn new_in_directory(db_dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let db_file_path = Self::db_file_path(db_dir);
         if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
@@ -26,8 +24,6 @@ impl DbHandle {
         Self::new_at_path(db_file_path)
     }
 
-    /// Open the project database for read-only access if it already exists.
-    ///
     /// Unlike [`Self::new_in_directory()`], this never creates parent directories,
     /// creates the database file, or runs migrations.
     pub fn open_existing_read_only_in_directory(
@@ -40,7 +36,6 @@ impl DbHandle {
         Self::open_existing_read_only_at_path(db_file_path).map(Some)
     }
 
-    /// Open an existing project database for read-only access.
     #[instrument(
         name = "DbHandle::open_existing_read_only_at_path",
         level = "trace",
@@ -54,7 +49,6 @@ impl DbHandle {
         Ok(DbHandle { conn, path, cache })
     }
 
-    /// A new instance connecting to the project database at the given `path`.
     #[instrument(
         name = "DbHandle::new_at_path",
         level = "trace",
@@ -70,7 +64,6 @@ impl DbHandle {
         Ok(DbHandle { conn, path, cache })
     }
 
-    /// Return the path to the standard database file.
     pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
         db_dir.as_ref().join(FILE_NAME)
     }

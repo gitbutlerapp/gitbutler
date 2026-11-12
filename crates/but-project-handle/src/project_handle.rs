@@ -33,7 +33,6 @@ pub enum ProjectHandleOrLegacyProjectId {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ProjectHandleOrLegacyProjectId);
 
-/// Lifecycle
 impl ProjectHandle {
     /// Create a project handle from `path`.
     /// Note that this *should* be the git-dir as it's the most stable, and also
@@ -50,7 +49,6 @@ impl ProjectHandle {
     }
 }
 
-/// Path conversion
 impl ProjectHandle {
     /// Decode this handle into its absolute filesystem path.
     pub fn to_path(&self) -> anyhow::Result<PathBuf> {

@@ -18,7 +18,6 @@ mod reference;
 use freshness::agent_default_install_path;
 pub(crate) use freshness::{agent_skill_notice, agent_skill_update_notice};
 
-/// Error type for user-initiated cancellation
 #[derive(Debug, Clone, Copy)]
 struct UserCancelled;
 
@@ -30,14 +29,12 @@ impl std::fmt::Display for UserCancelled {
 
 impl std::error::Error for UserCancelled {}
 
-// Embedded skill files
 const SKILL_MD: &str = include_str!("../../../skill/SKILL.md");
 const CONCEPTS_MD: &str = include_str!("../../../skill/references/concepts.md");
 const EXAMPLES_MD: &str = include_str!("../../../skill/references/examples.md");
 /// Body of a stub SKILL.md: the full skill's frontmatter followed by this.
 const STUB_MD: &str = include_str!("../../../skill/stub.md");
 
-/// Metadata for a skill file to be installed
 struct SkillFile {
     /// Relative path components from install directory.
     path_components: &'static [&'static str],
@@ -50,12 +47,10 @@ struct SkillFile {
 }
 
 impl SkillFile {
-    /// Get the actual installation path given a base directory.
     fn get_install_path(&self, base_dir: &std::path::Path) -> PathBuf {
         join_relative_path(base_dir, self.path_components)
     }
 
-    /// Format the relative path for output and JSON.
     fn display_path(&self) -> String {
         self.path_components.join("/")
     }
@@ -65,7 +60,6 @@ impl SkillFile {
         self.path_components == ["SKILL.md"]
     }
 
-    /// The document's text.
     fn text(&self) -> String {
         (self.content)()
     }
@@ -116,12 +110,9 @@ fn skill_files_in_write_order(layout: SkillLayout) -> impl Iterator<Item = &'sta
         .chain(SKILL_FILES.iter().filter(|file| file.is_main_skill_file()))
 }
 
-/// Represents a skill installation location format
 #[derive(Debug, Clone)]
 struct SkillFormat {
-    /// Display name of the format
     name: &'static str,
-    /// Description of where this format is used
     description: &'static str,
     /// Whether this format should be offered for local and/or global installs.
     availability: SkillFormatAvailability,
@@ -146,7 +137,6 @@ impl SkillFormat {
         }
     }
 
-    /// Get the actual installation path given a base directory
     fn get_install_path(&self, base_dir: &std::path::Path) -> PathBuf {
         join_relative_path(base_dir, self.path_components)
     }
@@ -194,7 +184,6 @@ fn join_relative_path(base_dir: &std::path::Path, components: &[&str]) -> PathBu
         })
 }
 
-// Common skill folder formats
 const SKILL_FORMATS: &[SkillFormat] = &[
     SkillFormat {
         name: "Agent Skills",
@@ -393,7 +382,6 @@ impl From<InstallScopeOption> for String {
     }
 }
 
-/// Status of an installed skill
 #[derive(Debug, Clone, Serialize)]
 pub struct SkillStatus {
     /// Path to the skill installation directory
@@ -408,14 +396,10 @@ pub struct SkillStatus {
     pub up_to_date: bool,
 }
 
-/// Result of checking all skills
 #[derive(Debug, Serialize)]
 pub struct SkillCheckResult {
-    /// Current CLI version
     pub cli_version: String,
-    /// List of all found skill installations with their status
     pub skills: Vec<SkillStatus>,
-    /// Number of outdated skills
     pub outdated_count: usize,
 }
 
@@ -510,7 +494,6 @@ fn repository_context(current_dir: &std::path::Path) -> Result<Option<Context>> 
     }
 }
 
-/// Expand tilde in path to home directory
 fn expand_tilde(path_str: &str) -> Option<PathBuf> {
     if path_str == "~" || path_str.starts_with("~/") || path_str.starts_with("~\\") {
         home_dir().map(|home| {
@@ -560,7 +543,6 @@ fn frontmatter_close(content: &str) -> Option<std::ops::Range<usize>> {
         })
 }
 
-/// Replace version in SKILL.md content
 fn inject_version(content: &str, version: &str) -> String {
     let replace = |text: &str| text.replace("version: 0.0.0", &format!("version: {version}"));
     match frontmatter_close(content) {
@@ -578,13 +560,11 @@ fn inject_version(content: &str, version: &str) -> String {
 fn resolve_custom_path(custom: &str, ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     let path = std::path::Path::new(custom);
 
-    // Try tilde expansion first
     let expanded_path = expand_tilde(custom).unwrap_or_else(|| path.to_path_buf());
 
     if expanded_path.is_absolute() {
         Ok(expanded_path)
     } else {
-        // Relative path - join with base directory
         let base_dir = get_base_dir(ctx, global)?;
         Ok(base_dir.join(expanded_path))
     }
@@ -665,10 +645,8 @@ fn frontmatter_value(content: &str, key: &str) -> Option<String> {
 fn parse_yaml_value(value: &str) -> String {
     let value = value.trim();
 
-    // Handle quoted strings
     if value.starts_with('"') || value.starts_with('\'') {
         let quote_char = value.chars().next().unwrap();
-        // Find the closing quote
         if let Some(end) = value[1..].find(quote_char) {
             return value[1..1 + end].to_string();
         }
@@ -738,8 +716,6 @@ fn is_current_skill_installation(path: &std::path::Path, version: &str) -> bool 
 const SCOPE_GLOBAL: &str = "global";
 const SCOPE_LOCAL: &str = "local";
 
-/// Find all GitButler skill installations.
-///
 /// Returns a list of (install_path, format_name, scope) tuples.
 fn find_all_installations(
     ctx: Option<&mut Context>,
@@ -748,7 +724,6 @@ fn find_all_installations(
 ) -> Result<Vec<(PathBuf, &'static str, &'static str)>> {
     let mut installations = Vec::new();
 
-    // Determine which base directories to check
     let mut base_dirs: Vec<(PathBuf, &str)> = Vec::new();
 
     if check_global && let Some(home) = home_dir() {
@@ -778,7 +753,6 @@ fn find_all_installations(
     Ok(installations)
 }
 
-/// Check the status of all installed skills.
 pub fn check_skill_status(
     ctx: Option<&mut Context>,
     check_global: bool,
@@ -825,7 +799,6 @@ fn check_skills(
     auto_update: bool,
 ) -> Result<()> {
     let t = theme::get();
-    // Determine scope
     let (check_global, check_local) = match (global_only, local_only) {
         (true, false) => (true, false),
         (false, true) => (false, true),
@@ -839,7 +812,6 @@ fn check_skills(
         None
     };
 
-    // Warn if --local was explicitly requested but no repo context is available
     if local_only && ctx.is_none() {
         anyhow::bail!(
             "Cannot check local installations: not in a git repository.\n\
@@ -888,7 +860,6 @@ fn check_skills(
         initial_result
     };
 
-    // Output based on format
     if let Some(writer) = out.for_human() {
         print_human_check_output(writer, &result)?;
 
@@ -1195,7 +1166,6 @@ pub(crate) fn write_skill_files(
     Ok(version)
 }
 
-/// Write a skill file with proper error context
 fn write_skill_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
     std::fs::write(path, content).with_context(|| {
         format!(
@@ -1205,7 +1175,6 @@ fn write_skill_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
     })
 }
 
-/// Install the skill files
 fn install_skill(
     current_dir: &std::path::Path,
     out: &mut OutputChannel,
@@ -1247,7 +1216,6 @@ fn install_skill(
 
     let mut progress = out.progress_channel();
 
-    // Validate flags
     if detect && custom_path.is_some() {
         anyhow::bail!("Cannot use both --detect and --path options together");
     }
@@ -1291,7 +1259,6 @@ fn install_skill(
 
     let mut version = "";
     for install_path in &install_paths {
-        // Validate installation path
         if install_path.exists() && install_path.is_file() {
             anyhow::bail!(
                 "Installation path {} is a file, not a directory. Please specify a directory path.",
@@ -1299,7 +1266,6 @@ fn install_skill(
             );
         }
 
-        // Check if files already exist and warn user
         if install_path.join("SKILL.md").exists()
             && let Some(writer) = out.for_human()
         {

@@ -39,7 +39,6 @@ pub(in crate::detail) struct BriefView {
     /// A page with a brief opens on it, until a tab with its changes is picked over it: whoever's
     /// reading one brief after another stays reading.
     pub(in crate::detail) first: bool,
-    /// What's being written.
     pub(super) input: Option<BriefInput>,
     pub(in crate::detail) list: ListState,
 }
@@ -84,7 +83,6 @@ impl BriefInput {
     }
 }
 
-/// What's being written on a Brief tab.
 #[derive(Clone, PartialEq, Eq)]
 pub(in crate::detail) enum Writing {
     /// A note, kept until it's sent.
@@ -128,7 +126,6 @@ pub(in crate::detail) struct BriefState {
     /// Its version, read as its tab first shows, or why it couldn't be. It stays while a newer
     /// version is read.
     pub(in crate::detail) shown: Option<Result<BriefPage, String>>,
-    /// What's open of what folds.
     pub(in crate::detail) open: HashSet<BriefFold>,
     /// The version picked over the one that matched the branch.
     pub(in crate::detail) version: Option<u32>,
@@ -173,7 +170,6 @@ impl BriefState {
         self.open.contains(&fold)
     }
 
-    /// Open `fold`, or shut it if it was open.
     pub(in crate::detail) fn toggle(&mut self, fold: BriefFold) {
         if !self.open.remove(&fold) {
             self.open.insert(fold);

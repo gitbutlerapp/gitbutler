@@ -17,7 +17,6 @@ use super::{
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::{Highlight, Theme};
 
-/// One of a conflict's rows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Part {
     /// What to keep, above the conflict.
@@ -57,7 +56,6 @@ pub enum Pick {
     Both,
 }
 
-/// What's kept of a conflict, as its rows draw it.
 pub enum Kept<'a> {
     Pick(Pick),
     /// Written by hand, or suggested; `writing` while the suggestion still streams in.
@@ -71,7 +69,6 @@ pub enum Kept<'a> {
 
 pub type OnPick = Rc<dyn Fn(Pick, &mut Window, &mut App)>;
 
-/// What the rows of a conflict act with.
 pub struct Actions {
     pub pick: OnPick,
     pub edit: OnToggle,
@@ -92,7 +89,6 @@ pub struct Name<'a> {
     pub phrase: &'a str,
 }
 
-/// What a conflict's rows draw from.
 pub struct Row<'a> {
     pub conflict: &'a Conflict,
     /// Its place among the conflicts shown, from 1, and how many there are.
@@ -101,7 +97,6 @@ pub struct Row<'a> {
     /// What the two sides are called, alone and in a sentence: what the commit or the
     /// changes now sit on, like the target, and the commit or the changes themselves.
     pub sides: [Name<'a>; 2],
-    /// What marks each side's name.
     pub icons: [Icon; 2],
     pub kept: Option<Kept<'a>>,
     /// The keyboard's picks go to it.
@@ -151,7 +146,6 @@ pub fn rows(rows: &mut Vec<DiffRow>, file: usize, conflict: &Conflict, view: Vie
     }
 }
 
-/// The row `part` of a conflict.
 pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
     let id = |name: &'static str, ix: usize| -> ElementId {
         (name, row.conflict.at as usize * 4096 + ix).into()

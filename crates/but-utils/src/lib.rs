@@ -23,10 +23,8 @@ mod legacy {
         path::{Path, PathBuf},
     };
 
-    /// A facility to read, write and delete files.
     #[derive(Debug, Clone)]
     pub struct Storage {
-        /// The directory into which all of or files will be written or read-from.
         local_data_dir: PathBuf,
     }
 
@@ -66,8 +64,6 @@ mod legacy {
             crate::create_dirs_then_write(file_path, content)
         }
 
-        /// Delete the file or directory at `rela_path`.
-        ///
         /// ### Panics
         ///
         /// If a symlink is encountered.
@@ -176,9 +172,6 @@ fn persist_tempfile(
     }
 }
 
-/// Reads and parses the state file.
-///
-/// If the file does not exist, it will be created.
 pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> Result<T> {
     let mut file = match File::open(path) {
         Ok(f) => f,

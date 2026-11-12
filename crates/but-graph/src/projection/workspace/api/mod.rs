@@ -20,7 +20,6 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 mod queries;
 
-/// Lifecycle
 impl Workspace {
     /// Redo the graph traversal with the same settings as before, but use the latest
     /// data from `repo`, `meta`, `project_meta` and `db` to do it.
@@ -50,10 +49,7 @@ impl Workspace {
     }
 }
 
-/// Query
 impl Workspace {
-    /// Return `true` if the workspace has workspace metadata associated with it.
-    /// This is relevant when creating references for example.
     pub fn has_metadata(&self) -> bool {
         self.metadata.is_some()
     }
@@ -71,7 +67,6 @@ impl Workspace {
     }
 }
 
-/// Utilities
 impl Workspace {
     /// Reconcile workspace metadata with the stacks in this projection using
     /// [`metadata.reconcile_projected_stacks()`](but_core::ref_metadata::Workspace::reconcile_projected_stacks).
@@ -232,7 +227,6 @@ impl Workspace {
             .chain(self.worktrees.iter().map(Lane::Worktree))
     }
 
-    /// Every segment of every lane.
     pub fn segments(&self) -> impl Iterator<Item = &StackSegment> + '_ {
         self.lanes().flat_map(|lane| lane.segments())
     }
@@ -242,7 +236,6 @@ impl Workspace {
         self.segments().flat_map(|segment| segment.commits.iter())
     }
 
-    /// Find the commit with `oid` in any lane.
     pub fn find_commit(&self, oid: impl Into<gix::ObjectId>) -> Option<&StackCommit> {
         let oid = oid.into();
         self.commits().find(|commit| commit.id == oid)
@@ -275,14 +268,12 @@ impl Workspace {
             .is_some_and(|upstream| upstream.as_ref() == name))
     }
 
-    /// Find a stack with the given `id` or error.
     pub fn try_find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> anyhow::Result<&Stack> {
         let id = id.into();
         self.find_stack_by_id(id)
             .with_context(|| format!("Couldn't find stack with id {id:?} in workspace"))
     }
 
-    /// Find a stack with the given `id`.
     pub fn find_stack_by_id(&self, id: impl Into<Option<StackId>>) -> Option<&Stack> {
         let id = id.into();
         self.stacks.iter().find(|s| s.id == id)
@@ -344,7 +335,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find `name` in any named [`StackSegment`] and return it along with the lane containing it.
     pub fn find_segment_and_lane_by_refname(
         &self,
         name: &gix::refs::FullNameRef,
@@ -357,7 +347,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find the [`StackSegment`] owning the commit `oid` and return it along with the lane containing it.
     pub fn find_segment_and_lane_by_commit_id(
         &self,
         oid: impl Into<gix::ObjectId>,
@@ -371,7 +360,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find `name` in any named [`StackSegment`] and return it along with the stack containing it.
     pub fn find_segment_and_stack_by_refname(
         &self,
         name: &gix::refs::FullNameRef,
@@ -386,7 +374,6 @@ impl Workspace {
     }
 }
 
-/// Debugging
 impl Workspace {
     /// Produce a distinct and compressed debug string to show at a glance what the workspace is about.
     pub fn debug_string(&self) -> String {
@@ -444,7 +431,6 @@ impl Workspace {
     }
 }
 
-/// Utilities
 impl TargetRef {
     /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
     /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way

@@ -24,7 +24,6 @@ pub(crate) type Job = Box<dyn FnOnce(&mut Emulator) + Send>;
 
 /// What reaches the emulator's thread, in the order it happened.
 pub(crate) enum Message {
-    /// What the shell wrote.
     Output(Vec<u8>),
     Run(Job),
     /// The terminal shows again, or a hold ran out, so what changed is to be drawn.
@@ -32,7 +31,6 @@ pub(crate) enum Message {
     /// Stop reading the shell, for another to adopt it.
     #[cfg(unix)]
     Detach(std::sync::mpsc::Sender<anyhow::Result<Detached>>),
-    /// The shell exited.
     Exited,
     /// The UI let go of the terminal.
     End,

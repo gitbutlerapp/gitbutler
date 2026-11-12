@@ -10,7 +10,6 @@ use serde_json::{Value, json};
 
 use crate::{Client, base, lenient, lenient_list, read_json, succeeded};
 
-/// A thread of comments on a brief.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thread {
@@ -170,7 +169,6 @@ pub struct RawActivity {
     pub versions: Value,
 }
 
-/// A comment to post.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewComment {
     pub body: String,

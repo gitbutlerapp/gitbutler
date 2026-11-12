@@ -102,8 +102,6 @@ fn table_exists(conn: &rusqlite::Connection, table_name: &str) -> rusqlite::Resu
          WHERE type='table' AND name=?
          LIMIT 1",
     )?;
-    // `query_row` will return the first row (if any) or an error if none.
-    // The `?` in the query is bound to the table name we passed.
     let mut rows = stmt.query([table_name])?;
     Ok(rows.next().expect("valid query").is_some())
 }

@@ -264,12 +264,10 @@ fn edit_commit_message_by_id_and_reword_commit(
     let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
     let current_message = commit_details.commit.inner.message.to_string();
 
-    // Get new message from provided argument, format flag, or editor
     let new_message = if format {
         if message.is_some() {
             bail!("Cannot use both --fix-formatting and --message flags together");
         }
-        // Format the current message without opening an editor
         Some(but_action::commit_format::format_commit_message(
             &current_message,
         ))
@@ -372,7 +370,6 @@ fn actually_get_commit_message_from_editor(
     diff: Option<&[BString]>,
     comment_prefix: &str,
 ) -> Result<String> {
-    // Generate commit message template with current message
     let mut template = String::new();
     template.push_str(current_message);
     if !current_message.is_empty() && !current_message.ends_with('\n') {
@@ -400,7 +397,6 @@ fn actually_get_commit_message_from_editor(
         }
     }
 
-    // Read the result and strip comments
     let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
         "commit_msg",
         &template,

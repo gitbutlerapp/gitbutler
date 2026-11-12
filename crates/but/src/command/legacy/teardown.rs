@@ -28,7 +28,6 @@ pub(crate) fn teardown(
 ) -> CliResult<()> {
     let t = theme::get();
 
-    // Check that we're on gitbutler/workspace
     let head_name = {
         let repo = ctx.repo.get()?;
         let head = repo.head()?;
@@ -92,7 +91,6 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    // Create an oplog snapshot
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", t.hint.paint("→ Creating snapshot..."))?;
     }
@@ -183,7 +181,6 @@ pub(crate) fn teardown(
         }
     }
 
-    // Check out the target branch using Git directly
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -193,7 +190,6 @@ pub(crate) fn teardown(
         )?;
     }
 
-    // Use git checkout via command
     let repo = ctx.repo.get()?;
     let workdir = repo
         .workdir()
@@ -240,7 +236,6 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    // Final success message
     if let Some(out) = out.for_human() {
         if hook_warnings.is_empty() {
             writeln!(
@@ -267,7 +262,6 @@ pub(crate) fn teardown(
         writeln!(out)?;
     }
 
-    // Output JSON if requested
     if let Some(out) = out.for_json() {
         out.write_value(&TeardownResult {
             snapshot_id,
@@ -294,7 +288,6 @@ fn try_stack_fixes(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()>
     // check if gitbutler/workspace is pointing at a commit that does not start with "GitButler Workspace Commit"
     let repo = ctx.repo.get()?;
 
-    // Look for dangling commits on gitbutler/workspace
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -321,7 +314,6 @@ fn try_stack_fixes(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()>
         } // This is a dangling commit
         dangling_commits.push(commit.clone());
 
-        // Move to parent
         let parent_ids: Vec<_> = commit.parent_ids().collect();
         if parent_ids.is_empty() {
             break;

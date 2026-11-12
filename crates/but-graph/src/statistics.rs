@@ -5,7 +5,6 @@ use crate::{
 };
 
 impl Graph {
-    /// Return the number segments whose commits are all exclusively in a remote.
     pub fn statistics(&self) -> Statistics {
         let mut out = Statistics::default();
         let Statistics {
@@ -143,25 +142,19 @@ impl Graph {
 /// than the total of segments.
 #[derive(Default, Debug, Clone)]
 pub struct Statistics {
-    /// The number of segments in the graph.
     pub segments: usize,
     /// Segments where all commits are integrated.
     pub segments_integrated: usize,
     /// Segments where all commits are on a remote tracking branch.
     pub segments_remote: usize,
-    /// Segments where the remote tracking branch is set
     pub segments_with_remote_tracking_branch: usize,
-    /// Segments that are empty.
     pub segments_empty: usize,
-    /// Segments that are anonymous.
     pub segments_unnamed: usize,
     /// Segments that are reachable by the workspace commit.
     pub segments_in_workspace: usize,
     /// Segments that are reachable by the workspace commit and are integrated.
     pub segments_in_workspace_and_integrated: usize,
-    /// Segments that have metadata for workspaces.
     pub segments_with_workspace_metadata: usize,
-    /// Segments that have metadata for branches.
     pub segments_with_branch_metadata: usize,
     /// `true` if the start of the traversal is in a workspace.
     /// `None` if the information could not be determined, maybe because the entrypoint
@@ -171,11 +164,8 @@ pub struct Statistics {
     pub segments_behind_of_entrypoint: usize,
     /// Segments, excluding the entrypoint, that can be reached upwards through the entrypoint.
     pub segments_ahead_of_entrypoint: usize,
-    /// The entrypoint of the graph traversal.
     pub entrypoint: (SegmentIndex, Option<CommitIndex>),
-    /// The number of incoming connections into the entrypoint segment.
     pub segment_entrypoint_incoming: usize,
-    /// The number of outgoing connections into the entrypoint segment.
     pub segment_entrypoint_outgoing: usize,
     /// Segments without incoming connections.
     pub top_segments: Vec<(
@@ -185,9 +175,7 @@ pub struct Statistics {
     )>,
     /// Segments without outgoing connections.
     pub segments_at_bottom: usize,
-    /// Connections between segments.
     pub connections: usize,
-    /// All commits within segments.
     pub commits: usize,
     /// All references stored with commits, i.e. not the ref-names absorbed by segments.
     pub commit_references: usize,

@@ -17,8 +17,6 @@ use ratatui::{
 
 use crate::tui::TerminalGuard as _;
 
-// ── Hard wrap utility for commit messages ───────────────────────────────────
-
 /// Hard wraps commit message text at 72 characters.
 /// First line is preserved as-is (the summary line), subsequent lines are wrapped,
 /// except for comment lines starting with `comment_prefix`.
@@ -30,20 +28,16 @@ pub(super) fn hard_wrap_commit_message(text: &str, comment_prefix: &str) -> Stri
 
     let mut result = Vec::new();
 
-    // First line (summary) - keep as-is
     if let Some(first) = lines.first() {
         result.push(first.to_string());
     }
 
-    // Process remaining lines
     for line in lines.iter().skip(1) {
-        // Empty lines and comment lines are preserved
         if line.trim().is_empty() || line.starts_with(comment_prefix) {
             result.push(line.to_string());
             continue;
         }
 
-        // Wrap line at 72 characters
         let words: Vec<&str> = line.split_whitespace().collect();
         let mut current_line = String::new();
 
@@ -67,8 +61,6 @@ pub(super) fn hard_wrap_commit_message(text: &str, comment_prefix: &str) -> Stri
     result.join("\n")
 }
 
-// ── Colour palette (inspired by the screenshot) ──────────────────────────────
-
 const MENU_BAR_BG: Color = Color::Rgb(90, 90, 140);
 const MENU_BAR_FG: Color = Color::Rgb(220, 220, 220);
 const MENU_ACTIVE_BG: Color = Color::Rgb(180, 200, 60);
@@ -85,16 +77,12 @@ const DROPDOWN_HIGHLIGHT_BG: Color = Color::Rgb(100, 110, 160);
 const CURSOR_BG: Color = Color::Rgb(200, 200, 200);
 const CURSOR_FG: Color = Color::Rgb(30, 30, 30);
 
-// ── Editor mode ──────────────────────────────────────────────────────────────
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum EditorMode {
     CommitMessage,
     PullRequest,
     BranchName,
 }
-
-// ── Menu definitions ─────────────────────────────────────────────────────────
 
 struct MenuItem {
     label: &'static str,
@@ -152,21 +140,15 @@ static HELP_MENU: [MenuItem; 2] = [
     },
 ];
 
-// ── Help overlay ─────────────────────────────────────────────────────────────
-
 #[derive(Default)]
 struct HelpOverlay {
     active: bool,
 }
 
-// ── About overlay ────────────────────────────────────────────────────────────
-
 #[derive(Default)]
 struct AboutOverlay {
     active: bool,
 }
-
-// ── Editor state ─────────────────────────────────────────────────────────────
 
 struct EditorApp {
     lines: Vec<String>,
@@ -178,10 +160,8 @@ struct EditorApp {
     should_quit: bool,
     save_on_quit: bool,
     mode: EditorMode,
-    // Menus
     active_menu: Option<usize>,
     menu_item_index: usize,
-    // Overlays
     help_overlay: HelpOverlay,
     about_overlay: AboutOverlay,
     // Layout cache (set during render)
@@ -199,7 +179,6 @@ impl EditorApp {
         } else {
             content.lines().map(String::from).collect()
         };
-        // Ensure at least one line
         let lines = if lines.is_empty() {
             vec![String::new()]
         } else {
@@ -230,8 +209,6 @@ impl EditorApp {
         self.lines.join("\n")
     }
 
-    // ── Cursor helpers ───────────────────────────────────────────────────
-
     fn clamp_cursor(&mut self) {
         if self.cursor_row >= self.lines.len() {
             self.cursor_row = self.lines.len() - 1;
@@ -257,8 +234,6 @@ impl EditorApp {
             self.scroll_col = self.cursor_col - visible_cols + 1;
         }
     }
-
-    // ── Edit operations ──────────────────────────────────────────────────
 
     fn insert_char(&mut self, ch: char) {
         self.lines[self.cursor_row].insert(self.cursor_col, ch);
@@ -307,8 +282,6 @@ impl EditorApp {
         }
     }
 
-    // ── Menu action dispatch ─────────────────────────────────────────────
-
     fn execute_menu_action(&mut self, action: MenuAction) {
         self.active_menu = None;
         match action {
@@ -332,10 +305,7 @@ impl EditorApp {
         }
     }
 
-    // ── Input handling ───────────────────────────────────────────────────
-
     fn handle_event(&mut self, ev: Event) {
-        // Decrement hint highlight counter
         if self.hint_highlight_frames > 0 {
             self.hint_highlight_frames = self.hint_highlight_frames.saturating_sub(1);
             if self.hint_highlight_frames == 0 {
@@ -343,7 +313,6 @@ impl EditorApp {
             }
         }
 
-        // If help overlay is active, any key dismisses it
         if self.help_overlay.active {
             if let Event::Key(key) = ev
                 && key.kind == KeyEventKind::Press
@@ -353,7 +322,6 @@ impl EditorApp {
             return;
         }
 
-        // If about overlay is active, any key dismisses it
         if self.about_overlay.active {
             if let Event::Key(key) = ev
                 && key.kind == KeyEventKind::Press
@@ -374,7 +342,6 @@ impl EditorApp {
                 let ctrl = mods.contains(KeyModifiers::CONTROL);
 
                 match key.code {
-                    // ── Ctrl shortcuts ────────────────────────────────
                     KeyCode::Char('s') if ctrl => {
                         self.execute_menu_action(MenuAction::Save);
                     }
@@ -382,7 +349,6 @@ impl EditorApp {
                         self.execute_menu_action(MenuAction::SaveAndQuit);
                     }
 
-                    // ── Navigation ────────────────────────────────────
                     KeyCode::Up => {
                         if self.cursor_row > 0 {
                             self.cursor_row -= 1;
@@ -451,7 +417,6 @@ impl EditorApp {
                         self.clamp_cursor();
                     }
 
-                    // ── Text editing ──────────────────────────────────
                     KeyCode::Char(ch) => {
                         self.insert_char(ch);
                     }
@@ -459,7 +424,6 @@ impl EditorApp {
                     KeyCode::Backspace => self.backspace(),
                     KeyCode::Delete => self.delete(),
                     KeyCode::Tab => {
-                        // Insert 4 spaces
                         self.lines[self.cursor_row].insert_str(self.cursor_col, "    ");
                         self.cursor_col += 4;
                         self.modified = true;
@@ -527,12 +491,10 @@ impl EditorApp {
     fn handle_mouse(&mut self, mouse: crossterm::event::MouseEvent) {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
-                // Check if click is on the menu bar (row 0 relative to terminal)
                 if mouse.row == 0 {
                     self.handle_menu_bar_click(mouse.column);
                     return;
                 }
-                // Click in editor area — set cursor
                 if mouse.row > 0
                     && mouse.row < self.editor_area.y + self.editor_area.height
                     && mouse.column >= self.editor_area.x + self.gutter_width
@@ -556,7 +518,6 @@ impl EditorApp {
     }
 
     fn handle_menu_bar_click(&mut self, col: u16) {
-        // Determine which menu title was clicked
         let mut x = 1u16;
         for (i, title) in MENU_TITLES.iter().enumerate() {
             let w = title.len() as u16 + 2; // padding
@@ -617,12 +578,10 @@ impl EditorApp {
                 _ => {}
             },
             Event::Mouse(mouse) if mouse.kind == MouseEventKind::Down(MouseButton::Left) => {
-                // Check if click is on menu bar
                 if mouse.row == 0 {
                     self.handle_menu_bar_click(mouse.column);
                     return;
                 }
-                // Check if click is inside the dropdown
                 if let Some(mi) = self.active_menu {
                     let dropdown_rect = self.dropdown_rect(mi);
                     if mouse.row >= dropdown_rect.y
@@ -639,15 +598,12 @@ impl EditorApp {
                         return;
                     }
                 }
-                // Click outside menu → close it and handle as editor click
                 self.active_menu = None;
                 self.handle_mouse(mouse);
             }
             _ => {}
         }
     }
-
-    // ── Dropdown rect calculation ────────────────────────────────────────
 
     fn dropdown_rect(&self, menu_index: usize) -> Rect {
         let items = menu_items(menu_index);
@@ -665,8 +621,6 @@ impl EditorApp {
         Rect::new(x, 1, width, height)
     }
 }
-
-// ── Rendering ────────────────────────────────────────────────────────────────
 
 fn render(frame: &mut ratatui::Frame, app: &mut EditorApp) {
     let area = frame.area();
@@ -690,19 +644,16 @@ fn render(frame: &mut ratatui::Frame, app: &mut EditorApp) {
         render_dropdown(frame, app, mi);
     }
 
-    // Render help overlay if active
     if app.help_overlay.active {
         render_help_overlay(frame);
     }
 
-    // Render about overlay if active
     if app.about_overlay.active {
         render_about_overlay(frame);
     }
 }
 
 fn render_menu_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
-    // Fill the entire bar with the menu background
     let bar_bg = Paragraph::new("").style(Style::default().bg(MENU_BAR_BG));
     frame.render_widget(bar_bg, area);
 
@@ -726,7 +677,6 @@ fn render_menu_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
 fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
     app.editor_area = area;
 
-    // Calculate gutter width based on line count
     let line_count = app.lines.len();
     let digits = format!("{line_count}").len().max(2);
     app.gutter_width = digits as u16 + 2; // digit space + padding
@@ -735,7 +685,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
     let text_width = area.width.saturating_sub(app.gutter_width) as usize;
     app.ensure_cursor_visible();
 
-    // 72-char guide line position (only for commit message mode)
     let guide_col = if app.mode == EditorMode::CommitMessage {
         Some(72)
     } else {
@@ -746,7 +695,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
         let line_idx = app.scroll_row + row_offset;
         let y = area.y + row_offset as u16;
 
-        // Gutter (line number)
         let gutter_area = Rect::new(area.x, y, app.gutter_width, 1);
         if line_idx < app.lines.len() {
             let num_str = format!("{:>width$} ", line_idx + 1, width = digits);
@@ -763,7 +711,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
             frame.render_widget(gutter, gutter_area);
         }
 
-        // Text content
         let text_area = Rect::new(area.x + app.gutter_width, y, text_width as u16, 1);
 
         if line_idx < app.lines.len() {
@@ -824,7 +771,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
                 vis_col += tab_w;
             }
 
-            // Cursor at end of line
             if line_idx == app.cursor_row
                 && app.cursor_col >= byte_col
                 && app.cursor_col <= line.len()
@@ -838,7 +784,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
                 vis_col += 1;
             }
 
-            // Fill remaining space
             while rendered < text_width {
                 let is_guide = guide_col == Some(vis_col);
                 let bg = if is_guide {
@@ -872,7 +817,6 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
 fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
     let modified_indicator = if app.modified { "*" } else { "" };
 
-    // Mode name for display
     let mode_name = match app.mode {
         EditorMode::CommitMessage => "Commit Message",
         EditorMode::PullRequest => "Plain",
@@ -918,7 +862,6 @@ fn render_dropdown(frame: &mut ratatui::Frame, app: &EditorApp, menu_index: usiz
     let items = menu_items(menu_index);
     let rect = app.dropdown_rect(menu_index);
 
-    // Clamp to screen
     let screen = frame.area();
     let rect = Rect::new(
         rect.x.min(screen.width.saturating_sub(rect.width)),
@@ -927,7 +870,6 @@ fn render_dropdown(frame: &mut ratatui::Frame, app: &EditorApp, menu_index: usiz
         rect.height.min(screen.height.saturating_sub(rect.y)),
     );
 
-    // Clear the area behind the dropdown
     frame.render_widget(Clear, rect);
 
     let inner_width = rect.width.saturating_sub(2) as usize; // inside borders
@@ -1059,10 +1001,6 @@ fn render_about_overlay(frame: &mut ratatui::Frame) {
     frame.render_widget(about, rect);
 }
 
-// ── Public API ───────────────────────────────────────────────────────────────
-
-/// Opens the built-in TUI text editor.
-///
 /// Returns `Some(content)` if the user saved, or `None` if they cancelled.
 pub fn run_builtin_editor(
     filename: &str,
@@ -1092,7 +1030,6 @@ pub fn run_builtin_editor(
     }
 }
 
-/// Opens the built-in editor for a file on disk.
 /// Reads the file, lets the user edit, and writes it back on save.
 pub fn edit_file(path: &std::path::Path) -> anyhow::Result<()> {
     let content = if path.exists() {

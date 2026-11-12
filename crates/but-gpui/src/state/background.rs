@@ -129,7 +129,6 @@ impl Store {
         cx.notify();
     }
 
-    /// Show the update card again, now.
     pub fn show_update(&mut self, cx: &mut Context<Self>) {
         self.update_put_off = None;
         cx.notify();
@@ -144,7 +143,6 @@ impl Store {
         })
     }
 
-    /// When the app last fetched `id`.
     pub fn fetched_at(&self, id: &ProjectId) -> Option<SystemTime> {
         self.fetched.get(id).copied()
     }

@@ -2,11 +2,8 @@ use bstr::{BString, ByteSlice};
 use gix::date::parse::TimeBuf;
 use serde::Serialize;
 
-/// Utilities for diffing, with workspace integration.
 pub mod diff;
-/// RefInfo types for the UI.
 pub mod ref_info;
-/// Detailed graph workspace types for the UI.
 pub mod workspace;
 
 pub use ref_info::inner::RefInfo;
@@ -262,7 +259,6 @@ but_schemars::register_sdk_type!(BranchDetails);
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
-    /// The name of the branch.
     #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`

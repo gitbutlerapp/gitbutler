@@ -101,7 +101,6 @@ impl Row {
         }
     }
 
-    /// The block it draws of, if it does.
     fn block(self) -> Option<usize> {
         match self {
             Row::Block(at) | Row::Text { at, .. } => Some(at),
@@ -110,7 +109,6 @@ impl Row {
     }
 }
 
-/// Block `at`'s rows.
 fn block_rows(at: usize, block: &BriefBlock) -> Vec<Row> {
     let BriefBody::Text(paragraphs) = &block.body else {
         return vec![Row::Block(at)];
@@ -438,7 +436,6 @@ impl Detail {
         })
     }
 
-    /// The text selected in the brief.
     pub(super) fn selected_brief_text(&self) -> Option<String> {
         let (id, range) = self.note_range()?;
         let page = self.page.brief()?.shown.as_ref()?.as_ref().ok()?;
@@ -457,7 +454,6 @@ impl Detail {
         (!text.is_empty()).then_some(text)
     }
 
-    /// Whether the page has a brief to show.
     pub(crate) fn has_brief(&self) -> bool {
         // A tile of a row's changes is there beside its brief, not to show that again.
         !matches!(self.pinned, Some((_, RowKey::Changes(_))))
@@ -531,7 +527,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// The tab's rows as it's drawn now.
     fn brief_rows(&self) -> Vec<Row> {
         let state = self.page.brief();
         match state.and_then(|state| Some((state, state.page()?))) {

@@ -1095,7 +1095,6 @@ fn integrate_remote(
     Ok((result, incoming))
 }
 
-/// What [`Update`] did.
 #[derive(Debug)]
 pub enum UpdateOutcome {
     /// Nothing it picks is behind the target, so nothing changed.

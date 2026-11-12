@@ -41,7 +41,6 @@ pub enum BarItem {
 }
 
 impl BarItem {
-    /// The action it runs, if it runs one.
     pub fn action(&self) -> Option<&String> {
         match self {
             BarItem::Action { action, .. } => Some(action),
@@ -49,7 +48,6 @@ impl BarItem {
         }
     }
 
-    /// What the menu calls it.
     pub fn title(&self) -> String {
         match self {
             BarItem::Divider => String::new(),
@@ -123,12 +121,10 @@ impl From<BarItem> for ItemText {
     }
 }
 
-/// The menus `text` lays out.
 pub fn parse(text: &str) -> Result<Vec<BarMenu>> {
     serde_json_lenient::from_str(text).context("not a menu bar")
 }
 
-/// The file's text for `menus`.
 pub fn written(menus: &[BarMenu]) -> Result<String> {
     let json = serde_json::to_string_pretty(menus)?;
     Ok(format!("{HEADER}{json}\n"))
@@ -173,7 +169,6 @@ fn os_action(action: &str) -> Option<OsAction> {
     }
 }
 
-/// Whether this build offers `action` in its menus.
 pub fn offered(action: &str, cx: &App) -> bool {
     action != CHECK_FOR_UPDATES
         || (cx.try_global::<crate::Embedded>()).is_some_and(|e| e.update_feed.is_some())

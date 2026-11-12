@@ -110,7 +110,6 @@ pub struct Outcome {
     /// there was a conflict. Check [Outcome::conflicting_stacks]
     /// and [Outcome::status] to tell whether anything was actually persisted.
     pub workspace: but_graph::Workspace,
-    /// The precise kind of apply operation that completed.
     pub status: OutcomeStatus,
     /// The branch(es) that were activated or recorded by the operation.
     ///

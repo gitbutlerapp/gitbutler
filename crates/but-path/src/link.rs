@@ -14,7 +14,6 @@ use crate::AppChannel;
 /// place in it `at` names.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpenLink {
-    /// The project's directory.
     pub path: PathBuf,
     /// Open it in a window of its own rather than the one in front.
     pub new_window: bool,
@@ -137,7 +136,6 @@ mod tests {
     use super::OpenLink;
     use crate::AppChannel;
 
-    /// `pairs` as a link's place.
     fn at(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         (pairs.iter())
             .map(|(key, value)| (key.to_string(), value.to_string()))

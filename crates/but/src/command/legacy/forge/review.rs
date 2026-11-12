@@ -42,7 +42,6 @@ pub async fn enable_auto_merge(
 
     // Iterate over the reviews that need to be mutated. Skip if their in an invalid state.
     for review_id in review_ids {
-        // Fetch the latest information about the review
         let review = but_api::legacy::forge::get_review(ctx, review_id).ok();
 
         if let Some(review) = review {
@@ -133,7 +132,6 @@ fn auto_merge_summary_lines(
     lines
 }
 
-/// Set the draftiness of or or multiple reviews.
 pub async fn set_draftiness(
     ctx: &mut Context,
     selector: Option<String>,
@@ -156,7 +154,6 @@ pub async fn set_draftiness(
 
     // Iterate over the reviews and validate the state, before mutating.
     for review_id in review_ids {
-        // Fetch the latest information about the review
         let review = but_api::legacy::forge::get_review(ctx, review_id).ok();
 
         if let Some(review) = review {
@@ -253,7 +250,6 @@ pub async fn set_draftiness(
     Ok(())
 }
 
-/// Set the review template for the given project.
 pub fn set_review_template(
     ctx: &mut Context,
     template_path: Option<String>,
@@ -307,9 +303,8 @@ pub fn set_review_template(
     Ok(())
 }
 
-/// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
-/// If there is only one branch without a an acco, asks for confirmation.
+/// If there is only one branch without a review, asks for confirmation.
 #[expect(clippy::too_many_arguments)]
 pub async fn create_review(
     ctx: &mut Context,
@@ -331,11 +326,9 @@ pub async fn create_review(
     let review_map = get_review_map_strict(ctx, Some(but_forge::CacheConfig::NoCache))?;
     let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
 
-    // If branch is specified, resolve it
     let maybe_branch_names = if let Some(branch_id) = branch {
         Some(get_branch_names(&ctx.legacy_project, &branch_id)?)
     } else {
-        // Find branches without PRs
         let branches_without_prs = get_branches_without_prs(&review_map, &lanes)?;
 
         if branches_without_prs.is_empty() {
@@ -344,7 +337,6 @@ pub async fn create_review(
             }
             return Ok(());
         } else if branches_without_prs.len() == 1 {
-            // If there's only one branch without a PR, ask for confirmation
             let branch_name = &branches_without_prs[0];
             let mut inout = out
                 .prepare_for_terminal_input()
@@ -360,7 +352,6 @@ pub async fn create_review(
                 return Ok(());
             }
         } else {
-            // Multiple branches without PRs - let the prompt handle it
             None
         }
     };
@@ -447,7 +438,6 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<()> {
         .into())
 }
 
-/// Get list of branch names that don't have PRs yet.
 fn get_branches_without_prs(
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     lanes: &[HeadInfoStack],
@@ -464,9 +454,7 @@ fn get_branches_without_prs(
             {
                 // This means that there are no associated reviews that are open, but that doesn't mean that there are
                 // no associated reviews.
-                // Check whether there's an associated forge review.
                 if branch.review_id.is_none() {
-                    // If there's no associated review, the append the branch
                     branches_without_prs.push(branch_name.to_owned());
                 }
             }
@@ -604,7 +592,6 @@ fn pr_created_tag_for(
     Some(format!("<pr-created>{}</pr-created>", review.html_url))
 }
 
-/// Prompt the user to select branches to publish.
 fn prompt_for_branch_selection(
     ctx: &Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -787,7 +774,6 @@ fn display_review_publication_summary(
     outcome: PublishReviewsOutcome,
     out: &mut dyn std::fmt::Write,
 ) -> std::fmt::Result {
-    // Show already existing PRs
     if !outcome.already_existing.is_empty() {
         writeln!(out)?;
         for review in &outcome.already_existing {
@@ -795,7 +781,6 @@ fn display_review_publication_summary(
         }
     }
 
-    // Show newly published PRs
     if !outcome.published.is_empty() {
         writeln!(out)?;
         for review in &outcome.published {
@@ -816,7 +801,6 @@ fn display_review_publication_summary(
     Ok(())
 }
 
-/// Print information about a newly created PR
 fn print_new_pr_info(
     review: &but_forge::ForgeReview,
     out: &mut dyn std::fmt::Write,
@@ -850,7 +834,6 @@ fn print_new_pr_info(
     Ok(())
 }
 
-/// Print information about an existing PR
 fn print_existing_pr_info(
     review: &but_forge::ForgeReview,
     out: &mut dyn std::fmt::Write,
@@ -923,7 +906,6 @@ pub fn parse_review_message(content: &str) -> Option<ForgeReviewMessage> {
         return None;
     }
 
-    // Skip any leading blank lines after the title, then collect the rest as description
     let body = lines
         .skip_while(|l| l.trim().is_empty())
         .collect::<Vec<_>>()
@@ -944,8 +926,6 @@ async fn publish_review_for_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<PublishReviewResult> {
     let branch_name = branch.name.as_str();
-    // Check if a review already exists for the branch.
-    // If it does, skip publishing a new review.
     let existing_reviews = review_map.get(branch_name);
     if let Some(reviews) = existing_reviews
         && !reviews.is_empty()
@@ -990,7 +970,6 @@ async fn publish_review_for_branch(
         get_pr_title_and_body_from_editor(ctx, commit.as_ref(), branch_name)?
     };
 
-    // Publish a new review for the branch
     but_api::legacy::forge::publish_review_only(
         ctx.to_sync(),
         branch.reference.clone(),
@@ -1037,7 +1016,6 @@ fn get_pr_title_and_body_from_editor(
 ) -> anyhow::Result<(String, String)> {
     let mut template = String::new();
 
-    // Use the first line of the commit message as the default title if available
     let commit_title =
         extract_commit_title(commit).map(|s| s.replace(HTML_COMMENT_START_MARKER, "<\\!--"));
     if let Some(commit_title) = commit_title {
@@ -1047,10 +1025,8 @@ fn get_pr_title_and_body_from_editor(
     }
     template.push('\n');
 
-    // Add a blank line between title and description
     template.push('\n');
 
-    // Use commit description as template if available
     let commit_description = extract_commit_description(commit);
     if let Some(commit_description) = commit_description {
         for line in commit_description {
@@ -1062,7 +1038,6 @@ fn get_pr_title_and_body_from_editor(
         template.push('\n');
     }
 
-    // Add instructions as comments
     let mut instructions = format!(
         "
 # Creating PR for branch: {branch_name}
@@ -1075,16 +1050,13 @@ HTML comments are stripped before submit.
 "
     );
 
-    // Add commit list with modified files as context
     if let Ok(commits) = branch_commits(ctx, branch_name)
         && !commits.is_empty()
     {
         instructions.push_str("\n# Commits in this PR:\n\n");
 
-        // Get the repository for diff operations
         let repo = ctx.repo.get()?;
         for (idx, commit) in commits.iter().enumerate() {
-            // Extract commit title (first line of message)
             let commit_title = commit
                 .message
                 .lines()
@@ -1101,7 +1073,6 @@ HTML comments are stripped before submit.
                 commit.id.to_hex_with_len(7)
             ));
 
-            // Get the files modified in this commit
             let parent = commit.parent_ids.first().copied();
             if let Ok(changes) = but_core::diff::TreeChanges::from_trees(&repo, parent, commit.id) {
                 let mut changes: Vec<String> = changes
@@ -1142,7 +1113,6 @@ HTML comments are stripped before submit.
     Ok((message.title, message.body))
 }
 
-/// Extract the commit description (body) from the commit message, skipping the first line (title).
 fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     commit.and_then(|c| {
         let desc_lines: Vec<&str> = c
@@ -1160,12 +1130,10 @@ fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
     })
 }
 
-/// Extract the commit title from the commit message (first line).
 fn extract_commit_title(commit: Option<&Commit>) -> Option<&str> {
     commit.and_then(|c| c.message.lines().next().and_then(|l| l.to_str().ok()))
 }
 
-/// Get a mapping from branch names to their associated reviews.
 #[instrument(skip(ctx))]
 pub fn get_review_map(
     ctx: &Context,
@@ -1239,13 +1207,11 @@ fn resolve_review_selection(
     let id_map = IdMap::legacy_new_from_context(ctx)?;
     let lanes = crate::legacy::workspace::applied_lanes(ctx)?;
     let target_review_ids = if let Some(selector) = selector {
-        // Extract any review IDs that match any of the associated reviews in the workspace.
         let review_ids = lanes
             .iter()
             .flat_map(review_ids_for_stack)
             .collect::<Vec<_>>();
         let mut unique_review_ids = parse_review_ids(&selector, &review_ids);
-        // Concatenate any review IDs associated with the selected CliIDs.
         unique_review_ids.extend(resolve_cli_ids_to_review_ids(
             ctx, &selector, &lanes, &id_map,
         ));

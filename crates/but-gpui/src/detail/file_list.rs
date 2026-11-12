@@ -75,7 +75,6 @@ use crate::ui::{
     h_flex, icon_button, matched, muted, plural, popover, shortcut, side_row, small_icon, v_flex,
 };
 
-/// Where a file list's files come from.
 #[derive(Clone)]
 enum FileSource {
     /// A checkout's uncommitted files.
@@ -943,7 +942,6 @@ impl Detail {
             .collect()
     }
 
-    /// The paths of the files picked.
     fn picked_paths(&self) -> HashSet<&str> {
         (self.page.files().into_iter())
             .flat_map(|files| files.file_picks.iter())
@@ -1028,7 +1026,7 @@ impl Detail {
         cx.notify();
     }
 
-    /// Let the picked files go. Whether any were.
+    /// Whether any files were picked.
     pub fn clear_file_picks(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(files) = (self.page.files_mut()).filter(|files| !files.file_picks.is_empty())
         else {
@@ -1066,7 +1064,6 @@ impl Detail {
         }
     }
 
-    /// How many files are picked.
     pub fn picked_files(&self) -> usize {
         (self.page.files()).map_or(0, |files| files.file_picks.len())
     }

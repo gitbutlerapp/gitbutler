@@ -113,7 +113,6 @@ mod hex_hash {
         use bstr::ByteSlice;
         use but_core::ChangeId;
 
-        /// Newtype that serializes changes ids as strings.
         pub struct ChangeIdString(pub ChangeId);
 
         impl From<ChangeId> for ChangeIdString {
@@ -316,9 +315,7 @@ mod error {
         }
     }
 
-    /// A utility to convert any `Result<T, impl std::error::Error>` into a [JSON-Error](Error).
     pub trait ToJsonError<T> {
-        /// Convert this instance into a Result<T, [JSON-Error](Error)>.
         fn to_json_error(self) -> Result<T, Error>;
     }
 
@@ -540,7 +537,6 @@ mod error {
     }
 }
 
-/// To make bstring work with schemars.
 #[cfg(feature = "path-bytes")]
 fn bstring_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     // TODO: implement this. How to get description and what not?

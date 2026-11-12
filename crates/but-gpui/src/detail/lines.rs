@@ -58,7 +58,6 @@ fn changed(file: &FileDiff) -> impl Iterator<Item = (HunkKey, usize)> + '_ {
 }
 
 impl Detail {
-    /// Whether line `line` of the hunk with `key` in the file at `path` is picked.
     pub(super) fn line_picked(&self, path: &str, key: HunkKey, line: usize) -> bool {
         (self.page.line_picks())
             .is_some_and(|picks| picks.path == path && picks.lines.contains(&(key, line)))
@@ -136,7 +135,6 @@ impl Detail {
         self.grip_over = (self.grip_over.take()).map(|(at, _)| (at, self.grip_takes(at)));
     }
 
-    /// How many lines are picked.
     pub fn picked_line_count(&self) -> usize {
         (self.page.line_picks()).map_or(0, |picks| picks.lines.len())
     }
@@ -211,7 +209,7 @@ impl Detail {
             .or_else(|| Some(crate::terminal::shell_quoted([&part.file.path])))
     }
 
-    /// Let the picked lines go. Whether any were.
+    /// Whether any lines were picked.
     pub fn clear_line_picks(&mut self, cx: &mut Context<Self>) -> bool {
         let had = (self.page.files_mut())
             .and_then(|files| files.line_picks.take())

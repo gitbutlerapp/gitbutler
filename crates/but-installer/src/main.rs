@@ -1,8 +1,3 @@
-//! GitButler installer binary
-//!
-//! This binary provides a command-line interface for installing GitButler.
-//! The actual installation logic is in the library.
-
 fn main() {
     #[cfg(unix)]
     if let Err(e) = but_installer::run_installation() {

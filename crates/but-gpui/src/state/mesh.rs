@@ -389,7 +389,6 @@ impl Store {
         self.mesh.checkouts.get(project).map_or(&[], |c| &c[..])
     }
 
-    /// `project`'s checkout `id` on another machine.
     pub fn mesh_checkout(&self, project: &ProjectId, id: &str) -> Option<&Checkout> {
         self.mesh_checkouts(project).iter().find(|c| c.id == id)
     }

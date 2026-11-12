@@ -368,9 +368,7 @@ struct KeyBindId(usize);
 
 #[derive(Debug)]
 pub struct KeyBinds {
-    /// All registered key binds.
     all_key_binds: Vec<KeyBind>,
-    /// Which key binds are available in which modes?
     mode_to_key_binds: HashMap<ModeDiscriminant, Vec<KeyBindId>>,
 }
 
@@ -1638,7 +1636,6 @@ fn format_key_code(code: KeyCode, shifted: bool) -> String {
     }
 }
 
-/// Normalize a character for chord display rendering.
 fn normalize_char_for_display(ch: char, shifted: bool) -> char {
     if shifted && ch.is_ascii_alphabetic() {
         ch.to_ascii_lowercase()

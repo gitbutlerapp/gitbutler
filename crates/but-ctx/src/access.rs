@@ -5,7 +5,6 @@ pub use but_core::sync::{
 
 use crate::Context;
 
-/// Locking utilities to protect against concurrency on the same repo.
 impl Context {
     /// Try to obtain the exclusive inter-process lock on the entire project, preventing other GitButler
     /// instances to operate on it entirely.
@@ -28,7 +27,6 @@ impl Context {
     /// `GIT_INDEX_FILE`), that inter-process lock attempt is non-blocking and may be skipped when
     /// another GitButler process already holds it. This avoids deadlocking hook re-entry while the
     /// parent GitButler command waits for the hook.
-    /// Note that this works on a shared reference as internal state isn't changed.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
     pub fn exclusive_worktree_access(&mut self) -> RepoExclusiveGuard {

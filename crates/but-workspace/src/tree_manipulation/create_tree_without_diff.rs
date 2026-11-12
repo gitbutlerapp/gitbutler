@@ -1,5 +1,3 @@
-//! Utility for creating a tree with specific changes removed.
-
 use anyhow::Context as _;
 use bstr::ByteSlice as _;
 use but_core::{ChangeState, DiffSpec, HunkHeader};
@@ -10,15 +8,10 @@ use crate::tree_manipulation::hunk::{HunkSubstraction, subtract_hunks};
 /// Describes where the changes come from - either a commit or two trees.
 pub enum ChangesSource {
     /// Changes from a commit (diff between commit's parent and the commit itself)
-    Commit {
-        /// The commit ID to get changes from
-        id: gix::ObjectId,
-    },
+    Commit { id: gix::ObjectId },
     /// Changes between two arbitrary trees
     Tree {
-        /// The "after" tree ID
         after_id: gix::ObjectId,
-        /// The "before" tree ID
         before_id: gix::ObjectId,
     },
 }

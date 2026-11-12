@@ -56,9 +56,6 @@ pub const GQL_GET_PR_NODE_ID: &str = r#"
     }
     "#;
 
-/// Commits resolve their author to a GitHub account (`author.user`), which
-/// REST's timeline never reports — without a login, "your own push" cannot
-/// be told apart from anyone else's.
 /// The single-review fetch. GraphQL is the one source that lists a bot
 /// among a pull request's requested reviewers; REST leaves them out.
 pub const GQL_GET_PR: &str = r#"

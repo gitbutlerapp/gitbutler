@@ -7,9 +7,6 @@ use gix::{
     revwalk::Graph,
 };
 
-/// Return commits on `from`'s first-parent chain, stopping before the first
-/// commit that is reachable from `stop_before`.
-///
 /// The returned commits are ordered from `from` backwards along the first-parent chain, excluding
 /// the first commit that is reachable from `stop_before` by ancestry.
 pub fn first_parent_commit_ids_until(

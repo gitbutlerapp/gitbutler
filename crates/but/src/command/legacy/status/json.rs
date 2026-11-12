@@ -24,8 +24,6 @@ use crate::{
 
 use super::StatusContext;
 
-/// JSON output for the `but status` command
-/// This represents the status of the GitButler "workspace".
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceStatus {
@@ -34,7 +32,6 @@ pub struct WorkspaceStatus {
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conflicted_files: Vec<String>,
-    /// The stacks that are applied in the current workspace
     pub stacks: Vec<Stack>,
     /// The active linked worktrees, omitted when there are none
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -58,7 +55,6 @@ pub struct Worktree {
     pub reference: Option<String>,
     /// The commit the worktree's own commits rest on
     pub base: Option<WorktreeBase>,
-    /// The worktree's uncommitted changes
     pub uncommitted_changes: Vec<FileChange>,
     /// The branches of the worktree's lane with the commits it owns alone, newest first
     pub branches: Vec<Branch>,
@@ -68,7 +64,6 @@ pub struct Worktree {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorktreeBase {
-    /// The commit the worktree branches off
     pub commit_id: String,
     /// Whether that commit belongs to one of the workspace stacks, as opposed to being at or
     /// below the target
@@ -114,13 +109,11 @@ impl WorkspaceStatus {
     }
 }
 
-/// Represents a stack of branches applied in the current workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Stack {
     /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `squash`)
     pub cli_id: String,
-    /// Represents uncommitted changes assigned to this stack
     pub assigned_changes: Vec<FileChange>,
     /// The branches that are part of this stack, newest first
     pub branches: Vec<Branch>,
@@ -140,7 +133,6 @@ impl Stack {
     }
 }
 
-/// Represents a branch in the GitButler workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {
@@ -152,7 +144,6 @@ pub struct Branch {
     pub commits: Vec<Commit>,
     /// The commits that are only at the upstream of this branch, newest first
     pub upstream_commits: Vec<Commit>,
-    /// Represents the status of the branch with respect to the upstream
     pub branch_status: BranchStatus,
     /// If but status was invoked with --review and if the branch has an associated review ID (eg. PR number), it will be present here
     pub review_id: Option<String>,
@@ -203,7 +194,6 @@ pub enum CiConclusion {
     Unknown,
 }
 
-/// The merge status of a branch with the upstream branch
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MergeStatus {
@@ -220,7 +210,6 @@ pub enum MergeStatus {
     Empty,
 }
 
-/// The status of a branch with respect to its upstream
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BranchStatus {
@@ -236,7 +225,6 @@ pub enum BranchStatus {
     Integrated,
 }
 
-/// A commit that is in the GitButler workspace
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Commit {
@@ -249,13 +237,10 @@ pub struct Commit {
     pub change_id: Option<String>,
     /// The commit ID (SHA-1 or SHA-256 depending on the repository configuration)
     pub commit_id: String,
-    /// Timestamp of when the commit was created in format "YYYY-MM-DD HH:MM:SS +ZZZZ"
+    /// Timestamp of when the commit was authored, in RFC3339 format
     pub created_at: String,
-    /// The commit message
     pub message: String,
-    /// The name of the commit author
     pub author_name: String,
-    /// The email of the commit author
     pub author_email: String,
     /// Whether the commit is in a conflicted state. Only applicable to local commits (and not to upstream commits)
     pub conflicted: Option<bool>,
@@ -265,7 +250,6 @@ pub struct Commit {
     pub changes: Option<Vec<FileChange>>,
 }
 
-/// A change to a file in the repository
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileChange {
@@ -273,21 +257,16 @@ pub struct FileChange {
     pub cli_id: String,
     /// The file path, UTF-8 encoded (note - this can be lossy for some Operating Systems)
     pub file_path: String,
-    /// The type of change that happened to the file
     pub change_type: ChangeType,
 }
 
-/// The type of change that happened to a file
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ChangeType {
     /// The file was newly added (it was not tracked before)
     Added,
-    /// The file was deleted
     Removed,
-    /// The file was modified
     Modified,
-    /// The file was renamed
     Renamed,
 }
 
@@ -553,7 +532,6 @@ pub(crate) fn gix_time_to_rfc3339(time: &gix::date::Time) -> String {
         .unwrap_or_default()
 }
 
-/// Convert uncommitted files to JSON FileChange objects
 fn convert_uncommitted_files(
     files: &[super::uncommitted_file::UncommittedFileWithId],
     worktree_changes: &[but_core::ui::TreeChange],
@@ -572,7 +550,6 @@ fn convert_uncommitted_files(
         .collect()
 }
 
-/// Convert a BranchDetails to the JSON Branch type
 fn convert_branch_to_json(
     repo: &gix::Repository,
     segment: &SegmentWithId,
@@ -622,7 +599,6 @@ fn convert_branch_to_json(
     )
 }
 
-/// Convert the active linked worktrees.
 fn build_worktrees_json(
     status_ctx: &StatusContext,
     repo: &gix::Repository,
@@ -672,7 +648,6 @@ fn build_worktrees_json(
     Ok(out)
 }
 
-/// Build the complete WorkspaceStatus JSON structure.
 pub(super) fn build_workspace_status_json(
     status_ctx: &StatusContext,
     repo: &gix::Repository,
@@ -707,7 +682,6 @@ pub(super) fn build_workspace_status_json(
 
     let json_worktrees = build_worktrees_json(status_ctx, repo)?;
 
-    // Create a Commit object for the merge base.
     let merge_base_commit = if let Some(base) = &status_ctx.common_merge_base_data {
         let base_commit = repo.find_commit(base.commit_id)?;
         let base_commit_decoded = base_commit.decode()?;
@@ -732,7 +706,6 @@ pub(super) fn build_workspace_status_json(
     };
 
     let upstream_state_json = if let Some(upstream) = &status_ctx.upstream_state {
-        // Create a Commit object for the latest upstream commit
         let upstream_commit = repo.find_commit(upstream.commit_id)?;
         let upstream_commit_decoded = upstream_commit.decode()?;
         let upstream_author: but_workspace::ui::Author = upstream_commit_decoded.author()?.into();
@@ -756,7 +729,6 @@ pub(super) fn build_workspace_status_json(
             .last_fetched_ms
             .map(|ts| i128_to_rfc3339(ts as i128));
 
-        // Populate upstream_commits if show_upstream flag is set and base_branch is available.
         let upstream_commits = if status_ctx.flags.show_upstream {
             status_ctx.base_branch.as_ref().and_then(|bb| {
                 if bb.upstream_commits.is_empty() {

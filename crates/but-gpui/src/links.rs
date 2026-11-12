@@ -35,7 +35,6 @@ pub enum Route {
         /// A commit's change id, which finds it once an agent amended or rebased it.
         change: Option<String>,
     },
-    /// A page of settings.
     Settings(Page),
 }
 
@@ -130,7 +129,6 @@ fn select_route<'a>(
     })
 }
 
-/// The selection of `kind` that `get` names in `project`.
 fn selection<'a>(
     kind: SelectionKind,
     get: &impl Fn(&str) -> Option<&'a str>,

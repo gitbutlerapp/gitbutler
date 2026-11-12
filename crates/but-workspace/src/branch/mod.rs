@@ -455,7 +455,6 @@ impl Stack {
         self.ref_name().map(|rn| rn.as_ref())
     }
 
-    /// The same as [`name()`](Self::ref_name()), but returns the owned name.
     pub fn ref_name(&self) -> Option<&gix::refs::FullName> {
         self.segments
             .first()
@@ -617,31 +616,24 @@ pub fn local_tracking_branch(
     Ok(local_tracking_ref)
 }
 
-/// Functions and types related to adding a branch to the workspace.
 pub mod apply;
 pub use apply::{apply, apply_stack};
 
-/// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
 pub use unapply::function::{dissolve_unnecessary_workspace, unapply, unapply_stack};
 
-/// related types for removing a workspace reference.
 pub mod remove_reference;
 pub use remove_reference::remove_reference;
 
-/// related types for creating a workspace reference.
 pub mod create_reference;
 pub use create_reference::function::create_reference;
 
-/// Naming an anonymous segment.
 pub mod name_segment;
 pub use name_segment::name_segment;
 
-/// Functions and types related to moving branches across stacks.
 pub mod move_branch;
 pub use move_branch::function::{move_branch, tear_off_branch};
 
-/// Functions and types for integrating remote changes into local branches.
 pub mod integrate_branch_upstream;
 pub use integrate_branch_upstream::{
     BranchIntegrationStrategy, InitialBranchIntegration, IntegrationDivergenceCommit,

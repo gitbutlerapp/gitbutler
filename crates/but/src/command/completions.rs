@@ -6,7 +6,6 @@ use clap_complete::Shell;
 
 use crate::args::Args;
 
-/// Generate shell completions for the specified shell
 pub fn generate_completions(shell: Option<Shell>) -> Result<()> {
     let shell = shell.or_else(Shell::from_env).context(
         "Couldn't extract shell from `SHELL` environment variable - please specify it manually",

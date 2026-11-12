@@ -90,17 +90,13 @@ pub(crate) fn handle(
                 if let ChangeSourceId::Worktree(name) = source {
                     return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
                 }
-                // Absorb this particular file
                 AbsorptionTarget::Hunks {
                     hunks: hunks.map(|id_and_hunk| id_and_hunk.hunk).into(),
                 }
             }
-            CliId::Branch(branch) => {
-                // Absorb everything that is assigned to this lane
-                AbsorptionTarget::Branch {
-                    branch_name: branch.name,
-                }
-            }
+            CliId::Branch(branch) => AbsorptionTarget::Branch {
+                branch_name: branch.name,
+            },
             _ => {
                 return Err(anyhow::anyhow!(
                     "Invalid source: expected an uncommitted file or branch"
@@ -112,7 +108,6 @@ pub(crate) fn handle(
         if let ChangeSourceId::Worktree(name) = invoked_from.managed_source(&id_map)? {
             return Err(worktree_changes_cannot_be_absorbed(name.as_ref()).into());
         }
-        // Try to absorb everything uncommitted
         Default::default()
     };
 
@@ -137,7 +132,6 @@ pub(crate) fn handle(
     let plan_json = display_absorption_plan(&absorption_plan, &id_map, out, dry_run)?;
 
     if dry_run {
-        // Nothing more to do
         if let Some(out) = out.for_human() {
             let t = theme::get();
             let message = t.success.paint("Dry run complete. No changes were made.");
@@ -146,8 +140,6 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    // Create a snapshot before performing absorb or auto-commit operations
-    // This allows the user to undo if needed
     let operation = OperationKind::Absorb;
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
@@ -164,7 +156,6 @@ pub(crate) fn handle(
     Ok(())
 }
 
-/// Absorb a single file into the appropriate commit
 fn absorb_assignments(
     ctx: &mut Context,
     absorption_plan: Vec<CommitAbsorption>,
@@ -175,7 +166,6 @@ fn absorb_assignments(
 ) -> anyhow::Result<()> {
     let total_rejected = but_api::legacy::absorb::absorb_with_perm(ctx, absorption_plan, perm)?;
 
-    // Display completion message
     let t = theme::get();
     if let Some(out) = out.for_human() {
         writeln!(out)?;
@@ -213,7 +203,6 @@ fn absorb_assignments(
     Ok(())
 }
 
-/// Format a hunk range for display
 fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
     if hunk_header.old_lines == 0 {
         // New file or added lines only
@@ -233,7 +222,6 @@ fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
     }
 }
 
-/// Get all hunk ranges for a file
 fn get_hunk_ranges(hunk: &but_core::SingleHunk) -> Vec<String> {
     if let Some(hunk_header) = &hunk.hunk_header {
         vec![format_hunk_range(hunk_header)]
@@ -254,14 +242,12 @@ fn display_absorption_plan(
     out: &mut OutputChannel,
     write_json: bool,
 ) -> anyhow::Result<Option<JsonAbsorbOutput>> {
-    // Count total files
     let total_files: usize = commit_absorptions
         .iter()
         .flat_map(|c| c.hunks.iter().map(|h| &h.path))
         .unique()
         .count();
 
-    // Handle empty case
     if commit_absorptions.is_empty() || total_files == 0 {
         let output = JsonAbsorbOutput {
             total_files: 0,
@@ -341,8 +327,6 @@ fn display_absorption_plan(
         }
     }
 
-    // When write_json is false (non-dry-run), return the plan so the caller can
-    // combine it with the operation result in a single write_value call.
     Ok(if write_json { None } else { Some(plan_output) })
 }
 

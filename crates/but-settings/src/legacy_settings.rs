@@ -1,8 +1,3 @@
-//! Legacy settings migration.
-//!
-//! This module handles one-time migration of settings from the old legacy
-//! storage format to the new settings system.
-//!
 //! This module is temporary migration code and can be removed once we no longer
 //! need to support reading settings from the legacy Tauri store format and all
 //! supported application versions have shipped with the new settings system.
@@ -14,9 +9,6 @@ use serde_json::json;
 
 use crate::json::merge_json_value;
 
-/// Parse legacy settings JSON and map to new settings format.
-/// This function is pure and testable - it only does the transformation.
-///
 /// Always returns overrides with at least the `migratedFromLegacy` flag set to true,
 /// ensuring the migration is marked as complete even if no other fields were migrated.
 fn parse_legacy_settings_to_overrides(legacy_json: &serde_json::Value) -> serde_json::Value {
@@ -59,7 +51,6 @@ fn parse_legacy_settings_to_overrides(legacy_json: &serde_json::Value) -> serde_
     overrides
 }
 
-/// Read and parse legacy settings from a specific path.
 /// Returns parsed overrides (with migratedFromLegacy flag) if the file exists and is valid, None otherwise.
 fn read_legacy_overrides(legacy_store_path: &Path) -> Option<serde_json::Value> {
     if !legacy_store_path.exists() {
@@ -70,18 +61,14 @@ fn read_legacy_overrides(legacy_store_path: &Path) -> Option<serde_json::Value> 
     Some(parse_legacy_settings_to_overrides(&legacy_json))
 }
 
-/// Persist legacy overrides to disk by merging them with existing customizations.
 /// Reads the current config file, merges the legacy overrides into it, and writes back only if changed.
 fn maybe_persist_overrides(config_path: &Path, legacy_overrides: serde_json::Value) -> Result<()> {
-    // Read current customizations from disk
     let current_customizations: serde_json::Value =
         serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
-    // Merge legacy overrides into customizations
     let mut customizations_with_overrides = current_customizations.clone();
     merge_json_value(legacy_overrides, &mut customizations_with_overrides);
 
-    // Only write if the merged result differs from current
     let diff = crate::json::json_difference(current_customizations, &customizations_with_overrides);
 
     if let Some(diff_obj) = diff.as_object()
@@ -109,7 +96,6 @@ pub(crate) fn maybe_migrate_legacy_settings(
     config_path: &Path,
     current_settings: &serde_json::Value,
 ) -> Option<serde_json::Value> {
-    // Check if migration has already been completed
     let already_migrated = current_settings
         .get("telemetry")
         .and_then(|t| t.get("migratedFromLegacy"))
@@ -120,11 +106,9 @@ pub(crate) fn maybe_migrate_legacy_settings(
         return None;
     }
 
-    // Try to read legacy settings from the standard app data directory
     let legacy_store_path = but_path::app_data_dir().ok()?.join("settings.json");
     let legacy_overrides = read_legacy_overrides(&legacy_store_path)?;
 
-    // Persist the legacy overrides to disk
     if let Err(err) = maybe_persist_overrides(config_path, legacy_overrides.clone()) {
         tracing::error!("Failed to persist legacy settings overrides: {err:#}");
     }
@@ -309,7 +293,6 @@ mod read_legacy_overrides {
         let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
-        // Write valid legacy settings
         let legacy_settings = json!({
             "appAnalyticsConfirmed": true,
             "appMetricsEnabled": false,
@@ -339,7 +322,6 @@ mod maybe_persist_overrides {
         let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
-        // Write initial customizations
         let original = json!({"telemetry": {"appMetricsEnabled": true}});
         std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
 
@@ -347,7 +329,6 @@ mod maybe_persist_overrides {
         let overrides = json!({"onboardingComplete": true});
         maybe_persist_overrides(path, overrides)?;
 
-        // Verify file was written
         let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(true));
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
@@ -368,7 +349,6 @@ mod maybe_persist_overrides {
         });
         std::fs::write(path, serde_json::to_string_pretty(&original)?)?;
 
-        // Get modification time before
         let metadata_before = std::fs::metadata(path)?;
         let modified_before = metadata_before.modified()?;
 
@@ -384,7 +364,6 @@ mod maybe_persist_overrides {
         let modified_after = metadata_after.modified()?;
         assert_eq!(modified_before, modified_after);
 
-        // Verify content is still correct
         let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(true));
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(false));
@@ -428,13 +407,11 @@ mod maybe_persist_overrides {
         let config_path = temp_dir.path().join("settings.json");
         let legacy_path = temp_dir.path().join("legacy-settings.json");
 
-        // Create initial config with some customizations
         let initial_config = json!({
             "telemetry": {"appMetricsEnabled": true}
         });
         std::fs::write(&config_path, serde_json::to_string_pretty(&initial_config)?)?;
 
-        // Create legacy settings to migrate
         let legacy_settings = json!({
             "appAnalyticsConfirmed": true,
             "appErrorReportingEnabled": false
@@ -444,7 +421,6 @@ mod maybe_persist_overrides {
             serde_json::to_string_pretty(&legacy_settings)?,
         )?;
 
-        // Read legacy overrides and persist them
         let legacy_overrides = read_legacy_overrides(&legacy_path).unwrap();
         maybe_persist_overrides(&config_path, legacy_overrides)?;
 
@@ -585,7 +561,6 @@ mod maybe_persist_overrides {
         let temp_file = NamedTempFile::new()?;
         let path = temp_file.path();
 
-        // Write invalid JSON to config file
         std::fs::write(path, "{ this is not valid json }")?;
 
         let overrides = json!({

@@ -1,5 +1,3 @@
-//! Implementation of the `but discard` command.
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail};

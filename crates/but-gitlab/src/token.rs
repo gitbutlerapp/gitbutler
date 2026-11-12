@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::GitLabClient;
 
-/// Persist GitLab account access tokens securely.
 pub fn persist_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     access_token: &Sensitive<String>,
@@ -16,7 +15,6 @@ pub fn persist_gl_access_token(
     persist_gitlab_account(&oauth_account, storage)
 }
 
-/// Delete a GitLab account access token for a given username.
 pub fn delete_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -33,7 +31,6 @@ pub fn delete_gl_access_token(
     secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
-/// Retrieve a GitLab account access token for a given username.
 pub fn get_gl_access_token(
     account_id: &GitlabAccountIdentifier,
     storage: &but_forge_storage::Controller,

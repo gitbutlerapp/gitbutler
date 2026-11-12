@@ -111,7 +111,6 @@ impl Cache {
         })
     }
 
-    /// Whose it is.
     pub fn account(&self) -> &str {
         &self.account
     }
@@ -186,7 +185,6 @@ impl Cache {
         Ok(json.and_then(|json| serde_json::from_str(&json).ok()))
     }
 
-    /// Keep what's been said about `version` of brief `id`.
     pub fn put_activity(
         &self,
         id: &str,
@@ -278,7 +276,7 @@ impl Cache {
         Ok(())
     }
 
-    /// Keep a version read on its own, at `now`, in seconds since the epoch.
+    /// Keep a version read on its own.
     pub fn put_version(&self, version: &FetchedVersion) -> rusqlite::Result<()> {
         put_version(&self.conn, version)
     }

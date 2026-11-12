@@ -181,7 +181,6 @@ impl Detail {
         .collect()
     }
 
-    /// What has the keys in `pane`.
     pub(super) fn pane_focus(&self, pane: KeyPane) -> &FocusHandle {
         match pane {
             KeyPane::ProjectTabs => &self.project_tabs_focus,
@@ -203,7 +202,6 @@ impl Detail {
             .unwrap_or(KeyPane::Diff)
     }
 
-    /// The pane the keys last left on this page.
     fn last_pane(&self) -> Option<KeyPane> {
         self.page.files().and_then(|files| files.last_pane)
     }
@@ -216,7 +214,6 @@ impl Detail {
         }
     }
 
-    /// The pane `by` goes to from `from`, on this page.
     pub(crate) fn key_pane_after(&self, from: KeyPane, by: KeyMove, cx: &App) -> Option<KeyPane> {
         let shown = self.key_panes(cx);
         match by {
@@ -226,7 +223,6 @@ impl Detail {
         }
     }
 
-    /// The pane the keys land on coming into this page `by` that move.
     pub(crate) fn key_pane_entered(&self, by: KeyMove, cx: &App) -> Option<KeyPane> {
         let shown = self.key_panes(cx);
         match by {

@@ -56,7 +56,6 @@ pub fn find_unique_refname_excluding(
         })
         .collect();
 
-    // Check if the original name is available
     let short_name = template.shorten();
     if !rtb_lut.contains(short_name)
         && !is_taken(template)
@@ -65,7 +64,6 @@ pub fn find_unique_refname_excluding(
         return Ok(template.to_owned());
     }
 
-    // Extract base name and number if it already has a numerical suffix
     let trailing_number = short_name
         .rfind("-")
         .map(|pos| (&short_name[pos + 1..], pos))
@@ -75,7 +73,6 @@ pub fn find_unique_refname_excluding(
         });
     let (base, start_num) = trailing_number.unwrap_or((short_name, 1));
 
-    // Try incrementing numbers until we find one that doesn't exist
     let category = template
         .category()
         .with_context(|| format!("Input branch {template} could not be categorized"))?;
@@ -153,14 +150,11 @@ fn colliding_refname(
 
 fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow::Result<BString> {
     let name = author.name.to_str_lossy();
-    // Split by whitespace to get words
     let words: Vec<&str> = name.split_whitespace().collect();
 
-    // Try to extract initials from words
     let prefix: Vec<&str> = words
         .iter()
         .filter_map(|word| {
-            // Find the first usable character from the word
             for grapheme in word.graphemes(true) {
                 let Some(c) = grapheme.chars().next() else {
                     continue;
@@ -213,7 +207,6 @@ fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow:
     normalize_short_name(&*branch_name)
 }
 
-/// Check if a character belongs to a right-to-left script
 fn is_rtl_script(c: char) -> bool {
     matches!(c,
         '\u{0600}'..='\u{06FF}' | // Arabic

@@ -226,21 +226,18 @@ impl Details {
 
         let (selection, selection_did_change) = match (self.selection.as_ref(), new_selection) {
             (None, None) => {
-                // no selection
                 self.reset_line_reader();
                 self.clear_pending_first_section_selection();
 
                 return Ok(false);
             }
             (None, Some(new)) => {
-                // selected something
                 self.selection = Some(new.clone());
                 self.reset_line_reader();
 
                 (new, true)
             }
             (Some(_), None) => {
-                // deselected
                 self.selection = None;
                 self.reset_line_reader();
                 self.clear_lines();
@@ -251,11 +248,9 @@ impl Details {
             }
             (Some(old), Some(new)) => {
                 if old == new {
-                    // selection didn't change
                     // we might have to poll the channel so dont return
                     (old, false)
                 } else {
-                    // selected something new
                     self.selection = Some(new.clone());
                     self.reset_line_reader();
                     (new, true)
@@ -1570,8 +1565,6 @@ impl Details {
         Ok(())
     }
 
-    /// Toggles the mark of a committed hunk.
-    ///
     /// Marking a committed file or a commit in the status stores no marks for its hunks, since the
     /// status doesn't know them. Its hunks still show as marked because `MarksRef::contains_cli_id`
     /// counts a hunk as marked when its file or commit is. Toggling one of those hunks therefore

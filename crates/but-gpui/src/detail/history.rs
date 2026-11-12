@@ -385,12 +385,10 @@ impl Detail {
         });
     }
 
-    /// `project`'s operations, once read.
     fn history_for(&self, project: &ProjectId) -> Option<&History> {
         self.history.get(project).filter(|h| h.failed.is_none())
     }
 
-    /// The operations of the History page selected.
     fn page_history(&self) -> Option<&History> {
         match self.on_tab(ProjectTab::History) {
             Some(project) => self.history_for(&project),

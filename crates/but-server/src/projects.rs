@@ -26,7 +26,6 @@ struct ProjectHandles {
 }
 
 pub struct ActiveProjects {
-    /// The .git directory of the project we know as active.
     projects: HashMap<ProjectHandleOrLegacyProjectId, ProjectHandles>,
 }
 
@@ -47,7 +46,6 @@ impl ActiveProjects {
             return Ok(());
         }
 
-        // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
             let broadcaster = broadcaster.clone();
             move |value| {

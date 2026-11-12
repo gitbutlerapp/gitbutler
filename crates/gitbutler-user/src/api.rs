@@ -30,8 +30,6 @@ pub struct ApiHttpError {
     pub body: String,
 }
 
-/// Returns the GitButler API base URL.
-///
 /// Resolution order:
 /// 1. `GITBUTLER_API_URL` env var at runtime (backend-specific escape hatch)
 /// 2. `PUBLIC_API_BASE_URL` env var at runtime (shared with the desktop frontend)
@@ -131,7 +129,6 @@ pub fn fetch_user_by_token(token: &str) -> Result<serde_json::Value> {
     })
 }
 
-/// Read the stored user's access token from disk.
 fn stored_access_token() -> Result<String> {
     let user = crate::get_user()?.context("No logged-in user")?;
     Ok(user.access_token()?.0)

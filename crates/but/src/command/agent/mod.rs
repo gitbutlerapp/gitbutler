@@ -33,7 +33,6 @@ use policy::{WizardAnswers, WorkflowOption, render_managed_policy_block};
 const MANAGED_BLOCK_START: &str = "<!-- gitbutler-agent-setup:start -->";
 const MANAGED_BLOCK_END: &str = "<!-- gitbutler-agent-setup:end -->";
 
-/// Error type for user-initiated cancellation.
 #[derive(Debug, Clone, Copy)]
 struct UserCancelled;
 

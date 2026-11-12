@@ -39,14 +39,12 @@ pub fn now() -> Instant {
     }
 }
 
-/// Stop the clock where it is.
 #[cfg(feature = "dev-script")]
 pub fn stop() {
     let at = now();
     CLOCK.lock().stopped.get_or_insert(at);
 }
 
-/// Run the clock again from where it stopped.
 #[cfg(feature = "dev-script")]
 pub fn run() {
     let mut clock = CLOCK.lock();
@@ -55,7 +53,6 @@ pub fn run() {
     }
 }
 
-/// Whether the clock is stopped.
 #[cfg(feature = "dev-script")]
 pub fn stopped() -> bool {
     CLOCK.lock().stopped.is_some()

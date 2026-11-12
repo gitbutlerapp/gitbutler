@@ -23,7 +23,6 @@ pub struct ErrorData {
     pub error: String,
 }
 
-/// Hook result indicating either success or failure.
 #[derive(Serialize, PartialEq, Debug, Clone)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum HookResult {
@@ -32,8 +31,6 @@ pub enum HookResult {
     Failure(ErrorData),
 }
 
-/// Message hook result indicating either success, message, or failure.
-///
 /// A message hook can optionally mutate the message, so this special type is
 /// needed to distinguish between success, and success with message.
 #[derive(Serialize, PartialEq, Debug, Clone)]
@@ -271,7 +268,6 @@ pub fn pre_push(
         return Ok(HookResult::NotConfigured);
     };
 
-    // Execute the pre-push hook with remote name and URL as arguments
     let mut child = std::process::Command::try_from({
         let mut prep = gix::command::prepare(&hook_path);
         if cfg!(windows) {

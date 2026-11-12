@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 use std::collections::BTreeMap;
 
 use bstr::BString;
@@ -139,7 +138,6 @@ impl TreeChanges {
     }
 }
 
-/// Notably skip changes that
 fn changes_to_unidiff(
     changes: Vec<TreeChange>,
     repo: &gix::Repository,
@@ -339,7 +337,6 @@ but_schemars::register_sdk_type!(ChangeState);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[expect(missing_docs)]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,

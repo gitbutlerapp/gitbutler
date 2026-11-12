@@ -99,19 +99,16 @@ fn validate_gitbutler_url(
     url_type: &str,
     is_host_valid: impl Fn(&str) -> bool,
 ) -> Result<()> {
-    // Only allow HTTPS URLs
     if !url.starts_with("https://") {
         bail!("{url_type} must use HTTPS: {url}");
     }
 
-    // Extract host from URL
     let url_parsed =
         url::Url::parse(url).with_context(|| format!("Invalid {} URL", url_type.to_lowercase()))?;
     let host = url_parsed
         .host_str()
         .ok_or_else(|| anyhow!("No host in {} URL", url_type.to_lowercase()))?;
 
-    // Validate host using the provided predicate
     if !is_host_valid(host) {
         bail!("{url_type} is not from a trusted GitButler domain: {url}");
     }

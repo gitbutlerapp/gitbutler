@@ -74,7 +74,6 @@ pub struct Embedded {
     /// The desktop app's update feed for this build and version, which answers with a newer
     /// version or with nothing; `None` when the build doesn't look for updates.
     pub update_feed: Option<String>,
-    /// How often to ask the feed.
     pub check_every: std::time::Duration,
     /// Installed from a `.deb` or `.rpm`, which the system's package manager owns and the
     /// updater can't replace, so a new version is downloaded and installed by hand.

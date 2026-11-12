@@ -1,5 +1,3 @@
-//! Schemars utilities for JSON schema generation.
-//!
 //! Each helper in this crate is meant to be used from
 //! `#[schemars(schema_with = "...")]` on the field whose runtime type should be
 //! exported as a simpler JSON shape.
@@ -359,8 +357,6 @@ pub fn serde_error_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Sc
     generate.subschema_for::<Option<SerdeErrorSchema>>()
 }
 
-/// A Schema registered from around the codebase
-///
 /// This is used internally for the but-ts schema registration. You probably
 /// never need to use this struct directly or indirectly.
 ///
@@ -368,13 +364,9 @@ pub fn serde_error_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Sc
 /// macro.
 #[derive(Debug)]
 pub struct SchemarEntry {
-    /// The name of the schema getting registered
     pub name: fn() -> Cow<'static, str>,
-    /// The qualified type that was registered
     pub type_name: &'static str,
-    /// The location of the register call
     pub registration_location: &'static str,
-    /// The actual schema of the type getting registered
     pub schema: fn() -> schemars::Schema,
 }
 

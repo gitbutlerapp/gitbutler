@@ -20,7 +20,6 @@ use crate::{
     TreeStatus, UnifiedPatch, WorktreeChanges,
 };
 
-/// Identify where a [`TreeChange`] is from.
 enum Origin {
     /// The change was detected when doing a diff between a tree (`HEAD^{tree}`) and an index (`.git/index`).
     TreeIndex,
@@ -995,7 +994,6 @@ fn disk_kind_to_entry_kind(
     ))
 }
 
-/// Unified diffs
 impl TreeChange {
     /// Like [`Self::unified_patch()`], but also provides the file header for diffs like this:
     ///
@@ -1062,8 +1060,6 @@ impl TreeChange {
 
     /// Obtain a unified diff by comparing the previous and current state of this change, using `repo` to retrieve objects or
     /// for obtaining a working tree to read files from disk.
-    /// Note that the mount of lines of context around each hunk are currently hardcoded to `3` as it *might* be relevant for creating
-    /// commits later.
     /// Return `None` if this change cannot produce a diff, typically because a submodule is involved.
     /// Note that this format only contains hunk-headers and the patches themselves, not the file header.
     ///

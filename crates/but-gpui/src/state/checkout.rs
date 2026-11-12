@@ -48,7 +48,6 @@ impl Store {
         }
     }
 
-    /// Whether `selection` is in a linked worktree's lane.
     pub fn in_linked(&self, selection: &Selection) -> bool {
         (self.checkout_of(selection).as_ref()).is_some_and(Checkout::is_linked)
     }
@@ -85,7 +84,6 @@ impl Store {
                 .all(|checkout| checkout == Checkout::Main)
     }
 
-    /// The linked worktree `selection` is in.
     pub fn worktree_for(&self, selection: &Selection) -> Option<&Worktree> {
         let checkout = self.checkout_of(selection)?;
         let name = checkout.linked()?;
@@ -93,7 +91,6 @@ impl Store {
         workspace.worktrees.iter().find(|wt| *wt.name == *name)
     }
 
-    /// The folder of `project`'s `checkout`.
     pub fn checkout_path(&self, project: &ProjectId, checkout: &Checkout) -> Option<PathBuf> {
         let main = self.path(project)?;
         match self.workspace(project) {

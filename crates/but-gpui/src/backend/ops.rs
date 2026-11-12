@@ -31,9 +31,7 @@ use super::{
 pub enum Destination {
     /// The top of this branch.
     Branch(super::FullName),
-    /// Right above this commit, in its branch.
     AboveCommit(CommitId),
-    /// Right below this commit, in its branch.
     BelowCommit(CommitId),
 }
 
@@ -398,7 +396,6 @@ pub struct CommitChanges {
 
 pub use but_hunk_dependency::rejection::Stacking;
 
-/// How a commit went.
 #[derive(Debug)]
 pub enum CommitOutcome {
     Committed(Committed),
@@ -460,7 +457,6 @@ pub struct BlockedHunk {
     pub builds_on: Vec<BuiltOn>,
 }
 
-/// A commit a hunk builds on.
 #[derive(Debug)]
 pub struct BuiltOn {
     /// What it's shown by: see [`super::short_reference`].
@@ -1170,7 +1166,6 @@ impl Intent for TearOffBranch {
     }
 }
 
-/// Where [`move_branch`] puts a branch.
 enum BranchTo {
     /// To that side of a branch or commit.
     Beside(RelativeTo, InsertSide),
@@ -1547,7 +1542,6 @@ impl Intent for Amend {
     }
 }
 
-/// Move `commits` to `to`.
 pub struct MoveCommits {
     pub commits: Arc<[CommitId]>,
     pub to: Destination,
@@ -1725,7 +1719,6 @@ fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<
     Ok(())
 }
 
-/// Take `files` out of `commit` and leave them uncommitted.
 pub struct UncommitFiles {
     pub commit: CommitId,
     pub files: Arc<[Selected]>,
@@ -2279,7 +2272,6 @@ pub(super) mod tests {
         (outside, linked)
     }
 
-    /// HEAD's commit in the repository at `dir`.
     pub(in crate::backend) fn head(dir: &Path) -> CommitId {
         let id = git(dir, &["rev-parse", "HEAD"]);
         CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())

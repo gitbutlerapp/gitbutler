@@ -1,5 +1,3 @@
-//! Feature-local planning helpers for editable upstream integration.
-
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, Result, bail};
@@ -142,7 +140,6 @@ fn smart_squash_steps(
     // change ID and track them.
     let mut upstream_commits_by_target = HashMap::<gix::ObjectId, Vec<gix::ObjectId>>::new();
     let mut matched_upstream_commits = HashSet::<gix::ObjectId>::new();
-    // Iterate over the upstream-only commits.
     for upstream_commit_id in upstream_commits.iter().rev().copied() {
         let Some(change_id) = change_ids.get(&upstream_commit_id) else {
             continue;
@@ -207,8 +204,6 @@ pub(super) enum PreparedIntegrationStep {
 ///
 /// `steps` is the editable integration script in parent-to-child execution
 /// order.
-///
-/// Returns the normalized execution plan used by later graph-building helpers.
 pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     steps: &[InteractiveIntegrationStep],
@@ -341,8 +336,6 @@ fn apply_merge_commit_changes_outcome(
 
 /// Builds and inserts the integrated commit chain under `ref_name` down to the last step.
 ///
-/// `editor` is the mutable graph editor that will receive the rebuilt chain.
-///
 /// `ref_name` is the branch reference whose parent chain should be rebuilt.
 ///
 /// `steps` is the prepared execution plan to insert under `ref_name`, ending
@@ -389,8 +382,6 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// edges.
 ///
 /// `steps` is the prepared integration plan in execution order.
-///
-/// Returns the graph steps to insert in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     steps: &[PreparedIntegrationStep],

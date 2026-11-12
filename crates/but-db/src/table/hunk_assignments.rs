@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use serde::{Deserialize, Serialize};
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};
@@ -78,7 +76,6 @@ pub struct HunkAssignmentsHandleMut<'conn> {
 }
 
 impl HunkAssignmentsHandle<'_> {
-    /// Lists all hunk assignments in the database.
     pub fn list_all(&self) -> rusqlite::Result<Vec<HunkAssignment>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, hunk_header, path, path_bytes, stack_id, branch_ref FROM hunk_assignments",
@@ -100,12 +97,10 @@ impl HunkAssignmentsHandle<'_> {
 }
 
 impl HunkAssignmentsHandleMut<'_> {
-    /// Enable read-only access functions.
     pub fn to_ref(&self) -> HunkAssignmentsHandle<'_> {
         HunkAssignmentsHandle { conn: &self.sp }
     }
 
-    /// Sets the hunk assignments table to the provided values.
     /// Any existing entries that are not in the provided values are deleted.
     /// `stack_id` is preserved only for reads of legacy rows and is no longer written.
     pub fn set_all(self, assignments: Vec<HunkAssignment>) -> rusqlite::Result<()> {

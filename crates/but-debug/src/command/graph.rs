@@ -1,5 +1,3 @@
-//! Implementation of the `graph` debug command.
-
 use std::io;
 
 use anyhow::{Context as _, Result};
@@ -18,11 +16,9 @@ enum DotMode {
     Print,
     /// Open the DOT representation as SVG.
     OpenAsSvg,
-    /// Debug-print the internal graph structure.
     Debug,
 }
 
-/// Execute the `graph` subcommand.
 pub(crate) fn run(
     args: &Args,
     graph_args: &GraphArgs,
@@ -158,7 +154,6 @@ fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
         && graph_args.ref_name.is_none()
 }
 
-/// Determine which graph output mode should be used.
 fn dot_mode(graph_args: &GraphArgs) -> Option<DotMode> {
     if graph_args.debug {
         Some(DotMode::Debug)

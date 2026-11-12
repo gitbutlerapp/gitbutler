@@ -35,7 +35,6 @@ pub fn commit(
         &diff,
     )?;
 
-    // Format the commit message to follow email RFC format (80 char line wrapping)
     let message = crate::commit_format::format_commit_message(&message);
 
     if message.is_empty() {

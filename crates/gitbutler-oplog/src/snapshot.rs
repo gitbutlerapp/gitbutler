@@ -38,7 +38,6 @@ pub trait SnapshotExt {
     ) -> anyhow::Result<()>;
 }
 
-/// Snapshot functionality
 impl SnapshotExt for but_ctx::Context {
     fn snapshot_stash_into_branch(
         &self,

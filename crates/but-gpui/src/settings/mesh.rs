@@ -8,7 +8,6 @@ use crate::state::MeshState;
 use crate::ui::{ButtonStyle, button};
 
 impl SettingsView {
-    /// The mesh of the user's machines: whether this one is in it, and a way in or out.
     pub(super) fn mesh_row(&self, cx: &Context<Self>) -> Row {
         let mesh = &self.store.read(cx).mesh;
         let (description, control): (SharedString, Option<AnyElement>) = match &mesh.state {

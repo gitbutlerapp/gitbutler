@@ -255,7 +255,6 @@ pub fn tool_calling_loop(
         let mut tool_response_messages: Vec<ChatCompletionRequestMessage> = vec![];
 
         for call in tool_calls {
-            // Extract function call from the enum
             let (id, function_name, function_args) = match call {
                 ChatCompletionMessageToolCalls::Function(func_call) => (
                     func_call.id.clone(),
@@ -487,7 +486,6 @@ fn from_openai_chat_messages(messages: Vec<ChatCompletionRequestMessage>) -> Vec
     chat_messages
 }
 
-/// Helper function to handle text response from streaming
 fn handle_text_response(
     text_response: String,
     text_response_buffer: &mut Vec<String>,
@@ -634,20 +632,19 @@ async fn stream_response(
     while let Some(result) = stream.next().await {
         let response =
             (result.map_err(readable)).context("Failed to receive response from OpenAI stream")?;
-        if let Some(chat_choice) = response.choices.first() {
-            // If there is any text content in the response, call the on_token callback
-            if let Some(content) = &chat_choice.delta.content {
-                if response_text.is_none() {
-                    response_text = Some(String::new());
-                }
-
-                if let Some(text) = response_text.as_mut() {
-                    text.push_str(content);
-                }
-
-                let content_str = content.as_str();
-                on_token(content_str);
+        if let Some(chat_choice) = response.choices.first()
+            && let Some(content) = &chat_choice.delta.content
+        {
+            if response_text.is_none() {
+                response_text = Some(String::new());
             }
+
+            if let Some(text) = response_text.as_mut() {
+                text.push_str(content);
+            }
+
+            let content_str = content.as_str();
+            on_token(content_str);
         }
     }
 
@@ -682,7 +679,6 @@ async fn tool_calling_stream(
         let response =
             (result.map_err(readable)).context("Failed to receive response from OpenAI stream")?;
         if let Some(chat_choice) = response.choices.first() {
-            // Keep track of tool call states
             if let Some(tool_calls) = &chat_choice.delta.tool_calls {
                 for tool_call_chunk in tool_calls.iter() {
                     let key = (chat_choice.index, tool_call_chunk.index);
@@ -714,7 +710,6 @@ async fn tool_calling_stream(
                 }
             }
 
-            // If finished streaming the tool calls, return them.
             if let Some(finish_reason) = &chat_choice.finish_reason
                 && matches!(
                     finish_reason,
@@ -738,7 +733,6 @@ async fn tool_calling_stream(
                 return Ok((Some(tool_calls_to_process), response_text));
             }
 
-            // If there is any text content in the response, call the on_token callback
             if let Some(content) = &chat_choice.delta.content {
                 if response_text.is_none() {
                     response_text = Some(String::new());

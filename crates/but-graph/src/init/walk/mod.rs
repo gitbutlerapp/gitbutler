@@ -1,4 +1,3 @@
-//! Utilities for graph-walking specifically.
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
@@ -412,7 +411,6 @@ pub fn queue_parents(
     if is_shallow_boundary {
         return Ok(false);
     }
-    // Don't enqueue new parents if we don't have space anymore.
     if next.is_exhausted() {
         return Ok(next.hard_limit_hit());
     }
@@ -577,9 +575,7 @@ fn extract_local_branch_metadata<T: RefMetadata>(
 #[derive(Debug, Clone)]
 pub struct TraverseInfo {
     inner: gix::traverse::commit::Info,
-    /// The pre-parsed commit if available.
     commit: Option<Commit>,
-    /// A means of sorting the entry on the queue.
     pub(crate) gen_then_time: GenThenTime,
 }
 
@@ -624,8 +620,6 @@ impl Ord for GenThenTime {
 }
 
 impl TraverseInfo {
-    /// Convert this traversal item into a graph [`Commit`].
-    ///
     /// `flags` are the graph-specific classifications collected for this
     /// commit during traversal. `refs` are the fully-qualified ref names that
     /// peel to this commit and should be attached to the resulting commit.
@@ -824,23 +818,19 @@ pub fn propagate_flags_downward(
     let mut stack = vec![(dst_sidx, dst_commit)];
 
     while let Some((segment, first_commit_index)) = stack.pop() {
-        // Select the range of commits to process in this segment
         let commit_range = if let Some(start_commit_idx) = first_commit_index {
             let segment_ref = &graph[segment];
             start_commit_idx..segment_ref.commits.len()
         } else {
-            // Empty segment, no commits to process
             0..0
         };
 
-        // Mark all commits in range with flags
         if !commit_range.is_empty() {
             for commit in &mut graph[segment].commits[commit_range.clone()] {
                 commit.flags |= flags_to_add;
             }
         }
 
-        // Process outgoing edges
         let mut neighbors = graph
             .neighbors_directed(segment, petgraph::Direction::Outgoing)
             .detach();
@@ -880,7 +870,6 @@ pub fn propagate_flags_downward(
 }
 
 pub(crate) struct RemoteQueueOutcome {
-    /// The new tips to queue officially later.
     pub items_to_queue_later: Vec<QueueItem>,
     /// A way for the remote to find the local tracking branch.
     pub maybe_make_id_a_goal_so_remote_can_find_local: CommitFlags,

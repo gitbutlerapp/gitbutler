@@ -1,5 +1,3 @@
-//! Functions that operate on the workspace.
-
 use std::{
     collections::HashSet,
     time::{SystemTime, UNIX_EPOCH},
@@ -597,7 +595,6 @@ pub fn resolve_worktree_conflicts_with_perm(
     Ok(())
 }
 
-/// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
 pub struct WorkspaceIntegrateUpstreamOutcome {
     /// The post-operation or preview workspace state.
@@ -608,7 +605,6 @@ pub struct WorkspaceIntegrateUpstreamOutcome {
     pub worktree_conflicts: Vec<BStringForFrontend>,
 }
 
-/// JSON transport types for workspace APIs.
 pub mod json {
     use but_serde::BStringForFrontend;
     use serde::{Deserialize, Serialize};
@@ -757,7 +753,6 @@ pub enum UpdateScope {
 }
 
 impl UpdateScope {
-    /// Whether it updates the workspace.
     pub fn workspace(self) -> bool {
         matches!(self, UpdateScope::All | UpdateScope::Workspace)
     }

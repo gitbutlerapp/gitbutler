@@ -48,7 +48,6 @@ pub struct TestFacts {
     pub files: Vec<usize>,
     pub added: u32,
     pub removed: u32,
-    /// The files of tests it deletes.
     pub deleted: Vec<String>,
     pub turned_off: Vec<TurnedOff>,
     /// It changes something other than tests and words.

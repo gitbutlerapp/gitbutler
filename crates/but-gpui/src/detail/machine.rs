@@ -34,12 +34,10 @@ const SHOWN: usize = 8;
 pub(super) enum Fetch {
     /// Waiting its turn, or under way.
     Running,
-    /// Fetched, and what it fetched.
     Done(CommitId),
     Failed(SharedString),
 }
 
-/// What's fetched of other machines' branches, and what's still to fetch.
 #[derive(Default)]
 pub(super) struct MeshFetches {
     /// Each branch's fetch, with the tip that machine reported when it started: a new one

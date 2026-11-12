@@ -1,6 +1,5 @@
 //! Obsolescence markers record how commits were rewritten. The README is the stable definition
 //! of the model and of what's persisted.
-#![deny(missing_docs)]
 
 use std::collections::BTreeMap;
 

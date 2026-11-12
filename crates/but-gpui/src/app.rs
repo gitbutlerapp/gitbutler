@@ -226,7 +226,6 @@ pub struct AppView {
     /// The emoji picker open on a project's icon.
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
-    /// The navigator sliding open or shut.
     navigator_slide: Slide,
     /// Whether the detail shows beside the navigator. Hidden, the navigator takes the window;
     /// the two are never both hidden.
@@ -770,7 +769,6 @@ impl AppView {
         self.open_picker(None, "Search colour schemes", "Use", choices, window, cx);
     }
 
-    /// List the fonts to pick the one code in diffs shows in.
     pub fn pick_diff_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let current = self.store.read(cx).prefs.diff_font.clone();
         let own = Theme::get(cx).mono_font.clone();
@@ -778,7 +776,6 @@ impl AppView {
         self.pick_font(own, "GitButler's own".into(), current, set, window, cx);
     }
 
-    /// List the fonts to pick the one terminals show in.
     pub fn pick_terminal_font(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let current = self.store.read(cx).prefs.terminal_font.clone();
         let ghostty = but_tty::Ghostty::load();
@@ -907,7 +904,6 @@ impl AppView {
         false
     }
 
-    /// Draw the whole interface at `scale`.
     pub fn set_ui_scale(&mut self, scale: UiScale, cx: &mut Context<Self>) {
         (self.store).update(cx, |store, cx| {
             store.set_prefs(|prefs| prefs.ui_scale = scale, cx)
@@ -1757,7 +1753,6 @@ impl AppView {
         }
     }
 
-    /// Where the keys are, of the places they go between.
     fn place_with_keys(&self, window: &Window, cx: &App) -> KeyPlace {
         let strip = self.tabs.read(cx).focus_handle().is_focused(window);
         if strip || self.navigator.focus_handle(cx).contains_focused(window, cx) {
@@ -1821,7 +1816,6 @@ impl AppView {
         (pane.is_some() || !alone).then_some(KeyPlace::Tile(tile, pane))
     }
 
-    /// Give `place` the keys.
     fn focus_place(&mut self, place: &KeyPlace, window: &mut Window, cx: &mut Context<Self>) {
         match place {
             KeyPlace::Navigator if self.strip_is_navigator() => {
@@ -1899,7 +1893,6 @@ impl AppView {
         window.dispatch_action(Box::new(action.clone()), cx);
     }
 
-    /// Go to `tab` of `project`'s page.
     pub(crate) fn open_project_tab(
         &mut self,
         project: ProjectId,
@@ -1981,7 +1974,6 @@ impl AppView {
     /// them, keeping its message.
     fn start_amend(&mut self, _: &StartAmend, window: &mut Window, cx: &mut Context<Self>) {
         (self.detail).update(cx, |detail, cx| detail.flush_edits(cx));
-        // Not from what's open over it.
         if self.covered() {
             return;
         }
@@ -2091,8 +2083,6 @@ impl AppView {
             .update(cx, |store, cx| store.select(Some(from), cx));
     }
 
-    /// Open the pull request of the selected branch, or of the branch the selected commit
-    /// is on, in the browser. Without one, start one where that's possible.
     /// The pull request of the selected branch, or of what a page has picked: the branch
     /// opened on the Branches page, or the target's merge.
     pub(crate) fn pull_request_url(&self, cx: &App) -> Option<String> {
@@ -2220,14 +2210,12 @@ impl AppView {
         }
     }
 
-    /// Do `act` in the composer, if it's open.
     fn in_composer(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
         act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>),
     ) {
-        // Not from what's open over it.
         if self.covered() {
             return;
         }
@@ -3452,7 +3440,6 @@ impl AppView {
         self.tile_focus(tile, cx)
     }
 
-    /// Send the tile zoomed back to its place.
     fn zoom_out(&mut self, cx: &mut Context<Self>) {
         if let Some(zoom) = self.tile_zoom.as_mut().filter(|zoom| zoom.open) {
             zoom.open = false;
@@ -3643,7 +3630,6 @@ impl AppView {
         cx.notify();
     }
 
-    /// Whether a tile's being moved with the keys.
     pub(crate) fn arranging(&self) -> bool {
         self.arranging.is_some()
     }
@@ -3699,7 +3685,6 @@ impl AppView {
         cx.notify();
     }
 
-    /// Move the tile being moved with the keys a step toward `side`.
     fn step_tile(&mut self, side: Side, cx: &mut Context<Self>) {
         let least = self.least_tile(cx);
         let Some(arranging) = self.arranging.as_mut() else {
@@ -4465,7 +4450,6 @@ impl AppView {
         }
     }
 
-    /// Whether a row's being dragged from the navigator.
     fn row_dragged(&self, cx: &App) -> bool {
         cx.has_active_drag() && self.store.read(cx).dragged_row.is_some()
     }
@@ -5193,7 +5177,6 @@ struct RowTile {
 }
 
 impl RowTile {
-    /// Where each tile is drawn at `now`.
     fn areas(&self, now: Instant) -> Vec<(Tile, Area)> {
         let at = match &self.settling {
             Some(settling) => settling.openness(now).unwrap_or(1.),

@@ -1,5 +1,3 @@
-//! Implementation of the `but apply` command.
-
 use anyhow::Context as _;
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;

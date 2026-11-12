@@ -96,7 +96,6 @@ const CARD_MARGIN: f32 = 8.;
 /// right against, so the gap's divider and the list's scrollbar are the navigator's own.
 const CARD_MARGIN_BESIDE: f32 = 7.;
 
-/// How far below its top the list lays out its first row.
 const LIST_TOP: f32 = 0.;
 
 /// How many rows above the last one the list drew last frame draws the rows sliding into view
@@ -184,7 +183,6 @@ pub(crate) struct RowStyle<'a> {
 /// What a row's blink is of: see [`Navigator::blinked`].
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Blink {
-    /// The selection, just copied.
     Copied,
     /// Where the move under way would land, as a click it can't use reminds the user of it.
     Move,
@@ -554,13 +552,10 @@ pub struct Navigator {
     /// How tall a row is, in design pixels, as the density draws it: the theme's control
     /// height, taken as the navigator draws, so its row maths and its rows agree.
     row: f32,
-    /// How far in each row sits.
     insets: Vec<f32>,
-    /// Where each row's guides run.
     guides: Vec<Vec<f32>>,
     /// Each row's place in the fold it moves with, while one does.
     moving: Vec<Option<Moving>>,
-    /// The folds opening or closing now.
     folds: Folds<Fold>,
     /// The rows sliding to where a reorder put them, and each row's key, to tell which.
     reorder: Reorder<RowKey>,
@@ -635,7 +630,6 @@ pub struct Navigator {
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
     first_hit: Option<Selection>,
-    /// Whether the pointer is over the navigator.
     pointer_over: bool,
     /// What the card under a tab shows, while the rows it holds stand in for the navigator's
     /// own: being drawn, or the keys stepping and folding them, as they do the navigator's.
@@ -697,7 +691,6 @@ pub struct Navigator {
     /// edge, up when negative, and the task that scrolls it.
     edge_scroll: f32,
     edge_scrolling: Option<Task<()>>,
-    /// The branch whose name is being edited in its row.
     renaming: Option<rename::Renaming>,
     /// How many times a row has blinked, and the last blink: what it was of, and when.
     blinked: (usize, Option<(Blink, Instant)>),
@@ -1202,7 +1195,6 @@ impl Navigator {
         }
     }
 
-    /// Open the drawer, or fold it.
     fn set_drawer_folded(&mut self, folded: bool, cx: &mut Context<Navigator>) {
         if self.store.read(cx).prefs.projects_folded != folded {
             (self.store).update(cx, |store, cx| {
@@ -1211,7 +1203,6 @@ impl Navigator {
         }
     }
 
-    /// Fold the drawer if it's open, or open it.
     fn toggle_drawer(&mut self, cx: &mut Context<Navigator>) {
         let folded = self.store.read(cx).prefs.projects_folded;
         self.set_drawer_folded(!folded, cx);
@@ -1711,10 +1702,6 @@ impl Navigator {
         }
     }
 
-    /// Bring the lists up to date with `rows` and `drawer`, and show the selection if it just
-    /// changed. Rows that didn't change keep their place on screen. When a load changed the
-    /// cards' while the pointer is over them, so does the row under it: rows added above it,
-    /// like an agent's new commit, push the rows above it up rather than it down.
     /// Build the rows and bring the list up to date, as a frame does, for what reads them while
     /// the navigator isn't drawn.
     pub(crate) fn catch_up_rows(&mut self, window: &Window, cx: &App) {
@@ -1738,6 +1725,10 @@ impl Navigator {
         self.first_hit = first_hit;
     }
 
+    /// Bring the lists up to date with `rows` and `drawer`, and show the selection if it just
+    /// changed. Rows that didn't change keep their place on screen. When a load changed the
+    /// cards' while the pointer is over them, so does the row under it: rows added above it,
+    /// like an agent's new commit, push the rows above it up rather than it down.
     fn sync_list(&mut self, rows: Vec<Row>, drawer: Drawer, window: &Window, cx: &App) {
         // Rows not drawn yet count as one row tall, which a project's row is.
         let row = Theme::get(cx).scaled(self.row);
@@ -2000,7 +1991,6 @@ impl Navigator {
             .or_else(|| NavigatorTabs::active_tab(store))
     }
 
-    /// Say which tab the card's down from.
     fn set_card_key(&mut self, key: Option<tabs::TabKey>) {
         self.card_key = key;
     }
@@ -2089,7 +2079,6 @@ impl Navigator {
         window.focus(&keys, cx);
     }
 
-    /// Say what takes the keys for the rows across the top.
     pub(crate) fn set_strip_keys(&mut self, keys: FocusHandle) {
         self.strip_keys = Some(keys);
     }
@@ -4371,7 +4360,6 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// Whether the rows under a section's heading are listed.
     fn heading_open(&self, project: &ProjectId, section: &Section, cx: &App) -> bool {
         let store = self.store.read(cx);
         match section {
@@ -4735,7 +4723,6 @@ fn room_came_or_went(old: &[Row], new: &[Row]) -> bool {
     old.len() != new.len() && others(old).eq(others(new))
 }
 
-/// Whether `list` shows its first row from its top.
 fn at_top(list: &ListState) -> bool {
     let top = list.logical_scroll_top();
     top.item_ix == 0 && top.offset_in_item == Pixels::ZERO
@@ -4834,7 +4821,6 @@ fn holder(store: &Store, item: &Selection) -> Option<Selection> {
 /// the lines the rest add and remove, as [`change_counts`] takes them.
 type Tally = (usize, usize, (u32, u32));
 
-/// The [`Tally`] of a worktree's uncommitted `files`.
 fn tally(files: &[FileChange]) -> Tally {
     let conflicted = files.iter().filter(|f| f.conflicted).count();
     // A conflicted file's lines are its markers, which the file list doesn't count either.

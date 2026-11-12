@@ -207,8 +207,6 @@ pub enum TuiRunOptions {
     PickChanges,
 }
 
-/// The outcome of running the TUI.
-///
 /// Under normal circumstances this will be [`TuiOutcome::None`] but if the TUI is launched via
 /// [`tui_with_options`] it might be something else.
 ///
@@ -312,7 +310,6 @@ impl StatusContext {
 }
 
 fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> CliResult<()> {
-    // Delegate to the resolve status logic to show actual conflict details
     crate::command::legacy::resolve::show_resolve_status(ctx, out)
 }
 
@@ -325,7 +322,6 @@ pub(crate) fn worktree(
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
-        // In edit mode, show the conflict resolution status
         return show_edit_mode_status(ctx, out);
     }
 
@@ -627,7 +623,6 @@ fn build_status_context(
     )?;
 
     let stacks = id_map.stacks();
-    // Store the count of stacks for hint logic later
     let has_branches = resolved_target.is_some() && !stacks.is_empty();
 
     let mut stack_details: Vec<StackEntry> = Vec::new();
@@ -687,7 +682,6 @@ fn build_status_context(
                 author_email: author.email.to_string(),
             };
 
-            // Get cached upstream state information (without fetching)
             let (upstream_state, last_fetched_ms) = base_branch
                 .as_ref()
                 .map(|base_branch| {
@@ -734,7 +728,6 @@ fn build_status_context(
                 })
                 .unwrap_or((None, None));
 
-            // repo, base_commit, and base_commit_decoded are automatically dropped here at end of scope
             (
                 Some(common_merge_base_data),
                 upstream_state,
@@ -745,7 +738,6 @@ fn build_status_context(
             (None, None, None, None)
         };
 
-    // Compute upstream integration statuses for explicit upstream diagnostics.
     let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if flags.show_upstream
         && base_branch
             .as_ref()
@@ -898,7 +890,6 @@ fn print_hint(
 
     output.connector(Vec::from([Span::raw("")]))?;
 
-    // Determine what hint to show based on workspace state
     let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
     let mut shown_situational_hint = false;
 
@@ -1189,7 +1180,6 @@ fn print_upstream_state(
         }
         output.upstream_changes(Vec::from([Span::raw("┊╭┄ ")]), upstream_summary)?;
 
-        // Display detailed list of upstream commits
         if let Some(base_branch) = &status_ctx.base_branch
             && !base_branch.upstream_commits.is_empty()
         {
@@ -1325,7 +1315,6 @@ fn print_worktree_status(
 ) -> anyhow::Result<bool> {
     let mut has_merged_upstream_branch = false;
     for (i, (stack_id, (stack_with_id, files))) in status_ctx.stack_details.iter().enumerate() {
-        // files assigned to the stack
         if let Some(stack_with_id) = stack_with_id {
             let branch_name = stack_with_id
                 .segments

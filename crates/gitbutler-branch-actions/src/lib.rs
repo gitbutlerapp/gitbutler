@@ -1,7 +1,4 @@
-//! GitButler internal library containing functionality related to branches, i.e. the virtual branches implementation
-
 mod actions;
-// This is our API
 pub use actions::{set_base_branch, set_base_branch_only};
 
 pub mod base;

@@ -65,7 +65,6 @@ pub fn inside_frame(el: Div, window: &Window) -> Div {
         .when(!tiling.right, |el| el.pr(SHADOW))
 }
 
-/// Whether `edge` is on a side that's against the screen's edge.
 fn against_screen(edge: ResizeEdge, tiling: Tiling) -> bool {
     match edge {
         ResizeEdge::Top => tiling.top,

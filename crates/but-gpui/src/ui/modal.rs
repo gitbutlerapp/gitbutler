@@ -7,7 +7,6 @@ use super::dp;
 use super::popover;
 use crate::theme::Theme;
 
-/// How wide a modal is, by what it holds.
 #[derive(Debug, Clone, Copy)]
 pub enum ModalSize {
     /// A form around one task, like a pull request's title and description.

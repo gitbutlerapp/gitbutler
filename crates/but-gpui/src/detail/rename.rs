@@ -12,7 +12,6 @@ use crate::theme::Theme;
 use crate::ui::text_input::TextInput;
 use crate::ui::{dp, field};
 
-/// The branch whose name is being edited in its header, and the field it's edited in.
 pub(super) struct Renaming {
     project: ProjectId,
     ref_name: Option<FullName>,

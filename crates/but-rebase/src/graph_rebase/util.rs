@@ -1,5 +1,3 @@
-//! Utilities around the step graph for internal use.
-
 use petgraph::visit::EdgeRef as _;
 
 use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};

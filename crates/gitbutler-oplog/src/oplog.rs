@@ -171,7 +171,6 @@ pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// For ad-hoc checkouts, also preserves local branch refs in the checkout's graph.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
-    /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
     /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving `ref_names`.
@@ -239,11 +238,10 @@ pub trait OplogExt {
     /// Upon success, a new snapshot is created representing the state right before this call.
     ///
     /// This will restore the following:
-    ///  - The state of the working directory is checked out from the subtree `workdir` in the snapshot.
+    ///  - The state of the working directory is checked out from the subtree `worktree` in the snapshot.
     ///  - The state of virtual branches is restored from the blob `virtual_branches.toml` in the snapshot.
     ///  - The state of conflicts (.git/base_merge_parent and .git/conflicts) is restored from the subtree `conflicts` in the snapshot (if not present, existing files are deleted).
     ///
-    /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
     fn restore_snapshot(
         &self,
@@ -262,10 +260,8 @@ pub trait OplogExt {
         child_id: Option<gix::ObjectId>,
     ) -> Result<Vec<TreeChange>>;
 
-    /// Gets a specific snapshot by its commit sha.
     fn get_snapshot(&self, sha: gix::ObjectId) -> Result<Snapshot>;
 
-    /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<gix::ObjectId>>;
 }
 
@@ -404,7 +400,6 @@ impl OplogExt for Context {
         tree_changes(&repo, Some(before_tree_id), after_tree_id)
     }
 
-    /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<gix::ObjectId>> {
         let oplog_state = OplogHandle::new(&self.project_data_dir());
         oplog_state.oplog_head()
@@ -957,16 +952,13 @@ fn prepare_snapshot_with_target_and_refs(
         .tree_id()?
         .detach();
 
-    // Create a tree out of the conflicts state if present
     let conflicts_tree_id = write_conflicts_tree(&repo)?;
 
     let commit_graph_cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(commit_graph_cache.as_ref());
 
-    // write out the index as a tree to store
     let index_trees = write_index_trees(ctx)?;
 
-    // start building our snapshot tree
     let mut snapshot_tree = repo.empty_tree().edit()?;
     snapshot_tree.upsert("index", EntryKind::Tree, index_trees.index)?;
     if let Some(conflicts) = index_trees.conflicts {
@@ -1077,8 +1069,6 @@ fn prepare_snapshot_with_target_and_refs(
             let mut stack_tree_cursor =
                 snapshot_tree.cursor_at(format!("virtual_branches/{stack_id}"))?;
 
-            // commits in virtual branches (tree and commit data)
-            // calculate all the commits between branch.head and the target and codify them
             stack_tree_cursor.upsert("tree", EntryKind::Tree, stack_tree)?;
 
             // Keep the snapshot-local legacy metadata in sync with the references.
@@ -1145,7 +1135,6 @@ fn prepare_snapshot_with_target_and_refs(
 
     let vb_blob_id = repo.write_blob(vb_content.as_bytes())?;
     snapshot_tree.upsert("virtual_branches.toml", EntryKind::Blob, vb_blob_id)?;
-    // Add the worktree tree
     #[expect(deprecated)]
     let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
     snapshot_tree.upsert("worktree", EntryKind::Tree, worktree)?;
@@ -1456,7 +1445,6 @@ fn restore_snapshot_tree(
         .find_tree(vb_tree_entry.id())
         .context("failed to convert virtual_branches tree entry to tree")?;
 
-    // walk through all the entries (branches by id)
     let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
     // The workspace commit to repoint `gitbutler/workspace` at, applied *after* the checkout below.
     let mut restored_workspace_commit: Option<gix::ObjectId> = None;
@@ -1477,15 +1465,11 @@ fn restore_snapshot_tree(
             .find_tree(commits_tree_entry.id())
             .context("failed to convert commits tree entry to tree")?;
 
-        // walk through all the commits in the branch
         for commit_entry in commits_tree.iter() {
             let commit_entry = commit_entry?;
-            // for each commit, recreate the commit from the commit data if it doesn't exist
             let commit_id = commit_entry.filename();
-            // check for the oid in the repo
             let commit_oid = gix::ObjectId::from_hex(commit_id)?;
             if !repo.has_object(commit_oid) {
-                // commit is not in the repo, let's build it from our data
                 let new_commit_oid = deserialize_commit(commit_entry.id())?;
                 if new_commit_oid != commit_oid {
                     bail!("commit id mismatch: failed to recreate a commit from its parts");
@@ -1580,7 +1564,6 @@ fn restore_snapshot_tree(
         None => {}
     }
 
-    // Update virtual_branches.toml with the state from the snapshot
     let vb_state = legacy_virtual_branches::restore_legacy_metadata_from_toml(
         ctx,
         restored_vb_toml.as_bytes(),
@@ -1617,7 +1600,6 @@ fn restore_snapshot_tree(
     }
     ctx.set_project_meta(restored_project_meta)?;
 
-    // reset the repo index to our index tree
     let index_tree_entry = snapshot_tree
         .lookup_entry_by_path("index")?
         .context("failed to get index tree")?;
@@ -1868,7 +1850,6 @@ impl Iterator for SnapshotIter {
                 Err(err) => return Some(Err(err.into())),
             };
             if !has_legacy_metadata {
-                // We reached a tree that is not a snapshot
                 tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;
             }
@@ -1885,18 +1866,15 @@ impl Iterator for SnapshotIter {
                 Err(err) => return Some(Err(err.into())),
             };
             if let Some(details) = &details {
-                // Skip if this kind is excluded
                 if self.exclude_kind.contains(&details.operation) {
                     continue;
                 }
-                // Skip if include filter is set and this kind is not included
                 if let Some(ref include) = self.include_kind
                     && !include.contains(&details.operation)
                 {
                     continue;
                 }
             } else if self.include_kind.is_some() {
-                // If we require specific kinds but have no details, skip
                 continue;
             }
 
