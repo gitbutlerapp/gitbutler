@@ -33,7 +33,7 @@ use crate::backend::{
     self,
     rebuild::{Printed, Rebuild},
 };
-use crate::theme::{CodeSize, Theme, UiScale};
+use crate::theme::{CodeSize, Density, Theme, UiScale};
 use crate::ui::{
     self, ButtonStyle, button, dp, faint, fixed, h_flex, list_row, section_label, segmented, v_flex,
 };
@@ -110,6 +110,7 @@ struct Gallery {
     shown: usize,
     dark: bool,
     scale: UiScale,
+    density: Density,
     build: Build,
 }
 
@@ -181,6 +182,7 @@ impl Gallery {
             shown,
             dark,
             scale: UiScale::default(),
+            density: Density::default(),
         };
         gallery.set_theme(cx);
         gallery
@@ -258,7 +260,11 @@ impl Gallery {
     }
 
     fn set_theme(&self, cx: &mut App) {
-        cx.set_global(Theme::gitbutler(self.dark, CodeSize::default()).with_scale(self.scale));
+        cx.set_global(
+            (Theme::gitbutler(self.dark, CodeSize::default()))
+                .with_density(self.density)
+                .with_scale(self.scale),
+        );
     }
 
     fn sidebar(&self, theme: &Theme, cx: &mut Context<Self>) -> Div {
@@ -315,6 +321,21 @@ impl Gallery {
                 }));
                 (segment, self.scale == scale)
             });
+        // As the docs site's Density: how tall controls are.
+        let densities = [
+            ("Compact", Density::Compact),
+            ("Balanced", Density::Balanced),
+            ("Spacious", Density::Spacious),
+        ]
+        .map(|(label, density)| {
+            let segment =
+                (div().id(label).child(label)).on_click(cx.listener(move |this, _, _, cx| {
+                    this.density = density;
+                    this.set_theme(cx);
+                    cx.notify();
+                }));
+            (segment, self.density == density)
+        });
         h_flex()
             .flex_none()
             .h(dp(48.))
@@ -330,6 +351,7 @@ impl Gallery {
                     .child(name),
             )
             .children(rebuild)
+            .child(segmented(true, theme, densities))
             .child(segmented(true, theme, scales))
             .child(segmented(true, theme, appearance))
     }
