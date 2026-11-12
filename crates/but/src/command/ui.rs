@@ -80,6 +80,7 @@ fn resolve(args: Platform) -> CliResult<UiOperation> {
         Subcommands::Close { tile } => UiOperation::Close(CloseParams { tile }),
         Subcommands::Open {
             beside,
+            checkout,
             below,
             terminal: _,
             run,
@@ -92,6 +93,7 @@ fn resolve(args: Platform) -> CliResult<UiOperation> {
             };
             UiOperation::Open(OpenParams {
                 beside,
+                checkout,
                 below,
                 open,
             })

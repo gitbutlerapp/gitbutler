@@ -54,16 +54,27 @@ pub enum Subcommands {
     /// terminal, or with `--tile` into that tile's terminal, leaving the keys where they are.
     Type(TypeArgs),
     /// Open a new terminal, or a row or page, in a new tile beside another, in whichever layout
-    /// that is, leaving the keys and the selection where they are. Prints the new tile.
+    /// that is, or a new terminal in a tile of its own on a worktree, leaving the keys and the
+    /// selection where they are. Prints the new tile.
     #[clap(group(clap::ArgGroup::new("what").required(true)))]
+    #[clap(group(clap::ArgGroup::new("where").required(true)))]
     Open {
         /// The tile to open it beside, by the number `state` lists it by.
-        #[clap(long, value_name = "TILE")]
-        beside: String,
-        /// Below it, instead of to its right.
+        #[clap(long, value_name = "TILE", group = "where")]
+        beside: Option<String>,
+        /// Open a new terminal in a tile of its own, listed in the navigator, on this worktree,
+        /// by its name in full as the navigator lists it, or `Main worktree`.
+        #[clap(
+            long,
+            value_name = "WORKTREE",
+            group = "where",
+            conflicts_with_all = ["show", "below"]
+        )]
+        checkout: Option<String>,
+        /// Below the tile beside, instead of to its right.
         #[clap(long)]
         below: bool,
-        /// A new terminal, on the checkout of what the tile beside shows.
+        /// A new terminal, on the worktree given, or the checkout of what the tile beside shows.
         #[clap(long, group = "what")]
         terminal: bool,
         /// A command to run in the new terminal, through the login shell.

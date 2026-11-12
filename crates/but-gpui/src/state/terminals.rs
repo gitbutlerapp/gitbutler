@@ -256,8 +256,24 @@ impl Store {
         self.open_terminal_then(project, checkout, Some(command), Then::Select, cx);
     }
 
+    /// Open a terminal on `project`'s `checkout` in a tile of its own, running `run`, as
+    /// `but _ui open` does: listed in the navigator, and leaving the keys and the selection where
+    /// they are. `opened` is told its tile once its shell has started. Whether there was a
+    /// checkout to open it on.
+    pub fn open_terminal_quietly(
+        &mut self,
+        project: ProjectId,
+        checkout: Checkout,
+        run: Option<String>,
+        opened: futures::channel::oneshot::Sender<Opened>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        self.open_terminal_then(project, checkout, run, Then::Quietly(opened), cx)
+    }
+
     /// Open a terminal on `project`'s `checkout`, running `run` in place of the shell's prompt,
-    /// and once its shell has started do with it as `then` says.
+    /// and once its shell has started do with it as `then` says. Whether there was a checkout to
+    /// open it on.
     pub(super) fn open_terminal_then(
         &mut self,
         project: ProjectId,
@@ -265,9 +281,9 @@ impl Store {
         run: Option<String>,
         then: Then,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let Some(cwd) = self.checkout_path(&project, &checkout) else {
-            return;
+            return false;
         };
         // An agent started here reaches this app, whatever channel its `but` was built for.
         let socket = (cx.try_global::<crate::control::ControlSocket>()).map(|s| s.0.clone());
@@ -303,6 +319,7 @@ impl Store {
             .ok();
         })
         .detach();
+        true
     }
 
     fn add_terminal(
@@ -336,15 +353,14 @@ impl Store {
                     },
                     false => {
                         self.set_tiled(id, false);
-                        self.tiling_changed(cx);
-                        cx.notify();
-                        Opened {
-                            row,
-                            tile: Tile::Home,
-                        }
+                        self.list_quietly(row, cx)
                     }
                 };
                 opened.send(went).ok();
+                return;
+            }
+            Then::Quietly(opened) => {
+                opened.send(self.list_quietly(row, cx)).ok();
                 return;
             }
         }
@@ -354,6 +370,16 @@ impl Store {
         // A selection that stays put leaves the new one out of sight.
         self.show_terminals(cx);
         cx.emit(StoreEvent::TerminalOpened);
+    }
+
+    /// Leave the terminal of `row` in the navigator, in a tile of its own, without selecting it.
+    fn list_quietly(&mut self, row: RowKey, cx: &mut Context<Self>) -> Opened {
+        self.tiling_changed(cx);
+        cx.notify();
+        Opened {
+            row,
+            tile: Tile::Home,
+        }
     }
 
     fn insert_terminal(

@@ -1651,12 +1651,8 @@ impl Store {
         let Some((project, checkout)) = self.checkout_beside(&row, &at) else {
             return false;
         };
-        if self.checkout_path(&project, &checkout).is_none() {
-            return false;
-        }
         let then = Then::PinQuietly((row, at, axis), opened);
-        self.open_terminal_then(project, checkout, run, then, cx);
-        true
+        self.open_terminal_then(project, checkout, run, then, cx)
     }
 
     /// Pin `pinned` beside `at` in the selected row's tiling, along `axis`, unless it's
@@ -2117,6 +2113,9 @@ pub(super) enum Then {
         (RowKey, Tile, Axis),
         futures::channel::oneshot::Sender<Opened>,
     ),
+    /// It's left in the navigator, in a tile of its own, leaving the keys and the selection where
+    /// they are, and the sender is told its tile.
+    Quietly(futures::channel::oneshot::Sender<Opened>),
 }
 
 /// Where a terminal opened quietly went: the tile of `row`'s tiling it's in.

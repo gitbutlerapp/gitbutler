@@ -138,14 +138,16 @@ fn answer(request: &Request) -> Response {
         }
         ui::OPEN => {
             let params: OpenParams = serde_json::from_value(request.params.clone()).unwrap();
-            if params.beside != "1" {
-                return Response::err(
-                    request.id.clone(),
-                    RpcError::new(
-                        code::NOT_FOUND,
-                        format!("There's no tile {}", params.beside),
-                    ),
-                );
+            let refused = match (params.beside.as_deref(), params.checkout.as_deref()) {
+                (Some("1"), None) | (None, Some("aztec")) => None,
+                (Some(tile), None) => Some(format!("There's no tile {tile}")),
+                (None, Some(name)) => {
+                    Some(format!("Go to anything finds no worktree called {name}"))
+                }
+                (beside, checkout) => Some(format!("Sent {beside:?} and {checkout:?}")),
+            };
+            if let Some(message) = refused {
+                return Response::err(request.id.clone(), RpcError::new(code::NOT_FOUND, message));
             }
             let opened = match params.open {
                 Open::Show(name) => Opened {
@@ -500,6 +502,90 @@ Opened tile 5: branch feature in repo.
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: There's no tile 8
+...
+"#]]);
+}
+
+#[test]
+fn open_puts_a_terminal_in_a_tile_of_its_own_on_a_worktree() {
+    let env = Sandbox::empty();
+    let socket = env.app_data_dir().join("gpui.sock");
+    fake_app(&socket, 3, answer);
+    env.but("_ui open --terminal --checkout aztec --run claude")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Opened tile 6: terminal claude in repo.
+
+"#]]);
+    // The fake app names the terminal after the command it was asked to run.
+    env.but("--json _ui open --terminal --checkout aztec")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "id": "6",
+  "shows": {
+    "project": "repo",
+    "kind": "terminal",
+    "label": "Terminal"
+  }
+}
+
+"#]]);
+    env.but("_ui open --terminal --checkout nope")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Go to anything finds no worktree called nope
+...
+"#]]);
+}
+
+#[test]
+fn open_needs_one_place_to_open_it() {
+    let env = Sandbox::empty();
+    let socket = env.app_data_dir().join("gpui.sock");
+    env.but("_ui open --terminal")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <--beside <TILE>|--checkout <WORKTREE>>
+...
+"#]]);
+    env.but("_ui open --terminal --beside 1 --checkout aztec")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--beside <TILE>' cannot be used with '--checkout <WORKTREE>'
+...
+"#]]);
+}
+
+#[test]
+fn open_on_a_worktree_is_only_for_a_terminal_of_its_own() {
+    let env = Sandbox::empty();
+    let socket = env.app_data_dir().join("gpui.sock");
+    env.but("_ui open --show feature --checkout aztec")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--show <NAME>' cannot be used with '--checkout <WORKTREE>'
+...
+"#]]);
+    env.but("_ui open --terminal --checkout aztec --below")
+        .env(SOCKET_ENV, &socket)
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--checkout <WORKTREE>' cannot be used with '--below'
 ...
 "#]]);
 }
