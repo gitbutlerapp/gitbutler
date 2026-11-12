@@ -435,6 +435,17 @@ pub fn load_failed(failure: &super::LoadFailure, err: &anyhow::Error, last: Opti
     }
 }
 
+/// The user closed the folder picker `name` opened, as Add project, with a folder `picked` or
+/// without one. A folder picked isn't yet a project added. With `projects` at 0, the welcome
+/// screen was showing. A Clone left at its URL prompt never reaches the picker.
+pub fn folder_picker_closed(name: &'static str, picked: bool, projects: usize) {
+    let mut props = Props::new();
+    props.insert("command".into(), camel_case(name).into());
+    props.insert("picked".into(), picked.into());
+    props.insert("projectCount".into(), projects.into());
+    queue(Kind::Usage, "folder_picker_closed", props);
+}
+
 /// The window couldn't open, as when the GPU's drivers can't draw it, and the desktop app's
 /// web app opens instead.
 pub fn fell_back_to_web(err: &anyhow::Error) {
