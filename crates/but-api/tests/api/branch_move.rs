@@ -417,3 +417,38 @@ fn stacking_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Result<()>
     );
     Ok(())
 }
+
+#[test]
+fn tearing_off_in_single_branch_mode_brings_the_workspace_back() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    let sibling = gix::refs::FullName::try_from("refs/heads/sibling")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    but_api::branch::apply_only(&mut ctx, sibling.as_ref())?;
+    move_branch_above(&mut ctx, sibling.as_ref(), feature.as_ref(), DryRun::No)?;
+
+    but_api::branch::tear_off_branch(&mut ctx, sibling.as_ref(), DryRun::No)?;
+
+    assert_eq!(
+        ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+        "two lanes need the workspace"
+    );
+    // The torn-off branch is a lane of its own beside the one it left.
+    snapbox::assert_data_eq!(
+        crate::support::workspace_graph(&ctx)?,
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 5374caf
+├── ≡📙:feature on 5374caf {[..]}
+│   └── 📙:feature
+│       └── ·edd8381 (🏘️)
+└── ≡📙:sibling on 5374caf {[..]}
+    └── 📙:sibling
+        └── ·bc74e1b (🏘️)
+
+"#]]
+    );
+    Ok(())
+}
