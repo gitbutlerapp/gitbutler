@@ -1044,6 +1044,23 @@ pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
     rows.into_iter().next().map(|(_, _, selection)| selection)
 }
 
+/// What Go to anything finds as `query`, typed in full or in part, as a tile would show it: a
+/// row, or a project's page. Those called `query` in full first, then those in `project`.
+pub(crate) fn go_to_tile(store: &Store, query: &str, project: &ProjectId) -> Option<RowKey> {
+    let query = query.to_lowercase();
+    let mut rows: Vec<(bool, bool, RowKey)> = (go_to_choices(store).into_iter())
+        .filter_map(|choice| {
+            let label = choice.label.to_lowercase();
+            let pins = (choice.pins).or_else(|| Some(store.row_key(choice.goes_to.as_ref()?)))?;
+            let elsewhere = pins.project() != project;
+            (label.contains(&query)).then(|| (label != query, elsewhere, pins))
+        })
+        .collect();
+    // Stable, so rows that tie keep the navigator's order.
+    rows.sort_by_key(|(partly, elsewhere, _)| (*partly, *elsewhere));
+    rows.into_iter().next().map(|(_, _, row)| row)
+}
+
 /// A row for a file at `path` of `target`, to edit.
 fn file_choice(target: &FileTarget, path: String) -> Choice {
     let target = target.clone();

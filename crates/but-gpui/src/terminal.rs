@@ -17,9 +17,9 @@ use futures::StreamExt;
 use gpui::{
     App, AvailableSpace, Bounds, Context, CursorStyle, DispatchPhase, Entity, EventEmitter,
     ExternalPaths, FocusHandle, Focusable, Font, FontWeight, HitboxBehavior, Hsla, KeyDownEvent,
-    Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task, TextAlign,
-    TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
+    Keystroke, Modifiers, ModifiersChangedEvent, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, Pixels, Point, Rgba, ScrollWheelEvent, SharedString, StrikethroughStyle, Task,
+    TextAlign, TextRun, UnderlineStyle, WeakEntity, Window, actions, canvas, div, prelude::*,
 };
 
 use crate::clipboard;
@@ -310,15 +310,31 @@ impl Terminal {
             cx.stop_propagation();
             return;
         }
+        self.press(keystroke, cx);
+        cx.stop_propagation();
+    }
+
+    /// All it shows, its scrollback and its screen, as plain text, once its emulator gets to it.
+    pub(crate) fn text(&self) -> futures::channel::oneshot::Receiver<Option<String>> {
+        self.tty.text()
+    }
+
+    /// Send `keystroke` to the shell as a key press would, whether or not the terminal has the
+    /// keys.
+    pub(crate) fn press(&mut self, keystroke: &Keystroke, cx: &mut Context<Self>) {
         let text = (keystroke.key_char.clone()).filter(|text| !text.chars().any(char::is_control));
         let mut chars = keystroke.key.chars();
         let unshifted = match keystroke.key.as_str() {
             "space" => Some(' '),
             _ => chars.next().filter(|_| chars.next().is_none()),
         };
-        (self.tty).key(key_for(&keystroke.key), mods(modifiers), text, unshifted);
+        (self.tty).key(
+            key_for(&keystroke.key),
+            mods(keystroke.modifiers),
+            text,
+            unshifted,
+        );
         self.typed(cx);
-        cx.stop_propagation();
     }
 
     fn mouse_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
@@ -952,6 +968,11 @@ fn rgb_color(color: Hsla) -> RgbColor {
         g: byte(rgba.g),
         b: byte(rgba.b),
     }
+}
+
+/// Whether `keystroke` names a key the terminal can press, as `ui.type` checks a key it's sent.
+pub(crate) fn has_key(keystroke: &Keystroke) -> bool {
+    !matches!(key_for(&keystroke.key), Key::Unidentified)
 }
 
 /// The physical key GPUI names `key`, for the encoder to look up what to send.

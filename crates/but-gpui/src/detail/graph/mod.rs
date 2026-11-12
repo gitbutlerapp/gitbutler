@@ -575,7 +575,7 @@ impl GraphView {
             | StoreEvent::Pending(_)
             | StoreEvent::AuthorMissing(_)
             | StoreEvent::TerminalOpened
-            | StoreEvent::TilePinned(_)
+            | StoreEvent::TilePinned { .. }
             | StoreEvent::CodeAsked(..)
             | StoreEvent::TileClosed { .. }
             | StoreEvent::TilingChanged

@@ -777,7 +777,7 @@ impl Store {
                     && store.tiling().is_some()
                 {
                     store.show_terminals(cx);
-                    cx.emit(StoreEvent::TilingChanged);
+                    store.tiling_changed(cx);
                 }
                 if settles {
                     store.settled(&id, cx);

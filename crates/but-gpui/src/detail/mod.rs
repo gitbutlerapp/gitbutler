@@ -760,7 +760,7 @@ impl Detail {
                 // The app view asks for it, and gives a terminal opened the keys.
                 StoreEvent::AuthorMissing(_)
                 | StoreEvent::TerminalOpened
-                | StoreEvent::TilePinned(_)
+                | StoreEvent::TilePinned { .. }
                 | StoreEvent::TileClosed { .. }
                 | StoreEvent::TilingMoved { .. }
                 | StoreEvent::MoveToward(_)

@@ -595,6 +595,18 @@ impl Vt {
         Some(String::from_utf8_lossy(&text).into_owned())
     }
 
+    /// All it shows, the scrollback and the screen, as plain text: lines the terminal wrapped
+    /// joined again, and without the blanks trailing each. An alternate screen, as a full-screen
+    /// program draws, comes without the one behind it.
+    pub(crate) fn text(&self) -> libghostty_vt::error::Result<String> {
+        let options = FormatterOptions::new()
+            .with_format(Format::Plain)
+            .with_unwrap(true)
+            .with_trim(true);
+        let text = Formatter::new(&self.term, options)?.format_alloc(None)?;
+        Ok(String::from_utf8_lossy(&text).into_owned())
+    }
+
     pub(crate) fn select_all(&mut self) {
         if let Ok(Some(all)) = self.term.select_all() {
             self.term.set_selection(Some(&all)).ok();
@@ -974,6 +986,35 @@ mod tests {
         cell_width: 8,
         cell_height: 16,
     };
+
+    #[test]
+    fn the_text_has_what_scrolled_off_the_screen() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        for n in 1..=30 {
+            vt.write(format!("line {n}\r\n").as_bytes());
+        }
+        let text = vt.text().unwrap();
+        assert!(
+            text.starts_with("line 1\n"),
+            "the scrollback comes first: {text:?}"
+        );
+        assert!(
+            text.trim_end().ends_with("line 30"),
+            "and the screen's last line last: {text:?}"
+        );
+    }
+
+    #[test]
+    fn the_text_joins_a_line_the_terminal_wrapped() {
+        let mut vt = Vt::new(SIZE).unwrap();
+        let long = "x".repeat(100);
+        vt.write(format!("{long}\r\n").as_bytes());
+        assert_eq!(
+            vt.text().unwrap().trim_end(),
+            long,
+            "a line wider than the screen is still one line"
+        );
+    }
 
     #[test]
     fn a_program_asking_for_status_is_answered_before_what_it_asked_after() {
