@@ -247,6 +247,33 @@ fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout
     }))
 }
 
+/// Write an obsolescence marker for every commit `history` rewrote, by the committer and at
+/// the time a commit made now would carry.
+fn record_rewrites(
+    repo: &gix::Repository,
+    db: &mut but_db::DbHandle,
+    history: &crate::graph_rebase::RevisionHistory,
+) -> Result<()> {
+    let rewrites = history.rewrites();
+    if rewrites.is_empty() {
+        return Ok(());
+    }
+    let committer = repo
+        .committer()
+        .transpose()?
+        .context("Need committer to be configured to record rewritten commits")?;
+    let mut user = committer.name.to_owned();
+    user.extend_from_slice(b" <");
+    user.extend_from_slice(committer.email);
+    user.extend_from_slice(b">");
+    let provenance = but_evo::Provenance {
+        user,
+        date: committer.time()?,
+        operation: None,
+    };
+    but_evo::record(db, repo, &rewrites, &provenance)
+}
+
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
         let project_meta = self.workspace.graph.project_meta.clone();
@@ -345,6 +372,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         edit_references_deleting_directory_conflicts_first(&repo, ref_edits)?;
+        if let Err(err) = record_rewrites(&repo, self.db, &self.history) {
+            tracing::warn!(?err, "Failed to record rewritten commits");
+        }
         branch_stacks.persist(self.meta)?;
         self.refresh_workspace(&repo)?;
 

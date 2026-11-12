@@ -1884,7 +1884,7 @@ impl Intent for SplitOff {
     fn apply(self, run: &mut Run) -> Result<(Rewritten, CommitId)> {
         let Self { commit, files } = self;
         let changes = taken_specs(&files)?;
-        let (new, workspace) = run.locked(|ctx, perm| {
+        let (split, workspace) = run.locked(|ctx, perm| {
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
                 ctx,
@@ -1895,17 +1895,18 @@ impl Intent for SplitOff {
                 &[],
                 DryRun::No,
                 |mut tx| {
-                    let split_off = tx.split_commit(
+                    Ok(but_transaction::Commit(tx.split_commit(
                         commit.0,
                         RelativeTo::Commit(commit.0),
                         InsertSide::Above,
                         changes,
-                    )?;
-                    Ok(but_transaction::Commit(CommitId(split_off.id)))
+                    )?))
                 },
             )
         })?;
-        Ok((rewritten(&workspace), new))
+        let mut rewritten = rewritten(&workspace);
+        rewritten.insert(commit, CommitId(split.source.id));
+        Ok((rewritten, CommitId(split.split_off.id)))
     }
 }
 

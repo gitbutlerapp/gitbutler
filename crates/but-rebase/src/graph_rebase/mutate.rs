@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::RefMetadata;
+use but_evo::Rewrite;
 use petgraph::{Direction, algo::has_path_connecting, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
@@ -373,6 +374,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target = self
             .history
             .normalize_selector(target.to_commit_selector(self)?)?;
+        if let Some(prec) = self.followed_pick(target) {
+            self.history.record(Rewrite::Prune { prec });
+        }
         self.graph[target.id] = Step::None;
         Ok(())
     }
@@ -387,6 +391,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let into = self
             .history
             .normalize_selector(into.to_commit_selector(self)?)?;
+        let Step::Pick(Pick { id: succ, .. }) = self.graph[into.id] else {
+            bail!("BUG: to_commit_selector should have asserted Step::Pick");
+        };
+        let mut precs = Vec::new();
         for subject in subjects {
             let subject = self
                 .history
@@ -394,9 +402,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             if subject.id == into.id {
                 bail!("A commit can't be folded into itself");
             }
+            precs.extend(self.followed_pick(subject));
             self.graph[subject.id] = Step::None;
         }
+        if !precs.is_empty() {
+            precs.extend(self.followed_pick(into));
+            self.history.record(Rewrite::Fold { precs, succ });
+        }
         Ok(())
+    }
+
+    fn followed_pick(&self, selector: Selector) -> Option<gix::ObjectId> {
+        match &self.graph[selector.id] {
+            Step::Pick(pick) if self.history.follows(pick) => Some(pick.id),
+            Step::Pick(_) | Step::Reference { .. } | Step::None => None,
+        }
     }
 
     /// Updates the pick to another pick and records a commit mapping.
@@ -412,16 +432,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let Step::Pick(from) = self.graph[target.id].clone() else {
             bail!("BUG: to_commit_selector should have asserted Step::Pick");
         };
-        let from_id = if from.exclude_from_tracking {
-            None
-        } else {
-            Some(from.id)
-        };
+        let from_id = from.id;
+        let followed = self.history.follows(&from);
         let to = f(self, from)?;
-        if let Some(from_id) = from_id
-            && !to.exclude_from_tracking
-        {
-            self.history.update_mapping(from_id, to.id);
+        if followed && to.id != from_id {
+            self.history.record(Rewrite::Replace {
+                prec: from_id,
+                succ: to.id,
+            });
         }
         self.graph[target.id] = Step::Pick(to);
         Ok(())
@@ -891,7 +909,15 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         target: impl ToSelector,
         side: InsertSide,
     ) -> Result<Selector> {
-        source.to_commit_selector(self)?;
+        let source = self
+            .history
+            .normalize_selector(source.to_commit_selector(self)?)?;
+        if let Some(prec) = self.followed_pick(source) {
+            self.history.record(Rewrite::Split {
+                prec,
+                succs: vec![prec, pick.id],
+            });
+        }
         self.insert(target, Step::Pick(pick), side)
     }
 

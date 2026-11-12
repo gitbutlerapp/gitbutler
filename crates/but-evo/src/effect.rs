@@ -61,6 +61,15 @@ fn tracked_headers<'a>(commit: &'a Commit<'_>) -> Vec<&'a (BString, BString)> {
 
 fn introduces_same_change(prec: &Commit<'_>, succ: &Commit<'_>) -> Result<bool> {
     let repo = prec.id.repo;
+    let parent_tree = |commit: &Commit<'_>| -> Result<Option<gix::ObjectId>> {
+        commit
+            .first_parent_id()
+            .map(|parent| Ok(repo.find_commit(parent)?.tree_id()?.detach()))
+            .transpose()
+    };
+    if prec.tree == succ.tree && parent_tree(prec)? == parent_tree(succ)? {
+        return Ok(true);
+    }
     let changeset =
         |commit: &Commit<'_>| id_for_tree_diff(repo, commit.first_parent_id(), commit.id.detach());
     if changeset(prec)? == changeset(succ)? {
