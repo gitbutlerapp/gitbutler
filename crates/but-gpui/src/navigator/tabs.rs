@@ -257,6 +257,30 @@ fn nearest_slot<T: Clone>(
     }
 }
 
+/// Where a step of the keys in a tab's card goes.
+#[derive(Debug, PartialEq, Eq)]
+enum CardStep {
+    /// Up off the card's first row, onto the tab.
+    Tab,
+    /// Nowhere: up from the tab, which is the strip's top.
+    Stay,
+    /// Through the card's rows, as a step through the navigator's goes.
+    Rows,
+}
+
+/// Where a step of `delta` goes from item `at` of a card's, or from off them, as from its tab,
+/// unless the keys are `on_bar`, or what's `moving` steps through where it can land. From the
+/// tab it's down into the card only: a step back from off the navigator's rows starts at their
+/// bottom, which here would take the keys round from the tab to the card's last row.
+fn card_step(at: Option<usize>, on_bar: bool, delta: isize, moving: bool) -> CardStep {
+    match at {
+        _ if moving || delta >= 0 => CardStep::Rows,
+        Some(0) => CardStep::Tab,
+        None if !on_bar => CardStep::Stay,
+        Some(_) | None => CardStep::Rows,
+    }
+}
+
 /// The tab after `from` in `order`, or before it. With `projects_only`, the next project's own,
 /// from whichever of this project's tabs it's on.
 fn stepped(
@@ -2508,8 +2532,8 @@ impl Navigator {
     }
 
     /// Step the selection `delta` through what `scope` shows, as a step through the navigator's
-    /// rows does, or from its first row back up to what the tab selects, and say which of the
-    /// card's rows that is.
+    /// rows does, or from its first row back up to what the tab selects, as [`card_step`] says,
+    /// and say which of the card's rows that is.
     pub(super) fn step_in(
         &mut self,
         scope: &TabKey,
@@ -2518,16 +2542,17 @@ impl Navigator {
         cx: &mut Context<Self>,
     ) -> Option<usize> {
         self.in_scope(scope, cx, |this, cx| {
-            let first = this.items().first().map(|item| (*item).clone());
-            let selected = this.store.read(cx).selection.clone();
-            let moving = this.store.read(cx).moving.is_some();
+            let store = this.store.read(cx);
+            let at = (store.selection.as_ref())
+                .and_then(|selected| this.items().iter().position(|item| *item == selected));
+            let moving = store.moving.is_some();
             match (
-                delta < 0 && !moving && first.is_some() && first == selected,
+                card_step(at, this.on_drawer_bar, delta, moving),
                 scope.selection(),
             ) {
-                (true, Some(tab)) => this.select(tab, window, cx),
-                (true, None) => {}
-                (false, _) => this.step(delta, window, cx),
+                (CardStep::Tab, Some(tab)) => this.select(tab, window, cx),
+                (CardStep::Tab, None) | (CardStep::Stay, _) => {}
+                (CardStep::Rows, _) => this.step(delta, window, cx),
             }
             let selected = this.store.read(cx).selection.clone()?;
             let row = |rows: &[Row]| {
@@ -2568,8 +2593,8 @@ mod tests {
     use gpui::point;
 
     use super::{
-        Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, heading_down, lay_out, nearest_slot,
-        scrolled_to, stepped,
+        CardStep, Group, Laid, PROJECT_GAP, TabKey, WORKTREE_GAP, card_step, heading_down, lay_out,
+        nearest_slot, scrolled_to, stepped,
     };
     use crate::backend::Checkout;
     use crate::state::ProjectId;
@@ -2623,6 +2648,35 @@ mod tests {
             tab,
             100. + whole / 2. - whole + WORKTREE_GAP,
             "what isn't out yet is still behind the project's tab"
+        );
+    }
+
+    #[test]
+    fn up_from_the_tab_stays_on_it() {
+        assert_eq!(
+            card_step(None, false, -1, false),
+            CardStep::Stay,
+            "the tab is the top, so the keys don't go round to the card's last row"
+        );
+        assert_eq!(
+            card_step(Some(0), false, -1, false),
+            CardStep::Tab,
+            "up off the first row is the tab"
+        );
+        assert_eq!(
+            card_step(None, false, 1, false),
+            CardStep::Rows,
+            "down from the tab goes into the card"
+        );
+        assert_eq!(
+            card_step(None, true, -1, false),
+            CardStep::Rows,
+            "on the drawer's bar the keys are in the card, though nothing's selected there"
+        );
+        assert_eq!(
+            card_step(None, false, -1, true),
+            CardStep::Rows,
+            "what's moving steps through where it can land"
         );
     }
 
