@@ -359,7 +359,11 @@ impl GitHubClient {
         Ok(pulls.into_iter().map(Into::into).collect())
     }
 
-    /// Create a PR.
+    /// Create a PR, then apply any requested labels and assignees.
+    ///
+    /// Labels and assignees use the issues API after the PR exists.
+    /// If a metadata call fails, the error states that the PR was already
+    /// created (with its URL) and which step failed.
     pub async fn create_pull_request(
         &self,
         params: &CreatePullRequestParams<'_>,
@@ -393,7 +397,119 @@ impl GitHubClient {
         let response = ensure_success(response).await?;
 
         let pr: GitHubPullRequest = response.json().await?;
-        Ok(pr.into())
+        let mut pr: PullRequest = pr.into();
+
+        if !params.labels.is_empty() {
+            let applied = self
+                .add_labels(params.owner, params.repo, pr.number, params.labels)
+                .await
+                .with_context(|| {
+                    format!(
+                        "PR #{} was created ({}), but adding labels failed",
+                        pr.number, pr.html_url
+                    )
+                })?;
+            pr.labels = applied;
+        }
+        if !params.assignees.is_empty() {
+            let applied = self
+                .add_assignees(params.owner, params.repo, pr.number, params.assignees)
+                .await
+                .with_context(|| {
+                    format!(
+                        "PR #{} was created ({}), but adding assignees failed",
+                        pr.number, pr.html_url
+                    )
+                })?;
+            let missing: Vec<&str> = params
+                .assignees
+                .iter()
+                .filter(|requested| {
+                    !applied
+                        .iter()
+                        .any(|actual| actual.eq_ignore_ascii_case(requested))
+                })
+                .map(String::as_str)
+                .collect();
+            if !missing.is_empty() {
+                anyhow::bail!(
+                    "PR #{} was created ({}), but these assignees could not be added \
+                     (not collaborators or not assignable): {}",
+                    pr.number,
+                    pr.html_url,
+                    missing.join(", ")
+                );
+            }
+        }
+
+        Ok(pr)
+    }
+
+    /// Add labels to an issue (or pull request) via the issues API.
+    /// Returns the full set of labels now on the issue.
+    pub async fn add_labels(
+        &self,
+        owner: &str,
+        repo: &str,
+        issue_number: i64,
+        labels: &[String],
+    ) -> Result<Vec<GitHubPrLabel>> {
+        #[derive(Serialize)]
+        struct AddLabelsBody<'a> {
+            labels: &'a [String],
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/labels",
+            self.base_url, owner, repo, issue_number
+        );
+        let response = self
+            .client
+            .post(&url)
+            .json(&AddLabelsBody { labels })
+            .send()
+            .await?;
+        let response = ensure_success(response).await?;
+        let applied: Vec<GitHubPrLabelApi> = response.json().await?;
+        Ok(applied.into_iter().map(GitHubPrLabel::from).collect())
+    }
+
+    /// Add assignees to an issue (or pull request) via the issues API.
+    /// Returns the login names that GitHub actually assigned.
+    pub async fn add_assignees(
+        &self,
+        owner: &str,
+        repo: &str,
+        issue_number: i64,
+        assignees: &[String],
+    ) -> Result<Vec<String>> {
+        #[derive(Serialize)]
+        struct AddAssigneesBody<'a> {
+            assignees: &'a [String],
+        }
+        #[derive(Deserialize)]
+        struct IssueAssigneesResponse {
+            #[serde(default)]
+            assignees: Vec<AssigneeEntry>,
+        }
+        #[derive(Deserialize)]
+        struct AssigneeEntry {
+            login: String,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/issues/{}/assignees",
+            self.base_url, owner, repo, issue_number
+        );
+        let response = self
+            .client
+            .post(&url)
+            .json(&AddAssigneesBody { assignees })
+            .send()
+            .await?;
+        let response = ensure_success(response).await?;
+        let issue: IssueAssigneesResponse = response.json().await?;
+        Ok(issue.assignees.into_iter().map(|a| a.login).collect())
     }
 
     /// PR's base-repo URL. `None` if GitHub omits it (deleted forks).
@@ -1383,6 +1499,10 @@ pub struct CreatePullRequestParams<'a> {
     pub draft: bool,
     pub owner: &'a str,
     pub repo: &'a str,
+    /// Labels to apply after PR creation via the issues API.
+    pub labels: &'a [String],
+    /// Usernames to assign after PR creation via the issues API.
+    pub assignees: &'a [String],
 }
 
 pub struct UpdatePullRequestParams<'a> {

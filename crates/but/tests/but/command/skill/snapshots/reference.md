@@ -258,6 +258,8 @@ Create a new review for a branch, force-pushing it first
 - `--no-hooks` Bypass pre-push hooks
 - `-t, --default` Use the default content for the review title and description, skipping any prompts. If the branch contains only a single commit, the commit message will be used
 - `-d, --draft` Create the review as a draft
+- `-l, --label <NAME>` Labels to apply to the selected branch's new review (GitHub only). Repeat the flag or separate names with commas. Dependency reviews are unchanged
+- `-a, --assignee <LOGIN>` Users to assign to the selected branch's new review (GitHub only); use @me for yourself. Repeat the flag or separate logins with commas. Dependency reviews are unchanged
 
 ### but pr auto-merge [SELECTOR]
 Enable or disable the automatic merging of reviews

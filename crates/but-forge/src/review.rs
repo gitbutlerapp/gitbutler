@@ -1900,6 +1900,22 @@ pub struct CreateForgeReviewParams {
     pub source_branch: String,
     pub target_branch: String,
     pub draft: bool,
+    /// Labels to apply after creating the review. Currently GitHub only.
+    #[serde(default)]
+    pub labels: Vec<String>,
+    /// Usernames to assign to the review. Currently GitHub only.
+    #[serde(default)]
+    pub assignees: Vec<String>,
+}
+
+fn github_assignees(assignees: &[String], username: &str) -> Vec<String> {
+    assignees
+        .iter()
+        .map(|assignee| match assignee.as_str() {
+            "@me" => username.to_owned(),
+            _ => assignee.clone(),
+        })
+        .collect()
 }
 
 fn github_head_owner_and_repo<'a>(
@@ -1957,6 +1973,11 @@ pub async fn create_forge_review(
                 && push.identity_port().is_some()
         })
         .unwrap_or(forge_repo_info);
+    if !matches!(forge, ForgeName::GitHub)
+        && (!params.labels.is_empty() || !params.assignees.is_empty())
+    {
+        anyhow::bail!("Labels and assignees are only supported for GitHub reviews.");
+    }
     let preferred_forge_user = resolve_account(preferred_forge_user, account_repo, storage)?;
     match forge {
         ForgeName::GitHub => {
@@ -1964,6 +1985,11 @@ pub async fn create_forge_review(
                 github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
 
             let head = format!("{}:{}", head_owner, params.source_branch);
+            let github_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.github())
+                .context("GitHub review creation requires a GitHub account")?;
+            let assignees = github_assignees(&params.assignees, github_account.username());
             let pr_params = but_github::CreatePullRequestParams {
                 owner,
                 repo,
@@ -1973,9 +1999,10 @@ pub async fn create_forge_review(
                 head_repo,
                 base: &params.target_branch,
                 draft: params.draft,
+                labels: &params.labels,
+                assignees: &assignees,
             };
-            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pr = but_github::pr::create(preferred_account, pr_params, storage).await?;
+            let pr = but_github::pr::create(Some(github_account), pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         ForgeName::GitLab => {
@@ -3013,6 +3040,8 @@ mod tests {
             source_branch: "topic".into(),
             target_branch: "main".into(),
             draft: false,
+            labels: vec![],
+            assignees: vec![],
         }
     }
 
@@ -3134,6 +3163,43 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_auth_error(error);
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn at_me_assignee_expands_to_github_username() {
+        assert_eq!(
+            github_assignees(&["alice".into(), "@me".into()], "bob"),
+            ["alice", "bob"],
+            "@me uses the selected account's login without changing other assignees"
+        );
+    }
+
+    #[test]
+    fn creation_metadata_is_rejected_for_other_forges_before_authentication() -> Result<()> {
+        tokio::runtime::Runtime::new()?.block_on(async {
+            let tmp = tempfile::tempdir()?;
+            let storage = unusable_storage(&tmp);
+            for forge in [ForgeName::GitLab, ForgeName::Bitbucket] {
+                let mut repo = repo_info("owner", "repo");
+                repo.forge = forge;
+                for (labels, assignees) in
+                    [(vec!["bug".into()], vec![]), (vec![], vec!["alice".into()])]
+                {
+                    let mut params = review_params();
+                    params.labels = labels;
+                    params.assignees = assignees;
+                    let error = create_forge_review(&None, &repo, &None, &params, &storage)
+                        .await
+                        .unwrap_err();
+                    assert_eq!(
+                        error.to_string(),
+                        "Labels and assignees are only supported for GitHub reviews.",
+                        "unsupported metadata never reaches account storage or the forge"
+                    );
+                }
+            }
             Ok(())
         })
     }

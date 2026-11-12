@@ -321,10 +321,18 @@ pub async fn create_review(
     default: bool,
     draft: bool,
     message: Option<ForgeReviewMessage>,
+    metadata: &ReviewMetadata,
     out: &mut OutputChannel,
 ) -> CliResult<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
-    ensure_forge_authentication(ctx).await?;
+    let forge = ensure_forge_authentication(ctx).await?;
+    if (!metadata.labels.is_empty() || !metadata.assignees.is_empty())
+        && forge != but_forge::ForgeName::GitHub
+    {
+        return Err(
+            bad_input("--label and --assignee are only supported for GitHub reviews").into(),
+        );
+    }
 
     // Publishing reviews is a write path, so use fresh forge state. A stale cache can
     // make stacked publication try to recreate a dependency review that already exists.
@@ -376,6 +384,7 @@ pub async fn create_review(
         default,
         draft,
         message.as_ref(),
+        metadata,
         out,
         maybe_branch_names,
     )
@@ -384,7 +393,7 @@ pub async fn create_review(
 }
 
 /// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
-async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<()> {
+async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<but_forge::ForgeName> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let remote_url = ctx
             .project_meta()?
@@ -438,7 +447,7 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> CliResult<()> {
             "Known account is not correctly authenticated, or the forge can't be reached."
         }
         but_forge::ForgeAccountValidity::NoCredentials => "No authenticated forge users found.",
-        but_forge::ForgeAccountValidity::Valid => return Ok(()),
+        but_forge::ForgeAccountValidity::Valid => return Ok(forge_repo_info.forge),
     };
     Err(bad_input(refusal)
         .hint(format!(
@@ -506,6 +515,7 @@ pub async fn handle_multiple_branches_in_workspace(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    metadata: &ReviewMetadata,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
@@ -559,6 +569,7 @@ pub async fn handle_multiple_branches_in_workspace(
             default_message,
             draft,
             message,
+            metadata,
             out,
         )
         .await?;
@@ -683,6 +694,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    metadata: &ReviewMetadata,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let t = theme::get();
@@ -749,6 +761,7 @@ async fn publish_reviews_for_branch_and_dependents(
             message_plan.default_message,
             draft,
             message_plan.message,
+            metadata.for_branch(&branch.name, branch_name),
             out,
         )
         .await?;
@@ -908,6 +921,18 @@ fn review_message_plan_for_branch<'a>(
     }
 }
 
+#[derive(Default)]
+pub struct ReviewMetadata {
+    pub labels: Vec<String>,
+    pub assignees: Vec<String>,
+}
+
+impl ReviewMetadata {
+    fn for_branch(&self, branch: &str, selected_branch: &str) -> Option<&Self> {
+        (branch == selected_branch).then_some(self)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ForgeReviewMessage {
     pub title: String,
@@ -934,6 +959,7 @@ pub fn parse_review_message(content: &str) -> Option<ForgeReviewMessage> {
     Some(ForgeReviewMessage { title, body })
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn publish_review_for_branch(
     ctx: &mut Context,
     branch: &HeadInfoBranch,
@@ -941,6 +967,7 @@ async fn publish_review_for_branch(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
+    metadata: Option<&ReviewMetadata>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<PublishReviewResult> {
     let branch_name = branch.name.as_str();
@@ -1000,6 +1027,8 @@ async fn publish_review_for_branch(
             source_branch: branch_name.to_string(),
             target_branch,
             draft,
+            labels: metadata.map(|m| m.labels.clone()).unwrap_or_default(),
+            assignees: metadata.map(|m| m.assignees.clone()).unwrap_or_default(),
         },
     )
     .await
@@ -1407,6 +1436,31 @@ mod tests {
             [format!(
                 "Skipped 2 reviews because of reasons.\n{RETRY_REVIEW_ACTION}"
             )]
+        );
+    }
+
+    #[test]
+    fn review_metadata_only_applies_to_selected_branch() {
+        let metadata = ReviewMetadata {
+            labels: vec!["bug".into()],
+            assignees: vec!["alice".into()],
+        };
+        let selected = metadata
+            .for_branch("top", "top")
+            .expect("selected PR metadata");
+        assert_eq!(
+            selected.labels,
+            ["bug"],
+            "selected PR receives requested labels"
+        );
+        assert_eq!(
+            selected.assignees,
+            ["alice"],
+            "selected PR receives requested assignees"
+        );
+        assert!(
+            metadata.for_branch("dependency", "top").is_none(),
+            "dependency PRs receive no metadata"
         );
     }
 

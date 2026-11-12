@@ -46,6 +46,24 @@ pub mod pr {
             /// Create the review as a draft.
             #[clap(long, short = 'd', default_value_t = false)]
             draft: bool,
+            /// Labels to apply to the selected branch's new review (GitHub only).
+            /// Repeat the flag or separate names with commas. Dependency reviews are unchanged.
+            #[clap(
+                long = "label",
+                short = 'l',
+                value_name = "NAME",
+                value_delimiter = ','
+            )]
+            labels: Vec<String>,
+            /// Users to assign to the selected branch's new review (GitHub only); use `@me` for yourself.
+            /// Repeat the flag or separate logins with commas. Dependency reviews are unchanged.
+            #[clap(
+                long = "assignee",
+                short = 'a',
+                value_name = "LOGIN",
+                value_delimiter = ','
+            )]
+            assignees: Vec<String>,
         },
         /// Enable or disable the automatic merging of reviews.
         AutoMerge {

@@ -1305,6 +1305,8 @@ pub async fn publish_review(
         source_branch: params.source_branch,
         target_branch,
         draft: params.draft,
+        labels: vec![],
+        assignees: vec![],
     };
     let review = publish_review_only(ctx.clone(), branch.clone(), params).await?;
     let review_sync = sync_review_stack_after_review_creation(ctx, branch).await;

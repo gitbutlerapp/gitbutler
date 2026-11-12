@@ -88,7 +88,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Move commits or committed changes onto a new named branch: `but move <source> --above <branch> -b <new-name>` (`--below` also works); use `but move <source> --unstack -b <new-name>` for an independent branch. Omit `-b` for a generated name. Naming is not supported when stacking or unstacking a branch source.
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
 - Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, bring their commits in first (see Bring in commits pushed to a branch's own remote).
-- Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
+- Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft] [-l <label>] [-a <login>]` — GitHub labels/assignees apply only to the selected branch’s newly created PR; auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
 

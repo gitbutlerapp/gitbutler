@@ -1029,6 +1029,68 @@ mod pr {
     use clap::Parser;
 
     #[test]
+    fn parses_labels_and_assignees() {
+        let args = crate::args::Args::try_parse_from([
+            "but",
+            "pr",
+            "new",
+            "topic",
+            "-t",
+            "--label",
+            "bug,help wanted",
+            "-l",
+            "KPI:bugfix",
+            "--assignee",
+            "alice,bob",
+            "-a",
+            "carol",
+        ])
+        .expect("parse PR metadata");
+        match args.cmd.expect("subcommand") {
+            crate::args::Subcommands::Pr(crate::args::forge::pr::Platform {
+                cmd:
+                    Some(crate::args::forge::pr::Subcommands::New {
+                        labels, assignees, ..
+                    }),
+                ..
+            }) => {
+                assert_eq!(
+                    labels,
+                    ["bug", "help wanted", "KPI:bugfix"],
+                    "label names preserve spaces"
+                );
+                assert_eq!(
+                    assignees,
+                    ["alice", "bob", "carol"],
+                    "repeated and comma-separated assignees accumulate"
+                );
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn metadata_defaults_to_empty() {
+        let args = crate::args::Args::try_parse_from(["but", "pr", "new", "topic", "-t"])
+            .expect("parse args");
+        match args.cmd.expect("subcommand") {
+            crate::args::Subcommands::Pr(crate::args::forge::pr::Platform {
+                cmd:
+                    Some(crate::args::forge::pr::Subcommands::New {
+                        labels, assignees, ..
+                    }),
+                ..
+            }) => {
+                assert!(
+                    labels.is_empty() && assignees.is_empty(),
+                    "existing commands request no metadata"
+                );
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
     fn defaults_to_running_hooks() {
         let args =
             crate::args::Args::try_parse_from(["but", "pr", "new", "topic"]).expect("parse args");
