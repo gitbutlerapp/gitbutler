@@ -1096,7 +1096,7 @@ pub fn branch_remove_with_perm(
             ref_name.as_bstr()
         );
     }
-    if but_branches::is_technical_branch_name(ref_name.shorten()) {
+    if but_core::branch::is_technical_branch_name(ref_name.shorten()) {
         bail!(
             "Cannot delete GitButler technical branch '{}'",
             ref_name.shorten()
