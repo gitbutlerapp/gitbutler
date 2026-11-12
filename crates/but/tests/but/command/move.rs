@@ -237,7 +237,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   3f3b2ac (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   7e0b8f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * a3830b6 (C) add C
 | * 549c6bf (B, A) add A
@@ -478,7 +478,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   01440ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   c931a22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * c753d5e (C) add C
 | * ff3d67f (B) add B
@@ -601,7 +601,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   6664315 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e3d3118 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * e76feb9 (B) add B
 * | a3830b6 (C) add C
@@ -936,7 +936,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   1321ad6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   3df405e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * eea8652 (C) add C
 * | e06c9f0 (B) add B

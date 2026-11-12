@@ -106,19 +106,19 @@ pub(super) mod function {
         } else {
             None
         };
-        let target_selector = if managed {
-            // The commit, not a reference to it: when several refs point at the common base,
-            // like branches checked out in linked worktrees, none owns it.
-            let lower_bound = workspace
-                .lower_bound
-                .context("Tearing off a branch requires a workspace common base")?;
-            editor.select_commit(lower_bound)?
-        } else {
-            let target = workspace
-                .target_commit
-                .as_ref()
-                .context("Tearing off a branch requires a workspace cutoff")?;
-            editor.select_commit(target.commit_id)?
+        // The commit, not a reference to it: when several refs point at the common base,
+        // like branches checked out in linked worktrees, none owns it. Where the stack leaves
+        // the target, so the torn off branch keeps its base even when the target moved on.
+        let target_selector = match (managed, workspace.lower_bound) {
+            (_, Some(lower_bound)) => editor.select_commit(lower_bound)?,
+            (true, None) => bail!("Tearing off a branch requires a workspace common base"),
+            (false, None) => {
+                let target = workspace
+                    .target_commit
+                    .as_ref()
+                    .context("Tearing off a branch requires a workspace cutoff")?;
+                editor.select_commit(target.commit_id)?
+            }
         };
 
         let DisconnectParameters {

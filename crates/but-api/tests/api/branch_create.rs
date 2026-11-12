@@ -138,6 +138,11 @@ target: main at main
         create_independent_branch(&mut ctx, "new-branch", order)?;
 
         snapbox::assert_data_eq!(entered_workspace(&ctx)?, expected);
+        assert_eq!(
+            ctx.project_meta()?.push_remote.as_deref(),
+            Some("origin"),
+            "entering the workspace keeps the remote branches are pushed to"
+        );
     }
     Ok(())
 }

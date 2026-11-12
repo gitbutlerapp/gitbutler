@@ -1215,7 +1215,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8267892 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1292,7 +1292,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8267892 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  
@@ -1480,7 +1480,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   54743c4 (gitbutler/workspace) GitButler Workspace Commit
+*   8267892 (gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (HEAD -> foo) add first
 |/  
@@ -4753,7 +4753,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   f2a31b0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   91864f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 2388a3a (top) on top
 | * 1c81de8 (middle) also on middle
