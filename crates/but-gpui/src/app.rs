@@ -2896,22 +2896,9 @@ impl AppView {
         match self.arranging.as_ref() {
             Some(arranging) if arranging.tile == *tile => Some(card_edge(theme.pop, theme.shape)),
             Some(_) => None,
-            None => (self.has_keys(tile, window, cx) || self.overview_points_at(tile, window, cx))
+            None => (self.has_keys(tile, window, cx))
                 .then(|| card_edge(theme.focus_edge(), theme.shape)),
         }
-    }
-
-    /// Whether the terminal overview has the keys and `tile` shows the terminal it has
-    /// selected: the tile that takes them as Return gives them.
-    fn overview_points_at(&self, tile: &Tile, window: &Window, cx: &App) -> bool {
-        if !self.terminals.focus_handle(cx).contains_focused(window, cx) {
-            return false;
-        }
-        let store = self.store.read(cx);
-        let Some(shown) = store.terminal_shown() else {
-            return false;
-        };
-        (store.terminal_tile(shown)).is_some_and(|(_, shows)| shows == *tile)
     }
 
     /// A tile pinned beside the home tile, over `area` of the room below the header, edged
