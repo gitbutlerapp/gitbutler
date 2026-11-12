@@ -883,11 +883,14 @@ impl Store {
         }
     }
 
-    /// Unfold watched project `id`'s card when the selection was taken to a row in it, so it
-    /// stays open once the selection leaves, as jumping there should.
-    pub fn unfold_to_selection(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        if self.prefs.folded_projects.contains(id.as_ref()) && !self.project_folded(id) {
-            self.set_project_folded(id, false, cx);
+    /// Unfold the card of the project the selection was taken into, when it's on a row in it, so
+    /// it stays open once the selection leaves, as jumping there should.
+    pub fn unfold_to_selection(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.selection.as_ref().map(|s| s.project().clone()) else {
+            return;
+        };
+        if self.prefs.folded_projects.contains(id.as_ref()) && !self.project_folded(&id) {
+            self.set_project_folded(&id, false, cx);
         }
     }
 

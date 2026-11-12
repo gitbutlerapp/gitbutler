@@ -1904,13 +1904,11 @@ impl AppView {
         // Going somewhere selects it and gives the keys away itself, so at once: drawn with the
         // keys back first, the navigator would flash its selection solid before a terminal
         // entered took them.
-        if let Some(goes_to) = choice.goes_to.clone() {
+        if choice.goes_to.is_some() {
             (choice.run)(self, &typed, window, cx);
             // Going to a row in a folded card unfolds it, so it stays open once the selection
             // leaves.
-            (self.store).update(cx, |store, cx| {
-                store.unfold_to_selection(goes_to.project(), cx)
-            });
+            (self.store).update(cx, |store, cx| store.unfold_to_selection(cx));
         } else {
             Self::once_drawn(window, cx, move |this, window, cx| {
                 (choice.run)(this, &typed, window, cx)

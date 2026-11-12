@@ -319,6 +319,8 @@ impl Store {
             self.set_tiled(id, false);
         }
         self.select(Some(Selection::Terminal(project, id)), cx);
+        // A folded card it opens in unfolds, so it's still listed there once the selection leaves.
+        self.unfold_to_selection(cx);
         // A selection that stays put leaves the new one out of sight.
         self.show_terminals(cx);
         cx.emit(StoreEvent::TerminalOpened);
