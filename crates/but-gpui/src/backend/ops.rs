@@ -1,9 +1,8 @@
 //! Mutations of commits, branches and uncommitted changes; the UI reloads the workspace
 //! afterwards. An [`Intent`], such as [`Squash`], runs under the one lock [`Run::locked`] takes,
 //! in one `but_transaction` transaction or one `_with_perm` call, recording one oplog entry. One
-//! that makes or moves a branch runs as the CLI's do outside the workspace, through
-//! [`Transaction::create_unstacked_reference`] and [`Transaction::create_stacked_reference`].
-//! [`DiscardChanges`] records its own before it writes, as does
+//! that makes or moves a branch runs as the CLI's do outside the workspace. [`DiscardChanges`]
+//! records its own before it writes, as does
 //! [`super::conflicts::ResolveMarkers`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
