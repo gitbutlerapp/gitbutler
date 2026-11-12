@@ -493,14 +493,11 @@ pub fn run(
                     ctx.workspace_and_db_with_perm(perm.read_permission())?;
                 let mut commits = Vec::new();
                 for branch in &branches {
-                    let segment = workspace
-                        .try_find_segment_by_refname(branch.as_ref())
-                        .with_context(|| {
-                            format!(
-                                "Could not find branch {} in the workspace",
-                                branch.shorten()
-                            )
-                        })?;
+                    // A branch outside the workspace has no commits there to discard.
+                    if !workspace.refname_is_segment(branch.as_ref()) {
+                        continue;
+                    }
+                    let segment = workspace.try_find_segment_by_refname(branch.as_ref())?;
                     for commit in &segment.commits {
                         let commit = CommitId::try_from_commit_id(commit.id, &repo)?;
                         commits.push(commit);
@@ -599,6 +596,13 @@ pub fn run(
 
     // The oplog can't restore a linked worktree, so discarding there isn't snapshotted.
     let snapshot = source.worktree_name().is_none();
+    // Named so undo brings back a branch the workspace doesn't show.
+    let deleted_branches: Vec<FullName> = match &executable {
+        ExecutableDiscardOperation::Branches { branches, .. } => branches.iter().cloned().collect(),
+        _ => Vec::new(),
+    };
+    let deleted_branches: Vec<&gix::refs::FullNameRef> =
+        deleted_branches.iter().map(AsRef::as_ref).collect();
     let transaction = |mut tx: but_transaction::Transaction<'_, '_, _>| {
         let outcome = match executable {
             ExecutableDiscardOperation::Branches { branches, commits } => {
@@ -654,7 +658,7 @@ pub fn run(
             meta,
             perm,
             SnapshotDetails::new(oplog_operation_kind),
-            &[],
+            &deleted_branches,
             DryRun::No,
             transaction,
         )?
