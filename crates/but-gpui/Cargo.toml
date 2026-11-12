@@ -90,6 +90,7 @@ strum = { version = "0.27", features = ["derive"] }
 but-action.workspace = true
 but-api = { workspace = true, features = ["legacy"] }
 but-branches.workspace = true
+but-http.workspace = true
 but-askpass.workspace = true
 but-bitbucket.workspace = true
 but-briefs.workspace = true

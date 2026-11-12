@@ -40,7 +40,7 @@ pub struct AnthropicClient {
 impl AnthropicClient {
     pub fn new(kind: CredentialsKind, credentials: &Sensitive<String>) -> Result<Self> {
         let (api_base, headers) = endpoint(&kind, credentials);
-        let client = reqwest::Client::builder()
+        let client = but_http::client_builder()?
             .default_headers(headers)
             .build()?;
 

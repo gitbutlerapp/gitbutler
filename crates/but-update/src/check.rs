@@ -95,7 +95,7 @@ pub fn check_status_with_url(
         install: install(),
     };
 
-    let client = reqwest::Client::builder()
+    let client = but_http::client_builder()?
         .default_headers(headers)
         .timeout(REQUEST_TIMEOUT)
         .build()?;

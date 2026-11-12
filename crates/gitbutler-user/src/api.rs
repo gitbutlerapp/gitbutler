@@ -14,12 +14,12 @@ use but_path::AppChannel;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-fn http_client() -> reqwest::Client {
-    reqwest::Client::builder()
+fn http_client() -> Result<reqwest::Client> {
+    but_http::client_builder()?
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
         .build()
-        .expect("failed to build HTTP client")
+        .context("Failed to build GitButler API HTTP client")
 }
 
 /// Error returned when the upstream API rejects a request with an HTTP error status.
@@ -86,7 +86,7 @@ pub fn fetch_login_token() -> Result<LoginToken> {
     let api_url = default_api_url();
     run_async(async move {
         let url = format!("{api_url}/api/login/token.json");
-        let client = http_client();
+        let client = http_client()?;
         let resp = client
             .post(&url)
             .send()
@@ -113,7 +113,7 @@ pub fn fetch_user_by_token(token: &str) -> Result<serde_json::Value> {
     let token = token.to_string();
     run_async(async move {
         let url = format!("{api_url}/api/login/whoami");
-        let client = http_client();
+        let client = http_client()?;
         let resp = client
             .get(&url)
             .header("X-Auth-Token", &token)
@@ -142,7 +142,7 @@ pub fn fetch_user_profile() -> Result<serde_json::Value> {
     let token = stored_access_token()?;
     run_async(async move {
         let url = format!("{api_url}/api/user.json");
-        let client = http_client();
+        let client = http_client()?;
         let resp = client
             .get(&url)
             .header("X-Auth-Token", &token)
@@ -190,7 +190,7 @@ pub fn update_user_profile(params: UpdateUserParams) -> Result<serde_json::Value
     let token = stored_access_token()?;
     run_async(async move {
         let url = format!("{api_url}/api/user.json");
-        let client = http_client();
+        let client = http_client()?;
 
         let mut form = reqwest::multipart::Form::new();
         if let Some(name) = params.name {

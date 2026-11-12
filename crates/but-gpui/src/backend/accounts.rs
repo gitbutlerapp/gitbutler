@@ -214,10 +214,13 @@ pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
 /// What `url` serves, with [`avatar`]'s ten seconds to answer.
 pub fn fetch(url: &str) -> Result<Vec<u8>> {
     // One client, reusing its connections, for every picture and check.
-    static CLIENT: std::sync::LazyLock<reqwest::Client> =
-        std::sync::LazyLock::new(reqwest::Client::new);
+    static CLIENT: std::sync::LazyLock<reqwest::Result<reqwest::Client>> =
+        std::sync::LazyLock::new(|| but_http::client_builder()?.build());
+    let client = CLIENT
+        .as_ref()
+        .map_err(|err| anyhow::anyhow!("Couldn't set up fetching images: {err}"))?;
     runtime().handle().block_on(async {
-        let request = CLIENT.get(url);
+        let request = client.get(url);
         let response = request.timeout(std::time::Duration::from_secs(10)).send();
         anyhow::Ok(response.await?.error_for_status()?.bytes().await?.to_vec())
     })
