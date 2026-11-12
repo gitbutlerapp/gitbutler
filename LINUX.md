@@ -8,7 +8,7 @@ This document outlines the current level of commitment toward Linux distribution
 
 ## Official support
 
-The officially supported way to install GitButler is with the `deb` package provided on the [downloads page](https://gitbutler.com/downloads). This package is regularly tested to work well with the following distributions.
+The officially supported way to install GitButler is with the `deb` package provided on the [downloads page](https://gitbutler.com/downloads) or the [Flatpak](https://flathub.org/en/apps/com.gitbutler.gitbutler). These are regularly tested to work well with the following distributions:
 
 - Ubuntu 22.04 LTS (jammy)
 - Ubuntu 24.04 LTS (noble)
@@ -36,8 +36,6 @@ There are several community-maintained distributions of GitButler. Issues with t
 - Arch Linux User Repository (AUR)
   - [gitbutler](https://aur.archlinux.org/packages/gitbutler)
   - [gitbutler-bin](https://aur.archlinux.org/packages/gitbutler-bin)
-- Flatpak
-  - [GitButler](https://flathub.org/en/apps/com.gitbutler.gitbutler)
 - Nix
   - [stable](https://search.nixos.org/packages?query=gitbutler&show=gitbutler)
   - [unstable](https://search.nixos.org/packages?channel=unstable&query=gitbutler&show=gitbutler)
