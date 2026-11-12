@@ -1494,7 +1494,6 @@ fn remove_references() {
     assert_num_snapshots(&ctx, 1);
 }
 
-/// A sandbox with `branch` checked out on its own beside the target `main`, and no workspace.
 fn single_branch_beside_target() -> (Sandbox, Context) {
     let env = Sandbox::open_scenario_with_target_and_default_settings("one-stack");
     env.invoke_git("checkout branch");

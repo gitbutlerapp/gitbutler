@@ -223,11 +223,8 @@ where
     }
 }
 
-/// What a transaction learns about its checkout for the checkpoint around it.
 struct CheckoutGuard<'a> {
-    /// Fail before writing if a checkout is pending, as there's no checkpoint to undo it.
     refuse_without_checkpoint: bool,
-    /// Set to whether a checkout was pending once the callback is done.
     pending: &'a mut bool,
 }
 
@@ -394,12 +391,11 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
-    // Branches that became stacks of their own beside the one checked out on its own, each with
-    // its order among the stacks. Only GitButler's workspace holds two stacks, so it's entered
-    // with them once the callback is done, rather than when they're made: a checkout later in
-    // the transaction leaves `HEAD` on a branch of its own, which needs no workspace.
+    // Applied once the callback is done rather than when they're made: a checkout later in the
+    // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
-    // What was checked out when the transaction started, which placing a new branch depends on.
+    // Read before the callback, as leaving the workspace inside the rebase changes what the
+    // graph says is checked out.
     started: StartingCheckout,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.

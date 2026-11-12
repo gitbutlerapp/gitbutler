@@ -25,19 +25,15 @@ pub fn in_single_branch_mode_with_perm(ctx: &Context, perm: &RepoShared) -> anyh
     })
 }
 
-/// What the main worktree had checked out when a transaction started.
 #[derive(Debug)]
 pub(crate) struct StartingCheckout {
-    /// A branch was checked out on its own rather than GitButler's workspace.
     pub(crate) in_single_branch_mode: bool,
-    /// The branch checked out, if one was rather than a detached `HEAD`.
     pub(crate) head_reference: Option<FullName>,
-    /// The local branch of the project's target, which the oplog snapshots against.
+    /// The local branch, as `HEAD` names it, not the remote one the project stores.
     target_ref: Option<FullName>,
 }
 
 impl StartingCheckout {
-    /// Read what's checked out using `ctx` with shared `perm`ission.
     pub(crate) fn read(ctx: &Context, perm: &RepoShared) -> anyhow::Result<Self> {
         let in_single_branch_mode = in_single_branch_mode_with_perm(ctx, perm)?;
         let repo = ctx.repo.get()?;
@@ -59,13 +55,10 @@ impl StartingCheckout {
         self.target_ref.is_some() && self.head_reference.is_some()
     }
 
-    /// Whether the target's branch was checked out.
     fn target_checked_out(&self) -> bool {
         self.target_ref.is_some() && self.head_reference == self.target_ref
     }
 
-    /// Whether a stack of its own beside what's checked out needs GitButler's workspace: in
-    /// single-branch mode, with a branch checked out and a target other than that branch.
     pub(crate) fn new_stack_enters_workspace(&self) -> bool {
         self.in_single_branch_mode
             && self.head_reference.is_some()
@@ -74,7 +67,6 @@ impl StartingCheckout {
     }
 }
 
-/// The project's target, as placing a new branch reads it.
 struct Target {
     commit_id: ObjectId,
     checked_out: bool,
@@ -82,7 +74,6 @@ struct Target {
 }
 
 impl Target {
-    /// Read the target from `repo` with `started` checked out, or `None` without one.
     fn read(repo: &gix::Repository, started: &StartingCheckout) -> anyhow::Result<Option<Self>> {
         if started.target_ref.is_none() {
             return Ok(None);
