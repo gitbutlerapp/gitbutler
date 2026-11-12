@@ -1,5 +1,3 @@
-#![cfg(target_family = "unix")]
-
 use std::{path::Path, time::Duration};
 
 use but_ctx::Context;
@@ -81,6 +79,25 @@ fn watch(main: &Path, config_dir: &Path) -> anyhow::Result<Watched> {
 }
 
 #[test]
+fn head_branch_commits_are_git_activity() -> anyhow::Result<()> {
+    isolated(async {
+        let tmp = tempfile::tempdir()?;
+        invoke_bash_at_dir(
+            "git init main && cd main && git commit --allow-empty -m init",
+            tmp.path(),
+        );
+        let main = tmp.path().join("main");
+        let mut watched = watch(&main, &tmp.path().join("config"))?;
+        watched.settle().await?;
+
+        invoke_bash_at_dir("git commit --allow-empty -m second", &main);
+        watched
+            .expect(|change| matches!(change, Change::GitActivity { .. }))
+            .await
+    })
+}
+
+#[test]
 fn linked_worktree_head_moves_are_workspace_activity() -> anyhow::Result<()> {
     isolated(async {
         let tmp = tempfile::tempdir()?;
@@ -132,6 +149,8 @@ fn linked_worktrees_added_while_watching_are_watched() -> anyhow::Result<()> {
     })
 }
 
+// On Windows a change in an archived worktree's git dir is still reported as workspace activity.
+#[cfg(target_family = "unix")]
 #[test]
 fn linked_worktrees_archived_while_watching_are_not_watched() -> anyhow::Result<()> {
     isolated(async {

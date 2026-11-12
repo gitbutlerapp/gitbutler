@@ -218,7 +218,12 @@ impl Handler {
         let (head_ref_name, head_sha) = head_info(ctx)?;
         let mut saw_workspace_activity = false;
         for path in paths {
-            let Some(file_name) = path.to_str() else {
+            // Paths come with the platform's separators, but the names they are matched against use `/`.
+            let Ok(file_name) = gix::path::into_bstr(&path) else {
+                continue;
+            };
+            let file_name = gix::path::to_unix_separators_on_windows(file_name);
+            let Ok(file_name) = file_name.to_str() else {
                 continue;
             };
             match file_name {
@@ -248,7 +253,7 @@ impl Handler {
                 REFRESH_SENTINEL_PATH => {
                     // Skip the echo of our own write (its pid is already handled
                     // in-process); a different pid, or a read error, means refresh.
-                    let sentinel = ctx.repo.get()?.path().join(file_name);
+                    let sentinel = ctx.repo.get()?.path().join(&path);
                     let wrote_by_us = std::fs::read_to_string(sentinel)
                         .map(|content| content.trim() == process_sentinel_token())
                         .unwrap_or(false);
