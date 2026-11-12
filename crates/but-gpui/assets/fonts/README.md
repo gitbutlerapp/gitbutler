@@ -19,6 +19,25 @@ weight: render both at the same scale (headless Chrome with `--force-device-scal
 a `drive.sh` `shot` of a region, which keeps the display's scale) and compare stem thickness, not
 screenshots taken at different scales.
 
+The instancer also drops the weight value from those two files' `STAT` table, which DirectWrite
+reads a font's weight from. Without it Windows read both as weight 1, drew Medium as Regular, and
+drew SemiBold as Regular made bold, in a new font face each time. GPUI on Windows remembers faces
+by their address, so once Windows reused one for a Chinese, Japanese or Korean font, that text
+drew in Inter, as boxes. Each file gets the value back, at its OS/2 weight class:
+
+```python
+from fontTools.ttLib import TTFont
+from fontTools.ttLib.tables import otTables
+
+for file, weight, name_id in [("Inter-Medium.ttf", 500, 307), ("Inter-SemiBold.ttf", 600, 308)]:
+    font = TTFont(file, recalcTimestamp=False)
+    value = otTables.AxisValue()
+    value.Format, value.AxisIndex, value.Flags = 1, 1, 0  # axis 1 is wght
+    value.ValueNameID, value.Value = name_id, weight  # the name records "Medium" and "SemiBold"
+    font["STAT"].table.AxisValueArray.AxisValue.insert(1, value)
+    font.save(file)
+```
+
 Design-core's Inter leaves out the symbols the app's keys are written with (⌘ ⌥ ⇧ ⌃ ↩ ⌫ ⌦ ⇥, and it
 has ← and → only for its `->` arrow), and without them CoreText draws those from another font,
 heavier and off the baseline. Each Inter file adds them from the full Inter 4.001
