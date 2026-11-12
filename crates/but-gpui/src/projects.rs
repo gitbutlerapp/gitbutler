@@ -22,17 +22,27 @@ use crate::ui::{Tooltip, dp, faint, field, popover, section_label};
 
 actions!(projects, [CloneRepository]);
 
-/// Ask for one folder with the system's picker, `prompt` on its button. When the picker can't
-/// open, as on Linux without a desktop portal, a card says why.
-pub fn pick_folder(prompt: &'static str, store: Entity<Store>, cx: &App) -> Task<Option<PathBuf>> {
+/// Ask for one folder with the system's picker for `name`, as Add project, `prompt` on its
+/// button. When the picker can't open, as on Linux without a desktop portal, a card says why.
+pub fn pick_folder(
+    name: &'static str,
+    prompt: &'static str,
+    store: Entity<Store>,
+    cx: &App,
+) -> Task<Option<PathBuf>> {
     let paths = cx.prompt_for_paths(PathPromptOptions {
         files: false,
         directories: true,
         multiple: false,
         prompt: Some(prompt.into()),
     });
+    let projects = store.read(cx).projects.len();
     cx.spawn(async move |cx| match paths.await.ok()? {
-        Ok(paths) => paths?.into_iter().next(),
+        Ok(paths) => {
+            let folder = paths.and_then(|paths| paths.into_iter().next());
+            backend::metrics::folder_picker_closed(name, folder.is_some(), projects);
+            folder
+        }
         Err(err) => {
             store.update(cx, |store, cx| {
                 store.failed("Couldn't open the folder picker", &err, cx)
@@ -77,7 +87,7 @@ impl AppView {
                     return;
                 };
                 let store = this.store.clone();
-                let folder = pick_folder("Clone here", store.clone(), cx);
+                let folder = pick_folder("Clone repository", "Clone here", store.clone(), cx);
                 cx.spawn(async move |_, cx| {
                     let Some(into) = folder.await.map(|dir| dir.join(&name)) else {
                         return;
