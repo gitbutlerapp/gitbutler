@@ -1470,9 +1470,12 @@ impl AppView {
             return;
         };
         (self.store).update(cx, |store, cx| {
+            let project = selection.project().clone();
             if store.selection.as_ref() != Some(&selection) {
                 store.select(Some(selection), cx);
             }
+            // A folded card it's in unfolds, as Go to anything's jumps do.
+            store.unfold_to_selection(&project, cx);
             store.note_tile_with_keys(&tile);
             cx.notify();
         });

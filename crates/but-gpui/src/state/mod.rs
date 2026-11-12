@@ -871,6 +871,14 @@ impl Store {
         }
     }
 
+    /// Unfold watched project `id`'s card when the selection was taken to a row in it, so it
+    /// stays open once the selection leaves, as jumping there should.
+    pub fn unfold_to_selection(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        if self.prefs.folded_projects.contains(id.as_ref()) && !self.project_folded(id) {
+            self.set_project_folded(id, false, cx);
+        }
+    }
+
     /// Fold every watched project's card to its row, or with `folded` false open them all.
     /// The selection goes up to its project when a fold hides it.
     pub fn fold_all(&mut self, folded: bool, cx: &mut Context<Self>) {
