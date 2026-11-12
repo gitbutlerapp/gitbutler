@@ -409,7 +409,7 @@ commands! {
     },
     // The menu bar's, for Windows, which has none.
     CheckForUpdates => "Check for updates",
-    crate::app::BuildAndRestart => "Rebuild and restart",
+    crate::app::BuildAndRestart => "Build and restart",
     crate::app::BuildAndRestartFromHere => "Build and restart from here",
     crate::command_editor::OpenCommandEditor => "Edit commands" {
         aliases: &["Keybindings", "Keymap editor", "Edit keys", "Edit shortcuts"],
