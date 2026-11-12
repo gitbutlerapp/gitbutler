@@ -218,27 +218,58 @@ fn terminal_in_tile(
     })
 }
 
-/// Open what `params` says in a new tile beside tile `params.beside`, in whichever row's tiling
-/// it is, leaving the keys and the selection where they are, and reply with the tile: for a
-/// terminal, once its shell has started, and in a tile of its own if the one beside closed
-/// meanwhile.
+/// Open what `params` says in a new tile, leaving the keys and the selection where they are,
+/// and reply with the tile: beside tile `params.beside`, in whichever row's tiling it is, or a
+/// terminal in a tile of its own on the worktree `params.checkout`.
 fn open(app: &gpui::Entity<AppView>, params: OpenParams, reply: Reply, cx: &mut App) {
+    let OpenParams {
+        beside,
+        checkout,
+        below,
+        open,
+    } = params;
+    match (beside, checkout, open) {
+        (Some(beside), None, open) => open_beside(app, &beside, below, open, reply, cx),
+        (None, Some(_), _) if below => reply.err(RpcError::new(
+            code::INVALID_PARAMS,
+            "A terminal on a checkout opens in a tile of its own, below nothing",
+        )),
+        (None, Some(name), Open::Terminal { run }) => open_on_checkout(app, &name, run, reply, cx),
+        (None, Some(_), Open::Show(_)) => reply.err(RpcError::new(
+            code::INVALID_PARAMS,
+            "Only a terminal opens on a checkout; a row opens beside a tile",
+        )),
+        (Some(_), Some(_), _) | (None, None, _) => reply.err(RpcError::new(
+            code::INVALID_PARAMS,
+            "Open it beside a tile or on a checkout, one of them",
+        )),
+    }
+}
+
+/// Open `open` in a new tile beside tile `beside`, in whichever row's tiling it is, and reply
+/// with the tile: for a terminal, once its shell has started, and in a tile of its own if the
+/// one beside closed meanwhile.
+fn open_beside(
+    app: &gpui::Entity<AppView>,
+    beside: &str,
+    below: bool,
+    open: Open,
+    reply: Reply,
+    cx: &mut App,
+) {
     let store = app.read(cx).store.clone();
-    let Some((row, at)) = store.read(cx).tile_numbered_there(&params.beside) else {
+    let Some((row, at)) = store.read(cx).tile_numbered_there(beside) else {
         return reply.err(RpcError::new(
             code::NOT_FOUND,
-            format!(
-                "There's no tile {}: ui.state lists the tiles",
-                params.beside
-            ),
+            format!("There's no tile {beside}: ui.state lists the tiles"),
         ));
     };
-    let axis = match params.below {
+    let axis = match below {
         true => Axis::Down,
         false => Axis::Across,
     };
-    let beside = (row.clone(), at.clone(), axis);
-    match params.open {
+    let pin = (row.clone(), at.clone(), axis);
+    match open {
         Open::Show(name) => {
             let project = at.shows(&row).project();
             let Some(pinned) = crate::palette::go_to_tile(store.read(cx), &name, project) else {
@@ -247,15 +278,13 @@ fn open(app: &gpui::Entity<AppView>, params: OpenParams, reply: Reply, cx: &mut 
                     format!("Go to anything finds nothing called {name}"),
                 ));
             };
-            let pinned_there = store.update(cx, |store, cx| {
-                store.pin_quietly(beside, pinned.clone(), cx)
-            });
+            let pinned_there =
+                store.update(cx, |store, cx| store.pin_quietly(pin, pinned.clone(), cx));
             if !pinned_there {
                 return reply.err(RpcError::new(
                     code::NOT_AVAILABLE,
                     format!(
-                        "{name} can't open beside tile {}: it's in a tile of that layout already, or it's the row the layout is for",
-                        params.beside
+                        "{name} can't open beside tile {beside}: it's in a tile of that layout already, or it's the row the layout is for"
                     ),
                 ));
             }
@@ -264,31 +293,67 @@ fn open(app: &gpui::Entity<AppView>, params: OpenParams, reply: Reply, cx: &mut 
         Open::Terminal { run } => {
             let (sender, went) = futures::channel::oneshot::channel();
             let starting = store.update(cx, |store, cx| {
-                store.pin_terminal_quietly(beside, run, sender, cx)
+                store.pin_terminal_quietly(pin, run, sender, cx)
             });
             if !starting {
                 return reply.err(RpcError::new(
                     code::NOT_AVAILABLE,
-                    format!(
-                        "Tile {} shows nothing a terminal can open on",
-                        params.beside
-                    ),
+                    format!("Tile {beside} shows nothing a terminal can open on"),
                 ));
             }
-            let app = app.clone();
-            cx.spawn(async move |cx| {
-                let answer = match went.await {
-                    Ok(went) => cx.update(|cx| opened(&app, &went.row, &went.tile, cx)),
-                    Err(_) => Err(RpcError::new(
-                        code::INTERNAL_ERROR,
-                        "The terminal's shell didn't start",
-                    )),
-                };
-                reply.answer(answer);
-            })
-            .detach();
+            reply_once_started(app, went, reply, cx);
         }
     }
+}
+
+/// Open a terminal on the worktree the navigator lists as `name` in a tile of its own, listed
+/// in the navigator, and reply with the tile once its shell has started.
+fn open_on_checkout(
+    app: &gpui::Entity<AppView>,
+    name: &str,
+    run: Option<String>,
+    reply: Reply,
+    cx: &mut App,
+) {
+    let store = app.read(cx).store.clone();
+    let Some((project, checkout)) = crate::palette::go_to_checkout(store.read(cx), name) else {
+        return reply.err(RpcError::new(
+            code::NOT_FOUND,
+            format!("Go to anything finds no worktree called {name}"),
+        ));
+    };
+    let (sender, went) = futures::channel::oneshot::channel();
+    let starting = store.update(cx, |store, cx| {
+        store.open_terminal_quietly(project, checkout, run, sender, cx)
+    });
+    if !starting {
+        return reply.err(RpcError::new(
+            code::NOT_AVAILABLE,
+            format!("{name} has no folder on this machine to open a terminal in"),
+        ));
+    }
+    reply_once_started(app, went, reply, cx);
+}
+
+/// Reply with the tile a terminal opened quietly went to, once its shell has started.
+fn reply_once_started(
+    app: &gpui::Entity<AppView>,
+    went: futures::channel::oneshot::Receiver<crate::state::Opened>,
+    reply: Reply,
+    cx: &mut App,
+) {
+    let app = app.clone();
+    cx.spawn(async move |cx| {
+        let answer = match went.await {
+            Ok(went) => cx.update(|cx| opened(&app, &went.row, &went.tile, cx)),
+            Err(_) => Err(RpcError::new(
+                code::INTERNAL_ERROR,
+                "The terminal's shell didn't start",
+            )),
+        };
+        reply.answer(answer);
+    })
+    .detach();
 }
 
 /// Close tile `id`, in whichever row's tiling it is, as its × does, leaving the keys and the

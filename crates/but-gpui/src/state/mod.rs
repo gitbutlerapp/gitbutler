@@ -48,8 +48,8 @@ use seen::Seen;
 pub use seen::{GLOW, Seeable};
 pub use terminals::{ProjectCheckout, Terminals};
 pub use tiling::{
-    Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, RowKey, Side, Tile, TileDragFeel,
-    TileIds, Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
+    Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, Opened, RowKey, Side, Tile,
+    TileDragFeel, TileIds, Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
 };
 
 pub type ProjectId = SharedString;

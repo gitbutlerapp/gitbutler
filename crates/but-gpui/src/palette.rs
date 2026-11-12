@@ -1044,6 +1044,18 @@ pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
     rows.into_iter().next().map(|(_, _, selection)| selection)
 }
 
+/// The worktree Go to anything lists as `name` in full, ignoring case, as "Main worktree" for a
+/// project's main checkout: the selected project's before the others'.
+pub(crate) fn go_to_checkout(store: &Store, name: &str) -> Option<(ProjectId, Checkout)> {
+    let name = name.to_lowercase();
+    (go_to_choices(store).into_iter())
+        .filter(|choice| choice.label.to_lowercase() == name)
+        .find_map(|choice| match choice.goes_to? {
+            Selection::Checkout(project, checkout) => Some((project, checkout)),
+            _ => None,
+        })
+}
+
 /// What Go to anything finds as `query`, typed in full or in part, as a tile would show it: a
 /// row, or a project's page. Those called `query` in full first, then those in `project`.
 pub(crate) fn go_to_tile(store: &Store, query: &str, project: &ProjectId) -> Option<RowKey> {

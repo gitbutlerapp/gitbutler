@@ -174,9 +174,14 @@ pub enum TerminalStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenParams {
-    /// The tile to open it beside, in whichever layout it is.
-    pub beside: String,
-    /// Below it, instead of to its right.
+    /// The tile to open it beside, in whichever layout it is. One of this and `checkout`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub beside: Option<String>,
+    /// The worktree, by its name as the navigator lists it, to open a terminal on in a tile of
+    /// its own, listed in the navigator. Only for a terminal. One of this and `beside`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkout: Option<String>,
+    /// Below the tile beside, instead of to its right.
     #[serde(default)]
     pub below: bool,
     pub open: Open,
@@ -186,7 +191,7 @@ pub struct OpenParams {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Open {
-    /// A new terminal, on the checkout of what the tile beside shows.
+    /// A new terminal, on the checkout named, or of what the tile beside shows.
     Terminal {
         /// A command to run in it, through the login shell.
         #[serde(default, skip_serializing_if = "Option::is_none")]
