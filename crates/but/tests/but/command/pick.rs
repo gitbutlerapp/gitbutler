@@ -120,7 +120,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
     snapbox::assert_data_eq!(
         env.git_log(),
         str![[r#"
-*   54743c4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8267892 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 4db633b (foo) add first
 |/  

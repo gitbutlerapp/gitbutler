@@ -1244,7 +1244,7 @@ Created branch 'two'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 3a4cfbb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* db30b92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/
 * b1540e5 (origin/main, origin/HEAD, two, one, main, gitbutler/target) M
 * e31e6ca add init
@@ -1273,7 +1273,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 3a4cfbb (gitbutler/workspace) GitButler Workspace Commit
+* db30b92 (gitbutler/workspace) GitButler Workspace Commit
 |/
 * b1540e5 (HEAD -> one, origin/main, origin/HEAD, two, main, gitbutler/target) M
 * e31e6ca add init
@@ -1306,9 +1306,8 @@ Created branch 'three'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*-. be23232 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/ /
-|/  
+* db30b92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
 * b1540e5 (origin/main, origin/HEAD, two, three, one, main, gitbutler/target) M
 * e31e6ca add init
 
@@ -1319,9 +1318,6 @@ Created branch 'three'
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ th [three] (no commits)
-├╯
-┊
-┊╭┄ tw [two] (no commits)
 ├╯
 ┊
 ┊╭┄ on [one] (no commits)
@@ -1410,7 +1406,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* f114f38 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* db30b92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/
 * b1540e5 (origin/main, origin/HEAD, new-branch, middle, main, gitbutler/target, bottom) M
 * e31e6ca add init
@@ -1516,7 +1512,7 @@ Hint: run `but help` for all commands
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   799076d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   61d8ce7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 * | 1c8b0db (new-branch) on new-branch
 | | * c5ca33e (middle) on middle

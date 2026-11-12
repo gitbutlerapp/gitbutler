@@ -5752,6 +5752,72 @@ move Top to a new stack: <new> [Top] | top [] on lower [Lower] on gitbutler/work
     }
 
     #[test]
+    fn going_apart_outside_the_workspace_keeps_where_the_stack_leaves_a_moved_target() {
+        let mut said = String::new();
+        for what in ["top", "lower"] {
+            but_testsupport::isolated_app_data_dir(|| {
+                // `top` checked out on its own, stacked on `lower`, which changes the line the
+                // target changed since.
+                let dir = repo_with("one\n");
+                let path = dir.path();
+                git(path, &["checkout", "-q", "-b", "lower"]);
+                std::fs::write(path.join("file"), "lower\n").unwrap();
+                git(path, &["commit", "-q", "-am", "Lower"]);
+                git(path, &["checkout", "-q", "-b", "top"]);
+                std::fs::write(path.join("other"), "top\n").unwrap();
+                git(path, &["add", "other"]);
+                git(path, &["commit", "-q", "-m", "Top"]);
+                git(path, &["checkout", "-q", "main"]);
+                std::fs::write(path.join("file"), "target\n").unwrap();
+                git(path, &["commit", "-q", "-am", "target work"]);
+                target_origin_main(path);
+                git(path, &["checkout", "-q", "top"]);
+
+                let branch = full(&format!("refs/heads/{what}"));
+                crate::backend::apply(
+                    path,
+                    TearOffBranch {
+                        branch,
+                        first: false,
+                    },
+                )
+                .unwrap();
+                said += &format!(
+                    "unstack {what}:\n{}",
+                    git(path, &["log", "--graph", "--format=%s %D", "--all"])
+                );
+            });
+        }
+        // Both stacks start where they left the target, so neither picks up its change.
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+unstack top:
+* target work origin/main, main, gitbutler/target
+| *   GitButler Workspace Commit HEAD -> gitbutler/workspace
+| |/  
+| | * Top top
+| |/  
+|/|   
+| * Lower lower
+|/  
+* first 
+unstack lower:
+* target work origin/main, main, gitbutler/target
+| *   GitButler Workspace Commit HEAD -> gitbutler/workspace
+| |/  
+| | * Lower lower
+| |/  
+|/|   
+| * Top top
+|/  
+* first 
+
+"#]]
+        );
+    }
+
+    #[test]
     fn unstacking_says_which_branches_it_left_conflicted() {
         but_testsupport::isolated_app_data_dir(|| {
             // `top`, stacked on a branch that adds api.txt, with a commit writing `file`.

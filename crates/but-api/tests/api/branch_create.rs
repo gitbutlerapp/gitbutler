@@ -140,6 +140,11 @@ target: main at main
         // The workspace holds the branch checked out and the new one, at `order`, and the
         // target stays as it was.
         snapbox::assert_data_eq!(entered_workspace(&ctx)?, expected);
+        assert_eq!(
+            ctx.project_meta()?.push_remote.as_deref(),
+            Some("origin"),
+            "entering the workspace keeps the remote branches are pushed to"
+        );
     }
     Ok(())
 }

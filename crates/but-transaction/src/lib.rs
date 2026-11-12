@@ -187,6 +187,7 @@ where
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
+            pending_new_stacks: Vec::new(),
             context_lines,
         };
 
@@ -210,6 +211,7 @@ where
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
+            pending_new_stacks,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
@@ -219,17 +221,20 @@ where
         let workspace = if should_rollback {
             Ok(None)
         } else {
-            workspace_state_from_rebase(
-                rebase,
-                &repo,
-                pending_metadata_removals,
-                pending_branch_metadata,
-                FinalizeOptions {
-                    checkout: pending_checkout,
-                    dry_run,
-                },
-            )
-            .map(Some)
+            apply_new_stacks(rebase, pending_new_stacks, pending_checkout.is_some())
+                .and_then(|rebase| {
+                    workspace_state_from_rebase(
+                        rebase,
+                        &repo,
+                        pending_metadata_removals,
+                        pending_branch_metadata,
+                        FinalizeOptions {
+                            checkout: pending_checkout,
+                            dry_run,
+                        },
+                    )
+                })
+                .map(Some)
         };
 
         let workspace = match workspace {
@@ -277,6 +282,10 @@ where
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
     pending_checkout: Option<FullName>,
+    // Branches that became stacks of their own beside the one checked out on its own, each with
+    // its order among the stacks. Only GitButler's workspace holds two stacks, so it's entered
+    // with them once the callback is done, to keep a single place that does it.
+    pending_new_stacks: Vec<(FullName, Option<usize>)>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -591,18 +600,46 @@ where
 
     /// Take `source_branch` out of its stack into a stack of its own, placed among the others
     /// at `order`, or after them all, as [`but_workspace::branch::tear_off_branch()`] says.
+    ///
+    /// With a branch checked out on its own and a target, GitButler's workspace is entered at the
+    /// end of the transaction to hold both stacks, unless a branch is checked out by then.
     pub fn tear_off_branch(
         &mut self,
         source_branch: &FullNameRef,
         order: impl Into<Option<usize>>,
     ) -> anyhow::Result<()> {
-        let order = order.into();
-        self.rebase(|editor, _| {
+        let unreachable_stack = self.rebase(|editor, _| {
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, order)?;
-            Ok(((), outcome.rebase))
+            Ok((outcome.unreachable_stack, outcome.rebase))
         })?;
+        let Some(unreachable_stack) = unreachable_stack else {
+            return Ok(());
+        };
+        let workspace = (self.inner.rebase.as_ref())
+            .expect("rebase is always Some(_)")
+            .overlayed_graph()?
+            .into_workspace()?;
+        let target = workspace.graph.project_meta.target_ref.as_ref();
+        // Without a target, or with it checked out, the workspace isn't entered.
+        if target
+            .is_some_and(|target| Some(target.as_local_full_name_ref()) != workspace.ref_name())
+        {
+            self.inner.pending_new_stacks.push(unreachable_stack);
+        }
 
         Ok(())
+    }
+
+    /// Apply `ref_name`, a branch beside the one checked out on its own, as a stack of its own at
+    /// `order` among the stacks once the callback is done, entering GitButler's workspace.
+    #[cfg_attr(
+        not(feature = "legacy"),
+        expect(dead_code, reason = "used by single-branch mode")
+    )]
+    pub(crate) fn apply_new_stack_at_end(&mut self, ref_name: &FullNameRef, order: Option<usize>) {
+        self.inner
+            .pending_new_stacks
+            .push((ref_name.to_owned(), order));
     }
 
     /// Create a new local branch at a commit already present in the editor.
@@ -1024,6 +1061,25 @@ where
             Ok((outcome, rebase))
         })
     }
+}
+
+/// Apply each of `new_stacks` in `rebase` at its order, entering GitButler's workspace, unless
+/// `checking_out` a branch, which `HEAD` then has on its own.
+fn apply_new_stacks<'rebase, M: RefMetadata>(
+    mut rebase: SuccessfulRebase<'rebase, 'rebase, M>,
+    new_stacks: Vec<(FullName, Option<usize>)>,
+    checking_out: bool,
+) -> anyhow::Result<SuccessfulRebase<'rebase, 'rebase, M>> {
+    if checking_out {
+        return Ok(rebase);
+    }
+    for (ref_name, order) in new_stacks {
+        // Local branches need no tracking configuration, which is only returned for remote ones.
+        rebase =
+            but_workspace::branch::apply_stack(rebase.into_editor(), ref_name.as_ref(), order)?
+                .rebase;
+    }
+    Ok(rebase)
 }
 
 struct FinalizeOptions {
