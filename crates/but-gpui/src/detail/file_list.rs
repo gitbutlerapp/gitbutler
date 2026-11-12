@@ -175,10 +175,7 @@ fn steps(depth: usize, chevron: Option<AnyElement>, theme: &Theme) -> Div {
         .flex_none()
         .h_full()
         .gap(dp(4.))
-        .children(
-            (0..depth)
-                .map(|_| step().child(div().w(fixed(1.)).h_full().bg(theme.text_2.opacity(0.2)))),
-        )
+        .children((0..depth).map(|_| step().child(div().w(fixed(1.)).h_full().bg(theme.border_3))))
         .children(chevron.map(|chevron| step().items_center().child(chevron)))
 }
 
@@ -428,7 +425,7 @@ impl Detail {
             self.current_entry() == super::Entry::Message && self.cursor_folder(cx).is_none();
         let solid = current && has_keys(&self.files_focus, window, cx);
         let muted = match solid {
-            true => theme.muted_on_solid(),
+            true => theme.muted_on_solid,
             false => theme.text_2,
         };
         let label = match count {
@@ -1366,7 +1363,7 @@ impl Detail {
                                     .whitespace_nowrap())
                                 .text_ellipsis_middle()
                                 .text_color(match solid {
-                                    true => theme.muted_on_solid(),
+                                    true => theme.muted_on_solid,
                                     false => theme.text_3,
                                 })
                                 .child(sub.to_owned()),
@@ -1667,7 +1664,7 @@ impl Detail {
         let (current, solid) = (current && !on_folder, solid && (picked || !on_folder));
         // On the solid ground, as but-ui-react's FileList inverts a selected row's contents.
         let muted = match solid {
-            true => theme.muted_on_solid(),
+            true => theme.muted_on_solid,
             false => theme.text_2,
         };
         // In a tree a file sits under its directory, which names its path.

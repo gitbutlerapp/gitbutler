@@ -8,7 +8,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, Hsla, MouseButton, Role, ScrollHandle, SharedString,
+    AnyElement, App, ClickEvent, Context, Div, MouseButton, Role, ScrollHandle, SharedString,
     Stateful, Toggled, Window, div, list, prelude::*, relative,
 };
 
@@ -23,7 +23,7 @@ use crate::clipboard;
 use crate::overlays::{MenuItem, has_keys};
 use crate::pr::{MarkReadyForReview, Mergeability, Offer};
 use crate::state::{ProjectId, ProjectTab, Selection, Side};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::fold;
 use crate::ui::markdown;
 use crate::ui::person::forge_avatar;
@@ -1096,6 +1096,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
     });
     let enabled = why_not.is_none();
     let [off_ground, on_ground] = switch_grounds(theme);
+    let knob = theme.bg_1;
     let el = h_flex()
         .id("auto-merge")
         .role(Role::Switch)
@@ -1107,7 +1108,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
         .gap(dp(6.))
         .rounded(dp(theme.shape.control))
         .border_1()
-        .border_color(theme.control_border())
+        .border_color(theme.control_border)
         .text_size(dp(12.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .whitespace_nowrap()
@@ -1125,7 +1126,7 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
                                 .ml(phase.interpolate_clamped(dp(0.), dp(8.)))
                                 .size(dp(8.))
                                 .rounded_full()
-                                .bg(gpui::white()),
+                                .bg(knob),
                         )
                 }),
         )
@@ -1135,12 +1136,14 @@ fn auto_merge_switch(on: bool, why_not: Option<SharedString>, theme: &Theme) -> 
             Tooltip::keyed(tip.clone(), key)(window, cx)
         });
     match enabled {
-        true => tab_stop(el, theme)
-            .hover(|el| el.bg(theme.hover()))
-            .on_click(move |_, window, cx| {
-                cx.stop_propagation();
-                window.dispatch_action(offer.action().boxed_clone(), cx)
-            }),
+        true => {
+            tab_stop(el, theme)
+                .hover(|el| el.bg(theme.hover))
+                .on_click(move |_, window, cx| {
+                    cx.stop_propagation();
+                    window.dispatch_action(offer.action().boxed_clone(), cx)
+                })
+        }
         false => el.opacity(0.5),
     }
 }
@@ -1209,7 +1212,7 @@ fn description(review: &Review, select: markdown::Select, theme: &Theme) -> Div 
         .py(dp(10.))
         .rounded(dp(theme.shape.card))
         // Halfway from the page to the first grey step: a passage, not a panel.
-        .bg(theme.bg_1.blend(theme.bg_2.opacity(0.5)))
+        .bg(theme.passage())
         .child(markdown::render(
             &description_id(review),
             &body,
@@ -1267,17 +1270,17 @@ fn side_section(heading: &'static str, action: Option<AnyElement>, theme: &Theme
         )
 }
 
-/// A badge of a word or two on a ground tinted `color`: a pull request's state, a
-/// review's verdict.
-pub(super) fn tag(color: Hsla, theme: &Theme) -> Div {
+/// A badge of a word or two in `hue`, on its soft ground: a pull request's state, a review's
+/// verdict.
+pub(super) fn tag(hue: Hue, theme: &Theme) -> Div {
     h_flex()
         .flex_none()
         .h(dp(theme.sizes.control_sm))
         .px(dp(7.))
         .gap(dp(4.))
         .rounded(dp(theme.shape.control))
-        .bg(color.opacity(0.14))
-        .text_color(color)
+        .bg(theme.soft(hue))
+        .text_color(theme.hue(hue))
         .text_size(dp(12.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
 }
@@ -1285,7 +1288,7 @@ pub(super) fn tag(color: Hsla, theme: &Theme) -> Div {
 /// Its state as a tinted badge, and its number, which opens it on the forge.
 fn status_section(review: &Review, state: ReviewState, forge: &str, theme: &Theme) -> Div {
     let (glyph, color) = ui_review::state_glyph(state, theme);
-    let badge = tag(color, theme)
+    let badge = tag(ui_review::state_hue(state), theme)
         .child(small_icon(glyph).size(dp(12.)).text_color(color))
         .child(ui_review::state_label(state));
     let link = review.url.clone().map(|url| {
@@ -1354,6 +1357,12 @@ fn labels_section(review: &Review, theme: &Theme) -> Option<Div> {
         return None;
     }
     let tags = review.labels.iter().map(|label| {
+        // The colour the label has on the forge, which names it there.
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "a label's own colour, from the forge"
+        )]
+        let dot_color = label.color.map(|color| gpui::Hsla::from(gpui::rgb(color)));
         h_flex()
             .h(dp(20.))
             .max_w_full()
@@ -1363,11 +1372,7 @@ fn labels_section(review: &Review, theme: &Theme) -> Option<Div> {
             .border_1()
             .border_color(theme.border_2)
             .text_size(dp(12.))
-            .children(
-                label
-                    .color
-                    .map(|color| dot(gpui::rgb(color).into()).size(dp(8.))),
-            )
+            .children(dot_color.map(|color| dot(color).size(dp(8.))))
             .child(div().min_w_0().truncate().child(label.name.clone()))
     });
     Some(side_section("Labels", None, theme).child(h_flex().flex_wrap().gap(dp(4.)).children(tags)))
@@ -1439,7 +1444,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
                     .child(small_icon(Icon::ArrowUpRight).text_color(theme.text_3)),
             )
         });
-    let hover = theme.hover();
+    let hover = theme.hover;
     h_flex()
         .id(("check", ix))
         .group(group)
@@ -1474,7 +1479,7 @@ pub(super) fn tab(
     solid: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let hover = theme.hover();
+    let hover = theme.hover;
     h_flex()
         .id(id)
         .group(id)
@@ -1489,7 +1494,7 @@ pub(super) fn tab(
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
-        .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
+        .child(icon(glyph).text_color(theme.text_1).opacity(0.7))
         .child(
             div()
                 .opacity(if selected { 0.9 } else { 0.63 })
@@ -1506,7 +1511,7 @@ pub(super) fn tab(
                     .h(dp(4.))
                     .bg(match solid {
                         true => theme.fill_gray,
-                        false => theme.selected_unfocused(),
+                        false => theme.selected_unfocused,
                     }),
             )
         })

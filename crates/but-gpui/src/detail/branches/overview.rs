@@ -318,9 +318,11 @@ fn lane_row(
         let day = first_day + day_ix as i64;
         let dim = day < since;
         let shade = (n as f32 / most as f32).sqrt();
-        let color = match n {
-            0 => theme.border_3.opacity(0.6),
-            _ => theme.pop.opacity(0.3 + 0.7 * shade),
+        // A day without commits is a faint rule; the busier a day, the more of pop, and all
+        // of it fainter before what's picked.
+        let (color, strength) = match n {
+            0 => (theme.border_3, 0.6),
+            _ => (theme.pop, 0.3 + 0.7 * shade),
         };
         div()
             .id(("lane-day", day_ix))
@@ -331,7 +333,8 @@ fn lane_row(
             .right(relative((days - 1. - day_ix as f32) / days))
             .mx(dp(1.))
             .rounded(dp(theme.shape.xs))
-            .bg(if dim { color.opacity(0.3) } else { color })
+            .bg(color)
+            .opacity(if dim { strength * 0.3 } else { strength })
             .tooltip(move |window, cx| {
                 let day = crate::ui::local_weekday(noon(day));
                 Tooltip::text(format!("{day}: {}", plural(n as usize, "commit")))(window, cx)

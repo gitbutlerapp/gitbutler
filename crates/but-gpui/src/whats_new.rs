@@ -331,7 +331,7 @@ impl WhatsNew {
         let marker = div().flex_none().size(dp(6.)).rounded_full();
         let marker = match self.has(release) {
             Some(false) => marker.border_1().border_color(match selected {
-                true => theme.muted_on_solid(),
+                true => theme.muted_on_solid,
                 false => theme.text_3,
             }),
             _ => marker,
@@ -361,11 +361,11 @@ impl WhatsNew {
                     .rounded(dp(theme.shape.control))
                     // On a solid selection, in its own muted colour, as the row's other text.
                     .bg(match selected {
-                        true => theme.text_inverted.opacity(0.15),
-                        false => theme.pop.opacity(0.15),
+                        true => theme.inverse_soft,
+                        false => theme.pop_soft,
                     })
                     .text_color(match selected {
-                        true => theme.muted_on_solid(),
+                        true => theme.muted_on_solid,
                         false => theme.pop,
                     })
                     .text_size(dp(10.))
@@ -411,7 +411,7 @@ impl WhatsNew {
                     .px(dp(12.))
                     .py(dp(8.))
                     .rounded(dp(theme.shape.card))
-                    .bg(theme.pop.opacity(0.1))
+                    .bg(theme.pop_soft)
                     .text_size(dp(13.))
                     .child("Not in your version yet")
                     .into_any_element(),

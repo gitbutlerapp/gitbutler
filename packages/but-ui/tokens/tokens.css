@@ -234,10 +234,14 @@
   --but-muted-nested: var(--but-gray-4);
   /* How much inverse to mix into a surface on hover: a list row, a field. Mix it with color-mix over the surface, not as an overlay. */
   --but-opacity-bg-hover: 5%;
-  /* How much inverse a selected row keeps while its list doesn&#39;t have focus, so the selection stays legible from elsewhere. Used by selected/inactive. */
+  /* How much inverse a selected row keeps while its list doesn't have focus, so the selection stays legible from elsewhere. Used by selected/inactive. */
   --but-opacity-bg-selected-inactive: 10%;
   /* A disabled control or row, applied to the whole element. Keep its colors; the opacity alone says it is unavailable. */
   --but-opacity-disabled: 50%;
+  /* How much of a hue a wash lays over what must still show through it: a mark on a row, a drop target, a comment's words. Used by each hue's wash, as primary/wash. */
+  --but-opacity-wash: 14%;
+  /* How much of a hue a strong wash lays over what must still show through it: what's matched, selected or being written now. Used by each hue's wash-strong, as primary/wash-strong. */
+  --but-opacity-wash-strong: 28%;
   /* The scrim behind a modal. */
   --but-overlay: light-dark(hsl(0 0.0% 83.9% / 0.45), hsl(0 0.0% 0.0% / 0.5));
   /* Inside a bordered card or a settings row. */
@@ -559,12 +563,39 @@
   --but-warning-soft-hover: var(--but-amber-4);
   /* Warning text: reads at 4.5:1 on background, muted and warning/soft. */
   --but-warning-text: var(--but-amber-11);
+  /* The accent laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use primary/soft. */
+  --but-primary-wash: color-mix(in srgb, var(--but-primary) var(--but-opacity-wash), transparent);
+  /* primary/wash, stronger: what's matched, selected or being written now. */
+  --but-primary-wash-strong: color-mix(in srgb, var(--but-primary) var(--but-opacity-wash-strong), transparent);
+  /* Danger laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use danger/soft. */
+  --but-danger-wash: color-mix(in srgb, var(--but-danger) var(--but-opacity-wash), transparent);
+  /* danger/wash, stronger: what's matched, selected or being written now. */
+  --but-danger-wash-strong: color-mix(in srgb, var(--but-danger) var(--but-opacity-wash-strong), transparent);
   /* Secondary text on inverse. */
   --but-inverse-muted-foreground: color-mix(in srgb, var(--but-inverse-foreground) 60%, transparent);
   /* Tertiary text on inverse. */
   --but-inverse-subtle-foreground: color-mix(in srgb, var(--but-inverse-foreground) 50%, transparent);
   /* The ground under the pointer on a ghost control that sits on inverse, as hover is elsewhere. */
   --but-inverse-ghost-hover: color-mix(in srgb, var(--but-inverse-foreground) var(--but-opacity-bg-hover), transparent);
+  --but-inverse-soft: color-mix(in srgb, var(--but-inverse-foreground) 15%, transparent);
+  /* inverse/soft under the pointer. */
+  --but-inverse-soft-hover: color-mix(in srgb, var(--but-inverse-foreground) 22%, transparent);
+  /* Warning laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use warning/soft. */
+  --but-warning-wash: color-mix(in srgb, var(--but-warning) var(--but-opacity-wash), transparent);
+  /* warning/wash, stronger: what's matched, selected or being written now. */
+  --but-warning-wash-strong: color-mix(in srgb, var(--but-warning) var(--but-opacity-wash-strong), transparent);
+  /* Success laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use success/soft. */
+  --but-success-wash: color-mix(in srgb, var(--but-success) var(--but-opacity-wash), transparent);
+  /* success/wash, stronger: what's matched, selected or being written now. */
+  --but-success-wash-strong: color-mix(in srgb, var(--but-success) var(--but-opacity-wash-strong), transparent);
+  /* Done laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use done/soft. */
+  --but-done-wash: color-mix(in srgb, var(--but-done) var(--but-opacity-wash), transparent);
+  /* done/wash, stronger: what's matched, selected or being written now. */
+  --but-done-wash-strong: color-mix(in srgb, var(--but-done) var(--but-opacity-wash-strong), transparent);
+  /* Info laid over rows or text that must still show through: a mark, a drop target, a highlight. For a ground of its own, use info/soft. */
+  --but-info-wash: color-mix(in srgb, var(--but-info) var(--but-opacity-wash), transparent);
+  /* info/wash, stronger: what's matched, selected or being written now. */
+  --but-info-wash-strong: color-mix(in srgb, var(--but-info) var(--but-opacity-wash-strong), transparent);
   /* The ground under the pointer on anything without a fill of its own: a ghost button, a row, a tab. */
   --but-hover: color-mix(in srgb, var(--but-inverse) var(--but-opacity-bg-hover), transparent);
   /* The focus ring: the keyboard's position, on every control. Drawn 1.5px, solid, outside the control. */

@@ -15,7 +15,7 @@ use super::Navigator;
 use super::rows::{CARD_EDGE, Row, card_ends, heads, span_height};
 use crate::backend::{Checkout, CommitId, Destination, FullName, Messages};
 use crate::state::{ProjectId, Selection};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{Changes, Dragged, Move, Moving, Op, Place, Stop, Target};
 use crate::ui::{Icon, dp, h_flex, small_icon};
 
@@ -238,6 +238,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let highlight = theme.pop;
+        let wash = theme.wash(Hue::Pop);
         let dragging = self.store.read(cx).dragging.as_ref();
         let label = match dragging.map(|dragged| &dragged.what) {
             Some(Moving::Branch(_)) => "Unstack",
@@ -258,10 +259,7 @@ impl Navigator {
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
             .child(label)
             .drag_over::<Dragged>(move |style, _, _, _| {
-                style
-                    .bg(highlight.opacity(0.14))
-                    .border_color(highlight)
-                    .text_color(highlight)
+                style.bg(wash).border_color(highlight).text_color(highlight)
             });
         div().py(dp(2.)).child(zone).into_any_element()
     }

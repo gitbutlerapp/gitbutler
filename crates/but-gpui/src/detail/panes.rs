@@ -285,8 +285,8 @@ impl Detail {
                             let text = (div().truncate()).flex_shrink(shrink).child(crumb);
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
-                                    // A step darker under the pointer: it's still a quiet trail.
-                                    let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
+                                    // Darker under the pointer: it's still a quiet trail.
+                                    let hover = theme.text_1;
                                     above_drag(text.id(("crumb", ix)))
                                         .hover(move |el| el.text_color(hover))
                                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -968,7 +968,7 @@ impl Detail {
         label: impl Into<SharedString>,
         theme: &Theme,
     ) -> Stateful<Div> {
-        let hover = theme.hover();
+        let hover = theme.hover;
         div()
             .id(id)
             .role(Role::Link)
@@ -1102,7 +1102,7 @@ impl Detail {
         tooltip: &'static str,
         theme: &Theme,
     ) -> Stateful<Div> {
-        let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
+        let hover = theme.text_1;
         h_flex()
             .id("commit-sha")
             .gap(dp(4.))
@@ -1111,8 +1111,9 @@ impl Detail {
             .child(
                 icon(Icon::Hash)
                     .size(dp(14.))
-                    .text_color(theme.text_2.opacity(0.7))
-                    .group_hover("commit-sha", move |el| el.text_color(hover.opacity(0.7))),
+                    .text_color(theme.text_2)
+                    .opacity(0.7)
+                    .group_hover("commit-sha", move |el| el.text_color(hover)),
             )
             .child(short)
             .tooltip(Tooltip::text(tooltip))
@@ -1378,7 +1379,7 @@ impl Detail {
                     false => format!("The oldest is in {}, below this branch.", holder.name),
                 },
                 Some(
-                    super::resolve::banner_action("resolve", "Resolve", theme)
+                    super::resolve::banner_action("resolve", "Resolve")
                         .on_click(move |_, window, cx| {
                             let project = project.clone();
                             app.update_later(window, cx, move |app, window, cx| {
@@ -1484,7 +1485,7 @@ pub(super) fn editable_title(
     key: Option<SharedString>,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let hover = theme.hover();
+    let hover = theme.hover;
     title_text(text)
         .id(id)
         .role(Role::Button)
@@ -1511,7 +1512,8 @@ pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
     h_flex().gap(dp(3.)).child(
         icon(glyph)
             .size(dp(14.))
-            .text_color(theme.text_2.opacity(0.7)),
+            .text_color(theme.text_2)
+            .opacity(0.7),
     )
 }
 
@@ -1639,9 +1641,10 @@ fn day_strip(days: &[u32], most: u32, today: i64, theme: &Theme) -> Div {
             .right(gpui::relative((count - 1. - ix as f32) / count))
             .mx(dp(1.))
             .rounded(dp(theme.shape.xs))
-            .bg(match n {
-                0 => theme.border_3.opacity(0.6),
-                _ => theme.pop.opacity(0.3 + 0.7 * shade),
+            // A day without commits is a faint rule; the busier a day, the more of pop.
+            .map(|el| match n {
+                0 => el.bg(theme.border_3).opacity(0.6),
+                _ => el.bg(theme.pop).opacity(0.3 + 0.7 * shade),
             })
             .tooltip(move |window, cx| {
                 let day = crate::ui::local_weekday(noon(day));
@@ -2258,8 +2261,8 @@ pub(super) fn share_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, fill) = match on {
-        true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
-        false => (theme.border_3, theme.pop.opacity(0.7)),
+        true => (theme.inverse_soft, theme.muted_on_solid),
+        false => (theme.border_3, theme.pop_bg),
     };
     let share = n as f32 / most.max(1) as f32;
     side_row(id, picked, solid, theme)
@@ -2409,7 +2412,7 @@ fn person_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, bar) = match on {
-        true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
+        true => (theme.inverse_soft, theme.muted_on_solid),
         false => (theme.border_3, theme.text_3),
     };
     side_row(id, picked, solid, theme)

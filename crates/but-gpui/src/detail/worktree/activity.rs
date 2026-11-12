@@ -208,9 +208,10 @@ impl Detail {
             if merged > 0 {
                 tip.push_str(&format!(" · {}", plural(merged, "commit")));
             }
+            // Outside what's picked, the bars are faint.
             let (edit, commit) = match inside {
-                true => (theme.pop, theme.text_2),
-                false => (theme.pop.opacity(0.2), theme.text_2.opacity(0.25)),
+                true => (1., 1.),
+                false => (0.2, 0.25),
             };
             let column = v_flex()
                 .id(("now-quarter", ix))
@@ -237,9 +238,9 @@ impl Detail {
                             // activity draws a quiet day.
                             .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
                             .rounded_t(dp(1.))
-                            .bg(match n {
-                                0 => theme.border_2,
-                                _ => edit,
+                            .map(|el| match n {
+                                0 => el.bg(theme.border_2),
+                                _ => el.bg(theme.pop).opacity(edit),
                             }),
                     ),
             )
@@ -256,7 +257,8 @@ impl Detail {
                                 .w_full()
                                 .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
                                 .rounded_b(dp(1.))
-                                .bg(commit),
+                                .bg(theme.text_2)
+                                .opacity(commit),
                         )
                     }),
             )

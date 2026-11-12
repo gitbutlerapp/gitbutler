@@ -304,10 +304,7 @@ impl SettingsView {
                     .font_family(theme.mono_font.clone())
                     // Outlined where letting go puts it, as the navigator's rows are while they
                     // move.
-                    .when(held, |el| {
-                        el.border_color(theme.pop)
-                            .bg(theme.bg_1.blend(theme.pop.opacity(0.14)))
-                    }),
+                    .when(held, |el| el.border_color(theme.pop).bg(theme.pop_soft)),
             )
             .child(
                 icon_button("remove", Icon::Minus)

@@ -16,7 +16,7 @@ use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{Overlay, ProjectId, Rereads, Selection, snack};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{Move, Op};
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -807,7 +807,7 @@ impl Detail {
             .map(|(_, _, c)| self.side_names(c, cx))
             .unwrap_or_default();
         let apply = (matches!(conflicted, Conflicted::Files(_)) && decided > 0).then(|| {
-            let style = banner_action("apply-resolutions", "Apply", theme);
+            let style = banner_action("apply-resolutions", "Apply");
             apply_with(style, decided, entity)
         });
         let (title, detail, action): (String, String, Option<AnyElement>) = match older {
@@ -819,7 +819,7 @@ impl Detail {
                      of these."
                         .into(),
                     Some(
-                        banner_action("go-older", "Go to it", theme)
+                        banner_action("go-older", "Go to it")
                             .on_click(move |_, _, cx| {
                                 store_entity.update(cx, |store, cx| {
                                     store
@@ -969,7 +969,7 @@ pub(super) fn warn_banner(
         .pr(dp(8.))
         .py(dp(6.))
         .rounded(dp(theme.shape.card))
-        .bg(theme.warn.opacity(0.1))
+        .bg(theme.warn_soft)
         .text_color(theme.warn)
         .tooltip(Tooltip::text(detail))
         .child(small_icon(Icon::Warning).text_color(theme.warn))
@@ -986,15 +986,11 @@ pub(super) fn warn_banner(
 }
 
 /// A banner's fix: a small ghost button in the banner's colour.
-pub(super) fn banner_action(
-    id: &'static str,
-    label: &'static str,
-    theme: &Theme,
-) -> crate::ui::Button {
+pub(super) fn banner_action(id: &'static str, label: &'static str) -> crate::ui::Button {
     button(id, label)
         .small()
         .style(ButtonStyle::Ghost)
-        .tint(theme.warn)
+        .tint(Hue::Warn)
 }
 
 impl AppView {

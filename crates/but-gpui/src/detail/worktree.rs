@@ -20,7 +20,7 @@ use crate::backend::{
 use crate::state::{
     Activity, CodePlace, ProjectId, ProjectTab, QUARTER, SeenCommit, Selection, Store,
 };
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
@@ -784,7 +784,7 @@ impl Detail {
             button("now-mark-read", "Mark all as read")
                 .small()
                 .style(ButtonStyle::Ghost)
-                .tint(theme.text_2)
+                .tint(Hue::Gray)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     let ids = unread.clone();
                     (this.store).update(cx, |store, cx| store.mark_read(&project, ids, true, cx))
@@ -846,7 +846,7 @@ fn scrolling(
 fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
     let (name, dir) = diff::split_path(path);
     let muted = match on {
-        true => theme.muted_on_solid(),
+        true => theme.muted_on_solid,
         false => theme.text_3,
     };
     h_flex()

@@ -1842,7 +1842,7 @@ impl SettingsView {
         .mx_0()
         .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
-            true => theme.muted_on_solid(),
+            true => theme.muted_on_solid,
             false => theme.text_2,
         }))
         .child(page.title())
@@ -1876,12 +1876,12 @@ impl SettingsView {
                 "fold",
                 open,
                 match selected {
-                    true => theme.muted_on_solid(),
+                    true => theme.muted_on_solid,
                     false => theme.text_3,
                 },
             ))
             .child(icon(Icon::Folder).text_color(match selected {
-                true => theme.muted_on_solid(),
+                true => theme.muted_on_solid,
                 false => theme.text_2,
             }))
             .child(div().flex_1().min_w_0().truncate().child(name))

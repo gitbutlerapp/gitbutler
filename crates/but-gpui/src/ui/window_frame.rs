@@ -5,7 +5,7 @@
 
 use gpui::{
     AnyElement, App, BoxShadow, CursorStyle, Decorations, Div, MouseButton, Pixels, ResizeEdge,
-    Stateful, Tiling, Window, div, hsla, prelude::*,
+    Stateful, Tiling, Window, div, prelude::*,
 };
 
 use super::fixed;
@@ -29,7 +29,7 @@ pub fn window_frame(content: Stateful<Div>, window: &mut Window, cx: &App) -> An
         .border_color(Theme::get(cx).border_2)
         .when(!tiling.is_tiled(), |el| {
             el.shadow(vec![
-                BoxShadow::new(fixed(0.), fixed(0.), hsla(0., 0., 0., 0.4))
+                BoxShadow::new(fixed(0.), fixed(0.), Theme::get(cx).shadow)
                     .blur_radius(SHADOW / 2.),
             ])
         });

@@ -41,7 +41,7 @@ fn agent_setup(id: &'static str, store: &Entity<Store>, theme: &Theme) -> Div {
         .pr(dp(2.))
         .py(dp(2.))
         .rounded(dp(theme.shape.card))
-        .bg(theme.fill_gray.opacity(0.08))
+        .bg(theme.secondary)
         .font_family(theme.mono_font.clone())
         .text_size(dp(12.))
         .child(div().text_color(theme.text_3).child("$"))

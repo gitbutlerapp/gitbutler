@@ -26,7 +26,7 @@ use crate::commands::{COMMANDS, title_of};
 use crate::keymap::edit::{self, Bound};
 use crate::keymap::{self, Binding, Keymap, KeymapFile, Loaded};
 use crate::state::Store;
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{self, InputEvent, TextInput};
@@ -786,7 +786,7 @@ impl CommandEditor {
             .map(|selection| between(selection.anchor, selection.head))
             .filter(|range| !range.is_empty());
         let highlight = HighlightStyle {
-            background_color: Some(theme.pop.opacity(0.25)),
+            background_color: Some(theme.highlight(Highlight::Selected)),
             ..HighlightStyle::default()
         };
         let styled = StyledText::new(text.clone())
@@ -901,8 +901,8 @@ impl CommandEditor {
             .min_h(dp(ROW_HEIGHT))
             .px(dp(SIDE_PAD))
             .py(dp(3.))
-            .when(striped, |el| el.bg(theme.hover()))
-            .hover(|el| el.bg(theme.selected_unfocused()))
+            .when(striped, |el| el.bg(theme.hover))
+            .hover(|el| el.bg(theme.selected_unfocused))
             .child(audit)
             .child(command)
             .child(action)
@@ -1021,7 +1021,7 @@ impl CommandEditor {
                 true => theme.warn,
                 false => gpui::transparent_black(),
             })
-            .hover(|el| el.bg(theme.selected_unfocused()))
+            .hover(|el| el.bg(theme.selected_unfocused))
             .text_size(dp(SMALL_TEXT))
             .tooltip(Tooltip::text(tooltip))
             .on_click(cx.listener(move |this, _, window, cx| {
@@ -1205,7 +1205,7 @@ impl CommandEditor {
                 .items_center()
                 .justify_center()
                 .p(dp(24.))
-                .bg(gpui::black().opacity(0.3))
+                .bg(theme.overlay)
                 .occlude()
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.picking = None;

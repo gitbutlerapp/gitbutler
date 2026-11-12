@@ -1647,7 +1647,7 @@ impl Detail {
             .items_center()
             .justify_center()
             .rounded(dp(theme.shape.control))
-            .hover(|el| el.bg(theme.hover()))
+            .hover(|el| el.bg(theme.hover))
             .text_size(dp(16.))
             .child(mark)
             // No tooltip: it would sit over the picker's search field.
@@ -1850,7 +1850,7 @@ impl Detail {
             // shows on hover, the column being narrow.
             fetch_error.map(|err| {
                 let last = fetched.map(|at| format!(" It last fetched {}.", crate::ui::ago(at)));
-                let again = super::resolve::banner_action("fetch-again", "Try again", theme)
+                let again = super::resolve::banner_action("fetch-again", "Try again")
                     .disabled_because(fetching.then_some("Fetching…"))
                     .dispatch(&crate::app::Fetch);
                 super::resolve::warn_banner(
@@ -1862,7 +1862,7 @@ impl Detail {
                 .into_any_element()
             }),
             upstream.and_then(|u| u.unconnected_forge).map(|forge| {
-                callout(theme.hover())
+                callout(theme.hover)
                     .child(div().text_color(theme.text_1).child(format!(
                         "Connect {} to see pull requests and CI here.",
                         forge.name()
@@ -1880,7 +1880,7 @@ impl Detail {
             }),
             missing.then(|| {
                 let remove = project.clone();
-                callout(theme.danger.opacity(0.08))
+                callout(theme.danger_soft)
                     .child(div().text_color(theme.danger).children(entry.error.clone()))
                     .child(
                         crate::ui::button("forget", "Remove")
@@ -1895,7 +1895,7 @@ impl Detail {
             }),
             entry.commits_above.map(|above| {
                 let project = project.clone();
-                callout(theme.danger.opacity(0.08))
+                callout(theme.danger_soft)
                     .child(div().text_color(theme.danger).children(entry.error.clone()))
                     .child(
                         crate::ui::button("uncommit-above", "Uncommit, keep the changes")
@@ -2340,12 +2340,11 @@ fn activity_strip(
                     .w_full()
                     .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
                     .rounded_t(fixed(1.))
-                    .bg(match (n, picked.is_empty(), inside, recent) {
-                        (0, ..) => theme.border_2,
-                        (_, false, true, _) => theme.pop,
-                        (_, false, false, _) => theme.pop.opacity(0.2),
-                        (_, true, _, true) => theme.pop,
-                        (_, true, _, false) => theme.pop.opacity(0.4),
+                    .map(|el| match (n, picked.is_empty(), inside, recent) {
+                        (0, ..) => el.bg(theme.border_2),
+                        (_, false, true, _) | (_, true, _, true) => el.bg(theme.pop),
+                        (_, false, false, _) => el.bg(theme.pop).opacity(0.2),
+                        (_, true, _, false) => el.bg(theme.pop).opacity(0.4),
                     }),
             )
         })

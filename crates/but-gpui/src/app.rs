@@ -28,7 +28,7 @@ use crate::state::{
     Tiling, Zones, along_edge, snack, tile_beside, up_to_date,
 };
 use crate::terminal::{NewTerminal, TerminalId};
-use crate::theme::{ColorScheme, Theme, UiScale};
+use crate::theme::{ColorScheme, Hue, Theme, UiScale};
 use crate::transfer::{
     Changes, Dragged, Move, Moving, Op, Place, ProjectDrag, TerminalDrag, Transfer,
     terminal_preview,
@@ -3066,7 +3066,7 @@ impl AppView {
             Some((landing, _)) => layout(landing),
             None => layout(&drag.landing),
         };
-        let color = |ix: usize| gpui::hsla((ix as f32 * 0.618).fract(), 0.75, 0.5, 1.);
+        let hue = |ix: usize| zone_hue(ix);
         let placed = |zone: &DropZone| {
             div()
                 .absolute()
@@ -3077,8 +3077,10 @@ impl AppView {
         };
         let boxes = drag.zones.iter().filter_map(|zone| {
             let ix = layout(zone.landing.as_ref()?)?;
-            let strength = if Some(ix) == over { 0.28 } else { 0.1 };
-            Some(placed(zone).bg(color(ix).opacity(strength)))
+            Some(placed(zone).bg(match Some(ix) == over {
+                true => theme.wash_strong(hue(ix)),
+                false => theme.wash(hue(ix)),
+            }))
         });
         let area = |zone: &DropZone| (zone.right - zone.left) * (zone.bottom - zone.top);
         let labels = layouts
@@ -3101,7 +3103,7 @@ impl AppView {
                     .rounded(dp(theme.shape.control))
                     .bg(theme.bg_1)
                     .border_1()
-                    .border_color(color(ix))
+                    .border_color(theme.hue(hue(ix)))
                     .text_size(dp(11.))
                     .text_color(theme.text_1)
                     .child(text);
@@ -3119,16 +3121,18 @@ impl AppView {
         let room = self.tile_room.get().size;
         let feel = self.store.read(cx).tile_drag_feel;
         let width = f32::from(Theme::get(cx).scaled(feel.row_zone));
-        let strips = [(Side::Left, 0.), (Side::Right, 0.618)].into_iter();
+        let strips = [(Side::Left, zone_hue(0)), (Side::Right, zone_hue(1))].into_iter();
         let strips = strips.filter_map(|(side, hue)| {
             self.row_landed(side, cx)?;
             let (left, text) = match side {
                 Side::Right => (f32::from(room.width) - width, "Right side"),
                 Side::Left | Side::Top | Side::Bottom => (0., "Left side"),
             };
-            let color = gpui::hsla(hue, 0.75, 0.5, 1.);
-            let over = drag.over.is_some_and(|(over, _)| over == side);
-            let strength = if over { 0.28 } else { 0.1 };
+            let color = theme.hue(hue);
+            let wash = match drag.over.is_some_and(|(over, _)| over == side) {
+                true => theme.wash_strong(hue),
+                false => theme.wash(hue),
+            };
             let label = div()
                 .px(dp(6.))
                 .py(dp(2.))
@@ -3149,7 +3153,7 @@ impl AppView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .bg(color.opacity(strength))
+                    .bg(wash)
                     .child(label),
             )
         });
@@ -4816,6 +4820,20 @@ fn tile_bar(
 }
 
 /// Where a tile dragged by its bar lands, in a few words, the tiles by what they show.
+/// The hue the `ix`th layout a tile's drop makes is shown in, each its own, and round again.
+fn zone_hue(ix: usize) -> Hue {
+    const HUES: [Hue; 6] = [
+        Hue::Pop,
+        Hue::Purple,
+        Hue::Warn,
+        Hue::Blue,
+        Hue::Safe,
+        Hue::Danger,
+    ];
+    #[expect(clippy::indexing_slicing, reason = "taken modulo its length")]
+    HUES[ix % HUES.len()]
+}
+
 fn landing_text(landing: &Landing, store: &Store, home: &RowKey) -> String {
     let name = |tile: &Tile| {
         let row = match tile {

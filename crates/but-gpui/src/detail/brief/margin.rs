@@ -238,7 +238,7 @@ impl Detail {
                 .px(dp(6.))
                 .rounded(dp(theme.shape.control))
                 .when(pointed && matches!(spot, Spot::Words(..)), |el| {
-                    el.bg(theme.hover())
+                    el.bg(theme.hover)
                 })
                 .child(main);
             return h_flex()
@@ -452,7 +452,7 @@ impl Detail {
                         .p(dp(8.))
                         .rounded(dp(theme.shape.card))
                         .border_1()
-                        .border_color(theme.focus_border())
+                        .border_color(theme.focus_border)
                         .bg(theme.bg_1),
                 })
                 .children(title.map(|title| {

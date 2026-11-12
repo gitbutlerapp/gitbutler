@@ -524,7 +524,8 @@ impl TerminalOverview {
         let mark = match status_mark(terminal.status, !store.hidden(), style) {
             Some(mark) => mark.into_any_element(),
             None => small_icon(Icon::BulletDisc)
-                .text_color(style.quiet().opacity(0.5))
+                .text_color(style.quiet())
+                .opacity(0.5)
                 .into_any_element(),
         };
         let worktree = match terminal.checkout {

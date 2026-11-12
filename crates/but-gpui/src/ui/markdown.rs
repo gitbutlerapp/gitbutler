@@ -32,7 +32,7 @@ use super::{
     TextPoint, Tooltip, diff, dp, fixed, h_flex, popover, selected_part, text_index, v_flex,
 };
 use crate::backend::{DiffLine, images};
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
 mod figure;
 mod preview;
@@ -164,13 +164,13 @@ pub enum Tint {
 impl Tint {
     fn ground(self, theme: &Theme) -> Hsla {
         match self {
-            Tint::Fresh => theme.pop.opacity(0.2),
-            Tint::Said => theme.warn.opacity(0.14),
-            Tint::Draft => theme.blue.opacity(0.12),
-            Tint::Saying => theme.warn.opacity(0.34),
-            Tint::SayingDraft => theme.blue.opacity(0.24),
-            Tint::Found => theme.warn.opacity(0.28),
-            Tint::FoundHere => theme.warn.opacity(0.6),
+            Tint::Fresh => theme.highlight(Highlight::Fresh),
+            Tint::Said => theme.highlight(Highlight::Said),
+            Tint::Draft => theme.highlight(Highlight::Draft),
+            Tint::Saying => theme.highlight(Highlight::Saying),
+            Tint::SayingDraft => theme.highlight(Highlight::SayingDraft),
+            Tint::Found => theme.highlight(Highlight::Found),
+            Tint::FoundHere => theme.highlight(Highlight::FoundHere),
         }
     }
 }
@@ -1193,7 +1193,7 @@ fn element(
             .px(dp(10.))
             .py(dp(8.))
             .rounded(dp(theme.shape.card))
-            .bg(theme.fill_gray.opacity(0.08))
+            .bg(theme.muted)
             .text_size(dp(12.))
             .line_height(dp(18.))
             .child(text(id, ix, block, range, texts, theme))
@@ -1343,6 +1343,7 @@ fn text(
                     code: all.code || style.code,
                     tint: all.tint.max(style.tint),
                 });
+            let picked = selected.as_ref().is_some_and(|range| range.contains(&at));
             let link = (block.links.iter()).find(|(range, _)| range.contains(&at));
             let linked = link.is_some();
             let to_code = link.is_some_and(|(_, url)| url.starts_with(CODE_ANCHOR));
@@ -1357,24 +1358,24 @@ fn text(
                     weight,
                     ..font(style.code)
                 },
+                // The search match the keys are on is solid, its words in the ink that reads there.
                 color: match linked && !to_code {
+                    _ if style.tint == Some(Tint::FoundHere) && !picked => theme.on_warn,
                     true => theme.blue,
                     false => color,
                 },
                 // The selection blue like the diff's, over a search's tint and code's grey.
                 background_color: match style.tint {
-                    _ if selected.as_ref().is_some_and(|range| range.contains(&at)) => {
-                        Some(theme.blue.opacity(0.3))
-                    }
+                    _ if picked => Some(theme.highlight(Highlight::Words)),
                     Some(tint) => Some(tint.ground(theme)),
-                    None if style.code => Some(theme.fill_gray.opacity(0.12)),
+                    None if style.code => Some(theme.muted),
                     None => None,
                 },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
                     color: Some(match to_code {
                         true => theme.text_3,
-                        false => theme.blue.opacity(0.4),
+                        false => theme.blue_edge,
                     }),
                     wavy: false,
                 }),

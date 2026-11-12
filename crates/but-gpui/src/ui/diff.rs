@@ -16,7 +16,7 @@ use super::{Icon, blink_once, dp, faint, fixed, h_flex, plural, small_icon, text
 use crate::backend::{
     ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture, scope_name,
 };
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
 /// How tall a file's header is: a bar, as a popup's search row is, inside its card's edge, which
 /// follows the density; or as tall as the file list's heading beside it where it titles the
@@ -582,7 +582,7 @@ pub(super) fn card(el: gpui::Div, flat: bool, theme: &Theme) -> gpui::Div {
 /// What blinks over a diff's rows and headers as they're copied: a light wash of pop, at most a
 /// fifth of it, which shows on green and red lines without drowning them out.
 pub fn copy_wash(theme: &Theme) -> gpui::Hsla {
-    theme.pop.opacity(0.4)
+    theme.highlight(Highlight::Copy)
 }
 
 /// Five squares split between green and red as a file's changed lines are, as but-ui-react's
@@ -620,7 +620,7 @@ pub fn file_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid() } else { color };
+    let soft = |color| if on { theme.muted_on_solid } else { color };
     let titled = decor.titled;
     card(h_flex(), decor.flat, theme)
         .id(("diff-file", ix))
@@ -642,7 +642,7 @@ pub fn file_header(
         .when(decor.current && (decor.solid || !titled), |el| {
             el.bg(match decor.solid {
                 true => theme.fill_gray,
-                false => theme.bg_1.blend(theme.selected_unfocused()),
+                false => theme.selected_on_card(),
             })
         })
         .when_some(decor.blink, |el, n| {
@@ -717,7 +717,7 @@ pub fn file_header(
                     .h(dp(20.))
                     .mx(dp(2.))
                     .bg(match on {
-                        true => theme.text_inverted.opacity(0.25),
+                        true => theme.inverse_soft,
                         false => theme.border_3,
                     }),
             )
@@ -786,7 +786,7 @@ pub fn hunk_header(
     // Under the cursor, as a list's selected row: solid with its text inverted while the diff
     // has the keys, faint while they're elsewhere.
     let on = decor.current && decor.solid;
-    let soft = |color| if on { theme.muted_on_solid() } else { color };
+    let soft = |color| if on { theme.muted_on_solid } else { color };
     let title = match (unmodified, scopes(named, on, theme)) {
         // Nothing hidden and no scope to name: the `@@` header says where the hunk is,
         // unless the lines around it name its scopes.
@@ -829,8 +829,8 @@ pub fn hunk_header(
                 // The rest fainter than one under the cursor while the keys are elsewhere.
                 .bg(match (decor.current, decor.solid) {
                     (true, true) => theme.fill_gray,
-                    (true, false) => theme.selected_unfocused(),
-                    (false, _) => theme.fill_gray.opacity(0.05),
+                    (true, false) => theme.selected_unfocused,
+                    (false, _) => theme.hover,
                 })
                 .text_size(dp(12.))
                 .text_color(soft(theme.diff_muted))
@@ -873,7 +873,7 @@ fn conflicted_badge(theme: &Theme) -> gpui::Div {
         .px(dp(6.))
         .py(fixed(1.))
         .rounded(dp(9.))
-        .bg(theme.warn.opacity(0.12))
+        .bg(theme.warn_soft)
         .text_color(theme.warn)
         .text_size(dp(11.))
         .child("Conflicted")
@@ -1002,7 +1002,7 @@ pub(super) fn number_cell(
         .text_color(if picked { theme.pop } else { look.number })
         .when(last, |el| el.rounded_bl(dp(theme.shape.card - 1.)))
         .when(picked, |el| {
-            el.bg(theme.pop.opacity(0.16))
+            el.bg(theme.highlight(Highlight::Picked))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
         })
         .when_some(gutter, |el, Gutter { pick, grip, .. }| {
@@ -1088,17 +1088,32 @@ pub(super) fn line_text(
     };
     line.emph.iter().for_each(|range| paint(range, emph_bg));
     for (range, current) in &found {
-        paint(range, theme.warn.opacity(if *current { 0.6 } else { 0.28 }));
+        paint(
+            range,
+            theme.highlight(match current {
+                true => Highlight::FoundHere,
+                false => Highlight::Found,
+            }),
+        );
     }
     if let Some(range) = &selected {
-        paint(range, theme.blue.opacity(0.3));
+        paint(range, theme.highlight(Highlight::Words));
     }
     let mut runs = Vec::new();
     let mut start = 0;
+    let here = theme.highlight(Highlight::FoundHere);
     for run in grounds.chunk_by(|a, b| a == b) {
         let end = start + run.len();
         if let Some(Some(color)) = run.first() {
-            runs.push((start..end, ground(*color)));
+            // The match the keys are on is solid, its words in the ink that reads there.
+            let style = match *color == here {
+                true => HighlightStyle {
+                    color: Some(theme.on_warn),
+                    ..ground(*color)
+                },
+                false => ground(*color),
+            };
+            runs.push((start..end, style));
         }
         start = end;
     }
@@ -1470,7 +1485,7 @@ fn scopes(scope: &[String], on: bool, theme: &Theme) -> Option<AnyElement> {
                 .min_w_0()
                 .gap(dp(6.))
                 .text_color(if on {
-                    theme.muted_on_solid()
+                    theme.muted_on_solid
                 } else {
                     theme.text_3
                 })
@@ -1553,13 +1568,8 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         .p(dp(12.))
         .border_b_1()
         .rounded_b(dp(theme.shape.card))
-        .child(side(
-            "Before",
-            "New file",
-            before,
-            theme.danger.opacity(0.5),
-        ))
-        .child(side("After", "Deleted", after, theme.safe.opacity(0.6)))
+        .child(side("Before", "New file", before, theme.diff_removed))
+        .child(side("After", "Deleted", after, theme.diff_added))
 }
 
 #[cfg(test)]

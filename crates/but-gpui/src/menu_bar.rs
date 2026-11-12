@@ -209,8 +209,8 @@ impl AppView {
                 .rounded(dp(theme.shape.card))
                 .text_size(dp(13.))
                 .text_color(theme.text_1)
-                .when(ix == open, |el| el.bg(theme.hover()))
-                .hover(|el| el.bg(theme.hover()))
+                .when(ix == open, |el| el.bg(theme.hover))
+                .hover(|el| el.bg(theme.hover))
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |this, _: &MouseDownEvent, window, cx| {

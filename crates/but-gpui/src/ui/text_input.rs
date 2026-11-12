@@ -18,7 +18,7 @@ use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::fixed;
 use crate::clipboard;
-use crate::theme::Theme;
+use crate::theme::{Highlight, Theme};
 
 actions!(
     text_input,
@@ -1418,8 +1418,11 @@ impl Element for TextElement {
             // A diff line being edited selects as the diff's lines do, so a selection over
             // more lines is one color; on a green line pop's would read as green.
             let selection_color = match input.line_editor {
-                true => theme.blue.opacity(0.3),
-                false => theme.pop.opacity(if focused { 0.25 } else { 0.12 }),
+                true => theme.highlight(Highlight::Words),
+                false => theme.highlight(match focused {
+                    true => Highlight::Selected,
+                    false => Highlight::SelectedUnfocused,
+                }),
             };
             let mut row_top = start.y;
             while row_top <= end.y {
