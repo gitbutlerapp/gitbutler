@@ -1184,11 +1184,12 @@ impl Store {
             backend::worktrees::RecycleWorktree,
             move |store, recycled, cx| {
                 let (done, name) = match recycled {
-                    backend::worktrees::Recycled::Unarchived(name) => {
-                        (format!("Recycled worktree {name}"), name)
-                    }
-                    backend::worktrees::Recycled::Created(name) => {
-                        (format!("Created worktree {name}"), name)
+                    backend::worktrees::RecycledWorktree::Unarchived(worktree) => (
+                        format!("Recycled worktree {}", worktree.name),
+                        worktree.name,
+                    ),
+                    backend::worktrees::RecycledWorktree::Created(worktree) => {
+                        (format!("Created worktree {}", worktree.name), worktree.name)
                     }
                 };
                 store.snack(done, cx);

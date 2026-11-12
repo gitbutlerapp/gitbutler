@@ -1054,6 +1054,10 @@ async fn dispatch_subcommand(
                         command::worktree::new::new(&mut ctx, name.as_ref(), above.as_ref())?;
                     out.print_cli_output(outcome)?;
                 }
+                worktree::Subcommands::Recycle => {
+                    let outcome = command::worktree::recycle::recycle(&mut ctx)?;
+                    out.print_cli_output(outcome)?;
+                }
             }
             None
         }
