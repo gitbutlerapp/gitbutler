@@ -1380,10 +1380,10 @@ impl Intent for DeleteBranchAndCommits {
                 (ws.find_segment_by_refname(branch.as_ref()))
                     .map(|segment| segment.commits.iter().map(|commit| commit.id).collect())
             };
-            let Some(commits) = commits else {
+            match &commits {
                 // Removing a ref that's gone does nothing, so say so rather than that it went, as
                 // after an agent renamed the branch while the confirmation was up.
-                match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
+                None => match super::ref_tip(&*ctx.repo.get()?, branch.as_ref()) {
                     None => but_error::bail_precondition!(
                         "{} was renamed or deleted meanwhile",
                         short_ref(&branch)
@@ -1393,15 +1393,14 @@ impl Intent for DeleteBranchAndCommits {
                         short_ref(&branch)
                     ),
                     Some(_) => {}
+                },
+                Some(commits) if commits.first().copied() != tip.map(|tip| tip.0) => {
+                    but_error::bail_precondition!(
+                        "{} changed since you asked, so it wasn't deleted",
+                        short_ref(&branch)
+                    );
                 }
-                but_api::branch::branch_remove_with_perm(ctx, branch, perm)?;
-                return Ok(());
-            };
-            if commits.first().copied() != tip.map(|tip| tip.0) {
-                but_error::bail_precondition!(
-                    "{} changed since you asked, so it wasn't deleted",
-                    short_ref(&branch)
-                );
+                Some(_) => {}
             }
             let mut meta = ctx.meta()?;
             but_transaction::with_transaction_with_perm(
@@ -1413,19 +1412,12 @@ impl Intent for DeleteBranchAndCommits {
                 &[branch.as_ref()],
                 DryRun::No,
                 |mut tx| {
-                    if !commits.is_empty() {
+                    if let Some(commits) = commits.filter(|commits| !commits.is_empty()) {
                         tx.discard_commits(commits)?;
                     }
                     tx.remove_reference(branch.as_ref())?;
                     Ok(())
                 },
-            )?;
-            let (mut repo, _, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            // The transaction leaves Git's `branch.<name>` section, as its upstream and
-            // description, which a branch made later under its name would take on.
-            but_workspace::branch::remove_reference::delete_local_branch(
-                &mut repo,
-                branch.as_ref(),
             )?;
             Ok(())
         })

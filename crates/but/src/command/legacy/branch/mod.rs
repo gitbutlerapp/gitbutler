@@ -26,7 +26,7 @@ pub fn delete(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
-    let (branches, in_workspace, outside) = {
+    let branches = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let mut branches = Vec::new();
         for arg in &branch_args {
@@ -73,35 +73,18 @@ pub fn delete(
             }
             branches.push(branch);
         }
-        let branches = NonEmpty::from_vec(branches.into_iter().unique().collect())
-            .context("BUG: branches is required to be non-empty in clap args")?;
-        // Branches outside the workspace, like unapplied ones, have no commits there to discard.
-        let (in_workspace, outside): (Vec<_>, Vec<_>) = branches
-            .iter()
-            .cloned()
-            .partition(|branch| ws.refname_is_segment(branch.as_ref()));
-        (branches, in_workspace, outside)
+        NonEmpty::from_vec(branches.into_iter().unique().collect())
+            .context("BUG: branches is required to be non-empty in clap args")?
     };
 
-    let mut state = None;
-    for branch in outside {
-        let removed =
-            but_api::branch::branch_remove_with_perm(ctx, branch, guard.write_permission())?;
-        state = Some(removed.workspace);
-    }
-    // Discard last: its state carries the checkout and conflict outcome the CLI reports.
-    if let Some(in_workspace) = NonEmpty::from_vec(in_workspace) {
-        let mut meta = ctx.meta()?;
-        let (_, ws) = discard::run(
-            ctx,
-            &mut meta,
-            guard.write_permission(),
-            discard::DiscardOperation::Branches(in_workspace),
-            gitbutler_oplog::entry::OperationKind::Discard,
-        )?;
-        state = Some(ws);
-    }
-    let state = state.context("BUG: at least one branch was deleted")?;
+    let mut meta = ctx.meta()?;
+    let (_, state) = discard::run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        discard::DiscardOperation::Branches(branches.clone()),
+        gitbutler_oplog::entry::OperationKind::Discard,
+    )?;
     Ok((DiscardOutcome::Branches(branches), state))
 }
 
