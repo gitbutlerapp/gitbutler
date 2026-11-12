@@ -9,8 +9,10 @@ mod walk;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bstr::{BStr, BString, ByteSlice};
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::LocalRefName};
+use bstr::{BString, ByteSlice};
+use but_core::{
+    RefMetadata, WORKSPACE_REF_NAME, branch::is_technical_branch_name, ref_metadata::LocalRefName,
+};
 use but_graph::{Graph, SegmentIndex, Workspace};
 use gix::{
     prelude::ObjectIdExt,
@@ -581,27 +583,6 @@ fn listed_stack(status: ListedStackStatus, branches: Vec<ListedBranch>) -> Liste
         updated_at_ms: branches.iter().filter_map(|b| b.updated_at_ms).max(),
         branches,
     }
-}
-
-/// Return `true` if `identity` is a GitButler-internal branch name that must not
-/// be shown or treated as a user branch.
-pub fn is_technical_branch_name(identity: &BStr) -> bool {
-    const TECHNICAL_IDENTITIES: &[&[u8]] = &[
-        b"HEAD",
-        b"gitbutler/edit",
-        b"gitbutler/integration",
-        b"gitbutler/oplog",
-        b"gitbutler/target",
-        b"gitbutler/workspace",
-    ];
-    debug_assert!(
-        TECHNICAL_IDENTITIES.is_sorted(),
-        "binary search requires sorted technical identities"
-    );
-    TECHNICAL_IDENTITIES
-        .binary_search(&identity.as_bytes())
-        .is_ok()
-        || identity.starts_with(b"gitbutler/rename-backup/")
 }
 
 /// Enumerate all local and remote branch refs once, peeled to their tips and
