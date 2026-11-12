@@ -77,7 +77,8 @@ jobs:
             # The Tauri app and what only it uses. quality.but.dev checks the rest (its spec is
             # specs/gitbutler.toml in gitbutlerapp/taste-tester), so the checks below run only
             # when one of these (or CI itself) changes.
-            # Keep in sync with check-e2e-changes.yml.
+            # Keep in sync with check-e2e-changes.yml, whose filter also has but-api
+            # and but-server, so they don't start the Rust and Windows jobs here.
             tauri_gui:
               - *workflows
               - 'apps/desktop/**'

@@ -33,11 +33,14 @@ jobs:
           # The e2e suites drive the Tauri app, so they run only when it changes, not
           # for CI changes alone: they're slow, and nightly and release builds run them
           # regardless. quality.but.dev checks the rest. Keep in sync with the tauri_gui
-          # filter in push.yaml, which also counts CI's own files.
+          # filter in push.yaml, which also counts CI's own files. Only this filter has
+          # but-api, the API the app calls, and but-server, which Playwright runs it on.
           filters: |
             e2e:
               - 'apps/desktop/**'
               - 'crates/gitbutler-tauri/**'
+              - 'crates/but-api/**'
+              - 'crates/but-server/**'
               - 'packages/ui-svelte/**'
               - 'packages/shared/**'
               - 'packages/core/**'
