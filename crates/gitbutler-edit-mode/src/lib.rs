@@ -219,6 +219,16 @@ fn point_head_at_edit_branch(repo: &gix::Repository, base_commit_id: gix::Object
     Ok(())
 }
 
+/// The mode a three-way merge gives a file whose sides have the modes `base`, `ours` and
+/// `theirs`: that of the side that changed it, or ours, like Git.
+fn merged_mode(
+    base: Option<gix::object::tree::EntryMode>,
+    ours: gix::object::tree::EntryMode,
+    theirs: gix::object::tree::EntryMode,
+) -> gix::object::tree::EntryMode {
+    if Some(ours) == base { theirs } else { ours }
+}
+
 /// Merge the files of `merge` whose content conflicts again, so their markers carry `labels`.
 /// The tree merge uses the default labels instead, as it also names files that it moves aside
 /// after them, and labels with `:` or `/` don't make valid file names everywhere.
@@ -243,6 +253,7 @@ fn relabel_content_conflicts(
         let [base, Some(ours), Some(theirs)] = conflict.entries() else {
             continue;
         };
+        let base_mode = base.map(|base| base.mode);
         let read = |id: gix::ObjectId| -> Result<Vec<u8>> { Ok(repo.find_blob(id)?.take_data()) };
         let base = base.map(|base| read(base.id)).transpose()?.unwrap_or_default();
         let (ours_data, theirs_data) = (read(ours.id)?, read(theirs.id)?);
@@ -265,7 +276,7 @@ fn relabel_content_conflicts(
         );
         merged.push((
             conflict.ours.location().to_owned(),
-            ours.mode,
+            merged_mode(base_mode, ours.mode, theirs.mode),
             repo.write_blob(out)?.detach(),
         ));
     }

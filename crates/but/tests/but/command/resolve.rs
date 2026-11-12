@@ -500,6 +500,38 @@ fn resolve_records_a_file_versus_directory_conflict_in_a_valid_index() {
 }
 
 #[test]
+#[cfg(unix)]
+fn resolve_keeps_the_executable_bit_of_a_conflicted_file() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-conflicted-with-exec-bit",
+    );
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").assert().success();
+    env.but(format!("resolve {}", env.invoke_git("rev-parse A")))
+        .assert()
+        .success();
+
+    let mode = std::fs::metadata(env.projects_root().join("f"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_ne!(
+        mode & 0o111,
+        0,
+        "the commit's executable bit merges cleanly"
+    );
+    env.file("f", "line1\nresolved\nline3\n");
+    env.but("resolve finish").assert().success();
+    assert_eq!(
+        env.invoke_git("ls-tree A f").split_whitespace().next(),
+        Some("100755"),
+        "finishing keeps the executable bit"
+    );
+}
+
+#[test]
 fn resolve_cancel_works_in_edit_mode() {
     let env = enter_edit_mode_with_conflicted_commit();
 
