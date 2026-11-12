@@ -230,6 +230,10 @@ and the feature may go, so it stays separate.
   are. It is in rems, and the window's rem follows the interface scale (⌘+ and ⌘−), so the
   whole app zooms as a browser does. Clippy refuses plain `gpui::px`; `ui::fixed` is for what
   must stay put, as a hairline, the room for the traffic lights, the scrollbar or window bounds.
+- A control with component tokens in but-ui (`packages/but-ui/components`) takes its sizes
+  from them, as `tokens::BUTTON_REGULAR_GAP`, never its own numbers, so it draws as
+  but-ui-react's does. A height that names a size token comes from `theme.sizes`, which density
+  moves; a test holds the alias.
 - Sizes the app keeps for layout, as pane widths and measured header heights, are in design
   pixels too. Divide what GPUI measures by `Theme::scale` before keeping it, as `measured` and
   `resize_pane` do, or `dp` scales it twice. Where code needs real `Pixels`, as for scrolling,

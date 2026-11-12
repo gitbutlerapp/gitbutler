@@ -1,0 +1,60 @@
+{
+	"components": {
+		"button": {
+			"small": {
+				"height": {
+					"$type": "dimension",
+					"$value": "{core.size.control-sm}",
+					"$description": "A small button's height. It follows the density setting through size/control-sm."
+				},
+				"gap": {
+					"$type": "dimension",
+					"$value": { "value": 4, "unit": "px" },
+					"$description": "Between a small button's icon and its label."
+				},
+				"padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 6, "unit": "px" },
+					"$description": "Beside a small button's label, before the density step (--but-density-padding), which every app adds."
+				},
+				"icon-only-padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 3, "unit": "px" },
+					"$description": "Beside a small button's icon when it has no label. The button is 2px wider than tall."
+				},
+				"icon-size": {
+					"$type": "dimension",
+					"$value": { "value": 14, "unit": "px" },
+					"$description": "A small button's icon."
+				}
+			},
+			"regular": {
+				"height": {
+					"$type": "dimension",
+					"$value": "{core.size.control}",
+					"$description": "A button's height. It follows the density setting through size/control."
+				},
+				"gap": {
+					"$type": "dimension",
+					"$value": { "value": 6, "unit": "px" },
+					"$description": "Between a button's icon and its label."
+				},
+				"padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 10, "unit": "px" },
+					"$description": "Beside a button's label, before the density step (--but-density-padding), which every app adds."
+				},
+				"icon-only-padding-inline": {
+					"$type": "dimension",
+					"$value": { "value": 8, "unit": "px" },
+					"$description": "Beside a button's icon when it has no label. The button is square."
+				},
+				"icon-size": {
+					"$type": "dimension",
+					"$value": { "value": 16, "unit": "px" },
+					"$description": "A button's icon."
+				}
+			}
+		}
+	}
+}

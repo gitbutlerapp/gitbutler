@@ -59,6 +59,26 @@
   --but-border-hover: var(--but-gray-8);
   /* A faint line: separators between rows and sections. */
   --but-border-subtle: var(--but-gray-6);
+  /* Between a button's icon and its label. */
+  --but-button-regular-gap: 0.375rem;
+  /* A button's height. It follows the density setting through size/control. */
+  --but-button-regular-height: var(--but-size-control);
+  /* Beside a button's icon when it has no label. The button is square. */
+  --but-button-regular-icon-only-padding-inline: 0.5rem;
+  /* A button's icon. */
+  --but-button-regular-icon-size: 1rem;
+  /* Beside a button's label, before the density step (--but-density-padding), which every app adds. */
+  --but-button-regular-padding-inline: 0.625rem;
+  /* Between a small button's icon and its label. */
+  --but-button-small-gap: 0.25rem;
+  /* A small button's height. It follows the density setting through size/control-sm. */
+  --but-button-small-height: var(--but-size-control-sm);
+  /* Beside a small button's icon when it has no label. The button is 2px wider than tall. */
+  --but-button-small-icon-only-padding-inline: 0.1875rem;
+  /* A small button's icon. */
+  --but-button-small-icon-size: 0.875rem;
+  /* Beside a small button's label, before the density step (--but-density-padding), which every app adds. */
+  --but-button-small-padding-inline: 0.375rem;
   /* The window's ground, behind the sidebar and the cards: the app's outermost surface. Cards and panes sit on it in background. Text on it: foreground or muted/foreground. */
   --but-canvas: light-dark(var(--but-gray-3), var(--but-gray-2));
   --but-card: var(--but-background);

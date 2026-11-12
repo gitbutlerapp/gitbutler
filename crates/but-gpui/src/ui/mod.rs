@@ -1345,12 +1345,26 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        // As but-ui-react's: small is control-sm tall with a 14 icon, an icon alone 2px wider;
-        // regular is control, square alone. Density moves both, and the padding beside a label.
+        // but-ui's button tokens (`packages/but-ui/components/button.tokens.json`), as
+        // but-ui-react reads them. The heights are `size-control(-sm)`, which `theme.sizes` moves
+        // with density, as it does the padding beside a label. An icon alone is 2px wider than
+        // tall when small, and square otherwise.
         let sizes = theme.sizes;
-        let (height, width, icon_size) = match self.small {
-            true => (dp(sizes.control_sm), dp(sizes.control_sm + 2.), dp(14.)),
-            false => (dp(sizes.control), dp(sizes.control), dp(16.)),
+        let (height, width, gap, padding, icon_size) = match self.small {
+            true => (
+                sizes.control_sm,
+                sizes.control_sm + 2.,
+                tokens::BUTTON_SMALL_GAP,
+                tokens::BUTTON_SMALL_PADDING_INLINE,
+                tokens::BUTTON_SMALL_ICON_SIZE,
+            ),
+            false => (
+                sizes.control,
+                sizes.control,
+                tokens::BUTTON_REGULAR_GAP,
+                tokens::BUTTON_REGULAR_PADDING_INLINE,
+                tokens::BUTTON_REGULAR_ICON_SIZE,
+            ),
         };
         let has_label = self.label.is_some();
         let pictured = self.picture.is_some();
@@ -1365,12 +1379,10 @@ impl RenderOnce for Button {
                 true => el.min_w_0(),
                 false => el.flex_none(),
             })
-            .h(height)
-            .gap(dp(if self.small { 4. } else { 6. }))
-            .when(has_label, |el| {
-                el.px(dp(if self.small { 6. } else { 10. } + sizes.padding))
-            })
-            .when(!has_label, |el| el.w(width).justify_center())
+            .h(dp(height))
+            .gap(dp(gap))
+            .when(has_label, |el| el.px(dp(padding + sizes.padding)))
+            .when(!has_label, |el| el.w(dp(width)).justify_center())
             .when_some(self.min_width, |el, width| el.min_w(width).justify_center())
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -1394,7 +1406,7 @@ impl RenderOnce for Button {
             .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
                 let opacity = if has_label { 0.7 } else { 0.8 };
-                el.child((icon(kind).size(icon_size).text_color(fg)).opacity(opacity))
+                el.child((icon(kind).size(dp(icon_size)).text_color(fg)).opacity(opacity))
             })
             .children(self.picture)
             .when_some(self.label, |el, label| match shrinks {
@@ -2113,6 +2125,25 @@ pub fn resize_pane(
 #[cfg(test)]
 mod tests {
     use super::tab_after;
+
+    #[test]
+    fn button_heights_are_the_control_heights_density_moves() {
+        // `Button` draws its heights from `theme.sizes`, which density moves, so they must stay
+        // the size tokens but-ui's button tokens name.
+        let tokens: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../packages/but-ui/tokens/tokens.json"
+        ))
+        .unwrap();
+        for (token, size) in [
+            ("button-small-height", "size-control-sm"),
+            ("button-regular-height", "size-control"),
+        ] {
+            assert_eq!(
+                tokens["aliases"][token], size,
+                "{token} is {size}, which Button reads from theme.sizes"
+            );
+        }
+    }
 
     #[test]
     fn the_next_tab_is_the_one_after() {
