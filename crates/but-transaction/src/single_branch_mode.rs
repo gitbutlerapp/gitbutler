@@ -3,20 +3,15 @@
 
 use std::borrow::Cow;
 
-use but_core::{
-    DryRun, RefMetadata,
-    ref_metadata::ProjectMeta,
-    sync::{RepoExclusive, RepoShared},
-};
+use but_core::{RefMetadata, ref_metadata::ProjectMeta, sync::RepoShared};
 use but_ctx::Context;
-use but_oplog::legacy::SnapshotDetails;
 use but_workspace::branch::create_reference::{Anchor, Position};
 use gix::{
     ObjectId,
     refs::{FullName, FullNameRef},
 };
 
-use crate::{Transaction, TransactionOutcome};
+use crate::Transaction;
 
 /// Whether the main worktree has a branch checked out on its own rather than GitButler's
 /// workspace, using `ctx` with shared `perm`ission.
@@ -182,81 +177,5 @@ impl<M: RefMetadata> Transaction<'_, '_, M> {
             self.checkout(new_ref)?;
         }
         Ok(())
-    }
-}
-
-/// An operation's choice to check out the branch it makes or moves to, before the callers use
-/// [`Transaction`]'s methods directly.
-#[derive(Debug)]
-pub struct SingleBranchMode {
-    switch: bool,
-}
-
-impl SingleBranchMode {
-    /// Read what's checked out using `ctx` with shared `perm`ission, for an operation that
-    /// checks out the branch it makes or moves to with `switch`. Fails if it would `switch`
-    /// with `HEAD` detached.
-    pub fn new(ctx: &Context, perm: &RepoShared, switch: bool) -> anyhow::Result<Self> {
-        if switch && StartingCheckout::read(ctx, perm)?.head_reference.is_none() {
-            anyhow::bail!("--switch needs a branch checked out (HEAD is detached)");
-        }
-        Ok(Self { switch })
-    }
-
-    /// Run `callback` in a transaction, as [`crate::with_transaction_with_perm()`] does.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "a transaction's own arguments, and what single-branch mode adds"
-    )]
-    pub fn transaction_with_workspace_setup<Meta, F, T>(
-        &self,
-        ctx: &mut Context,
-        meta: &mut Meta,
-        snapshot_details: SnapshotDetails,
-        snapshot_refs: &[&FullNameRef],
-        perm: &mut RepoExclusive,
-        _will_create_independent_branch: bool,
-        callback: F,
-    ) -> anyhow::Result<T::Outcome>
-    where
-        Meta: RefMetadata,
-        F: FnOnce(Transaction<'_, '_, Meta>) -> anyhow::Result<T>,
-        T: TransactionOutcome,
-    {
-        crate::with_transaction_with_perm(
-            ctx,
-            meta,
-            perm,
-            snapshot_details,
-            snapshot_refs,
-            DryRun::No,
-            callback,
-        )
-    }
-
-    /// Create `new_ref` in `tx` with [`Transaction::switch_to_new_reference()`] when switching,
-    /// or else [`Transaction::create_unstacked_reference()`] at `order`.
-    pub fn create_unstacked_reference<M: RefMetadata>(
-        &self,
-        tx: &mut Transaction<'_, '_, M>,
-        new_ref: &FullNameRef,
-        order: Option<usize>,
-    ) -> anyhow::Result<()> {
-        if self.switch {
-            tx.switch_to_new_reference(new_ref)
-        } else {
-            tx.create_unstacked_reference(new_ref, order)
-        }
-    }
-
-    /// Create `new_ref` in `tx` with [`Transaction::create_stacked_reference()`].
-    pub fn create_stacked_reference<M: RefMetadata>(
-        &self,
-        tx: &mut Transaction<'_, '_, M>,
-        new_ref: &FullNameRef,
-        relative_to: &FullNameRef,
-        position: Position,
-    ) -> anyhow::Result<()> {
-        tx.create_stacked_reference(new_ref, relative_to, position)
     }
 }
