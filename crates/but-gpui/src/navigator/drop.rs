@@ -459,9 +459,11 @@ fn commit_stop(rows: &[Row], ix: usize, y: f32, project: &ProjectId) -> Option<S
     }
 }
 
-/// The stop between row `ix`, a commit, and what's listed above it in its branch.
+/// The stop between row `ix`, a commit, and what's listed above it in its branch, past any
+/// commit on its way there.
 fn gap_above(rows: &[Row], ix: usize, project: &ProjectId) -> Option<Stop> {
     let above = rows.get(..ix)?.iter().rev().find_map(|row| match row {
+        Row::Item(Selection::Pending(..)) => None,
         Row::Item(item) => Some(item),
         _ => None,
     })?;

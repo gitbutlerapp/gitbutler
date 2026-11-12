@@ -62,6 +62,7 @@ fn missing(kind: SelectionKind) -> &'static str {
         SelectionKind::Branch => "The link's branch isn't in the workspace now",
         SelectionKind::Stack => "The link's stack isn't in the workspace now",
         SelectionKind::Commit => "The link's commit isn't in the workspace now",
+        SelectionKind::Pending => "The link's commit isn't being made now",
         SelectionKind::Upstream => "The link's commit isn't on the branch's remote now",
         SelectionKind::Mesh => "The link's checkout on another machine isn't there now",
     }
@@ -166,6 +167,8 @@ fn selection<'a>(
         SelectionKind::Branch => Selection::Branch(project, Some(branch()?)),
         SelectionKind::Stack => Selection::Stack(project, Some(branch()?)),
         SelectionKind::Commit => Selection::Commit(project, commit()?),
+        // As a terminal's, its id lasts only while the app runs.
+        SelectionKind::Pending => return None,
         SelectionKind::Upstream => Selection::Upstream(project, branch()?, commit()?),
         SelectionKind::Mesh => {
             // A branch on another machine by its name there (`name=`), not a ref here.
@@ -333,8 +336,8 @@ mod tests {
             SelectionKind::Section => "to=section&section=upstream&branch=refs/heads/feature",
             SelectionKind::Checkout => "to=checkout&worktree=feature",
             SelectionKind::Uncommitted => "to=uncommitted&worktree=feature",
-            // Its id lasts only while the app runs.
-            SelectionKind::Terminal => return None,
+            // Their ids last only while the app runs.
+            SelectionKind::Terminal | SelectionKind::Pending => return None,
             SelectionKind::Branch => "to=branch&branch=refs/heads/feature",
             SelectionKind::Stack => "to=stack&branch=refs/heads/feature",
             SelectionKind::Commit => {

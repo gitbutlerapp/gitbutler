@@ -660,6 +660,7 @@ impl AppView {
             | Selection::Branch(_, None)
             | Selection::Stack(..)
             | Selection::Upstream(..)
+            | Selection::Pending(..)
             | Selection::Mesh(..) => None,
         }
     }
@@ -1134,7 +1135,7 @@ impl AppView {
     }
 
     /// An empty commit above or below the selected commit, or on top of the selected branch,
-    /// selected once it's there, as the TUI selects it.
+    /// selected, as the TUI selects it: its stand-in at once, and it once it's there.
     fn add_empty_commit(&mut self, above: bool, cx: &mut Context<Self>) {
         let at = match self.store.read(cx).selection.clone() {
             Some(Selection::Commit(project, id)) if above => {
@@ -1153,6 +1154,7 @@ impl AppView {
             let at = store.new_at(&project, &to);
             let overlay = Overlay {
                 new_commit: at.map(|at| (at, SharedString::default())),
+                selects_made: true,
                 ..Overlay::default()
             };
             store.apply(

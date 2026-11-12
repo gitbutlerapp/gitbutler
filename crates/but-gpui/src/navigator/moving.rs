@@ -449,6 +449,7 @@ pub(super) fn stops<'a>(
             Row::Item(
                 Selection::Upstream(..)
                 | Selection::Section(_, Section::Upstream(_))
+                | Selection::Pending(..)
                 | Selection::Uncommitted(..),
             )
             | Row::More(..)
@@ -552,6 +553,7 @@ pub(super) fn squash_stops<'a>(
             Row::Item(
                 Selection::Upstream(..)
                 | Selection::Section(_, Section::Upstream(_))
+                | Selection::Pending(..)
                 | Selection::Terminal(..),
             )
             | Row::More(..)
@@ -1596,6 +1598,7 @@ fn commits_selected(store: &Store) -> Option<(ProjectId, Moving)> {
         | Selection::Upstream(..)
         | Selection::Section(..)
         | Selection::Terminal(..)
+        | Selection::Pending(..)
         | Selection::Mesh(..) => None,
     }
 }

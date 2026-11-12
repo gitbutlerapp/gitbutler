@@ -225,6 +225,7 @@ impl Navigator {
             Selection::Project(_)
             | Selection::Checkout(..)
             | Selection::Uncommitted(..)
+            | Selection::Pending(..)
             | Selection::Stack(..)
             | Selection::Mesh(..)
             | Selection::Upstream(..)

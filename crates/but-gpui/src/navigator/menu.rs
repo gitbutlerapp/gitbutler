@@ -296,7 +296,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let picked =
             matches!(target, Selection::Commit(project, id) if store.is_picked(project, *id));
-        if !picked && !matches!(target, Selection::Mesh(..)) {
+        if !picked && !matches!(target, Selection::Mesh(..) | Selection::Pending(..)) {
             let mut right = MenuItem::command(&SplitRight, cx);
             right.separated = !items.is_empty();
             items.extend([right, MenuItem::command(&SplitBelow, cx)]);
@@ -506,7 +506,7 @@ impl Navigator {
                 command(&UnapplyStack),
             ],
             Selection::Mesh(..) => self.mesh_menu(target, cx),
-            Selection::Section(..) => Vec::new(),
+            Selection::Section(..) | Selection::Pending(..) => Vec::new(),
         }
     }
 }

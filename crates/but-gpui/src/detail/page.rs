@@ -481,7 +481,7 @@ impl PageState {
             Selection::Checkout(..) | Selection::Section(_, Section::Inactive | Section::Mesh) => {
                 PageState::Overview(CheckoutState::default())
             }
-            Selection::Terminal(..) => PageState::Blank,
+            Selection::Terminal(..) | Selection::Pending(..) => PageState::Blank,
         }
     }
 

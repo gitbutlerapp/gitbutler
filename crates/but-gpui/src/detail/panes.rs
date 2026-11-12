@@ -146,6 +146,7 @@ impl Detail {
                         crumbs.push(("Uncommitted changes".into(), None));
                     }
                 },
+                Selection::Pending(..) => crumbs.push(("New commit".into(), None)),
                 Selection::Checkout(_, checkout) => {
                     let name = checkout
                         .linked()

@@ -14,7 +14,7 @@ use crate::backend::{
     Branch, Checkout, Commit, CommitId, Destination, FullName, Lane, Workspace, Worktree,
 };
 use crate::edits::BranchEdits;
-use crate::state::{NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
+use crate::state::{NewAt, NewCommit, ProjectEntry, ProjectId, Section, Selection, Store};
 use crate::terminal::TerminalId;
 use crate::transfer::{self, Dragged, Stop};
 use crate::ui::fold::{Folds, MOVING_ROWS};
@@ -59,8 +59,9 @@ pub(super) enum Row {
     More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
     Fewer(ProjectId, Option<FullName>),
-    /// A commit a mutation is making, by its title, whether it's been long enough to show
-    /// it's still on its way, and the commit it stands in for, when it moves one.
+    /// A commit a mutation is making or moving, by the title it shows by, whether it's been
+    /// long enough to show it's still on its way, and the commit it stands in for, when it moves
+    /// one. One the mutation selects once it's made is an item, [`Selection::Pending`].
     Pending(SharedString, bool, Option<RowKey>),
     /// Where a commit of the project being dragged lands in a new branch of its own, or a
     /// stacked branch in a stack of its own.
@@ -767,10 +768,14 @@ impl Navigator {
     /// fold unless that's open.
     fn branch_rows(&self, store: &Store, id: &ProjectId, branch: &Branch, rows: &mut Rows) {
         let key = (id.clone(), branch.ref_name.clone());
-        // Past the fold, but never past the selected commit, as after moving it down a step.
+        // Past the fold, but never past the selected commit, as after moving it down a step,
+        // nor the one a selected commit on its way goes next to.
         let selected_at = match &store.selection {
             Some(Selection::Commit(p, c)) if p == id => {
                 branch.commits.iter().position(|commit| commit.id == *c)
+            }
+            Some(Selection::Pending(p, _, NewAt::Above(key) | NewAt::Below(key))) if p == id => {
+                branch.commits.iter().position(|commit| commit.key == *key)
             }
             _ => None,
         };
@@ -790,12 +795,13 @@ impl Navigator {
                 self.upstream_rows(store, workspace, id, ref_name, rows);
             }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commit(id, at).into_iter()).map(|(title, slow, moved)| {
-                    Row::Pending(
+                (store.new_commit(id, at).into_iter()).map(|new| match new {
+                    NewCommit::Made(pending) => Row::Item(pending),
+                    NewCommit::Shown(title, slow, moved) => Row::Pending(
                         title,
                         slow,
                         moved.map(|key| RowKey::Commit(id.clone(), key)),
-                    )
+                    ),
                 })
             };
             rows.extend(pending(
