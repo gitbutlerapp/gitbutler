@@ -477,6 +477,7 @@ fn kind_of(selection: &Selection) -> &'static str {
         Selection::Commit(..) => "commit",
         Selection::Upstream(..) => "upstream-commit",
         Selection::Mesh(..) => "mesh",
+        Selection::Pending(..) => "pending-commit",
     }
 }
 
