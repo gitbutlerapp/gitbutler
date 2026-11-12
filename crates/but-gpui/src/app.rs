@@ -239,6 +239,9 @@ pub struct AppView {
     resizing: Option<Task<()>>,
     /// The navigator out over the detail while it's closed.
     peek: Peek,
+    /// Where a commit or an amend being placed was started from, and the changes selected for
+    /// it, so Esc goes back there, as it does from a move, which leaves the selection alone.
+    placing_from: Option<(Selection, Selection)>,
     /// macOS's traffic lights are out of the way of the navigator out over the detail.
     #[cfg(target_os = "macos")]
     lights_away: bool,
@@ -694,6 +697,7 @@ impl AppView {
             narrowing: None,
             resizing: None,
             peek: Peek::default(),
+            placing_from: None,
             #[cfg(target_os = "macos")]
             lights_away: false,
             palette: None,
@@ -1289,6 +1293,7 @@ impl AppView {
                 if self.peek.committing {
                     self.send_peek_back(window, cx);
                 }
+                self.back_to_placing_from(cx);
                 return;
             }
             Some((Op::Move | Op::Squash(_) | Op::CherryPick, _)) => {
@@ -2013,6 +2018,8 @@ impl AppView {
         if amend && let Some(why) = navigator.amend_refused(&project, &worktree, &selection, cx) {
             return snack(&self.store, why, cx);
         }
+        // Esc goes back to it.
+        self.placing_from = (selection != checkout).then(|| (selection.clone(), checkout.clone()));
         let shown = self.rows_in_sight();
         if shown {
             // The message is written in the detail.
@@ -2064,6 +2071,20 @@ impl AppView {
             self.detail
                 .update(cx, |detail, cx| detail.leave_composer(window, cx));
         }
+    }
+
+    /// Select again what placing a commit or an amend was started from, as it's let go, while
+    /// the changes it selected still are and what it started from is still there.
+    fn back_to_placing_from(&mut self, cx: &mut Context<Self>) {
+        let Some((from, changes)) = self.placing_from.take() else {
+            return;
+        };
+        let store = self.store.read(cx);
+        if store.selection.as_ref() != Some(&changes) || !store.still_there(&from) {
+            return;
+        }
+        self.store
+            .update(cx, |store, cx| store.select(Some(from), cx));
     }
 
     /// Open the pull request of the selected branch, or of the branch the selected commit
