@@ -252,6 +252,11 @@ pub fn run(embedded: Option<Embedded>) {
     let Some(incoming_links) = backend::links::hand_off() else {
         return;
     };
+    // Out of the folder it was started in, as an app opened from Finder is: Git can't open any
+    // project once that folder is deleted, as a linked worktree it was started from can be.
+    if let Err(err) = std::env::set_current_dir("/") {
+        tracing::warn!("couldn't leave the folder the app started in: {err}");
+    }
     backend::init();
     backend::metrics::start(embedded.as_ref().map(|embedded| embedded.version.clone()));
     // The desktop app writes to the same files, so say which app this is.
