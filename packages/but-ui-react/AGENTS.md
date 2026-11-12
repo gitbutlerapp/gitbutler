@@ -63,10 +63,26 @@ Icons are SVGs in `src/icons/`, inlined into the bundle as raw strings; the
 filename is the icon name (`folder-lock.svg` → `<Icon name="folder-lock" />`).
 To add one:
 
-1. Export it from Figma at 16×16 (🍑 But UI library) as SVG into `src/icons/`.
+1. Export it from Figma at 16×16 (🍑 But UI library) as SVG into `src/icons/`,
+   named as its component is there (a rename goes to both sides).
+   Ungroup it first. Each icon is its strokes merged into one union shape,
+   `icon`, so Figma can colour it at once, and a merged shape exports as a
+   filled outline whose 1.5px line thickens as the icon grows. Ungrouped, its
+   paths export as strokes, which stay 1.5px at any size. Export from a copy
+   so the library keeps the union; through the Figma MCP, clone the
+   component's children into a 16×16 frame, move each union's children up
+   to its parent, and `exportAsync({ format: "SVG_STRING" })` the frame. A
+   union that is itself stroked, an outline drawn around merged shapes
+   (`pointer`, `key`), would come apart into solid pieces: flatten that union
+   into one vector instead, with no fill and its stroke. A subtract
+   (`theme-dark`) draws differently either way: export it merged.
 2. Run `pnpm -F @gitbutler/but-ui-react optimize-icons`. It minifies the SVG,
-   recolors it to `currentColor` and regenerates `src/iconNames.ts`.
-3. Commit both. `iconNames.ts` is generated; never hand-edit it.
+   recolors it to `currentColor`, gives every shape
+   `vector-effect="non-scaling-stroke"` and regenerates `src/iconNames.ts`.
+   The docs server only picks up a new file after a restart.
+3. Commit both. `iconNames.ts` is generated; never hand-edit it. The All icons
+   story's Size range shows an export gone wrong: a filled outline thickens
+   at 48px where its neighbours stay thin.
 
 `src/file-icons/` are the language and filetype glyphs. They keep their brand
 colours and are deliberately not run through the script.

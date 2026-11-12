@@ -3,6 +3,7 @@ import { PopupSearch } from "../src/Popup.tsx";
 import { ResizeHandle } from "../src/ResizeHandle.tsx";
 import { ScrollArea } from "../src/ScrollArea.tsx";
 import { GroupLabel, NavItem } from "../src/SidebarRow.tsx";
+import { treeGuides } from "../src/treeGuides.ts";
 import { ComponentPage } from "./ComponentPage.tsx";
 import { DesignPage } from "./DesignPage.tsx";
 import type { IconName } from "../src/iconNames.ts";
@@ -90,8 +91,26 @@ const sections: Array<{
 	holds: (page: Page) => boolean;
 }> = [
 	{ name: "Docs", icon: "docs", page: findPage("design-overview"), holds: isDesignPage },
-	{ name: "Components", icon: "stack", holds: (page) => !isDesignPage(page) },
+	{ name: "Components", icon: "components", holds: (page) => !isDesignPage(page) },
 ];
+
+/** Each group's glyph, by its heading: the design notes' folders and the components' shelves. */
+const GROUP_ICONS: Record<string, IconName> = {
+	"Getting started": "play",
+	Foundations: "4x4-grid",
+	Content: "text-plain",
+	Components: "components",
+	Patterns: "hash",
+	Actions: "pointer",
+	Inputs: "keyboard",
+	Overlays: "stack",
+	"Content & status": "tag",
+	"Files & diffs": "file-diff",
+	Illustrations: "image",
+	Preview: "layout",
+	Sidebar: "sidebar",
+	Icons: "smiley",
+};
 
 const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 	const [query, setQuery] = useState("");
@@ -159,15 +178,17 @@ const Navigation: FC<{ current: Page | undefined }> = ({ current }) => {
 										<div key={heading} className="docs-site-group">
 											<GroupLabel
 												name={heading}
+												icon={GROUP_ICONS[heading]}
 												folded={folded.has(heading)}
 												onToggleFolded={() => toggle(heading)}
 											/>
 											{!folded.has(heading) &&
-												group.map((page) => (
+												group.map((page, index) => (
 													<NavItem
 														key={page.id}
 														name={pageName(page)}
 														depth={1}
+														guides={pageGuides(group.length)[index]}
 														selected={page === current}
 														render={
 															// oxlint-disable-next-line jsx_a11y/anchor-has-content -- The row renders as this link, and NavItem fills it with the name.
@@ -226,6 +247,10 @@ const THEMES: Record<Theme, { name: string; icon: IconName }> = {
 	light: { name: "Light", icon: "theme-light" },
 	dark: { name: "Dark", icon: "theme-dark" },
 };
+
+/** The guides of a group's pages, one level under its label: the last one ends the label's. */
+const pageGuides = (count: number) =>
+	treeGuides([{ depth: 0 }, ...Array.from({ length: count }, () => ({ depth: 1 }))]).slice(1);
 
 /** The site's look, in a card of its own under the pages, as but.dev's settings are: a row for
  * each setting with its current value at the end, opening a menu of the choices beside it. */

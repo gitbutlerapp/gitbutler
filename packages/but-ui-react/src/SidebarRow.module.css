@@ -1,4 +1,6 @@
 .row {
+	--guide-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+
 	display: flex;
 	position: relative;
 	column-gap: var(--but-gap-icon-text);
@@ -33,6 +35,7 @@
 :where([data-selection-focused="true"]:not([data-selection-focus-styles="false"] *))
 	.row[data-selected] {
 	--selection-inverted: true;
+	--guide-color: color-mix(in srgb, var(--but-inverse-muted-foreground) 40%, transparent);
 
 	background-color: var(--but-selected);
 	color: var(--but-selected-foreground);
@@ -70,12 +73,32 @@
 	}
 }
 
-/* The indent: one guide per level, and the chevron of a row that folds in its own step. */
+/* The indent: one guide per level, then the glyph 3px after the last guide (the steps' 4px gap,
+   less half of what the 14px glyph is wider than a 12px step), so a child's guide hangs from the
+   middle of its parent's glyph. At the top level there is no guide to sit after: the glyph starts
+   where it would if there were one at -16px, a pixel into the row's padding, over its children's
+   first guide. A row with no glyph, a page that doesn't fold, starts its name where a glyph row's
+   starts. */
 .steps {
 	display: flex;
+	position: relative;
 	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
+	margin-inline-end: 1px;
+
+	&:has(+ .icon) {
+		margin-inline-end: calc(3px - var(--but-gap-icon-text));
+	}
+
+	&:not(:has(.guide)):has(+ .icon) {
+		margin-inline-end: calc(-1px - var(--but-gap-icon-text));
+	}
+}
+
+/* A top-level row with no steps starts its glyph in the same column as one that folds. */
+.row > .icon:first-child {
+	margin-inline-start: -1px;
 }
 
 .step {
@@ -93,16 +116,57 @@
 	position: absolute;
 	width: 1px;
 	inset-block: 0 -1px;
-	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	background-color: var(--guide-color);
 	content: "";
 }
 
+/* The last row under its parent: the guide comes down to the row's middle and turns, with a round
+   corner, into the glyph, and ends there. */
+.guideLast::before {
+	width: auto;
+	inset-block: 0 calc(50% - 0.5px);
+	inset-inline: calc(50% - 0.5px) -1px;
+	border-inline-start: 1px solid;
+	border-block-end: 1px solid;
+	border-color: var(--guide-color);
+	border-end-start-radius: 5px;
+	background-color: transparent;
+}
+
+.guideNone::before {
+	display: none;
+}
+
+/* A git object (a stack, a branch, a commit) that isn't the last row under its parent: the guide
+   runs on, with a short stub toward the glyph, at the height a tail turns. */
+.guideStub::after {
+	position: absolute;
+	width: 3px;
+	height: 1px;
+	inset-block-start: calc(50% - 0.5px);
+	inset-inline-start: calc(50% + 0.5px);
+	background-color: var(--guide-color);
+	content: "";
+}
+
+/* A row that folds has its chevron in its glyph's place, showing under the pointer and on keyboard
+   focus only. A spinner or a conflict's warning keeps its place: it says what the pointer came to
+   see. */
 .toggle {
+	visibility: hidden;
+	position: absolute;
+	width: 14px;
+	inset-block: 0;
+	inset-inline-start: calc(100% + 3px);
 	padding: 0;
 	border: none;
 	background: none;
 	color: var(--but-subtle-foreground);
 	cursor: var(--control-cursor);
+
+	.steps:not(:has(.guide)) > & {
+		inset-inline-start: -1px;
+	}
 
 	&:hover,
 	&:focus-visible {
@@ -110,10 +174,16 @@
 	}
 }
 
-/* Where the chevron would be on a row with nothing to unfold. */
-.empty {
-	color: var(--but-subtle-foreground);
-	opacity: 0.5;
+.row:is(:hover, :focus-visible, :has(:focus-visible)):not(:has(output.icon, .conflicted)):has(
+		.toggle
+	) {
+	.toggle {
+		visibility: visible;
+	}
+
+	& > .icon {
+		visibility: hidden;
+	}
 }
 
 /* A row's glyph is drawn at 14, its box's size, as 🍑 But UI's rows draw them; an Icon is 16 unless told. */
@@ -424,19 +494,6 @@
 	.label {
 		flex-grow: 1;
 	}
-}
-
-.divider {
-	display: flex;
-	column-gap: var(--but-gap-icon-text);
-	align-items: center;
-	height: 20px;
-	padding-inline: var(--but-space-lg);
-}
-
-.line {
-	flex-grow: 1;
-	border-top: 1px dashed var(--but-border-subtle);
 }
 
 /* A NoticeItem says what its rows would have, in the quiet grey of a hint. */

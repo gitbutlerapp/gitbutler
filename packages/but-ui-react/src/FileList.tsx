@@ -21,6 +21,7 @@ import { Icon } from "./Icon.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 import styles from "./FileList.module.css";
+import type { Guides } from "./treeGuides.ts";
 
 const pluralRules = new Intl.PluralRules("en");
 const plural = (count: number, word: string) =>
@@ -195,9 +196,11 @@ export const FileList: FC<
  * - `directory` is the path to the file, shown faded after its name, or before it with
  *   `directoryPosition="lead"`; leave it out where a tree already says where the file is.
  * - `depth` indents the row one step per directory it sits in, each step drawing the guide that
- *   ties it to its directory, so a tree reads as one. A directory row sets `folded`, which gives
- *   it a folder and a chevron in its own step; `onToggleFolded` answers the chevron, and
- *   `toggleRender` wraps it, for a tooltip trigger.
+ *   ties it to its directory, so a tree reads as one; `guides`, from `treeGuides`, end each
+ *   directory's guide with a tail into its last row. A directory row sets `folded`, which gives
+ *   it a folder whose place its chevron takes under the pointer and on keyboard focus, as on a
+ *   sidebar row; `onToggleFolded` answers the chevron, and `toggleRender` wraps it, for a tooltip
+ *   trigger.
  * - `icon` defaults to the file's type glyph, or a folder for a directory.
  * - `checkbox` shares the icon's cell and takes its place once the pointer is over it or it is
  *   checked, so a row stays quiet while browsing.
@@ -227,6 +230,9 @@ export const FileListItem: FC<
 		checkbox?: ReactNode;
 		busy?: boolean;
 		depth?: number;
+		/** How each level's guide draws on this row, outermost first: work them out with
+		 * `treeGuides` (treeGuides.ts) from the rows the tree shows. */
+		guides?: Guides;
 		folded?: boolean;
 		onToggleFolded?: () => void;
 		toggleRender?: ReactElement;
@@ -250,6 +256,7 @@ export const FileListItem: FC<
 	checkbox,
 	busy = false,
 	depth = 0,
+	guides,
 	folded,
 	onToggleFolded,
 	toggleRender,
@@ -329,7 +336,17 @@ export const FileListItem: FC<
 					{(depth > 0 || folded !== undefined) && (
 						<span className={styles.steps}>
 							{Array.from({ length: depth }, (_, level) => (
-								<span key={level} className={classes(styles.step, styles.guide)} aria-hidden />
+								<span
+									key={level}
+									className={classes(
+										styles.step,
+										styles.guide,
+										guides?.[level] === "last" && styles.guideLast,
+										guides?.[level] === "none" && styles.guideNone,
+										guides?.[level] === "stub" && styles.guideStub,
+									)}
+									aria-hidden
+								/>
 							))}
 							{folded !== undefined && toggle}
 						</span>

@@ -54,6 +54,7 @@ Rules for one component that its docs don't carry yet.
 | [Links](design/components/links.md)                 | A link, or text that opens something          |
 | [Tooltips](design/components/tooltips.md)           | A hover hint                                  |
 | [Fields](design/components/fields.md)               | A form, a settings row, a search box          |
+| [Sidebar trees](design/components/sidebar-trees.md) | The sidebar's rows, how they fold and nest    |
 
 ## Patterns
 

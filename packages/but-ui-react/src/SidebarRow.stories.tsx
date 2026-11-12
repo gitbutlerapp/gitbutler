@@ -1,5 +1,14 @@
 import { stories } from "../docs/stories.ts";
-import { useState, type FC, type ReactNode } from "react";
+import {
+	Children,
+	cloneElement,
+	Fragment,
+	isValidElement,
+	useState,
+	type FC,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { CiStatus, MetaCount } from "./MetaCount.tsx";
@@ -13,9 +22,9 @@ import {
 	StackCaption,
 	TargetItem,
 	UncommittedItem,
-	WorktreeDivider,
 	WorktreeItem,
 } from "./SidebarRow.tsx";
+import { treeGuides, type Guides } from "./treeGuides.ts";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -86,12 +95,12 @@ export const Default = meta.story({
  * A sidebar card: a machine's header over its repositories, as the stories below build them. A
  * section of the page, named for its machine, so a screen reader can move between cards.
  */
-const Card: FC<{ children: ReactNode; focused?: boolean; header: ReactNode; label: string }> = ({
-	children,
-	focused = false,
-	header,
-	label,
-}) => (
+const Card: FC<{
+	children: ReactNode;
+	focused?: boolean;
+	header: ReactNode;
+	label: string;
+}> = ({ children, focused = false, header, label }) => (
 	<section
 		aria-label={label}
 		style={{
@@ -109,6 +118,49 @@ const Card: FC<{ children: ReactNode; focused?: boolean; header: ReactNode; labe
 	</section>
 );
 
+const rowTypes = new Set<unknown>([
+	MachineItem,
+	RepoItem,
+	TargetItem,
+	WorktreeItem,
+	UncommittedItem,
+	StackCaption,
+	BranchItem,
+	CommitItem,
+	MoreItem,
+	NoticeItem,
+]);
+/** The git objects among them, which meet their guide with a stub. */
+const chainedTypes = new Set<unknown>([StackCaption, BranchItem, CommitItem]);
+
+/** Gives the rows in `children` their guides, worked out with `treeGuides` from the rows in the
+ * order they draw, as a host does from the tree it shows. */
+const guided = (children: ReactNode): ReactNode => {
+	const walk = (node: ReactNode, visit: (row: ReactElement) => ReactNode): ReactNode =>
+		Children.map(node, (child) => {
+			if (!isValidElement<{ children?: ReactNode }>(child)) return child;
+			if (rowTypes.has(child.type)) return visit(child);
+			if (child.props.children === undefined) return child;
+			return cloneElement(child, undefined, walk(child.props.children, visit));
+		});
+	const rows: Array<{ depth: number; chained: boolean }> = [];
+	walk(children, (row) => {
+		const { depth = 0 } = row.props as { depth?: number };
+		rows.push({ depth, chained: chainedTypes.has(row.type) });
+		return row;
+	});
+	const guides = treeGuides(rows);
+	let next = 0;
+	return walk(children, (row) =>
+		cloneElement(row as ReactElement<{ guides?: Guides }>, { guides: guides[next++] }),
+	);
+};
+
+/** Rows one after another, as a sidebar lists them. */
+const Column: FC<{ children: ReactNode }> = ({ children }) => (
+	<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>{guided(children)}</div>
+);
+
 /** One repository's rows in a card, ruled off from the next. */
 const Repository: FC<{ children: ReactNode; last?: boolean }> = ({ children, last = false }) => (
 	<div
@@ -120,7 +172,7 @@ const Repository: FC<{ children: ReactNode; last?: boolean }> = ({ children, las
 			borderBottom: last ? undefined : "1px solid var(--but-border-subtle)",
 		}}
 	>
-		{children}
+		{guided(children)}
 	</div>
 );
 
@@ -262,7 +314,6 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 					menu={menu("Branch")}
 				/>
 				<MoreItem label="3 more" depth={2} />
-				<WorktreeDivider depth={1} />
 				<WorktreeItem
 					name="mesh-archive"
 					depth={1}
@@ -293,7 +344,6 @@ const Tree: FC<{ selected?: string }> = ({ selected }) => {
 				<BranchItem
 					title="offline-cache"
 					depth={2}
-					folded="empty"
 					meta={<MetaCount type="empty">empty</MetaCount>}
 					menu={menu("Branch")}
 				/>
@@ -342,6 +392,381 @@ export const ByMachine = meta.story({
 	),
 });
 
+/** Where a row sits: its level, and its guides, worked out from where it is in the tree. */
+type Place = { depth: number; guides: Guides };
+/** A row that opens: whether it is folded, and how to fold it. */
+type Fold = { folded?: boolean; onToggleFolded?: () => void };
+
+/** A row of the tree and the rows under it, as a host holds them before laying them out. */
+type TreeNode = {
+	id: string;
+	row: (place: Place, fold: Fold) => ReactNode;
+	children?: ReadonlyArray<TreeNode>;
+	/** A git object, a stack, a branch or a commit: it meets its parent's guide with a stub. */
+	chained?: boolean;
+};
+
+/** Lays the tree out as the flat list of rows it is drawn as, skipping what is folded, and gives
+ * each row its guides from that list with `treeGuides`. */
+const layOut = (
+	nodes: ReadonlyArray<TreeNode>,
+	folded: ReadonlySet<string>,
+	toggle: (id: string) => void,
+): Array<ReactNode> => {
+	const shown: Array<{ node: TreeNode; depth: number }> = [];
+	const visit = (list: ReadonlyArray<TreeNode>, depth: number) => {
+		for (const node of list) {
+			shown.push({ node, depth });
+			if (node.children !== undefined && !folded.has(node.id)) visit(node.children, depth + 1);
+		}
+	};
+	visit(nodes, 0);
+	const guides = treeGuides(shown.map(({ node, depth }) => ({ depth, chained: node.chained })));
+	return shown.map(({ node, depth }, index) => (
+		<Fragment key={node.id}>
+			{node.row(
+				{ depth, guides: guides[index] ?? [] },
+				node.children === undefined
+					? {}
+					: { folded: folded.has(node.id), onToggleFolded: () => toggle(node.id) },
+			)}
+		</Fragment>
+	));
+};
+
+const since = (value: string) => <MetaCount type="age">{value}</MetaCount>;
+
+const commits = (id: string, messages: ReadonlyArray<string>, unpushed = 0): Array<TreeNode> =>
+	messages.map((message, index) => ({
+		id: `${id}-${index}`,
+		chained: true,
+		row: (place) => (
+			<CommitItem {...place} message={message} pushed={index >= unpushed} menu={menu("Commit")} />
+		),
+	}));
+
+/** The same machine as the tree above, as data, so every row with something under it folds. */
+const repositories: ReadonlyArray<TreeNode> = [
+	{
+		id: "but-dev",
+		row: (place, fold) => (
+			<RepoItem {...place} {...fold} name="but-dev" menu={menu("Repository")} />
+		),
+		children: [
+			{
+				id: "main",
+				row: (place, fold) => (
+					<WorktreeItem
+						{...place}
+						{...fold}
+						main
+						name="Main worktree"
+						meta={
+							<>
+								<MetaCount type="behind">4</MetaCount>
+								{since("1d")}
+							</>
+						}
+						actions={update}
+						menu={menu("Worktree")}
+					/>
+				),
+				children: [
+					{
+						id: "main-uncommitted",
+						row: (place) => (
+							<UncommittedItem {...place} count={19} menu={menu("Uncommitted changes")} />
+						),
+					},
+					{
+						id: "ios-push-handoff",
+						chained: true,
+						row: (place, fold) => (
+							<BranchItem
+								{...place}
+								{...fold}
+								title="ios-push-handoff"
+								meta={
+									<>
+										<MetaCount type="unpushed">7</MetaCount>
+										{since("1d")}
+									</>
+								}
+								actions={push}
+								menu={menu("Branch")}
+							/>
+						),
+						children: commits(
+							"ios-push-handoff",
+							["feat: hand off pushes to the phone", "chore: push entitlements"],
+							2,
+						),
+					},
+					{
+						id: "stack",
+						chained: true,
+						row: (place, fold) => (
+							<StackCaption
+								{...place}
+								{...fold}
+								count={2}
+								tip="fix: retry stalled transfers"
+								meta={
+									fold.folded && (
+										<>
+											<MetaCount type="unpushed">11</MetaCount>
+											{since("8m")}
+										</>
+									)
+								}
+								menu={menu("Stack")}
+							/>
+						),
+						children: [
+							{
+								id: "pr-377",
+								chained: true,
+								row: (place, fold) => (
+									<BranchItem
+										{...place}
+										{...fold}
+										title="fix: retry stalled transfers"
+										pr={{ number: 377, state: "open" }}
+										meta={
+											<>
+												<CiStatus status="working" />
+												<MetaCount type="unpushed">4</MetaCount>
+												{since("8m")}
+											</>
+										}
+										actions={
+											<>
+												{push}
+												{viewPr}
+											</>
+										}
+										menu={menu("Branch")}
+									/>
+								),
+								children: commits(
+									"pr-377",
+									["fix: back off between retries", "fix: retry stalled transfers"],
+									2,
+								),
+							},
+							{
+								id: "pr-280",
+								chained: true,
+								row: (place, fold) => (
+									<BranchItem
+										{...place}
+										{...fold}
+										title="feat: resume work on another machine"
+										pr={{ number: 280, state: "open" }}
+										meta={
+											<>
+												<CiStatus status="working" />
+												<MetaCount type="unpushed">7</MetaCount>
+											</>
+										}
+										actions={
+											<>
+												{push}
+												{viewPr}
+											</>
+										}
+										menu={menu("Branch")}
+									/>
+								),
+								children: commits(
+									"pr-280",
+									[
+										"chore: separator tokens",
+										"feat: 28px hunk separator",
+										"feat: elapsed time for agents",
+									],
+									1,
+								),
+							},
+						],
+					},
+					{
+						id: "pr-292",
+						chained: true,
+						row: (place, fold) => (
+							<BranchItem
+								{...place}
+								{...fold}
+								title="chore: bump dependencies"
+								pr={{ number: 292, state: "merged" }}
+								meta={
+									<>
+										<MetaCount type="commits">12</MetaCount>
+										{since("8m")}
+									</>
+								}
+								menu={menu("Branch")}
+							/>
+						),
+						children: commits("pr-292", ["chore: bump vite", "chore: bump react"]),
+					},
+					{ id: "main-more", row: (place) => <MoreItem {...place} label="3 more" /> },
+				],
+			},
+			{
+				id: "mesh-archive",
+				row: (place, fold) => (
+					<WorktreeItem
+						{...place}
+						{...fold}
+						name="mesh-archive"
+						meta={
+							<>
+								<MetaCount type="behind">2</MetaCount>
+								{since("5h")}
+							</>
+						}
+						actions={update}
+						menu={menu("Worktree")}
+					/>
+				),
+				children: [
+					{
+						id: "mesh-uncommitted",
+						row: (place) => (
+							<UncommittedItem {...place} count={2} menu={menu("Uncommitted changes")} />
+						),
+					},
+					{
+						id: "resume-on-laptop",
+						chained: true,
+						row: (place, fold) => (
+							<BranchItem
+								{...place}
+								{...fold}
+								title="resume-on-laptop"
+								meta={
+									<>
+										<MetaCount type="unpushed">9</MetaCount>
+										{since("5h")}
+									</>
+								}
+								actions={push}
+								menu={menu("Branch")}
+							/>
+						),
+						children: commits(
+							"resume-on-laptop",
+							["feat: pick up where the laptop left off", "feat: sync open files"],
+							2,
+						),
+					},
+					{
+						id: "offline-cache",
+						chained: true,
+						row: (place) => (
+							<BranchItem
+								{...place}
+								title="offline-cache"
+								meta={<MetaCount type="empty">empty</MetaCount>}
+								menu={menu("Branch")}
+							/>
+						),
+					},
+				],
+			},
+		],
+	},
+	{
+		id: "berlin-brutalism",
+		row: (place, fold) => (
+			<RepoItem
+				{...place}
+				{...fold}
+				name="berlin-brutalism"
+				meta={
+					<>
+						<MetaCount type="behind">8</MetaCount>
+						{since("2h")}
+					</>
+				}
+				actions={update}
+				menu={menu("Repository")}
+			/>
+		),
+		children: [
+			{
+				id: "daemon-idle-cpu",
+				chained: true,
+				row: (place, fold) => (
+					<BranchItem
+						{...place}
+						{...fold}
+						title="daemon-idle-cpu"
+						meta={
+							<>
+								<MetaCount type="commits">27</MetaCount>
+								{since("5h")}
+							</>
+						}
+						actions={<Button size="small">Create PR</Button>}
+						menu={menu("Branch")}
+					/>
+				),
+				children: commits("daemon-idle-cpu", [
+					"perf: sleep while the daemon is idle",
+					"perf: batch file events",
+				]),
+			},
+		],
+	},
+];
+
+/** The machine's card with every row that holds others folding, as a host draws it. */
+const FoldingCard: FC = () => {
+	const [folded, setFolded] = useState<ReadonlySet<string>>(
+		() => new Set(["ios-push-handoff", "pr-377", "pr-292", "resume-on-laptop", "daemon-idle-cpu"]),
+	);
+	const [machineFolded, setMachineFolded] = useState(false);
+	const toggle = (id: string) =>
+		setFolded((current) => {
+			const next = new Set(current);
+			if (!next.delete(id)) next.add(id);
+			return next;
+		});
+	return (
+		<Card
+			label="pavel--macbook-pro-2"
+			header={
+				<MachineItem
+					name="pavel--macbook-pro-2"
+					online
+					folded={machineFolded}
+					onToggleFolded={() => setMachineFolded(!machineFolded)}
+					icon={<Icon name="laptop" />}
+					menu={menu("Machine")}
+				/>
+			}
+		>
+			{!machineFolded &&
+				repositories.map((repository, index) => (
+					<Repository key={repository.id} last={index === repositories.length - 1}>
+						{layOut([repository], folded, toggle)}
+					</Repository>
+				))}
+		</Card>
+	);
+};
+
+/**
+ * Every row that holds others folds, its chevron in its glyph's place under the pointer and on
+ * keyboard focus. The last row under each parent ends its guide with a tail into its glyph;
+ * stacks, branches and commits meet theirs with a stub (`guides`), which the host works out from the tree.
+ */
+export const Folding = meta.story({
+	render: () => <FoldingCard />,
+});
+
 /**
  * A selected row: the solid fill while the list holds the selection focus, inverting what it
  * shows, and the quiet one in a list that has lost it. A selected row shows its menu, as the
@@ -362,161 +787,170 @@ export const Selection = meta.story({
 });
 
 /** A stack's caption over its branches, which it hides while folded and sums up instead. */
-const Stack: FC<{
+const stack = ({
+	tip,
+	branches,
+	summary,
+	folded,
+	onToggleFolded,
+}: {
 	tip: string;
 	branches: Array<ReactNode>;
 	summary: ReactNode;
-	initiallyFolded: boolean;
-}> = ({ tip, branches, summary, initiallyFolded }) => {
-	const [folded, setFolded] = useState(initiallyFolded);
-	return (
-		<>
-			<StackCaption
-				count={branches.length}
-				tip={tip}
-				depth={1}
-				folded={folded}
-				onToggleFolded={() => setFolded(!folded)}
-				meta={folded && summary}
-				menu={menu("Stack")}
-			/>
-			{!folded && branches}
-		</>
-	);
-};
+	folded: boolean;
+	onToggleFolded: () => void;
+}) => (
+	<>
+		<StackCaption
+			count={branches.length}
+			tip={tip}
+			depth={1}
+			folded={folded}
+			onToggleFolded={onToggleFolded}
+			meta={folded && summary}
+			menu={menu("Stack")}
+		/>
+		{!folded && branches}
+	</>
+);
 
 /** One repository's branches: two stacks around a branch of its own. */
-const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded }) => (
-	<Repository last>
-		<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
-		<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
-		<BranchItem
-			title="mesh-archive"
-			depth={1}
-			folded
-			meta={
-				<>
-					<MetaCount type="unpushed">2</MetaCount>
-					<MetaCount type="age">1d</MetaCount>
-				</>
-			}
-			actions={push}
-			menu={menu("Branch")}
-		/>
-		<Stack
-			tip="feat: archive UI"
-			initiallyFolded={folded[0]}
-			summary={
-				<>
-					<MetaCount type="unpushed">5</MetaCount>
-					<MetaCount type="age">12m</MetaCount>
-				</>
-			}
-			branches={[
-				<BranchItem
-					key="ui"
-					title="feat: archive UI"
-					pr={{ number: 34, state: "open" }}
-					depth={2}
-					folded
-					meta={
-						<>
-							<CiStatus status="working" />
-							<MetaCount type="unpushed">2</MetaCount>
-							<MetaCount type="age">12m</MetaCount>
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
-				/>,
-				<BranchItem
-					key="api"
-					title="archive-api"
-					depth={2}
-					folded
-					meta={
-						<>
-							<MetaCount type="unpushed">3</MetaCount>
-							<MetaCount type="age">1h</MetaCount>
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
-				/>,
-				<BranchItem
-					key="schema"
-					title="feat: archive schema"
-					pr={{ number: 31, state: "open" }}
-					depth={2}
-					folded
-					meta={
-						<>
-							<CiStatus status="working" />
-							<MetaCount type="age">5h</MetaCount>
-						</>
-					}
-					menu={menu("Branch")}
-				/>,
-			]}
-		/>
-		<BranchItem
-			title="fix: redact remote credentials"
-			pr={{ number: 32, state: "open" }}
-			depth={1}
-			folded
-			meta={
-				<>
-					<CiStatus status="working" />
-					<MetaCount type="unpushed">3</MetaCount>
-					<MetaCount type="age">8m</MetaCount>
-				</>
-			}
-			actions={push}
-			menu={menu("Branch")}
-		/>
-		<Stack
-			tip="feat: unique cursor names"
-			initiallyFolded={folded[1]}
-			summary={
-				<>
-					<MetaCount type="unpushed">1</MetaCount>
-					<MetaCount type="age">35m</MetaCount>
-				</>
-			}
-			branches={[
-				<BranchItem
-					key="names"
-					title="feat: unique cursor names"
-					pr={{ number: 36, state: "open" }}
-					depth={2}
-					folded
-					meta={
-						<>
-							<CiStatus status="working" />
-							<MetaCount type="unpushed">1</MetaCount>
-							<MetaCount type="age">35m</MetaCount>
-						</>
-					}
-					actions={push}
-					menu={menu("Branch")}
-				/>,
-				<BranchItem
-					key="api"
-					title="cursor-api"
-					depth={2}
-					folded
-					meta={
-						<>
-							<MetaCount type="commits">5</MetaCount>
-							<MetaCount type="age">2d</MetaCount>
-						</>
-					}
-					menu={menu("Branch")}
-				/>,
-			]}
-		/>
-	</Repository>
-);
+const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded: initiallyFolded }) => {
+	const [folded, setFolded] = useState(initiallyFolded);
+	return (
+		<Repository last>
+			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
+			<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+			<BranchItem
+				title="mesh-archive"
+				depth={1}
+				folded
+				meta={
+					<>
+						<MetaCount type="unpushed">2</MetaCount>
+						<MetaCount type="age">1d</MetaCount>
+					</>
+				}
+				actions={push}
+				menu={menu("Branch")}
+			/>
+			{stack({
+				tip: "feat: archive UI",
+				folded: folded[0],
+				onToggleFolded: () => setFolded([!folded[0], folded[1]]),
+				summary: (
+					<>
+						<MetaCount type="unpushed">5</MetaCount>
+						<MetaCount type="age">12m</MetaCount>
+					</>
+				),
+				branches: [
+					<BranchItem
+						key="ui"
+						title="feat: archive UI"
+						pr={{ number: 34, state: "open" }}
+						depth={2}
+						folded
+						meta={
+							<>
+								<CiStatus status="working" />
+								<MetaCount type="unpushed">2</MetaCount>
+								<MetaCount type="age">12m</MetaCount>
+							</>
+						}
+						actions={push}
+						menu={menu("Branch")}
+					/>,
+					<BranchItem
+						key="api"
+						title="archive-api"
+						depth={2}
+						folded
+						meta={
+							<>
+								<MetaCount type="unpushed">3</MetaCount>
+								<MetaCount type="age">1h</MetaCount>
+							</>
+						}
+						actions={push}
+						menu={menu("Branch")}
+					/>,
+					<BranchItem
+						key="schema"
+						title="feat: archive schema"
+						pr={{ number: 31, state: "open" }}
+						depth={2}
+						folded
+						meta={
+							<>
+								<CiStatus status="working" />
+								<MetaCount type="age">5h</MetaCount>
+							</>
+						}
+						menu={menu("Branch")}
+					/>,
+				],
+			})}
+			<BranchItem
+				title="fix: redact remote credentials"
+				pr={{ number: 32, state: "open" }}
+				depth={1}
+				folded
+				meta={
+					<>
+						<CiStatus status="working" />
+						<MetaCount type="unpushed">3</MetaCount>
+						<MetaCount type="age">8m</MetaCount>
+					</>
+				}
+				actions={push}
+				menu={menu("Branch")}
+			/>
+			{stack({
+				tip: "feat: unique cursor names",
+				folded: folded[1],
+				onToggleFolded: () => setFolded([folded[0], !folded[1]]),
+				summary: (
+					<>
+						<MetaCount type="unpushed">1</MetaCount>
+						<MetaCount type="age">35m</MetaCount>
+					</>
+				),
+				branches: [
+					<BranchItem
+						key="names"
+						title="feat: unique cursor names"
+						pr={{ number: 36, state: "open" }}
+						depth={2}
+						folded
+						meta={
+							<>
+								<CiStatus status="working" />
+								<MetaCount type="unpushed">1</MetaCount>
+								<MetaCount type="age">35m</MetaCount>
+							</>
+						}
+						actions={push}
+						menu={menu("Branch")}
+					/>,
+					<BranchItem
+						key="api"
+						title="cursor-api"
+						depth={2}
+						folded
+						meta={
+							<>
+								<MetaCount type="commits">5</MetaCount>
+								<MetaCount type="age">2d</MetaCount>
+							</>
+						}
+						menu={menu("Branch")}
+					/>,
+				],
+			})}
+		</Repository>
+	);
+};
 
 /**
  * Stacks of branches, with no divider around them: a stack's branches sit one level under its
@@ -576,7 +1010,6 @@ export const Fork = meta.story({
 					actions={push}
 					menu={menu("Branch")}
 				/>
-				<WorktreeDivider depth={1} />
 				<WorktreeItem
 					main
 					fork
@@ -606,7 +1039,6 @@ export const Fork = meta.story({
 					actions={push}
 					menu={menu("Branch")}
 				/>
-				<WorktreeDivider depth={1} />
 				<WorktreeItem
 					name="mesh-archive"
 					depth={1}
@@ -653,7 +1085,7 @@ export const OfflineMachine = meta.story({
 export const UncommittedChanges = meta.story({
 	parameters: { design: { type: "figma", url: core("2572-3687") } },
 	render: () => (
-		<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+		<Column>
 			<RepoItem
 				name="berlin-brutalism"
 				folded={false}
@@ -678,7 +1110,6 @@ export const UncommittedChanges = meta.story({
 				}
 				menu={menu("Branch")}
 			/>
-			<WorktreeDivider depth={0} />
 			<RepoItem name="but-dev" folded={false} menu={menu("Repository")} />
 			<WorktreeItem
 				name="review-ios"
@@ -700,15 +1131,14 @@ export const UncommittedChanges = meta.story({
 				meta={<MetaCount type="unpushed">4</MetaCount>}
 				menu={menu("Branch")}
 			/>
-		</div>
+		</Column>
 	),
 });
 
 /**
  * Rows that could hold something and hold nothing yet: a branch with no commits, a worktree with
- * no branches and no changes, and a repository whose only worktree is such a one. Each keeps a dot
- * where its chevron would be, so it lines up with the rows that fold and nothing offers to open,
- * and says why first in its state: `empty` for a branch without commits, and for a worktree what it
+ * no branches and no changes, and a repository whose only worktree is such a one. Each has no
+ * chevron, so nothing offers to open, and says why first in its state: `empty` for a branch without commits, and for a worktree what it
  * is on, `empty` with nothing applied or `detached`.
  */
 export const Empty = meta.story({
@@ -734,7 +1164,6 @@ export const Empty = meta.story({
 					<BranchItem
 						title="offline-cache"
 						depth={1}
-						folded="empty"
 						meta={<MetaCount type="empty">empty</MetaCount>}
 						menu={menu("Branch")}
 					/>
@@ -759,11 +1188,9 @@ export const Empty = meta.story({
 						meta={<MetaCount type="unpushed">9</MetaCount>}
 						menu={menu("Branch")}
 					/>
-					<WorktreeDivider depth={1} />
 					<WorktreeItem
 						name="scratch"
 						depth={1}
-						folded="empty"
 						meta={
 							<>
 								<MetaCount type="head">detached</MetaCount>
@@ -789,7 +1216,6 @@ export const Empty = meta.story({
 				<Repository last>
 					<RepoItem
 						name="skill-soup"
-						folded="empty"
 						meta={
 							<>
 								<MetaCount type="head">empty</MetaCount>
@@ -1040,7 +1466,6 @@ const ByRepositoryTree: FC<{ open: boolean }> = ({ open }) => {
 						}
 						menu={menu("Branch")}
 					/>
-					<WorktreeDivider depth={1} />
 					<WorktreeItem
 						name="review-ios"
 						depth={1}
@@ -1172,7 +1597,7 @@ export const Merging = meta.story({
 export const Merged = meta.story({
 	parameters: { design: { type: "figma", url: core("2572-3458") } },
 	render: () => (
-		<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+		<Column>
 			<WorktreeItem
 				name="mesh-archive"
 				depth={1}
@@ -1196,7 +1621,6 @@ export const Merged = meta.story({
 				meta={<MetaCount type="age">5d</MetaCount>}
 				menu={menu("Branch")}
 			/>
-			<WorktreeDivider depth={1} />
 			<WorktreeItem
 				name="retry-transfers"
 				depth={1}
@@ -1213,7 +1637,7 @@ export const Merged = meta.story({
 				meta={<MetaCount type="age">1d</MetaCount>}
 				menu={menu("Branch")}
 			/>
-		</div>
+		</Column>
 	),
 });
 
@@ -1348,7 +1772,7 @@ export const NewOnTarget = meta.story({
 export const NewOnTargetFailed = meta.story({
 	parameters: { design: { type: "figma", url: core("4318-12241") } },
 	render: () => (
-		<div>
+		<Column>
 			<TargetItem target="master" count={2} depth={1} folded={false} actions={update} />
 			<NoticeItem
 				message="Can’t show the commits."
@@ -1357,7 +1781,7 @@ export const NewOnTargetFailed = meta.story({
 				depth={2}
 			/>
 			<WorktreeItem name="Main worktree" main depth={1} folded />
-		</div>
+		</Column>
 	),
 });
 
