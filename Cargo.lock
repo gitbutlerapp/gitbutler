@@ -1804,6 +1804,7 @@ dependencies = [
  "itertools",
  "petgraph",
  "sapling-renderdag",
+ "smallvec",
  "snapbox",
  "tracing",
 ]
