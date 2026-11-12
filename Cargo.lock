@@ -2128,7 +2128,6 @@ dependencies = [
  "but-rebase",
  "but-testsupport",
  "but-workspace",
- "gitbutler-branch-actions",
  "gix",
  "snapbox",
  "tracing",
