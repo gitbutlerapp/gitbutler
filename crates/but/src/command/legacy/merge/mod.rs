@@ -1,15 +1,15 @@
-//! `but merge <branch>`: land a branch directly onto the target ref (the "avoid pull requests"
-//! workflow).
+//! `but merge <branch>...`: land one or more branches directly onto the target ref (the "avoid
+//! pull requests" workflow).
 //!
 //! The landing itself — fetch, fast-forward or signed merge, push or local ref move, retry on a
 //! moved target, and reconcile of the remaining branches — lives in `but_api::land::branch_land` so
-//! every client shares it. This module only resolves the branch identifier, derives the display
+//! every client shares it. This module only resolves the branch identifiers, derives the display
 //! strings for the confirmation prompt, calls the API, and renders the result.
 //!
 //! A target without an upstream is landed locally: nothing is published and `but undo` reverts
 //! it, so there is no confirmation.
 
-mod messaging;
+pub(crate) mod messaging;
 
 use std::fmt::Write;
 
@@ -27,17 +27,17 @@ use crate::{
 pub fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    branch_id: &CliIdArg,
+    branch_ids: &[CliIdArg],
     yes: bool,
     no_ff: bool,
     ff_only: bool,
     whole_stack: bool,
 ) -> CliResult<Vec<(gix::ObjectId, ChangeId)>> {
-    // Resolve the branch identifier and read the target configuration. The checkout guard runs here
-    // so the user is never asked to confirm a land that can't happen; the API enforces it again,
-    // along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
+    // Resolve the branch identifiers and read the target configuration. The checkout guard runs
+    // here so the user is never asked to confirm a land that can't happen; the API enforces it
+    // again, along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
     // mutating anything.
-    let (branch_name, target_display, push_remote_name, target_branch_name, tip) = {
+    let (branch_names, target_display, push_remote_name, target_branch_name, tips) = {
         let mut guard = ctx.exclusive_worktree_access();
 
         let local_target = {
@@ -58,21 +58,36 @@ pub fn handle(
         };
 
         let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
-        let branch_name = branch_id
-            .resolve_branch_in_workspace(&*ctx.repo.get()?, &id_map)?
-            .0;
-        // The tip the user is asked about: the land refuses if the branch moves before it's
+        let mut branch_names: Vec<String> = Vec::new();
+        for branch_id in branch_ids {
+            let branch_name = branch_id
+                .resolve_branch_in_workspace(&*ctx.repo.get()?, &id_map)?
+                .0;
+            // The same branch may be named twice, e.g. by its CLI ID and its name.
+            if !branch_names.contains(&branch_name) {
+                branch_names.push(branch_name);
+            }
+        }
+        // The tips the user is asked about: the land refuses if a branch moves before it's
         // decided, as when an agent commits during the prompt or the fetch.
-        let tip = (ctx.repo.get()?)
-            .try_find_reference(&format!("refs/heads/{branch_name}"))?
-            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
-            .transpose()?;
+        let tips = {
+            let repo = ctx.repo.get()?;
+            branch_names
+                .iter()
+                .map(|branch_name| {
+                    let mut reference = repo
+                        .try_find_reference(&format!("refs/heads/{branch_name}"))?
+                        .ok_or_else(|| anyhow::anyhow!("Branch {branch_name} not found"))?;
+                    anyhow::Ok(reference.peel_to_id()?.detach())
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?
+        };
 
         // Display strings for the prompt and the final report. The API recomputes the
         // target/remote configuration internally; the CLI only needs these names to describe
         // what's about to happen.
         match local_target {
-            Some(local_target) => (branch_name, local_target.clone(), None, local_target, tip),
+            Some(local_target) => (branch_names, local_target.clone(), None, local_target, tips),
             None => {
                 let base_branch = but_api::legacy::virtual_branches::get_base_branch_data(
                     ctx,
@@ -100,11 +115,11 @@ pub fn handle(
                 };
                 let target_display = format!("{push_remote_name}/{target_branch_name}");
                 (
-                    branch_name,
+                    branch_names,
                     target_display,
                     Some(push_remote_name),
                     target_branch_name,
-                    tip,
+                    tips,
                 )
             }
         }
@@ -112,17 +127,8 @@ pub fn handle(
 
     // Publishing to a remote is hard to reverse, so it is confirmed. A local land is undoable.
     if push_remote_name.is_some() {
-        // With --whole-stack the confirmation must disclose everything that will be published,
-        // not just the branch the user typed — including commits on segments that no longer have
-        // a name. The API re-derives and enforces this; what's gathered here is display.
-        let lower = if whole_stack {
-            but_api::land::lower_stack(ctx, &branch_name)?
-        } else {
-            but_api::land::LowerStack::default()
-        };
-
-        // The command the refusal hints at quotes the name and repeats the flags, so it lands what
-        // was asked for.
+        // The command the refusal hints at quotes the names and repeats the flags, so it lands
+        // what was asked for.
         let flags = [
             (no_ff, " --no-ff"),
             (ff_only, " --ff-only"),
@@ -131,34 +137,42 @@ pub fn handle(
         .into_iter()
         .filter_map(|(set, flag)| set.then_some(flag))
         .collect::<String>();
+        let names = branch_names
+            .iter()
+            .map(|name| shell_quote(name))
+            .collect::<Vec<_>>()
+            .join(" ");
 
-        let attached_prs = messaging::attached_pr_numbers(ctx, &branch_name, &lower.segments)?;
+        let landings = messaging::landings(ctx, &branch_names, whole_stack)?;
         messaging::confirm_direct_target_update(
             out,
-            &branch_name,
-            &lower,
-            &attached_prs,
+            ctx,
+            &landings,
             &target_display,
             yes,
-            &format!("but merge {}{flags} --yes", shell_quote(&branch_name)),
+            &format!("but merge {names}{flags} --yes"),
         )?;
     }
 
     // A local land is instant, so only the headline reports it.
     if push_remote_name.is_some() {
         let mut progress = out.progress_channel();
-        writeln!(progress, "Landing {branch_name} onto {target_display}...")?;
+        writeln!(
+            progress,
+            "Landing {} onto {target_display}...",
+            branch_names.join(", ")
+        )?;
     }
 
     let head_before = ctx.repo.get()?.head_name()?;
     let result =
-        but_api::land::branch_land(ctx, branch_name.clone(), no_ff, ff_only, whole_stack, tip)?;
+        but_api::land::branch_land(ctx, branch_names.clone(), no_ff, ff_only, whole_stack, tips)?;
 
     messaging::report_land_result(
         out,
         ctx,
         &result,
-        &branch_name,
+        &branch_names,
         &target_display,
         push_remote_name.as_deref(),
         &target_branch_name,

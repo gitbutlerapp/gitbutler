@@ -1746,7 +1746,7 @@ async fn dispatch_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Merge {
-            branch,
+            branches,
             yes,
             no_ff,
             ff_only,
@@ -1756,7 +1756,7 @@ async fn dispatch_subcommand(
             let result = command::legacy::merge::handle(
                 &mut ctx,
                 out,
-                &branch,
+                &branches,
                 yes,
                 no_ff,
                 ff_only,

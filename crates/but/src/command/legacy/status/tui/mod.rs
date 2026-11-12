@@ -686,7 +686,11 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Confirm(message) => match message {
                 ConfirmMessage::Confirm | ConfirmMessage::Yes => true,
-                ConfirmMessage::Left | ConfirmMessage::Right | ConfirmMessage::Close => false,
+                ConfirmMessage::Left
+                | ConfirmMessage::Right
+                | ConfirmMessage::ScrollUp
+                | ConfirmMessage::ScrollDown
+                | ConfirmMessage::Close => false,
             },
             Message::Commit(message) => match message {
                 CommitMessage::CreateEmpty
@@ -732,7 +736,10 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 BranchMessage::Switch
                 | BranchMessage::PickAndSwitch
                 | BranchMessage::New { .. } => true,
-                BranchMessage::ToggleInsertSide | BranchMessage::Start => false,
+                // Land only opens a confirmation; confirming it is the mutation.
+                BranchMessage::ToggleInsertSide | BranchMessage::Start | BranchMessage::Land => {
+                    false
+                }
             },
             Message::Stack(message) => match message {
                 StackMessage::Unapply | StackMessage::MoveConfirm => true,

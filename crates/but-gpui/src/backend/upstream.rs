@@ -1320,11 +1320,11 @@ impl Intent for MergeIntoTarget {
             // so not of commits an agent added since.
             let merged = but_api::land::branch_land(
                 ctx,
-                self.branch.shorten().to_string(),
+                vec![self.branch.shorten().to_string()],
                 false,
                 false,
                 self.whole_stack,
-                Some(self.tip.0),
+                vec![self.tip.0],
             )?;
             Ok(MergedIntoTarget {
                 update_needed: merged.reconcile_skipped,
