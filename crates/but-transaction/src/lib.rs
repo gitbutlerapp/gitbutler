@@ -592,11 +592,7 @@ where
             branch.as_bstr()
         );
 
-        let rebase = self
-            .inner
-            .rebase
-            .as_ref()
-            .expect("rebase is always Some(_)");
+        let rebase = self.current_rebase();
         rebase
             .reference_target(branch)
             .or_else(|_| resolve_checkout_target(rebase.repo(), branch))?;
@@ -627,71 +623,83 @@ where
             "Cannot delete GitButler technical branch '{}'",
             ref_name.shorten()
         );
-        let rebase = self
+        if !self.has_reference(ref_name) {
+            but_workspace::worktrees::refuse_checked_out_in_linked_worktree(self.repo(), ref_name)?;
+            self.inner.removed_references.push(ref_name.to_owned());
+            return Ok(());
+        }
+        let Placement {
+            owned_commits,
+            is_top,
+            below,
+        } = Placement::read(self.current_rebase(), ref_name)?.unwrap_or_default();
+        let checked_out = self
             .inner
-            .rebase
+            .started
+            .head_reference
             .as_ref()
-            .expect("rebase is always Some(_)");
-        if rebase.reference_target(ref_name).is_err() {
-            but_workspace::worktrees::refuse_checked_out_in_linked_worktree(
-                rebase.repo(),
-                ref_name,
-            )?;
-        } else {
-            let placement = Placement::read(rebase, ref_name)?;
-            let checked_out = self
-                .inner
-                .started
-                .head_reference
-                .as_ref()
-                .map(AsRef::as_ref)
-                == Some(ref_name);
-            match placement {
-                Some(Placement {
-                    owned_commits,
-                    is_top: true,
-                    below: Some(below),
-                }) if !checked_out && !owned_commits.is_empty() => {
-                    self.rebase(|mut editor, _| {
-                        let removed = editor.select_reference(ref_name)?;
-                        let below_selector = editor.select_reference(below.as_ref())?;
-                        editor.replace_with_none(below_selector)?;
-                        editor.replace_reference(removed, below)?;
-                        Ok(((), editor.rebase()?))
-                    })?;
+            .map(AsRef::as_ref)
+            == Some(ref_name);
+        let below_takes_the_commits = is_top && !checked_out && !owned_commits.is_empty();
+        match below {
+            Some(below) if below_takes_the_commits => self.move_reference_up(ref_name, below)?,
+            below => {
+                if checked_out && owned_commits.is_empty() && below.is_none() {
+                    self.check_out_target_in_place_of(ref_name)?;
                 }
-                placement => {
-                    let (owned_commits, below) = placement
-                        .map(|placement| (placement.owned_commits, placement.below))
-                        .unwrap_or_default();
-                    if checked_out && owned_commits.is_empty() && below.is_none() {
-                        let head_commit = rebase.reference_target(ref_name)?;
-                        let target = self.inner.started.target_ref.clone().filter(|target| {
-                            target.as_ref() != ref_name
-                                && resolve_checkout_target(rebase.repo(), target.as_ref()).ok()
-                                    == Some(head_commit)
-                        });
-                        let Some(target) = target else {
-                            but_error::bail_precondition!(
-                                "Cannot remove '{}': it is the only branch in the workspace",
-                                ref_name.shorten()
-                            );
-                        };
-                        self.checkout(target.as_ref())?;
-                    }
-                    self.remove_reference_step(ref_name)?;
-                    if !owned_commits.is_empty() {
-                        self.inner.removals_to_settle.push(RemovalToSettle {
-                            name: ref_name.to_owned(),
-                            owned_commits,
-                            checked_out,
-                        });
-                    }
+                self.remove_reference_step(ref_name)?;
+                if !owned_commits.is_empty() {
+                    self.inner.removals_to_settle.push(RemovalToSettle {
+                        name: ref_name.to_owned(),
+                        owned_commits,
+                        checked_out,
+                    });
                 }
             }
         }
         self.inner.removed_references.push(ref_name.to_owned());
         Ok(())
+    }
+
+    /// Whether the rebase holds `ref_name`, which branches the workspace doesn't show lack.
+    fn has_reference(&self, ref_name: &FullNameRef) -> bool {
+        self.current_rebase().reference_target(ref_name).is_ok()
+    }
+
+    fn current_rebase(&self) -> &SuccessfulRebase<'rebase, 'rebase, M> {
+        self.inner
+            .rebase
+            .as_ref()
+            .expect("rebase is always Some(_)")
+    }
+
+    /// Let `below` take the place of `ref_name`, and with it the commits `ref_name` owned.
+    fn move_reference_up(&mut self, ref_name: &FullNameRef, below: FullName) -> anyhow::Result<()> {
+        self.rebase(|mut editor, _| {
+            let removed = editor.select_reference(ref_name)?;
+            let below_selector = editor.select_reference(below.as_ref())?;
+            editor.replace_with_none(below_selector)?;
+            editor.replace_reference(removed, below)?;
+            Ok(((), editor.rebase()?))
+        })
+    }
+
+    /// Check out the target branch in place of `ref_name` when it points at the same commit, as
+    /// after `git checkout -b` from the target.
+    fn check_out_target_in_place_of(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
+        let rebase = self.current_rebase();
+        let head_commit = rebase.reference_target(ref_name)?;
+        let target = self.inner.started.target_ref.clone().filter(|target| {
+            target.as_ref() != ref_name
+                && resolve_checkout_target(rebase.repo(), target.as_ref()).ok() == Some(head_commit)
+        });
+        let Some(target) = target else {
+            but_error::bail_precondition!(
+                "Cannot remove '{}': it is the only branch in the workspace",
+                ref_name.shorten()
+            );
+        };
+        self.checkout(target.as_ref())
     }
 
     fn remove_reference_step(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
@@ -1214,11 +1222,7 @@ where
 
     /// Returns the in-memory repository that backs this transaction.
     pub fn repo(&self) -> &gix::Repository {
-        self.inner
-            .rebase
-            .as_ref()
-            .expect("rebase is always Some(_)")
-            .repo()
+        self.current_rebase().repo()
     }
 
     pub fn context_lines(&self) -> u32 {
@@ -1291,6 +1295,7 @@ struct FinalizeOptions {
 }
 
 /// Where a reference sits in the workspace a removal starts from.
+#[derive(Default)]
 struct Placement {
     owned_commits: Vec<ObjectId>,
     is_top: bool,
