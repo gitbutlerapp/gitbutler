@@ -280,13 +280,12 @@ where
         let mut inner = Inner {
             rebase: Some(rebase),
             commit_mappings: CommitMappings::default(),
-            pending_metadata_removals: Vec::new(),
+            removed_references: Vec::new(),
             pending_branch_metadata: Vec::new(),
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             pending_new_stacks: Vec::new(),
             removals_to_settle: Vec::new(),
-            deleted_after_materializing: Vec::new(),
             started,
             context_lines,
         };
@@ -307,13 +306,12 @@ where
         let Inner {
             mut rebase,
             commit_mappings: _,
-            pending_metadata_removals,
+            removed_references,
             pending_branch_metadata,
             mut pending_ref_changes,
             pending_checkout,
             pending_new_stacks,
             removals_to_settle,
-            deleted_after_materializing,
             started: _,
             context_lines: _,
         } = inner;
@@ -342,11 +340,10 @@ where
                     workspace_state_from_rebase(
                         rebase,
                         &repo,
-                        pending_metadata_removals,
+                        removed_references,
                         pending_branch_metadata,
                         FinalizeOptions {
                             checkout: pending_checkout,
-                            deleted: deleted_after_materializing,
                             dry_run,
                         },
                     )
@@ -394,7 +391,9 @@ where
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
     rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
-    pending_metadata_removals: Vec<FullName>,
+    // Their metadata goes once materialized, and so does the reference with its Git
+    // configuration where the rebase couldn't delete it.
+    removed_references: Vec<FullName>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
     pending_ref_changes: PendingRefChanges,
     // A checkout cannot happen until the in-memory rebase and its references are materialized.
@@ -404,9 +403,6 @@ where
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
     // Checked once the callback is done, as later operations may still take the commits away.
     removals_to_settle: Vec<RemovalToSettle>,
-    // Deleted with their Git configuration once materialized, as the rebase only deletes the
-    // references it can change.
-    deleted_after_materializing: Vec<FullName>,
     // Read before the callback, as leaving the workspace inside the rebase changes what the
     // graph says is checked out.
     started: StartingCheckout,
@@ -694,12 +690,7 @@ where
                 }
             }
         }
-        self.inner
-            .pending_metadata_removals
-            .push(ref_name.to_owned());
-        self.inner
-            .deleted_after_materializing
-            .push(ref_name.to_owned());
+        self.inner.removed_references.push(ref_name.to_owned());
         Ok(())
     }
 
@@ -1296,7 +1287,6 @@ fn apply_new_stacks<'rebase, M: RefMetadata>(
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
-    deleted: Vec<FullName>,
     dry_run: DryRun,
 }
 
@@ -1535,13 +1525,12 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
 fn workspace_state_from_rebase<M: RefMetadata>(
     rebase: SuccessfulRebase<'_, '_, M>,
     repo: &gix::Repository,
-    pending_metadata_removals: Vec<FullName>,
+    removed_references: Vec<FullName>,
     pending_branch_metadata: Vec<PendingBranchMetadata>,
     options: FinalizeOptions,
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
-        deleted,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1574,14 +1563,12 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         *handle = branch.value;
         materialized.meta.set_branch(&handle)?;
     }
-    for ref_name in pending_metadata_removals {
-        materialized.meta.remove(ref_name.as_ref())?;
-    }
     let mut deleted_outside_rebase = false;
-    for ref_name in deleted {
-        let mut repo = repo.clone();
+    let mut deleting_repo = repo.clone();
+    for ref_name in removed_references {
+        materialized.meta.remove(ref_name.as_ref())?;
         deleted_outside_rebase |= but_workspace::branch::remove_reference::delete_local_branch(
-            &mut repo,
+            &mut deleting_repo,
             ref_name.as_ref(),
         )?;
     }
