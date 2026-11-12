@@ -437,7 +437,6 @@ impl App {
                     name: Category::LocalBranch.to_full_name(&*branch.name)?,
                     side: targeting::Side::Above,
                     new_branch_name: None,
-                    switch: false,
                 },
             }),
 

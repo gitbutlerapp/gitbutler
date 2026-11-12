@@ -8,7 +8,7 @@ use but_api::{
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
-use but_transaction::{Transaction, single_branch_mode::SingleBranchMode};
+use but_transaction::Transaction;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
@@ -367,9 +367,8 @@ impl MoveCommitsRelativeToOperation {
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<Option<FullName>> {
-        let (relative_to, side, new_branch_name) = self.target.create_target(tx, sbm)?;
+        let (relative_to, side, new_branch_name) = self.target.create_target(tx)?;
 
         tx.move_commits(self.sources.iter().map(|c| c.commit_id), relative_to, side)?;
 
@@ -387,13 +386,13 @@ impl MoveCommitsToNewBranchOperation {
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
+        switch: bool,
     ) -> anyhow::Result<FullName> {
         let new_branch_name = CommitToNewBranchOperation {
             branch_name: self.branch_name,
-            switch: false,
+            switch,
         }
-        .create_reference(tx, sbm)?;
+        .create_reference(tx)?;
         tx.move_commits(
             self.sources.iter().map(|c| c.commit_id),
             RelativeTo::Reference(new_branch_name.clone()),
@@ -415,7 +414,6 @@ impl MoveChangesRelativeToOperation {
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(CommitId, Option<FullName>)> {
         let Self {
             target,
@@ -424,7 +422,7 @@ impl MoveChangesRelativeToOperation {
             reword,
         } = self;
 
-        let (relative_to, side, new_branch_name) = target.create_target(tx, sbm)?;
+        let (relative_to, side, new_branch_name) = target.create_target(tx)?;
 
         let new_commit =
             tx.split_commit(source_commit.commit_id, relative_to, side, changes.into())?;
@@ -447,7 +445,7 @@ impl MoveChangesToNewBranchOperation {
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
+        switch: bool,
     ) -> anyhow::Result<(CommitId, FullName)> {
         let Self {
             source_commit,
@@ -458,9 +456,9 @@ impl MoveChangesToNewBranchOperation {
 
         let new_branch_name = CommitToNewBranchOperation {
             branch_name,
-            switch: false,
+            switch,
         }
-        .create_reference(tx, sbm)?;
+        .create_reference(tx)?;
 
         let new_commit = tx.split_commit(
             source_commit.commit_id,
@@ -523,7 +521,6 @@ impl MoveTarget {
     fn create_target(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-        sbm: Option<&SingleBranchMode>,
     ) -> anyhow::Result<(
         RelativeTo,
         but_rebase::graph_rebase::mutate::InsertSide,
@@ -543,10 +540,9 @@ impl MoveTarget {
                 name,
                 side,
                 new_branch_name,
-                switch: false,
             },
         };
-        let (relative_to, side, branch) = CommitAtOperation { target }.create_target(tx, sbm)?;
+        let (relative_to, side, branch) = CommitAtOperation { target }.create_target(tx)?;
         let new_branch = match branch {
             Some(BranchNameTarget::New(name)) => Some(name),
             Some(BranchNameTarget::Existing(_)) | None => None,
@@ -1083,27 +1079,6 @@ pub fn run(
     let new_branch = move_op.name_new_branch(&*ctx.repo.get()?)?;
     // Named so undo deletes the new branch again.
     let snapshot_refs: Vec<&FullNameRef> = new_branch.iter().map(AsRef::as_ref).collect();
-    let creates_independent_branch = matches!(
-        move_op,
-        MoveOperation::CommitsToNewBranch(_)
-            | MoveOperation::ChangesToNewBranch(_)
-            | MoveOperation::UnstackBranch(_)
-    );
-    let creates_stacked_branch = matches!(
-        &move_op,
-        MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation {
-            target: MoveTarget::BranchBucket { .. },
-            ..
-        }) | MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
-            target: MoveTarget::BranchBucket { .. },
-            ..
-        })
-    );
-    // Restacking can implicitly check out a new tip too, without creating a reference.
-    let moves_branch = matches!(move_op, MoveOperation::StackBranch(_));
-    let sbm = (creates_independent_branch || creates_stacked_branch || moves_branch || switch)
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), switch))
-        .transpose()?;
     let snapshot_details = match &move_op {
         MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {
             SnapshotDetails::new(OperationKind::MoveCommit)
@@ -1114,40 +1089,27 @@ pub fn run(
         MoveOperation::StackBranch(_) => SnapshotDetails::new(OperationKind::MoveBranch),
         MoveOperation::UnstackBranch(_) => SnapshotDetails::new(OperationKind::TearOffBranch),
     };
-    if let Some(sbm) = sbm {
-        sbm.transaction_with_workspace_setup(
-            ctx,
-            meta,
-            snapshot_details,
-            &snapshot_refs,
-            perm,
-            creates_independent_branch,
-            |tx| move_with_transaction(tx, move_op, switch, Some(&sbm)),
-        )
-    } else {
-        but_transaction::with_transaction_with_perm(
-            ctx,
-            meta,
-            perm,
-            snapshot_details,
-            &snapshot_refs,
-            DryRun::No,
-            |tx| move_with_transaction(tx, move_op, switch, None),
-        )
-    }
+    but_transaction::with_transaction_with_perm(
+        ctx,
+        meta,
+        perm,
+        snapshot_details,
+        &snapshot_refs,
+        DryRun::No,
+        |tx| move_with_transaction(tx, move_op, switch),
+    )
 }
 
 fn move_with_transaction(
     mut tx: Transaction<'_, '_, impl RefMetadata>,
     move_op: MoveOperation,
     switch: bool,
-    sbm: Option<&SingleBranchMode>,
 ) -> anyhow::Result<but_transaction::Commit<MoveOutcome>> {
     let outcome = match move_op {
         MoveOperation::CommitsRelativeTo(op) => {
             let sources = op.sources.clone();
             let target = op.target.clone();
-            let new_branch_name = op.execute(&mut tx, sbm)?;
+            let new_branch_name = op.execute(&mut tx)?;
             let moved_commits = sources.clone().try_map(|source| {
                 let mapped = tx.get_mapped_commit(source.commit_id)?;
                 CommitId::try_from_commit_id(mapped, tx.repo())
@@ -1161,7 +1123,7 @@ fn move_with_transaction(
         }
         MoveOperation::CommitsToNewBranch(op) => {
             let sources = op.sources.clone();
-            let new_branch_name = op.execute(&mut tx, sbm)?;
+            let new_branch_name = op.execute(&mut tx, switch)?;
             let moved_commits = sources.clone().try_map(|source| {
                 let mapped = tx.get_mapped_commit(source.commit_id)?;
                 CommitId::try_from_commit_id(mapped, tx.repo())
@@ -1177,7 +1139,7 @@ fn move_with_transaction(
             let target = op.target.clone();
             let num_changes = op.changes.len();
             let source_commit = op.source_commit.clone();
-            let (new_commit, new_branch_name) = op.execute(&mut tx, sbm)?;
+            let (new_commit, new_branch_name) = op.execute(&mut tx)?;
             MoveOutcome::Changes {
                 source_commit,
                 num_changes,
@@ -1189,7 +1151,7 @@ fn move_with_transaction(
         MoveOperation::ChangesToNewBranch(op) => {
             let num_changes = op.changes.len();
             let source_commit = op.source_commit.clone();
-            let (new_commit, new_branch_name) = op.execute(&mut tx, sbm)?;
+            let (new_commit, new_branch_name) = op.execute(&mut tx, switch)?;
             MoveOutcome::Changes {
                 source_commit,
                 num_changes,
