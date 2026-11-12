@@ -281,7 +281,7 @@ fn commit_line_with_classification(
 ) -> StatusOutputLine {
     line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id(hex, id),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification,
     })
 }
@@ -355,7 +355,7 @@ fn restore_returns_matching_commit_by_change_id_after_object_id_changes() {
         commit_cli_id_with_change_id("1111111111111111111111111111111111111111", "c0", 1);
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id_with_change_id("2222222222222222222222222222222222222222", "c1", 1),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     })];
 
@@ -372,7 +372,7 @@ fn restore_does_not_match_commits_with_different_change_ids() {
     let selected_cli_id = commit_cli_id_with_change_id(object_id, "c0", 1);
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id_with_change_id(object_id, "c1", 2),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     })];
 
@@ -389,7 +389,7 @@ fn restore_falls_back_to_commit_id_when_a_change_id_is_missing() {
     let selected_cli_id = commit_cli_id_with_change_id(object_id, "c0", 1);
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id(object_id, "c1"),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     })];
 
@@ -483,7 +483,7 @@ fn select_finds_commit_line_by_object_id() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -498,7 +498,7 @@ fn select_finds_commit_line_by_object_id() {
 fn select_returns_none_when_commit_is_missing() {
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c1"),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     })];
 
@@ -517,12 +517,12 @@ fn select_uses_first_matching_commit_when_object_id_appears_multiple_times() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -544,12 +544,12 @@ fn select_after_discarded_commit_selects_commit_below_when_on_top_commit() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(top, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(below, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -571,12 +571,12 @@ fn select_after_discarded_commit_selects_commit_above_when_on_bottom_commit() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(above, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(bottom, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -597,7 +597,7 @@ fn select_after_discarded_commit_selects_branch_when_commit_is_only_one_in_branc
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(only, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -621,17 +621,17 @@ fn select_after_discarded_commit_selects_commit_below_when_on_middle_commit() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(above, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(middle, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(below, "c2"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -653,12 +653,12 @@ fn select_after_discarded_commits_keeps_unmarked_current_commit_selected() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(marked, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(current, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -681,17 +681,17 @@ fn select_after_discarded_commits_skips_marked_commit_below() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(top, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(marked, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(below, "c2"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -717,17 +717,17 @@ fn select_after_discarded_commits_selects_commit_above_when_no_unmarked_commit_b
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(above, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(marked, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(bottom, "c2"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -752,12 +752,12 @@ fn select_after_discarded_commits_selects_branch_when_all_commits_in_section_are
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(top, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(bottom, "c1"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -905,7 +905,7 @@ fn select_after_discarded_branch_selects_branch_below_when_available() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -961,7 +961,7 @@ fn select_after_discarded_branch_selects_uncommitted_when_it_is_the_only_branch(
 fn select_after_discarded_branch_returns_none_if_selection_is_not_a_branch() {
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     })];
 
@@ -1041,7 +1041,7 @@ fn select_first_file_in_commit_finds_first_file_for_matching_commit() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::File {
@@ -1091,7 +1091,7 @@ fn select_branch_finds_branch_line_by_name() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -1395,7 +1395,7 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: parent_commit.clone(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::File {
@@ -1573,7 +1573,7 @@ fn move_down_within_section_stops_at_next_section() {
         line(StatusOutputLineData::Hint),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -1657,7 +1657,7 @@ fn move_next_section_moves_to_next_jump_target() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -1670,7 +1670,7 @@ fn move_next_section_moves_to_next_jump_target() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("2222222222222222222222222222222222222222", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -1693,7 +1693,7 @@ fn section_navigation_stops_on_worktree_areas() {
         branch_line("main", "b0"),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::WorktreeUncommitted {
@@ -1766,7 +1766,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -1779,7 +1779,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("2222222222222222222222222222222222222222", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
     ];
@@ -1881,7 +1881,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
@@ -1919,7 +1919,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::MergeBase),
@@ -1950,7 +1950,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::MergeBase),
@@ -2130,12 +2130,12 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
 
     let same_stack_commit_line = line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
-        stack_id: Some(scoped_stack_id),
+        lane: LaneId::Stack(Some(scoped_stack_id)),
         classification: CommitClassification::LocalOnly,
     });
     let other_stack_commit_line = line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("2222222222222222222222222222222222222222", "c1"),
-        stack_id: None,
+        lane: LaneId::Stack(None),
         classification: CommitClassification::LocalOnly,
     });
 
@@ -2177,17 +2177,17 @@ fn status_line(rendered: &str) -> StatusOutputLineData {
         | "┊┊●   abc (no commit message)"
         | "┊┊┊●   abc (no commit message)" => StatusOutputLineData::Commit {
             cli_id: random_cli_id(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::LocalOnly,
         },
         "┊◐   abc (no commit message)" => StatusOutputLineData::Commit {
             cli_id: random_cli_id(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::Modified,
         },
         "┊●   ceed3a00ee (no commit message)" => StatusOutputLineData::Commit {
             cli_id: random_cli_id(),
-            stack_id: None,
+            lane: LaneId::Stack(None),
             classification: CommitClassification::Upstream,
         },
         "┊   ab M a/b/d/file.rs" => StatusOutputLineData::UncommittedFile {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
@@ -41,7 +41,8 @@ use crate::{
         workspace_target,
     },
     id::{
-        ChangeIdWithShortId, CommittedFileId, LaneWithId, SegmentWithId, ShortId, TreeChangeWithId,
+        ChangeIdWithShortId, CommittedFileId, LaneId, LaneWithId, SegmentWithId, ShortId,
+        TreeChangeWithId,
     },
     tui::text::truncate_text,
     utils::{
@@ -158,6 +159,8 @@ pub struct TuiLaunchOptions {
     pub headless: bool,
     pub skip_status_after: bool,
     pub show_diff: bool,
+    /// Branches, by name, whose commits are hidden behind a summary on the branch line.
+    pub collapsed_branches: BTreeSet<String>,
 }
 
 impl TuiLaunchOptions {
@@ -178,6 +181,7 @@ impl TuiLaunchOptions {
             quit_after: None,
             headless: false,
             skip_status_after: false,
+            collapsed_branches: BTreeSet::new(),
         };
 
         args.resolve_dev_flags(dev_flags);
@@ -1818,7 +1822,22 @@ fn print_lane_segments(
             branch_suffix.push(branch_status);
         }
         branch_suffix.extend(review_spans);
-        if !no_commits.is_empty() {
+        let is_collapsed = match &status_ctx.render_mode {
+            StatusRenderMode::Tui(options) => segment
+                .branch_name()
+                .is_some_and(|name| options.collapsed_branches.contains(&name.to_string())),
+            StatusRenderMode::Oneshot(_) => false,
+        };
+        // Upstream-only commits are hidden too, so their count replaces "(no commits)".
+        let collapsed_summary = if is_collapsed {
+            collapsed_branch_summary(status_ctx, repo, segment)?
+        } else {
+            None
+        };
+        if let Some(summary) = collapsed_summary {
+            branch_suffix.push(Span::raw(" "));
+            branch_suffix.push(Span::styled(summary, t.hint));
+        } else if !no_commits.is_empty() {
             branch_suffix.push(Span::raw(" "));
             branch_suffix.push(Span::styled(no_commits, t.hint));
         }
@@ -1848,6 +1867,15 @@ fn print_lane_segments(
             branch_cli_id,
             is_merged_upstream,
         )?;
+
+        if is_collapsed {
+            // Worktrees resting on the hidden commits keep their lanes, so their
+            // uncommitted changes stay visible.
+            for commit in &segment.workspace_commits {
+                print_worktree_lanes_on(ctx, status_ctx, commit.commit_id(), depth + 1, output)?;
+            }
+            continue;
+        }
 
         let has_remote_commits_to_print = segment.remote_commits.iter().any(|commit| {
             status_ctx
@@ -1882,7 +1910,7 @@ fn print_lane_segments(
             print_commit(
                 repo,
                 status_ctx,
-                lane.lane.stack_id(),
+                &lane.lane,
                 commit.cli_id(),
                 None,
                 inner,
@@ -1928,7 +1956,7 @@ fn print_lane_segments(
             print_commit(
                 repo,
                 status_ctx,
-                lane.lane.stack_id(),
+                &lane.lane,
                 commit.cli_id(),
                 commit.change_id.as_ref(),
                 &inner.inner,
@@ -1945,6 +1973,52 @@ fn print_lane_segments(
         }
     }
     Ok(has_merged_upstream_branch)
+}
+
+/// The `(3 commits, 1 upstream, 12 files)` summary shown on a collapsed branch's line,
+/// where files counts the distinct paths changed across the branch's workspace commits.
+fn collapsed_branch_summary(
+    status_ctx: &StatusContext,
+    repo: &gix::Repository,
+    segment: &SegmentWithId,
+) -> anyhow::Result<Option<String>> {
+    fn count(n: usize, noun: &str) -> String {
+        if n == 1 {
+            format!("1 {noun}")
+        } else {
+            format!("{n} {noun}s")
+        }
+    }
+
+    let mut paths = BTreeSet::new();
+    for commit in &segment.workspace_commits {
+        paths.extend(
+            commit
+                .tree_changes_using_repo(repo)?
+                .into_iter()
+                .map(|change| change.inner.path),
+        );
+    }
+    let upstream = segment
+        .remote_commits
+        .iter()
+        .filter(|commit| {
+            status_ctx
+                .remote_commits_by_id
+                .contains_key(&commit.commit_id())
+        })
+        .count();
+    if segment.workspace_commits.is_empty() && upstream == 0 {
+        // Nothing is hidden, and "(no commits)" already says so.
+        return Ok(None);
+    }
+
+    let mut parts = vec![count(segment.workspace_commits.len(), "commit")];
+    if upstream > 0 {
+        parts.push(format!("{upstream} upstream"));
+    }
+    parts.push(count(paths.len(), "file"));
+    Ok(Some(format!("({})", parts.join(", "))))
 }
 
 /// Print one uncommitted-changes heading and the files below it.
@@ -2030,7 +2104,7 @@ enum CommitChanges<'a> {
 fn print_commit(
     repo: &gix::Repository,
     status_ctx: &StatusContext,
-    stack_id: Option<StackId>,
+    lane: &LaneId,
     commit_cli_id: CliId,
     change_id: Option<&ChangeIdWithShortId>,
     commit: &but_workspace::ref_info::Commit,
@@ -2110,7 +2184,7 @@ fn print_commit(
                     .collect(),
             },
             commit_cli_id.clone(),
-            stack_id,
+            lane.clone(),
             classification,
         )?;
         let (message, is_empty_message) = commit_message_display_cli(
@@ -2153,7 +2227,7 @@ fn print_commit(
                     .collect(),
             },
             commit_cli_id.clone(),
-            stack_id,
+            lane.clone(),
             classification,
         )?;
     }

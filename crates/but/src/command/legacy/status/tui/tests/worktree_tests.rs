@@ -1061,3 +1061,28 @@ fn remove_worktree_from_empty_anonymous_segment_line() {
         "snapshots/remove_worktree_from_empty_anonymous_segment_line_003.svg"
     ]);
 }
+
+#[test]
+fn collapsing_from_a_worktree_commit_folds_the_worktree_branch() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 5])
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+
+    // The commit belongs to the worktree's branch even though its lane has no stack.
+    tui.input('z')
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch] (1 commit, 1 file)"]);
+}
+
+#[test]
+fn collapsing_from_a_worktree_committed_file_folds_the_worktree_branch() {
+    let (mut tui, _editor) = worktree_tui();
+
+    tui.input([KeyCode::Down; 5])
+        .assert_current_line_eq(str!["┊┊●   nll add W"]);
+    tui.input(['f', 'j'].map(KeyCode::Char))
+        .assert_current_line_eq(str!["┊┊│     n:l A W"]);
+
+    tui.input('z')
+        .assert_current_line_eq(str!["┊┊├┄ wt [wt-branch] (1 commit, 1 file)"]);
+}
