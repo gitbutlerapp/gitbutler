@@ -9,13 +9,10 @@ use tracing::instrument;
 
 use super::types::CommitCherryPickResult;
 
-/// Cherry-picks `source_commit_ids` to `side` of `relative_to` and records an
-/// oplog snapshot on success.
+/// Cherry-picks `source_commit_ids` to `side` of `relative_to`.
 ///
 /// Sources may live anywhere in the repository, including outside the
-/// workspace. They are deduplicated and applied in the order given. When
-/// `dry_run` is enabled, the returned workspace previews the rewritten graph
-/// without materializing it, and no oplog entry is persisted.
+/// workspace. They are deduplicated and applied in the order given.
 #[but_api(try_from = crate::commit::json::CommitCherryPickResult)]
 #[instrument(err(Debug))]
 pub fn commit_cherry_pick(
@@ -36,8 +33,6 @@ pub fn commit_cherry_pick(
     )
 }
 
-/// Cherry-picks commits under caller-held exclusive repository access and
-/// records an oplog snapshot on success.
 pub fn commit_cherry_pick_with_perm(
     ctx: &mut but_ctx::Context,
     source_commit_ids: Vec<gix::ObjectId>,

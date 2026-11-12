@@ -7,14 +7,6 @@ use tracing::instrument;
 
 use super::types::CommitMoveResult;
 
-/// Moves `subject_commit_ids` to `side` of `relative_to` and records an oplog
-/// snapshot on success.
-///
-/// This acquires exclusive worktree access from `ctx` before moving the
-/// commit.
-///
-/// When `dry_run` is enabled, the returned workspace previews the moved commit
-/// and no oplog entry is persisted. For details, see [`commit_move_with_perm()`].
 #[but_api(try_from = crate::commit::json::CommitMoveResult)]
 #[instrument(err(Debug))]
 pub fn commit_move(
@@ -35,13 +27,6 @@ pub fn commit_move(
     )
 }
 
-/// Moves `subject_commit_ids` to `side` of `relative_to` under caller-held
-/// exclusive repository access and records an oplog snapshot on success.
-///
-/// This records a best-effort `MoveCommit` oplog snapshot when the move is
-/// materialized. When `dry_run` is enabled, it returns a preview of the
-/// resulting workspace state and skips oplog persistence. For lower-level
-/// implementation details, see [`but_workspace::commit::move_commits()`].
 pub fn commit_move_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,

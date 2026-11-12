@@ -9,16 +9,10 @@ use tracing::instrument;
 
 use super::types::CommitCreateResult;
 
-/// Amend the commit at `commit_id` with the `changes` of `changes_source` and
-/// record an oplog snapshot on success.
+/// Amend the commit at `commit_id` with the `changes` of `changes_source`.
 ///
-/// This performs the rewrite under exclusive worktree access and creates a
-/// best-effort `AmendCommit` oplog entry if the operation succeeds. For a linked
-/// worktree `changes_source` it also covers the branch that worktree has checked
-/// out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
-/// the returned workspace previews the amended commit and no oplog entry is
-/// persisted. For lower-level implementation details, see
-/// [`but_workspace::commit::commit_amend()`].
+/// For a linked worktree `changes_source`, undo also covers the branch that
+/// worktree has checked out, so it leaves the change uncommitted there.
 #[but_api(try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_amend(

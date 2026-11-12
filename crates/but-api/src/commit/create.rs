@@ -10,17 +10,11 @@ use tracing::instrument;
 
 use super::types::CommitCreateResult;
 
-/// Insert a new commit built from the `changes` of `changes_source` and record
-/// an oplog snapshot on success.
+/// Insert a commit made of the `changes` of `changes_source` on `side` of
+/// `relative_to`, with `message` as its full message.
 ///
-/// `relative_to` and `side` choose where the commit is inserted. `message` is
-/// the entire commit message text, not just the title. On success, this commits
-/// a best-effort `CreateCommit` oplog snapshot using the same lock. For a linked
-/// worktree `changes_source` it also covers the branch that worktree has checked
-/// out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
-/// the returned workspace previews the inserted commit and no oplog entry is
-/// persisted. For lower-level implementation details, see
-/// [`but_workspace::commit::commit_create()`].
+/// For a linked worktree `changes_source`, undo also covers the branch that
+/// worktree has checked out, so it leaves the change uncommitted there.
 #[but_api(try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
 #[expect(clippy::too_many_arguments)]

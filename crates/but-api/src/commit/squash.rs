@@ -7,14 +7,6 @@ use tracing::instrument;
 
 use super::types::CommitSquashResult;
 
-/// Squash `subject_commit_ids` into `target_commit_id` and record an oplog
-/// snapshot on success.
-///
-/// This acquires exclusive worktree access from `ctx` before rewriting the
-/// commits.
-///
-/// When `dry_run` is enabled, the returned workspace previews the squashed
-/// result and no oplog entry is persisted. For details, see [`commit_squash_with_perm()`].
 #[but_api(try_from = crate::commit::json::CommitSquashResult)]
 #[instrument(err(Debug))]
 pub fn commit_squash(
@@ -35,12 +27,6 @@ pub fn commit_squash(
     )
 }
 
-/// Squash `subject_commit_ids` into `target_commit_id` under caller-held
-/// exclusive repository access and record an oplog snapshot on success.
-///
-/// This records a best-effort `SquashCommit` oplog snapshot when the squash is
-/// materialized. When `dry_run` is enabled, it returns a preview of the
-/// resulting workspace state and skips oplog persistence.
 pub fn commit_squash_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,

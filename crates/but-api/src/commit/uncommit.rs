@@ -93,16 +93,9 @@ impl SurfacedHunks {
     }
 }
 
-/// Uncommit one or more commits, removing them from branch history while
-/// **keeping their changes** in the workspace as uncommitted modifications.
+/// Uncommit `subject_commit_ids`, keeping their changes in the worktree.
 ///
-/// Unlike [`super::discard_commit::commit_discard()`], which permanently
-/// removes the commit's changes, this operation reassigns the affected hunks
-/// so they remain available for further editing or recommitting.
-///
-/// When `dry_run` is enabled, the returned workspace previews the result
-/// without materializing the rewrite or persisting an oplog entry.
-/// See [`commit_uncommit_with_perm()`] for details.
+/// With `assign_to`, the hunks the uncommit surfaces are assigned to that stack.
 #[but_api(try_from = crate::commit::json::UncommitResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit(
@@ -121,18 +114,6 @@ pub fn commit_uncommit(
     )
 }
 
-/// Uncommit one or more commits under caller-held exclusive repository access,
-/// and record an oplog snapshot.
-///
-/// The commits are removed from branch history, but their changes are
-/// **kept** — they surface as uncommitted workspace modifications. When
-/// `assign_to` is set, newly surfaced hunks are assigned to that stack.
-///
-/// This contrasts with [`super::discard_commit::commit_discard()`], which
-/// removes both the commit and its changes.
-///
-/// When `dry_run` is enabled, it returns a preview of the resulting workspace
-/// state without materializing the rewrite, and skips oplog persistence.
 pub fn commit_uncommit_with_perm(
     ctx: &mut but_ctx::Context,
     subject_commit_ids: Vec<gix::ObjectId>,
@@ -174,11 +155,9 @@ pub fn commit_uncommit_with_perm(
     })
 }
 
-/// Extract `changes` from `commit_id` and record the rewrite in the oplog.
+/// Take `changes` out of `commit_id`, keeping them in the worktree.
 ///
-/// When `dry_run` is enabled, the returned workspace previews the extracted
-/// changes and no oplog entry is persisted. See
-/// [`commit_uncommit_changes_with_perm()`] for details.
+/// With `assign_to`, the hunks the uncommit surfaces are assigned to that stack.
 #[but_api(try_from = crate::commit::json::MoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes(
@@ -199,17 +178,6 @@ pub fn commit_uncommit_changes(
     )
 }
 
-/// Extract `changes` from `commit_id` without performing a checkout, under
-/// caller-held exclusive repository access, and record an oplog snapshot on
-/// success.
-///
-/// The removed diff stays in the workspace as uncommitted changes. When
-/// `assign_to` is set, newly surfaced hunks are assigned to that stack after
-/// the rebase is materialized. This records a best-effort `DiscardChanges`
-/// oplog snapshot when the rewrite is materialized. When `dry_run` is enabled,
-/// it returns a preview of the resulting workspace state and skips both
-/// hunk-assignment persistence and oplog persistence. For lower-level
-/// implementation details, see [`but_workspace::commit::uncommit_changes()`].
 pub fn commit_uncommit_changes_with_perm(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
@@ -241,12 +209,12 @@ pub fn commit_uncommit_changes_with_perm(
     Ok(MoveChangesResult { workspace })
 }
 
-/// Uncommit specific changes from multiple commits and record an oplog
-/// snapshot on success.
+/// Take changes out of several commits, keeping them in the worktree.
 ///
-/// Input sources are flat and may be unsorted or contain multiple entries for
-/// the same commit. The backend groups them by commit, applies successful
-/// groups in child-to-parent order, and reports failed groups in the result.
+/// `sources` may be unsorted and name a commit more than once. They're grouped
+/// by commit and applied from child to parent, and the groups that can't be
+/// applied are reported in the result rather than failing the call. With
+/// `assign_to`, the hunks the uncommit surfaces are assigned to that stack.
 #[but_api(try_from = crate::commit::json::UncommitChangesFromCommitsResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes_from_commits(
@@ -265,9 +233,6 @@ pub fn commit_uncommit_changes_from_commits(
     )
 }
 
-/// Uncommit specific changes from multiple commits under caller-held
-/// exclusive repository access and record an oplog snapshot when at least the
-/// operation itself succeeds.
 pub fn commit_uncommit_changes_from_commits_with_perm(
     ctx: &mut but_ctx::Context,
     sources: Vec<UncommitChangesSource>,

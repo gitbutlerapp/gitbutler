@@ -7,13 +7,10 @@ use tracing::instrument;
 
 use super::types::CommitRewordResult;
 
-/// Reword `commit_id` to `message` using the behavior described by
-/// [`commit_reword_with_perm()`].
+/// Replace the message of `commit_id` with `message`.
 ///
-/// This acquires exclusive worktree access from `ctx` before rewriting the
-/// commit message and recording the oplog entry. When `dry_run` is enabled,
-/// the returned workspace previews the rewritten message and no oplog entry is
-/// persisted.
+/// `message` is the full commit message: the title line, and when a body is
+/// present, `\n\n` followed by the body.
 #[but_api(try_from = crate::commit::json::CommitRewordResult)]
 #[instrument(err(Debug))]
 pub fn commit_reword(
@@ -26,16 +23,6 @@ pub fn commit_reword(
     commit_reword_with_perm(ctx, commit_id, message, dry_run, guard.write_permission())
 }
 
-/// Rewords `commit_id` to `message` under caller-held exclusive repository
-/// access and records an oplog snapshot on success.
-///
-/// `message` must be the full commit message payload: the title line, and when a
-/// body is present, `\n\n` followed by the body. This records a best-effort
-/// `UpdateCommitMessage` oplog snapshot when the reword is materialized, and
-/// returns the new commit id plus the replaced-commit mapping. When `dry_run`
-/// is enabled, it returns a preview of the resulting workspace state and skips
-/// oplog persistence. For lower-level implementation details, see
-/// [`but_workspace::commit::reword()`].
 pub fn commit_reword_with_perm(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,

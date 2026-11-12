@@ -36,6 +36,11 @@ pub mod land;
 /// Ephemeral comments anchored to lines in diffs, shared between the GUI and the CLI.
 pub mod comments;
 
+/// Commit mutations.
+///
+/// Each runs as one transaction and records one undo step when it lands. With `dry_run` it
+/// returns a preview of the resulting workspace and records nothing. A function without `perm`
+/// takes the lock from `ctx`, and its `_with_perm` variant runs under the caller's.
 pub mod commit;
 
 /// Functions that operate on linked git worktrees (experimental).
