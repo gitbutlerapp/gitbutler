@@ -1090,7 +1090,10 @@ pub fn branch_remove_with_perm(
     ref_name: gix::refs::FullName,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchRemoveResult> {
-    refuse_checked_out_in_linked_worktree(&*ctx.repo.get()?, ref_name.as_ref())?;
+    but_workspace::worktrees::refuse_checked_out_in_linked_worktree(
+        &*ctx.repo.get()?,
+        ref_name.as_ref(),
+    )?;
 
     let mut meta = ctx.meta()?;
     // Name the branch so undo recreates it even when it isn't in the workspace.
@@ -1105,32 +1108,6 @@ pub fn branch_remove_with_perm(
         |mut tx| tx.remove_reference(ref_name.as_ref()),
     )?;
     Ok(BranchRemoveResult { workspace })
-}
-
-/// A linked worktree whose checkout is gone no longer has it, as for `git worktree prune`.
-fn refuse_checked_out_in_linked_worktree(
-    repo: &gix::Repository,
-    ref_name: &gix::refs::FullNameRef,
-) -> anyhow::Result<()> {
-    but_workspace::worktrees::prune_gone(repo, ref_name)?;
-    let Some(reference) = repo.try_find_reference(ref_name)? else {
-        return Ok(());
-    };
-    let worktrees = but_core::branch::SafeDelete::new(repo)?;
-    let dirs = worktrees
-        .worktree_dirs_with_ref(&reference)
-        .unwrap_or_default();
-    let linked: Vec<_> = (dirs.iter())
-        .filter(|dir| Some(dir.as_path()) != repo.workdir())
-        .map(|dir| dir.display().to_string())
-        .collect();
-    if !linked.is_empty() {
-        bail_precondition!(
-            "Refusing to delete a branch that is checked out. Worktrees are: {}",
-            linked.join(", ")
-        );
-    }
-    Ok(())
 }
 
 /// Renames the local branch `ref_name` to `new_name`, moving its git reference and
