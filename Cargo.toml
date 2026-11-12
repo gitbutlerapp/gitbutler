@@ -40,6 +40,7 @@ members = [
     "crates/but-hunk-assignment", # 📄Assign uncommitted changes to stacks/lanes.
     # 👉uses `but-ctx`.
     "crates/but-comments", # 📄Ephemeral comments anchored to lines in diffs.
+    "crates/but-ui-control", # 📄Controlling a running GPUI app over its socket.
     "crates/but-hunk-dependency", # 📄Assuming it works, it feels close to 'Exemplary',
     # 👉Too much legacy code.
     "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
@@ -152,6 +153,7 @@ but-ctx = { path = "crates/but-ctx" }
 but-workspace = { path = "crates/but-workspace" }
 but-branches = { path = "crates/but-branches" }
 but-comments = { path = "crates/but-comments" }
+but-ui-control = { path = "crates/but-ui-control" }
 but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-db = { path = "crates/but-db" }

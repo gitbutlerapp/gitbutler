@@ -263,11 +263,16 @@ impl Store {
         let Some(cwd) = self.checkout_path(&project, &checkout) else {
             return;
         };
+        // An agent started here reaches this app, whatever channel its `but` was built for.
+        let socket = (cx.try_global::<crate::control::ControlSocket>()).map(|s| s.0.clone());
         let asked = Instant::now();
         let via = backend::metrics::via();
         cx.spawn(async move |this, cx| {
             let started = backend::run(move || {
-                let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref())?;
+                let env: Vec<(&str, &std::ffi::OsStr)> = (socket.iter())
+                    .map(|path| (but_ui_control::SOCKET_ENV, path.as_os_str()))
+                    .collect();
+                let shell = Shell::spawn(&cwd, Terminal::OPENING, run.as_deref(), &env)?;
                 Ok((shell, Ghostty::load()))
             })
             .await;

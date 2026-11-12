@@ -1,5 +1,5 @@
 //! Layout commands: what a script gives as `layout …`, and what a dev build the user is looking
-//! at takes on its control socket, so an agent can set up the window as asked
+//! at takes on its control socket as `dev.layout`, so an agent can set up the window as asked
 //! (`scripts/control.sh`). Only layout: nothing here commits, discards, pushes, types or
 //! clicks, so the worst a command does is move the user's tiles.
 //!
@@ -179,94 +179,48 @@ fn on_off(command: &str, rest: &str) -> Result<bool> {
     }
 }
 
-/// Take layout commands on a socket for as long as the app runs: `scripts/control.sh`'s, for
-/// the window the user looks at. A client sends commands a line each, then an empty line; the
-/// app runs them in order and answers with each one's error, then how the window is laid out,
-/// and closes the connection. At `GITBUTLER_GPUI_CONTROL`, else `gitbutler-gpui.sock` in the
-/// temporary folder, only the user can reach it. Where another app already listens there,
-/// this one doesn't.
-#[cfg(unix)]
-pub(crate) fn listen(window: gpui::AnyWindowHandle, cx: &mut App) {
-    use std::io::{BufRead as _, BufReader, Write as _};
+pub(crate) fn layout(
+    request: but_ui_control::Request,
+    reply: crate::control::Reply,
+    window: &mut Window,
+    cx: &mut App,
+) {
     use std::time::Duration;
 
-    let path = socket_path();
-    let listener = match bind(&path) {
-        Ok(listener) => listener,
-        Err(err) => return tracing::warn!("no layout control at {}: {err:#}", path.display()),
+    #[derive(serde::Deserialize)]
+    struct Params {
+        commands: Vec<String>,
+    }
+    let params: Params = match serde_json::from_value(request.params) {
+        Ok(params) => params,
+        Err(err) => {
+            return reply.err(but_ui_control::RpcError::new(
+                but_ui_control::code::INVALID_PARAMS,
+                format!("dev.layout takes its commands as a list: {err}"),
+            ));
+        }
     };
-    tracing::info!("layout control at {}", path.display());
-    type Request = (Vec<String>, std::sync::mpsc::Sender<String>);
-    let (send, mut requests) = futures::channel::mpsc::unbounded::<Request>();
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(stream) = stream else {
-                continue;
-            };
-            let lines = (BufReader::new(&stream).lines())
-                .map_while(Result::ok)
-                .take_while(|line| !line.trim().is_empty())
-                .collect();
-            let (reply, replies) = std::sync::mpsc::channel();
-            if send.unbounded_send((lines, reply)).is_err() {
-                break;
-            }
-            let mut stream = &stream;
-            for line in replies.iter() {
-                if writeln!(stream, "{line}").is_err() {
-                    break;
-                }
-            }
-        }
-    });
+    let handle = window.window_handle();
     cx.spawn(async move |cx| {
-        use futures::StreamExt as _;
-        while let Some((lines, reply)) = requests.next().await {
-            for line in lines {
-                let command = line.trim();
-                let command = (command.strip_prefix("layout "))
-                    .unwrap_or(command.strip_prefix("layout").unwrap_or(command));
-                let result = (cx.update_window(window, |_, window, cx| run(command, window, cx)))
-                    .and_then(|result| result);
-                if let Err(err) = result {
-                    reply.send(format!("error: {line}: {err:#}")).ok();
-                }
-                // As a hand would wait for what it did to show, before the next command reads it.
-                cx.background_executor()
-                    .timer(Duration::from_millis(250))
-                    .await;
+        let mut errors = Vec::new();
+        for line in params.commands {
+            let command = line.trim();
+            let command = (command.strip_prefix("layout "))
+                .unwrap_or(command.strip_prefix("layout").unwrap_or(command))
+                .to_owned();
+            let result = (cx.update_window(handle, |_, window, cx| run(&command, window, cx)))
+                .and_then(|result| result);
+            if let Err(err) = result {
+                errors.push(format!("{line}: {err:#}"));
             }
-            let layout = (cx.update_window(window, |_, window, cx| describe(window, cx)))
-                .and_then(|layout| layout);
-            reply
-                .send(layout.unwrap_or_else(|err| format!("error: {err:#}")))
-                .ok();
+            cx.background_executor()
+                .timer(Duration::from_millis(250))
+                .await;
         }
+        let layout = (cx.update_window(handle, |_, window, cx| describe(window, cx)))
+            .and_then(|layout| layout)
+            .unwrap_or_else(|err| format!("error: {err:#}"));
+        reply.ok(serde_json::json!({ "errors": errors, "layout": layout }));
     })
     .detach();
-}
-
-#[cfg(unix)]
-fn socket_path() -> std::path::PathBuf {
-    std::env::var_os("GITBUTLER_GPUI_CONTROL")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| std::env::temp_dir().join("gitbutler-gpui.sock"))
-}
-
-/// A socket at `path` only the user can reach, in the place of one no app listens on anymore.
-#[cfg(unix)]
-fn bind(path: &std::path::Path) -> Result<std::os::unix::net::UnixListener> {
-    use std::os::unix::fs::PermissionsExt as _;
-    use std::os::unix::net::{UnixListener, UnixStream};
-
-    if path.exists() {
-        ensure!(
-            UnixStream::connect(path).is_err(),
-            "another dev build listens there"
-        );
-        std::fs::remove_file(path).context("removing the socket left behind")?;
-    }
-    let listener = UnixListener::bind(path).context("binding")?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-    Ok(listener)
 }

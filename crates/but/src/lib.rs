@@ -577,10 +577,15 @@ async fn match_subcommand(
     let is_expand = matches!(&cmd, Subcommands::_Expand { .. });
     #[cfg(not(feature = "nightly"))]
     let is_expand = false;
+    #[cfg(feature = "nightly")]
+    let is_app_client = matches!(&cmd, Subcommands::_Ui(_));
+    #[cfg(not(feature = "nightly"))]
+    let is_app_client = false;
     // A non-interactive invocation of a regular command: the situation where an
     // agent-facing maintenance notice is worth printing.
     let notice_worthy_command = !out.can_prompt()
         && !is_expand
+        && !is_app_client
         && !matches!(
             &cmd,
             Subcommands::Skill(_)
@@ -823,6 +828,11 @@ async fn dispatch_subcommand(
             }
             return Ok(DispatchOutcome::Return);
         }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Ui(platform) => {
+            command::ui::handle(out, platform)?;
+            return Ok(DispatchOutcome::Return);
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Init(init_args) => {
             let outcome = command::legacy::init::run(init_args, &args.current_dir, out)?;
@@ -980,6 +990,8 @@ async fn dispatch_subcommand(
         | Subcommands::External(..) => {
             unreachable!("handled above")
         }
+        #[cfg(feature = "nightly")]
+        Subcommands::_Ui(..) => unreachable!("handled above"),
         #[cfg(feature = "nightly")]
         Subcommands::_Open {
             sources,

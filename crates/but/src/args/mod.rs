@@ -415,6 +415,11 @@ pub enum Subcommands {
     #[clap(hide = true, name = "_comment")]
     _Comment(comment::Platform),
 
+    #[cfg(feature = "nightly")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_ui")]
+    _Ui(ui::Platform),
+
     /// Resolve conflicts in a commit or in uncommitted files.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -1079,6 +1084,8 @@ pub mod squash;
 pub mod switch;
 #[cfg(feature = "legacy")]
 pub mod tui;
+#[cfg(feature = "nightly")]
+pub mod ui;
 #[cfg(feature = "legacy")]
 pub mod unapply;
 #[cfg(feature = "legacy")]

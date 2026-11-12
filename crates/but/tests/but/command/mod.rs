@@ -71,6 +71,9 @@ mod status;
 mod switch;
 #[cfg(feature = "legacy")]
 mod teardown;
+#[cfg(feature = "nightly")]
+#[cfg(unix)]
+mod ui;
 #[cfg(feature = "legacy")]
 mod uncommit;
 #[cfg(feature = "legacy")]

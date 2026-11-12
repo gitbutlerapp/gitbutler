@@ -256,7 +256,7 @@ mod tests {
         if std::env::var_os(TAKER).is_some() {
             return take_over();
         }
-        let (mut pty, _output) = Pty::spawn(&std::env::temp_dir(), SIZE, None).unwrap();
+        let (mut pty, _output) = Pty::spawn(&std::env::temp_dir(), SIZE, None, &[]).unwrap();
         let kept = pty.keep().unwrap();
         drop(pty);
         let detached = Detached {

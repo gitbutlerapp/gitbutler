@@ -26,6 +26,28 @@ pub(crate) enum KeyPane {
 }
 
 impl KeyPane {
+    const ALL: [KeyPane; 5] = [
+        KeyPane::ProjectTabs,
+        KeyPane::List,
+        KeyPane::Tabs,
+        KeyPane::Files,
+        KeyPane::Diff,
+    ];
+
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            KeyPane::ProjectTabs => "project-tabs",
+            KeyPane::List => "list",
+            KeyPane::Tabs => "tabs",
+            KeyPane::Files => "files",
+            KeyPane::Diff => "diff",
+        }
+    }
+
+    pub(crate) fn named(name: &str) -> Option<KeyPane> {
+        KeyPane::ALL.into_iter().find(|pane| pane.name() == name)
+    }
+
     /// Whether it's a row of tabs, over the rest of the page, rather than what the page shows.
     fn is_tabs(self) -> bool {
         match self {
@@ -604,6 +626,22 @@ mod tests {
             pane_round(&LIST_PAGE, KeyPane::ProjectTabs, false),
             None,
             "before the first is the one before"
+        );
+    }
+
+    #[test]
+    fn every_pane_is_found_by_its_name() {
+        for pane in KeyPane::ALL {
+            assert_eq!(
+                KeyPane::named(pane.name()),
+                Some(pane),
+                "the control socket names it"
+            );
+        }
+        assert_eq!(
+            KeyPane::named("nowhere"),
+            None,
+            "a name of no pane finds none"
         );
     }
 }

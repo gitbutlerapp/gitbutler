@@ -1030,7 +1030,6 @@ fn rank_selected_project(choices: &mut [Choice], selection: Option<&Selection>) 
 
 /// The row Go to anything goes to typed `query` in full: the one it names whole, ignoring case,
 /// else the first whose label has it, in the selected project before the others.
-#[cfg(feature = "dev-script")]
 pub(crate) fn go_to_row(store: &Store, query: &str) -> Option<Selection> {
     let query = query.to_lowercase();
     let mut rows: Vec<(bool, bool, Selection)> = (go_to_choices(store).into_iter())
