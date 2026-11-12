@@ -21,7 +21,7 @@ The scheme is the build's: `but`, `but-nightly` or `but-dev`.
 | `upstream` | `to=upstream&branch=refs/heads/feature&commit=8c5a2f0e4a2b7c43c0d9a3a8bfbb4e4b2b2d1f6a` |
 | `mesh` | `to=mesh&checkout=other-machine&pick=branch&name=feature` |
 
-No link opens a `terminal`. `section=` is `upstream`, `inactive` or `mesh`, and `pick=` is `checkout`, `branch` or `commit`.
+No link opens a `terminal` or `pending`. `section=` is `upstream`, `inactive` or `mesh`, and `pick=` is `checkout`, `branch` or `commit`.
 
 A `commit`'s `change=` is its change ID, which finds it once it's amended or rebased.
 

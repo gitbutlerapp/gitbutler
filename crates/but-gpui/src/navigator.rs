@@ -1625,7 +1625,10 @@ impl Navigator {
             Selection::Upstream(project, ref_name, id) => {
                 self.toggle_merge(&project, ref_name, id, window, cx)
             }
-            Selection::Commit(..) | Selection::Uncommitted(..) | Selection::Terminal(..) => {}
+            Selection::Commit(..)
+            | Selection::Pending(..)
+            | Selection::Uncommitted(..)
+            | Selection::Terminal(..) => {}
         }
     }
 
@@ -2823,6 +2826,7 @@ impl Navigator {
                 self.branch_row(item, id, ref_name.as_ref(), style, cx)
             }
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
+            Selection::Pending(id, op, _) => self.pending_row(item, id, *op, style, cx),
             Selection::Terminal(_, id) => self.terminal_row(item, *id, style, cx),
             Selection::Stack(id, bottom) => {
                 self.stack_row(ix, item, id, bottom.as_ref(), style, cx)
@@ -4246,6 +4250,39 @@ impl Navigator {
                         row_preview(self.store.clone(), item.clone(), preview),
                     )
                 })
+                .into_any_element(),
+        )
+    }
+
+    /// The commit `project`'s operation `op` is making, till the reload after it shows it made:
+    /// as made at once, a local commit with the title it'll have, dimmed, with an ellipsis, only
+    /// once it's taking a while. It isn't dragged, edited or split, as it's not there yet.
+    fn pending_row(
+        &self,
+        item: &Selection,
+        project: &ProjectId,
+        op: usize,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let (title, slow) = self.store.read(cx).pending_commit(project, op)?;
+        let glyph = small_icon(Icon::Commit).text_color(style.meta(style.theme.blue));
+        let ellipsis = div()
+            .text_size(dp(11.))
+            .text_color(style.muted())
+            .child("…");
+        Some(
+            style
+                .commit_line(
+                    format!("pending-{project}-{op}"),
+                    COMMIT_INDENT,
+                    glyph,
+                    title,
+                    false,
+                    None,
+                )
+                .when(slow, |el| el.opacity(0.5).child(ellipsis))
+                .map(|el| self.selectable(el, item, cx))
                 .into_any_element(),
         )
     }

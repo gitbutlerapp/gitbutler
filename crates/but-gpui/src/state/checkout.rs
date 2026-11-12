@@ -3,12 +3,13 @@ use std::path::PathBuf;
 
 use gpui::SharedString;
 
-use super::{NavigatorPlace, ProjectId, Section, Selection, Store};
+use super::{NavigatorPlace, NewAt, ProjectId, Section, Selection, Store};
 use crate::backend::{Checkout, CommitId, Lane, Worktree};
 
 impl Store {
     /// The lane `selection` is in, and the place from the top of the branch it's on: a
-    /// branch's, a commit's, a remote commit's of a branch, or a stack's by its bottom branch.
+    /// branch's, a commit's, one on its way's, a remote commit's of a branch, or a stack's by its
+    /// bottom branch.
     pub fn lane_for(&self, selection: &Selection) -> Option<(&Lane, usize)> {
         let workspace = self.workspace(selection.project())?;
         match selection {
@@ -20,6 +21,11 @@ impl Store {
                 workspace.lane_of(Some(ref_name))
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
+            // A commit on its way, where it goes.
+            Selection::Pending(.., NewAt::Top(ref_name)) => workspace.lane_of(Some(ref_name)),
+            Selection::Pending(.., NewAt::Above(key) | NewAt::Below(key)) => {
+                workspace.lane_holding(workspace.find_commit_by_key(key)?.id)
+            }
             Selection::Project(_)
             | Selection::Checkout(..)
             | Selection::Uncommitted(_, Checkout::Main)

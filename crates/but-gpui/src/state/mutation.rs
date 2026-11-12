@@ -50,6 +50,9 @@ pub struct Overlay {
     pub commit_hunks: HashMap<String, HashMap<String, Vec<HunkKey>>>,
     /// Where a new commit goes, and its title.
     pub new_commit: Option<(NewAt, SharedString)>,
+    /// It selects the commit it makes once that's there, so its stand-in is selected from the
+    /// start, as [`Selection::Pending`].
+    pub selects_made: bool,
     /// The commit (by key) it gives a new message, and the message.
     pub reworded: Option<(String, String)>,
     /// The branch (full ref) it renames, and its new name.
@@ -72,6 +75,15 @@ pub struct Overlay {
     /// Whether what `lands` lands was dragged, so it shows no copy, staying as it is till the
     /// reload slides it there.
     pub dropped: bool,
+}
+
+/// A commit a running operation shows where it'll be, until the reload after it shows it there.
+pub enum NewCommit {
+    /// One it makes and selects once it's there, whose row is the stand-in selected till then.
+    Made(Selection),
+    /// Any other, by the title it shows by, with whether it's been on its way long enough to
+    /// show it, and the key of the commit it stands in for, when it moves one.
+    Shown(SharedString, bool, Option<String>),
 }
 
 /// What an operation is called: `text` is what the user reads, which may name a branch or a
@@ -124,6 +136,7 @@ pub enum Rereads {
 }
 
 /// Where a commit an operation makes shows until it's loaded.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum NewAt {
     /// On top of this branch.
     Top(FullName),
@@ -290,6 +303,14 @@ pub(super) struct Running {
     /// What it does once it worked, as selecting the commit it rewrote, waiting for the
     /// reload after it: see [`Store::run_done`].
     done: Option<DoneHandler>,
+}
+
+impl Running {
+    /// Whether it's been running long enough for the commit it makes to show it's still on its
+    /// way.
+    fn slow(&self) -> bool {
+        self.started.elapsed() >= PENDING_AFTER
+    }
 }
 
 type DoneHandler = Box<dyn FnOnce(&mut Store, &mut Context<Store>)>;
@@ -1597,6 +1618,9 @@ impl Store {
         };
         let (now, id) = (Instant::now(), self.ops_started);
         self.ops_started += 1;
+        let pending = (overlay.new_commit.as_ref())
+            .filter(|_| overlay.selects_made)
+            .map(|(at, _)| Selection::Pending(project.clone(), id, at.clone()));
         self.running.push(Running {
             project: project.clone(),
             id,
@@ -1607,6 +1631,12 @@ impl Store {
             phase: Phase::Working,
             deferred: Reload::default(),
             done: None,
+        });
+        // Selected from the key press on, rather than once the reload shows what it made.
+        let unselected = pending.clone().map(|pending| {
+            let unselected = self.selection.clone();
+            self.select(Some(pending), cx);
+            unselected
         });
         cx.emit(StoreEvent::Pending(project.clone()));
         cx.notify();
@@ -1674,11 +1704,14 @@ impl Store {
                         let (finished, own) = (project.clone(), source.clone());
                         let snapshot = store.last_snapshot.clone();
                         let done: DoneHandler = Box::new(move |store, cx| {
-                            // Gone on to another project meanwhile, the user stays there, picks
-                            // and all: what this finished selects, as the commit it made,
-                            // doesn't take them back, and what it says names its project.
-                            store.staying = (store.selection.as_ref())
-                                .is_some_and(|selection| *selection.project() != finished);
+                            // Gone on to another project meanwhile, or off the stand-in of the
+                            // commit it made, the user stays there, picks and all: what this
+                            // finished selects, as the commit it made, doesn't take them back,
+                            // and what it says names its project.
+                            store.staying = (store.selection.as_ref()).is_some_and(|selection| {
+                                *selection.project() != finished
+                                    || pending.as_ref().is_some_and(|pending| selection != pending)
+                            });
                             // Its Undo is its own, though another finished since, as a fetch
                             // beside it or one in another project, which stays the last after.
                             let latest =
@@ -1702,6 +1735,12 @@ impl Store {
                     }
                     Err(err) => {
                         let first_card = store.next_toast;
+                        // It made nothing, so the selection goes back from its stand-in.
+                        if let Some(unselected) = unselected
+                            && store.selection == pending
+                        {
+                            store.select(unselected, cx);
+                        }
                         // What it would have taken away stays, so the selection goes back.
                         if let Some((moved, instead)) = moved
                             && store.selection.as_ref() == Some(&instead)
@@ -2064,22 +2103,36 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The title of the commit a pending operation will make where `at` says, with whether
-    /// it's been on its way long enough to show it's still pending, and the key of the commit
-    /// it stands in for, when it moves one.
+    /// The commit a pending operation puts where `at` says, until the reload after it shows
+    /// it there.
     pub fn new_commit(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Option<(SharedString, bool, Option<String>)> {
+    ) -> Option<NewCommit> {
         self.running_in(project).find_map(|r| {
             let (place, title) = r.overlay.new_commit.as_ref()?;
+            if !at(place) {
+                return None;
+            }
+            if r.overlay.selects_made {
+                let pending = Selection::Pending(project.clone(), r.id, place.clone());
+                return Some(NewCommit::Made(pending));
+            }
             let moved = match r.overlay.commits.iter().collect::<Vec<_>>()[..] {
                 [key] => Some(key.clone()),
                 _ => None,
             };
-            at(place).then(|| (title.clone(), r.started.elapsed() >= PENDING_AFTER, moved))
+            Some(NewCommit::Shown(title.clone(), r.slow(), moved))
         })
+    }
+
+    /// The title of the commit `project`'s operation `op` is making, with whether it's been on
+    /// its way long enough to show it's still pending, while it's running.
+    pub fn pending_commit(&self, project: &ProjectId, op: usize) -> Option<(SharedString, bool)> {
+        let running = self.running_in(project).find(|r| r.id == op)?;
+        let (_, title) = running.overlay.new_commit.as_ref()?;
+        Some((title.clone(), running.slow()))
     }
 
     /// Where a commit going to `to` shows until it's there.

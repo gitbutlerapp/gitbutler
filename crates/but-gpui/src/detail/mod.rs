@@ -1597,7 +1597,7 @@ impl Detail {
                 ProjectTab::Branches => self.branches_source(project)?,
                 ProjectTab::Graph => DiffSource::Commit(self.graph_commit()?),
             },
-            Selection::Checkout(..) => return None,
+            Selection::Checkout(..) | Selection::Pending(..) => return None,
             Selection::Uncommitted(_, Checkout::Main) => DiffSource::Worktree,
             Selection::Uncommitted(_, Checkout::Linked(name)) => DiffSource::Linked(name.clone()),
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
@@ -3980,14 +3980,15 @@ impl Detail {
     }
 
     /// Whether the page is an overview with no column beside it: a worktree's, Inactive and
-    /// Network worktrees', as the navigator lists what they sum up, and the Graph's with no
-    /// commit's changes beside it.
+    /// Network worktrees', as the navigator lists what they sum up, the Graph's with no
+    /// commit's changes beside it, and a commit's still being made.
     pub fn overview_only(&self) -> bool {
         (self.showing_graph() && !self.graph_beside())
             || matches!(
                 self.selection(),
                 Some(
                     Selection::Checkout(..)
+                        | Selection::Pending(..)
                         | Selection::Section(_, Section::Inactive | Section::Mesh)
                         | Selection::Terminal(..)
                 )
@@ -4183,6 +4184,7 @@ impl Render for Detail {
                     }
                     // No column: the overview takes the page.
                     Selection::Checkout(..)
+                    | Selection::Pending(..)
                     | Selection::Section(_, Section::Inactive | Section::Mesh)
                     | Selection::Terminal(..) => div().into_any_element(),
                     Selection::Mesh(project, id, pick) => {
@@ -4280,6 +4282,17 @@ impl Render for Detail {
                     }
                     Selection::Checkout(project, checkout) => {
                         Some(self.render_now(project, checkout, cx))
+                    }
+                    // Its page is the commit's, once it's made.
+                    Selection::Pending(project, op, _) => {
+                        let title = self.store.read(cx).pending_commit(project, *op);
+                        Some(empty_state(
+                            None,
+                            commit_title(&title.map(|(title, _)| title).unwrap_or_default()),
+                            "Its page opens once it's made",
+                            &theme,
+                            cx,
+                        ))
                     }
                     _ => None,
                 };

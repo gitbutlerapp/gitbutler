@@ -23,6 +23,14 @@ pub enum RowKey {
     Changes(Selection),
 }
 
+impl RowKey {
+    /// Whether it's a commit being made, whose page lasts only till it's made, so it neither
+    /// tiles nor is pinned.
+    fn pending(&self) -> bool {
+        matches!(self, RowKey::Row(Selection::Pending(..)))
+    }
+}
+
 /// Which way a division lays out its parts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Axis {
@@ -1636,6 +1644,9 @@ impl Store {
         pinned: RowKey,
         cx: &mut Context<Self>,
     ) -> bool {
+        if row.pending() || pinned.pending() {
+            return false;
+        }
         let mut tiling = self.tilings.get(&row).cloned().unwrap_or_default();
         let tiles: Vec<Tile> = tiling.areas().into_iter().map(|(tile, _)| tile).collect();
         let pinned_there = tiles.contains(&Tile::Pinned(pinned.clone()));
@@ -1672,7 +1683,8 @@ impl Store {
         pinned: &RowKey,
         side: Side,
     ) -> Option<Tiling> {
-        if *pinned == self.row_key(self.selection.as_ref()?) {
+        let row = self.row_key(self.selection.as_ref()?);
+        if *pinned == row || row.pending() || pinned.pending() {
             return None;
         }
         tiling

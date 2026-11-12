@@ -2206,6 +2206,7 @@ impl AppView {
                     .clone(),
             ),
             Selection::Uncommitted(..)
+            | Selection::Pending(..)
             | Selection::Mesh(..)
             | Selection::Stack(..)
             | Selection::Section(..) => None,
@@ -4912,6 +4913,12 @@ pub(crate) fn tile_label(store: &Store, row: &RowKey) -> (Icon, SharedString) {
                 .find_commit(project, *id)
                 .map(|(_, c)| commit_title(&c.title));
             (Icon::Commit, title.unwrap_or_else(|| id.short().into()))
+        }
+        Selection::Pending(project, op, _) => {
+            let title = store
+                .pending_commit(project, *op)
+                .map(|(t, _)| commit_title(&t));
+            (Icon::Commit, title.unwrap_or("New commit".into()))
         }
         Selection::Branch(project, ref_name) => {
             let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_ref()));

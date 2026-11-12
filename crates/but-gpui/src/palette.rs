@@ -604,6 +604,7 @@ fn copies(store: &Store, selection: &Selection) -> Vec<(&'static str, String)> {
         | Selection::Mesh(..)
         | Selection::Stack(..)
         | Selection::Section(..)
+        | Selection::Pending(..)
         | Selection::Terminal(..) => {}
     }
     copies
@@ -713,6 +714,8 @@ fn kind_choices(
             .collect(),
         // Not a row: the navigator lists a stack's branches, not the stack.
         SelectionKind::Stack => Vec::new(),
+        // A commit on its way, which can't be gone to till it's made.
+        SelectionKind::Pending => Vec::new(),
         SelectionKind::Commit => (open.iter())
             .flat_map(|(entry, workspace)| {
                 workspace.all_branches().flat_map(move |branch| {

@@ -369,6 +369,7 @@ impl Target {
             | Selection::Upstream(..)
             | Selection::Section(..)
             | Selection::Terminal(..)
+            | Selection::Pending(..)
             | Selection::Mesh(..) => return None,
         })
     }
@@ -1382,6 +1383,7 @@ impl Transfer {
                 let selected = project.clone();
                 let overlay = Overlay {
                     new_commit: Some((NewAt::Top(branch.clone()), SharedString::default())),
+                    selects_made: true,
                     files_in: worktree.clone(),
                     ..Overlay::files(files.iter())
                 };

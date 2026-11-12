@@ -35,7 +35,7 @@ use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshPickKind, MeshState};
 use mutation::Running;
 pub use mutation::{
-    BlockedCommit, Label, NewAt, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
+    BlockedCommit, Label, NewAt, NewCommit, Overlay, Rereads, SLOW, branch_moved, conflicted_parts,
     marked_parts, up_to_date,
 };
 pub use picks::Picks;
@@ -92,6 +92,9 @@ pub enum Selection {
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, Option<FullName>),
     Commit(ProjectId, CommitId),
+    /// The commit one of the project's operations is making, by the operation's id and where it
+    /// goes, until the reload after it shows the commit made.
+    Pending(ProjectId, usize, NewAt),
     /// A commit only a branch's remote has, by the branch's full ref. The target's new
     /// commits are listed on the project's page.
     Upstream(ProjectId, FullName, CommitId),
@@ -188,6 +191,7 @@ impl Selection {
             | Selection::Uncommitted(project, _)
             | Selection::Branch(project, _)
             | Selection::Commit(project, _)
+            | Selection::Pending(project, ..)
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
             | Selection::Upstream(project, ..)
@@ -207,6 +211,13 @@ impl Selection {
     pub fn under(&self, branch: &Branch) -> bool {
         match self {
             Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
+            // A commit on its way, where it goes.
+            Selection::Pending(.., NewAt::Top(ref_name)) => {
+                branch.ref_name.as_ref() == Some(ref_name)
+            }
+            Selection::Pending(.., NewAt::Above(key) | NewAt::Below(key)) => {
+                branch.commits.iter().any(|commit| commit.key == *key)
+            }
             Selection::Upstream(_, ref_name, _)
             | Selection::Section(_, Section::Upstream(ref_name)) => {
                 branch.ref_name.as_ref() == Some(ref_name)
@@ -833,6 +844,7 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()),
             Selection::Commit(_, id) => workspace.find_commit(*id).map(|(branch, _)| branch),
             Selection::Project(_)
+            | Selection::Pending(..)
             | Selection::Checkout(..)
             | Selection::Uncommitted(_, Checkout::Main)
             | Selection::Uncommitted(_, Checkout::Linked(_))
@@ -1006,6 +1018,7 @@ impl Store {
             Selection::Project(_) | Selection::Checkout(_, Checkout::Main) => true,
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name.as_ref()).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
+            Selection::Pending(project, op, _) => self.pending_commit(project, *op).is_some(),
             Selection::Checkout(_, Checkout::Linked(name)) => {
                 workspace.worktrees.iter().any(|w| w.name == *name)
             }
@@ -1128,6 +1141,8 @@ impl Store {
     /// For the metrics: what the user opens in the window, with the app as it is then.
     fn count_view(&self, selection: &Selection) {
         let view = match selection {
+            // Not opened: it stands in for the commit, which counts once it's there.
+            Selection::Pending(..) => return,
             Selection::Project(_) => "project",
             Selection::Checkout(..) => "checkout",
             Selection::Uncommitted(_, Checkout::Main) => "uncommitted",
