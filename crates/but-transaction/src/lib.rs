@@ -610,7 +610,7 @@ where
     }
 
     /// Remove the local branch `ref_name`, keeping its commits, along with its metadata and its
-    /// `branch.<name>` Git configuration.
+    /// `branch.<name>` Git configuration. GitButler's own branches are refused.
     ///
     /// - A branch the workspace doesn't show is deleted once the rebase is written, which fails
     ///   now if a linked worktree has it checked out.
@@ -625,6 +625,11 @@ where
             ref_name.category() == Some(gix::refs::Category::LocalBranch),
             "Can only delete local branches under refs/heads, got '{}'",
             ref_name.as_bstr()
+        );
+        anyhow::ensure!(
+            !but_core::branch::is_technical_branch_name(ref_name.shorten()),
+            "Cannot delete GitButler technical branch '{}'",
+            ref_name.shorten()
         );
         let rebase = self
             .inner
