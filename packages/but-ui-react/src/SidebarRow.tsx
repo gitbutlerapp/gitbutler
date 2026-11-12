@@ -9,15 +9,18 @@ import { MetaCount } from "./MetaCount.tsx";
 import styles from "./SidebarRow.module.css";
 import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
+import type { Guides } from "./treeGuides.ts";
 
 /** What every sidebar row takes. */
 type RowProps = {
 	/** How many levels the row sits below the top of the card, one guide per level. */
 	depth?: number;
-	/** Gives the row a chevron: `true` while its children are hidden. Leave it out on a leaf.
-	 * `"empty"` on a row that could hold children and has none yet, such as a branch without
-	 * commits: a dot in the chevron's place keeps it in line with the rows that fold. */
-	folded?: boolean | "empty";
+	/** How each level's guide draws on this row, outermost first: work them out with
+	 * `treeGuides` (treeGuides.ts) from the rows the tree shows, since a row can't see the rows after it. */
+	guides?: Guides;
+	/** Makes the row fold: `true` while its children are hidden. Leave it out on a leaf. Its chevron
+	 * takes the glyph's place under the pointer and on keyboard focus. */
+	folded?: boolean;
 	onToggleFolded?: () => void;
 	/** Selected: the quiet fill, or the solid one while the list holds the selection focus. */
 	selected?: boolean;
@@ -39,30 +42,38 @@ type RowProps = {
 	busy?: boolean;
 } & useRender.ComponentProps<"div">;
 
+/** A row's {@link RowProps.guides}. */
+
 const Steps: FC<{
 	depth: number;
-	folded: boolean | "empty" | undefined;
+	guides?: Guides;
+	folded: boolean | undefined;
 	onToggleFolded: (() => void) | undefined;
 	name: string;
 	/** The row itself is the button that folds, so the chevron only says which way it is. */
 	rowFolds?: boolean;
-}> = ({ depth, folded, onToggleFolded, name, rowFolds = false }) =>
+}> = ({ depth, guides, folded, onToggleFolded, name, rowFolds = false }) =>
 	depth > 0 || folded !== undefined ? (
 		<span className={styles.steps}>
 			{Array.from({ length: depth }, (_, level) => (
-				<span key={level} className={classes(styles.step, styles.guide)} aria-hidden />
+				<span
+					key={level}
+					className={classes(
+						styles.step,
+						styles.guide,
+						guides?.[level] === "last" && styles.guideLast,
+						guides?.[level] === "none" && styles.guideNone,
+						guides?.[level] === "stub" && styles.guideStub,
+					)}
+					aria-hidden
+				/>
 			))}
-			{folded === "empty" && (
-				<span className={classes(styles.step, styles.empty)} aria-hidden>
-					<Icon size={12} name="bullet-disc" />
-				</span>
-			)}
-			{typeof folded === "boolean" && rowFolds && (
+			{folded !== undefined && rowFolds && (
 				<span className={classes(styles.step, styles.toggle)} aria-hidden>
 					<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
 				</span>
 			)}
-			{typeof folded === "boolean" && !rowFolds && (
+			{folded !== undefined && !rowFolds && (
 				// A tree moves with the arrow keys, so the chevron stays out of the tab order and takes
 				// its click on its own, leaving the rest of the row to open what it names.
 				<button
@@ -126,7 +137,9 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 /** The one line every sidebar item is drawn on: the name takes the line and the state sits at the
  * end, where it stays; the menu follows it under the pointer, and the actions take its place.
  * `spinner` is what stands in for `icon` while it is `busy`, a plain one unless the item colours
- * its own. A row without an `icon` starts with its name. */
+ * its own. A row that folds always has a glyph, a plain dot when it names nothing of its own, so the
+ * chevron that takes the glyph's place on hover has a place to take; one that doesn't fold and has no
+ * `icon` starts with its name. */
 const Row: FC<
 	RowProps & {
 		name: string;
@@ -144,6 +157,7 @@ const Row: FC<
 	label,
 	busy = false,
 	depth = 0,
+	guides,
 	folded,
 	onToggleFolded,
 	selected = false,
@@ -155,6 +169,7 @@ const Row: FC<
 	...props
 }) => {
 	const [meta, actions, menu] = [filled(metaSlot), filled(actionsSlot), filled(menuSlot)];
+	const glyph = icon ?? (folded === undefined ? undefined : <Icon name="bullet-disc" />);
 	return useRender({
 		render: render ?? <div />,
 		state: { selected },
@@ -165,6 +180,7 @@ const Row: FC<
 				<>
 					<Steps
 						depth={depth}
+						guides={guides}
 						folded={folded}
 						onToggleFolded={onToggleFolded}
 						name={name}
@@ -176,7 +192,7 @@ const Row: FC<
 							{spinner}
 						</output>
 					) : (
-						icon !== undefined && <span className={styles.icon}>{icon}</span>
+						glyph !== undefined && <span className={styles.icon}>{glyph}</span>
 					)}
 					<span className={styles.label}>{label}</span>
 					{
@@ -278,6 +294,7 @@ export const RepoItem: FC<{ name: string; icon?: ReactNode } & RowProps> = ({
  * it takes the folder-fork glyph, leads with a "Fork" badge, as a pull request leads with its
  * number, and is named after the fork's owner rather than "Main worktree".
  *
+ * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { WorktreeItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const WorktreeItem: FC<{ name: string; main?: boolean; fork?: boolean } & RowProps> = ({
@@ -331,8 +348,7 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * Its `meta` reads in one order: `conflicts`, then `CiStatus`, ↓ `behind`, ↑ `unpushed`,
  * `uncommitted`, and `commits`. `conflicts` counts its conflicted commits while it is folded; on an
  * expanded branch drop it, since each {@link CommitItem} marks its own. Show ↑ or ⟜, never both; on an expanded branch drop ⟜, since its commits are listed
- * under it. A branch with no commits yet leads with `empty` saying "empty", and takes
- * `folded="empty"`, so its row isn't bare and lines up with the branches that fold. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
+ * under it. A branch with no commits yet leads with `empty` saying "empty", so its row isn't bare. `actions` hold the one next step (Resolve, Update, Push, Create PR or Merge),
  * then View PR on a branch with a request.
  *
  * A merged request is done with: its title recedes. A branch merged into its target with no request
@@ -349,6 +365,7 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * title, and `none-merged` is `merged` with no request known. The counts come from BranchMeta: on
  * an expanded branch turn off commits (⟜), and turn on conflicts only while it's folded. For a
  * branch with no commits yet, turn on commits alone and set its text to empty.
+ * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { BranchItem } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<
@@ -446,8 +463,7 @@ export const CommitItem: FC<
 
 /**
  * What the repository's target (`target`, such as `master`) has that its workspace doesn't: the
- * first row under the repository, right over its worktrees with no {@link WorktreeDivider}
- * between. It says how many
+ * first row under the repository, right over its worktrees. It says how many
  * commits (`count`) and keeps Update (`actions`) beside them rather than in their place under the
  * pointer, since taking them in is what the row is for. Open, the commits sit under it one level
  * deeper as {@link CommitItem}s, a merge's own one more. Leave it out while there are none.
@@ -525,12 +541,13 @@ export const UncommittedItem: FC<
  * caption doesn't read as one more branch. Its `menu` (push the stack, open its pull requests)
  * shows under the pointer.
  *
+ * @see packages/but-ui/design/components/sidebar-trees.md
  * @import import { StackCaption } from "@gitbutler/but-ui-react/SidebarRow.tsx";
  */
 export const StackCaption: FC<
 	{ count: number; tip: string } & Pick<
 		RowProps,
-		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip" | "busy"
+		"depth" | "guides" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip" | "busy"
 	> &
 		ComponentProps<"div">
 > = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, busy, ...props }) => {
@@ -595,8 +612,9 @@ export const MoreItem: FC<
 		label: string;
 		expanded?: boolean;
 		depth?: number;
+		guides?: Guides;
 	} & useRender.ComponentProps<"button">
-> = ({ label, expanded = false, depth = 0, render, ...props }) =>
+> = ({ label, expanded = false, depth = 0, guides, render, ...props }) =>
 	useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? <button type="button" />,
@@ -605,7 +623,13 @@ export const MoreItem: FC<
 			className: classes(styles.row, styles.compact, styles.more),
 			children: (
 				<>
-					<Steps depth={depth} folded={undefined} onToggleFolded={undefined} name={label} />
+					<Steps
+						depth={depth}
+						guides={guides}
+						folded={undefined}
+						onToggleFolded={undefined}
+						name={label}
+					/>
 					<span className={styles.icon}>
 						<Icon size={12} name={expanded ? "chevron-up" : "kebab"} />
 					</span>
@@ -618,7 +642,7 @@ export const MoreItem: FC<
 /**
  * The label over a group of pages in a navigation panel, such as the docs site's "Getting
  * started": its name, small and quiet, so the pages under it read first. With `folded` it is a
- * button that hides and shows them, its chevron saying which; without, it only names them. Its
+ * button that hides and shows them, its chevron taking its glyph's place on hover; without, it only names them. Its
  * pages sit one level under it, as {@link NavItem}s at `depth={1}`. Like every sidebar row, the
  * label and its pages sit in a card (`--but-background` in a `--but-border-subtle` ring at `--but-radius-card`),
  * never loose on a panel's ground.
@@ -628,11 +652,15 @@ export const MoreItem: FC<
 export const GroupLabel: FC<
 	{
 		name: string;
+		/** The group's glyph, an icon's name or an element of its own; one that folds and has none
+		 * gets a plain dot, for its chevron to take the place of on hover. */
+		icon?: IconName | ReactElement;
 		folded?: boolean;
 		onToggleFolded?: () => void;
 	} & useRender.ComponentProps<"button">
-> = ({ name, folded, onToggleFolded, render, ...props }) =>
-	useRender({
+> = ({ name, icon, folded, onToggleFolded, render, ...props }) => {
+	const glyph = icon ?? (folded === undefined ? undefined : "bullet-disc");
+	return useRender({
 		// oxlint-disable-next-line jsx_a11y/control-has-associated-label -- Labelled by its children.
 		render: render ?? (folded === undefined ? <div /> : <button type="button" />),
 		props: mergeProps<"button">(props, {
@@ -641,9 +669,10 @@ export const GroupLabel: FC<
 			className: classes(styles.row, styles.compact, styles.groupLabel),
 			children: (
 				<>
-					{folded !== undefined && (
-						<span className={styles.step}>
-							<Icon size={12} name={folded ? "chevron-right" : "chevron-down"} />
+					<Steps depth={0} folded={folded} onToggleFolded={undefined} name={name} rowFolds />
+					{glyph !== undefined && (
+						<span className={styles.icon}>
+							{typeof glyph === "string" ? <Icon name={glyph} /> : glyph}
 						</span>
 					)}
 					<span className={classes("text-12", "text-semibold", styles.label, styles.name)}>
@@ -653,14 +682,15 @@ export const GroupLabel: FC<
 			),
 		}),
 	});
+};
 
 /**
  * A page in a navigation panel, such as the docs site's: its name, and the glyph that names the
  * page when there is one (`icon`, an icon's name, or an element of its own such as a colour's
- * swatch or an {@link Avatar}, drawn at 14px). Its `meta` sits at the row's end, as on every
+ * swatch or an {@link Avatar}, drawn at 14px). A leading row that folds and has no `icon` gets a plain dot. Its `meta` sits at the row's end, as on every
  * sidebar row: plain text there reads as the row's current value ("Light", "Teal"), in 13 and
  * subtle, and a `MetaCount` or a `Badge` keeps its own look. It sits one level under its {@link GroupLabel} (`depth={1}`), on
- * the guide that ties it to the label's chevron, the way a sidebar row sits under the row that folds
+ * the guide that ties it to the label's glyph, the way a sidebar row sits under the row that folds
  * it. It opens a page rather than folding, so it has no chevron and no menu: render it as the link
  * that opens the page (`render={<a href={…} />}`). `selected` is the page on screen, which the link
  * also marks with `aria-current="page"`. It sits in a card with its {@link GroupLabel}, never loose
@@ -761,21 +791,4 @@ export const NoticeItem: FC<
 			</Name>
 		}
 	/>
-);
-
-/**
- * The line between the worktrees of one repository. A stack needs none: its branches sit one level
- * under its {@link StackCaption}.
- *
- * @import import { WorktreeDivider } from "@gitbutler/but-ui-react/SidebarRow.tsx";
- */
-export const WorktreeDivider: FC<{ depth?: number } & ComponentProps<"div">> = ({
-	depth = 0,
-	...props
-}) => (
-	// A line to group rows by eye; the tree's levels already say what belongs together.
-	<div {...props} aria-hidden className={classes(props.className, styles.divider)}>
-		<Steps depth={depth} folded={undefined} onToggleFolded={undefined} name="" />
-		<span className={styles.line} />
-	</div>
 );

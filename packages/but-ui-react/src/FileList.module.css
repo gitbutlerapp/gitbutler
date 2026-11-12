@@ -193,12 +193,26 @@
 	}
 }
 
-/* The indent: one step per directory the row sits in, and a directory's chevron in its own. */
+/* The indent: one step per directory the row sits in, then the icon 3px after the last guide (the
+   steps' 4px gap, less half of what the 14px icon is wider than a 12px step), so a directory's
+   guide hangs from the middle of its folder. At the top level there is no guide to sit after: the
+   icon starts a pixel into the row's padding, over its children's first guide, as a sidebar row's
+   glyph does. */
 .steps {
 	display: flex;
+	position: relative;
 	column-gap: 4px;
 	flex-shrink: 0;
 	align-self: stretch;
+	margin-inline-end: calc(3px - var(--but-gap-icon-text));
+
+	&:not(:has(.guide)) {
+		margin-inline-end: calc(-1px - var(--but-gap-icon-text));
+	}
+}
+
+.item > .lead:first-child {
+	margin-inline-start: -1px;
 }
 
 .step {
@@ -221,15 +235,65 @@
 	content: "";
 }
 
+/* The last row in its directory: the guide comes down to the row's middle and turns, with a round
+   corner, into the icon, and ends there, as on a sidebar row. */
+.guideLast::before {
+	width: auto;
+	inset-block: 0 calc(50% - 0.5px);
+	inset-inline: calc(50% - 0.5px) -1px;
+	border-inline-start: 1px solid;
+	border-block-end: 1px solid;
+	border-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	border-end-start-radius: 5px;
+	background-color: transparent;
+}
+
+.guideNone::before {
+	display: none;
+}
+
+/* A git object that isn't last, as a sidebar row draws it: the guide runs on, with a short stub
+   toward the icon. */
+.guideStub::after {
+	position: absolute;
+	width: 3px;
+	height: 1px;
+	inset-block-start: calc(50% - 0.5px);
+	inset-inline-start: calc(50% + 0.5px);
+	background-color: color-mix(in srgb, var(--but-muted-foreground) 20%, transparent);
+	content: "";
+}
+
+/* A directory's chevron takes its folder's place, showing under the pointer and on keyboard focus
+   only, as on a sidebar row. A spinner keeps its place: it says what the pointer came to see. */
 .toggle {
+	visibility: hidden;
+	position: absolute;
+	width: 14px;
+	inset-block: 0;
+	inset-inline-start: calc(100% + 3px);
 	padding: 0;
 	border: none;
 	background: none;
 	color: var(--but-subtle-foreground);
 
+	.steps:not(:has(.guide)) > & {
+		inset-inline-start: -1px;
+	}
+
 	&:hover,
 	&:focus-visible {
 		color: var(--but-muted-foreground);
+	}
+}
+
+.item:is(:hover, :focus-visible, :has(:focus-visible)):not(:has(output.icon)):has(.toggle) {
+	.toggle {
+		visibility: visible;
+	}
+
+	& > .lead > .icon {
+		visibility: hidden;
 	}
 }
 

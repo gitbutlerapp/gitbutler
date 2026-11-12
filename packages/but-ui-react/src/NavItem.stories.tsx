@@ -1,6 +1,7 @@
 import { stories } from "../docs/stories.ts";
 import { useState, type FC } from "react";
 import { GroupLabel, NavItem } from "./SidebarRow.tsx";
+import { treeGuides } from "./treeGuides.ts";
 
 const core = (node: string) =>
 	`https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%F0%9F%8D%91-But-UI?node-id=${node}`;
@@ -68,12 +69,13 @@ const DocsNavigation: FC = () => {
 								["Icons", "file-text"],
 								["Buttons", "bullet-list"],
 							] as const
-						).map(([page, icon]) => (
+						).map(([page, icon], index, pages) => (
 							<NavItem
 								key={page}
 								name={page}
 								icon={icon}
 								depth={1}
+								guides={treeGuides([{ depth: 0 }, ...pages.map(() => ({ depth: 1 }))])[index + 1]}
 								selected={page === "Emphasis"}
 								render={
 									// oxlint-disable-next-line jsx_a11y/anchor-has-content, jsx_a11y/control-has-associated-label -- The row renders as this link, and NavItem fills it with the name.

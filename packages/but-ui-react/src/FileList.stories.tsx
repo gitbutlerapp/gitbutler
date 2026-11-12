@@ -1,11 +1,12 @@
 import { stories } from "../docs/stories.ts";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "./Button.tsx";
 import { Checkbox } from "./Checkbox.tsx";
 import { FileList, FileListItem } from "./FileList.tsx";
 import type { FileStatusType } from "./FileStatusBadge.tsx";
 import { Icon } from "./Icon.tsx";
+import { treeGuides } from "./treeGuides.ts";
 
 const statuses: Array<FileStatusType> = ["Addition", "Deletion", "Modification", "Rename"];
 
@@ -161,48 +162,54 @@ export const Tree = meta.story({
 			if (!next.delete(key)) next.add(key);
 			return next;
 		};
-		const rows = (nodes: Array<TreeNode>, depth: number, parent: string): Array<ReactNode> =>
-			nodes.flatMap((node) => {
+		// The rows as they draw, skipping what is folded, so their guides come from `treeGuides`.
+		const shown: Array<{ node: TreeNode; depth: number; path: string }> = [];
+		const visit = (nodes: Array<TreeNode>, depth: number, parent: string) => {
+			for (const node of nodes) {
 				const path = parent === "" ? node.name : `${parent}/${node.name}`;
-				if (node.kind === "file") {
-					return [
-						<FileListItem
-							key={path}
-							role="treeitem"
-							aria-level={depth + 1}
-							name={node.name}
-							depth={depth}
-							status={node.status}
-							checkbox={
-								<Checkbox
-									aria-label={`Check ${path}`}
-									checked={checked.has(node.name)}
-									onCheckedChange={() => setChecked((set) => toggle(set, node.name))}
-								/>
-							}
-						/>,
-					];
-				}
-				const isFolded = folded.has(path);
-				return [
-					<FileListItem
-						key={path}
-						role="treeitem"
-						aria-level={depth + 1}
-						aria-expanded={!isFolded}
-						name={node.name}
-						depth={depth}
-						folded={isFolded}
-						onToggleFolded={() => setFolded((set) => toggle(set, path))}
-						count={isFolded ? countFiles(node) : undefined}
-					/>,
-					...(isFolded ? [] : rows(node.children, depth + 1, path)),
-				];
-			});
+				shown.push({ node, depth, path });
+				if (node.kind !== "file" && !folded.has(path)) visit(node.children, depth + 1, path);
+			}
+		};
+		visit(tree, 0, "");
+		const guides = treeGuides(shown.map(({ depth }) => ({ depth })));
+		const rows = shown.map(({ node, depth, path }, index) =>
+			node.kind === "file" ? (
+				<FileListItem
+					key={path}
+					role="treeitem"
+					aria-level={depth + 1}
+					name={node.name}
+					depth={depth}
+					guides={guides[index]}
+					status={node.status}
+					checkbox={
+						<Checkbox
+							aria-label={`Check ${path}`}
+							checked={checked.has(node.name)}
+							onCheckedChange={() => setChecked((set) => toggle(set, node.name))}
+						/>
+					}
+				/>
+			) : (
+				<FileListItem
+					key={path}
+					role="treeitem"
+					aria-level={depth + 1}
+					aria-expanded={!folded.has(path)}
+					name={node.name}
+					depth={depth}
+					guides={guides[index]}
+					folded={folded.has(path)}
+					onToggleFolded={() => setFolded((set) => toggle(set, path))}
+					count={folded.has(path) ? countFiles(node) : undefined}
+				/>
+			),
+		);
 		return (
 			<FileList title="Changes" count={6} added={214} removed={37} focused>
 				<div role="tree" aria-label="Changes" style={{ display: "contents" }}>
-					{rows(tree, 0, "")}
+					{rows}
 				</div>
 			</FileList>
 		);
