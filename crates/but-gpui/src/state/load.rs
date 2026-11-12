@@ -547,9 +547,10 @@ impl Store {
         worktrees
     }
 
-    /// Keep project `id`'s order to the linked worktrees `workspace` lists, with new ones
-    /// last. None listed, as with worktree support off, is more likely than every one
-    /// removed, so it keeps the order for when they're back.
+    /// Keep project `id`'s order to the linked worktrees `workspace` lists, with those shown
+    /// since the last load first, as one just recycled or created, and other new ones last.
+    /// None listed, as with worktree support off, is more likely than every one removed, so
+    /// it keeps the order for when they're back.
     fn order_worktrees(&mut self, id: &ProjectId, workspace: &Workspace, cx: &mut Context<Self>) {
         let listed: Vec<String> = (workspace.worktrees.iter().map(|wt| &wt.name))
             .chain(workspace.archived_worktrees.iter().map(|(name, _)| name))
@@ -558,8 +559,9 @@ impl Store {
         if listed.is_empty() {
             return;
         }
+        let shown = (self.workspace(id)).map_or_else(Vec::new, |old| just_shown(old, workspace));
         let order = self.prefs.worktree_order.entry(id.to_string()).or_default();
-        let next = ordered(order, &listed);
+        let next = ordered(order, &listed, &shown);
         if next != *order {
             *order = next;
             self.save_soon(cx);
@@ -1217,11 +1219,25 @@ fn move_before<T: PartialEq>(order: &mut Vec<T>, item: &T, before: Option<&T>) -
     true
 }
 
-/// `order` with only the names `listed`, then those of them new to it, as `listed` has them.
-fn ordered(order: &[String], listed: &[String]) -> Vec<String> {
-    let kept = order.iter().filter(|name| listed.contains(name));
-    let new = listed.iter().filter(|name| !order.contains(name));
-    kept.chain(new).cloned().collect()
+/// The linked worktrees `new` lists that `old` didn't, as one created or shown again. With none
+/// in `old`, as in edit mode or with worktree support off, they're all back rather than new.
+fn just_shown(old: &Workspace, new: &Workspace) -> Vec<String> {
+    if old.worktrees.is_empty() {
+        return Vec::new();
+    }
+    (new.worktrees.iter())
+        .filter(|wt| old.find_worktree(wt.name.as_ref()).is_none())
+        .map(|wt| wt.name.to_string())
+        .collect()
+}
+
+/// `order` with only the names `listed`: those of them `shown` first, then the others it has,
+/// then the others new to it, both groups of new ones as `listed` has them.
+fn ordered(order: &[String], listed: &[String], shown: &[String]) -> Vec<String> {
+    let first = listed.iter().filter(|name| shown.contains(name));
+    let kept = (order.iter()).filter(|name| listed.contains(name) && !shown.contains(name));
+    let new = (listed.iter()).filter(|name| !order.contains(name) && !shown.contains(name));
+    first.chain(kept).chain(new).cloned().collect()
 }
 
 #[cfg(test)]
@@ -1235,9 +1251,46 @@ mod tests {
         let names =
             |names: &[&str]| -> Vec<String> { names.iter().map(|n| n.to_string()).collect() };
         assert_eq!(
-            super::ordered(&names(&["a", "b", "c"]), &names(&["d", "c", "a"])),
+            super::ordered(&names(&["a", "b", "c"]), &names(&["d", "c", "a"]), &[]),
             names(&["a", "c", "d"]),
             "listed newest first, the kept ones stay put, the gone one goes and the new one is last"
+        );
+    }
+
+    #[test]
+    fn worktrees_just_shown_go_first() {
+        let names =
+            |names: &[&str]| -> Vec<String> { names.iter().map(|n| n.to_string()).collect() };
+        assert_eq!(
+            super::ordered(
+                &names(&["a", "b", "c"]),
+                &names(&["a", "b", "c", "d", "e"]),
+                &names(&["c", "d"]),
+            ),
+            names(&["c", "d", "a", "b", "e"]),
+            "one recycled leaves its old place and one created skips the end, while one new \
+             but not shown, as an archived one, still goes last"
+        );
+    }
+
+    #[test]
+    fn worktrees_are_just_shown_only_when_others_were_listed_before() {
+        let ws = |names: &[&str]| {
+            let linked = names
+                .iter()
+                .map(|name| worktree(name, None, vec![]))
+                .collect();
+            workspace(vec![], linked)
+        };
+        assert_eq!(
+            super::just_shown(&ws(&["a"]), &ws(&["a", "b"])),
+            vec!["b".to_string()],
+            "one recycled or created since the last load"
+        );
+        assert_eq!(
+            super::just_shown(&ws(&[]), &ws(&["a", "b"])),
+            Vec::<String>::new(),
+            "none listed before, as in edit mode or with worktree support off, so all are back"
         );
     }
 
