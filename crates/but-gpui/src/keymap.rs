@@ -577,27 +577,14 @@ mod tests {
     }
 
     #[test]
-    fn discard_has_one_key_on_macos() {
-        assert_eq!(
-            discard_keys(Keymap::Standard, "macos"),
-            ["secondary-backspace"]
-        );
-    }
-
-    #[test]
-    fn discard_has_one_key_on_windows() {
-        assert_eq!(
-            discard_keys(Keymap::Standard, "windows"),
-            ["secondary-backspace"]
-        );
-    }
-
-    #[test]
-    fn discard_has_one_key_on_linux() {
-        assert_eq!(
-            discard_keys(Keymap::Standard, "linux"),
-            ["secondary-backspace"]
-        );
+    fn discard_is_x_and_secondary_backspace() {
+        for os in PLATFORMS {
+            assert_eq!(
+                discard_keys(Keymap::Standard, os),
+                ["x", "secondary-backspace"],
+                "on {os}, x discards as in the TUI, before ⌘⌫ so ⌘⌫ is the key shown"
+            );
+        }
     }
 
     #[test]
@@ -675,6 +662,8 @@ mod tests {
                 ("app::ToggleNavigator", "secondary-b"),
                 ("app::ToggleDetail", "secondary-alt-b"),
                 ("navigator::CopySelection", "y"),
+                // ⌘⌫ over x, as a menu offers discarding.
+                ("edits::Discard", "secondary-backspace"),
                 ("navigator::SelectNext", "j"),
                 ("navigator::SelectPrevious", "k"),
                 ("diff::NextHunk", "j"),
