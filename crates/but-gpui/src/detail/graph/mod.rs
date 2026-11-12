@@ -577,7 +577,7 @@ impl GraphView {
             | StoreEvent::RepositoriesInside(..)
             | StoreEvent::AiNotSetUp { .. }
             | StoreEvent::TerminalOpened
-            | StoreEvent::TilePinned(_)
+            | StoreEvent::TilePinned { .. }
             | StoreEvent::CodeAsked(..)
             | StoreEvent::TileClosed { .. }
             | StoreEvent::TilingChanged

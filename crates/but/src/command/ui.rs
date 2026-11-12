@@ -2,13 +2,14 @@
 
 use but_ui_control::Client;
 use but_ui_control::ui::{
-    self, ActionInfo, DispatchParams, FocusParams, Row, SelectParams, State, TypeParams,
+    self, ActionInfo, CloseParams, DispatchParams, FocusParams, Input, Open, OpenParams, Opened,
+    Read, ReadParams, Row, SelectParams, State, TerminalStatus, TypeParams,
 };
 use serde::Serialize;
 
 use crate::{
     CliResult,
-    args::ui::{Platform, Subcommands},
+    args::ui::{Platform, Subcommands, TypeArgs},
     bad_input,
     theme::Theme,
     utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils},
@@ -29,6 +30,9 @@ enum UiOperation {
     Select(SelectParams),
     Focus(FocusParams),
     Type(TypeParams),
+    Read(ReadParams),
+    Open(OpenParams),
+    Close(CloseParams),
 }
 
 #[must_use]
@@ -38,7 +42,10 @@ enum UiOutcome {
     Dispatched(String),
     Selected(Row),
     Focused(FocusParams),
-    Typed(usize),
+    Typed { characters: usize, keys: usize },
+    Read(Read),
+    Opened(Opened),
+    Closed(String),
 }
 
 fn resolve(args: Platform) -> CliResult<UiOperation> {
@@ -66,7 +73,29 @@ fn resolve(args: Platform) -> CliResult<UiOperation> {
         }
         Subcommands::Select { query } => UiOperation::Select(SelectParams { query }),
         Subcommands::Focus { tile, pane } => UiOperation::Focus(FocusParams { tile, pane }),
-        Subcommands::Type { text } => UiOperation::Type(TypeParams { text }),
+        Subcommands::Type(TypeArgs { tile, input }) => {
+            UiOperation::Type(TypeParams { input, tile })
+        }
+        Subcommands::Read { tile, lines } => UiOperation::Read(ReadParams { tile, lines }),
+        Subcommands::Close { tile } => UiOperation::Close(CloseParams { tile }),
+        Subcommands::Open {
+            beside,
+            below,
+            terminal: _,
+            run,
+            show,
+        } => {
+            // clap has it be one of them.
+            let open = match show {
+                Some(name) => Open::Show(name),
+                None => Open::Terminal { run },
+            };
+            UiOperation::Open(OpenParams {
+                beside,
+                below,
+                open,
+            })
+        }
     })
 }
 
@@ -86,9 +115,39 @@ fn run(operation: UiOperation) -> anyhow::Result<UiOutcome> {
         }
         UiOperation::Type(params) => {
             client.call::<()>(ui::TYPE, &params)?;
-            UiOutcome::Typed(params.text.chars().count())
+            let (mut characters, mut keys) = (0, 0);
+            for piece in &params.input {
+                match piece {
+                    Input::Text(text) => characters += text.chars().count(),
+                    Input::Key(_) => keys += 1,
+                }
+            }
+            UiOutcome::Typed { characters, keys }
+        }
+        UiOperation::Read(params) => UiOutcome::Read(client.call(ui::READ, &params)?),
+        UiOperation::Open(params) => UiOutcome::Opened(client.call(ui::OPEN, &params)?),
+        UiOperation::Close(params) => {
+            client.call::<()>(ui::CLOSE, &params)?;
+            UiOutcome::Closed(params.tile)
         }
     })
+}
+
+fn status_display(status: &TerminalStatus) -> String {
+    match status {
+        TerminalStatus::Idle => "idle".to_owned(),
+        TerminalStatus::Working => "working".to_owned(),
+        TerminalStatus::Blocked { reason } => with_reason("blocked", reason.as_deref()),
+        TerminalStatus::Done => "done".to_owned(),
+        TerminalStatus::Failed { reason } => with_reason("failed", reason.as_deref()),
+    }
+}
+
+fn with_reason(state: &str, reason: Option<&str>) -> String {
+    match reason {
+        Some(reason) => format!("{state} ({reason})"),
+        None => state.to_owned(),
+    }
 }
 
 fn row_display(row: &Row) -> String {
@@ -118,13 +177,26 @@ impl CliOutputHuman for UiOutcome {
                     Some(row) => writeln!(out, "Selected: {}", row_display(row))?,
                     None => writeln!(out, "Selected: nothing")?,
                 }
-                writeln!(out, "Tiles:")?;
-                for tile in &state.tiles {
-                    let panes = match tile.panes.is_empty() {
-                        true => String::new(),
-                        false => format!(" (panes: {})", tile.panes.join(", ")),
-                    };
-                    writeln!(out, "  {}: {}{panes}", tile.id, row_display(&tile.shows))?;
+                for layout in &state.layouts {
+                    let open = if layout.open { "Open" } else { "Not open" };
+                    writeln!(out, "{open}: {}", row_display(&layout.row))?;
+                    for tile in &layout.tiles {
+                        let mut marks = Vec::new();
+                        if tile.id == layout.home {
+                            marks.push("home".to_owned());
+                        }
+                        if layout.zoomed.as_ref() == Some(&tile.id) {
+                            marks.push("zoomed".to_owned());
+                        }
+                        if !tile.panes.is_empty() {
+                            marks.push(format!("panes: {}", tile.panes.join(", ")));
+                        }
+                        let marks = match marks.is_empty() {
+                            true => String::new(),
+                            false => format!(" ({})", marks.join("; ")),
+                        };
+                        writeln!(out, "  {}: {}{marks}", tile.id, row_display(&tile.shows))?;
+                    }
                 }
                 let keys = match (&state.keys.tile, &state.keys.pane) {
                     (Some(tile), Some(pane)) => format!("{tile} › {pane}"),
@@ -159,7 +231,22 @@ impl CliOutputHuman for UiOutcome {
                 (None, Some(pane)) => writeln!(out, "Gave the keys to the {pane} pane.")?,
                 (None, None) => writeln!(out, "The keys stay where they are.")?,
             },
-            UiOutcome::Typed(count) => writeln!(out, "Typed {count} characters.")?,
+            UiOutcome::Typed { characters, keys } => writeln!(
+                out,
+                "Typed {characters} characters and pressed {keys} keys."
+            )?,
+            UiOutcome::Closed(tile) => writeln!(out, "Closed tile {tile}.")?,
+            UiOutcome::Opened(opened) => writeln!(
+                out,
+                "Opened tile {}: {}.",
+                opened.id,
+                row_display(&opened.shows)
+            )?,
+            UiOutcome::Read(read) => {
+                writeln!(out, "{}: {}", read.title, status_display(&read.status))?;
+                writeln!(out)?;
+                writeln!(out, "{}", read.text)?;
+            }
         }
         Ok(())
     }
@@ -175,7 +262,12 @@ impl CliOutput for UiOutcome {
             }
             UiOutcome::Selected(row) => serde_json::to_value(row),
             UiOutcome::Focused(params) => serde_json::to_value(params),
-            UiOutcome::Typed(count) => serde_json::to_value(serde_json::json!({ "typed": count })),
+            UiOutcome::Typed { characters, keys } => {
+                serde_json::to_value(serde_json::json!({ "typed": characters, "pressed": keys }))
+            }
+            UiOutcome::Read(read) => serde_json::to_value(read),
+            UiOutcome::Opened(opened) => serde_json::to_value(opened),
+            UiOutcome::Closed(tile) => serde_json::to_value(serde_json::json!({ "closed": tile })),
         }
         .unwrap_or_default()
     }

@@ -302,6 +302,16 @@ impl Terminal {
         selected.recv().ok().flatten()
     }
 
+    /// All the terminal shows, its scrollback and its screen, as plain text, once the emulator
+    /// gets to the question: without waiting for it, as a long scrollback takes a moment.
+    pub fn text(&self) -> futures::channel::oneshot::Receiver<Option<String>> {
+        let (reply, text) = futures::channel::oneshot::channel();
+        self.run(move |emulator| {
+            reply.send(emulator.vt.text().ok()).ok();
+        });
+        text
+    }
+
     /// The defaults `colors` sets, with `background` and `foreground` where it sets none, and
     /// its selection colours for what's selected.
     pub fn set_colors(&mut self, colors: &Colors, background: RgbColor, foreground: RgbColor) {

@@ -554,13 +554,16 @@ impl AppView {
                 }
                 StoreEvent::TilingMoved { from, to } => this.move_pages(from, to, cx),
                 StoreEvent::Loaded(project) => this.forget_gone_rows(project, cx),
-                StoreEvent::TilePinned(pinned) => {
+                StoreEvent::TilePinned { tile: pinned, keys } => {
+                    let tile = Tile::Pinned(pinned.clone());
+                    let shown = (this.store.read(cx).tiling()).is_some_and(|t| t.has(&tile));
                     // A row dragged in slides on from where it's been held.
-                    if this.row_tile.is_none() {
+                    if this.row_tile.is_none() && shown {
                         this.slide_tile(pinned.clone(), None, cx);
                     }
-                    if !this.covered()
-                        && let Some(focus) = this.tile_focus(&Tile::Pinned(pinned.clone()), cx)
+                    if *keys
+                        && !this.covered()
+                        && let Some(focus) = this.tile_focus(&tile, cx)
                     {
                         // Tiles draw in the detail, and the keys come back from what's not drawn.
                         this.set_detail(true, window, cx);

@@ -24,6 +24,14 @@ pub enum RowKey {
 }
 
 impl RowKey {
+    /// The project it's in.
+    pub fn project(&self) -> &ProjectId {
+        match self {
+            RowKey::Commit(project, _) | RowKey::Tab(project, _) => project,
+            RowKey::Row(selection) | RowKey::Changes(selection) => selection.project(),
+        }
+    }
+
     /// Whether it's a commit being made, whose page lasts only till it's made, so it neither
     /// tiles nor is pinned.
     fn pending(&self) -> bool {
@@ -47,6 +55,16 @@ pub enum Tile {
     Home,
     /// Another row's page, whatever the navigator selects: a terminal's is the terminal.
     Pinned(RowKey),
+}
+
+impl Tile {
+    /// The row it shows in `row`'s tiling: the row itself for the home tile.
+    pub fn shows<'a>(&'a self, row: &'a RowKey) -> &'a RowKey {
+        match self {
+            Tile::Home => row,
+            Tile::Pinned(pinned) => pinned,
+        }
+    }
 }
 
 /// The tiles a row lays out, in a tree of divisions.
@@ -1601,18 +1619,44 @@ impl Store {
         run: Option<String>,
         cx: &mut Context<Self>,
     ) {
-        let Some(selection) = self.selection.clone() else {
+        let Some(selection) = &self.selection else {
             return;
         };
-        let row = self.row_key(&selection);
-        let shown = match &at {
-            Tile::Home => None,
-            Tile::Pinned(pinned) => self.selection_of(pinned),
-        }
-        .unwrap_or(selection);
+        let row = self.row_key(selection);
+        let Some((project, checkout)) = self.checkout_beside(&row, &at) else {
+            return;
+        };
+        self.open_terminal_then(project, checkout, run, Then::Pin((row, at, axis)), cx);
+    }
+
+    /// The project and checkout a terminal opened beside `at` of `row`'s tiling goes on: those
+    /// of what `at` shows.
+    fn checkout_beside(&self, row: &RowKey, at: &Tile) -> Option<(ProjectId, Checkout)> {
+        let shown = self.selection_of(at.shows(row))?;
         let checkout = self.checkout_of(&shown).unwrap_or(Checkout::Main);
-        let project = shown.project().clone();
-        self.open_terminal_then(project, checkout, run, Some((row, at, axis)), cx);
+        Some((shown.project().clone(), checkout))
+    }
+
+    /// Open a terminal beside `at` in `row`'s tiling, along `axis`, on the checkout of what `at`
+    /// shows, running `run`, as `but _ui open` does: whichever row is selected, and leaving
+    /// the keys where they are. `opened` is told where it went once its shell has started.
+    /// Whether there was a checkout to open it on.
+    pub fn pin_terminal_quietly(
+        &mut self,
+        (row, at, axis): (RowKey, Tile, Axis),
+        run: Option<String>,
+        opened: futures::channel::oneshot::Sender<Opened>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some((project, checkout)) = self.checkout_beside(&row, &at) else {
+            return false;
+        };
+        if self.checkout_path(&project, &checkout).is_none() {
+            return false;
+        }
+        let then = Then::PinQuietly((row, at, axis), opened);
+        self.open_terminal_then(project, checkout, run, then, cx);
+        true
     }
 
     /// Pin `pinned` beside `at` in the selected row's tiling, along `axis`, unless it's
@@ -1622,16 +1666,28 @@ impl Store {
             return;
         };
         let row = self.row_key(selection);
-        self.pin_into((row, at, axis), pinned, cx);
+        self.pin_into((row, at, axis), pinned, true, cx);
     }
 
-    /// Pin `pinned` beside `at` in `row`'s tiling, along `axis`, unless `at` is gone
-    /// meanwhile, as a terminal is once its shell exits, or `pinned` is there already. Whether
-    /// it did.
+    /// Pin `pinned` beside `at` in `row`'s tiling, along `axis`, as `but _ui open` does,
+    /// whichever row is selected, and leaving the keys where they are. Whether it did.
+    pub fn pin_quietly(
+        &mut self,
+        at: (RowKey, Tile, Axis),
+        pinned: RowKey,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        self.pin_into(at, pinned, false, cx)
+    }
+
+    /// Pin `pinned` beside `at` in `row`'s tiling, along `axis`, giving it the keys with `keys`,
+    /// unless `at` is gone meanwhile, as a terminal is once its shell exits, or `pinned` is
+    /// there already. Whether it did.
     pub(super) fn pin_into(
         &mut self,
         (row, at, axis): (RowKey, Tile, Axis),
         pinned: RowKey,
+        keys: bool,
         cx: &mut Context<Self>,
     ) -> bool {
         if row.pending() || pinned.pending() {
@@ -1646,10 +1702,84 @@ impl Store {
         tiling.pin(&at, axis, pinned.clone());
         self.tilings.insert(row, tiling);
         self.show_terminals(cx);
-        cx.emit(StoreEvent::TilingChanged);
-        cx.emit(StoreEvent::TilePinned(pinned));
+        self.tiling_changed(cx);
+        cx.emit(StoreEvent::TilePinned { tile: pinned, keys });
         cx.notify();
         true
+    }
+
+    /// Number the tiles made since, forget those gone, and say the tilings changed.
+    pub(super) fn tiling_changed(&mut self, cx: &mut Context<Self>) {
+        self.number_tiles();
+        cx.emit(StoreEvent::TilingChanged);
+    }
+
+    /// Number the tiles made since, the selected row's home tile too, and forget those gone.
+    pub(super) fn number_tiles(&mut self) {
+        let selected = (self.selection.as_ref()).map(|selection| self.row_key(selection));
+        let lists: Vec<RowKey> = self.terminals.listed().map(RowKey::Row).collect();
+        self.tile_ids.sync(&self.tilings, selected.as_ref(), &lists);
+    }
+
+    /// The number of `tile` of the selected row's tiling.
+    pub fn tile_id(&self, tile: &Tile) -> Option<TileId> {
+        let row = self.row_key(self.selection.as_ref()?);
+        self.tile_ids.of(&row, tile)
+    }
+
+    /// Each row's tiles, the selected row's first, then the rest in the order their home tiles
+    /// were made. Not rows that are gone, nor tiles showing them.
+    pub fn layouts(&self) -> Vec<Layout> {
+        let mut layouts: Vec<Layout> = (self.tile_ids.rows())
+            .filter(|row| self.row_there(row))
+            .filter_map(|row| {
+                let areas = match self.tilings.get(row) {
+                    Some(tiling) => tiling.areas(),
+                    None => Vec::from([(Tile::Home, Area::WHOLE)]),
+                };
+                let tiles: Vec<(TileId, Tile, RowKey, Area)> = (areas.into_iter())
+                    .filter_map(|(tile, area)| {
+                        let shown = tile.shows(row).clone();
+                        let id = self.tile_ids.of(row, &tile)?;
+                        self.row_there(&shown).then_some((id, tile, shown, area))
+                    })
+                    .collect();
+                let home = self.tile_ids.of(row, &Tile::Home)?;
+                Some(Layout {
+                    row: row.clone(),
+                    home,
+                    tiles,
+                })
+            })
+            .collect();
+        let selected = (self.selection.as_ref()).map(|selection| self.row_key(selection));
+        layouts.sort_by_key(|layout| (Some(&layout.row) != selected.as_ref(), layout.home));
+        layouts
+    }
+
+    /// Whether `row` is still there to show, as [`Store::still_there`] says.
+    fn row_there(&self, row: &RowKey) -> bool {
+        (self.selection_of(row)).is_some_and(|selection| self.still_there(&selection))
+    }
+
+    /// The tile numbered `id` and the row whose tiling it's in, whether or not that's selected,
+    /// or even there: a terminal pinned beside a row that's gone for now, as Uncommitted changes
+    /// once all is committed, still runs, and is still reached by its number.
+    pub fn tile_numbered(&self, id: &str) -> Option<(RowKey, Tile)> {
+        self.tile_ids.find(TileId(id.parse().ok()?))
+    }
+
+    /// The tile numbered `id`, as [`Self::tile_numbered`], while the row whose tiling it's in is
+    /// there to show: one that's gone has a layout nobody can open.
+    pub fn tile_numbered_there(&self, id: &str) -> Option<(RowKey, Tile)> {
+        let (row, tile) = self.tile_numbered(id)?;
+        let there = self.row_there(&row) && self.row_there(tile.shows(&row));
+        there.then_some((row, tile))
+    }
+
+    /// The number of `tile` of `row`'s tiling.
+    pub fn tile_id_in(&self, row: &RowKey, tile: &Tile) -> Option<TileId> {
+        self.tile_ids.of(row, tile)
     }
 
     /// Move a divider of the selected row's tiling, as [`Tiling::move_divider`] does.
@@ -1691,14 +1821,17 @@ impl Store {
             None => self.tilings.remove(&row),
         };
         self.show_terminals(cx);
-        cx.emit(StoreEvent::TilingChanged);
+        self.tiling_changed(cx);
         cx.notify();
     }
 
     /// The tile a row dragged in was let go as is there to stay, to use, a terminal's alone.
     pub fn row_landed(&mut self, pinned: RowKey, cx: &mut Context<Self>) {
         self.tile_terminal(&pinned, cx);
-        cx.emit(StoreEvent::TilePinned(pinned));
+        cx.emit(StoreEvent::TilePinned {
+            tile: pinned,
+            keys: true,
+        });
     }
 
     /// A row's drag ended, let go anywhere or stopped with Escape.
@@ -1730,7 +1863,7 @@ impl Store {
         let before = tiling.clone();
         change(tiling);
         if *tiling != before {
-            cx.emit(StoreEvent::TilingChanged);
+            self.tiling_changed(cx);
             cx.notify();
         }
     }
@@ -1859,34 +1992,45 @@ impl Store {
     /// growing into its room. What it showed stays open, as a terminal does in the navigator,
     /// but for a terminal living in the tile alone, which closes with it.
     pub fn close_tile(&mut self, pinned: &RowKey, cx: &mut Context<Self>) {
-        if let Some((_, id)) = self.terminal_closing_with(pinned) {
-            return self.close_terminal(id, cx);
-        }
         let Some(selection) = &self.selection else {
             return;
         };
         let row = self.row_key(selection);
-        let Some(tiling) = self.tilings.get_mut(&row) else {
+        self.close_tile_in(&row, pinned, cx);
+    }
+
+    /// Take the tile showing `pinned` away from `row`'s tiling, as [`Self::close_tile`] does,
+    /// whichever row is selected, as `but _ui close` does. It's drawn going only in the selected
+    /// row's tiling, the one on screen.
+    pub fn close_tile_in(&mut self, row: &RowKey, pinned: &RowKey, cx: &mut Context<Self>) {
+        if let Some((_, id)) = self.terminal_closing_with(pinned) {
+            return self.close_terminal(id, cx);
+        }
+        let selected = (self.selection.as_ref()).map(|selection| self.row_key(selection));
+        let Some(tiling) = self.tilings.get_mut(row) else {
             return;
         };
         let before = tiling.clone();
         tiling.retain(&|tile| tile != pinned);
         if tiling.is_home_only() {
-            self.tilings.remove(&row);
+            self.tilings.remove(row);
         }
         self.show_terminals(cx);
         // Before the tiling changes, so the app view keeps what it drew there to draw it going.
-        cx.emit(StoreEvent::TileClosed {
-            before,
-            tile: pinned.clone(),
-            terminal: None,
-        });
-        cx.emit(StoreEvent::TilingChanged);
+        if selected.as_ref() == Some(row) {
+            cx.emit(StoreEvent::TileClosed {
+                before,
+                tile: pinned.clone(),
+                terminal: None,
+            });
+        }
+        self.tiling_changed(cx);
         cx.notify();
     }
 
     /// Have row `from`'s tiling, its tiles showing it and the keys it had go by `to`.
     pub(super) fn rekey_row(&mut self, from: &RowKey, to: &RowKey) {
+        self.tile_ids.rekey_row(from, to);
         if let Some(tiling) = self.tilings.remove(from) {
             self.tilings.insert(to.clone(), tiling);
         }
@@ -1923,6 +2067,7 @@ impl Store {
             tiling.retain(&|pinned| !closed_tile(pinned));
             !tiling.is_home_only()
         });
+        self.list_unpinned_terminals();
         if self.tilings == before {
             return;
         }
@@ -1942,7 +2087,7 @@ impl Store {
                 terminal: Some(terminal),
             });
         }
-        cx.emit(StoreEvent::TilingChanged);
+        self.tiling_changed(cx);
     }
 }
 
@@ -1951,6 +2096,141 @@ fn tile_showing(row: &RowKey, shown: &RowKey) -> Tile {
     match shown == row {
         true => Tile::Home,
         false => Tile::Pinned(shown.clone()),
+    }
+}
+
+/// A tile, numbered in the order the session made them. It keeps its number until it closes,
+/// wherever it moves to and whatever it shows, and a tile made again gets a new one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TileId(u64);
+
+/// What happens to a terminal once its shell has started.
+pub(super) enum Then {
+    /// It's selected, as one opened from the navigator is.
+    Select,
+    /// It's pinned beside a tile and takes the keys, or is selected if the tile is gone
+    /// meanwhile.
+    Pin((RowKey, Tile, Axis)),
+    /// It's pinned beside a tile, leaving the keys and the selection where they are, or is left
+    /// in the navigator if the tile is gone meanwhile, and the sender is told which.
+    PinQuietly(
+        (RowKey, Tile, Axis),
+        futures::channel::oneshot::Sender<Opened>,
+    ),
+}
+
+/// Where a terminal opened quietly went: the tile of `row`'s tiling it's in.
+pub struct Opened {
+    pub row: RowKey,
+    pub tile: Tile,
+}
+
+/// How a row lays out its tiles, as [`Store::layouts`] lists them.
+pub struct Layout {
+    pub row: RowKey,
+    pub home: TileId,
+    /// Each tile, the row it shows and where it goes, in the order they're laid out.
+    pub tiles: Vec<(TileId, Tile, RowKey, Area)>,
+}
+
+impl std::fmt::Display for TileId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// The number of each tile there is. For each tiling, by its row, by the rows its tiles show,
+/// the home tile's as the row itself, as `Store::tiles_with_keys` keeps them, so they keep as a
+/// terminal takes the home tile's place.
+#[derive(Debug, Default)]
+pub struct TileIds {
+    ids: HashMap<RowKey, HashMap<RowKey, TileId>>,
+    made: u64,
+}
+
+impl TileIds {
+    /// Number the tiles of `tilings` that have no number yet, the `selected` row's home tile
+    /// and those of the terminals the navigator `lists`, which have one with no tiling too, and
+    /// forget the numbers of those gone. Any other row's home tile keeps its number while
+    /// another row is selected, as its tiling does; a terminal's goes once it's closed, or lives
+    /// in a tile alone.
+    fn sync(
+        &mut self,
+        tilings: &HashMap<RowKey, Tiling>,
+        selected: Option<&RowKey>,
+        lists: &[RowKey],
+    ) {
+        let mut there: HashMap<&RowKey, Vec<RowKey>> = (tilings.iter())
+            .map(|(row, tiling)| {
+                let shown = (tiling.areas().iter())
+                    .map(|(tile, _)| tile.shows(row).clone())
+                    .collect();
+                (row, shown)
+            })
+            .collect();
+        for row in selected.into_iter().chain(lists) {
+            let shown = there.entry(row).or_default();
+            if !shown.contains(row) {
+                shown.push(row.clone());
+            }
+        }
+        let TileIds { ids, made } = self;
+        ids.retain(|row, ids| {
+            match there.get(row) {
+                Some(shown) => ids.retain(|pinned, _| shown.contains(pinned)),
+                None if matches!(row, RowKey::Row(Selection::Terminal(..))) => return false,
+                None => ids.retain(|pinned, _| pinned == row),
+            }
+            true
+        });
+        for (row, shown) in there {
+            let ids = ids.entry(row.clone()).or_default();
+            for pinned in shown {
+                ids.entry(pinned).or_insert_with(|| {
+                    *made += 1;
+                    TileId(*made)
+                });
+            }
+        }
+    }
+
+    /// The number of `tile` of `row`'s tiling.
+    fn of(&self, row: &RowKey, tile: &Tile) -> Option<TileId> {
+        self.ids.get(row)?.get(tile.shows(row)).copied()
+    }
+
+    /// The rows that have numbered tiles.
+    fn rows(&self) -> impl Iterator<Item = &RowKey> {
+        self.ids.keys()
+    }
+
+    /// Tile `id` and the row whose tiling it's in.
+    fn find(&self, id: TileId) -> Option<(RowKey, Tile)> {
+        (self.ids.iter()).find_map(|(row, ids)| {
+            let (shown, _) = ids.iter().find(|(_, tile)| **tile == id)?;
+            Some((row.clone(), tile_showing(row, shown)))
+        })
+    }
+
+    /// Have row `from`'s tiling, and the tiles showing it, go by `to`.
+    fn rekey_row(&mut self, from: &RowKey, to: &RowKey) {
+        if let Some(ids) = self.ids.remove(from) {
+            self.ids.insert(to.clone(), ids);
+        }
+        for ids in self.ids.values_mut() {
+            if let Some(id) = ids.remove(from) {
+                ids.insert(to.clone(), id);
+            }
+        }
+    }
+
+    /// Have `row`'s tiles go to `heir`'s tiling but its home one, `heir`'s tile being the home
+    /// one there, as [`Tiling::promote`] has them.
+    pub(super) fn promote(&mut self, row: &RowKey, heir: &RowKey) {
+        if let Some(mut ids) = self.ids.remove(row) {
+            ids.remove(row);
+            self.ids.insert(heir.clone(), ids);
+        }
     }
 }
 
@@ -3627,6 +3907,269 @@ mod tests {
             tiling.pinned_terminals().collect::<Vec<_>>(),
             Vec::from([TerminalId(1)]),
             "a branch's page has no status to show"
+        );
+    }
+
+    fn commit(key: &str) -> RowKey {
+        RowKey::Commit("project".into(), key.to_owned())
+    }
+
+    fn tiling_of(pinned: &[RowKey]) -> Tiling {
+        let mut tiling = Tiling::default();
+        for row in pinned {
+            tiling.pin(&Tile::Home, Axis::Across, row.clone());
+        }
+        tiling
+    }
+
+    #[test]
+    fn each_tile_gets_a_number_of_its_own() {
+        let row = terminal(10);
+        let tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1), terminal(2)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let home = ids.of(&row, &Tile::Home);
+        let first = ids.of(&row, &Tile::Pinned(terminal(1)));
+        let second = ids.of(&row, &Tile::Pinned(terminal(2)));
+        assert!(
+            home.is_some() && first.is_some() && second.is_some(),
+            "every tile of the tiling is numbered"
+        );
+        assert!(
+            home != first && first != second && home != second,
+            "no two tiles share a number"
+        );
+    }
+
+    #[test]
+    fn a_tile_keeps_its_number_as_another_closes() {
+        let row = terminal(10);
+        let mut tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1), terminal(2)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let second = ids.of(&row, &Tile::Pinned(terminal(2)));
+        tilings.insert(row.clone(), tiling_of(&[terminal(2)]));
+        ids.sync(&tilings, Some(&row), &[]);
+        assert_eq!(
+            ids.of(&row, &Tile::Pinned(terminal(2))),
+            second,
+            "the tile that stays keeps its number"
+        );
+        assert_eq!(
+            ids.of(&row, &Tile::Pinned(terminal(1))),
+            None,
+            "the closed tile's number is forgotten"
+        );
+    }
+
+    #[test]
+    fn a_tile_keeps_its_number_as_it_moves() {
+        let row = terminal(10);
+        let tiling = tiling_of(&[terminal(1), terminal(2)]);
+        let mut tilings = HashMap::from([(row.clone(), tiling.clone())]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let first = ids.of(&row, &Tile::Pinned(terminal(1)));
+        let swapped = tiling.swapped(&Tile::Pinned(terminal(1)), &Tile::Pinned(terminal(2)));
+        tilings.insert(row.clone(), swapped);
+        ids.sync(&tilings, Some(&row), &[]);
+        assert_eq!(
+            ids.of(&row, &Tile::Pinned(terminal(1))),
+            first,
+            "moving a tile doesn't make it another"
+        );
+    }
+
+    #[test]
+    fn a_tile_pinned_again_gets_a_new_number() {
+        let row = terminal(10);
+        let mut tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let before = ids.of(&row, &Tile::Pinned(terminal(1)));
+        tilings.remove(&row);
+        ids.sync(&tilings, Some(&row), &[]);
+        tilings.insert(row.clone(), tiling_of(&[terminal(1)]));
+        ids.sync(&tilings, Some(&row), &[]);
+        let after = ids.of(&row, &Tile::Pinned(terminal(1)));
+        assert!(after.is_some(), "the tile pinned again is numbered");
+        assert_ne!(after, before, "a number is never used twice");
+    }
+
+    #[test]
+    fn a_rows_home_tile_keeps_its_number_without_a_tiling() {
+        let (row, other) = (commit("a"), commit("b"));
+        let tilings = HashMap::new();
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let home = ids.of(&row, &Tile::Home);
+        assert!(
+            home.is_some(),
+            "a row with no tiling still shows its home tile"
+        );
+        ids.sync(&tilings, Some(&row), &[]);
+        assert_eq!(
+            ids.of(&row, &Tile::Home),
+            home,
+            "it keeps its number while the row stays selected"
+        );
+        ids.sync(&tilings, Some(&other), &[]);
+        assert_eq!(
+            ids.of(&row, &Tile::Home),
+            home,
+            "it keeps its number while another row is selected"
+        );
+    }
+
+    #[test]
+    fn a_listed_terminals_home_tile_is_numbered_without_being_selected() {
+        let (listed, selected) = (terminal(10), commit("a"));
+        let mut ids = TileIds::default();
+        ids.sync(
+            &HashMap::new(),
+            Some(&selected),
+            std::slice::from_ref(&listed),
+        );
+        assert!(
+            ids.of(&listed, &Tile::Home).is_some(),
+            "a terminal has its tile from the moment it opens"
+        );
+    }
+
+    #[test]
+    fn a_closed_terminals_home_tile_is_forgotten() {
+        let (listed, selected) = (terminal(10), commit("a"));
+        let tilings = HashMap::new();
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&selected), std::slice::from_ref(&listed));
+        let home = ids.of(&listed, &Tile::Home).unwrap();
+        ids.sync(&tilings, Some(&selected), &[]);
+        assert_eq!(ids.find(home), None, "the tile goes with its terminal");
+    }
+
+    #[test]
+    fn a_terminal_living_in_a_tile_has_no_home_tile() {
+        let row = commit("a");
+        let tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        assert!(
+            ids.of(&row, &Tile::Pinned(terminal(1))).is_some(),
+            "it has the tile it lives in"
+        );
+        assert_eq!(
+            ids.of(&terminal(1), &Tile::Home),
+            None,
+            "the navigator doesn't list it, so it has no layout of its own"
+        );
+    }
+
+    #[test]
+    fn a_tile_closed_while_its_row_is_away_is_forgotten() {
+        let (row, other) = (commit("a"), commit("b"));
+        let mut tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let home = ids.of(&row, &Tile::Home);
+        tilings.remove(&row);
+        ids.sync(&tilings, Some(&other), &[]);
+        assert_eq!(
+            ids.of(&row, &Tile::Pinned(terminal(1))),
+            None,
+            "the pinned tile closed with the tiling"
+        );
+        assert_eq!(
+            ids.of(&row, &Tile::Home),
+            home,
+            "the row's home tile is still there"
+        );
+    }
+
+    #[test]
+    fn a_rows_tiles_keep_their_numbers_while_another_row_is_selected() {
+        let (row, other) = (terminal(10), terminal(11));
+        let tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let home = ids.of(&row, &Tile::Home);
+        let first = ids.of(&row, &Tile::Pinned(terminal(1)));
+        ids.sync(&tilings, Some(&other), &[]);
+        ids.sync(&tilings, Some(&row), &[]);
+        assert_eq!(
+            (
+                ids.of(&row, &Tile::Home),
+                ids.of(&row, &Tile::Pinned(terminal(1)))
+            ),
+            (home, first),
+            "a tiling's tiles stay open while another row shows"
+        );
+    }
+
+    #[test]
+    fn a_terminal_taking_the_home_tiles_place_keeps_its_number() {
+        let row = terminal(10);
+        let heir = terminal(1);
+        let mut tiling = tiling_of(&[heir.clone(), terminal(2)]);
+        let mut tilings = HashMap::from([(row.clone(), tiling.clone())]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let (promoted, second) = (
+            ids.of(&row, &Tile::Pinned(heir.clone())),
+            ids.of(&row, &Tile::Pinned(terminal(2))),
+        );
+        tiling.promote(&heir);
+        tilings.remove(&row);
+        tilings.insert(heir.clone(), tiling);
+        ids.promote(&row, &heir);
+        ids.sync(&tilings, Some(&heir), &[]);
+        assert_eq!(
+            ids.of(&heir, &Tile::Home),
+            promoted,
+            "the terminal in the home tile's place is the tile it was"
+        );
+        assert_eq!(
+            ids.of(&heir, &Tile::Pinned(terminal(2))),
+            second,
+            "the tile beside it goes with the tiling"
+        );
+    }
+
+    #[test]
+    fn a_tile_is_found_by_its_number_while_another_row_is_selected() {
+        let (row, other) = (terminal(10), terminal(11));
+        let tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let first = ids.of(&row, &Tile::Pinned(terminal(1))).unwrap();
+        ids.sync(&tilings, Some(&other), &[]);
+        assert_eq!(
+            ids.find(first),
+            Some((terminal(10), Tile::Pinned(terminal(1)))),
+            "a tile out of sight is still there to reach"
+        );
+    }
+
+    #[test]
+    fn a_rekeyed_row_keeps_its_tiles_numbers() {
+        let (row, to) = (terminal(10), terminal(20));
+        let mut tilings = HashMap::from([(row.clone(), tiling_of(&[terminal(1)]))]);
+        let mut ids = TileIds::default();
+        ids.sync(&tilings, Some(&row), &[]);
+        let (home, first) = (
+            ids.of(&row, &Tile::Home),
+            ids.of(&row, &Tile::Pinned(terminal(1))),
+        );
+        let tiling = tilings.remove(&row).unwrap();
+        tilings.insert(to.clone(), tiling);
+        ids.rekey_row(&row, &to);
+        ids.sync(&tilings, Some(&to), &[]);
+        assert_eq!(
+            (
+                ids.of(&to, &Tile::Home),
+                ids.of(&to, &Tile::Pinned(terminal(1)))
+            ),
+            (home, first),
+            "the tiles go by the row's new key with their numbers"
         );
     }
 }

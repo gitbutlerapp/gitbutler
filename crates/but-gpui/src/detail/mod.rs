@@ -762,7 +762,7 @@ impl Detail {
                 | StoreEvent::RepositoriesInside(..)
                 | StoreEvent::AiNotSetUp { .. }
                 | StoreEvent::TerminalOpened
-                | StoreEvent::TilePinned(_)
+                | StoreEvent::TilePinned { .. }
                 | StoreEvent::TileClosed { .. }
                 | StoreEvent::TilingMoved { .. }
                 | StoreEvent::MoveToward(_)

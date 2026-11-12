@@ -10,7 +10,8 @@ use std::time::Instant;
 
 use gpui::{Context, Entity, SharedString, Subscription};
 
-use super::{Axis, ProjectId, RowKey, Selection, Store, StoreEvent, Tile, Tiling};
+use super::tiling::{Opened, Then};
+use super::{ProjectId, RowKey, Selection, Store, StoreEvent, Tile, Tiling};
 use crate::backend::{self, Checkout};
 use crate::terminal::{Terminal, TerminalEvent, TerminalId, shell_quoted};
 #[cfg(unix)]
@@ -168,6 +169,13 @@ impl Terminals {
         })
     }
 
+    /// The terminals the navigator lists, as rows: all but those living in a tile alone.
+    pub fn listed(&self) -> impl Iterator<Item = Selection> {
+        (self.open.iter())
+            .filter(|open| !open.tiled)
+            .map(|open| Selection::Terminal(open.project.clone(), open.id))
+    }
+
     /// Whether terminal `id` lives in a tile alone.
     pub fn tiled(&self, id: TerminalId) -> bool {
         self.open.iter().any(|open| open.id == id && open.tiled)
@@ -234,7 +242,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let run = self.prefs.terminal_run().map(str::to_owned);
-        self.open_terminal_then(project, checkout, run, None, cx);
+        self.open_terminal_then(project, checkout, run, Then::Select, cx);
     }
 
     /// Open a terminal on `project`'s `checkout` that runs `command` through the login shell.
@@ -245,17 +253,17 @@ impl Store {
         command: String,
         cx: &mut Context<Self>,
     ) {
-        self.open_terminal_then(project, checkout, Some(command), None, cx);
+        self.open_terminal_then(project, checkout, Some(command), Then::Select, cx);
     }
 
-    /// Open a terminal on `project`'s `checkout`, running `run` in place of the shell's prompt.
-    /// Once its shell has started, select it, or pin it as `pin` says.
+    /// Open a terminal on `project`'s `checkout`, running `run` in place of the shell's prompt,
+    /// and once its shell has started do with it as `then` says.
     pub(super) fn open_terminal_then(
         &mut self,
         project: ProjectId,
         checkout: Checkout,
         run: Option<String>,
-        pin: Option<(RowKey, Tile, Axis)>,
+        then: Then,
         cx: &mut Context<Self>,
     ) {
         let Some(cwd) = self.checkout_path(&project, &checkout) else {
@@ -287,7 +295,7 @@ impl Store {
                             None,
                             store.workspace(&project),
                         );
-                        store.add_terminal(project, checkout, terminal, pin, cx);
+                        store.add_terminal(project, checkout, terminal, then, cx);
                     }
                     Err(err) => store.failed("Couldn't open a terminal", &err, cx),
                 }
@@ -302,19 +310,43 @@ impl Store {
         project: ProjectId,
         checkout: Checkout,
         terminal: Entity<Terminal>,
-        pin: Option<(RowKey, Tile, Axis)>,
+        then: Then,
         cx: &mut Context<Self>,
     ) {
         let id = TerminalId(self.terminals.opened + 1);
         self.insert_terminal(id, project.clone(), checkout, terminal, None, cx);
+        let row = RowKey::Row(Selection::Terminal(project.clone(), id));
         // With the tile it was to go beside gone, it opens as a terminal of its own does.
-        if let Some(pin) = pin {
-            self.set_tiled(id, true);
-            let row = RowKey::Row(Selection::Terminal(project.clone(), id));
-            if self.pin_into(pin, row, cx) {
+        match then {
+            Then::Select => {}
+            Then::Pin(pin) => {
+                self.set_tiled(id, true);
+                if self.pin_into(pin, row, true, cx) {
+                    return;
+                }
+                self.set_tiled(id, false);
+            }
+            Then::PinQuietly(pin, opened) => {
+                let layout = pin.0.clone();
+                self.set_tiled(id, true);
+                let went = match self.pin_into(pin, row.clone(), false, cx) {
+                    true => Opened {
+                        row: layout,
+                        tile: Tile::Pinned(row),
+                    },
+                    false => {
+                        self.set_tiled(id, false);
+                        self.tiling_changed(cx);
+                        cx.notify();
+                        Opened {
+                            row,
+                            tile: Tile::Home,
+                        }
+                    }
+                };
+                opened.send(went).ok();
                 return;
             }
-            self.set_tiled(id, false);
         }
         self.select(Some(Selection::Terminal(project, id)), cx);
         // A folded card it opens in unfolds, so it's still listed there once the selection leaves.
@@ -404,7 +436,7 @@ impl Store {
     ) {
         let (from, to) = (Selection::Terminal(from, id), Selection::Terminal(to, id));
         self.rekey_row(&RowKey::Row(from.clone()), &RowKey::Row(to.clone()));
-        cx.emit(StoreEvent::TilingChanged);
+        self.tiling_changed(cx);
         if self.selection.as_ref() == Some(&from) {
             self.select(Some(to), cx);
         }
@@ -513,6 +545,13 @@ impl Store {
         let HandedTilings { tilings, selection } = handed.unwrap_or_default();
         self.tilings = surviving(tilings, |id| self.terminals.get(id).is_some());
         self.restored.handed = selection;
+        self.list_unpinned_terminals();
+        self.number_tiles();
+    }
+
+    /// Have the navigator list again the terminals that lived in a tile no tiling has any more,
+    /// as one closed with its row's tiling, so none is left running out of reach.
+    pub(super) fn list_unpinned_terminals(&mut self) {
         let pinned: HashSet<TerminalId> = (self.tilings.values())
             .flat_map(Tiling::pinned_terminals)
             .collect();
@@ -545,7 +584,7 @@ impl Store {
         leave_other_tilings(&mut self.tilings, &row, pinned);
         self.set_tiled(*id, true);
         if self.tilings != before {
-            cx.emit(StoreEvent::TilingChanged);
+            self.tiling_changed(cx);
         }
         cx.notify();
     }
@@ -641,6 +680,9 @@ impl Store {
                 .unwrap_or_else(|| Selection::Checkout(project.clone(), checkout));
             self.select(Some(instead), cx);
         }
+        // Their tiles' numbers go with them, as nothing above may have renumbered: a terminal
+        // out of sight with nothing beside it changes neither the selection nor a tiling.
+        self.number_tiles();
         cx.notify();
     }
 
@@ -673,11 +715,14 @@ impl Store {
             });
         }
         self.tiles_with_keys.insert(heir.clone(), recent);
-        cx.emit(StoreEvent::TilingChanged);
+        self.tile_ids.promote(&row, &heir);
+        // Listed before the tiles are numbered, so its home tile keeps the number it had.
         let RowKey::Row(selection @ Selection::Terminal(_, id)) = heir else {
+            self.tiling_changed(cx);
             return None;
         };
         self.set_tiled(id, false);
+        self.tiling_changed(cx);
         Some((selection, before, row))
     }
 

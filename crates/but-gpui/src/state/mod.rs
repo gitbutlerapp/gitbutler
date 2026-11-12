@@ -49,7 +49,7 @@ pub use seen::{GLOW, Seeable};
 pub use terminals::{ProjectCheckout, Terminals};
 pub use tiling::{
     Area, Axis, Divider, DividerDrag, Drawn, Junction, Landing, RowKey, Side, Tile, TileDragFeel,
-    Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
+    TileIds, Tiling, Zones, along_edge, junctions, nearest_beside, tile_beside,
 };
 
 pub type ProjectId = SharedString;
@@ -278,8 +278,12 @@ pub enum StoreEvent {
     },
     /// A terminal was opened and selected, to type in.
     TerminalOpened,
-    /// A tile was pinned beside the selected page, to use.
-    TilePinned(RowKey),
+    /// A tile was pinned, to use, and to take the keys with `keys`: not when `but _ui` opened it
+    /// in the background.
+    TilePinned {
+        tile: RowKey,
+        keys: bool,
+    },
     /// The tile of these changes was asked to show a place in them, by the brief beside it.
     CodeAsked(RowKey, CodePlace),
     /// `tile` was taken away from the selected row's tiling, which was `before`, so the app
@@ -490,6 +494,8 @@ pub struct Store {
     /// the home tile's as the row itself. By row, so they keep as a terminal takes the home
     /// tile's place.
     tiles_with_keys: HashMap<RowKey, Vec<RowKey>>,
+    /// The number of each tile there is, for `but _ui` to name them by.
+    tile_ids: TileIds,
     /// While a tile slides open or shut or is dragged, the selected row's tiling as it's drawn
     /// in this frame: see [`Self::drawn_areas`].
     drawn: Option<Drawn>,
@@ -659,6 +665,7 @@ impl Store {
             dragged_row: None,
             tile_zone: None,
             tiles_with_keys: HashMap::new(),
+            tile_ids: TileIds::default(),
             drawn: None,
             tile_drag_feel: TileDragFeel::default(),
             dragged_divider: None,
@@ -1136,6 +1143,7 @@ impl Store {
             self.left_in.insert(at, left.clone());
         }
         self.selection = selection;
+        self.number_tiles();
         self.show_terminals(cx);
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
