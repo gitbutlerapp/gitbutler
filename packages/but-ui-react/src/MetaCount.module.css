@@ -13,7 +13,7 @@
 	@container style(--selection-inverted: true) {
 		color-scheme: dark;
 
-		@media (prefers-color-scheme: dark) {
+		@container style(--scheme-dark: true) {
 			color-scheme: light;
 		}
 	}
@@ -230,11 +230,12 @@
 	margin-inline-start: 1px;
 }
 
+/* A coloured count takes its colour's soft fill under the pointer. */
 .behind,
 .uncommitted,
 .agent-waiting,
 .working {
-	--count-hover-bg: color-mix(in srgb, var(--but-warning) 14%, transparent);
+	--count-hover-bg: var(--but-warning-soft-hover);
 	color: var(--but-warning-text);
 }
 
@@ -244,20 +245,20 @@
 }
 
 .unpushed {
-	--count-hover-bg: color-mix(in srgb, var(--but-info) 14%, transparent);
+	--count-hover-bg: var(--but-info-soft-hover);
 	color: var(--but-info-text);
 }
 
 .agent-working,
 .cpu,
 .passed {
-	--count-hover-bg: color-mix(in srgb, var(--but-success) 14%, transparent);
+	--count-hover-bg: var(--but-success-soft-hover);
 	color: var(--but-success-text);
 }
 
 .conflicts,
 .cpu-danger,
 .failed {
-	--count-hover-bg: color-mix(in srgb, var(--but-danger) 14%, transparent);
+	--count-hover-bg: var(--but-danger-soft-hover);
 	color: var(--but-danger-text);
 }

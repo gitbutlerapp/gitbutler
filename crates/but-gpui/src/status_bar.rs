@@ -2,8 +2,8 @@
 //! that matter right now.
 
 use gpui::{
-    Action, AnyElement, App, Context, Div, Focusable as _, Hsla, Role, SharedString, Stateful,
-    Window, div, prelude::*,
+    Action, AnyElement, App, Context, Div, Focusable as _, Role, SharedString, Stateful, Window,
+    div, prelude::*,
 };
 
 use crate::app::{
@@ -18,7 +18,7 @@ use crate::edits::Discard;
 use crate::edits::{NameBranch, RenameBranch, RenameTerminal, Reword, Uncommit};
 use crate::pr::{CreatePullRequest, create_offer};
 use crate::state::{Part, ProjectId, ProjectTab, SLOW, Selection};
-use crate::theme::Theme;
+use crate::theme::{Hue, Theme};
 use crate::transfer::{Op, Transfer};
 use crate::ui::{
     Icon, STATUS_BAR_HEIGHT, Tooltip, ago, dot, dp, duration, h_flex, plural, shortcut,
@@ -460,30 +460,29 @@ impl AppView {
                 needs(&project, workspace, shown)
                     .into_iter()
                     .map(|(need, text, to)| {
-                        let (id, glyph, color, tip) = match need {
+                        let (id, glyph, tone, tip) = match need {
                             Need::ConflictedCommits => (
                                 "conflicted-commits",
                                 Icon::Warning,
-                                theme.warn,
+                                Hue::Warn,
                                 "Show the conflict",
                             ),
                             Need::ConflictedFiles => (
                                 "conflicted-files",
                                 Icon::Warning,
-                                theme.warn,
+                                Hue::Warn,
                                 "Show the conflict",
                             ),
-                            Need::FailedChecks => (
-                                "failed-checks",
-                                Icon::Cross,
-                                theme.danger,
-                                "Show the branch",
-                            ),
+                            Need::FailedChecks => {
+                                ("failed-checks", Icon::Cross, Hue::Danger, "Show the branch")
+                            }
                         };
                         Note {
                             id,
-                            mark: small_icon(glyph).text_color(color).into_any_element(),
-                            color: Some(color),
+                            mark: small_icon(glyph)
+                                .text_color(theme.hue(tone))
+                                .into_any_element(),
+                            tone: Some(tone),
                             text,
                             tip,
                             to,
@@ -511,7 +510,7 @@ impl AppView {
                 notes.push(Note {
                     id: "writing",
                     mark: dot(theme.pop).into_any_element(),
-                    color: None,
+                    tone: None,
                     text,
                     tip: "Show the worktree",
                     to: Selection::Checkout(project.clone(), first.clone()),
@@ -530,7 +529,7 @@ impl AppView {
                     mark: small_icon(Icon::Commit)
                         .text_color(theme.text_3)
                         .into_any_element(),
-                    color: None,
+                    tone: None,
                     text: format!("{} unread", unread.len()),
                     tip: "Read the first one",
                     to: Selection::Commit(project.clone(), *first),
@@ -550,7 +549,7 @@ impl AppView {
                 mark: small_icon(Icon::Undo)
                     .text_color(theme.text_3)
                     .into_any_element(),
-                color: None,
+                tone: None,
                 text: format!("{said}{} · {}", store.in_project(done_in), ago(at / 1000)),
                 tip: "Show the operations history",
                 to: Selection::Project(done_in.clone()),
@@ -568,7 +567,13 @@ impl AppView {
             .children(notes.into_iter().map(|note| {
                 let (to, tab) = (note.to, note.tab);
                 clickable(note.id, &note.text, theme)
-                    .when_some(note.color, |el, color| el.text_color(color))
+                    // A coloured note takes its colour's soft fill, as but-ui-react's StatusNote
+                    // and a badge do, a step stronger under the pointer.
+                    .when_some(note.tone, |el, hue| {
+                        el.text_color(theme.hue(hue))
+                            .bg(theme.soft(hue))
+                            .hover(|el| el.bg(theme.soft_hover(hue)))
+                    })
                     .child(note.mark)
                     .child(note.text)
                     .tooltip(Tooltip::text(note.tip))
@@ -582,11 +587,11 @@ impl AppView {
 }
 
 /// Something the bar's left says while nothing else is under way, and where a click on it
-/// goes. Its words take `color`, or the bar's.
+/// goes. A note with a `tone` takes that colour's soft fill and text; the rest, the bar's.
 struct Note {
     id: &'static str,
     mark: AnyElement,
-    color: Option<Hsla>,
+    tone: Option<Hue>,
     text: String,
     tip: &'static str,
     to: Selection,

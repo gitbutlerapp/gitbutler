@@ -15,7 +15,7 @@
 		--badge-bg-opacity: 40%;
 		color-scheme: dark;
 
-		@media (prefers-color-scheme: dark) {
+		@container style(--scheme-dark: true) {
 			color-scheme: light;
 			--badge-bg-opacity: 20%;
 		}

@@ -52,8 +52,8 @@ type StatusNoteProps = {
 /**
  * A footer button: quiet text/2 at rest, so the bar stays calm until something needs attention.
  * The default tone is for status and the ways in (Fetched 2m ago, 1 unread, ⌘K Commands);
- * `warning` puts warning text on a warning tint, for what an action would leave conflicted, never danger;
- * `danger` puts text/danger on a danger tint. Its label states a count and what it is, never a verb.
+ * `warning` takes the warning colour's soft fill, as a badge does, for what an action would leave
+ * conflicted, never danger; `danger` takes danger's. Its label states a count and what it is, never a verb.
  *
  * @import import { StatusNote } from "@gitbutler/but-ui-react/StatusBar.tsx";
  */

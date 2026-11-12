@@ -17,6 +17,21 @@
 	   --but-transition-popup) and the popup curve (--but-easing-popup) are but-ui tokens. */
 	--transition-button:
 		background-color var(--but-transition-fast), color var(--but-transition-fast);
+
+	/* Whether the page is dark, as tokens.css decides it: the root's .light or .dark when the
+	   host sets one, the system's otherwise. What sits on a selected row's solid fill takes the
+	   opposite scheme (SidebarRow sets --selection-inverted), so it asks this, not the system. */
+	--scheme-dark: false;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not(.light) {
+		--scheme-dark: true;
+	}
+}
+
+:root.dark {
+	--scheme-dark: true;
 }
 
 :root[data-hand-cursor] {
