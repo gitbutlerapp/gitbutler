@@ -840,7 +840,7 @@ impl SettingsView {
     }
 
     /// The theme, then how diffs show.
-    fn appearance_cards(&self, window: &Window, cx: &Context<Self>) -> Vec<Card> {
+    fn appearance_cards(&self, cx: &Context<Self>) -> Vec<Card> {
         let theme = Theme::get(cx);
         let prefs = &self.store.read(cx).prefs;
         let (store, app) = (self.store.clone(), self.app.clone());
@@ -1123,7 +1123,6 @@ impl SettingsView {
                     terminal_overview,
                 ],
             ),
-            Card::new(Some("Look"), self.look_rows(window, cx)),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("File list"), vec![folder_counts, folder_stops]),
             Card::new(Some("Diff"), diff),
@@ -1619,7 +1618,7 @@ impl SettingsView {
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
-            Page::App(AppPage::Appearance) => self.appearance_cards(window, cx),
+            Page::App(AppPage::Appearance) => self.appearance_cards(cx),
             Page::App(AppPage::Keyboard) => self.keyboard_cards(cx),
             Page::App(AppPage::Ai) => vec![Card::new(None, self.ai_rows(window, cx))],
             Page::App(AppPage::Git) => vec![
@@ -1641,6 +1640,8 @@ impl SettingsView {
             }
             Page::App(AppPage::Developer) => vec![
                 Card::new(None, vec![self.fps_row(cx), self.menu_bar_row(cx)]),
+                // Here while it's worked out; other builds draw the default look (`theme_for`).
+                Card::new(Some("Look"), self.look_rows(window, cx)),
                 Card::new(Some("Tile dragging"), self.tile_drag_rows(cx)),
             ],
             Page::Project(project, page) => self.project_cards(project, *page, window, cx),

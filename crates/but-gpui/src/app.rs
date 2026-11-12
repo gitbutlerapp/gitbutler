@@ -5996,11 +5996,16 @@ fn theme_for(store: &Store, previewed: Option<&ColorScheme>, window: &Window) ->
     let ghostty = but_tty::Ghostty::load();
     let digit = |family: &str| crate::ui::digit_advance(family, window.text_system());
     let installed = |family: &str| digit(family).is_some();
+    // The look is set only in a dev build for now, so any other keeps GitButler's own.
+    let (ground, accent, corners, density) = match backend::settings::dev_build() {
+        true => (prefs.ground, prefs.accent, prefs.corners, prefs.density),
+        false => Default::default(),
+    };
     Theme::new(prefs.appearance, scheme, system, prefs.code_size, &ghostty)
-        .with_ground(prefs.ground)
-        .with_accent(prefs.accent, &prefs.accent_color)
-        .with_corners(prefs.corners)
-        .with_density(prefs.density)
+        .with_ground(ground)
+        .with_accent(accent, &prefs.accent_color)
+        .with_corners(corners)
+        .with_density(density)
         .with_scale(prefs.ui_scale)
         .with_diff_font(prefs.diff_font.as_deref(), digit)
         .with_ligatures(prefs.ligatures)
