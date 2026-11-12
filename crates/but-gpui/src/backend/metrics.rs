@@ -381,6 +381,7 @@ fn settings(state: &State) -> Props {
         ("branchesStatus", json!(prefs.branches_status)),
         ("defaultTerminal", json!(prefs.terminal)),
         ("terminalRuns", json!(prefs.terminal_runs)),
+        ("terminalGrouping", json!(prefs.terminal_grouping)),
         ("customTerminalFont", json!(prefs.terminal_font.is_some())),
         ("terminalTextSize", json!(prefs.terminal_text)),
         ("confirmTerminalClose", json!(prefs.confirm_terminal_close)),

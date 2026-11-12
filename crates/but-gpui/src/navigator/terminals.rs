@@ -1,8 +1,11 @@
 //! The terminal overview under the navigator: every terminal open on every project, tiled or
-//! not, under a heading for each status the terminal picker groups them by, what wants the user
-//! first and what's under way last. The headings fold as the navigator's sections do, and
-//! stepping through the terminals shows each where it is, as the navigator's rows do.
+//! not, what wants the user first and what's under way last. They go under a heading for each
+//! status the terminal picker groups them by, for each project, or for each project after one
+//! for those wanting the user, or under none, as its bar's menu picks. The headings fold as the
+//! navigator's sections do, and stepping through the terminals shows each where it is, as the
+//! navigator's rows do.
 
+use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -21,7 +24,7 @@ use crate::backend::Checkout;
 use crate::edits::{Discard, RenameTerminal};
 use crate::overlays::{MenuItem, has_keys};
 use crate::palette::StatusGroup;
-use crate::state::{Axis, NavigatorPlace, Store};
+use crate::state::{Axis, NavigatorPlace, ProjectId, Store, TerminalGrouping};
 use crate::terminal::TerminalId;
 use crate::theme::Theme;
 use crate::ui::fold::{Folds, Place, clipped};
@@ -50,40 +53,109 @@ const ORDER: [StatusGroup; 5] = [
     StatusGroup::Working,
 ];
 
+/// What a heading of the overview lists terminals under.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum Group {
+    Status(StatusGroup),
+    Project(ProjectId),
+    /// Those that want the user, whatever their project.
+    NeedsYou,
+}
+
 /// A row of the overview.
 #[derive(Debug, Clone, PartialEq)]
 enum Item {
-    /// A status's heading, with how many terminals are at it.
-    Heading(StatusGroup, usize),
+    /// A heading, with how many terminals are under it.
+    Heading(Group, usize),
     Terminal(TerminalId),
 }
 
-/// A terminal as the overview sorts it: what it's at, and since when.
-type Sorted = (TerminalId, StatusGroup, Instant);
+/// A terminal as the overview sorts it: its project, what it's at, and since when.
+type Sorted = (TerminalId, ProjectId, StatusGroup, Instant);
 
-/// The overview's rows for `terminals`, in the order they opened: each status with any, in
-/// [`ORDER`], under its heading, but for the terminals of those `shut`. Idle ones go by when
-/// they went idle, the latest first.
-fn items_of(terminals: impl IntoIterator<Item = Sorted>, shut: &HashSet<StatusGroup>) -> Vec<Item> {
-    let terminals: Vec<Sorted> = terminals.into_iter().collect();
+/// Whether a terminal at `status` wants the user: it's stopped for them, or stopped.
+fn needs_you(status: StatusGroup) -> bool {
+    match status {
+        StatusGroup::Blocked | StatusGroup::Failed | StatusGroup::Done => true,
+        StatusGroup::Idle | StatusGroup::Working => false,
+    }
+}
+
+/// The heading a terminal of `project` at `status` goes under `by` what, if any does.
+fn group_of(by: TerminalGrouping, project: &ProjectId, status: StatusGroup) -> Option<Group> {
+    match by {
+        TerminalGrouping::Status => Some(Group::Status(status)),
+        TerminalGrouping::Project => Some(Group::Project(project.clone())),
+        TerminalGrouping::NeedsYouThenProject if needs_you(status) => Some(Group::NeedsYou),
+        TerminalGrouping::NeedsYouThenProject => Some(Group::Project(project.clone())),
+        TerminalGrouping::Ungrouped => None,
+    }
+}
+
+/// The overview's rows for `terminals`, in the order they opened, under headings `by` what:
+/// statuses in [`ORDER`], projects in the order of `projects`, and those wanting the user
+/// first, each with any, but for the terminals of those `shut`. Under each, or with no
+/// headings, terminals go by their status in [`ORDER`], and idle ones by when they went idle,
+/// the latest first.
+fn items_of(
+    terminals: impl IntoIterator<Item = Sorted>,
+    by: TerminalGrouping,
+    projects: &[ProjectId],
+    shut: &HashSet<Group>,
+) -> Vec<Item> {
+    let mut terminals: Vec<Sorted> = terminals.into_iter().collect();
+    // Stable, so those alike keep the order they opened in.
+    terminals.sort_by_key(|(_, _, status, since)| {
+        let idle_since = (*status == StatusGroup::Idle).then_some(Reverse(*since));
+        (ORDER.iter().position(|of| of == status), idle_since)
+    });
+    let projects = projects.iter().cloned().map(Group::Project);
+    let groups: Vec<Group> = match by {
+        TerminalGrouping::Status => ORDER.into_iter().map(Group::Status).collect(),
+        TerminalGrouping::Project => projects.collect(),
+        TerminalGrouping::NeedsYouThenProject => {
+            std::iter::once(Group::NeedsYou).chain(projects).collect()
+        }
+        TerminalGrouping::Ungrouped => {
+            return (terminals.into_iter())
+                .map(|(id, ..)| Item::Terminal(id))
+                .collect();
+        }
+    };
     let mut items = Vec::new();
-    for group in ORDER {
-        let mut at: Vec<&Sorted> = (terminals.iter())
-            .filter(|(_, of, _)| *of == group)
+    for group in groups {
+        let at: Vec<TerminalId> = (terminals.iter())
+            .filter(|(_, project, status, _)| {
+                group_of(by, project, *status).as_ref() == Some(&group)
+            })
+            .map(|(id, ..)| *id)
             .collect();
         if at.is_empty() {
             continue;
         }
-        // Stable, so those idle since the same moment keep the order they opened in.
-        if group == StatusGroup::Idle {
-            at.sort_by_key(|(_, _, since)| std::cmp::Reverse(*since));
-        }
-        items.push(Item::Heading(group, at.len()));
+        items.push(Item::Heading(group.clone(), at.len()));
         if !shut.contains(&group) {
-            items.extend(at.into_iter().map(|(id, ..)| Item::Terminal(*id)));
+            items.extend(at.into_iter().map(Item::Terminal));
         }
     }
     items
+}
+
+/// The menu item grouping the rows `by` what, ticked if it's what's `picked`.
+fn group_by(label: &'static str, by: TerminalGrouping, picked: TerminalGrouping) -> MenuItem {
+    MenuItem::new(label, move |app: &mut AppView, _, cx| {
+        (app.store).update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.terminal_grouping = by, cx)
+        })
+    })
+    .ticked(picked == by)
+}
+
+/// The name project `id` goes by, or its id while it isn't loaded.
+fn project_name(store: &Store, id: &ProjectId) -> String {
+    store
+        .project(id)
+        .map_or_else(|| id.to_string(), |p| p.project.name.clone())
 }
 
 pub struct TerminalOverview {
@@ -91,7 +163,7 @@ pub struct TerminalOverview {
     store: Entity<Store>,
     items: Vec<Item>,
     /// Each row's place in the fold moving it, while one does.
-    places: Vec<Option<Place<StatusGroup>>>,
+    places: Vec<Option<Place<Group>>>,
     list: ListState,
     /// The pointer is over the rows, which hold their order meanwhile, so what an agent does
     /// moves no row from under it. Each row's mark still follows its terminal.
@@ -102,13 +174,15 @@ pub struct TerminalOverview {
     /// Whether no terminal was open when the store last changed, to fold or open the card as
     /// that changes.
     was_empty: bool,
-    /// The statuses folded to their headings.
-    folded: HashSet<StatusGroup>,
+    /// What the rows were last sorted out under, to sort them out again at once as it changes.
+    grouped_by: TerminalGrouping,
+    /// The headings folded, whatever they group by.
+    folded: HashSet<Group>,
     /// The headings opening or closing now.
-    folds: Folds<StatusGroup>,
-    /// The keys stepped onto a status's heading, which folds but shows nothing, so the terminal
-    /// shown stays as it was: see [`TerminalOverview::step`].
-    on_heading: Option<StatusGroup>,
+    folds: Folds<Group>,
+    /// The keys stepped onto a heading, which folds but shows nothing, so the terminal shown
+    /// stays as it was: see [`TerminalOverview::step`].
+    on_heading: Option<Group>,
     /// The terminal shown when the store last changed, to leave the heading once another is.
     shown: Option<TerminalId>,
     /// The terminal whose name is being edited in its row, and the field it's edited in.
@@ -147,6 +221,7 @@ impl TerminalOverview {
             cx.notify()
         });
         let empty = store.read(cx).terminals.count() == 0;
+        let grouped_by = store.read(cx).prefs.terminal_grouping;
         Self {
             app,
             store,
@@ -156,6 +231,7 @@ impl TerminalOverview {
             hovered: false,
             shut: empty,
             was_empty: empty,
+            grouped_by,
             folded: HashSet::new(),
             folds: Folds::default(),
             on_heading: None,
@@ -166,18 +242,33 @@ impl TerminalOverview {
         }
     }
 
-    /// The terminals open, each with what it's at and since when.
+    /// The terminals open, each with its project, what it's at and since when.
     fn sorted(&self, cx: &App) -> Vec<Sorted> {
         (self.store.read(cx).terminals.all())
-            .map(|t| (t.id, StatusGroup::of(t.status), t.since))
+            .map(|t| (t.id, t.project.clone(), StatusGroup::of(t.status), t.since))
             .collect()
     }
 
-    /// The statuses whose terminals aren't listed: folded, and not still closing.
-    fn shut(&self) -> HashSet<StatusGroup> {
+    /// The rows for the terminals open, under the headings the user picked.
+    fn rows(&self, cx: &App) -> Vec<Item> {
+        let store = self.store.read(cx);
+        // The projects terminals are open on, by name.
+        let mut projects: Vec<ProjectId> = Vec::new();
+        for terminal in store.terminals.all() {
+            if !projects.contains(terminal.project) {
+                projects.push(terminal.project.clone());
+            }
+        }
+        projects.sort_by_cached_key(|id| project_name(store, id).to_lowercase());
+        let by = store.prefs.terminal_grouping;
+        items_of(self.sorted(cx), by, &projects, &self.shut())
+    }
+
+    /// The headings whose terminals aren't listed: folded, and not still closing.
+    fn shut(&self) -> HashSet<Group> {
         (self.folded.iter())
             .filter(|group| !self.folds.closing(group))
-            .copied()
+            .cloned()
             .collect()
     }
 
@@ -215,7 +306,7 @@ impl TerminalOverview {
                     moved.map_or(row, |moved| moved.shown(row))
                 })
                 .sum(),
-            false => items_of(self.sorted(cx), &self.shut()).len() as f32 * row,
+            false => self.rows(cx).len() as f32 * row,
         };
         // Or the line saying there are none.
         bar + rows.max(row) + ROWS_PADDING
@@ -229,10 +320,17 @@ impl TerminalOverview {
     /// Sort the rows out again from the terminals open, but not while the pointer holds them,
     /// unless `now`.
     fn sort_out(&mut self, now: bool, cx: &App) {
-        if self.hovered && !now {
+        let by = self.store.read(cx).prefs.terminal_grouping;
+        // Picked from a menu, so the rows go under what was picked at once.
+        let regrouped = by != self.grouped_by;
+        self.grouped_by = by;
+        if regrouped {
+            self.on_heading = None;
+        }
+        if self.hovered && !now && !regrouped {
             let store = self.store.read(cx);
             // Those closed meanwhile go, as nothing is there to point at, and the headings
-            // count what's at each status now, which moves nothing.
+            // count what's under each now, which moves nothing.
             (self.items).retain(|item| match item {
                 Item::Terminal(id) => store.terminals.get(*id).is_some(),
                 Item::Heading(..) => true,
@@ -240,15 +338,19 @@ impl TerminalOverview {
             let sorted = self.sorted(cx);
             for item in &mut self.items {
                 if let Item::Heading(group, count) = item {
-                    *count = sorted.iter().filter(|(_, of, _)| of == group).count();
+                    *count = (sorted.iter())
+                        .filter(|(_, project, status, _)| {
+                            group_of(by, project, *status).as_ref() == Some(&*group)
+                        })
+                        .count();
                 }
             }
         } else {
-            let items = items_of(self.sorted(cx), &self.shut());
+            let items = self.rows(cx);
             let (items, places) = self.folds.place(
                 items,
                 |item| match item {
-                    Item::Heading(group, _) => Some(*group),
+                    Item::Heading(group, _) => Some(group.clone()),
                     Item::Terminal(_) => None,
                 },
                 |_, item| matches!(item, Item::Terminal(_)),
@@ -263,15 +365,15 @@ impl TerminalOverview {
     }
 
     /// Step `delta` rows from the one selected, the keys staying here, as the navigator's rows
-    /// do: onto a terminal, showing it, or onto a status's heading, which shows nothing. From
+    /// do: onto a terminal, showing it, or onto a heading, which shows nothing. From
     /// none selected, forward starts at the top and back at the bottom.
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
         if self.folded_away(cx) {
             return;
         }
         let shown = self.store.read(cx).terminal_shown();
-        let at = (self.items.iter()).position(|item| match (item, self.on_heading) {
-            (Item::Heading(group, _), Some(on)) => *group == on,
+        let at = (self.items.iter()).position(|item| match (item, &self.on_heading) {
+            (Item::Heading(group, _), Some(on)) => group == on,
             (Item::Terminal(id), None) => Some(*id) == shown,
             (Item::Heading(..), None) | (Item::Terminal(_), Some(_)) => false,
         });
@@ -286,7 +388,7 @@ impl TerminalOverview {
         }
         match self.items.get(next) {
             Some(Item::Heading(group, _)) => {
-                self.on_heading = Some(*group);
+                self.on_heading = Some(group.clone());
                 cx.notify();
             }
             Some(Item::Terminal(id)) => {
@@ -299,10 +401,10 @@ impl TerminalOverview {
     }
 
     /// Fold `group` to its heading, or unfold it, its terminals sliding shut or open under it.
-    fn toggle_fold(&mut self, group: StatusGroup, cx: &mut Context<Self>) {
+    fn toggle_fold(&mut self, group: Group, cx: &mut Context<Self>) {
         let open = self.folded.remove(&group);
         if !open {
-            self.folded.insert(group);
+            self.folded.insert(group.clone());
         }
         self.folds.start(group, open, cx);
         // Under the pointer too, as it's what was clicked.
@@ -436,12 +538,16 @@ impl TerminalOverview {
         let (row, guided) = match self.items.get(ix) {
             Some(Item::Heading(group, count)) => (
                 Some(
-                    self.heading_row(*group, *count, window, cx)
+                    self.heading_row(group.clone(), *count, window, cx)
                         .into_any_element(),
                 ),
                 false,
             ),
-            Some(Item::Terminal(id)) => (self.terminal_row(*id, window, cx), true),
+            // With no headings, there's no chevron to run a guide down from.
+            Some(Item::Terminal(id)) => (
+                self.terminal_row(*id, window, cx),
+                self.grouped_by != TerminalGrouping::Ungrouped,
+            ),
             None => (None, false),
         };
         // A list item is as wide as its content unless something stretches it.
@@ -459,17 +565,17 @@ impl TerminalOverview {
         }
     }
 
-    /// A status's heading, as a section's in the navigator: its chevron, which folds it, its
-    /// name and how many are at it. A double-click folds it too.
+    /// A heading, as a section's in the navigator: its chevron, which folds it, its name and
+    /// how many are under it. A double-click folds it too.
     fn heading_row(
         &self,
-        group: StatusGroup,
+        group: Group,
         count: usize,
         window: &Window,
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let selected = self.on_heading == Some(group);
+        let selected = self.on_heading.as_ref() == Some(&group);
         let style = RowStyle {
             selected,
             solid: selected && has_keys(&self.focus, window, cx),
@@ -477,35 +583,45 @@ impl TerminalOverview {
         };
         let open = !self.folded.contains(&group);
         let quiet = style.quiet();
-        let toggle = move |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| {
-            this.on_heading = Some(group);
-            this.toggle_fold(group, cx)
+        let (key, label) = match &group {
+            Group::Status(status) => (status.label().to_owned(), status.label().to_owned()),
+            Group::Project(project) => (
+                format!("project-{project}"),
+                project_name(self.store.read(cx), project),
+            ),
+            Group::NeedsYou => ("needs-you".to_owned(), "Needs you".to_owned()),
         };
-        let id = format!("overview-fold-{}", group.label());
-        (style.row(format!("overview-group-{}", group.label()), HEADING_INDENT))
+        let folding = group.clone();
+        let toggle = move |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| {
+            this.on_heading = Some(folding.clone());
+            this.toggle_fold(folding.clone(), cx)
+        };
+        let id = format!("overview-fold-{key}");
+        (style.row(format!("overview-group-{key}"), HEADING_INDENT))
             .gap(dp(6.))
             .pr(dp(12.))
-            .aria_label(group.label())
+            .aria_label(label.clone())
             .aria_expanded(open)
             .child(fold_button(id, Some(open), quiet, &self.focus, cx, toggle))
             .child(
-                (section_label(group.label(), theme).text_color(quiet))
+                (section_label(label, theme).text_color(quiet))
                     .min_w_0()
                     .truncate(),
             )
             .child(faint(count.to_string(), theme).text_color(quiet))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 window.focus(&this.focus, cx);
-                this.on_heading = Some(group);
+                this.on_heading = Some(group.clone());
                 if event.click_count() == 2 {
-                    this.toggle_fold(group, cx);
+                    this.toggle_fold(group.clone(), cx);
                 }
                 cx.notify();
             }))
     }
 
-    /// A terminal's row, set in under its status's heading: what it's at, its title, and the
-    /// worktree it's open on, with its project while terminals are open on several.
+    /// A terminal's row, set in under its heading: what it's at, its title, and the worktree
+    /// it's open on, with its project while terminals are open on several and its heading
+    /// doesn't name it.
     fn terminal_row(
         &self,
         id: TerminalId,
@@ -534,12 +650,14 @@ impl TerminalOverview {
         };
         let mut projects = store.terminals.all().map(|t| t.project);
         let first = projects.next();
-        let place = match projects.any(|project| Some(project) != first) {
-            true => {
-                let name = (store.project(terminal.project))
-                    .map_or_else(|| terminal.project.to_string(), |p| p.project.name.clone());
-                format!("{name} · {worktree}")
-            }
+        let several = projects.any(|project| Some(project) != first);
+        let group = group_of(
+            self.grouped_by,
+            terminal.project,
+            StatusGroup::of(terminal.status),
+        );
+        let place = match several && !matches!(group, Some(Group::Project(_))) {
+            true => format!("{} · {worktree}", project_name(store, terminal.project)),
             false => worktree,
         };
         let row = style
@@ -618,9 +736,24 @@ impl TerminalOverview {
         )
     }
 
+    /// The menu of what the rows go under, the one picked ticked.
+    fn grouping_items(&self, cx: &App) -> Vec<MenuItem> {
+        let picked = self.store.read(cx).prefs.terminal_grouping;
+        Vec::from([
+            group_by("Status", TerminalGrouping::Status, picked).under("Group by"),
+            group_by("Project", TerminalGrouping::Project, picked),
+            group_by(
+                "Needs you, then project",
+                TerminalGrouping::NeedsYouThenProject,
+                picked,
+            ),
+            group_by("None", TerminalGrouping::Ungrouped, picked),
+        ])
+    }
+
     /// The card's bar, as the projects' drawer's: its chevron, which folds it as a click on it
-    /// does, its name, how many are open, and a way to open another. In the card under its tab,
-    /// it doesn't fold.
+    /// does, its name, how many are open, what they're grouped by, and a way to open another. In
+    /// the card under its tab, it doesn't fold.
     fn render_bar(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let count = self.store.read(cx).terminals.count();
@@ -635,6 +768,15 @@ impl TerminalOverview {
             false,
             false,
             theme,
+        )
+        .child(
+            icon_button("overview-grouping", Icon::Mixer)
+                .small()
+                .tooltip("Group terminals")
+                .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                    let items = |this: &mut Self, cx: &mut Context<Self>| this.grouping_items(cx);
+                    (this.app).open_menu(&cx.weak_entity(), event.position(), items, cx)
+                })),
         )
         .child(
             icon_button("overview-new-terminal", Icon::Plus)
@@ -723,7 +865,7 @@ impl Render for TerminalOverview {
                 });
             }))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| {
-                if let Some(group) = this.on_heading {
+                if let Some(group) = this.on_heading.clone() {
                     return this.toggle_fold(group, cx);
                 }
                 if let Some(id) = this.store.read(cx).terminal_shown() {
@@ -768,33 +910,47 @@ mod tests {
     use std::collections::HashSet;
     use std::time::{Duration, Instant};
 
-    use super::{Item, items_of};
+    use super::{Group, Item, items_of};
     use crate::palette::StatusGroup;
+    use crate::state::{ProjectId, TerminalGrouping};
     use crate::terminal::TerminalId;
+
+    fn alpha() -> ProjectId {
+        ProjectId::from("alpha")
+    }
+
+    fn beta() -> ProjectId {
+        ProjectId::from("beta")
+    }
 
     #[test]
     fn lists_what_wants_the_user_first_and_what_works_last() {
         let at = Instant::now();
         let terminals = [
-            (TerminalId(1), StatusGroup::Idle, at),
-            (TerminalId(2), StatusGroup::Working, at),
-            (TerminalId(3), StatusGroup::Done, at),
-            (TerminalId(4), StatusGroup::Failed, at),
-            (TerminalId(5), StatusGroup::Blocked, at),
-            (TerminalId(6), StatusGroup::Working, at),
+            (TerminalId(1), alpha(), StatusGroup::Idle, at),
+            (TerminalId(2), alpha(), StatusGroup::Working, at),
+            (TerminalId(3), alpha(), StatusGroup::Done, at),
+            (TerminalId(4), alpha(), StatusGroup::Failed, at),
+            (TerminalId(5), alpha(), StatusGroup::Blocked, at),
+            (TerminalId(6), alpha(), StatusGroup::Working, at),
         ];
         assert_eq!(
-            items_of(terminals, &HashSet::new()),
+            items_of(
+                terminals,
+                TerminalGrouping::Status,
+                &[alpha()],
+                &HashSet::new()
+            ),
             [
-                Item::Heading(StatusGroup::Blocked, 1),
+                Item::Heading(Group::Status(StatusGroup::Blocked), 1),
                 Item::Terminal(TerminalId(5)),
-                Item::Heading(StatusGroup::Failed, 1),
+                Item::Heading(Group::Status(StatusGroup::Failed), 1),
                 Item::Terminal(TerminalId(4)),
-                Item::Heading(StatusGroup::Done, 1),
+                Item::Heading(Group::Status(StatusGroup::Done), 1),
                 Item::Terminal(TerminalId(3)),
-                Item::Heading(StatusGroup::Idle, 1),
+                Item::Heading(Group::Status(StatusGroup::Idle), 1),
                 Item::Terminal(TerminalId(1)),
-                Item::Heading(StatusGroup::Working, 2),
+                Item::Heading(Group::Status(StatusGroup::Working), 2),
                 Item::Terminal(TerminalId(2)),
                 Item::Terminal(TerminalId(6)),
             ],
@@ -807,14 +963,19 @@ mod tests {
         let at = Instant::now();
         let later = |secs| at + Duration::from_secs(secs);
         let terminals = [
-            (TerminalId(1), StatusGroup::Idle, later(30)),
-            (TerminalId(2), StatusGroup::Idle, later(10)),
-            (TerminalId(3), StatusGroup::Idle, later(20)),
+            (TerminalId(1), alpha(), StatusGroup::Idle, later(30)),
+            (TerminalId(2), alpha(), StatusGroup::Idle, later(10)),
+            (TerminalId(3), alpha(), StatusGroup::Idle, later(20)),
         ];
         assert_eq!(
-            items_of(terminals, &HashSet::new()),
+            items_of(
+                terminals,
+                TerminalGrouping::Status,
+                &[alpha()],
+                &HashSet::new()
+            ),
             [
-                Item::Heading(StatusGroup::Idle, 3),
+                Item::Heading(Group::Status(StatusGroup::Idle), 3),
                 Item::Terminal(TerminalId(1)),
                 Item::Terminal(TerminalId(3)),
                 Item::Terminal(TerminalId(2)),
@@ -827,19 +988,126 @@ mod tests {
     fn a_shut_status_keeps_its_heading_and_count() {
         let at = Instant::now();
         let terminals = [
-            (TerminalId(1), StatusGroup::Idle, at),
-            (TerminalId(2), StatusGroup::Working, at),
-            (TerminalId(3), StatusGroup::Idle, at),
+            (TerminalId(1), alpha(), StatusGroup::Idle, at),
+            (TerminalId(2), alpha(), StatusGroup::Working, at),
+            (TerminalId(3), alpha(), StatusGroup::Idle, at),
         ];
-        let shut = HashSet::from([StatusGroup::Idle]);
+        let shut = HashSet::from([Group::Status(StatusGroup::Idle)]);
         assert_eq!(
-            items_of(terminals, &shut),
+            items_of(terminals, TerminalGrouping::Status, &[alpha()], &shut),
             [
-                Item::Heading(StatusGroup::Idle, 2),
-                Item::Heading(StatusGroup::Working, 1),
+                Item::Heading(Group::Status(StatusGroup::Idle), 2),
+                Item::Heading(Group::Status(StatusGroup::Working), 1),
                 Item::Terminal(TerminalId(2)),
             ],
             "a folded status lists only its heading, which still counts its terminals"
+        );
+    }
+
+    #[test]
+    fn by_project_lists_each_project_in_order_with_what_wants_the_user_first() {
+        let at = Instant::now();
+        let terminals = [
+            (TerminalId(1), alpha(), StatusGroup::Working, at),
+            (TerminalId(2), beta(), StatusGroup::Idle, at),
+            (TerminalId(3), alpha(), StatusGroup::Blocked, at),
+            (TerminalId(4), beta(), StatusGroup::Done, at),
+        ];
+        assert_eq!(
+            items_of(
+                terminals,
+                TerminalGrouping::Project,
+                &[beta(), alpha()],
+                &HashSet::new()
+            ),
+            [
+                Item::Heading(Group::Project(beta()), 2),
+                Item::Terminal(TerminalId(4)),
+                Item::Terminal(TerminalId(2)),
+                Item::Heading(Group::Project(alpha()), 2),
+                Item::Terminal(TerminalId(3)),
+                Item::Terminal(TerminalId(1)),
+            ],
+            "projects go in the order given, and within each, blocked and done before the rest"
+        );
+    }
+
+    #[test]
+    fn needs_you_then_project_lists_what_wants_the_user_first_whatever_its_project() {
+        let at = Instant::now();
+        let terminals = [
+            (TerminalId(1), alpha(), StatusGroup::Working, at),
+            (TerminalId(2), beta(), StatusGroup::Done, at),
+            (TerminalId(3), alpha(), StatusGroup::Blocked, at),
+            (TerminalId(4), beta(), StatusGroup::Idle, at),
+            (TerminalId(5), alpha(), StatusGroup::Failed, at),
+        ];
+        assert_eq!(
+            items_of(
+                terminals,
+                TerminalGrouping::NeedsYouThenProject,
+                &[alpha(), beta()],
+                &HashSet::new()
+            ),
+            [
+                Item::Heading(Group::NeedsYou, 3),
+                Item::Terminal(TerminalId(3)),
+                Item::Terminal(TerminalId(5)),
+                Item::Terminal(TerminalId(2)),
+                Item::Heading(Group::Project(alpha()), 1),
+                Item::Terminal(TerminalId(1)),
+                Item::Heading(Group::Project(beta()), 1),
+                Item::Terminal(TerminalId(4)),
+            ],
+            "blocked, failed and done lead under one heading, the rest under their projects'"
+        );
+    }
+
+    #[test]
+    fn needs_you_then_project_leaves_out_a_project_with_only_what_wants_the_user() {
+        let at = Instant::now();
+        let terminals = [
+            (TerminalId(1), alpha(), StatusGroup::Blocked, at),
+            (TerminalId(2), beta(), StatusGroup::Working, at),
+        ];
+        assert_eq!(
+            items_of(
+                terminals,
+                TerminalGrouping::NeedsYouThenProject,
+                &[alpha(), beta()],
+                &HashSet::new()
+            ),
+            [
+                Item::Heading(Group::NeedsYou, 1),
+                Item::Terminal(TerminalId(1)),
+                Item::Heading(Group::Project(beta()), 1),
+                Item::Terminal(TerminalId(2)),
+            ],
+            "alpha's only terminal is under Needs you, so alpha has no heading"
+        );
+    }
+
+    #[test]
+    fn ungrouped_lists_no_headings_with_what_wants_the_user_first() {
+        let at = Instant::now();
+        let terminals = [
+            (TerminalId(1), alpha(), StatusGroup::Working, at),
+            (TerminalId(2), beta(), StatusGroup::Idle, at),
+            (TerminalId(3), alpha(), StatusGroup::Blocked, at),
+        ];
+        assert_eq!(
+            items_of(
+                terminals,
+                TerminalGrouping::Ungrouped,
+                &[alpha(), beta()],
+                &HashSet::new()
+            ),
+            [
+                Item::Terminal(TerminalId(3)),
+                Item::Terminal(TerminalId(2)),
+                Item::Terminal(TerminalId(1)),
+            ],
+            "the terminals alone, in the order status grouping lists them"
         );
     }
 }
