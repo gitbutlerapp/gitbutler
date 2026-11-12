@@ -316,9 +316,15 @@ pub async fn open_review(
         if let Some(out) = out.for_human() {
             writeln!(out, "No reviews selected")?;
         }
+        if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!([]))?;
+        }
         return Ok(());
     }
 
+    // One JSON array for every opened review, so a multi-review selection is
+    // still a single JSON document.
+    let mut opened = Vec::with_capacity(review_ids.len());
     for review_id in review_ids {
         let review = but_api::legacy::forge::get_review(ctx, review_id)
             .with_context(|| format!("Failed to get review {review_id}"))?;
@@ -340,12 +346,13 @@ pub async fn open_review(
                 t.link.paint(&review.html_url)
             )?;
         }
-        if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({
-                "url": review.html_url,
-                "number": review.number,
-            }))?;
-        }
+        opened.push(serde_json::json!({
+            "url": review.html_url,
+            "number": review.number,
+        }));
+    }
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::Value::Array(opened))?;
     }
 
     Ok(())
