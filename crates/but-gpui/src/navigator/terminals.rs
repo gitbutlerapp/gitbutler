@@ -14,8 +14,8 @@ use gpui::{
     MouseButton, MouseDownEvent, Role, Subscription, Window, div, list, prelude::*, relative,
 };
 
-use super::rows::ROW_LEFT;
-use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, STEP, card_bar, status_mark};
+use super::rows::{CARD_PADDING, GUIDE_AT as ICON_MIDDLE, ROW_LEFT};
+use super::{CARD_BAR_HEIGHT, CARD_BAR_INSET, RowStyle, card_bar, status_mark};
 use crate::app::{
     AppHandle, AppView, Cancel, Confirm, FocusNavigator, SelectNext, SelectPrevious, SplitBelow,
     SplitRight,
@@ -34,10 +34,14 @@ use crate::ui::{
     v_flex,
 };
 
-/// The room under the last row.
-const ROWS_PADDING: f32 = 6.;
-/// How far a status's heading sits in, as a section's heading in the navigator does.
-const HEADING_INDENT: f32 = 6.;
+/// How far the bar's 12-point chevron sits in from the bar's left edge: its middle where a
+/// navigator row's icon's is, so the overview's chevrons line up with the navigator's icons.
+const BAR_PADDING: f32 = ICON_MIDDLE - CARD_BAR_INSET - 6.;
+/// How far a heading sits in from where a row's content starts, its 14-point chevron's middle
+/// under the bar's.
+const HEADING_INDENT: f32 = ICON_MIDDLE - (ROW_LEFT + 7.);
+/// How far a terminal's row sits in, past its heading's chevron and the guide under it.
+const TERMINAL_INDENT: f32 = HEADING_INDENT + 18.;
 
 /// Where the guide down beside a status's terminals runs: under the middle of its heading's
 /// 14-point chevron.
@@ -292,9 +296,9 @@ impl TerminalOverview {
     /// pixels, or folded, its bar's.
     pub fn height(&self, cx: &App) -> f32 {
         let edges = if self.in_tab(cx) { 0. } else { 2. };
-        let bar = edges + CARD_BAR_HEIGHT + 2. * CARD_BAR_INSET;
+        let bar = edges + CARD_BAR_HEIGHT + CARD_BAR_INSET;
         if self.folded_away(cx) {
-            return bar;
+            return bar + CARD_BAR_INSET;
         }
         let row = Theme::get(cx).sizes.control;
         let rows = match self.folds.any() {
@@ -309,7 +313,7 @@ impl TerminalOverview {
             false => self.rows(cx).len() as f32 * row,
         };
         // Or the line saying there are none.
-        bar + rows.max(row) + ROWS_PADDING
+        bar + rows.max(row) + CARD_PADDING
     }
 
     /// Draw its rows at their heights again, as the interface's scale changed.
@@ -661,7 +665,7 @@ impl TerminalOverview {
             false => worktree,
         };
         let row = style
-            .row(format!("overview-terminal-{}", id.0), STEP)
+            .row(format!("overview-terminal-{}", id.0), TERMINAL_INDENT)
             .child(
                 div()
                     .flex_none()
@@ -753,13 +757,15 @@ impl TerminalOverview {
 
     /// The card's bar, as the projects' drawer's: its chevron, which folds it as a click on it
     /// does, its name, how many are open, what they're grouped by, and a way to open another. In
-    /// the card under its tab, it doesn't fold.
+    /// the card under its tab, it doesn't fold. Its rows go right under it, as a project's go
+    /// under its heading in the navigator.
     fn render_bar(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let count = self.store.read(cx).terminals.count();
         let app = self.app.clone();
         let in_tab = self.in_tab(cx);
         let open = (!in_tab).then_some(!self.shut);
+        let folded_away = self.folded_away(cx);
         card_bar(
             "overview-bar",
             "Terminals",
@@ -769,6 +775,8 @@ impl TerminalOverview {
             false,
             theme,
         )
+        .pl(dp(BAR_PADDING))
+        .when(!folded_away, |el| el.mb_0())
         .child(
             icon_button("overview-grouping", Icon::Mixer)
                 .small()
@@ -819,7 +827,7 @@ impl Render for TerminalOverview {
                     .items_center()
                     // Under the bar's name, past its chevron and the gap after it, if it has one.
                     .pl(dp(CARD_BAR_INSET
-                        + 10.
+                        + BAR_PADDING
                         + if in_tab { 0. } else { 12. + 6. }))
                     .child(faint("No terminals open", theme))
                     .into_any_element(),
@@ -834,7 +842,7 @@ impl Render for TerminalOverview {
                 .id("terminal-overview-rows")
                 .flex_1()
                 .min_h_0()
-                .pb(dp(ROWS_PADDING))
+                .pb(dp(CARD_PADDING))
                 .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                     this.hovered = *hovered;
                     // Let go, they take the order they'd have taken meanwhile.
