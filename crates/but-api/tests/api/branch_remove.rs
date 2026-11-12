@@ -339,3 +339,130 @@ fn branch_remove_of_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Re
     assert!(repo.try_find_reference(lane.as_ref())?.is_some());
     Ok(())
 }
+
+/// A workspace with `feature` and `sibling` applied as lanes, and an empty `top` above `feature`.
+fn two_lanes_with_top() -> anyhow::Result<(but_ctx::Context, tempfile::TempDir)> {
+    let (repo, tmp) = crate::support::writable_scenario("checkout-head-info");
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    but_api::branch::apply_only(&mut ctx, full("refs/heads/feature").as_ref())?;
+    but_api::branch::apply_only(&mut ctx, full("refs/heads/sibling").as_ref())?;
+    create_empty_branch_above(
+        &mut ctx,
+        &full("refs/heads/top"),
+        &full("refs/heads/feature"),
+    )?;
+    Ok((ctx, tmp))
+}
+
+fn full(name: &str) -> gix::refs::FullName {
+    name.try_into().expect("valid ref name")
+}
+
+fn commit_new_file_to(
+    ctx: &mut but_ctx::Context,
+    branch: &str,
+    path: &str,
+) -> anyhow::Result<gix::ObjectId> {
+    let workdir = ctx.repo.get()?.workdir().expect("non-bare").to_owned();
+    write_file(&workdir, path, path)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let outcome = but_api::commit::create::commit_create(
+        ctx,
+        but_rebase::graph_rebase::mutate::RelativeTo::Reference(full(branch)),
+        but_rebase::graph_rebase::mutate::InsertSide::Below,
+        vec![but_core::DiffSpec {
+            previous_path: None,
+            path: path.into(),
+            hunk_headers: vec![],
+        }],
+        but_api::commit::json::ChangesSource::Head,
+        path.into(),
+        but_core::DryRun::No,
+        guard.write_permission(),
+    )?;
+    Ok(outcome.new_commit.expect("the change was committed"))
+}
+
+fn ref_id(ctx: &but_ctx::Context, name: &str) -> anyhow::Result<Option<gix::ObjectId>> {
+    Ok(ctx
+        .repo
+        .get()?
+        .try_find_reference(name)?
+        .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+        .transpose()?)
+}
+
+fn workspace_tree_and_parents(
+    ctx: &but_ctx::Context,
+) -> anyhow::Result<(gix::ObjectId, Vec<gix::ObjectId>)> {
+    let repo = ctx.repo.get()?;
+    let commit = repo
+        .find_reference(but_core::WORKSPACE_REF_NAME)?
+        .peel_to_commit()?;
+    Ok((
+        commit.tree_id()?.detach(),
+        commit.parent_ids().map(|id| id.detach()).collect(),
+    ))
+}
+
+#[test]
+fn removing_the_top_branch_with_commits_leaves_them_to_the_branch_below() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = two_lanes_with_top()?;
+    let top_tip = commit_new_file_to(&mut ctx, "refs/heads/top", "top.txt")?;
+    let (tree, parents) = workspace_tree_and_parents(&ctx)?;
+
+    but_api::branch::branch_remove(&mut ctx, full("refs/heads/top"))?;
+
+    assert_eq!(ref_id(&ctx, "refs/heads/top")?, None, "the branch is gone");
+    assert_eq!(
+        ref_id(&ctx, "refs/heads/feature")?,
+        Some(top_tip),
+        "its commit now belongs to the branch below"
+    );
+    assert_eq!(
+        ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+    );
+    assert_eq!(
+        workspace_tree_and_parents(&ctx)?,
+        (tree, parents),
+        "the workspace keeps its files and lanes"
+    );
+    Ok(())
+}
+
+#[test]
+fn removing_the_only_branch_of_a_stack_with_commits_is_refused() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = two_lanes_with_top()?;
+    let sibling_tip = ref_id(&ctx, "refs/heads/sibling")?;
+    let workspace = workspace_tree_and_parents(&ctx)?;
+
+    let err = but_api::branch::branch_remove(&mut ctx, full("refs/heads/sibling"))
+        .expect_err("its commits would be left without a branch");
+    assert!(
+        err.to_string().contains("last named segment"),
+        "unexpected error: {err:#}"
+    );
+
+    assert_eq!(ref_id(&ctx, "refs/heads/sibling")?, sibling_tip);
+    assert_eq!(workspace_tree_and_parents(&ctx)?, workspace);
+    Ok(())
+}
+
+#[test]
+fn removing_a_branch_removes_its_git_configuration() -> anyhow::Result<()> {
+    let (mut ctx, tmp) = two_lanes_with_top()?;
+    git_at_dir(tmp.path())
+        .args(["config", "branch.top.description", "why it's there"])
+        .run();
+
+    but_api::branch::branch_remove(&mut ctx, full("refs/heads/top"))?;
+
+    let config = std::fs::read_to_string(tmp.path().join(".git/config"))?;
+    assert!(
+        !config.contains("[branch \"top\"]"),
+        "a branch made later under the name would take on its description:\n{config}"
+    );
+    Ok(())
+}
