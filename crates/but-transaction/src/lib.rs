@@ -285,6 +285,8 @@ where
             pending_ref_changes: PendingRefChanges::default(),
             pending_checkout: None,
             pending_new_stacks: Vec::new(),
+            removals_to_settle: Vec::new(),
+            deleted_after_materializing: Vec::new(),
             started,
             context_lines,
         };
@@ -310,6 +312,8 @@ where
             mut pending_ref_changes,
             pending_checkout,
             pending_new_stacks,
+            removals_to_settle,
+            deleted_after_materializing,
             started: _,
             context_lines: _,
         } = inner;
@@ -330,7 +334,10 @@ where
         let workspace = if should_rollback {
             Ok(None)
         } else {
-            apply_new_stacks(rebase, pending_new_stacks, pending_checkout.is_some())
+            settle_removals(&rebase, &removals_to_settle)
+                .and_then(|()| {
+                    apply_new_stacks(rebase, pending_new_stacks, pending_checkout.is_some())
+                })
                 .and_then(|rebase| {
                     workspace_state_from_rebase(
                         rebase,
@@ -339,6 +346,7 @@ where
                         pending_branch_metadata,
                         FinalizeOptions {
                             checkout: pending_checkout,
+                            deleted: deleted_after_materializing,
                             dry_run,
                         },
                     )
@@ -394,6 +402,11 @@ where
     // Applied once the callback is done rather than when they're made: a checkout later in the
     // transaction leaves `HEAD` on a branch of its own, which needs no workspace.
     pending_new_stacks: Vec<(FullName, Option<usize>)>,
+    // Checked once the callback is done, as later operations may still take the commits away.
+    removals_to_settle: Vec<RemovalToSettle>,
+    // Deleted with their Git configuration once materialized, as the rebase only deletes the
+    // references it can change.
+    deleted_after_materializing: Vec<FullName>,
     // Read before the callback, as leaving the workspace inside the rebase changes what the
     // graph says is checked out.
     started: StartingCheckout,
@@ -596,7 +609,93 @@ where
         Ok(())
     }
 
+    /// Remove the local branch `ref_name`, keeping its commits, along with its metadata and its
+    /// `branch.<name>` Git configuration.
+    ///
+    /// - A branch the workspace doesn't show is deleted once the rebase is written, which fails
+    ///   now if a linked worktree has it checked out.
+    /// - The commits of a stack's top branch go to the named branch below it.
+    /// - Removing the branch checked out when the transaction started moves `HEAD` to the branch
+    ///   below, or to the target branch when that points at `HEAD`'s commit.
+    /// - The transaction fails if, when it ends, the branch checked out when it started or a
+    ///   stack's only branch still had commits it owned. Removing those commits in the same
+    ///   transaction, before or after, makes either fine.
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            ref_name.category() == Some(gix::refs::Category::LocalBranch),
+            "Can only delete local branches under refs/heads, got '{}'",
+            ref_name.as_bstr()
+        );
+        let rebase = self
+            .inner
+            .rebase
+            .as_ref()
+            .expect("rebase is always Some(_)");
+        if rebase.reference_target(ref_name).is_err() {
+            refuse_checked_out_in_linked_worktree(rebase.repo(), ref_name)?;
+        } else {
+            let placement = Placement::read(rebase, ref_name)?;
+            let checked_out = self
+                .inner
+                .started
+                .head_reference
+                .as_ref()
+                .map(AsRef::as_ref)
+                == Some(ref_name);
+            match placement {
+                Some(Placement {
+                    owned_commits,
+                    is_top: true,
+                    below: Some(below),
+                }) if !checked_out && !owned_commits.is_empty() => {
+                    self.rebase(|mut editor, _| {
+                        let removed = editor.select_reference(ref_name)?;
+                        let below_selector = editor.select_reference(below.as_ref())?;
+                        editor.replace_with_none(below_selector)?;
+                        editor.replace_reference(removed, below)?;
+                        Ok(((), editor.rebase()?))
+                    })?;
+                }
+                placement => {
+                    let (owned_commits, below) = placement
+                        .map(|placement| (placement.owned_commits, placement.below))
+                        .unwrap_or_default();
+                    if checked_out && owned_commits.is_empty() && below.is_none() {
+                        let head_commit = rebase.reference_target(ref_name)?;
+                        let target = self.inner.started.target_ref.clone().filter(|target| {
+                            target.as_ref() != ref_name
+                                && resolve_checkout_target(rebase.repo(), target.as_ref()).ok()
+                                    == Some(head_commit)
+                        });
+                        let Some(target) = target else {
+                            but_error::bail_precondition!(
+                                "Cannot remove '{}': it is the only branch in the workspace",
+                                ref_name.shorten()
+                            );
+                        };
+                        self.checkout(target.as_ref())?;
+                    }
+                    self.remove_reference_step(ref_name)?;
+                    if !owned_commits.is_empty() {
+                        self.inner.removals_to_settle.push(RemovalToSettle {
+                            name: ref_name.to_owned(),
+                            owned_commits,
+                            checked_out,
+                        });
+                    }
+                }
+            }
+        }
+        self.inner
+            .pending_metadata_removals
+            .push(ref_name.to_owned());
+        self.inner
+            .deleted_after_materializing
+            .push(ref_name.to_owned());
+        Ok(())
+    }
+
+    fn remove_reference_step(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         let checkout_is_pending = self.inner.pending_checkout.is_some();
         self.rebase(|mut editor, _| {
             let ref_selector = editor.select_reference(ref_name)?;
@@ -688,9 +787,6 @@ where
         self.inner
             .pending_ref_changes
             .remove_eagerly_created_ref(&repo, ref_name)?;
-        self.inner
-            .pending_metadata_removals
-            .push(ref_name.to_owned());
         Ok(())
     }
 
@@ -1192,7 +1288,107 @@ fn apply_new_stacks<'rebase, M: RefMetadata>(
 
 struct FinalizeOptions {
     checkout: Option<FullName>,
+    deleted: Vec<FullName>,
     dry_run: DryRun,
+}
+
+/// Where a reference sits in the workspace a removal starts from.
+struct Placement {
+    owned_commits: Vec<ObjectId>,
+    is_top: bool,
+    below: Option<FullName>,
+}
+
+impl Placement {
+    fn read<M: RefMetadata>(
+        rebase: &SuccessfulRebase<'_, '_, M>,
+        ref_name: &FullNameRef,
+    ) -> anyhow::Result<Option<Self>> {
+        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let Some((stack, _)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
+            return Ok(None);
+        };
+        let Some(index) =
+            (stack.segments.iter()).position(|segment| segment.ref_name() == Some(ref_name))
+        else {
+            return Ok(None);
+        };
+        let segments_below = stack.segments.get(index + 1..).unwrap_or_default();
+        Ok(Some(Placement {
+            owned_commits: (stack.segments.get(index).into_iter())
+                .flat_map(|segment| segment.commits.iter().map(|commit| commit.id))
+                .collect(),
+            is_top: index == 0,
+            below: segments_below
+                .iter()
+                .find_map(|segment| segment.ref_name().map(ToOwned::to_owned)),
+        }))
+    }
+}
+
+struct RemovalToSettle {
+    name: FullName,
+    owned_commits: Vec<ObjectId>,
+    checked_out: bool,
+}
+
+/// Refuse the removals whose commits no branch owns now that the callback is done.
+fn settle_removals<M: RefMetadata>(
+    rebase: &SuccessfulRebase<'_, '_, M>,
+    removals: &[RemovalToSettle],
+) -> anyhow::Result<()> {
+    if removals.is_empty() {
+        return Ok(());
+    }
+    let workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let unowned: std::collections::BTreeSet<ObjectId> = (workspace.stacks.iter())
+        .flat_map(|stack| stack.segments.iter())
+        .filter(|segment| segment.ref_name().is_none())
+        .flat_map(|segment| segment.commits.iter().map(|commit| commit.id))
+        .collect();
+    let mappings = rebase.history.commit_mappings();
+    for removal in removals {
+        let left_behind = (removal.owned_commits.iter()).any(|&commit| {
+            mappings
+                .current(commit)
+                .is_ok_and(|now| unowned.contains(&now))
+        });
+        if !left_behind {
+            continue;
+        }
+        let name = removal.name.shorten();
+        if removal.checked_out {
+            but_error::bail_precondition!(
+                "Cannot remove the checked-out branch '{name}' because it contains commits"
+            );
+        }
+        but_error::bail_precondition!(
+            "Refusing to delete last named segment '{name}' as it would leave an anonymous segment"
+        );
+    }
+    Ok(())
+}
+
+/// Refuse `ref_name` while a checkout that still exists has it, forgetting the ones that are gone.
+fn refuse_checked_out_in_linked_worktree(
+    repo: &gix::Repository,
+    ref_name: &FullNameRef,
+) -> anyhow::Result<()> {
+    but_workspace::worktrees::prune_gone(repo, ref_name)?;
+    let Some(reference) = repo.try_find_reference(ref_name)? else {
+        return Ok(());
+    };
+    let worktrees = but_core::branch::SafeDelete::new(repo)?;
+    if let Some(dirs) = worktrees.worktree_dirs_with_ref(&reference) {
+        but_error::bail_precondition!(
+            "Refusing to delete a branch that is checked out. Worktrees are: {}",
+            dirs.iter()
+                .map(|dir| dir.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    Ok(())
 }
 
 #[derive(Debug, Default)]
@@ -1359,6 +1555,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
 ) -> anyhow::Result<WorkspaceState> {
     let FinalizeOptions {
         checkout: pending_checkout,
+        deleted,
         dry_run,
     } = options;
     if dry_run.into() {
@@ -1394,8 +1591,19 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     for ref_name in pending_metadata_removals {
         materialized.meta.remove(ref_name.as_ref())?;
     }
+    let mut deleted_outside_rebase = false;
+    for ref_name in deleted {
+        let mut repo = repo.clone();
+        deleted_outside_rebase |= but_workspace::branch::remove_reference::delete_local_branch(
+            &mut repo,
+            ref_name.as_ref(),
+        )?;
+    }
+    let checked_out = pending_checkout.is_some();
     if let Some(branch) = pending_checkout {
         checkout_reference(repo, branch.as_ref())?;
+    }
+    if checked_out || deleted_outside_rebase {
         let project_meta = materialized.workspace.graph.project_meta.clone();
         materialized.workspace.refresh_from_head(
             repo,
