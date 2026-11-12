@@ -837,6 +837,13 @@ impl Store {
         accepted: Option<backend::upstream::UpdateConflicts>,
         cx: &mut Context<Self>,
     ) {
+        // A Pull comes here too before a target is chosen, with nothing to update onto.
+        if (self.workspace(project)).is_some_and(|ws| ws.target_branch.is_none()) {
+            return self.snack(
+                "Choose a target branch in Project settings to update onto",
+                cx,
+            );
+        }
         let updated = project.clone();
         self.apply(
             project,

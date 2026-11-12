@@ -272,8 +272,18 @@ pub fn test_credentials(path: &Path, push: bool) -> Result<()> {
     }
 }
 
-const NO_COMMITS: &str =
-    "The repository has no commits yet. Make the first one, then pick the target.";
+/// The repository has no commits yet, so no branch to make the target: its first commit makes
+/// one.
+#[derive(Debug)]
+pub struct NoCommits;
+
+impl std::fmt::Display for NoCommits {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("The repository has no commits yet. Make the first one, then pick the target.")
+    }
+}
+
+impl std::error::Error for NoCommits {}
 
 /// The project's local branches, like `refs/heads/main`, to pick a target from, as the
 /// desktop app offers them: the one named as a remote's default branch and tracking it first,
@@ -282,7 +292,7 @@ pub fn target_branches(path: &Path) -> Result<Vec<super::FullName>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     // Its first branch comes with its first commit, so there's nothing to list yet.
-    anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
+    anyhow::ensure!(!repo.head()?.is_unborn(), NoCommits);
     let mut defaults = Vec::new();
     for reference in repo.references()?.remote_branches()?.filter_map(Result::ok) {
         if let gix::refs::TargetRef::Symbolic(default) = reference.target() {
@@ -327,7 +337,7 @@ pub fn set_target(path: &Path, target: &super::FullName) -> Result<()> {
         let tracked = {
             let _exclusive = ctx.exclusive_worktree_access();
             let repo = ctx.repo.get()?;
-            anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
+            anyhow::ensure!(!repo.head()?.is_unborn(), NoCommits);
             match find_local_tracking_branch(target.as_ref(), &repo)? {
                 LocalTrackingBranchMatch::None => Some(track(&repo, target.as_ref())?),
                 _ => None,
@@ -342,7 +352,7 @@ pub fn set_target(path: &Path, target: &super::FullName) -> Result<()> {
     }
     let (local, push_remote) = {
         let repo = ctx.repo.get()?;
-        anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
+        anyhow::ensure!(!repo.head()?.is_unborn(), NoCommits);
         let local = but_core::ref_metadata::resolve_local_target(target.as_ref(), &repo)?;
         // One picked stays as it is. One that follows the old target's remote is kept only
         // where it would change: one pushing where the new target fetches from goes on

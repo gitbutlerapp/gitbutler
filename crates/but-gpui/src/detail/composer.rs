@@ -1480,7 +1480,7 @@ impl Detail {
                         this.message
                             .update(cx, |input, cx| input.set_text(notes, cx));
                         this.store.update(cx, |store, cx| {
-                            store.failed("Couldn't write the message", &err, cx)
+                            store.ai_failed("Couldn't write the message", &err, cx)
                         });
                     }
                 }

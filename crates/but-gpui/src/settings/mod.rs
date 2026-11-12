@@ -2162,6 +2162,44 @@ impl AppView {
         view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
     }
 
+    /// Where AI gets set up, as writing with it found none: signing in to GitButler for its
+    /// key, or once `signed_in`, Settings at AI. Over a form, as the pull request's, which
+    /// Settings would take the place of, ask first.
+    pub fn set_up_ai(&mut self, signed_in: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let (why, confirm) = match signed_in {
+            true => ("Choose an AI provider to write with", "Open Settings"),
+            false => ("Sign in to GitButler to use its AI key", "Sign in"),
+        };
+        let go = move |app: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+            // The form goes first, so closing Settings gives the keys back to what had them.
+            app.close_modal(window, cx);
+            crate::state::snack(&app.store, why, cx);
+            match signed_in {
+                true => {
+                    app.open_settings_at(Page::App(AppPage::Ai), window, cx);
+                }
+                false => app.sign_in(window, cx),
+            }
+        };
+        if self.modal.is_none() {
+            return go(self, window, cx);
+        }
+        let answer = window.prompt(
+            gpui::PromptLevel::Info,
+            &format!("{why}?"),
+            Some("AI isn't set up yet. What's typed in this form is lost."),
+            &[confirm, "Cancel"],
+            cx,
+        );
+        cx.spawn_in(window, async move |this, cx| {
+            if answer.await == Ok(0) {
+                this.update_in(cx, |app, window, cx| go(app, window, cx))
+                    .ok();
+            }
+        })
+        .detach();
+    }
+
     /// Settings, at Integrations: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open_settings_at(Page::App(AppPage::Integrations), window, cx);

@@ -521,6 +521,10 @@ impl AppView {
             }),
             cx.subscribe_in(&store, window, |this, _, event, window, cx| match event {
                 StoreEvent::AuthorMissing(project) => this.ask_author(project.clone(), window, cx),
+                StoreEvent::RepositoriesInside(folder, inside) => {
+                    this.pick_repository_inside(folder, inside, window, cx)
+                }
+                StoreEvent::AiNotSetUp { signed_in } => this.set_up_ai(*signed_in, window, cx),
                 StoreEvent::TerminalOpened => this.enter_terminal(window, cx),
                 StoreEvent::CommitBlocked => this.ask_where_blocked_commit_goes(window, cx),
                 StoreEvent::UpdateConflicts {

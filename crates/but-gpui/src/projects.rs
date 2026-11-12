@@ -2,16 +2,16 @@
 //! the workspace integrates into, asking for the author Git records commits with, and picking a
 //! project's icon.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, Focusable as _, PathPromptOptions, Pixels, Point,
     Subscription, Task, Window, actions, div, prelude::*,
 };
 
-use crate::app::AppView;
-use crate::backend;
+use crate::app::{AppView, StartCommit};
 use crate::backend::settings::{self, MissingAuthor};
+use crate::backend::{self, Checkout};
 use crate::overlays::floating;
 use crate::palette::Choice;
 use crate::state::{ProjectId, Selection, Store};
@@ -122,8 +122,42 @@ impl AppView {
         .detach();
     }
 
+    /// Offer the repositories `inside` the folder given to add, which isn't one, and add the
+    /// one picked.
+    pub fn pick_repository_inside(
+        &mut self,
+        folder: &Path,
+        inside: &[PathBuf],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let name = |path: &Path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        };
+        let choices = (inside.iter())
+            .filter_map(|path| {
+                let label = name(path)?;
+                let path = path.clone();
+                Some(Choice::new(label, move |app, _, cx| {
+                    app.store
+                        .update(cx, |store, cx| store.add_project(path, cx))
+                }))
+            })
+            .collect();
+        let place = name(folder).map(|name| format!("in {name}").into());
+        self.open_picker(
+            place,
+            "Pick a repository to add",
+            "Add",
+            choices,
+            window,
+            cx,
+        );
+    }
+
     /// Offer the project's local branches to pick its target from; each one's upstream is what
-    /// pulls bring in.
+    /// pulls bring in. Before its first commit, which makes its first branch, start that.
     pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
         let Some(path) = self.store.read(cx).path(&project) else {
             return;
@@ -145,6 +179,24 @@ impl AppView {
                             cx,
                         )
                     });
+                    return;
+                }
+                // Its first branch comes with its first commit, so that's the next step.
+                Err(err) if err.is::<settings::NoCommits>() => {
+                    this.update_in(cx, |app, window, cx| {
+                        app.close_modal(window, cx);
+                        let first = "Make the first commit, then choose the target";
+                        app.store.update(cx, |store, cx| store.snack(first, cx));
+                        // One being placed already has its message open, which another start
+                        // would commit.
+                        if app.store.read(cx).moving.is_none() {
+                            let changes = Selection::Uncommitted(project, Checkout::Main);
+                            app.store
+                                .update(cx, |store, cx| store.select(Some(changes), cx));
+                            window.dispatch_action(Box::new(StartCommit), cx);
+                        }
+                    })
+                    .ok();
                     return;
                 }
                 Err(err) => {

@@ -574,6 +574,8 @@ impl GraphView {
             | StoreEvent::MeshRead(_)
             | StoreEvent::Pending(_)
             | StoreEvent::AuthorMissing(_)
+            | StoreEvent::RepositoriesInside(..)
+            | StoreEvent::AiNotSetUp { .. }
             | StoreEvent::TerminalOpened
             | StoreEvent::TilePinned(_)
             | StoreEvent::CodeAsked(..)

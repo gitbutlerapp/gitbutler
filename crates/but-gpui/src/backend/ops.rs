@@ -5397,7 +5397,10 @@ managed true, below true: agent [one], <new> [two], agent checked out
             std::fs::create_dir_all(&picked).unwrap();
             let refused = crate::backend::add_project(&picked).unwrap_err();
             assert!(
-                refused.is::<crate::backend::NotARepository>(),
+                matches!(
+                    refused.downcast_ref(),
+                    Some(crate::backend::NotARepository(inside)) if inside.is_empty()
+                ),
                 "it's no work of the home folder's, so it's offered to become a repository: \
                  {refused:#}"
             );
@@ -5411,13 +5414,15 @@ managed true, below true: agent [one], <new> [two], agent checked out
                 crate::backend::add_project(&tracked).is_ok(),
                 "a folder with files the repository tracks adds the repository"
             );
-            // One that holds repositories names them, as anywhere else.
+            // One that holds repositories offers them, as anywhere else.
             let code = home.path().join("code");
             git(&code, &["init", "-q", "app"]);
             let named = crate::backend::add_project(&code).unwrap_err();
-            assert!(
-                format!("{named:#}").contains("app in it is"),
-                "it says which to add: {named:#}"
+            let offered = named.downcast_ref::<crate::backend::NotARepository>();
+            assert_eq!(
+                offered.map(|inside| &inside.0[..]),
+                Some(&[code.join("app")][..]),
+                "it offers the repository in it to add: {named:#}"
             );
 
             let project = repo_with("one\n");

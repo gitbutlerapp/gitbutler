@@ -186,13 +186,19 @@ impl SettingsView {
 
     /// GitHub's browser sign-in: open the page, put the code on the clipboard, and wait
     /// for the user to finish there. The wait outlives Settings, so finishing in the
-    /// browser after closing it still adds the account.
+    /// browser after closing it still adds the account. A code that runs out while Settings
+    /// shows it gives way to a new one, once.
     fn sign_in_to_github(&mut self, cx: &mut Context<Self>) {
         let store = self.store.clone();
+        // The row that shows the code says it's on the clipboard.
+        let show = |this: &mut Self, code: &SharedString, cx: &mut Context<Self>| {
+            clipboard::copy_silently(code.to_string(), cx);
+            this.accounts.github_code = Some(code.clone());
+            cx.notify();
+        };
         cx.spawn(async move |this, cx| {
-            let started = run(accounts::start_github_sign_in).await;
-            let (code, device) = match started {
-                Ok(started) => started,
+            let (mut code, mut device) = match run(accounts::start_github_sign_in).await {
+                Ok((code, device)) => (SharedString::from(code), device),
                 Err(err) => {
                     this.update(cx, |this, cx| {
                         this.error("Couldn't start signing in", err, cx)
@@ -201,32 +207,50 @@ impl SettingsView {
                     return;
                 }
             };
-            let code = SharedString::from(code);
             this.update(cx, |this, cx| {
-                // The row that shows the code says it's on the clipboard.
-                clipboard::copy_silently(code.to_string(), cx);
+                show(this, &code, cx);
                 cx.open_url(GITHUB_DEVICE_PAGE);
-                this.accounts.github_code = Some(code.clone());
-                cx.notify();
             })
             .ok();
-            // This sign-in is the one Settings shows: Cancel, or starting another, ends it,
-            // while closing Settings doesn't.
-            let current =
-                |this: &mut SettingsView| this.accounts.github_code.as_ref() == Some(&code);
-            let waited = std::time::Instant::now();
+            let (mut waited, mut renewed) = (std::time::Instant::now(), false);
             let outcome = loop {
                 cx.background_executor().timer(SIGN_IN_POLL).await;
-                if !this.update(cx, |this, _| current(this)).unwrap_or(true) {
+                // This sign-in is the one Settings shows: Cancel, or starting another, ends it,
+                // while closing Settings doesn't.
+                let shown = (this.update(cx, |this, _| {
+                    this.accounts.github_code.as_ref() == Some(&code)
+                }))
+                .ok();
+                if shown == Some(false) {
                     return;
                 }
-                let device = device.clone();
-                match run(move || accounts::github_signed_in(&device)).await {
+                let asked = device.clone();
+                match run(move || accounts::github_signed_in(&asked)).await {
                     Ok(None) if waited.elapsed() < SIGN_IN_WAIT => continue,
-                    Ok(None) => break Err(anyhow::anyhow!("The sign-in wasn't finished in time")),
                     Ok(Some(who)) => break Ok(who),
-                    Err(err) => break Err(err),
+                    Err(err) if !accounts::github_code_expired(&err) => break Err(err),
+                    _ if renewed || shown.is_none() => {
+                        break Err(anyhow::anyhow!("The sign-in wasn't finished in time"));
+                    }
+                    _ => {}
                 }
+                let (new, new_device) = match run(accounts::start_github_sign_in).await {
+                    Ok((new, device)) => (SharedString::from(new), device),
+                    Err(err) => break Err(err),
+                };
+                // Unless it was cancelled meanwhile. The page opened for the first takes it.
+                let replaced = this.update(cx, |this, cx| {
+                    let current = this.accounts.github_code.as_ref() == Some(&code);
+                    if current {
+                        show(this, &new, cx);
+                    }
+                    current
+                });
+                if !replaced.unwrap_or(false) {
+                    return;
+                }
+                (code, device, waited, renewed) =
+                    (new, new_device, std::time::Instant::now(), true);
             };
             store.update(cx, |store, cx| match &outcome {
                 Ok(who) => {
@@ -236,7 +260,7 @@ impl SettingsView {
                 Err(err) => store.failed("Couldn't sign in to GitHub", err, cx),
             });
             this.update(cx, |this, cx| {
-                if current(this) {
+                if this.accounts.github_code.as_ref() == Some(&code) {
                     this.accounts.github_code = None;
                 }
                 this.load_accounts(cx);

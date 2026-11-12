@@ -148,6 +148,13 @@ pub fn github_signed_in(device_code: &str) -> Result<Option<String>> {
     }
 }
 
+/// Whether `err`, from [`github_signed_in`], says the code expired, as GitHub's do after
+/// fifteen minutes. Another can be started.
+pub fn github_code_expired(err: &anyhow::Error) -> bool {
+    (err.downcast_ref::<but_error::Context>())
+        .is_some_and(|said| said.code == but_error::Code::GitHubDeviceCodeExpired)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GitButlerUser {
     /// Their name, else their login, else their email.
