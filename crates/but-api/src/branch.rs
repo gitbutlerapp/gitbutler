@@ -1838,7 +1838,9 @@ pub fn tear_off_branch(
 }
 
 /// Removes `subject_branch` from its current stack, creating a new stack for
-/// it, under caller-held exclusive repository access.
+/// it, under caller-held exclusive repository access. In single-branch mode,
+/// GitButler's workspace is set up first, as only it can hold the new stack
+/// next to the others.
 ///
 /// It prepares a best-effort tear-off oplog snapshot, performs the tear-off
 /// rebase and workspace metadata update under `perm`, and commits the snapshot
@@ -1853,6 +1855,26 @@ pub fn tear_off_branch_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveBranchResult> {
+    #[cfg(feature = "legacy")]
+    if dry_run == DryRun::No {
+        let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
+            ctx,
+            perm.read_permission(),
+            false,
+        )?;
+        let mut meta = ctx.meta()?;
+        let workspace = sbm.transaction_with_workspace_setup(
+            ctx,
+            &mut meta,
+            SnapshotDetails::new(OperationKind::TearOffBranch),
+            &[],
+            perm,
+            true,
+            |mut tx| tx.tear_off_branch(subject_branch, None),
+        )?;
+        return Ok(MoveBranchResult { workspace });
+    }
+
     let mut meta = ctx.meta()?;
     let workspace = but_transaction::with_transaction_with_perm(
         ctx,

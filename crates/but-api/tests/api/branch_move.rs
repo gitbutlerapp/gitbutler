@@ -417,3 +417,26 @@ fn stacking_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Result<()>
     );
     Ok(())
 }
+
+#[test]
+fn tear_off_branch_in_single_branch_mode_sets_up_the_workspace() -> anyhow::Result<()> {
+    let (mut ctx, _tmp) = context_with_three_branch_stack()?;
+
+    let result =
+        but_api::branch::tear_off_branch(&mut ctx, "refs/heads/B".try_into()?, DryRun::No)?;
+
+    let head = ctx.repo.get()?.head_name()?.expect("HEAD is symbolic");
+    assert_eq!(
+        head.as_bstr(),
+        "refs/heads/gitbutler/workspace",
+        "only the workspace can hold the torn off branch next to the rest"
+    );
+    assert_workspace_ref(&result.workspace, "refs/heads/C");
+    #[cfg(not(feature = "graph-workspace"))]
+    assert_eq!(
+        result.workspace.head_info.stacks.len(),
+        2,
+        "B is a stack of its own next to the rest"
+    );
+    Ok(())
+}
