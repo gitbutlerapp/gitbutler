@@ -949,7 +949,9 @@ pub fn branch_create(
 /// reference along with its workspace metadata, and commits the snapshot only
 /// if the creation succeeds. In ad-hoc/single-branch mode, if the placement is
 /// `Above` the exact symbolic `HEAD` branch, this also checks out the newly
-/// created branch after metadata has been persisted. The returned
+/// created branch after metadata has been persisted. An independent branch is
+/// placed as [`but_transaction::Transaction::create_unstacked_reference()`]
+/// says. The returned
 /// [`BranchCreateResult`] contains the post-operation workspace view. For
 /// lower-level implementation details, see
 /// [`but_workspace::branch::create_reference()`].
@@ -967,27 +969,6 @@ pub fn branch_create_with_perm(
         let repo = ctx.repo.get()?;
         unique_canned_refname(&repo)?
     };
-
-    #[cfg(feature = "legacy")]
-    if let json::BranchCreatePlacement::Independent { order } = placement {
-        let sbm = but_transaction::single_branch_mode::SingleBranchMode::new(
-            ctx,
-            perm.read_permission(),
-            false,
-        )?;
-        let mut meta = ctx.meta()?;
-        let workspace = sbm.transaction_with_workspace_setup(
-            ctx,
-            &mut meta,
-            SnapshotDetails::new(OperationKind::CreateBranch)
-                .with_trailers([Trailer::Name(new_ref.to_string())]),
-            &[new_ref.as_ref()],
-            perm,
-            true,
-            |mut tx| sbm.create_unstacked_reference(&mut tx, new_ref.as_ref(), order),
-        )?;
-        return Ok(BranchCreateResult { workspace, new_ref });
-    }
 
     let (anchor, order) = match placement {
         json::BranchCreatePlacement::Independent { order } => (None, order),
@@ -1024,7 +1005,10 @@ pub fn branch_create_with_perm(
             .with_trailers([Trailer::Name(new_ref.to_string())]),
         &[new_ref.as_ref()],
         DryRun::No,
-        |mut tx| tx.create_reference(new_ref.as_ref(), anchor, order),
+        |mut tx| match anchor {
+            Some(anchor) => tx.create_reference(new_ref.as_ref(), anchor, order),
+            None => tx.create_unstacked_reference(new_ref.as_ref(), order),
+        },
     )?;
     Ok(BranchCreateResult { workspace, new_ref })
 }
