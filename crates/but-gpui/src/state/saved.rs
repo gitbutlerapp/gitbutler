@@ -389,6 +389,20 @@ pub enum FileSort {
     Modified,
 }
 
+/// What the terminal overview lists its terminals under.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TerminalGrouping {
+    /// A heading for each status, what wants the user first.
+    #[default]
+    Status,
+    /// A heading for each project.
+    Project,
+    /// Those that want the user under one heading first, then the rest under their project's.
+    NeedsYouThenProject,
+    /// No headings.
+    Ungrouped,
+}
+
 /// What the app's own terminals start.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TerminalRuns {
@@ -543,6 +557,8 @@ pub struct Prefs {
     pub hide_status_bar: bool,
     /// The terminals open on every project aren't listed under the navigator.
     pub hide_terminal_overview: bool,
+    /// What the terminal overview lists its terminals under.
+    pub terminal_grouping: TerminalGrouping,
     /// Commit and branch pages list the messages first among their files, in place of their
     /// headers, and the uncommitted changes go without theirs.
     pub messages_in_diff: bool,
